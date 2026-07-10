@@ -202,8 +202,13 @@ module main {
     // appending the candidate's own entries; since `lookupAnchor <= now <
     // blockNow`, entries appended this block (at `blockNow`) survive.
     val lookLo = if (blockNow > MaxLookupAge) blockNow - MaxLookupAge else 0
-    nondet lookupAnchor1 = oneOf(lookLo.to(now))
-    nondet lookupAnchor2 = oneOf(lookLo.to(now))
+    // Apalache cannot encode a variable-bound integer range (`lookLo.to(now)`),
+    // so we sample three representative anchors in `[lookLo, now]` — the floor,
+    // the midpoint, and the tip — which exercise full, partial, and no old-log
+    // pruning. (`quint run` samples these three instead of every value in the
+    // range; the log-pruning invariants only depend on the pruning depth.)
+    nondet lookupAnchor1 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
+    nondet lookupAnchor2 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
 
     val passThrough: PerPackageOutcome =
       {

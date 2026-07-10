@@ -152,22 +152,23 @@ module state {
   /// Uses a bounded fold (at most log.length()+1 iterations) since Quint has no
   /// while-loop; iterations that find the log already under cap are no-ops.
   pure def evictOneEntry(log: ParachainLog): ParachainLog = {
-    val refineIdx = range(0, log.length()).foldl(-1, (acc, i) =>
-      if (acc >= 0) acc
-      else match log.nth(i)._2 {
-        | RefineLogEntry(_) => i
-        | AccumulateLogEntry(_) => acc
-      })
+    val refineIdx = log.foldl((-1, 0), (acc, e) =>
+      if (acc._1 >= 0) acc
+      else match e._2 {
+        | RefineLogEntry(_) => (acc._2, acc._2 + 1)
+        | AccumulateLogEntry(_) => (acc._1, acc._2 + 1)
+      })._1
     val dropIdx = if (refineIdx >= 0) refineIdx else 0
-    range(0, log.length()).foldl(List(), (acc, i) =>
-      if (i == dropIdx) acc else acc.append(log.nth(i)))
+    log.foldl((List(), 0), (acc, e) =>
+      (if (acc._2 == dropIdx) acc._1 else acc._1.append(e), acc._2 + 1))._1
   }
 
   pure def pushLogEntry(log: ParachainLog, e: (Timeslot, LogEntry)): ParachainLog = {
     val appended = log.append(e)
-    // Evict until under the byte cap. The fold runs at most log.length()+1 times;
-    // once under cap the state is passed through unchanged.
-    range(0, appended.length()).foldl(appended, (cur, _) =>
+    // Evict until under the byte cap. Folding over `appended` runs the eviction
+    // step exactly `appended.length()` times (the element is ignored); once under
+    // cap the state passes through unchanged.
+    appended.foldl(appended, (cur, _) =>
       if (parachainLogSize(cur) <= ParachainLogByteCap) cur
       else evictOneEntry(cur))
   }
