@@ -11,7 +11,6 @@ resolver = "2"
 members = [
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-cumulus",
-	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/modules/beefy",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -722,7 +721,6 @@ bp-bridge-hub-westend = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
-bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
 bp-rococo = { path = "polkadot/runtime/rococo/bridge-primitives", default-features = false }
