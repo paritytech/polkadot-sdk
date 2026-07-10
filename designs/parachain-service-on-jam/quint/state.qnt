@@ -49,10 +49,9 @@ module state {
     parachainLog: ParaId -> ParachainLog,
     preimageRegistry: (Hash, int) -> PreimageEntry,
     pendingAuthorizerQueues: CoreIndex -> List[AuthorizerHash],
-    // Dirty-core index: maps each core with a pending queue to its `apply_at`
-    // deadline. See `applyAlwaysAccumulate`.
+    // Dirty-core index: maps each core with a pending queue to the JAM timeslot
+    // (`jam_slot`) at which it should be applied. See `applyAlwaysAccumulate`.
     pendingAuthorizerCores: CoreIndex -> Timeslot,
-    lastAuthorizerAssignment: CoreIndex -> Timeslot,
     // Validator-key buffer (design §5.3) — appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
     // `is_last`.
@@ -71,7 +70,6 @@ module state {
     preimageRegistry: Map(),
     pendingAuthorizerQueues: Map(),
     pendingAuthorizerCores: Map(),
-    lastAuthorizerAssignment: Map(),
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 }
   }

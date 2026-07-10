@@ -211,13 +211,16 @@ module accumulate {
       // service's incoming queue. Here we no-op.
       acc
       | SetAuthorizerQueue(payload) =>
-      // §5.1 step 7 (replay). Sets/schedules the authorizer QUEUE only. An empty
-      // `queue` cancels any cached queue for the core (dropped, not applied) with
-      // no `assign` and no update to `lastAuthorizerAssignment`. Otherwise
-      // `immediate = true` (or a never-assigned cold core, which has no current
-      // queue to wait on) applies the queue inline via `assign`; a warm
-      // `immediate = false` caches the queue until the 80-slot window is
-      // exhausted (see `applyAlwaysAccumulate`).
+      // §5.1 step 7 (replay). Schedules the authorizer QUEUE for `jam_slot`: the
+      // queue is cached and `applyAlwaysAccumulate` emits the `assign` once the
+      // timeslot reaches `jam_slot`. An empty `queue` cancels any cached queue for
+      // the core (dropped, not applied). If `jam_slot` is already due
+      // (`jam_slot <= now`, the same condition always-accumulate flushes on), the
+      // queue is applied inline right away (assign now, superseding any cached
+      // queue) — always-accumulate ran before this replay, so caching would
+      // otherwise defer it to the next block. The Coretime chain chooses
+      // `jam_slot` so the pool fills without overwriting the currently active
+      // authorizers.
       if (payload.queue.length() == 0)
         { ...acc,
           state: { ...acc.state,
@@ -227,36 +230,25 @@ module accumulate {
               acc.state.pendingAuthorizerCores.mapRemove(payload.core)
           }
         }
-      else {
-        val cold = not(acc.state.lastAuthorizerAssignment.keys().contains(payload.core))
-        if (payload.immediate or cold)
-          { ...acc,
-            jamAssigns: acc.jamAssigns.append(QueueSet({ core: payload.core })),
-            state: { ...acc.state,
-              lastAuthorizerAssignment:
-                acc.state.lastAuthorizerAssignment.put(payload.core, now),
-              pendingAuthorizerQueues:
-                acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
-              pendingAuthorizerCores:
-                acc.state.pendingAuthorizerCores.mapRemove(payload.core)
-            }
-          }
-        else {
-          // Warm core, queue cached: due at the next 80-slot boundary strictly
-          // after `now`, measured from the last assignment (a core cached exactly
-          // on a boundary waits for the following window).
-          val last = acc.state.lastAuthorizerAssignment.get(payload.core)
-          val applyAt = last + ((now - last) / AuthorizerQueueLength + 1) * AuthorizerQueueLength
-          { ...acc,
-            state: { ...acc.state,
-              pendingAuthorizerQueues:
-                acc.state.pendingAuthorizerQueues.put(payload.core, payload.queue),
-              pendingAuthorizerCores:
-                acc.state.pendingAuthorizerCores.put(payload.core, applyAt)
-            }
+      else if (payload.jamSlot <= now)
+        { ...acc,
+          jamAssigns: acc.jamAssigns.append(QueueSet({ core: payload.core })),
+          state: { ...acc.state,
+            pendingAuthorizerQueues:
+              acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
+            pendingAuthorizerCores:
+              acc.state.pendingAuthorizerCores.mapRemove(payload.core)
           }
         }
-      }
+      else
+        { ...acc,
+          state: { ...acc.state,
+            pendingAuthorizerQueues:
+              acc.state.pendingAuthorizerQueues.put(payload.core, payload.queue),
+            pendingAuthorizerCores:
+              acc.state.pendingAuthorizerCores.put(payload.core, payload.jamSlot)
+          }
+        }
       | SetAssigner(payload) =>
       // Change the core's assigner (§7.1) — applied directly via JAM `assign`,
       // independent of the queue. `Some(s)` sets it to `s`; `None` resets it.
@@ -460,7 +452,9 @@ module accumulate {
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
-  /// Apply pending authorizer queues whose precomputed deadline is due.
+  /// Apply pending authorizer queues that are due: for each core whose scheduled
+  /// `jam_slot` has arrived (`now >= jam_slot`), emit the `assign` and drop the
+  /// cached queue. Not-yet-due entries are retained unchanged.
   pure def applyAlwaysAccumulate(
     s: ParachainServiceState,
     now: Timeslot
@@ -468,16 +462,15 @@ module accumulate {
     s.pendingAuthorizerCores.keys().fold(
       { state: { ...s, pendingAuthorizerCores: Map() }, assigns: List() },
       (acc, c) => {
-        val applyAt = s.pendingAuthorizerCores.get(c)
-        if (not(now >= applyAt))
+        val jamSlot = s.pendingAuthorizerCores.get(c)
+        if (now < jamSlot)
           { ...acc,
             state: { ...acc.state,
-              pendingAuthorizerCores: acc.state.pendingAuthorizerCores.put(c, applyAt)
+              pendingAuthorizerCores: acc.state.pendingAuthorizerCores.put(c, jamSlot)
             }
           }
         else
           { state: { ...acc.state,
-              lastAuthorizerAssignment: acc.state.lastAuthorizerAssignment.put(c, now),
               pendingAuthorizerQueues: acc.state.pendingAuthorizerQueues.mapRemove(c)
             },
             assigns: acc.assigns.append(QueueSet({ core: c }))

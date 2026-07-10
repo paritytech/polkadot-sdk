@@ -90,13 +90,15 @@ module messages {
   | Forget({ hash: Hash, len: int })
   // transfer_out(dest, amount, memo) — Asset Hub only.
   | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
-  // set_authorizer_queue(core, queue, immediate) — Coretime only. Sets/schedules
-  // the authorizer QUEUE only (the assigner is handled by `set_assigner`). An
-  // empty `queue` cancels any cached queue for the core so it is not applied.
+  // set_authorizer_queue(core, queue, jam_slot) — Coretime only. Schedules the
+  // authorizer QUEUE (the assigner is handled by `set_assigner`) to be applied at
+  // the JAM timeslot `jam_slot`; the Coretime chain chooses `jam_slot` so the pool
+  // fills without overwriting the currently active authorizers. An empty `queue`
+  // cancels any cached queue for the core so it is not applied.
   | SetAuthorizerQueue({
       core: CoreIndex,
       queue: List[AuthorizerHash],
-      immediate: bool
+      jamSlot: Timeslot
   })
   // set_assigner(core, new_assigner) — Coretime only. Change the core's
   // assigner: `Some(s)` sets it to `s`, `None` resets it.

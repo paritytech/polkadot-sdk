@@ -366,10 +366,9 @@ module main {
       ConsumeTransfersUpTo(0),
       UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minItemGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minItemGas: 0, minMemoGas: 0 }),
-      // Coretime-only — Refine rejects from non-Coretime callers.
-      SetAuthorizerQueue({ core: 0, queue: List(anyAuthHash), immediate: false }),
-      SetAuthorizerQueue({ core: 0, queue: List(anyAuthHash), immediate: true }),
-      SetAuthorizerQueue({ core: 0, queue: List(), immediate: false }),
+      SetAuthorizerQueue({ core: 0, queue: List(anyAuthHash), jamSlot: 100 }),
+      SetAuthorizerQueue({ core: 0, queue: List(anyAuthHash), jamSlot: 10 }),
+      SetAuthorizerQueue({ core: 0, queue: List(), jamSlot: 0 }),
       SetAssigner({ core: 0, newAssigner: Some(MkServiceId(7)) }),
       SetAssigner({ core: 0, newAssigner: None }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),

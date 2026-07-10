@@ -324,17 +324,14 @@ module invariants {
   val pending_authorizer_cores_consistent: bool =
     svc.pendingAuthorizerCores.keys() == svc.pendingAuthorizerQueues.keys()
 
-  /// Every pending authorizer queue is scheduled in the future: due entries
-  /// are flushed as soon as `now` reaches `apply_at` (on every accumulate and
-  /// every time advance), so a cached entry always has `apply_at > now`.
+  /// Every pending authorizer queue is scheduled strictly in the future: a due
+  /// entry (`jam_slot <= now`) is never left cached — always-accumulate flushes
+  /// due entries at block start, and a `set_authorizer_queue` whose `jam_slot`
+  /// is already due is applied inline during replay. So a cached entry always
+  /// has `apply_at > now`.
   val pending_authorizer_apply_at_future: bool =
     svc.pendingAuthorizerCores.keys().forall(c =>
       svc.pendingAuthorizerCores.get(c) > now)
-
-  /// Every recorded `lastAuthorizerAssignment` timeslot is ≤ the current timeslot.
-  val authorizer_assignment_timeslot_consistent: bool =
-    svc.lastAuthorizerAssignment.keys().forall(c =>
-      svc.lastAuthorizerAssignment.get(c) <= now)
 
   /// Every `assign` recorded last step targets a valid core index (< CoreCount).
   /// (A structural sanity check that the assign-recording is well-formed.)
@@ -403,7 +400,6 @@ module invariants {
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
     pending_authorizer_apply_at_future,
-    authorizer_assignment_timeslot_consistent,
     assign_calls_well_formed,
     staged_validator_keys_bounded,
     accumulate_log_batch_bounded,

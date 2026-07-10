@@ -49,9 +49,9 @@ module state_vars {
       memo: Memo
   }]
 
-  /// Ghost state: JAM `assign` calls made during the last step (immediate
-  /// `set_authorizer_queue` and exhaustion flushes). Lets invariants verify
-  /// `new_assigner` is forwarded. Not part of the protocol.
+  /// Ghost state: JAM `assign` calls made during the last step (`set_assigner`
+  /// updates and `set_authorizer_queue` flushes at their `jam_slot`). Lets
+  /// invariants verify `new_assigner` is forwarded. Not part of the protocol.
   var lastStepAssigns: List[AssignCall]
 
   /// Ghost state: per-para lookup-anchor timeslot the `parachain_log` was
