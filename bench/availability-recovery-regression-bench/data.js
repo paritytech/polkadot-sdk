@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783676461623,
+  "lastUpdate": 1783709079794,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d393f375cd06cc7d898baf9aea4dccc08dc430b6",
-          "message": "[CI/CD] Check semver job improvements (#10323)\n\nThis PR adds couple of improvements to the Check semver job for the\nstable branches:\n1. The `validate: false` option can be set now not only on the `mojor`\nbumps but on the `minor` and `patch` as well, this one is useful when\nfor the backport cases when a desired bump does not match with the one,\nthat `parity-publish` semver check has predicted (like\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/19135068993/job/54685184577?pr=10221))\n2. Possibility to skip check, when it is really not needed but still\nfails (like on the post crates release\n[prs](https://github.com/paritytech/polkadot-sdk/actions/runs/18311557391/job/52141285274?pr=9951))\n\ncloses: https://github.com/paritytech/release-engineering/issues/274",
-          "timestamp": "2025-11-14T14:28:17Z",
-          "tree_id": "3f7c30e5977ccc6cc31219ad3606eb57052b560f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d393f375cd06cc7d898baf9aea4dccc08dc430b6"
-        },
-        "date": 1763134567114,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19861019593333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.446720478433331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.716934214266661,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60c2964421de25eabcc70dae8408b2585258d202",
+          "message": "Snowbridge: blocks origin-spoofing in the outbound converter (#12159)\n\n### Context\n\nIt acts as a form of \"defense in depth\" against upstream XCM\nregressions, keep this explicit check as a final fail-safe protecting\nthe bridge’s primary agent account, which is derived from the AssetHub\nRoot location and holds the ERC20 assets.\n\n---------\n\nCo-authored-by: Claude Opus 4.7 <noreply@anthropic.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-10T16:55:29Z",
+          "tree_id": "5e8be4aa40d7c0be663345662e11b13ff9796e9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/60c2964421de25eabcc70dae8408b2585258d202"
+        },
+        "date": 1783709049938,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13994368986666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.586225933466668,
             "unit": "seconds"
           }
         ]
