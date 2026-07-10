@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783673442908,
+  "lastUpdate": 1783707769250,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -106595,6 +106595,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2728830632,
             "range": "± 35441032",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60c2964421de25eabcc70dae8408b2585258d202",
+          "message": "Snowbridge: blocks origin-spoofing in the outbound converter (#12159)\n\n### Context\n\nIt acts as a form of \"defense in depth\" against upstream XCM\nregressions, keep this explicit check as a final fail-safe protecting\nthe bridge’s primary agent account, which is derived from the AssetHub\nRoot location and holds the ERC20 assets.\n\n---------\n\nCo-authored-by: Claude Opus 4.7 <noreply@anthropic.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-10T16:55:29Z",
+          "tree_id": "5e8be4aa40d7c0be663345662e11b13ff9796e9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/60c2964421de25eabcc70dae8408b2585258d202"
+        },
+        "date": 1783707737742,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19113009,
+            "range": "± 79844",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19263698,
+            "range": "± 187266",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21065916,
+            "range": "± 228905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25616809,
+            "range": "± 277613",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57244457,
+            "range": "± 710678",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 343148974,
+            "range": "± 6865449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2674098516,
+            "range": "± 182753725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16692328,
+            "range": "± 214686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17197847,
+            "range": "± 368692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17228597,
+            "range": "± 188927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21847401,
+            "range": "± 302323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58513768,
+            "range": "± 975511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 340727322,
+            "range": "± 2879157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2608374845,
+            "range": "± 37761274",
             "unit": "ns/iter"
           }
         ]
