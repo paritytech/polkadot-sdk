@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783676500281,
+  "lastUpdate": 1783709117489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b879bf2744dc9435425c31d36218cfba63d11fe4",
-          "message": "Benchmark Trie Cache with zombienet (#7979)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/7540\nFixes https://github.com/paritytech/polkadot-sdk/issues/9586\n\nWe wanted to check how many smart contract calls we can include in one\nblock using various weights.\n- We prepared [a zombienet\ntest](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/weights.rs#L28),\nwhere we instantiate [a\ncontract](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/contract.txt#L6)\nwith an ERC20 token and call it from different accounts: each account\nmints 100 tokens per call.\n- To maximize throughput, we also increased the PoV size from 5 MB to 10\nMB and raised the weight limit (the maximum block fill) from 75% to 95%.\n- ref_time of read/write for the current setup were taken from\n[rocksdb_weights](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/rocksdb_weights.rs#L28),\nand then they were changed according to results [of updated\nbenchmarks](https://github.com/paritytech/polkadot-sdk/pull/7867).\n- Block execution time was taken from\n[basic_authorship](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/substrate/client/basic-authorship/src/basic_authorship.rs#L574).\n- Number of transaction and how block filled were taken just looking at\nblocks.\n- PoV size for 1033 extrinsics in current setup (25000 read/100000 write\nweights, block filled to 75%) is 289 KB. I didn’t write down PoV sizes\nfrom other cases but they’re comparable to it.\n- Tests were running on Macbook Pro with M2.\n\n| ref_time of read/write | Block execution time | Block filled |\nExtrinsics in block |\n\n|--------------------------------------|----------------------|--------------|---------------------|\n| **ref_time from the current setup** | | | |\n| 25000/100000 | 679 ms | 75% | 1033 |\n| **ref_time from reference hardware** | | | |\n| 9000/28000 | 905 ms | 94% | 2225 |\n| 9000/28000 | 861 ms | 94% | 2225 |\n| **ref_time from a local machine** | | | |\n| 4000/13000 | 1013 ms | 94% | 2698 |\n| 4000/13000 | 1077 ms | 94% | 2698 |\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2025-11-13T17:02:23Z",
-          "tree_id": "0f1b9603c2c09383f2dde5bf1fe034c88c1d0006",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b879bf2744dc9435425c31d36218cfba63d11fe4"
-        },
-        "date": 1763058760247,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007339524020000028,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15979479562000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013021606260000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02256455946,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007659262713333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60c2964421de25eabcc70dae8408b2585258d202",
+          "message": "Snowbridge: blocks origin-spoofing in the outbound converter (#12159)\n\n### Context\n\nIt acts as a form of \"defense in depth\" against upstream XCM\nregressions, keep this explicit check as a final fail-safe protecting\nthe bridge’s primary agent account, which is derived from the AssetHub\nRoot location and holds the ERC20 assets.\n\n---------\n\nCo-authored-by: Claude Opus 4.7 <noreply@anthropic.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-10T16:55:29Z",
+          "tree_id": "5e8be4aa40d7c0be663345662e11b13ff9796e9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/60c2964421de25eabcc70dae8408b2585258d202"
+        },
+        "date": 1783709088406,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007921382626666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010201890199999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14898069872000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02358160856666667,
             "unit": "seconds"
           }
         ]
