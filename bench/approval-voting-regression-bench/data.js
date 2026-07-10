@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783709154721,
+  "lastUpdate": 1783720098865,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b879bf2744dc9435425c31d36218cfba63d11fe4",
-          "message": "Benchmark Trie Cache with zombienet (#7979)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/7540\nFixes https://github.com/paritytech/polkadot-sdk/issues/9586\n\nWe wanted to check how many smart contract calls we can include in one\nblock using various weights.\n- We prepared [a zombienet\ntest](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/weights.rs#L28),\nwhere we instantiate [a\ncontract](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/contract.txt#L6)\nwith an ERC20 token and call it from different accounts: each account\nmints 100 tokens per call.\n- To maximize throughput, we also increased the PoV size from 5 MB to 10\nMB and raised the weight limit (the maximum block fill) from 75% to 95%.\n- ref_time of read/write for the current setup were taken from\n[rocksdb_weights](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/rocksdb_weights.rs#L28),\nand then they were changed according to results [of updated\nbenchmarks](https://github.com/paritytech/polkadot-sdk/pull/7867).\n- Block execution time was taken from\n[basic_authorship](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/substrate/client/basic-authorship/src/basic_authorship.rs#L574).\n- Number of transaction and how block filled were taken just looking at\nblocks.\n- PoV size for 1033 extrinsics in current setup (25000 read/100000 write\nweights, block filled to 75%) is 289 KB. I didn’t write down PoV sizes\nfrom other cases but they’re comparable to it.\n- Tests were running on Macbook Pro with M2.\n\n| ref_time of read/write | Block execution time | Block filled |\nExtrinsics in block |\n\n|--------------------------------------|----------------------|--------------|---------------------|\n| **ref_time from the current setup** | | | |\n| 25000/100000 | 679 ms | 75% | 1033 |\n| **ref_time from reference hardware** | | | |\n| 9000/28000 | 905 ms | 94% | 2225 |\n| 9000/28000 | 861 ms | 94% | 2225 |\n| **ref_time from a local machine** | | | |\n| 4000/13000 | 1013 ms | 94% | 2698 |\n| 4000/13000 | 1077 ms | 94% | 2698 |\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2025-11-13T17:02:23Z",
-          "tree_id": "0f1b9603c2c09383f2dde5bf1fe034c88c1d0006",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b879bf2744dc9435425c31d36218cfba63d11fe4"
-        },
-        "date": 1763058787523,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.079999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002055257,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.46678360758,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.413044245709996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005712717029999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.492152125450002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.309891533950005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000017820079999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002055257,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000017820079999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.949006193180003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7264901783809683,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.510764008590002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4724286364100014,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.308440690859959,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d8a63875d44e926590f741574d36c8136d60cfc",
+          "message": "pallet-revive: support finalized/safe/pending block tags in eth_getLogs (#12474)\n\n## Summary\n\n`eth_getLogs` resolves the `fromBlock`/`toBlock` fields of a filter to\nconcrete block numbers. The resolver only handled explicit block numbers\nand the `earliest` and `latest` tags, rejecting `finalized`, `safe` and\n`pending`:\n\n```rust\nBlockNumberOrTag::BlockTag(tag) => anyhow::bail!(\"Unsupported tag: {tag:?}\"),\n```\n\nThese tags are part of the standard Ethereum JSON-RPC block parameter,\nand the rest of the eth-rpc server already accepts them — e.g.\n`block_hash_for_tag` / `block_by_number_or_tag`, used by\n`eth_getBalance`, `eth_call`, `eth_getStorageAt`. So a filter that works\nfor those methods fails for `eth_getLogs`.\n\n## Fix\n\nResolve all standard block tags, consistent with the existing\n`block_hash_for_tag`:\n- `safe` / `finalized` → latest finalized block\n- `pending` → `latest`\n- `earliest` → earliest block\n\nThe tag→number mapping is extracted into a small\n`resolve_filter_block_number` helper and covered by a unit test. Making\nthe `match` exhaustive over `BlockTag` also means a future tag variant\nbecomes a compile error rather than a silent runtime rejection.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc` — new\n`resolve_filter_block_number_supports_all_block_tags` passes.\n- `cargo +nightly fmt` clean.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-10T19:51:50Z",
+          "tree_id": "5d1d2ac1d6635f20eb3e570b4fa8c93ed69536a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d8a63875d44e926590f741574d36c8136d60cfc"
+        },
+        "date": 1783720067183,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63568.73,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4887241832500036,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002128991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7833845205499985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022161440000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0055162180600000065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022161440000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8382811975699993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.78111918392,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7844156410399983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002128991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8050804187200002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.48652136311,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.389007435692558,
             "unit": "seconds"
           }
         ]
