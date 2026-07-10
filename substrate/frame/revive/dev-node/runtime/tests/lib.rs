@@ -397,7 +397,7 @@ fn check_function(
         and after versioning. \n\
         Before: {}\n\
         After: {}\n\
-        Pre Versioning Item Path: {:?}\n\"
+        Pre Versioning Item Path: {:?}\n
         Post Versioning Item Path: {:?}\n",
 		pre_versioning_state.item.inputs.len(),
 		post_versioning_state.item.inputs.len(),
