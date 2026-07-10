@@ -15,3 +15,7 @@ doc:
 crates:
 - name: snowbridge-pallet-outbound-queue-v2
   bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime  
+  bump: patch
