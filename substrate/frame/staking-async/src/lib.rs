@@ -633,7 +633,6 @@ pub enum RewardPot {
 /// Trait for generating reward pot account IDs.
 pub trait PotAccountProvider<AccountId> {
 	fn pot_account(pot: RewardPot) -> AccountId;
-	fn pot_seed() -> frame_support::PalletId;
 }
 
 /// Seed-based pot account provider for production use.
@@ -657,10 +656,6 @@ where
 			other => other,
 		};
 		S::get().into_sub_account_truncating(normalized)
-	}
-
-	fn pot_seed() -> frame_support::PalletId {
-		S::get()
 	}
 }
 
@@ -687,10 +682,6 @@ where
 				AccountId::from(100_000 + (pot_slot(era) as u64 * 10) + 1)
 			},
 		}
-	}
-
-	fn pot_seed() -> frame_support::PalletId {
-		frame_support::PalletId(*b"test/stk")
 	}
 }
 

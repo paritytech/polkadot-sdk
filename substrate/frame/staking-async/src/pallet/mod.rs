@@ -1517,14 +1517,6 @@ pub mod pallet {
 			validator_stash: T::AccountId,
 			amount: BalanceOf<T>,
 		},
-		/// A vested incentive could not be delivered due to slot exhaustion, but the
-		/// amount was stored in a staging account for later recovery.
-		ValidatorIncentiveStaged {
-			era: EraIndex,
-			validator_stash: T::AccountId,
-			/// Amount from this era that could not be delivered.
-			amount: BalanceOf<T>,
-		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.

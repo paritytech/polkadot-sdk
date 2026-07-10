@@ -847,6 +847,70 @@ impl<T: Config> Pallet<T> {
 
 		Ok((schedules, locked_now))
 	}
+
+	// Merge `incoming` into the existing System vesting schedule whose ending block is
+	// closest (in absolute distance) to `incoming.ending_block`. The incoming amount is
+	// added in full, while the starting block and duration are dropped. The target
+	// schedule's starting block is preserved and its vesting rate is recalculated.
+	fn merge_into_closest_system_schedule(
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		incoming: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
+	) -> DispatchResult {
+		let now = T::BlockNumberProvider::current_block_number();
+		let now_as_balance = T::BlockNumberToBalance::convert(now);
+		let incoming_end = incoming.ending_block_as_balance::<T::BlockNumberToBalance>();
+
+		with_storage_layer(|| {
+			let schedules = Vesting::<T>::get(dest).unwrap_or_default();
+
+			// Find the System schedule with ending_block closest to incoming.ending_block.
+			let (idx, target_vi) = schedules
+				.iter()
+				.enumerate()
+				.filter(|(_, (_, k))| *k == VestingKind::System)
+				.min_by_key(|(_, (vi, _))| {
+					let end = vi.ending_block_as_balance::<T::BlockNumberToBalance>();
+
+					// Absolute value: | end - incoming_end |
+					end.max(incoming_end) - end.min(incoming_end)
+				})
+				.map(|(i, (vi, _))| (i, *vi))
+				.ok_or(Error::<T>::NotVesting)?;
+
+			// New locked amount at `now`: target's remaining locked + full incoming amount.
+			let target_locked_now = target_vi.locked_at::<T::BlockNumberToBalance>(now);
+			let target_end = target_vi.ending_block_as_balance::<T::BlockNumberToBalance>();
+			let merged_locked_now = target_locked_now.saturating_add(incoming.locked());
+			let remaining = target_end.saturating_sub(now_as_balance).max(One::one());
+
+			// Ceiling division so no dust slips through.
+			let per_block =
+				(merged_locked_now.saturating_add(remaining).saturating_sub(One::one()) /
+					remaining)
+					.max(One::one());
+
+			// Back-calculate `locked` so that `locked_at(now) == merged_locked_now` exactly.
+			let elapsed = now_as_balance
+				.saturating_sub(T::BlockNumberToBalance::convert(target_vi.starting_block()));
+			let locked = merged_locked_now.saturating_add(per_block.saturating_mul(elapsed));
+			let merged_vi = VestingInfo::new(locked, per_block, target_vi.starting_block());
+
+			T::Currency::transfer(
+				source,
+				dest,
+				incoming.locked(),
+				ExistenceRequirement::AllowDeath,
+			)?;
+
+			let mut scheds = schedules.into_inner();
+			scheds[idx] = (merged_vi, VestingKind::System);
+			let (scheds, locked_now) = Self::exec_action(scheds, VestingAction::Passive)?;
+			Self::write_vesting(dest, scheds)?;
+			Self::write_lock(dest, locked_now);
+			Ok(())
+		})
+	}
 }
 
 impl<T: Config> frame_support::traits::tokens::VestedPayout<T::AccountId, BalanceOf<T>>
@@ -921,6 +985,15 @@ where
 				Self::write_lock(dest, locked_now);
 				Ok(())
 			})
+		} else if kind == VestingKind::System &&
+			Self::check_per_kind_room(&schedules, kind).is_err()
+		{
+			// No room for a new System schedule. Retain the incoming amount but drop
+			// its vesting params (starting_block, duration): merge into the existing
+			// System schedule whose ending block is closest to the incoming one. This
+			// preserves as much of the intended vesting duration as possible when the
+			// config has changed over time, without requiring a staging account.
+			Self::merge_into_closest_system_schedule(source, dest, incoming)
 		} else {
 			Self::do_vested_transfer(source, dest, incoming, kind)
 		}

@@ -1597,38 +1597,80 @@ fn add_to_vesting_merge_bypasses_min_vested_transfer() {
 	});
 }
 
-/// Fills `cap` schedules of `kind` and asserts that one more of the same kind hits the cap.
-fn assert_at_max_per_kind_returns_error(kind: VestingKind, cap: u32) {
-	let source = 3u64;
-	let dest = 4u64;
-	let amount = ED * 4;
+#[test]
+fn add_to_vesting_public_at_cap_returns_error() {
+	// Public schedules return AtMaxVestingSchedules when the per-kind cap is reached.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount = ED * 4;
+		let cap = <Test as Config>::slot_cap(VestingKind::Public);
 
-	for i in 0..cap {
-		<Vesting as VestedPayout<_, _>>::add_to_vesting(
+		for i in 0..cap {
+			assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source,
+				&dest,
+				amount,
+				20,
+				(i + 1) as u64,
+				VestingKind::Public,
+			));
+		}
+
+		assert_noop!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source,
+				&dest,
+				amount,
+				20,
+				(cap + 1) as u64,
+				VestingKind::Public
+			),
+			Error::<Test>::AtMaxVestingSchedules,
+		);
+	});
+}
+
+#[test]
+fn add_to_vesting_system_at_cap_merges_into_closest() {
+	// System schedules never error at cap: the incoming amount is merged into the
+	// existing System schedule whose ending block is closest to the incoming one.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount = ED * 4;
+		let cap = <Test as Config>::slot_cap(VestingKind::System);
+
+		for i in 0..cap {
+			assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source,
+				&dest,
+				amount,
+				20,
+				(i + 1) as u64,
+				VestingKind::System,
+			));
+		}
+
+		// One more System schedule when at cap must succeed (merge, not insert).
+		let extra_start = (cap + 1) as u64;
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
 			&source,
 			&dest,
 			amount,
 			20,
-			(i + 1) as u64,
-			kind,
-		)
-		.unwrap_or_else(|e| panic!("{:?}: fill #{i} failed: {:?}", kind, e));
-	}
+			extra_start,
+			VestingKind::System,
+		));
 
-	let next = (cap + 1) as u64;
-	assert_noop!(
-		<Vesting as VestedPayout<_, _>>::add_to_vesting(&source, &dest, amount, 20, next, kind),
-		Error::<Test>::AtMaxVestingSchedules,
-	);
-}
-
-#[test]
-fn add_to_vesting_at_per_kind_max_returns_error() {
-	for kind in VestingKind::iter() {
-		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-			assert_at_max_per_kind_returns_error(kind, <Test as Config>::slot_cap(kind));
-		});
-	}
+		// Slot count must not exceed the cap (no new slot was inserted).
+		let system_count = crate::Vesting::<Test>::get(&dest)
+			.unwrap_or_default()
+			.iter()
+			.filter(|(_, k)| *k == VestingKind::System)
+			.count() as u32;
+		assert!(system_count <= cap, "system slot count {system_count} must not exceed cap {cap}");
+	});
 }
 
 /// The partition's central property: filling one kind's quota does not block another kind.

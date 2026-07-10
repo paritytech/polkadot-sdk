@@ -1067,9 +1067,9 @@ fn incentive_dropped_event_not_emitted_on_success() {
 
 #[test]
 fn incentive_not_paid_when_pot_is_empty() {
-	// When the incentive pot is empty the pay() call fails.  The staging transfer also fails
-	// (there is nothing in the pot to move), so neither ValidatorIncentivePaid nor
-	// ValidatorIncentiveStaged is emitted.  The payout is silently skipped.
+	// When the incentive pot is empty the pay() call fails (the currency transfer inside
+	// the vesting adapter has nothing to move).  Neither ValidatorIncentivePaid nor any
+	// other successful-delivery event is emitted.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 
@@ -1096,14 +1096,9 @@ fn incentive_not_paid_when_pot_is_empty() {
 		make_all_reward_payment(2);
 
 		let events = staking_events_since_last_call();
-		// Pay() fails and staging transfer also fails (pot is empty) → no incentive events.
 		assert!(
 			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
 			"ValidatorIncentivePaid should not be emitted when pot is empty"
-		);
-		assert!(
-			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveStaged { .. })),
-			"ValidatorIncentiveStaged should not be emitted when pot is empty"
 		);
 	});
 }
@@ -1698,25 +1693,23 @@ fn migration_sets_cutoff_to_active_era_plus_one() {
 	});
 }
 
-// ===== Incentive staging account tests =====
+// ===== System-schedule merge-on-exhaustion tests =====
 //
-// These tests verify the staging-account behavior for failed system vested payments:
-// when a payment fails due to insufficient capacity, its amount is stored in a
-// staging account obtained deterministically from the receiver's stash and is
-// subsequently folded into the next successful vested payment.
+// When all System vesting slots are occupied, `add_to_vesting` falls back to merging
+// the incoming amount into the existing System schedule with the closest ending block.
+// The payment always succeeds.
 
-/// Derive the total system schedule capacity.
+/// Total System schedule capacity derived from the vesting config.
 const MAX_SYSTEM_VESTING_SCHEDULES: u32 = <Test as pallet_vesting::Config>::MAX_VESTING_SCHEDULES -
 	<Test as pallet_vesting::Config>::MAX_PUBLIC_VESTING_SCHEDULES;
 
-/// Fill all System vesting slots for `who` by inserting `n` dummy schedules.
+/// Insert `n` dummy System vesting schedules for `who` (starting_block = 0, locked = 1).
 fn fill_system_vesting_slots(who: &AccountId, n: u32) {
 	let dummy = pallet_vesting::VestingInfo::new(
-		1_u128, // locked: 1 unit (above MinVestedTransfer)
-		1_u128, // per_block: 1 unit
-		0_u64,  // starting_block: 0
+		1_u128, // locked: above MinVestedTransfer
+		1_u128, // per_block
+		0_u64,  // starting_block: 0 — distinct from real epoch-start blocks (> 0)
 	);
-
 	pallet_vesting::Vesting::<Test>::mutate(who, |entry| {
 		let schedules = entry.get_or_insert_with(Default::default);
 		for _ in 0..n {
@@ -1725,30 +1718,27 @@ fn fill_system_vesting_slots(who: &AccountId, n: u32) {
 	});
 }
 
-/// Clear (remove) all System vesting slots for `who`.
-fn clear_system_vesting_slots(who: &AccountId) {
-	pallet_vesting::Vesting::<Test>::mutate(who, |entry| {
-		if let Some(schedules) = entry {
-			schedules.retain(|(_, kind)| *kind != pallet_vesting::VestingKind::System);
-		}
-	});
-}
-
 #[test]
-fn incentive_staged_when_system_slots_exhausted() {
-	// When all System vesting slots are occupied the `pay()` call fails with
-	// `AtMaxVestingSchedules`. The implementation must park the era's incentive
-	// in the staging account and emit `ValidatorIncentiveStaged` exclusively.
+fn incentive_merged_into_existing_schedule_when_system_slots_exhausted() {
+	// When all System vesting slots are occupied, `add_to_vesting` must not drop the
+	// payment and instead merge its amount to the schedule with the closest end block.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11_u64;
 
 		VestingBondingPeriods::set(1);
 		setup_incentive_with_budget(45, 5);
 		Session::roll_until_active_era(2);
-
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
+
+		// Record alice's total locked balance before the payout for later verification.
+		let locked_before = pallet_vesting::Vesting::<Test>::get(&alice)
+			.unwrap_or_default()
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.map(|(vi, _)| vi.locked())
+			.sum::<Balance>();
 
 		// GIVEN: all System vesting slots for alice are exhausted.
 		fill_system_vesting_slots(&alice, MAX_SYSTEM_VESTING_SCHEDULES);
@@ -1757,92 +1747,17 @@ fn incentive_staged_when_system_slots_exhausted() {
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: incentive is staged, not paid, not dropped.
+		// THEN: payment succeeds — no Dropped event.
 		assert!(
-			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { validator_stash, .. } if *validator_stash == alice)),
-			"ValidatorIncentivePaid must NOT be emitted when slots are exhausted"
+			!events.iter().any(|e| matches!(
+				e,
+				Event::ValidatorIncentiveDropped { validator_stash, .. }
+				if *validator_stash == alice
+			)),
+			"ValidatorIncentiveDropped must NOT be emitted: merge-on-exhaustion must succeed"
 		);
-		assert!(
-			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { validator_stash, .. } if *validator_stash == alice)),
-			"ValidatorIncentiveDropped must NOT be emitted on slot exhaustion"
-		);
 
-		let staged_event = events.iter().find_map(|e| match e {
-			Event::ValidatorIncentiveStaged { validator_stash, amount, .. }
-				if *validator_stash == alice =>
-			{
-				Some(*amount)
-			},
-			_ => None,
-		});
-
-		assert!(staged_event.is_some(), "ValidatorIncentiveStaged must be emitted");
-
-		let staged_amount = staged_event.unwrap();
-		assert!(staged_amount > 0, "staged amount must be positive");
-
-		// THEN: staging account holds exactly the staged amount.
-		let staging = Staking::incentive_staging_account(&alice);
-		assert_eq!(Balances::free_balance(&staging), staged_amount);
-	});
-}
-
-#[test]
-fn staged_amount_picked_up_by_next_successful_payment() {
-	// After a staging event, clearing the vesting slots allows the next payout to
-	// deliver the new era's incentive together with the previously-staged amount.
-	ExtBuilder::default().build_and_execute(|| {
-		let alice = 11_u64;
-
-		VestingBondingPeriods::set(1);
-		setup_incentive_with_budget(45, 5);
-		Session::roll_until_active_era(2);
-
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
-
-		// GIVEN: slots exhausted — era 2 payout stages.
-		fill_system_vesting_slots(&alice, MAX_SYSTEM_VESTING_SCHEDULES);
-		make_all_reward_payment(2);
-		let era2_events = staking_events_since_last_call();
-		let staged_amount = era2_events
-			.iter()
-			.find_map(|e| match e {
-				Event::ValidatorIncentiveStaged { validator_stash, amount, .. }
-					if *validator_stash == alice =>
-				{
-					Some(*amount)
-				},
-				_ => None,
-			})
-			.expect("era 2 must have staged for alice");
-
-		let staging = Staking::incentive_staging_account(&alice);
-		assert_eq!(Balances::free_balance(&staging), staged_amount);
-
-		// GIVEN: produce era 3 with another incentive for alice.
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(4);
-		let _ = staking_events_since_last_call();
-
-		// Read era 3's own incentive budget before the payout; the pot is funded by
-		// `end_era_dap` and contains exactly alice's era-3 share (she is the sole
-		// rewarded validator this era).
-		let era3_pot =
-			<Test as Config>::RewardPots::pot_account(RewardPot::Era(3, RewardKind::ValidatorSelfStake));
-		let era3_incentive = Balances::free_balance(&era3_pot);
-		assert!(era3_incentive > 0, "era 3 incentive pot must be funded before payout");
-
-		// WHEN: free all System vesting slots so the next pay() succeeds.
-		clear_system_vesting_slots(&alice);
-
-		// WHEN: payout era 3.
-		make_all_reward_payment(3);
-		let era3_events = staking_events_since_last_call();
-
-		// THEN: ValidatorIncentivePaid is emitted with the exact combined amount.
-		let paid_amount = era3_events
+		let paid_amount = events
 			.iter()
 			.find_map(|e| match e {
 				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
@@ -1852,89 +1767,35 @@ fn staged_amount_picked_up_by_next_successful_payment() {
 				},
 				_ => None,
 			})
-			.expect("ValidatorIncentivePaid must be emitted after slots are freed");
+			.expect("ValidatorIncentivePaid must be emitted even when slots are exhausted");
 
-		// The paid amount must be exactly the staged era-2 amount plus the era-3 incentive.
-		assert_eq!(
-			paid_amount,
-			staged_amount + era3_incentive,
-			"paid ({paid_amount}) must equal staged ({staged_amount}) + era3 incentive ({era3_incentive})"
-		);
+		assert!(paid_amount > 0, "paid amount must be positive");
 
-		// THEN: staging account is drained.
-		assert_eq!(
-			Balances::free_balance(&staging),
-			0,
-			"staging account must be empty after a successful delivery"
-		);
+		// THEN: alice's System schedules contain the incentive amount (merged into one slot).
+		let schedules_after = pallet_vesting::Vesting::<Test>::get(&alice).unwrap_or_default();
+		let system_schedules_after: Vec<_> = schedules_after
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.collect();
 
-		// THEN: no Staged event for era 3.
+		// At least one active System schedule must exist.
 		assert!(
-			!era3_events.iter().any(|e| matches!(e, Event::ValidatorIncentiveStaged { validator_stash, .. } if *validator_stash == alice)),
-			"ValidatorIncentiveStaged must NOT be emitted when payment succeeds"
+			!system_schedules_after.is_empty(),
+			"at least one System schedule must exist after merge"
 		);
-	});
-}
 
-#[test]
-fn staged_amount_accumulates_across_multiple_failures() {
-	// Two consecutive payout attempts that both hit `AtMaxVestingSchedules`
-	// must accumulate in the staging account: after the second failure the
-	// staging balance equals the sum of both era's incentive amounts.
-	ExtBuilder::default().build_and_execute(|| {
-		let alice = 11_u64;
+		// The merged schedule's locked amount must be at least the incentive.
+		let max_locked =
+			system_schedules_after.iter().map(|(vi, _)| vi.locked()).max().unwrap_or(0);
+		assert!(
+			max_locked >= paid_amount,
+			"merged schedule locked ({max_locked}) must be >= incentive ({paid_amount})"
+		);
 
-		VestingBondingPeriods::set(1);
-		setup_incentive_with_budget(45, 5);
-		Session::roll_until_active_era(2);
-		// Only reward alice — see comment in `incentive_staged_when_system_slots_exhausted`.
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(3);
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(4);
-		let _ = staking_events_since_last_call();
-
-		// GIVEN: slots exhausted for both eras.
-		fill_system_vesting_slots(&alice, MAX_SYSTEM_VESTING_SCHEDULES);
-
-		// WHEN: first payout (era 2) — stages amount_1.
-		make_all_reward_payment(2);
-		let era2_events = staking_events_since_last_call();
-		let amount_1 = era2_events
-			.iter()
-			.find_map(|e| match e {
-				Event::ValidatorIncentiveStaged { validator_stash, amount, .. }
-					if *validator_stash == alice =>
-				{
-					Some(*amount)
-				},
-				_ => None,
-			})
-			.expect("era 2 must stage for alice");
-
-		let staging = Staking::incentive_staging_account(&alice);
-		assert_eq!(Balances::free_balance(&staging), amount_1);
-
-		// WHEN: second payout (era 3) — also fails, stages amount_2.
-		make_all_reward_payment(3);
-		let era3_events = staking_events_since_last_call();
-		let amount_2 = era3_events
-			.iter()
-			.find_map(|e| match e {
-				Event::ValidatorIncentiveStaged { validator_stash, amount, .. }
-					if *validator_stash == alice =>
-				{
-					Some(*amount)
-				},
-				_ => None,
-			})
-			.expect("era 3 must stage for alice (slots still exhausted)");
-
-		// THEN: staging account holds the accumulated balance.
-		assert_eq!(
-			Balances::free_balance(&staging),
-			amount_1 + amount_2,
-			"staging account must accumulate across consecutive failures"
+		// No new slot was inserted: slot count must be ≤ what we pre-filled.
+		assert!(
+			system_schedules_after.len() as u32 <= MAX_SYSTEM_VESTING_SCHEDULES,
+			"merge must not insert a new slot beyond the cap"
 		);
 	});
 }
