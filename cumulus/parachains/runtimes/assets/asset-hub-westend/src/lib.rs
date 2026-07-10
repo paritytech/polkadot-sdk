@@ -74,7 +74,9 @@ use frame_system::{
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{
+	Erc20TransferLogsCallback, ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20,
+};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -337,7 +339,14 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
+	type CallbackHandle = (
+		pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>,
+		Erc20TransferLogsCallback<
+			Runtime,
+			InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>,
+			TrustBackedAssetsInstance,
+		>,
+	);
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -391,7 +400,11 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Freezer = PoolAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = Erc20TransferLogsCallback<
+		Runtime,
+		InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>,
+		PoolAssetsInstance,
+	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
