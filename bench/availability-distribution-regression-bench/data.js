@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783709117489,
+  "lastUpdate": 1783720060104,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "agusrodriguez2456@gmail.com",
-            "name": "Agustín Rodriguez",
-            "username": "Agusrodri"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "75dcd030700b2b45059fbd0fe4245e0d30429485",
-          "message": "Increase `max_upward_message_size` in `RelayStateSproofBuilder` (#10313)\n\n## Description \n\nWhile testing different XCM messages via xcm-emulator, I noticed that\nthe limit of 256 for `max_upward_message_size` in\n`RelayStateSproofBuilder` can be reached very easily.\n\nI suggest increasing it to `1024 * 1024` so that we can have a good\nrange for testing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-11-14T09:50:10Z",
-          "tree_id": "be48ff2ef4b819b0d8de4afbc87009a2b6259e5c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/75dcd030700b2b45059fbd0fe4245e0d30429485"
-        },
-        "date": 1763120060051,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013024772666666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007382878446666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022677401626666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1597707111733334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02358160856666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d8a63875d44e926590f741574d36c8136d60cfc",
+          "message": "pallet-revive: support finalized/safe/pending block tags in eth_getLogs (#12474)\n\n## Summary\n\n`eth_getLogs` resolves the `fromBlock`/`toBlock` fields of a filter to\nconcrete block numbers. The resolver only handled explicit block numbers\nand the `earliest` and `latest` tags, rejecting `finalized`, `safe` and\n`pending`:\n\n```rust\nBlockNumberOrTag::BlockTag(tag) => anyhow::bail!(\"Unsupported tag: {tag:?}\"),\n```\n\nThese tags are part of the standard Ethereum JSON-RPC block parameter,\nand the rest of the eth-rpc server already accepts them — e.g.\n`block_hash_for_tag` / `block_by_number_or_tag`, used by\n`eth_getBalance`, `eth_call`, `eth_getStorageAt`. So a filter that works\nfor those methods fails for `eth_getLogs`.\n\n## Fix\n\nResolve all standard block tags, consistent with the existing\n`block_hash_for_tag`:\n- `safe` / `finalized` → latest finalized block\n- `pending` → `latest`\n- `earliest` → earliest block\n\nThe tag→number mapping is extracted into a small\n`resolve_filter_block_number` helper and covered by a unit test. Making\nthe `match` exhaustive over `BlockTag` also means a future tag variant\nbecomes a compile error rather than a silent runtime rejection.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc` — new\n`resolve_filter_block_number_supports_all_block_tags` passes.\n- `cargo +nightly fmt` clean.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-10T19:51:50Z",
+          "tree_id": "5d1d2ac1d6635f20eb3e570b4fa8c93ed69536a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d8a63875d44e926590f741574d36c8136d60cfc"
+        },
+        "date": 1783720024712,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007325411666666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14899986366,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009988617199999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02377839035333333,
             "unit": "seconds"
           }
         ]
