@@ -16,27 +16,26 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	resubmission::{build_v3_scheduling_proof, resolve_session},
 	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
+	resubmission::{build_v3_scheduling_proof, resolve_session},
 };
 use crate::{
+	LOG_TARGET,
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
-		check_validation_code_or_log,
+		BackingGroupConnectionHelper, RelayHash, RelayParentData, check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
 			scheduling::SchedulingInfo,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		BackingGroupConnectionHelper, RelayHash, RelayParentData,
 	},
-	LOG_TARGET,
 };
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
-	ParachainBlockImportMarker, ParentSearchParams,
+	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+	fetch_included_from_relay_chain, get_relay_slot,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
@@ -50,7 +49,7 @@ use futures::prelude::*;
 use polkadot_primitives::{
 	ApprovedPeerId, Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
 };
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
+use sc_client_api::{BlockBackend, BlockOf, UsageProvider, backend::AuxStore};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
@@ -65,8 +64,8 @@ use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member},
 	Saturating,
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member},
 };
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
@@ -145,6 +144,50 @@ where
 	(para_best_hash, v3_enabled_on_para)
 }
 
+/// Fork from the included head once the relay parent of the parablock we'd build on lags the
+/// scheduling parent by more than this many relay blocks.
+const MAX_RELAY_GAP_BEFORE_FORK: u32 = 20;
+
+/// Pick the parent to build on and the unincluded segment to re-advertise: the deepest parent
+/// from the search with its segment, or — when the parent's relay parent lags the scheduling
+/// parent by more than [`MAX_RELAY_GAP_BEFORE_FORK`] — the included head with an empty segment
+/// (a fork abandons the stuck segment), as a stall recovery. Sibling forks from different
+/// collators are arbitrated by the relay chain: once one fork block is backed,
+/// pending-availability anchoring pulls every collator onto it.
+fn select_build_parent_and_segment<Block: BlockT>(
+	parent_search_result: &consensus_common::ParentSearchResult<Block>,
+	scheduling_parent_number: u32,
+	v3_enabled: bool,
+) -> (Block::Header, Vec<Block::Header>) {
+	let build_parent = parent_search_result.best_parent_header();
+	let build_parent_relay_parent =
+		cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
+			build_parent.digest(),
+		)
+		.map(|(_, number)| number);
+	let fork = v3_enabled &&
+		build_parent_relay_parent.is_some_and(|rp| {
+			scheduling_parent_number.saturating_sub(rp) > MAX_RELAY_GAP_BEFORE_FORK
+		});
+
+	if fork {
+		let included = parent_search_result.included_at_scheduling();
+		tracing::debug!(
+			target: LOG_TARGET,
+			included_number = %included.number(),
+			build_parent_number = %build_parent.number(),
+			max_gap = MAX_RELAY_GAP_BEFORE_FORK,
+			"Build parent relay parent lags scheduling parent; forking from included head.",
+		);
+		(included.clone(), Vec::new())
+	} else {
+		(
+			build_parent.clone(),
+			parent_search_result.unincluded_segment().map(|s| s.to_vec()).unwrap_or_default(),
+		)
+	}
+}
+
 /// Environment shared by the block-builder phases; groups the clients, caches, and per-task
 /// state so phase helpers don't re-declare the task's generics.
 struct BuilderEnv<Block: BlockT, P, Client, Backend, RelayClient: RelayChainInterface + Clone> {
@@ -172,7 +215,7 @@ struct SlotContext<Block: BlockT, Pub> {
 	relay_parent_data: RelayParentData,
 	relay_parent_header: RelayHeader,
 	relay_parent_hash: RelayHash,
-	parent_search_result: consensus_common::ParentSearchResult<Block>,
+	unincluded_headers: Vec<Block::Header>,
 	included_hash_at_execution: Block::Hash,
 	initial_parent_header: Block::Header,
 	initial_parent_hash: Block::Hash,
@@ -309,8 +352,12 @@ where
 				},
 			},
 		};
-		let initial_parent_hash = parent_search_result.best_parent_header().hash();
-		let initial_parent_header = parent_search_result.best_parent_header().clone();
+		let (initial_parent_header, unincluded_headers) = select_build_parent_and_segment(
+			&parent_search_result,
+			scheduling_parent_header.number,
+			v3_enabled,
+		);
+		let initial_parent_hash = initial_parent_header.hash();
 		let unincluded_segment_len_at_execution = initial_parent_header
 			.number()
 			.saturating_sub(*included_header_at_execution.number());
@@ -400,7 +447,7 @@ where
 			relay_parent_data,
 			relay_parent_header,
 			relay_parent_hash,
-			parent_search_result,
+			unincluded_headers,
 			included_hash_at_execution,
 			initial_parent_header,
 			initial_parent_hash,
@@ -504,12 +551,7 @@ where
 		let total_cores = cores.total_cores();
 		let mut per_selector_unincluded_headers: HashMap<u32, Vec<Block::Header>> = HashMap::new();
 		if total_cores > 0 {
-			let headers = cx
-				.parent_search_result
-				.unincluded_segment()
-				.map(|s| s.to_vec())
-				.unwrap_or_default();
-			for header in headers {
+			for header in cx.unincluded_headers.clone() {
 				let Some(core_info) = CumulusDigestItem::find_core_info(header.digest()) else {
 					tracing::warn!(
 						target: LOG_TARGET,
