@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783618388782,
+  "lastUpdate": 1783676461623,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "agusrodriguez2456@gmail.com",
-            "name": "Agustín Rodriguez",
-            "username": "Agusrodri"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "75dcd030700b2b45059fbd0fe4245e0d30429485",
-          "message": "Increase `max_upward_message_size` in `RelayStateSproofBuilder` (#10313)\n\n## Description \n\nWhile testing different XCM messages via xcm-emulator, I noticed that\nthe limit of 256 for `max_upward_message_size` in\n`RelayStateSproofBuilder` can be reached very easily.\n\nI suggest increasing it to `1024 * 1024` so that we can have a good\nrange for testing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-11-14T09:50:10Z",
-          "tree_id": "be48ff2ef4b819b0d8de4afbc87009a2b6259e5c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/75dcd030700b2b45059fbd0fe4245e0d30429485"
-        },
-        "date": 1763120025657,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.315992499266669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19667477553333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.6631364612,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "59cae94c49c817fab66a81ef7abda0668aee0473",
+          "message": "pallet-revive: bench the overlay overhead of hot storage accesses (#12599)\n\nReplace the hardcoded `HOT_STORAGE_OVERLAY_OVERHEAD` (2µs) with a\nbenchmarked value.\n- Add `overlay_probe_full`, which fills the overlay inside the measured\nblock and reads `n` stored keys, and `overlay_probe_empty`, the same\nreads without the fill\n- Price each hot storage access with the per-read difference between the\ntwo.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-10T07:21:50Z",
+          "tree_id": "6b7e60aacfaf05f63b849c875a888c877310137f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/59cae94c49c817fab66a81ef7abda0668aee0473"
+        },
+        "date": 1783676431661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14481209109999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.716934214266661,
             "unit": "seconds"
           }
         ]
