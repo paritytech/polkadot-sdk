@@ -806,3 +806,89 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 		);
 	});
 }
+
+#[cfg(test)]
+fn authorize_upgrade_proposal_bounded(
+	code_hash: <Test as frame_system::Config>::Hash,
+) -> BoundedCallOf<Test, ()> {
+	let c = RuntimeCall::System(frame_system::Call::authorize_upgrade { code_hash });
+	<Preimage as StorePreimage>::bound(c).unwrap()
+}
+
+#[cfg(test)]
+fn runtime_upgrade_authorized(code_hash: <Test as frame_system::Config>::Hash) -> bool {
+	frame_system::Pallet::<Test>::read_events_for_pallet::<frame_system::Event<Test>>()
+		.into_iter()
+		.any(
+			|e| matches!(e, frame_system::Event::UpgradeAuthorized { code_hash: h, .. } if h == code_hash),
+		)
+}
+
+#[test]
+fn scheduler_saturation_suppresses_passed_runtime_upgrade() {
+	ExtBuilder::default().build().execute_with(|| {
+		let code_hash = sp_core::H256::repeat_byte(0xab);
+		assert!(!runtime_upgrade_authorized(code_hash));
+
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			authorize_upgrade_proposal_bounded(code_hash),
+			DispatchTime::At(10),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+
+		let filler = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+		for _ in 0..100u32 {
+			assert_ok!(Scheduler::schedule(
+				RuntimeOrigin::root(),
+				13,
+				None,
+				127,
+				Box::new(filler.clone()),
+			));
+		}
+		assert_eq!(pallet_scheduler::Agenda::<Test>::get(13).len(), 100);
+
+		run_to(5);
+		assert_eq!(DecidingCount::<Test>::get(0), 1);
+		run_to(6);
+		set_tally(0, 100, 0);
+		run_to(9);
+		assert_matches!(ReferendumInfoFor::<Test>::get(0), Some(ReferendumInfo::Approved(..)));
+
+		run_to(14);
+
+		assert!(
+			!runtime_upgrade_authorized(code_hash),
+			"runtime upgrade was silently dropped due to scheduler saturation"
+		);
+	});
+}
+
+#[test]
+fn scheduler_saturation_control_runtime_upgrade_succeeds() {
+	ExtBuilder::default().build().execute_with(|| {
+		let code_hash = sp_core::H256::repeat_byte(0xab);
+		assert!(!runtime_upgrade_authorized(code_hash));
+
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			authorize_upgrade_proposal_bounded(code_hash),
+			DispatchTime::At(10),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		run_to(5);
+		run_to(6);
+		set_tally(0, 100, 0);
+		run_to(9);
+		assert_matches!(ReferendumInfoFor::<Test>::get(0), Some(ReferendumInfo::Approved(..)));
+		run_to(14);
+
+		assert!(
+			runtime_upgrade_authorized(code_hash),
+			"control: runtime upgrade should be authorized"
+		);
+	});
+}

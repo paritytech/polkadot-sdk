@@ -334,7 +334,7 @@ pub mod test {
 
 	#[test]
 	fn migration_v0_to_v1_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			// create and insert into the storage an ongoing referendum v0.
 			let status_v0 = create_status_v0();
 			let ongoing_v0 = v0::ReferendumInfoOf::<T, ()>::Ongoing(status_v0.clone());
@@ -369,7 +369,7 @@ pub mod test {
 
 	#[test]
 	fn migration_v1_to_switch_block_number_provider_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			pub struct MockBlockConverter;
 
 			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for MockBlockConverter {

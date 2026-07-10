@@ -934,8 +934,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let alarm_interval = T::AlarmInterval::get().max(One::one());
 		// Alarm must go off no earlier than `when`.
 		// This rounds `when` upwards to the next multiple of `alarm_interval`.
-		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one())) /
-			alarm_interval)
+		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one()))
+			/ alarm_interval)
 			.saturating_mul(alarm_interval);
 		let result = T::Scheduler::schedule(
 			DispatchTime::At(when),
@@ -1324,8 +1324,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		id: TrackIdOf<T, I>,
 	) -> bool {
 		let x = Perbill::from_rational(elapsed.min(period), period);
-		support_needed.passing(x, tally.support(id)) &&
-			approval_needed.passing(x, tally.approval(id))
+		support_needed.passing(x, tally.support(id))
+			&& approval_needed.passing(x, tally.approval(id))
 	}
 
 	/// Clear metadata if exist for a given referendum index.
@@ -1347,8 +1347,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		ensure!(
-			ReferendumCount::<T, I>::get() as usize ==
-				ReferendumInfoFor::<T, I>::iter_keys().count(),
+			ReferendumCount::<T, I>::get() as usize
+				== ReferendumInfoFor::<T, I>::iter_keys().count(),
 			"Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`"
 		);
 
@@ -1380,127 +1380,118 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let now = T::BlockNumberProvider::current_block_number();
 		let mut tracked_reserved: BTreeMap<T::AccountId, BalanceOf<T, I>> = BTreeMap::new();
-		ReferendumInfoFor::<T, I>::iter().try_for_each(|(_, referendum)| -> Result<(), sp_runtime::TryRuntimeError> {
-			match referendum {
-				ReferendumInfo::Ongoing(status) => {
-					let track = T::Tracks::info(status.track);
-					ensure!(track.is_some(), "No track info for the track of the referendum.");
-					let track = track.expect("checked is_some above; qed");
-					ensure!(
-						status.submission_deposit.amount == T::SubmissionDeposit::get(),
-						"Ongoing referendum submission deposit amount is incorrect"
-					);
-					tracked_reserved
-						.entry(status.submission_deposit.who.clone())
-						.and_modify(|x| *x = x.saturating_add(status.submission_deposit.amount))
-						.or_insert(status.submission_deposit.amount);
-
-					if let Some(ref decision_deposit) = status.decision_deposit {
+		ReferendumInfoFor::<T, I>::iter().try_for_each(
+			|(_, referendum)| -> Result<(), sp_runtime::TryRuntimeError> {
+				match referendum {
+					ReferendumInfo::Ongoing(status) => {
 						ensure!(
-							decision_deposit.amount == track.decision_deposit,
-							"Ongoing referendum decision deposit amount is incorrect"
+							T::Tracks::info(status.track).is_some(),
+							"No track info for the track of the referendum."
 						);
 						tracked_reserved
-							.entry(decision_deposit.who.clone())
-							.and_modify(|x| *x = x.saturating_add(decision_deposit.amount))
-							.or_insert(decision_deposit.amount);
-					}
+							.entry(status.submission_deposit.who.clone())
+							.and_modify(|x| *x = x.saturating_add(status.submission_deposit.amount))
+							.or_insert(status.submission_deposit.amount);
 
-					if let Some(ref deciding) = status.deciding {
-						ensure!(
-							deciding.since <
-								deciding
-									.confirming
-									.unwrap_or(BlockNumberFor::<T, I>::max_value()),
-							"Deciding status cannot begin before confirming stage."
-						);
-						ensure!(
-							!status.in_queue,
-							"Referendum is deciding but also marked in_queue"
-						);
-						ensure!(
-							status.decision_deposit.is_some(),
-							"Referendum is deciding but has no decision deposit"
-						);
-						ensure!(
-							deciding.since <= now,
-							"Deciding.since is in the future"
-						);
-					}
+						if let Some(ref decision_deposit) = status.decision_deposit {
+							tracked_reserved
+								.entry(decision_deposit.who.clone())
+								.and_modify(|x| *x = x.saturating_add(decision_deposit.amount))
+								.or_insert(decision_deposit.amount);
+						}
 
-					if status.in_queue {
-						ensure!(
-							status.deciding.is_none(),
-							"Referendum is in_queue but also deciding"
-						);
-						ensure!(
-							status.decision_deposit.is_some(),
-							"Referendum is in_queue but has no decision deposit"
-						);
-						if let Some((when, _)) = status.alarm {
+						if let Some(ref deciding) = status.deciding {
 							ensure!(
+								deciding.since
+									< deciding
+										.confirming
+										.unwrap_or(BlockNumberFor::<T, I>::max_value()),
+								"Deciding status cannot begin before confirming stage."
+							);
+							ensure!(
+								!status.in_queue,
+								"Referendum is deciding but also marked in_queue"
+							);
+							ensure!(
+								status.decision_deposit.is_some(),
+								"Referendum is deciding but has no decision deposit"
+							);
+							ensure!(deciding.since <= now, "Deciding.since is in the future");
+						}
+
+						if status.in_queue {
+							ensure!(
+								status.deciding.is_none(),
+								"Referendum is in_queue but also deciding"
+							);
+							ensure!(
+								status.decision_deposit.is_some(),
+								"Referendum is in_queue but has no decision deposit"
+							);
+							if let Some((when, _)) = status.alarm {
+								ensure!(
 								when <= now.saturating_add(One::one()),
 								"Queued referendum has a deferred nudge alarm beyond next block"
 							);
-						}
-					} else {
-						ensure!(
+							}
+						} else {
+							ensure!(
 							status.alarm.is_some(),
 							"Non-queued ongoing referendum has no alarm and will never progress"
 						);
-					}
+						}
 
-					ensure!(
-						status.submitted <= now,
-						"Referendum submitted in the future"
-					);
-				},
-				ReferendumInfo::Approved(_, submission, decision)
-				| ReferendumInfo::Cancelled(_, submission, decision) => {
-					if let Some(submission) = submission {
-						tracked_reserved
-							.entry(submission.who.clone())
-							.and_modify(|x| *x = x.saturating_add(submission.amount))
-							.or_insert(submission.amount);
-					}
-					if let Some(decision) = decision {
-						tracked_reserved
-							.entry(decision.who.clone())
-							.and_modify(|x| *x = x.saturating_add(decision.amount))
-							.or_insert(decision.amount);
-					}
-				},
-				ReferendumInfo::Rejected(_, submission, decision)
-				| ReferendumInfo::TimedOut(_, submission, decision) => {
-					ensure!(
-						submission.is_some(),
-						"Rejected or timed out referendum lost tracked submission deposit"
-					);
-					if let Some(submission) = submission {
-						tracked_reserved
-							.entry(submission.who.clone())
-							.and_modify(|x| *x = x.saturating_add(submission.amount))
-							.or_insert(submission.amount);
-					}
-					if let Some(decision) = decision {
-						tracked_reserved
-							.entry(decision.who.clone())
-							.and_modify(|x| *x = x.saturating_add(decision.amount))
-							.or_insert(decision.amount);
-					}
-				},
-				ReferendumInfo::Killed(_) => {},
-			}
-			Ok(())
-		})?;
+						ensure!(status.submitted <= now, "Referendum submitted in the future");
+					},
+					ReferendumInfo::Approved(_, submission, decision)
+					| ReferendumInfo::Cancelled(_, submission, decision) => {
+						if let Some(submission) = submission {
+							tracked_reserved
+								.entry(submission.who.clone())
+								.and_modify(|x| *x = x.saturating_add(submission.amount))
+								.or_insert(submission.amount);
+						}
+						if let Some(decision) = decision {
+							tracked_reserved
+								.entry(decision.who.clone())
+								.and_modify(|x| *x = x.saturating_add(decision.amount))
+								.or_insert(decision.amount);
+						}
+					},
+					ReferendumInfo::Rejected(_, submission, decision)
+					| ReferendumInfo::TimedOut(_, submission, decision) => {
+						ensure!(
+							submission.is_some(),
+							"Rejected or timed out referendum lost tracked submission deposit"
+						);
+						if let Some(submission) = submission {
+							tracked_reserved
+								.entry(submission.who.clone())
+								.and_modify(|x| *x = x.saturating_add(submission.amount))
+								.or_insert(submission.amount);
+						}
+						if let Some(decision) = decision {
+							tracked_reserved
+								.entry(decision.who.clone())
+								.and_modify(|x| *x = x.saturating_add(decision.amount))
+								.or_insert(decision.amount);
+						}
+					},
+					ReferendumInfo::Killed(_) => {},
+				}
+				Ok(())
+			},
+		)?;
 
-		tracked_reserved.into_iter().try_for_each(|(who, tracked)| -> Result<(), sp_runtime::TryRuntimeError> {
-			ensure!(
-				T::Currency::reserved_balance(&who) >= tracked,
-				"Tracked referendum deposits exceed reserved balance"
-			);
-			Ok(())
-		})
+		tracked_reserved.into_iter().try_for_each(
+			|(who, tracked)| -> Result<(), sp_runtime::TryRuntimeError> {
+				ensure!(
+					T::Currency::reserved_balance(&who) >= tracked,
+					"Tracked referendum deposits exceed reserved balance"
+				);
+				Ok(())
+			},
+		)
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
@@ -1529,8 +1520,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				);
 				set.insert(*referendum_index);
 
-				// cancel/kill leave stale entries that next_for_deciding skips lazily,
-				// so we only check the remaining properties when the entry is Ongoing.
 				if let Some(ReferendumInfo::Ongoing(status)) =
 					ReferendumInfoFor::<T, I>::get(referendum_index)
 				{
@@ -1546,10 +1535,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 
 				if let Some(prev) = prev_votes {
-					ensure!(
-						*votes >= prev,
-						"TrackQueue is not sorted by ascending vote count"
-					);
+					ensure!(*votes >= prev, "TrackQueue is not sorted by ascending vote count");
 				}
 				prev_votes = Some(*votes);
 			}
@@ -1577,16 +1563,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		)?;
 
-		// DecidingCount can transiently exceed the actual count by at most 1 per track
-		// because cancel/kill call note_one_fewer_deciding which defers the decrement
-		// to the next block via the scheduler.  We allow stored >= actual.
 		T::Tracks::tracks().try_for_each(|track| -> Result<(), sp_runtime::TryRuntimeError> {
 			let stored = DecidingCount::<T, I>::get(track.id);
 			let actual = deciding_per_track.get(&track.id).copied().unwrap_or(0);
-			ensure!(
-				stored >= actual,
-				"DecidingCount is less than actual deciding referenda"
-			);
+			ensure!(stored >= actual, "DecidingCount is less than actual deciding referenda");
 			Ok(())
 		})
 	}

@@ -7,7 +7,6 @@ use pallet_referenda::{
 };
 use rand::{rngs::StdRng, Rng};
 
-// O(1) state reads — no iteration over ReferendumInfoFor
 pub struct FuzzState {
 	pub block: u64,
 	pub ref_count: u32,
@@ -110,7 +109,6 @@ pub fn gen_command(rng: &mut StdRng, s: &FuzzState) -> Command {
 	let any_queue_pressure = s.track0_queue_len + 2 >= s.max_queued
 		|| s.track1_queue_len + 2 >= s.max_queued;
 
-	// submit — heavier when tracks are full and queues under pressure
 	let submit_w = match (any_track_full, any_queue_pressure) {
 		(true, true) => 25,
 		(true, false) => 15,
@@ -120,7 +118,6 @@ pub fn gen_command(rng: &mut StdRng, s: &FuzzState) -> Command {
 		Command::Submit { who: rng.gen_range(1..=N_ACCOUNTS) }
 	}));
 
-	// place_deposit — heavily biased when track is full (drives scheduler saturation)
 	if s.ref_count > 0 {
 		let dep_w = if any_track_full { 30 } else { 10 };
 		candidates.push((dep_w, |rng, s| {
@@ -130,7 +127,6 @@ pub fn gen_command(rng: &mut StdRng, s: &FuzzState) -> Command {
 		}));
 	}
 
-	// vote — biased toward recent refs
 	if s.ref_count > 0 {
 		candidates.push((15, |rng, s| {
 			let lo = if s.ref_count > 5 { s.ref_count - s.ref_count / 5 } else { 0 };
@@ -145,14 +141,12 @@ pub fn gen_command(rng: &mut StdRng, s: &FuzzState) -> Command {
 		}));
 	}
 
-	// remove_vote
 	if s.ref_count > 0 {
 		candidates.push((5, |rng, s| {
 			Command::RemoveVote { who: rng.gen_range(1..=N_ACCOUNTS), index: rng.gen_range(0..s.ref_count) }
 		}));
 	}
 
-	// delegate
 	candidates.push((3, |rng, _s| {
 		let who = rng.gen_range(1..=N_ACCOUNTS);
 		let mut to = rng.gen_range(1..=N_ACCOUNTS);
@@ -165,26 +159,22 @@ pub fn gen_command(rng: &mut StdRng, s: &FuzzState) -> Command {
 		}
 	}));
 
-	// undelegate
 	candidates.push((2, |rng, _s| {
 		Command::Undelegate { who: rng.gen_range(1..=N_ACCOUNTS), track: if rng.gen_bool(0.5) { 0 } else { 1 } }
 	}));
 
-	// cancel
 	if s.ref_count > 0 {
 		candidates.push((3, |rng, s| {
 			Command::Cancel { index: rng.gen_range(0..s.ref_count) }
 		}));
 	}
 
-	// kill
 	if s.ref_count > 0 {
 		candidates.push((3, |rng, s| {
 			Command::Kill { index: rng.gen_range(0..s.ref_count) }
 		}));
 	}
 
-	// refund deposits
 	if s.ref_count > 0 {
 		candidates.push((3, |rng, s| {
 			let index = rng.gen_range(0..s.ref_count);
@@ -196,7 +186,6 @@ pub fn gen_command(rng: &mut StdRng, s: &FuzzState) -> Command {
 		}));
 	}
 
-	// advance blocks — lower weight when track full to let refs accumulate
 	let adv_w = if any_track_full { 3 } else { 8 };
 	candidates.push((adv_w, |rng, _s| {
 		Command::AdvanceBlocks { n: rng.gen_range(1..6) }

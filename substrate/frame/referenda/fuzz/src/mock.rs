@@ -5,7 +5,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_conviction_voting::Conviction;
 use pallet_referenda::Track;
 use sp_runtime::{str_array as s, traits::BlakeTwo256, BuildStorage, Perbill};
 
@@ -210,5 +209,5 @@ pub fn set_balance_proposal_bounded(
 }
 
 pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-    Referenda::do_try_state()
+	Referenda::do_try_state()
 }
