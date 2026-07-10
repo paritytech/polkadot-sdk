@@ -36,16 +36,6 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
-/// Extra ref_time for the in-memory lookup a hot persistent storage access performs.
-/// That lookup hits either the overlay (`O(log N)` in the keys written this block,
-/// bounded by the PoV cap) or the value cache (`O(1)`, on a read-after-read), and adds
-/// no PoV. The base `_hot` bench measures it only at a near-empty overlay, so this 2µs
-/// is added on top to cover the growth at scale: a safe round-up of the sub-µs
-/// transient-storage measurements (reference-machine scale).
-// TODO: replace with a faithful `OverlayProbe` bench once the `sp-state-machine` overlay
-// exposure lands.
-const HOT_STORAGE_OVERLAY_OVERHEAD: Weight = Weight::from_parts(2_000_000, 0);
-
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
@@ -227,6 +217,13 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
+	/// Extra ref_time a hot storage access pays to look up the block's overlay.
+	fn hot_storage_overlay_overhead<T: Config>() -> Weight {
+		let per_read = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
+		per_read(T::WeightInfo::overlay_probe_full)
+			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
+	}
+
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
 		kind: StorageAccessKind,
@@ -246,7 +243,7 @@ impl RuntimeCosts {
 				}
 			},
 			StorageAccessKind::Persistent(Warmth::Hot) => hot()
-				.saturating_add(HOT_STORAGE_OVERLAY_OVERHEAD)
+				.saturating_add(Self::hot_storage_overlay_overhead::<T>())
 				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
 				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
 			StorageAccessKind::Transient => transient(),
@@ -434,5 +431,15 @@ mod tests {
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
 			);
 		}
+	}
+
+	#[test]
+	fn hot_storage_overlay_overhead_is_not_zero() {
+		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
+		assert!(
+			overhead.ref_time() > 0,
+			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
+		);
+		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
 	}
 }
