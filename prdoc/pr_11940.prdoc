@@ -24,4 +24,6 @@ crates:
 - name: polkadot-voter-bags
   bump: patch
 - name: polkadot-sdk
+  bump: patch
+- name: pallet-staking-async-ah-client
   bump: minor
