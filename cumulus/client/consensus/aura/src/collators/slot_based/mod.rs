@@ -312,7 +312,8 @@ enum CollatorMessage<Block: BlockT> {
 /// `unincluded_headers`) to the freshly-built `bundle`, all sharing the same `scheduling_proof`.
 struct CollatorSegmentMessage<Block: BlockT> {
 	/// Scheduling proof shared by the whole segment. Segments are V3/V4-only, so this is always
-	/// present; the segment's scheduling parent is derived from `scheduling_proof.scheduling_parent()`.
+	/// present; the segment's scheduling parent is derived from
+	/// `scheduling_proof.scheduling_parent()`.
 	pub scheduling_proof: SchedulingProof,
 	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,

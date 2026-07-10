@@ -83,16 +83,18 @@ impl<Block: BlockT> ParentSearchResult<Block> {
 	/// The included block (relay-chain-confirmed head of the parachain) at the scheduling parent.
 	pub fn included_at_scheduling(&self) -> &Block::Header {
 		match self {
-			Self::V2 { included_at_scheduling, .. } | Self::V3 { included_at_scheduling, .. } =>
-				included_at_scheduling,
+			Self::V2 { included_at_scheduling, .. } | Self::V3 { included_at_scheduling, .. } => {
+				included_at_scheduling
+			},
 		}
 	}
 
 	/// The block to build the next parablock on top of.
 	pub fn best_parent_header(&self) -> &Block::Header {
 		match self {
-			Self::V2 { best_parent_header, .. } | Self::V3 { best_parent_header, .. } =>
-				best_parent_header,
+			Self::V2 { best_parent_header, .. } | Self::V3 { best_parent_header, .. } => {
+				best_parent_header
+			},
 		}
 	}
 
@@ -119,8 +121,9 @@ impl<Block: BlockT> ParentSearchResult<Block> {
 	/// Fall the best parent back to the included block (the segment becomes empty for V3).
 	pub fn fall_back_to_included(&mut self) {
 		match self {
-			Self::V2 { best_parent_header, included_at_scheduling } =>
-				*best_parent_header = included_at_scheduling.clone(),
+			Self::V2 { best_parent_header, included_at_scheduling } => {
+				*best_parent_header = included_at_scheduling.clone()
+			},
 			Self::V3 { best_parent_header, included_at_scheduling, unincluded_segment } => {
 				*best_parent_header = included_at_scheduling.clone();
 				unincluded_segment.clear();

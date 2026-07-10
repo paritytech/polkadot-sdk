@@ -97,7 +97,8 @@ where
 	let mut current: Vec<Block::Header> = Vec::new();
 	let mut prev_index: Option<u8> = None;
 	for header in headers {
-		let index = CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
+		let index =
+			CumulusDigestItem::find_block_bundle_info(header.digest()).map(|info| info.index);
 		let continues = match (prev_index, index) {
 			(Some(prev), Some(idx)) => prev.checked_add(1) == Some(idx),
 			_ => false,
