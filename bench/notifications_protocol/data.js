@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783707727931,
+  "lastUpdate": 1783718251483,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -190847,6 +190847,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2519322952,
             "range": "± 105964699",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d8a63875d44e926590f741574d36c8136d60cfc",
+          "message": "pallet-revive: support finalized/safe/pending block tags in eth_getLogs (#12474)\n\n## Summary\n\n`eth_getLogs` resolves the `fromBlock`/`toBlock` fields of a filter to\nconcrete block numbers. The resolver only handled explicit block numbers\nand the `earliest` and `latest` tags, rejecting `finalized`, `safe` and\n`pending`:\n\n```rust\nBlockNumberOrTag::BlockTag(tag) => anyhow::bail!(\"Unsupported tag: {tag:?}\"),\n```\n\nThese tags are part of the standard Ethereum JSON-RPC block parameter,\nand the rest of the eth-rpc server already accepts them — e.g.\n`block_hash_for_tag` / `block_by_number_or_tag`, used by\n`eth_getBalance`, `eth_call`, `eth_getStorageAt`. So a filter that works\nfor those methods fails for `eth_getLogs`.\n\n## Fix\n\nResolve all standard block tags, consistent with the existing\n`block_hash_for_tag`:\n- `safe` / `finalized` → latest finalized block\n- `pending` → `latest`\n- `earliest` → earliest block\n\nThe tag→number mapping is extracted into a small\n`resolve_filter_block_number` helper and covered by a unit test. Making\nthe `match` exhaustive over `BlockTag` also means a future tag variant\nbecomes a compile error rather than a silent runtime rejection.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc` — new\n`resolve_filter_block_number_supports_all_block_tags` passes.\n- `cargo +nightly fmt` clean.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-10T19:51:50Z",
+          "tree_id": "5d1d2ac1d6635f20eb3e570b4fa8c93ed69536a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d8a63875d44e926590f741574d36c8136d60cfc"
+        },
+        "date": 1783718222071,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4523591,
+            "range": "± 25728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 301384,
+            "range": "± 2795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4365348,
+            "range": "± 33307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 370480,
+            "range": "± 7008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5336695,
+            "range": "± 83304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 889624,
+            "range": "± 10224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10807369,
+            "range": "± 64938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4822389,
+            "range": "± 58743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46031111,
+            "range": "± 575740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38994718,
+            "range": "± 409348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 381051887,
+            "range": "± 2496300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 311214851,
+            "range": "± 2411895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2833114675,
+            "range": "± 58512181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2422607335,
+            "range": "± 167534769",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3401381,
+            "range": "± 18711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1805938,
+            "range": "± 9576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3497455,
+            "range": "± 19019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1882248,
+            "range": "± 12224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4057721,
+            "range": "± 21435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2197131,
+            "range": "± 10869",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8021452,
+            "range": "± 31086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5264875,
+            "range": "± 41136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38016827,
+            "range": "± 522851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37256746,
+            "range": "± 243840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 331844800,
+            "range": "± 2857184",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 285260643,
+            "range": "± 2285269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2671877712,
+            "range": "± 45340725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2490439507,
+            "range": "± 90730912",
             "unit": "ns/iter"
           }
         ]
