@@ -1,0 +1,20 @@
+title: 'feat(webrtc): certificate, can now be managed like node secret key'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    The WebRTC certificate, which determines the node's WebRTC `/certhash`, can now be managed like the node secret key.
+
+    ## Integration
+
+    A new `key generate-webrtc-certificate` subcommand generates a certificate, writes it to a file (or stdout) and prints the corresponding certhash to stderr, mirroring `key generate-node-key`.
+
+    Additionally, `--experimental-webrtc` now accepts an optional certificate file path (`--experimental-webrtc=<CERT_FILE>`): the certificate is loaded from the file if it exists, or generated and persisted there otherwise.
+
+    Without a path the behavior is unchanged, the certificate is loaded from or generated at `<base_path>/chains/<chain_id>/network/webrtc_certificate`.
+crates:
+- name: sc-cli
+  bump: major
+- name: sc-network
+  bump: major
