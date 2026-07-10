@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783709079794,
+  "lastUpdate": 1783720016580,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "31f8f8d08d0d0b2eae6d9cc96f8076bd4fbe63e3",
-          "message": "Cumulus: fix pre-connect to backers for lonely collators (#10305)\n\nWhen running a single collator (most commonly on testnets), the block\nbuilder task is always able to claim a slot, so we're never triggering\nthe pre-connect mechanism which happens for slots owned by other\nauthors.\nAdditionally I fixed some tests.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-14T15:33:07Z",
-          "tree_id": "47c76b90391c799b1c863abfaa20bf50b9d35893",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/31f8f8d08d0d0b2eae6d9cc96f8076bd4fbe63e3"
-        },
-        "date": 1763138386841,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.284507250633336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1961767276,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.586225933466668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d8a63875d44e926590f741574d36c8136d60cfc",
+          "message": "pallet-revive: support finalized/safe/pending block tags in eth_getLogs (#12474)\n\n## Summary\n\n`eth_getLogs` resolves the `fromBlock`/`toBlock` fields of a filter to\nconcrete block numbers. The resolver only handled explicit block numbers\nand the `earliest` and `latest` tags, rejecting `finalized`, `safe` and\n`pending`:\n\n```rust\nBlockNumberOrTag::BlockTag(tag) => anyhow::bail!(\"Unsupported tag: {tag:?}\"),\n```\n\nThese tags are part of the standard Ethereum JSON-RPC block parameter,\nand the rest of the eth-rpc server already accepts them — e.g.\n`block_hash_for_tag` / `block_by_number_or_tag`, used by\n`eth_getBalance`, `eth_call`, `eth_getStorageAt`. So a filter that works\nfor those methods fails for `eth_getLogs`.\n\n## Fix\n\nResolve all standard block tags, consistent with the existing\n`block_hash_for_tag`:\n- `safe` / `finalized` → latest finalized block\n- `pending` → `latest`\n- `earliest` → earliest block\n\nThe tag→number mapping is extracted into a small\n`resolve_filter_block_number` helper and covered by a unit test. Making\nthe `match` exhaustive over `BlockTag` also means a future tag variant\nbecomes a compile error rather than a silent runtime rejection.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc` — new\n`resolve_filter_block_number_supports_all_block_tags` passes.\n- `cargo +nightly fmt` clean.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-10T19:51:50Z",
+          "tree_id": "5d1d2ac1d6635f20eb3e570b4fa8c93ed69536a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d8a63875d44e926590f741574d36c8136d60cfc"
+        },
+        "date": 1783719984241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13580066913333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.776219437233333,
             "unit": "seconds"
           }
         ]
