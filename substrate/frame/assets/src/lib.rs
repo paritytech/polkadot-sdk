@@ -214,14 +214,19 @@ pub trait AssetsCallback<AssetId, AccountId, Balance> {
 		Ok(())
 	}
 
+	/// Indicates that `amount` of asset `id` was minted into `owner`, increasing total supply.
 	fn issued(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
 
+	/// Indicates that `amount` of asset `id` was moved from `from` to `to`.
 	fn transferred(_id: &AssetId, _from: &AccountId, _to: &AccountId, _amount: Balance) {}
 
+	/// Indicates that `amount` of asset `id` was burned from `owner`, decreasing total supply.
 	fn burned(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
 
+	/// Indicates that `amount` of asset `id` was credited to `who` without changing total supply.
 	fn deposited(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
 
+	/// Indicates that `amount` of asset `id` was debited from `who` without changing total supply.
 	fn withdrawn(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
 }
 
