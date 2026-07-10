@@ -440,11 +440,12 @@ impl QueryIndex {
 			return Ok(());
 		};
 
+		let mut seen = HashSet::new();
 		for t in match_any_topics {
 			let set = self.by_topic.get(t);
 
 			for item in set.iter().flat_map(|set| set.iter()) {
-				if key_set.contains(item) {
+				if key_set.contains(item) && seen.insert(*item) {
 					log::trace!(
 						target: LOG_TARGET,
 						"Iterating by topic/key: statement {:?}",
@@ -3429,5 +3430,24 @@ mod tests {
 		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
 		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
+	}
+
+	#[test]
+	fn match_any_historical_snapshot_deduplicates_multi_topic_statement() {
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let topic_a = topic(1);
+		let topic_b = topic(2);
+		let statement = signed_statement_with_topics(1, &[topic_a, topic_b], None);
+
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+
+		let filter =
+			OptimizedTopicFilter::MatchAny(std::collections::HashSet::from([topic_a, topic_b]));
+		let (existing, _sender, _stream) = store.subscribe_statement(filter).unwrap();
+
+		assert_eq!(existing.len(), 1);
 	}
 }
