@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783720060104,
+  "lastUpdate": 1783728054730,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d393f375cd06cc7d898baf9aea4dccc08dc430b6",
-          "message": "[CI/CD] Check semver job improvements (#10323)\n\nThis PR adds couple of improvements to the Check semver job for the\nstable branches:\n1. The `validate: false` option can be set now not only on the `mojor`\nbumps but on the `minor` and `patch` as well, this one is useful when\nfor the backport cases when a desired bump does not match with the one,\nthat `parity-publish` semver check has predicted (like\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/19135068993/job/54685184577?pr=10221))\n2. Possibility to skip check, when it is really not needed but still\nfails (like on the post crates release\n[prs](https://github.com/paritytech/polkadot-sdk/actions/runs/18311557391/job/52141285274?pr=9951))\n\ncloses: https://github.com/paritytech/release-engineering/issues/274",
-          "timestamp": "2025-11-14T14:28:17Z",
-          "tree_id": "3f7c30e5977ccc6cc31219ad3606eb57052b560f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d393f375cd06cc7d898baf9aea4dccc08dc430b6"
-        },
-        "date": 1763134600581,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022922494886666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01320220172666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16234042214000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0071913113133333225,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02377839035333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d812dc95ac79216273115b646b9816c20dba2b4",
+          "message": "Remove deprecated StorageIterator and StorageKeyIterator (#12150)\n\n# Description\n\nRemoves deprecated `migration::StorageIterator` and\n`migration::StorageKeyIterator` as part of #11561.\n\nDeprecated in July 2023. Use `storage_iter` / `storage_iter_with_suffix`\nand `storage_key_iter` / `storage_key_iter_with_suffix` instead. No\nremaining in-repo usage.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- StorageIterator::<T>::new(module, item)\n+ storage_iter::<T>(module, item)\n\n- StorageKeyIterator::<K, T, H>::new(module, item)\n+ storage_key_iter::<K, T, H>(module, item)\n```\nReview Notes\n\n- Single file: substrate/frame/support/src/storage/migration.rs\n- Replacement free functions already exist and are used in-tree\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-10T22:14:32Z",
+          "tree_id": "43b6d40f2879a7c3f5692e37c9705da2ee33e925",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d812dc95ac79216273115b646b9816c20dba2b4"
+        },
+        "date": 1783728024316,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0075272590133333315,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02367160393333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14772709203999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010162586519999984,
             "unit": "seconds"
           }
         ]
