@@ -9,13 +9,26 @@ doc:
     hand-written `impl AssetsCallback<Id, Acct>` must add it (implementations wired only as
     `CallbackHandle` need no change beyond a recompile).
 
-    `pallet_revive::Pallet::emit_contract_log` is exposed as the single EVM-log emission path.
+    `pallet_revive::Pallet::emit_contract_log` is exposed for runtime components that mirror
+    non-contract activity as EVM logs from outside any contract call frame. The call tracer gains
+    a matching `Tracing::log_event_outside_frame` hook so tracing a block that contains such a log
+    no longer panics; the in-frame `log_event` (the `LOG` opcode) keeps its active-frame invariant.
 
     A new `Erc20TransferLogsCallback` callback in `pallet-assets-precompiles` mirrors those balance
     changes as canonical ERC-20 `Transfer` logs at the asset's precompile address, so plain
     substrate asset activity is visible to Ethereum log consumers. The `ERC20` precompile no
     longer emits its own `Transfer` log; wire `Erc20TransferLogsCallback` as the instance's
-    `CallbackHandle` to keep precompile transfers logged.
+    `CallbackHandle` to keep precompile transfers logged. On Asset Hub Westend it is wired for the
+    trust-backed and pool asset instances (both inline-id); foreign assets are not yet covered
+    (the callback requires the inline `AssetIdExtractor`).
+
+    Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
+      - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
+        same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
+      - Weights: the extrinsic-path mirror log must be benchmarked (`/cmd bench`) before production;
+        the placeholder weight leaves it effectively unmetered.
+      - Foreign assets: the inline-only callback does not cover bridged assets; a foreign-id variant
+        is needed if those must also surface Transfer logs.
 crates:
 - name: pallet-assets
   bump: major
@@ -23,3 +36,5 @@ crates:
   bump: minor
 - name: pallet-assets-precompiles
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: major
