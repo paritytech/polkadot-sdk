@@ -1991,16 +1991,21 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 
 	let receipt_block_number = u32::try_from(receipt.block_number)
 		.map_err(|_| anyhow!("receipt block number should fit in u32"))?;
-	let subxt_block = node_client.blocks().at_latest().await?;
-	assert_eq!(subxt_block.number(), receipt_block_number);
+	let subxt_block = node_client.at_block(receipt_block_number).await?;
+	assert_eq!(subxt_block.block_number(), u64::from(receipt_block_number));
 
-	let parent_hash = subxt_block.header().parent_hash;
-	let header = codec::Decode::decode(&mut &codec::Encode::encode(subxt_block.header())[..])?;
+	let subxt_header = subxt_block.block_header().await?;
+	let parent_hash = subxt_header.parent_hash;
+	let header = codec::Decode::decode(&mut &codec::Encode::encode(&subxt_header)[..])?;
 	let extrinsics = subxt_block
 		.extrinsics()
+		.fetch()
 		.await?
 		.iter()
-		.map(|extrinsic| sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic.bytes()))
+		.map(|extrinsic| {
+			sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic?.bytes())
+				.map_err(anyhow::Error::from)
+		})
 		.collect::<Result<Vec<_>, _>>()?;
 	let block = SubstrateTracingBlock { header, extrinsics };
 	let config = TracerTypeV1::CallTracer(Some(CallTracerConfigV1 {
