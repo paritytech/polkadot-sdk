@@ -122,6 +122,8 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r
         .with_chain("rococo-local")
         .with_default_command("polkadot")
+        .with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+        .chain_spec_command_is_local(true)
         .with_default_image(polkadot_image.as_str())
         .with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
         .with_genesis_overrides(json!({
@@ -178,6 +180,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				// Use an old image that does not send out v2 receipts, as the old validators will
 				// still check the collator signatures.
 				.with_default_command(format!("polkadot-parachain{old_suffix}").as_str())
+				.with_chain_spec_command(
+					format!("polkadot-parachain{old_suffix} export-chain-spec --chain {{{{chainName}}}} --raw")
+						.as_str(),
+				)
+				.chain_spec_command_is_local(true)
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name(&format!("collator-{para_id}")))
 		})

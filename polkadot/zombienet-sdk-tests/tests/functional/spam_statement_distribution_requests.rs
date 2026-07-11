@@ -27,6 +27,8 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					// parachain::statement-distribution=trace to find
@@ -73,6 +75,8 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("undying-collator")
+				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}} --raw")
+				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(
 					std::env::var("COL_IMAGE")
@@ -85,6 +89,8 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.with_parachain(|p| {
 			p.with_id(2001)
 				.with_default_command("undying-collator")
+				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}} --raw")
+				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(
 					std::env::var("COL_IMAGE")
