@@ -23,6 +23,10 @@ use tokio::sync::RwLock;
 /// The size of the fee history cache.
 const CACHE_SIZE: u32 = 1024;
 
+/// The maximum number of reward percentiles accepted in a single `eth_feeHistory` request,
+/// matching go-ethereum's query limit.
+const MAX_REWARD_PERCENTILES: usize = 100;
+
 #[derive(Default, Clone)]
 struct FeeHistoryCacheItem {
 	base_fee: u128,
@@ -43,10 +47,16 @@ fn reward_bucket_index(percentile: f64) -> usize {
 
 /// Validates the reward percentiles requested via `eth_feeHistory`.
 ///
-/// Matching go-ethereum, each percentile must lie within `0.0..=100.0` and the list must be
-/// strictly increasing; otherwise the request is rejected rather than silently clamped or
-/// approximated at the wrong bucket. Returns the rejection reason as the error message.
+/// Matching go-ethereum, the list may hold at most [`MAX_REWARD_PERCENTILES`] entries, each
+/// percentile must lie within `0.0..=100.0`, and the list must be strictly increasing; otherwise
+/// the request is rejected rather than silently clamped or approximated at the wrong bucket.
+/// Returns the rejection reason as the error message.
 pub(crate) fn validate_reward_percentiles(percentiles: &[f64]) -> Result<(), String> {
+	if percentiles.len() > MAX_REWARD_PERCENTILES {
+		return Err(format!(
+			"invalid reward percentile: over the query limit {MAX_REWARD_PERCENTILES}"
+		));
+	}
 	for (i, &p) in percentiles.iter().enumerate() {
 		if !(0.0..=100.0).contains(&p) {
 			return Err(format!("invalid reward percentile: {p}"));
@@ -257,4 +267,10 @@ fn validate_reward_percentiles_matches_geth() {
 	// A non-increasing list is rejected, including equal adjacent values.
 	assert!(validate_reward_percentiles(&[50.0, 20.0]).is_err());
 	assert!(validate_reward_percentiles(&[20.0, 20.0]).is_err());
+
+	// The number of percentiles is capped: a list at the limit is accepted, one over is not.
+	let at_limit: Vec<f64> = (0..MAX_REWARD_PERCENTILES).map(|i| i as f64 * 0.5).collect();
+	assert!(validate_reward_percentiles(&at_limit).is_ok());
+	let over_limit: Vec<f64> = (0..=MAX_REWARD_PERCENTILES).map(|i| i as f64 * 0.5).collect();
+	assert!(validate_reward_percentiles(&over_limit).is_err());
 }
