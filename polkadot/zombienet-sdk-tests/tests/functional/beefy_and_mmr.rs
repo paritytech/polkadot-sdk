@@ -14,6 +14,7 @@ use futures::future::try_join_all;
 use std::collections::HashMap;
 use zombienet_sdk::{
 	subxt::{
+		self,
 		ext::subxt_rpcs::client::{rpc_params, RpcParams},
 		OnlineClient, PolkadotConfig,
 	},
@@ -151,7 +152,7 @@ async fn mmr_generate_and_verify_proof(
 
 async fn get_mmr_num_of_leaves(node: &NetworkNode) -> Result<u128, anyhow::Error> {
 	let client: OnlineClient<PolkadotConfig> = node.wait_client().await?;
-	let storage_query = zombienet_sdk::subxt::dynamic::storage("Mmr", "NumberOfLeaves", vec![]);
+	let storage_query = subxt::dynamic::storage("Mmr", "NumberOfLeaves", vec![]);
 	let result = client.storage().at_latest().await?.fetch(&storage_query).await?;
 	let value = result
 		.ok_or(anyhow!("Should have a valid response"))?

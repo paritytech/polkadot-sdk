@@ -9,7 +9,7 @@ use crate::utils::{
 };
 use anyhow::{anyhow, Result};
 use zombienet_sdk::{
-	subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient},
+	subxt::{self, config::substrate::SubstrateConfig, dynamic::tx, OnlineClient},
 	subxt_signer::sr25519::dev,
 	Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
@@ -139,11 +139,8 @@ async fn submit_transaction_and_wait_finalization(node: &NetworkNode) -> Result<
 	let client: OnlineClient<SubstrateConfig> = node.wait_client::<SubstrateConfig>().await?;
 	let signer = dev::alice();
 
-	let remark_call = tx(
-		"System",
-		"remark",
-		vec![zombienet_sdk::subxt::dynamic::Value::from_bytes(REMARK_PAYLOAD)],
-	);
+	let remark_call =
+		tx("System", "remark", vec![subxt::dynamic::Value::from_bytes(REMARK_PAYLOAD)]);
 
 	tokio::time::timeout(Duration::from_secs(TRANSACTION_TIMEOUT_SECS), async {
 		client
@@ -160,7 +157,7 @@ async fn submit_transaction_and_wait_finalization(node: &NetworkNode) -> Result<
 }
 
 async fn build_client_with_large_payload(url: &str) -> Result<OnlineClient<SubstrateConfig>> {
-	use zombienet_sdk::subxt::ext::jsonrpsee::{
+	use subxt::ext::jsonrpsee::{
 		client_transport::ws::{Url, WsTransportClientBuilder},
 		core::client::Client,
 	};
@@ -187,11 +184,8 @@ async fn submit_large_remark_and_wait_finalization(node: &NetworkNode) -> Result
 	let signer = dev::alice();
 
 	let large_payload = vec![0u8; LARGE_REMARK_SIZE];
-	let remark_call = tx(
-		"System",
-		"remark",
-		vec![zombienet_sdk::subxt::dynamic::Value::from_bytes(&large_payload)],
-	);
+	let remark_call =
+		tx("System", "remark", vec![subxt::dynamic::Value::from_bytes(&large_payload)]);
 
 	log::info!("Submitting {} MiB remark transaction", LARGE_REMARK_SIZE / (1024 * 1024));
 
@@ -206,7 +200,7 @@ async fn submit_large_remark_and_wait_finalization(node: &NetworkNode) -> Result
 			let block_hash = in_block.block_hash();
 			in_block.wait_for_success().await?;
 			let block = client.blocks().at(block_hash).await?;
-			Ok::<u32, zombienet_sdk::subxt::Error>(block.number())
+			Ok::<u32, subxt::Error>(block.number())
 		})
 		.await
 		.map_err(|_| anyhow!("large remark transaction timed out"))??;
