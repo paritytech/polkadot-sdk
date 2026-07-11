@@ -166,18 +166,41 @@ jobs:
           name: release-notes-context
           path: |
             scripts/release/context.json
+            scripts/release/RELEASE_DRAFT.md
+            scripts/release/templates/changelog.md
             **/*-srtool-digest.json
 
       - name: Create draft release
         id: create-release
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          RELEASE_NOTES: ${{ github.workspace }}/scripts/release/RELEASE_DRAFT.md
         run: |
+          # GitHub caps the release body at 125000 characters. If the generated
+          # notes exceed that, `gh release create` fails with a 422 and the whole
+          # release (including the artifacts attached by the downstream jobs) is
+          # never published. Instead of failing, fall back to a short placeholder
+          # body so the draft is created and the artifacts still get attached; the
+          # full notes remain available via the `release-notes-context` artifact.
+          MAX_BODY_LENGTH=125000
+          NOTES_FILE="$RELEASE_NOTES"
+          BODY_LENGTH=$(wc -m < "$NOTES_FILE")
+
+          if [[ "$BODY_LENGTH" -gt "$MAX_BODY_LENGTH" ]]; then
+            echo "::warning::Release notes are ${BODY_LENGTH} characters, exceeding the GitHub limit of ${MAX_BODY_LENGTH}. Publishing the draft with a placeholder body; artifacts will still be attached and the full notes are available in the 'release-notes-context' artifact."
+            NOTES_FILE="${{ github.workspace }}/scripts/release/RELEASE_DRAFT_FALLBACK.md"
+            printf '%s\n' \
+              "The auto-generated release notes exceeded GitHub's maximum release body size (${MAX_BODY_LENGTH} characters) and were omitted from this draft." \
+              "" \
+              "The full release notes are available in the \`release-notes-context\` artifact of the release workflow run and should be added to this draft manually." \
+              > "$NOTES_FILE"
+          fi
+
           gh release create ${{ env.REL_TAG }} \
             --repo paritytech/polkadot-sdk \
             --draft \
             --title "Polkadot ${{ env.REL_TAG }}" \
-            --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
+            --notes-file "$NOTES_FILE"
 
   publish-runtimes:
     if: ${{ inputs.crates_only == false && inputs.no_runtimes == false }}

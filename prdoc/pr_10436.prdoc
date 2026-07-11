@@ -9,7 +9,7 @@ doc:
     - When `Some(storage_name)` is provided, only that specific storage is cleared
     - When `None` is provided, all storage for the pallet is cleared
 
-    This is the recommended replacement for the now-deprecated
+    This is the recommended alternative to
     `frame_support::migrations::RemoveStorage`, which could brick chains if
     the storage removal exceeded block weight limits.
 
@@ -27,7 +27,3 @@ crates:
   bump: minor
 - name: frame-support
   bump: minor
-- name: bridge-hub-rococo-runtime
-  bump: patch
-- name: bridge-hub-westend-runtime
-  bump: patch

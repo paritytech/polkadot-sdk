@@ -33,7 +33,6 @@ use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
@@ -238,26 +237,20 @@ where
 /// If the best parent does not pass `filter_parent`, walks backwards through ancestors
 /// until finding one that does, or reaching the included block.
 async fn find_parent<Block>(
-	relay_parent: RelayHash,
-	para_id: ParaId,
-	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
+	para_backend: &impl sc_client_api::Backend<Block>,
+	para_id: ParaId,
+	params: ParentSearchParams,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
-	let ancestry_lookback = relay_client
-		.scheduling_lookahead(relay_parent)
-		.await
-		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-		.saturating_sub(1) as usize;
-	let parent_search_params = ParentSearchParams { relay_parent, para_id, ancestry_lookback };
-
 	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
-		parent_search_params,
-		para_backend,
 		relay_client,
+		para_backend,
+		para_id,
+		params.clone(),
 	)
 	.await
 	{
@@ -265,7 +258,7 @@ where
 		Ok(None) => {
 			tracing::warn!(
 				target: crate::LOG_TARGET,
-				?relay_parent,
+				?params,
 				"Could not find parent to build upon.",
 			);
 			return None;
@@ -273,7 +266,7 @@ where
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
-				?relay_parent,
+				?params,
 				err = ?e,
 				"Could not find parent to build upon"
 			);
@@ -290,12 +283,12 @@ where
 		match para_backend.blockchain().header(parent_hash) {
 			Ok(Some(header)) => {
 				result.best_parent_header = header;
-				if parent_hash == result.included_header.hash() {
+				if parent_hash == result.included_at_scheduling.hash() {
 					break;
 				}
 			},
 			_ => {
-				result.best_parent_header = result.included_header.clone();
+				result.best_parent_header = result.included_at_scheduling.clone();
 				break;
 			},
 		}

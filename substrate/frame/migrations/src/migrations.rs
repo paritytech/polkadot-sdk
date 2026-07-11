@@ -142,8 +142,8 @@ where
 /// storage name. It uses the multi-block migration framework, making it safe to use even when
 /// clearing large amounts of storage data.
 ///
-/// This is the recommended replacement for the deprecated
-/// [`frame_support::migrations::RemoveStorage`].
+/// This is the recommended alternative to [`frame_support::migrations::RemoveStorage`] when the
+/// storage to remove may exceed a single block's weight limit.
 ///
 /// # Parameters
 ///

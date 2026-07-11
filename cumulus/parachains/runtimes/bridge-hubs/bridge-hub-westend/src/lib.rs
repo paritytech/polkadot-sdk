@@ -163,6 +163,11 @@ pub type Migrations = (
 		Runtime,
 		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 	>,
+	frame_support::migrations::RemoveStorage<
+		BridgeRococoMessagesPalletName,
+		OutboundLanesCongestedSignalsKey,
+		RocksDbWeight,
+	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_common_config::BridgeRelayersInstance,
@@ -244,7 +249,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,

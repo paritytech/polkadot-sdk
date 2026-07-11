@@ -84,6 +84,11 @@ pub use cumulus_client_cli;
 #[cfg(feature = "cumulus-client-collator")]
 pub use cumulus_client_collator;
 
+/// Parachain collator authority discovery — keeps collators connected via reserved peers on
+/// the block-announce protocol.
+#[cfg(feature = "cumulus-client-collator-discovery")]
+pub use cumulus_client_collator_discovery;
+
 /// AURA consensus algorithm for parachains.
 #[cfg(feature = "cumulus-client-consensus-aura")]
 pub use cumulus_client_consensus_aura;
@@ -222,6 +227,10 @@ pub use ethereum_standards;
 /// finalizing nodes.
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
+
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "fp-coretime")]
+pub use fp_coretime;
 
 /// Macro for benchmarking a FRAME runtime.
 #[cfg(feature = "frame-benchmarking")]
@@ -663,6 +672,11 @@ pub use pallet_revive;
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
+
+/// Wire types used by pallet-revive which have higher stability guarantees than internal
+/// pallet-revive types.
+#[cfg(feature = "pallet-revive-types")]
+pub use pallet_revive_types;
 
 /// Exposes all the host functions that a contract can import.
 #[cfg(feature = "pallet-revive-uapi")]
