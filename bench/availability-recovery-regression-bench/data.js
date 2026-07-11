@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783720016580,
+  "lastUpdate": 1783728015285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a2165432ce392662b142dbfe75b9bfd3914a59a2",
-          "message": "frame-system: Only enable special benchmarking code when running in `no_std` (#10321)\n\nThis fixes `cargo test -p cumulus-pallet-parachain-system --features\nruntime-benchmarks`",
-          "timestamp": "2025-11-14T16:32:17Z",
-          "tree_id": "4a2f6c52d4d107188868f1b069efd0b710968e03",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2165432ce392662b142dbfe75b9bfd3914a59a2"
-        },
-        "date": 1763142106463,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19818545293333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.286211599866666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.776219437233333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d812dc95ac79216273115b646b9816c20dba2b4",
+          "message": "Remove deprecated StorageIterator and StorageKeyIterator (#12150)\n\n# Description\n\nRemoves deprecated `migration::StorageIterator` and\n`migration::StorageKeyIterator` as part of #11561.\n\nDeprecated in July 2023. Use `storage_iter` / `storage_iter_with_suffix`\nand `storage_key_iter` / `storage_key_iter_with_suffix` instead. No\nremaining in-repo usage.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- StorageIterator::<T>::new(module, item)\n+ storage_iter::<T>(module, item)\n\n- StorageKeyIterator::<K, T, H>::new(module, item)\n+ storage_key_iter::<K, T, H>(module, item)\n```\nReview Notes\n\n- Single file: substrate/frame/support/src/storage/migration.rs\n- Replacement free functions already exist and are used in-tree\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-10T22:14:32Z",
+          "tree_id": "43b6d40f2879a7c3f5692e37c9705da2ee33e925",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d812dc95ac79216273115b646b9816c20dba2b4"
+        },
+        "date": 1783727985252,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.710096633966668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14057629926666665,
             "unit": "seconds"
           }
         ]
