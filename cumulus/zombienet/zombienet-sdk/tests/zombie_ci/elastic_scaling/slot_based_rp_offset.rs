@@ -53,7 +53,9 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 		.with_parachain(|p| {
 			p.with_id(2400)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"test-parachain export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("relay-parent-offset")

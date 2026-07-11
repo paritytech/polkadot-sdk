@@ -168,7 +168,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			.cumulus_based(false)
 			.with_default_image(col_image.as_str())
 			.with_default_command("undying-collator")
-			.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}} --raw")
+			.with_chain_spec_command(
+				"undying-collator export-chain-spec --chain {{chainName}} --raw",
+			)
 			.chain_spec_command_is_local(true)
 			.with_default_args(vec!["-lparachain=debug".into()])
 			.with_collator(|n| n.with_name("collator"))

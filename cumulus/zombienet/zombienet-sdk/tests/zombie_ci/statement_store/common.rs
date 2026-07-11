@@ -240,7 +240,7 @@ async fn launch_network(
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
 
-		let config = NetworkConfigBuilder::new()
+	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")

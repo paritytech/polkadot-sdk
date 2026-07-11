@@ -51,7 +51,9 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 		config_builder = config_builder.with_parachain(|p| {
 			p.with_id(para_id)
 				.with_default_command("undying-collator")
-				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"undying-collator export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(
 					std::env::var("COL_IMAGE")

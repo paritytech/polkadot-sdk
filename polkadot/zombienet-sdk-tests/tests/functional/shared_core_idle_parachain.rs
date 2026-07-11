@@ -54,7 +54,9 @@ async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 				// assign it to the para.
 				.onboard_as_parachain(false)
 				.with_default_command("polkadot-parachain")
-				.with_chain_spec_command("polkadot-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![

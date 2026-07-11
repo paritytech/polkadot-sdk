@@ -56,7 +56,9 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			// Use default, which has 6 second slot time. Also, don't use slot-based collator.
 			p.with_id(2000)
 				.with_default_command("polkadot-parachain")
-				.with_chain_spec_command("polkadot-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])

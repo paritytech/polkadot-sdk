@@ -58,7 +58,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2100)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"test-parachain export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-mvp")
@@ -71,7 +73,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2200)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"test-parachain export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling")

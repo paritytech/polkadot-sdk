@@ -186,7 +186,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				}))
 				.with_default_image(col_image.as_str())
 				.with_default_command("polkadot-parachain")
-				.with_chain_spec_command("polkadot-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_args(args)
 				.with_collator(|n| n.with_name(&format!("collator-{para_id}")))

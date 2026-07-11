@@ -51,7 +51,9 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"adder-collator export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
@@ -61,7 +63,9 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2001)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"adder-collator export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())

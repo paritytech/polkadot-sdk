@@ -75,7 +75,9 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("undying-collator")
-				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"undying-collator export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(
@@ -89,7 +91,9 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.with_parachain(|p| {
 			p.with_id(2001)
 				.with_default_command("undying-collator")
-				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"undying-collator export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(

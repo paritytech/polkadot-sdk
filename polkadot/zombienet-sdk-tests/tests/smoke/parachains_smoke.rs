@@ -72,7 +72,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.cumulus_based(false)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command(
+					"adder-collator export-chain-spec --chain {{chainName}} --raw",
+				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(col_image.as_str())
 				.with_collator(|n| {
