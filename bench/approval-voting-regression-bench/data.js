@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783720098865,
+  "lastUpdate": 1783728094502,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "agusrodriguez2456@gmail.com",
-            "name": "Agustín Rodriguez",
-            "username": "Agusrodri"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "75dcd030700b2b45059fbd0fe4245e0d30429485",
-          "message": "Increase `max_upward_message_size` in `RelayStateSproofBuilder` (#10313)\n\n## Description \n\nWhile testing different XCM messages via xcm-emulator, I noticed that\nthe limit of 256 for `max_upward_message_size` in\n`RelayStateSproofBuilder` can be reached very easily.\n\nI suggest increasing it to `1024 * 1024` so that we can have a good\nrange for testing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-11-14T09:50:10Z",
-          "tree_id": "be48ff2ef4b819b0d8de4afbc87009a2b6259e5c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/75dcd030700b2b45059fbd0fe4245e0d30429485"
-        },
-        "date": 1763120093853,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.05,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000017996830000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001775149,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.473615391290001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9686218703799958,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6643608599010267,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.52971347137,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001775149,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006041972860000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000017996830000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4679418908500006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.354541061279997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.48748749217,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4211189723599989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.389007435692558,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d812dc95ac79216273115b646b9816c20dba2b4",
+          "message": "Remove deprecated StorageIterator and StorageKeyIterator (#12150)\n\n# Description\n\nRemoves deprecated `migration::StorageIterator` and\n`migration::StorageKeyIterator` as part of #11561.\n\nDeprecated in July 2023. Use `storage_iter` / `storage_iter_with_suffix`\nand `storage_key_iter` / `storage_key_iter_with_suffix` instead. No\nremaining in-repo usage.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- StorageIterator::<T>::new(module, item)\n+ storage_iter::<T>(module, item)\n\n- StorageKeyIterator::<K, T, H>::new(module, item)\n+ storage_key_iter::<K, T, H>(module, item)\n```\nReview Notes\n\n- Single file: substrate/frame/support/src/storage/migration.rs\n- Replacement free functions already exist and are used in-tree\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-10T22:14:32Z",
+          "tree_id": "43b6d40f2879a7c3f5692e37c9705da2ee33e925",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d812dc95ac79216273115b646b9816c20dba2b4"
+        },
+        "date": 1783728063603,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63565.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7738661638900006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020819769999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.234638351242607,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4583374872799895,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020819769999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.276237590029947,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.734569560080002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020478399999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.790855565280002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7443897482499997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7677773824299555,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.006441682820000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020478399999999997,
             "unit": "seconds"
           }
         ]
