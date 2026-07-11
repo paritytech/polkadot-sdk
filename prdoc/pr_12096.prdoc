@@ -16,3 +16,5 @@ crates:
     bump: minor
   - name: sc-statement-store
     bump: minor
+  - name: pallet-revive
+    bump: minor
