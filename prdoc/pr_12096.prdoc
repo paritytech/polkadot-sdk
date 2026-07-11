@@ -11,8 +11,8 @@ crates:
   - name: pallet-revive-eth-rpc
     bump: major
   - name: frame-benchmarking-cli
-    bump: minor
+    bump: major
   - name: polkadot-omni-node-lib
-    bump: patch
+    bump: minor
   - name: sc-statement-store
-    bump: patch
+    bump: minor
