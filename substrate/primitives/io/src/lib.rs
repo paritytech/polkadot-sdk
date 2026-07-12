@@ -1931,11 +1931,13 @@ pub trait Misc {
 	#[wrapper]
 	fn runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut version = vec![0u8; 1024];
-		let maybe_len = runtime_version__raw(code.as_ref(), &mut version);
-		maybe_len.map(|len| {
-			version.truncate(len as usize);
-			version
-		})
+		let len = runtime_version__raw(code.as_ref(), &mut version[..])?;
+		if len as usize > version.len() {
+			version.resize(len as usize, 0);
+			runtime_version__raw(code.as_ref(), &mut version[..])?;
+		}
+		version.truncate(len as usize);
+		Some(version)
 	}
 
 	/// Get the last storage cursor stored by `storage::clear_prefix`,
