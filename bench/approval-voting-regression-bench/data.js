@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783728094502,
+  "lastUpdate": 1783834480346,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d393f375cd06cc7d898baf9aea4dccc08dc430b6",
-          "message": "[CI/CD] Check semver job improvements (#10323)\n\nThis PR adds couple of improvements to the Check semver job for the\nstable branches:\n1. The `validate: false` option can be set now not only on the `mojor`\nbumps but on the `minor` and `patch` as well, this one is useful when\nfor the backport cases when a desired bump does not match with the one,\nthat `parity-publish` semver check has predicted (like\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/19135068993/job/54685184577?pr=10221))\n2. Possibility to skip check, when it is really not needed but still\nfails (like on the post crates release\n[prs](https://github.com/paritytech/polkadot-sdk/actions/runs/18311557391/job/52141285274?pr=9951))\n\ncloses: https://github.com/paritytech/release-engineering/issues/274",
-          "timestamp": "2025-11-14T14:28:17Z",
-          "tree_id": "3f7c30e5977ccc6cc31219ad3606eb57052b560f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d393f375cd06cc7d898baf9aea4dccc08dc430b6"
-        },
-        "date": 1763134633518,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63637.92,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006097481930000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7293872394810297,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020209709999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020209709999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4792333884900013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020163660000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.381879036989993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5030902774799992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020163660000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5346850313100022,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.475534973850003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9480406305499869,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4351972533800021,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000020478399999999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "513c79719426c66b1b02ea9d3dc746f90ac737b7",
+          "message": "Add increase_value call to pallet-multi-asset-bounties (#12409)\n\nAdds a curator-gated `increase_value(parent_bounty_id, amount)`\nextrinsic that raises an\nactive bounty's recorded `value` by `amount`.\n\n## Why\n\nBounty payouts are bounded by the recorded `value`, not the account\nbalance, so funds\ntransferred into a bounty account out-of-band (e.g. recurring external\ntop-ups) are otherwise\nunspendable. This lets the curator register those funds — no governance\nround needed.\n\n## Behaviour\n\n- Only the curator of an `Active` bounty may call it; value is\nincrease-only.\n- Re-evaluates and collects the curator deposit for the new value.\n- Emits `BountyValueIncreased { index, old_value, new_value }`.\n- Parent bounties only.\n\n## Notes\n\n- New call + event only; no storage migration.\n- Tests cover the happy path, all guards, payout/child-headroom using\nthe new value, and the\n  deposit-funding rollback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-12T03:48:15Z",
+          "tree_id": "46ad4651cf43b80392eaab8321ae584ab3f823e5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/513c79719426c66b1b02ea9d3dc746f90ac737b7"
+        },
+        "date": 1783834449059,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63562.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.328241025152917,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7890720928599992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7715454710600005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005060692320000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023801459999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7425078482900016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002319665,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.438474612199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7216202903200006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.29439267259994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.82611166554994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002319665,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023801459999999996,
             "unit": "seconds"
           }
         ]
