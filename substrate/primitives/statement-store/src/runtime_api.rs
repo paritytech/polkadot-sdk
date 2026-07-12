@@ -203,7 +203,7 @@ pub trait StatementStore {
 		}
 	}
 
-	/// Same as version 1 but avoids host-side allocation. See [`StatementStore::statements`]
+	/// Same as version 1 but avoids host-side allocation. See `StatementStore::statements`
 	/// version 2 for the buffer semantics.
 	#[version(2)]
 	#[raw_api]
@@ -260,7 +260,7 @@ pub trait StatementStore {
 		}
 	}
 
-	/// Same as version 1 but avoids host-side allocation. See [`StatementStore::statements`]
+	/// Same as version 1 but avoids host-side allocation. See `StatementStore::statements`
 	/// version 2 for the buffer semantics.
 	#[version(2)]
 	#[raw_api]
