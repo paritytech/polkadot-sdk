@@ -994,12 +994,36 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#844 id=844 data-nosnippet>844</a>		<span class="prelude-val">Ok</span>(())
 <a href=#845 id=845 data-nosnippet>845</a>	}
 <a href=#846 id=846 data-nosnippet>846</a>
-<a href=#847 id=847 data-nosnippet>847</a>	<span class="macro">impl_benchmark_test_suite!</span> {
-<a href=#848 id=848 data-nosnippet>848</a>		Pallet,
-<a href=#849 id=849 data-nosnippet>849</a>		<span class="kw">crate</span>::mock::ExtBuilder::default().build(),
-<a href=#850 id=850 data-nosnippet>850</a>		<span class="kw">crate</span>::mock::Test
-<a href=#851 id=851 data-nosnippet>851</a>	}
-<a href=#852 id=852 data-nosnippet>852</a>}
+<a href=#847 id=847 data-nosnippet>847</a>	<span class="attr">#[benchmark]
+<a href=#848 id=848 data-nosnippet>848</a>	</span><span class="kw">fn </span>increase_value() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#849 id=849 data-nosnippet>849</a>		<span class="kw">let </span>s = create_active_parent_bounty::&lt;T, I&gt;()<span class="question-mark">?</span>;
+<a href=#850 id=850 data-nosnippet>850</a>		<span class="kw">let </span>caller = s.curator.clone();
+<a href=#851 id=851 data-nosnippet>851</a>		<span class="kw">let </span>new_value = s.value + s.value;
+<a href=#852 id=852 data-nosnippet>852</a>
+<a href=#853 id=853 data-nosnippet>853</a>		<span class="comment">// Ensure the curator can fund the (possibly larger) deposit for the new value.
+<a href=#854 id=854 data-nosnippet>854</a>		</span>&lt;T <span class="kw">as </span>pallet_bounties::Config&lt;I&gt;&gt;::Consideration::ensure_successful(<span class="kw-2">&amp;</span>caller, new_value);
+<a href=#855 id=855 data-nosnippet>855</a>
+<a href=#856 id=856 data-nosnippet>856</a>		<span class="attr">#[extrinsic_call]
+<a href=#857 id=857 data-nosnippet>857</a>		</span><span class="kw">_</span>(RawOrigin::Signed(caller), s.parent_bounty_id, s.value);
+<a href=#858 id=858 data-nosnippet>858</a>
+<a href=#859 id=859 data-nosnippet>859</a>		assert_last_event::&lt;T, I&gt;(
+<a href=#860 id=860 data-nosnippet>860</a>			Event::BountyValueIncreased {
+<a href=#861 id=861 data-nosnippet>861</a>				index: s.parent_bounty_id,
+<a href=#862 id=862 data-nosnippet>862</a>				old_value: s.value,
+<a href=#863 id=863 data-nosnippet>863</a>				new_value,
+<a href=#864 id=864 data-nosnippet>864</a>			}
+<a href=#865 id=865 data-nosnippet>865</a>			.into(),
+<a href=#866 id=866 data-nosnippet>866</a>		);
+<a href=#867 id=867 data-nosnippet>867</a>
+<a href=#868 id=868 data-nosnippet>868</a>		<span class="prelude-val">Ok</span>(())
+<a href=#869 id=869 data-nosnippet>869</a>	}
+<a href=#870 id=870 data-nosnippet>870</a>
+<a href=#871 id=871 data-nosnippet>871</a>	<span class="macro">impl_benchmark_test_suite!</span> {
+<a href=#872 id=872 data-nosnippet>872</a>		Pallet,
+<a href=#873 id=873 data-nosnippet>873</a>		<span class="kw">crate</span>::mock::ExtBuilder::default().build(),
+<a href=#874 id=874 data-nosnippet>874</a>		<span class="kw">crate</span>::mock::Test
+<a href=#875 id=875 data-nosnippet>875</a>	}
+<a href=#876 id=876 data-nosnippet>876</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
