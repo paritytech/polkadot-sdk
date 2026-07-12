@@ -30,9 +30,6 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 
-#[cfg(not(feature = "std"))]
-use core::mem;
-
 use sp_core::wasm_export_functions_v1;
 use sp_runtime_interface::{
 	pass_by::{
@@ -254,11 +251,10 @@ wasm_export_functions_v1! {
 	}
 
 	fn test_get_and_return_array() {
-		let mut input = unsafe { mem::MaybeUninit::<[u8; 34]>::zeroed().assume_init() };
-		input.copy_from_slice(&[
+		let input: [u8; 34] = [
 			24, 3, 23, 20, 2, 16, 32, 1, 12, 26, 27, 8, 29, 31, 6, 5, 4, 19, 10, 28, 34, 21, 18, 33, 9,
 			13, 22, 25, 15, 11, 30, 7, 14, 17,
-		]);
+		];
 		let res = test_api::get_and_return_array(input);
 		assert_eq!(&res, &input[..16]);
 	}
