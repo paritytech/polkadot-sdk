@@ -29,6 +29,9 @@ use polkadot_primitives::{
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+#[cfg(feature = "bls-beefy-experimental")]
+use sp_consensus_beefy::ecdsa_bls_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
+#[cfg(not(feature = "bls-beefy-experimental"))]
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 

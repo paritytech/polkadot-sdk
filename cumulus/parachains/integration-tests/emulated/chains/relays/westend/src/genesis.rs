@@ -17,7 +17,9 @@
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_beefy::{
+	ecdsa_bls_crypto::AuthorityId as BeefyId, test_utils::Keyring as BeefyKeyring,
+};
 use sp_core::storage::Storage;
 
 // Polkadot
@@ -71,7 +73,7 @@ pub fn genesis() -> Storage {
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
-							x.7.clone(),
+							BeefyId::from(BeefyKeyring::<BeefyId>::Alice.public()),
 						),
 					)
 				})

@@ -91,7 +91,7 @@ use polkadot_runtime_parachains::{
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
+	ecdsa_bls_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
 use sp_core::{ConstBool, ConstU128, ConstUint, OpaqueMetadata, H256};
@@ -468,7 +468,7 @@ impl BeefyDataProvider<H256> for ParaHeadsRootProvider {
 
 impl pallet_beefy_mmr::Config for Runtime {
 	type LeafVersion = LeafVersion;
-	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
+	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaBls381ToEthereum;
 	type LeafExtra = H256;
 	type BeefyDataProvider = ParaHeadsRootProvider;
 	type WeightInfo = weights::pallet_beefy_mmr::WeightInfo<Runtime>;

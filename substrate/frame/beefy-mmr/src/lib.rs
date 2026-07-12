@@ -106,6 +106,27 @@ impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEc
 	}
 }
 
+/// Convert BEEFY (ECDSA, BLS12-381) paired public keys into Ethereum addresses.
+/// Extracts the ECDSA component (first 33 bytes) and delegates to [`BeefyEcdsaToEthereum`].
+#[cfg(feature = "bls-experimental")]
+pub struct BeefyEcdsaBls381ToEthereum;
+#[cfg(feature = "bls-experimental")]
+impl Convert<sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId, Vec<u8>>
+	for BeefyEcdsaBls381ToEthereum
+{
+	fn convert(beefy_id: sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId) -> Vec<u8> {
+		sp_core::paired_crypto::ecdsa_bls381::Pair::left_public(&beefy_id.into())
+			.map(|ecdsa_public| {
+				let ecdsa_id = sp_consensus_beefy::ecdsa_crypto::AuthorityId::from(ecdsa_public);
+				BeefyEcdsaToEthereum::convert(ecdsa_id)
+			})
+			.unwrap_or_else(|_| {
+				log::debug!(target: "runtime::beefy", "Failed to extract ECDSA key from paired (ECDSA,BLS12-381)  BEEFY PublicKey!");
+				FAILED_BEEFY_TO_ETH_ADDRESS.to_vec()
+			})
+	}
+}
+
 type MerkleRootOf<T> = <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output;
 
 #[frame_support::pallet]
