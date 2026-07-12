@@ -96,6 +96,19 @@ where
 		));
 	}
 
+	let unclassified = alloc_sanity_checker.unclassified_imports();
+	if !unclassified.is_empty() {
+		log::warn!(
+			target: "wasm-executor",
+			"The runtime imports host functions that could not be classified by the allocation \
+			 sanity checker, so it cannot be verified that they do not allocate on the wrong side \
+			 of the host-vs-runtime allocation divide: {}. This is expected for chains that define \
+			 their own host functions; otherwise the functions should be added to the checker's \
+			 classification tables in `sc-executor-common`.",
+			unclassified.join(", "),
+		);
+	}
+
 	Ok(())
 }
 
