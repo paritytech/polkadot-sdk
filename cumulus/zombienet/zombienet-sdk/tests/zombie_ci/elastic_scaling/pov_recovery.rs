@@ -116,7 +116,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_resources(|resources| {
@@ -159,7 +159,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.with_chain("elastic-scaling")
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_resources(|resources| {

@@ -136,7 +136,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let mut builder = NetworkConfigBuilder::new().with_relaychain(|r| {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
-			.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+			.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 			.chain_spec_command_is_local(true)
 			.with_default_image(polkadot_image.as_str())
 			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
@@ -187,7 +187,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(col_image.as_str())
 				.with_default_command("polkadot-parachain")
 				.with_chain_spec_command(
-					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
 				)
 				.chain_spec_command_is_local(true)
 				.with_default_args(args)

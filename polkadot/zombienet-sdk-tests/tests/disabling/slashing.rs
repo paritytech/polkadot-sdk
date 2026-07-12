@@ -32,7 +32,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
@@ -75,7 +75,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 			p.with_id(1337)
 				.with_default_command("polkadot-parachain")
 				.with_chain_spec_command(
-					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
 				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())

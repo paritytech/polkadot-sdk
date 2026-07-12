@@ -26,7 +26,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
@@ -48,9 +48,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command(
-					"adder-collator export-chain-spec --chain {{chainName}} --raw",
-				)
+				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(
 					std::env::var("COL_IMAGE")
@@ -65,7 +63,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 			p.with_id(2001)
 				.with_default_command("polkadot-parachain")
 				.with_chain_spec_command(
-					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
 				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())

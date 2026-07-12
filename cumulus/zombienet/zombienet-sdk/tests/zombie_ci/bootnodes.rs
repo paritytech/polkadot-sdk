@@ -23,7 +23,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				// Not strictly necessary for the test, but to keep it consistent
@@ -40,7 +40,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(1000)
 				.with_default_command("polkadot-parachain")
 				.with_chain_spec_command(
-					"polkadot-parachain export-chain-spec --chain {{chainName}} --raw",
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
 				)
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())

@@ -56,7 +56,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(polkadot_image.as_str())
 				.with_validator(|node| {
@@ -72,9 +72,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.cumulus_based(false)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command(
-					"adder-collator export-chain-spec --chain {{chainName}} --raw",
-				)
+				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(col_image.as_str())
 				.with_collator(|n| {

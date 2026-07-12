@@ -163,7 +163,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=trace").into()])
@@ -196,9 +196,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command(
-					"test-parachain export-chain-spec --chain {{chainName}} --raw",
-				)
+				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("block-bundling")
@@ -221,9 +219,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(HRMP_RECIPIENT_LOW)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command(
-					"test-parachain export-chain-spec --chain {{chainName}} --raw",
-				)
+				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("sync-backing")
@@ -232,9 +228,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(HRMP_RECIPIENT_HIGH)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command(
-					"test-parachain export-chain-spec --chain {{chainName}} --raw",
-				)
+				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("async-backing")

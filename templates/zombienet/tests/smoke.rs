@@ -53,7 +53,7 @@ mod smoke {
 	}
 
 	fn export_chain_spec_command(binary: &str) -> String {
-		format!("{binary} export-chain-spec --chain {{{{chainName}}}} --raw")
+		format!("{binary} export-chain-spec --chain {{{{chainName}}}}")
 	}
 
 	fn get_config(network_spec: NetworkSpec) -> Result<NetworkConfig, anyhow::Error> {

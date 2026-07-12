@@ -159,7 +159,7 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
@@ -170,7 +170,7 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("polkadot-parachain")
-				.with_chain_spec_command("polkadot-parachain export-chain-spec --chain {{chainName}} --raw")
+				.with_chain_spec_command("polkadot-parachain export-chain-spec --chain {{chainName}}")
 				.chain_spec_command_is_local(true)
 				.with_default_image(
 					std::env::var("COL_IMAGE")
