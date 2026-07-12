@@ -662,9 +662,10 @@ pub trait Storage {
 		self.storage(key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let out_len = core::cmp::min(data.len(), value_out.len());
+			// Copy the value into the output buffer only when the whole value fits or partial
+			// reads are explicitly allowed; otherwise leave the buffer untouched.
 			if value_out.len() >= data.len() || allow_partial != 0 {
-				value_out[..out_len].copy_from_slice(&data[..out_len]);
+				value_out.write_truncated(data);
 			}
 			data.len() as u32
 		})
@@ -823,9 +824,8 @@ pub trait Storage {
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
 			self.store_last_cursor(&cursor_out[..]);
-			if maybe_cursor_out.len() >= cursor_out_len {
-				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
-			}
+			// Write the cursor back only if it fits; otherwise leave the buffer untouched.
+			maybe_cursor_out.write(&cursor_out);
 		}
 		counters_out.backend = removal_results.backend;
 		counters_out.unique = removal_results.unique;
@@ -916,7 +916,7 @@ pub trait Storage {
 			out_len >= encoded_len,
 			"Output buffer ({out_len} bytes) provided to store the storage root hash is not large enough ({encoded_len} bytes needed)"
 		);
-		out[..encoded_len].copy_from_slice(&encoded[..]);
+		out.write(&encoded);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -960,9 +960,8 @@ pub trait Storage {
 		let next_key = self.next_storage_key(key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
 		if let Some(next_key) = next_key {
-			if key_out.len() >= next_key_len {
-				key_out[..next_key_len].copy_from_slice(&next_key[..]);
-			}
+			// Write the key back only if it fits; otherwise leave the buffer untouched.
+			key_out.write(&next_key);
 		}
 		next_key_len as u32
 	}
@@ -1101,9 +1100,10 @@ pub trait DefaultChildStorage {
 			.map(|value| {
 				let value_offset = value_offset as usize;
 				let data = &value[value_offset.min(value.len())..];
-				let out_len = core::cmp::min(data.len(), value_out.len());
+				// Copy the value into the output buffer only when the whole value fits or partial
+				// reads are explicitly allowed; otherwise leave the buffer untouched.
 				if value_out.len() >= data.len() || allow_partial != 0 {
-					value_out[..out_len].copy_from_slice(&data[..out_len]);
+					value_out.write_truncated(data);
 				}
 				data.len() as u32
 			})
@@ -1245,9 +1245,8 @@ pub trait DefaultChildStorage {
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
 			self.store_last_cursor(&cursor_out[..]);
-			if maybe_cursor_out.len() >= cursor_out_len {
-				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
-			}
+			// Write the cursor back only if it fits; otherwise leave the buffer untouched.
+			maybe_cursor_out.write(&cursor_out);
 		}
 		counters_out.backend = removal_results.backend;
 		counters_out.unique = removal_results.unique;
@@ -1374,9 +1373,8 @@ pub trait DefaultChildStorage {
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
 			self.store_last_cursor(&cursor_out[..]);
-			if maybe_cursor_out.len() >= cursor_out_len {
-				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
-			}
+			// Write the cursor back only if it fits; otherwise leave the buffer untouched.
+			maybe_cursor_out.write(&cursor_out);
 		}
 		counters_out.backend = removal_results.backend;
 		counters_out.unique = removal_results.unique;
@@ -1474,7 +1472,7 @@ pub trait DefaultChildStorage {
 			out_len >= encoded_len,
 			"Output buffer ({out_len} bytes) provided to store the child storage root hash is not large enough ({encoded_len} bytes needed)"
 		);
-		out[..encoded.len()].copy_from_slice(&encoded[..]);
+		out.write(&encoded);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1517,9 +1515,8 @@ pub trait DefaultChildStorage {
 		let next_key = self.next_child_storage_key(&child_info, key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
 		if let Some(next_key) = next_key {
-			if key_out.len() >= next_key_len {
-				key_out[..next_key_len].copy_from_slice(&next_key[..]);
-			}
+			// Write the key back only if it fits; otherwise leave the buffer untouched.
+			key_out.write(&next_key);
 		}
 		next_key_len as u32
 	}
@@ -1910,9 +1907,8 @@ pub trait Misc {
 			.read_runtime_version(wasm, &mut ext)
 		{
 			Ok(v) => {
-				if out.len() >= v.len() {
-					out[..v.len()].copy_from_slice(v.as_slice());
-				}
+				// Write the version back only if it fits; otherwise leave the buffer untouched.
+				out.write(&v);
 				Some(v.len() as u32)
 			},
 			Err(err) => {
@@ -1952,8 +1948,10 @@ pub trait Misc {
 		let cursor = self.take_last_cursor()?;
 
 		if out.len() >= cursor.len() {
-			out[..cursor.len()].copy_from_slice(&cursor[..]);
+			out.write(&cursor);
 		} else {
+			// The buffer is too small; leave it untouched and cache the cursor so the caller can
+			// retry with a large enough buffer.
 			self.store_last_cursor(&cursor[..]);
 		}
 
@@ -3530,9 +3528,8 @@ pub trait Offchain {
 			.map(|v| {
 				let value_offset = offset as usize;
 				let data = &v[value_offset.min(v.len())..];
-				if data.len() <= value_out.len() {
-					value_out[..data.len()].copy_from_slice(data);
-				}
+				// Write the value back only if it fits; otherwise leave the buffer untouched.
+				value_out.write(data);
 				data.len() as u32
 			})
 	}
@@ -3690,9 +3687,11 @@ pub trait Offchain {
 			.extension::<OffchainWorkerExt>()
 			.expect("http_response_wait can be called only in the offchain worker context")
 			.http_response_wait(ids, deadline);
-		statuses.into_iter().zip(out).for_each(|(status, out)| {
-			*out = status.into();
+		statuses.into_iter().zip(out.iter_mut()).for_each(|(status, slot)| {
+			*slot = status.into();
 		});
+		// Every slot is filled with the status of the corresponding request id.
+		out.set_fully_written();
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `http_response_wait`
@@ -3742,9 +3741,9 @@ pub trait Offchain {
 			.expect("http_response_header_name can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.0;
-		if res.len() <= out.len() {
-			out[..res.len()].copy_from_slice(res);
-		}
+		// Store the name only if it fits; otherwise (and on the out-of-bounds path above) the
+		// buffer is left untouched.
+		out.write(res);
 		Some(res.len() as u32)
 	}
 
@@ -3766,9 +3765,9 @@ pub trait Offchain {
 			.expect("http_response_header_value can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.1;
-		if res.len() <= out.len() {
-			out[..res.len()].copy_from_slice(res);
-		}
+		// Store the value only if it fits; otherwise (and on the out-of-bounds path above) the
+		// buffer is left untouched.
+		out.write(res);
 		Some(res.len() as u32)
 	}
 
@@ -3838,10 +3837,15 @@ pub trait Offchain {
 		buffer_out: PassFatPointerAndWrite<&mut [u8]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> ConvertAndReturnAs<Result<u32, HttpError>, RIIntResult<u32, RIHttpError>, i64> {
-		self.extension::<OffchainWorkerExt>()
+		let result = self
+			.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
-			.http_response_read_body(request_id, buffer_out, deadline)
-			.map(|r| r as u32)
+			.http_response_read_body(request_id, &mut buffer_out, deadline);
+		// Only the bytes actually read into the buffer are flushed back into the runtime.
+		if let Ok(bytes_read) = &result {
+			buffer_out.set_written_len(*bytes_read);
+		}
+		result.map(|r| r as u32)
 	}
 
 	/// Set the authorized nodes and authorized_only flag.
@@ -4090,7 +4094,7 @@ pub trait Input {
 			.take_input_data()
 			.expect("input data is not empty on code entry and is only taken once; qed");
 		assert!(buffer.len() >= data.len());
-		buffer.copy_from_slice(&data[..]);
+		buffer.write(&data);
 	}
 }
 

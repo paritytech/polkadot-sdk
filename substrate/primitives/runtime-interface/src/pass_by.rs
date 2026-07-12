@@ -40,6 +40,9 @@ use alloc::{format, string::String, vec};
 use alloc::vec::Vec;
 use core::{any::type_name, marker::PhantomData};
 
+#[cfg(not(substrate_runtime))]
+use core::ops::{Deref, DerefMut};
+
 /// Pass a value into the host by a thin pointer.
 ///
 /// This casts the value into a `&[u8]` using `AsRef<[u8]>` and passes a pointer to that byte blob
@@ -55,6 +58,7 @@ pub struct PassPointerAndReadCopy<T, const N: usize>(PhantomData<(T, [u8; N])>);
 impl<T, const N: usize> RIType for PassPointerAndReadCopy<T, N> {
 	type FFIType = u32;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -109,6 +113,7 @@ pub struct PassPointerAndRead<T, const N: usize>(PhantomData<(T, [u8; N])>);
 impl<'a, T, const N: usize> RIType for PassPointerAndRead<&'a T, N> {
 	type FFIType = u32;
 	type Inner = &'a T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -158,6 +163,7 @@ pub struct PassFatPointerAndRead<T>(PhantomData<T>);
 impl<T> RIType for PassFatPointerAndRead<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -237,6 +243,7 @@ pub struct PassOptionalFatPointerAndRead<T>(PhantomData<T>);
 impl<T> RIType for PassOptionalFatPointerAndRead<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -291,6 +298,7 @@ pub struct PassFatPointerAndReadOption<T>(PhantomData<T>);
 impl<T> RIType for PassFatPointerAndReadOption<T> {
 	type FFIType = u64;
 	type Inner = Option<T>;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -345,6 +353,7 @@ pub struct PassFatPointerAndReadWrite<T>(PhantomData<T>);
 impl<T> RIType for PassFatPointerAndReadWrite<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -387,33 +396,181 @@ impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]> {
 /// Pass a buffer into the host by a fat pointer. The host will write data into it.
 ///
 /// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
-/// to the host. Then the host allocates a temporary buffer of the same size and passes it
-/// as a mutable reference to the host function. After the host function finishes the data is
-/// written back into the guest memory.
+/// to the host. The host function receives the buffer wrapped in a [`WriteBuffer`], writes its
+/// output into it and declares how many leading bytes it actually wrote (through the
+/// [`WriteBuffer::write`], [`WriteBuffer::write_truncated`], [`WriteBuffer::set_written_len`] or
+/// [`WriteBuffer::set_fully_written`] helpers).
+///
+/// Only that declared prefix is copied back into the guest memory; everything the host function
+/// did not write is left untouched. In particular, if the host function declares nothing (the
+/// default), the guest buffer is not modified at all. This is what makes it possible to honor the
+/// "the buffer is not written into, and its contents are unchanged" contract for undersized output
+/// buffers, and it avoids writing back bytes the host never touched. Unlike
+/// [`PassFatPointerAndReadWrite`], the guest buffer is never read on the way in.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
 pub struct PassFatPointerAndWrite<T>(PhantomData<T>);
 
+// On the runtime (guest) side the inner type is the caller's mutable slice; there is no
+// length-reporting handle, so `HostArg` just mirrors `Inner`.
+#[cfg(substrate_runtime)]
 impl<T> RIType for PassFatPointerAndWrite<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = T;
+}
+
+// On the host side the host function receives a [`WriteBuffer`] so it can declare how many bytes it
+// actually wrote into the output buffer.
+#[cfg(not(substrate_runtime))]
+impl<'a, T> RIType for PassFatPointerAndWrite<&'a mut [T]> {
+	type FFIType = u64;
+	type Inner = &'a mut [T];
+	type HostArg = WriteBuffer<'a, T>;
+}
+
+/// A host-side handle to a runtime-provided output buffer, used by the [`PassFatPointerAndWrite`]
+/// marshalling strategy.
+///
+/// The host function writes its output into the buffer — either through the [`DerefMut`] slice view
+/// or through the [`write`](Self::write) / [`write_truncated`](Self::write_truncated) helpers — and
+/// declares how many leading elements make up the output. Only that prefix is flushed back into the
+/// runtime's memory when the host function returns; everything past it is left unchanged. When
+/// nothing is declared (the default), the runtime buffer is left completely untouched.
+#[cfg(not(substrate_runtime))]
+pub struct WriteBuffer<'a, T> {
+	buffer: &'a mut [T],
+	/// Number of leading *bytes* of `buffer` to flush back into the runtime's memory. `None` on
+	/// the native execution path, where the host function writes straight into the caller's
+	/// buffer and there is no separate write-back step.
+	to_write: Option<&'a mut usize>,
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T> WriteBuffer<'a, T> {
+	/// Length of the whole buffer, in bytes.
+	#[inline]
+	fn byte_capacity(&self) -> usize {
+		self.buffer.len().saturating_mul(core::mem::size_of::<T>())
+	}
+
+	#[inline]
+	fn record(&mut self, bytes: usize) {
+		let capped = bytes.min(self.byte_capacity());
+		if let Some(to_write) = self.to_write.as_mut() {
+			**to_write = capped;
+		}
+	}
+
+	/// Declare that the first `len` elements of the buffer are the output and must be flushed back
+	/// into the runtime's memory. `len` is clamped to the buffer's capacity. Elements past `len`
+	/// are left unchanged in the runtime.
+	#[inline]
+	pub fn set_written_len(&mut self, len: usize) {
+		self.record(len.saturating_mul(core::mem::size_of::<T>()));
+	}
+
+	/// Declare that the entire buffer was written and must be flushed back.
+	#[inline]
+	pub fn set_fully_written(&mut self) {
+		let cap = self.byte_capacity();
+		self.record(cap);
+	}
+
+	/// Mark the whole buffer as written and return a mutable slice view of it.
+	///
+	/// Convenience for host functions that hand the output buffer off to a helper which fills it
+	/// (or a fixed-size prefix whose padding the runtime reads back in full) and does not itself
+	/// report how many bytes it wrote.
+	#[inline]
+	pub fn as_fully_written_slice(&mut self) -> &mut [T] {
+		self.set_fully_written();
+		&mut *self.buffer
+	}
+
+	/// All-or-nothing write: if `src` fits into the buffer, copy it to the front and flush exactly
+	/// `src.len()` elements back into the runtime; otherwise leave the buffer untouched and flush
+	/// nothing.
+	#[inline]
+	pub fn write(&mut self, src: &[T])
+	where
+		T: Copy,
+	{
+		if src.len() <= self.buffer.len() {
+			self.buffer[..src.len()].copy_from_slice(src);
+			self.record(src.len().saturating_mul(core::mem::size_of::<T>()));
+		}
+	}
+
+	/// Copy as many leading elements of `src` as fit into the buffer and flush exactly that many
+	/// back into the runtime. Returns the number of elements copied.
+	#[inline]
+	pub fn write_truncated(&mut self, src: &[T]) -> usize
+	where
+		T: Copy,
+	{
+		let n = src.len().min(self.buffer.len());
+		self.buffer[..n].copy_from_slice(&src[..n]);
+		self.record(n.saturating_mul(core::mem::size_of::<T>()));
+		n
+	}
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T> Deref for WriteBuffer<'a, T> {
+	type Target = [T];
+
+	#[inline]
+	fn deref(&self) -> &[T] {
+		self.buffer
+	}
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, T> DerefMut for WriteBuffer<'a, T> {
+	#[inline]
+	fn deref_mut(&mut self) -> &mut [T] {
+		self.buffer
+	}
+}
+
+/// Construction used on the native execution path: the host function writes straight into the
+/// caller's buffer, so there is no write-back and no length to record.
+#[cfg(not(substrate_runtime))]
+impl<'a, T> From<&'a mut [T]> for WriteBuffer<'a, T> {
+	#[inline]
+	fn from(buffer: &'a mut [T]) -> Self {
+		WriteBuffer { buffer, to_write: None }
+	}
+}
+
+/// Owned host-side state backing a [`WriteBuffer`] on the wasm → host boundary: the scratch buffer
+/// plus the number of leading bytes the host function declared as written.
+#[cfg(not(substrate_runtime))]
+#[doc(hidden)]
+pub struct WriteBufferOwned {
+	buffer: Vec<u8>,
+	to_write: usize,
 }
 
 #[cfg(not(substrate_runtime))]
 impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]> {
-	type Owned = Vec<u8>;
+	type Owned = WriteBufferOwned;
 
 	fn from_ffi_value(
 		_context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (_, len) = unpack_ptr_and_len(arg);
-		Ok(vec![0u8; len as usize])
+		// Nothing is flushed back into the runtime unless the host function declares a written
+		// region, so the guest buffer is left untouched by default.
+		Ok(WriteBufferOwned { buffer: vec![0u8; len as usize], to_write: 0 })
 	}
 
-	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		FromByteSlice::from_mut_byte_slice(owned)
-			.expect("byte slice has wrong alignment or size for target type")
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::HostArg {
+		let buffer = FromByteSlice::from_mut_byte_slice(&mut owned.buffer)
+			.expect("byte slice has wrong alignment or size for target type");
+		WriteBuffer { buffer, to_write: Some(&mut owned.to_write) }
 	}
 
 	fn write_back_into_runtime(
@@ -421,9 +578,10 @@ impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [
 		context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<()> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len());
-		context.write_memory(Pointer::new(ptr), &value)
+		let (ptr, _len) = unpack_ptr_and_len(arg);
+		// Only flush back the prefix the host function declared as written; the rest of the guest
+		// buffer is left untouched.
+		context.write_memory(Pointer::new(ptr), &value.buffer[..value.to_write])
 	}
 }
 
@@ -450,6 +608,7 @@ pub struct PassPointerAndWrite<T, const N: usize>(PhantomData<(T, [u8; N])>);
 impl<T, const N: usize> RIType for PassPointerAndWrite<T, N> {
 	type FFIType = u32;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -507,6 +666,7 @@ pub struct PassFatPointerAndDecode<T>(PhantomData<T>);
 impl<T> RIType for PassFatPointerAndDecode<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -553,6 +713,7 @@ pub struct PassFatPointerAndDecodeSlice<T>(PhantomData<T>);
 impl<T> RIType for PassFatPointerAndDecodeSlice<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -610,6 +771,7 @@ where
 {
 	type FFIType = <U as RIType>::FFIType;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -665,6 +827,7 @@ where
 {
 	type FFIType = <V as RIType>::FFIType;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -724,6 +887,7 @@ where
 {
 	type FFIType = <U as RIType>::FFIType;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -778,6 +942,7 @@ where
 {
 	type FFIType = <V as RIType>::FFIType;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -844,6 +1009,7 @@ pub struct AllocateAndReturnPointer<T, const N: usize>(PhantomData<(T, [u8; N])>
 impl<T, const N: usize> RIType for AllocateAndReturnPointer<T, N> {
 	type FFIType = u32;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -903,6 +1069,7 @@ pub struct AllocateAndReturnFatPointer<T>(PhantomData<T>);
 impl<T> RIType for AllocateAndReturnFatPointer<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -958,6 +1125,7 @@ pub struct AllocateAndReturnByCodec<T>(PhantomData<T>);
 impl<T> RIType for AllocateAndReturnByCodec<T> {
 	type FFIType = u64;
 	type Inner = T;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(not(substrate_runtime))]

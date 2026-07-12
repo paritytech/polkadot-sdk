@@ -143,7 +143,7 @@ pub trait HostCalls {
 		b: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::multi_miller_loop::<ark_bw6_761::BW6_761>(a, b, out)
+		utils::multi_miller_loop::<ark_bw6_761::BW6_761>(a, b, out.as_fully_written_slice())
 	}
 
 	/// Pairing final exponentiation for *BW6-761*.
@@ -167,7 +167,7 @@ pub trait HostCalls {
 		scalars: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::msm_sw::<ark_bw6_761::g1::Config>(bases, scalars, out)
+		utils::msm_sw::<ark_bw6_761::g1::Config>(bases, scalars, out.as_fully_written_slice())
 	}
 
 	/// Multi scalar multiplication on *G2* for *BW6-761*.
@@ -181,7 +181,7 @@ pub trait HostCalls {
 		scalars: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::msm_sw::<ark_bw6_761::g2::Config>(bases, scalars, out)
+		utils::msm_sw::<ark_bw6_761::g2::Config>(bases, scalars, out.as_fully_written_slice())
 	}
 
 	/// Affine multiplication on *G1* for *BW6-761*.
@@ -195,7 +195,7 @@ pub trait HostCalls {
 		scalar: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::mul_sw::<ark_bw6_761::g1::Config>(base, scalar, out)
+		utils::mul_sw::<ark_bw6_761::g1::Config>(base, scalar, out.as_fully_written_slice())
 	}
 
 	/// Affine multiplication on *G2* for *BW6-761*.
@@ -209,7 +209,7 @@ pub trait HostCalls {
 		scalar: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::mul_sw::<ark_bw6_761::g2::Config>(base, scalar, out)
+		utils::mul_sw::<ark_bw6_761::g2::Config>(base, scalar, out.as_fully_written_slice())
 	}
 }
 

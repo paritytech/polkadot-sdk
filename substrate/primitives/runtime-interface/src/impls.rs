@@ -50,6 +50,7 @@ macro_rules! impl_traits_for_primitives {
 			impl RIType for $rty {
 				type FFIType = $fty;
 				type Inner = Self;
+				type HostArg = Self::Inner;
 			}
 
 			#[cfg(substrate_runtime)]
@@ -109,6 +110,7 @@ impl_traits_for_primitives! {
 impl RIType for bool {
 	type FFIType = u32;
 	type Inner = Self;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(substrate_runtime)]
@@ -151,6 +153,7 @@ impl IntoFFIValue for bool {
 impl<T: sp_wasm_interface::PointerType> RIType for Pointer<T> {
 	type FFIType = u32;
 	type Inner = Self;
+	type HostArg = Self::Inner;
 }
 
 /// The type is passed as `u32`.
@@ -158,6 +161,7 @@ impl<T: sp_wasm_interface::PointerType> RIType for Pointer<T> {
 impl<T> RIType for Pointer<T> {
 	type FFIType = u32;
 	type Inner = Self;
+	type HostArg = Self::Inner;
 }
 
 #[cfg(substrate_runtime)]

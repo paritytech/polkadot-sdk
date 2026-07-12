@@ -157,8 +157,9 @@ pub trait TestApi {
 		data: PassFatPointerAndRead<&[u8]>,
 		out: sp_runtime_interface::pass_by::PassFatPointerAndWrite<&mut [u8]>,
 	) -> u32 {
-		let copy_len = data.len().min(out.len());
-		out[..copy_len].copy_from_slice(&data[..copy_len]);
+		// Copy as much of the input as fits into the output buffer, recording exactly how many
+		// bytes were written so only those are flushed back into the runtime.
+		out.write_truncated(data);
 		data.len() as u32
 	}
 
@@ -230,6 +231,28 @@ wasm_export_functions! {
 		let res = test_api::return_input(input.clone());
 
 		assert_eq!(input, res);
+	}
+
+	// Regression test for the `PassFatPointerAndWrite` contract: the host must only write back the
+	// bytes it actually wrote and leave the rest of the runtime-provided buffer untouched.
+	fn test_write_buffer_preserves_unwritten_bytes() {
+		// The host writes a 3-byte prefix; the sentinel-filled tail must survive unchanged (it must
+		// NOT be zeroed by the marshalling layer).
+		let data = vec![1u8, 2, 3];
+		let mut buf = [0xAAu8; 8];
+		let len = test_api::return_input__raw(&data, &mut buf[..]);
+		assert_eq!(len, 3);
+		assert_eq!(&buf[..3], &[1, 2, 3]);
+		assert_eq!(&buf[3..], &[0xAA; 5]);
+
+		// When the buffer is too small for the input, `write_truncated` still only writes (and
+		// flushes) as many bytes as fit; there is no out-of-bounds write and the whole buffer is a
+		// prefix of the input.
+		let data = vec![9u8; 16];
+		let mut small = [0xAAu8; 4];
+		let len = test_api::return_input__raw(&data, &mut small[..]);
+		assert_eq!(len, 16);
+		assert_eq!(&small, &[9u8; 4]);
 	}
 
 	fn test_set_storage() {

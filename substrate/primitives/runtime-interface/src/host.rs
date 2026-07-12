@@ -44,8 +44,8 @@ pub trait FromFFIValue<'a>: RIType {
 	fn from_ffi_value(context: &mut dyn FunctionContext, arg: Self::FFIType)
 		-> Result<Self::Owned>;
 
-	/// Creates `Self::Inner` from an owned value.
-	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner;
+	/// Creates the host function argument ([`RIType::HostArg`]) from an owned value.
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::HostArg;
 
 	/// Write back a modified `value` back into the runtime's memory.
 	///

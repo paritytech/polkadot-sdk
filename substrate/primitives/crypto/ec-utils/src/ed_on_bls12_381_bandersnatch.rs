@@ -132,7 +132,11 @@ pub trait HostCalls {
 		scalars: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars, out)
+		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(
+			bases,
+			scalars,
+			out.as_fully_written_slice(),
+		)
 	}
 
 	/// Twisted Edwards affine multiplication for *Ed-on-BLS12-381-Bandersnatch*.
@@ -146,7 +150,11 @@ pub trait HostCalls {
 		scalar: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::mul_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar, out)
+		utils::mul_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(
+			base,
+			scalar,
+			out.as_fully_written_slice(),
+		)
 	}
 }
 

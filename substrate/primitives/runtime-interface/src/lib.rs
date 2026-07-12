@@ -384,6 +384,17 @@ pub trait RIType: Sized {
 
 	/// The inner type without any serialization strategy wrapper.
 	type Inner;
+
+	/// The type that is actually handed to the host function implementation.
+	///
+	/// For almost every strategy this is simply [`Self::Inner`], and impls set
+	/// `type HostArg = Self::Inner;`. Strategies that need the host function to communicate
+	/// something back to the marshalling layer — for example [`pass_by::PassFatPointerAndWrite`],
+	/// where the host reports how many bytes it wrote into the output buffer — use a dedicated
+	/// handle type here instead. On the native execution path the handle is built directly from an
+	/// [`Self::Inner`] value via `Inner: Into<HostArg>`; on the wasm boundary it is built by
+	/// [`host::FromFFIValue::take_from_owned`](crate::host::FromFFIValue::take_from_owned).
+	type HostArg;
 }
 
 /// A raw pointer that can be used in a runtime interface function signature.

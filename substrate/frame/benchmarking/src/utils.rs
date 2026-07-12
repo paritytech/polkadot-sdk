@@ -357,8 +357,10 @@ pub trait Benchmarking {
 	fn get_whitelist(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let whitelist = self.get_whitelist();
 		let encoded = codec::Encode::encode(&whitelist);
-		let copy_len = encoded.len().min(out.len());
-		out[..copy_len].copy_from_slice(&encoded[..copy_len]);
+		// Copy as much of the encoded whitelist as fits, recording exactly how many bytes were
+		// written so only those are flushed back. The caller retries with a larger buffer if the
+		// returned length exceeds it.
+		out.write_truncated(&encoded);
 		encoded.len() as u32
 	}
 
@@ -421,8 +423,10 @@ pub trait Benchmarking {
 	fn get_read_and_written_keys(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let keys = self.get_read_and_written_keys();
 		let encoded = codec::Encode::encode(&keys);
-		let copy_len = encoded.len().min(out.len());
-		out[..copy_len].copy_from_slice(&encoded[..copy_len]);
+		// Copy as much of the encoded keys as fits, recording exactly how many bytes were written
+		// so only those are flushed back. The caller retries with a larger buffer if the returned
+		// length exceeds it.
+		out.write_truncated(&encoded);
 		encoded.len() as u32
 	}
 

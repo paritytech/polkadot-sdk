@@ -78,7 +78,7 @@ pub trait HostCalls {
 		scalars: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::msm_sw::<ark_vesta::VestaConfig>(bases, scalars, out)
+		utils::msm_sw::<ark_vesta::VestaConfig>(bases, scalars, out.as_fully_written_slice())
 	}
 
 	/// Short Weierstrass affine multiplication for *Vesta*.
@@ -92,7 +92,7 @@ pub trait HostCalls {
 		scalar: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
-		utils::mul_sw::<ark_vesta::VestaConfig>(base, scalar, out)
+		utils::mul_sw::<ark_vesta::VestaConfig>(base, scalar, out.as_fully_written_slice())
 	}
 }
 
