@@ -34,7 +34,10 @@ use std::{
 #[derive(Debug, Clone, Parser)]
 pub struct ExportChainSpecCmd {
 	/// The chain spec identifier to export.
-	#[arg(long, default_value = "local")]
+	///
+	/// Defaults to the empty id, matching [`crate::SharedParams::chain_id`] / the old
+	/// `build-spec` behaviour when `--chain` is omitted.
+	#[arg(long, default_value = "")]
 	pub chain: String,
 
 	/// `chain-spec` JSON file path. If omitted, prints to stdout.

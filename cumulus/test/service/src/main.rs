@@ -37,12 +37,7 @@ fn main() -> Result<(), sc_cli::Error> {
 
 	match &cli.subcommand {
 		Some(Subcommand::ExportChainSpec(cmd)) => {
-			// Zombienet invokes `export-chain-spec --raw` without `--chain` when the parachain
-			// config has no `.with_chain()`. `ExportChainSpecCmd` then defaults to `"local"`,
-			// but this node's default spec uses an empty id (same as the old `build-spec` path
-			// via `SharedParams::chain_id`).
-			let chain_id = if cmd.chain == "local" { "" } else { cmd.chain.as_str() };
-			let chain_spec = cli.load_spec(chain_id)?;
+			let chain_spec = cli.load_spec(&cmd.chain)?;
 			cmd.run(chain_spec)
 		},
 

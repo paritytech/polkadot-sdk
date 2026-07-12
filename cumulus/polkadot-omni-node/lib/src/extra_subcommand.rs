@@ -125,12 +125,7 @@ impl ExtraSubcommand for DefaultExtraSubcommands {
 	fn handle(self, cfg: &RunConfig) -> Result<()> {
 		match self {
 			DefaultExtraSubcommands::ExportChainSpec(cmd) => {
-				// Zombienet invokes `export-chain-spec` without `--chain` when the parachain
-				// config has no `.with_chain()`. `ExportChainSpecCmd` then defaults to `"local"`,
-				// but omni-node loaders use an empty id for the default embedded spec (same as the
-				// old `build-spec` path via `SharedParams::chain_id`).
-				let chain_id = if cmd.chain == "local" { "" } else { cmd.chain.as_str() };
-				let spec = cfg.chain_spec_loader.load_spec(chain_id)?;
+				let spec = cfg.chain_spec_loader.load_spec(&cmd.chain)?;
 				cmd.run(spec)?;
 			},
 		}
