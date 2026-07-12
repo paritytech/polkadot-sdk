@@ -4092,7 +4092,7 @@ pub trait Input {
 			.take_input_data()
 			.expect("input data is not empty on code entry and is only taken once; qed");
 		assert!(buffer.len() >= data.len());
-		buffer.copy_from_slice(&data[..]);
+		buffer[..data.len()].copy_from_slice(&data[..]);
 	}
 }
 
