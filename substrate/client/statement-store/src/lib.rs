@@ -313,6 +313,7 @@ impl Default for Config {
 
 /// In-memory part of the read index.
 struct QueryIndex {
+	// TODO: Remove counters; replace them with a merge-join/leapfrog1
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashSet<Hash>,
@@ -677,8 +678,8 @@ impl SubmitIndex {
 			}
 			// Check if we can evict enough lower priority statements to satisfy constraints
 			for (entry, (_, len)) in account_rec.by_priority.iter() {
-				if (account_rec.data_size - would_free_size + statement_len <= max_size) &&
-					account_rec.by_priority.len() + 1 - evicted.len() <= max_count
+				if (account_rec.data_size - would_free_size + statement_len <= max_size)
+					&& account_rec.by_priority.len() + 1 - evicted.len() <= max_count
 				{
 					// Satisfied
 					break;
@@ -706,8 +707,8 @@ impl SubmitIndex {
 			}
 		}
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
+		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size)
+			&& self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -793,55 +794,9 @@ impl Store {
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
 
-		let mut db_config = parity_db::Options::with_columns(&path, col::COUNT);
-		if let Some(metadata) =
-			parity_db::Options::load_metadata(&path).map_err(|e| Error::Db(e.to_string()))?
-		{
-			if metadata.columns.len() < col::COUNT as usize {
-				let mut migrate_config = parity_db::Options::with_columns(&path, 0);
-				migrate_config.columns = metadata.columns;
-				while migrate_config.columns.len() < col::COUNT as usize {
-					// `add_column` takes the options by value, so build a fresh one each iteration.
-					let mut new_column_options = parity_db::ColumnOptions::default();
-					new_column_options.btree_index = true;
-					parity_db::Db::add_column(&mut migrate_config, new_column_options)
-						.map_err(|e| Error::Db(e.to_string()))?;
-				}
-			}
-		}
-
-		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
-		statement_col.ref_counted = false;
-		statement_col.preimage = true;
-		statement_col.uniform = true;
-		for c in [col::INDEX_BY_TOPIC, col::INDEX_BY_DEC_KEY, col::INDEX_EVICTED] {
-			db_config.columns[c as usize].btree_index = true;
-		}
-		let db = parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))?;
-		let needs_index_migration =
-			match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
-				Some(version) => {
-					let version = u32::from_le_bytes(
-						version
-							.try_into()
-							.map_err(|_| Error::Db("Error reading database version".into()))?,
-					);
-					if version > CURRENT_VERSION {
-						return Err(Error::Db(format!("Unsupported database version: {version}")));
-					}
-					version < CURRENT_VERSION
-				},
-				None => {
-					// Brand new database: the index columns start empty, nothing to migrate.
-					db.commit([(
-						col::META,
-						KEY_VERSION.to_vec(),
-						Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-					)])
-					.map_err(|e| Error::Db(e.to_string()))?;
-					false
-				},
-			};
+		Self::migrate_columns(&path)?;
+		let db = Self::open_db(&path)?;
+		let needs_index_migration = Self::check_db_version(&db)?;
 
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
@@ -865,6 +820,73 @@ impl Store {
 		};
 		store.populate(needs_index_migration)?;
 		Ok(store)
+	}
+
+	/// Migrate the column layout of an existing database to the current schema.
+	fn migrate_columns(path: &std::path::Path) -> Result<()> {
+		let Some(metadata) =
+			parity_db::Options::load_metadata(path).map_err(|e| Error::Db(e.to_string()))?
+		else {
+			return Ok(());
+		};
+		if metadata.columns.len() >= col::COUNT as usize {
+			return Ok(());
+		}
+		let mut migrate_config = parity_db::Options::with_columns(path, 0);
+		migrate_config.columns = metadata.columns;
+		while migrate_config.columns.len() < col::COUNT as usize {
+			// `add_column` takes the options by value, so build a fresh one each iteration.
+			let mut new_column_options = parity_db::ColumnOptions::default();
+			new_column_options.btree_index = true;
+			parity_db::Db::add_column(&mut migrate_config, new_column_options)
+				.map_err(|e| Error::Db(e.to_string()))?;
+		}
+		Ok(())
+	}
+
+	/// Open (or create) the statement database with the column options expected by the current
+	/// schema.
+	fn open_db(path: &std::path::Path) -> Result<parity_db::Db> {
+		let mut db_config = parity_db::Options::with_columns(path, col::COUNT);
+		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
+		statement_col.ref_counted = false;
+		statement_col.preimage = true;
+		statement_col.uniform = true;
+		for c in [col::INDEX_BY_TOPIC, col::INDEX_BY_DEC_KEY, col::INDEX_EVICTED] {
+			db_config.columns[c as usize].btree_index = true;
+		}
+		parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))
+	}
+
+	/// Read the on-disk database version and reconcile it with [`CURRENT_VERSION`].
+	///
+	/// A brand new database has its version initialised and needs no migration. An existing
+	/// database from a newer version is rejected. Returns `true` if the on-disk indexes predate
+	/// the current version and therefore need to be rebuilt.
+	fn check_db_version(db: &parity_db::Db) -> Result<bool> {
+		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
+			Some(version) => {
+				let version = u32::from_le_bytes(
+					version
+						.try_into()
+						.map_err(|_| Error::Db("Error reading database version".into()))?,
+				);
+				if version > CURRENT_VERSION {
+					return Err(Error::Db(format!("Unsupported database version: {version}")));
+				}
+				Ok(version < CURRENT_VERSION)
+			},
+			None => {
+				// Brand new database: the index columns start empty, nothing to migrate.
+				db.commit([(
+					col::META,
+					KEY_VERSION.to_vec(),
+					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| Error::Db(e.to_string()))?;
+				Ok(false)
+			},
+		}
 	}
 
 	/// Create memory index from the data.
@@ -1013,10 +1035,10 @@ impl Store {
 	fn iterate_with(
 		&self,
 		key: Option<DecryptionKey>,
-		topic: &OptimizedTopicFilter,
+		topic_filter: &OptimizedTopicFilter,
 		f: impl FnMut(&Hash) -> Result<()>,
 	) -> Result<()> {
-		match topic {
+		match topic_filter {
 			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
 			OptimizedTopicFilter::MatchAll(topics) => self.iterate_with_match_all(key, topics, f),
 			OptimizedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
@@ -1198,8 +1220,8 @@ impl Store {
 		let mut remaining_size = account_rec.data_size - expired_size;
 
 		// Evict lowest priority statements that exceed allowance
-		if remaining_count > allowance.max_count as usize ||
-			remaining_size > allowance.max_size as usize
+		if remaining_count > allowance.max_count as usize
+			|| remaining_size > allowance.max_size as usize
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -1213,8 +1235,8 @@ impl Store {
 
 			// Skip expired statements (they're at the beginning due to BTreeMap ordering)
 			for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
-				if remaining_count <= allowance.max_count as usize &&
-					remaining_size <= allowance.max_size as usize
+				if remaining_count <= allowance.max_count as usize
+					&& remaining_size <= allowance.max_size as usize
 				{
 					break;
 				}
@@ -1271,9 +1293,9 @@ impl Store {
 					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
 				}
 
-				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
-					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
-					start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
+				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION
+					|| num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION
+					|| start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
 				{
 					break;
 				}
@@ -3080,8 +3102,8 @@ mod tests {
 			// Topic and key sets contain both A & B entries.
 			assert!(store.index_has_topic(&t42, &h_a1) && store.index_has_topic(&t42, &h_b2));
 			assert!(
-				store.index_has_dec_key(&Some(k7), &h_a2) &&
-					store.index_has_dec_key(&Some(k7), &h_b2)
+				store.index_has_dec_key(&Some(k7), &h_a2)
+					&& store.index_has_dec_key(&Some(k7), &h_b2)
 			);
 		}
 
