@@ -51,6 +51,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
 };
 
+#[link(wasm_import_module = "env")]
 extern "C" {
 	#[allow(dead_code)]
 	fn missing_external();

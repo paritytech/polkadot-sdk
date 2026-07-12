@@ -678,27 +678,47 @@ impl Client {
 				.resolve_substrate_hash(&H256::from(hash.block_hash.0))
 				.await
 				.ok_or(ClientError::EthereumBlockNotFound),
-			BlockId::Number(BlockNumberOrTag::Number(block_number)) => {
-				let n: SubstrateBlockNumber =
-					block_number.try_into().map_err(|_| ClientError::ConversionFailed)?;
-				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
-				Ok(hash)
+			BlockId::Number(tag) => self
+				.block_by_number_or_tag(&tag)
+				.await?
+				.map(|block| block.hash())
+				.ok_or(ClientError::BlockNotFound),
+		}
+	}
+
+	/// Get a block for the specified hash or number.
+	pub async fn block_by_number_or_tag(
+		&self,
+		block: &BlockNumberOrTag,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		match block {
+			BlockNumberOrTag::Number(n) => {
+				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
+				self.block_by_number(n).await
 			},
-			BlockId::Number(BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe) => {
-				let block = self.latest_finalized_block().await;
-				Ok(block.hash())
+			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
+				let block = self.block_provider.latest_finalized_block().await;
+				Ok(Some(block))
 			},
-			BlockId::Number(BlockNumberOrTag::Earliest) => {
-				let hash = self
-					.get_block_hash(self.earliest_block_number())
-					.await?
-					.ok_or(ClientError::BlockNotFound)?;
-				Ok(hash)
+			BlockNumberOrTag::Earliest => self.block_by_number(self.earliest_block_number()).await,
+			BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => {
+				let block = self.block_provider.latest_block().await;
+				Ok(Some(block))
 			},
-			BlockId::Number(BlockNumberOrTag::Latest | BlockNumberOrTag::Pending) => {
-				let block = self.latest_block().await;
-				Ok(block.hash())
-			},
+		}
+	}
+
+	/// Resolve a [`BlockNumberOrTag`] to a concrete block number.
+	async fn resolve_tag_to_number(&self, tag: BlockNumberOrTag) -> Result<U256, ClientError> {
+		match tag {
+			BlockNumberOrTag::Number(n) => Ok(U256::from(n)),
+			BlockNumberOrTag::Earliest => Ok(U256::from(self.earliest_block_number())),
+			_ => Ok(self
+				.block_by_number_or_tag(&tag)
+				.await?
+				.ok_or(ClientError::BlockNotFound)?
+				.number()
+				.into()),
 		}
 	}
 
@@ -878,37 +898,6 @@ impl Client {
 		Ok(latest_block.number())
 	}
 
-	/// Get a block hash for the given block number.
-	pub async fn get_block_hash(
-		&self,
-		block_number: SubstrateBlockNumber,
-	) -> Result<Option<SubstrateBlockHash>, ClientError> {
-		let maybe_block = self.block_provider.block_by_number(block_number).await?;
-		Ok(maybe_block.map(|block| block.hash()))
-	}
-
-	/// Get a block for the specified hash or number.
-	pub async fn block_by_number_or_tag(
-		&self,
-		block: &BlockNumberOrTag,
-	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		match block {
-			BlockNumberOrTag::Number(n) => {
-				let n = (*n).try_into().map_err(|_| ClientError::ConversionFailed)?;
-				self.block_by_number(n).await
-			},
-			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe => {
-				let block = self.block_provider.latest_finalized_block().await;
-				Ok(Some(block))
-			},
-			BlockNumberOrTag::Earliest => self.block_by_number(self.earliest_block_number()).await,
-			BlockNumberOrTag::Latest | BlockNumberOrTag::Pending => {
-				let block = self.block_provider.latest_block().await;
-				Ok(Some(block))
-			},
-		}
-	}
-
 	/// Get a block by hash
 	pub async fn block_by_hash(
 		&self,
@@ -953,6 +942,15 @@ impl Client {
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		self.block_provider.block_by_number(block_number).await
+	}
+
+	/// Get a block hash for the given block number.
+	pub async fn get_block_hash(
+		&self,
+		block_number: SubstrateBlockNumber,
+	) -> Result<Option<SubstrateBlockHash>, ClientError> {
+		let maybe_block = self.block_provider.block_by_number(block_number).await?;
+		Ok(maybe_block.map(|block| block.hash()))
 	}
 
 	async fn tracing_block(
@@ -1113,22 +1111,13 @@ impl Client {
 
 	/// Get the logs matching the given filter.
 	pub async fn logs(&self, filter: Option<Filter>) -> Result<Vec<Log>, ClientError> {
-		let earliest = U256::from(self.earliest_block_number());
-		let latest = U256::from(self.latest_block().await.number());
-		let resolve_block_number = |block: BlockNumberOrTag| match block {
-			BlockNumberOrTag::Number(v) => Ok(U256::from(v)),
-			BlockNumberOrTag::Earliest => Ok(earliest),
-			BlockNumberOrTag::Latest => Ok(latest),
-			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe | BlockNumberOrTag::Pending => {
-				anyhow::bail!("Unsupported tag: {block:?}")
-			},
-		};
-
-		let logs = self
-			.receipt_provider
-			.logs(filter, &resolve_block_number)
-			.await
-			.map_err(ClientError::LogFilterFailed)?;
+		let logs =
+			self.receipt_provider
+				.logs(filter, |tag| async move {
+					self.resolve_tag_to_number(tag).await.map_err(Into::into)
+				})
+				.await
+				.map_err(ClientError::LogFilterFailed)?;
 
 		Ok(logs)
 	}
