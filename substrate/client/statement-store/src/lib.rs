@@ -1934,14 +1934,16 @@ impl StatementStore for Store {
 	/// period elapses (see [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
 		let current_time = self.timestamp();
-		// Read the body first, so its read-index entries can be cleared in the same commit.
-		let statement =
-			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
-				Some(encoded) => Statement::decode(&mut encoded.as_slice()).ok(),
-				None => None,
-			};
-		let removed = {
+		let removed_statement = {
 			let mut submit_index = self.submit_index.write();
+			// Read the body under the submit-index lock: a concurrent first-time submit could
+			// otherwise commit the statement between the read and `make_expired`, and its
+			// read-index entries would never be cleared.
+			let statement =
+				match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
+					Some(encoded) => Statement::decode(&mut encoded.as_slice()).ok(),
+					None => None,
+				};
 			match submit_index.make_expired(hash, current_time) {
 				Some(eviction) => {
 					let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
@@ -1969,15 +1971,13 @@ impl StatementStore for Store {
 						);
 						return Err(Error::Db(e.to_string()));
 					}
-					true
+					statement
 				},
-				None => false,
+				None => None,
 			}
 		};
-		if removed {
-			if let Some(statement) = &statement {
-				self.query_index.write().note_remove(hash, statement);
-			}
+		if let Some(statement) = &removed_statement {
+			self.query_index.write().note_remove(hash, statement);
 		}
 		Ok(())
 	}
