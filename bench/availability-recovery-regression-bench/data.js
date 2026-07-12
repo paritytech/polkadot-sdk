@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783728015285,
+  "lastUpdate": 1783834399921,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "94dcf6c0b25bacf8e71becfdd95a9d5bc6d84ce4",
-          "message": "Rename `SlotSchedule` to `TargetBlockRate` (#10316)\n\nThis renames the `SlotSchedule` runtime api to `TargetBlockRate`. It\nalso changes the signature to only returning the target block rate. As\ndiscussed at the retreat, we don't need the block time returned as part\nof this runtime api.",
-          "timestamp": "2025-11-17T09:01:50Z",
-          "tree_id": "9bfed2b0f4b5be08724b747481acad9d5bde7a94",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/94dcf6c0b25bacf8e71becfdd95a9d5bc6d84ce4"
-        },
-        "date": 1763374883666,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2013694574,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.454279202833332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14057629926666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "513c79719426c66b1b02ea9d3dc746f90ac737b7",
+          "message": "Add increase_value call to pallet-multi-asset-bounties (#12409)\n\nAdds a curator-gated `increase_value(parent_bounty_id, amount)`\nextrinsic that raises an\nactive bounty's recorded `value` by `amount`.\n\n## Why\n\nBounty payouts are bounded by the recorded `value`, not the account\nbalance, so funds\ntransferred into a bounty account out-of-band (e.g. recurring external\ntop-ups) are otherwise\nunspendable. This lets the curator register those funds — no governance\nround needed.\n\n## Behaviour\n\n- Only the curator of an `Active` bounty may call it; value is\nincrease-only.\n- Re-evaluates and collects the curator deposit for the new value.\n- Emits `BountyValueIncreased { index, old_value, new_value }`.\n- Parent bounties only.\n\n## Notes\n\n- New call + event only; no storage migration.\n- Tests cover the happy path, all guards, payout/child-headroom using\nthe new value, and the\n  deposit-funding rollback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-12T03:48:15Z",
+          "tree_id": "46ad4651cf43b80392eaab8321ae584ab3f823e5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/513c79719426c66b1b02ea9d3dc746f90ac737b7"
+        },
+        "date": 1783834368860,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14104724693333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.794271935766664,
             "unit": "seconds"
           }
         ]
