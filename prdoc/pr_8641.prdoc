@@ -94,3 +94,8 @@ crates:
   bump: patch
 - name: pallet-state-trie-migration
   bump: patch
+- name: sp-statement-store
+  bump: minor
+# Test-only: adds a unit test locking the `OpaqueNetworkState` peer id ABI; no API change.
+- name: sc-offchain
+  bump: none
