@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783728054730,
+  "lastUpdate": 1783834440039,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "31f8f8d08d0d0b2eae6d9cc96f8076bd4fbe63e3",
-          "message": "Cumulus: fix pre-connect to backers for lonely collators (#10305)\n\nWhen running a single collator (most commonly on testnets), the block\nbuilder task is always able to claim a slot, so we're never triggering\nthe pre-connect mechanism which happens for slots owned by other\nauthors.\nAdditionally I fixed some tests.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-14T15:33:07Z",
-          "tree_id": "47c76b90391c799b1c863abfaa20bf50b9d35893",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/31f8f8d08d0d0b2eae6d9cc96f8076bd4fbe63e3"
-        },
-        "date": 1763138419008,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013396177573333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023028816866666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007418690020000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1621984303066667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010162586519999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "513c79719426c66b1b02ea9d3dc746f90ac737b7",
+          "message": "Add increase_value call to pallet-multi-asset-bounties (#12409)\n\nAdds a curator-gated `increase_value(parent_bounty_id, amount)`\nextrinsic that raises an\nactive bounty's recorded `value` by `amount`.\n\n## Why\n\nBounty payouts are bounded by the recorded `value`, not the account\nbalance, so funds\ntransferred into a bounty account out-of-band (e.g. recurring external\ntop-ups) are otherwise\nunspendable. This lets the curator register those funds — no governance\nround needed.\n\n## Behaviour\n\n- Only the curator of an `Active` bounty may call it; value is\nincrease-only.\n- Re-evaluates and collects the curator deposit for the new value.\n- Emits `BountyValueIncreased { index, old_value, new_value }`.\n- Parent bounties only.\n\n## Notes\n\n- New call + event only; no storage migration.\n- Tests cover the happy path, all guards, payout/child-headroom using\nthe new value, and the\n  deposit-funding rollback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-12T03:48:15Z",
+          "tree_id": "46ad4651cf43b80392eaab8321ae584ab3f823e5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/513c79719426c66b1b02ea9d3dc746f90ac737b7"
+        },
+        "date": 1783834408863,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023662924880000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14839742702666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010381239133333305,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007735088886666669,
             "unit": "seconds"
           }
         ]
