@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783728173608,
+  "lastUpdate": 1783834560009,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3d1295aed7ff2208021347723f1879075668bab3",
-          "message": "Reenable `interest-cache` for `tracing-log` (#10304)\n\nReenable the `interest-cache` for the `tracing-log` crate.\n\nIt was disabled in this PR\n(https://github.com/paritytech/substrate/pull/11854) due to this issue\n(https://github.com/paritytech/substrate/pull/11854/issues/11691).\nMore details\n[here](https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3522183237).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-13T15:47:13Z",
-          "tree_id": "b4920d4c69d5460e548ab9fda9e217b0abbe17d0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d1295aed7ff2208021347723f1879075668bab3"
-        },
-        "date": 1763053418312,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00265234268,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008786090059999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005144254299999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025045640700000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "513c79719426c66b1b02ea9d3dc746f90ac737b7",
+          "message": "Add increase_value call to pallet-multi-asset-bounties (#12409)\n\nAdds a curator-gated `increase_value(parent_bounty_id, amount)`\nextrinsic that raises an\nactive bounty's recorded `value` by `amount`.\n\n## Why\n\nBounty payouts are bounded by the recorded `value`, not the account\nbalance, so funds\ntransferred into a bounty account out-of-band (e.g. recurring external\ntop-ups) are otherwise\nunspendable. This lets the curator register those funds — no governance\nround needed.\n\n## Behaviour\n\n- Only the curator of an `Active` bounty may call it; value is\nincrease-only.\n- Re-evaluates and collects the curator deposit for the new value.\n- Emits `BountyValueIncreased { index, old_value, new_value }`.\n- Parent bounties only.\n\n## Notes\n\n- New call + event only; no storage migration.\n- Tests cover the happy path, all guards, payout/child-headroom using\nthe new value, and the\n  deposit-funding rollback.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-12T03:48:15Z",
+          "tree_id": "46ad4651cf43b80392eaab8321ae584ab3f823e5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/513c79719426c66b1b02ea9d3dc746f90ac737b7"
+        },
+        "date": 1783834529190,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00927760501999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010454281849999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026016583099999994,
             "unit": "seconds"
           }
         ]
