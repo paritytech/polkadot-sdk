@@ -81,3 +81,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 	t.into()
 }
+
+// Runs the given test and ensures that all the invariants of the pallet hold afterwards.
+pub fn build_and_execute(test: impl FnOnce() -> ()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Lottery::do_try_state().expect("All invariants must hold after a test");
+	})
+}
