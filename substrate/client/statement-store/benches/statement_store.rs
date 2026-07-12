@@ -36,7 +36,8 @@
 //! - `read_scaling`: read latency as a function of store size (flat in RAM, grows on disk);
 //! - `submit_index_cost`: submit throughput vs. the number of on-disk index writes per statement;
 //! - `submit_eviction`: submit throughput when every submit evicts (the `db.get` under the lock);
-//! - `subscribe_topic`: subscribe with a topic and pull matching statements from a near-limit store;
+//! - `subscribe_topic`: subscribe with a topic and pull matching statements from a near-limit
+//!   store;
 //! - `propagate`: `take_recent_statements` gather for one propagation interval;
 //! - `contention_read_under_write`: read latency while writers run concurrently.
 
@@ -82,8 +83,9 @@ const EVICTION_CAP: u32 = TOTAL_OPS as u32;
 /// minutes (one ed25519 verify per statement), so `subscribe_topic` is a manual-only bench.
 const NEAR_LIMIT: usize = 4 * 1024 * 1024;
 
-/// Statements sharing each topic in the diverse-topic fixture. Small, so a single-topic subscription
-/// pulls just a handful of statements out of a full store (exercising a deep on-disk topic index).
+/// Statements sharing each topic in the diverse-topic fixture. Small, so a single-topic
+/// subscription pulls just a handful of statements out of a full store (exercising a deep on-disk
+/// topic index).
 const SUBSCRIBE_MATCHES: usize = 8;
 
 /// Statements drained per propagation interval by `take_recent_statements`.
@@ -96,8 +98,9 @@ struct TestClient {
 }
 
 impl TestClient {
-	/// Effectively unlimited per-account allowance, so a single account can hold even the near-limit
-	/// pre-loads without hitting per-account eviction (the global `Config` caps the store instead).
+	/// Effectively unlimited per-account allowance, so a single account can hold even the
+	/// near-limit pre-loads without hitting per-account eviction (the global `Config` caps the
+	/// store instead).
 	fn generous() -> Self {
 		Self { max_count: u32::MAX, max_size: u32::MAX }
 	}
@@ -402,7 +405,14 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 		let data_size = STATEMENT_DATA_SIZE.saturating_sub(num_topics * 32);
 		let statements: Vec<Statement> = (INITIAL_STATEMENTS..INITIAL_STATEMENTS + TOTAL_OPS)
 			.map(|i| {
-				create_signed_statement_sized(i as u64, &topics, None, data_size, u64::MAX, &keypair)
+				create_signed_statement_sized(
+					i as u64,
+					&topics,
+					None,
+					data_size,
+					u64::MAX,
+					&keypair,
+				)
 			})
 			.collect();
 		group.bench_with_input(
@@ -440,7 +450,11 @@ fn bench_submit_index_cost(c: &mut Criterion) {
 
 /// A store whose per-account cap is `cap`, pre-filled with `cap` topicless statements at expiry
 /// `expiry` so the account is exactly full. A later, higher-expiry statement then evicts one.
-fn capped_store(keypair: &sp_core::ed25519::Pair, cap: u32, expiry: u64) -> (Store, tempfile::TempDir) {
+fn capped_store(
+	keypair: &sp_core::ed25519::Pair,
+	cap: u32,
+	expiry: u64,
+) -> (Store, tempfile::TempDir) {
 	let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 	let client = Arc::new(TestClient::capped(cap));
 	let mut path: std::path::PathBuf = temp_dir.path().into();
@@ -456,8 +470,14 @@ fn capped_store(keypair: &sp_core::ed25519::Pair, cap: u32, expiry: u64) -> (Sto
 	)
 	.unwrap();
 	for i in 0..cap {
-		let statement =
-			create_signed_statement_sized(i as u64, &[], None, STATEMENT_DATA_SIZE, expiry, keypair);
+		let statement = create_signed_statement_sized(
+			i as u64,
+			&[],
+			None,
+			STATEMENT_DATA_SIZE,
+			expiry,
+			keypair,
+		);
 		assert!(matches!(store.submit(statement, StatementSource::Local), SubmitResult::New));
 	}
 	(store, temp_dir)
@@ -743,8 +763,9 @@ fn bench_read_scaling(c: &mut Criterion) {
 }
 
 /// Store of `n` statements, each carrying a single topic shared by `matches_per_topic` consecutive
-/// statements (no decryption key). Builds a large, deep on-disk topic index while keeping any single
-/// topic's match set small — the realistic "pull my few statements out of a full store" shape.
+/// statements (no decryption key). Builds a large, deep on-disk topic index while keeping any
+/// single topic's match set small — the realistic "pull my few statements out of a full store"
+/// shape.
 fn setup_diverse_topics(
 	keypair: &sp_core::ed25519::Pair,
 	n: usize,
