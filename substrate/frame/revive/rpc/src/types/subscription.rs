@@ -129,6 +129,8 @@ impl LogsSubscriptionFilter {
 		Self {
 			addresses: address.map(|addresses| addresses.into_iter().collect()),
 			topics: topics.map(|topics| {
+				// Preserve the request's length so a filter of length `N` matches only logs 
+				// with `N`+ topics.
 				topics
 					.into_iter()
 					.map(|topic| topic.map(|topic_filter| topic_filter.into_iter().collect()))
