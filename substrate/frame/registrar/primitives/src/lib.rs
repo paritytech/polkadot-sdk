@@ -17,12 +17,10 @@
 
 //! # Parachain-registrar shared primitives
 //!
-//! Types shared by the two halves of the AHM v2 parachain registrar — the control-plane pallet on
-//! the Coretime chain ([`pallet-registrar-para`]) and the consensus-plane pallet on the relay chain
-//! ([`pallet-registrar-relay`]). This crate is deliberately free of any FRAME, XCM, or
-//! network-specific dependency, so a single version of the wire types serves Westend, Kusama and
-//! Polkadot, and so both halves can depend on it without forming a dependency cycle between the
-//! pallets.
+//! Types shared by the parachain registrar pallet ([`pallet-registrar-para`]) and relay-chain
+//! registrar pallet ([`pallet-registrar-relay`]). This crate is deliberately free of any FRAME,
+//! XCM, or network-specific dependency, so a single version of the wire types serves Westend,
+//! Kusama and Polkadot, and so both pallets can depend on it without forming a dependency cycle.
 //!
 //! ## Versioning
 //!

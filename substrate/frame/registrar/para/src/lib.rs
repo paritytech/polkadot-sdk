@@ -17,8 +17,8 @@
 
 //! # User Interface Pallet For Parachain Registrations
 //!
-//! This pallet exposes the extrinsics that can be used to manage parachain registrations. It communicates
-//! over XCM with the `pallet-registrar-relay` 
+//! This pallet exposes the extrinsics that can be used to manage parachain registrations. It
+//! communicates over XCM with the `pallet-registrar-relay`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -33,7 +33,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Sends a messages to the relay chain.
+		/// Sends messages to the relay chain.
 		type SendToRelay: SendToRelay;
 	}
 
@@ -41,7 +41,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	// - TODO: reserve — reserve a ParaId; holds the ParaId deposit.
-	// - TODO: register — register code+head for a reserved ParaId; holds the code deposit, XCM-authorizes on the relay.
+	// - TODO: register — register code+head for a reserved ParaId; holds the code deposit,
+	//   XCM-authorizes on the relay.
 	// - TODO: deregister — free the ParaId; releases both deposits.
 	// - TODO: swap — swap the slots of two paras.
 	// - TODO: add_lock — add the manager lock.

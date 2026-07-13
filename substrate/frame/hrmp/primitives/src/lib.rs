@@ -17,11 +17,10 @@
 
 //! # HRMP-channel shared primitives
 //!
-//! Types shared by the two halves of AHM v2 HRMP-channel management — the control-plane pallet on
-//! the Coretime chain ([`pallet-hrmp-para`]) and the consensus-plane pallet on the relay chain
+//! Types shared by the parachain pallet ([`pallet-hrmp-para`]) and relay-chain pallet
 //! ([`pallet-hrmp-relay`]). This crate is deliberately free of any FRAME, XCM, or network-specific
 //! dependency, so a single version of the wire types serves Westend, Kusama and Polkadot, and so
-//! both halves can depend on it without forming a dependency cycle between the pallets.
+//! both pallets can depend on it without forming a dependency cycle.
 //!
 //! ## Versioning
 //!
