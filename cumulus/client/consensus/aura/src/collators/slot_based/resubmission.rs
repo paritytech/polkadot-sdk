@@ -32,8 +32,8 @@ use cumulus_primitives_core::{
 		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
 		SessionIndex,
 	},
-	CoreInfo, CumulusDigestItem, PersistedValidationData, RelayBlockIdentifier,
-	SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
+	CoreInfo, CumulusDigestItem, RelayBlockIdentifier, SchedulingInfoPayload, SchedulingProof,
+	SignedSchedulingInfo,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
@@ -234,25 +234,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	if number <= para_client.info().finalized_number {
 		return;
 	}
-
-	// Anchor the stored PVD's `parent_head` on the block's actual para parent (not the
-	// currently-included head that `resolve_pvd` returns), so segment hydration consumes it as-is.
-	let parent_hash = *header.parent_hash();
-	let persisted_validation_data = match para_client.header(parent_hash) {
-		Ok(Some(parent_header)) => PersistedValidationData {
-			parent_head: parent_header.encode().into(),
-			..persisted_validation_data
-		},
-		_ => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?block_hash,
-				?parent_hash,
-				"Parent header unavailable; skipping resubmission entry.",
-			);
-			return;
-		},
-	};
 
 	let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 		block_hash,

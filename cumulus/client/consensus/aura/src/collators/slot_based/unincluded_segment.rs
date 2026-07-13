@@ -18,21 +18,22 @@
 //! Per-block hydration for the V3 unincluded segment.
 //!
 //! The parent search yields the unincluded segment as bare headers. [`hydrate_segment`] rebuilds
-//! each into a [`CollatorSegmentEntry`] anchored on the resubmission store: the block builder and
-//! block-import paths write a `StoredEntry` keyed by parablock hash alongside the block, capturing
-//! the relay-parent header, session, and persisted-validation-data it was built/validated against.
-//! Hydration reads the relay-parent identity and PVD straight from that entry (rather than
-//! re-resolving against a relay-chain client whose blocks may have rotated out of view) and only
-//! looks up the parachain-local body, parent header, and validation-code hash.
+//! each into a [`CollatorSegmentEntry`]: proofs and relay-parent identity come from the
+//! resubmission store (written at build/import time), the validation data from the block's own
+//! post-state (put there by the `set_validation_data` inherent), and body, parent header, and
+//! validation-code hash from the parachain backend — no relay-chain client access.
 
 use super::CollatorSegmentEntry;
+use codec::Decode;
 use cumulus_client_consensus_common::ValidationCodeHashProvider;
 use cumulus_client_resubmission_store::ResubmissionStore;
-use cumulus_primitives_core::CumulusDigestItem;
-use sc_client_api::Backend;
+use cumulus_primitives_core::{CumulusDigestItem, PersistedValidationData};
+use sc_client_api::{Backend, TrieCacheContext};
 use sp_api::StorageProof;
 use sp_blockchain::{Backend as BlockchainBackend, Error as BlockchainError, HeaderBackend};
+use sp_crypto_hashing::twox_128;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_state_machine::Backend as StateBackend;
 
 const LOG_TARGET: &str = "aura::cumulus::block_builder_task";
 
@@ -65,6 +66,35 @@ enum HydrateError {
 	/// No validation-code hash known at the parent parablock.
 	#[error("no validation-code hash at parent")]
 	NoValidationCodeHash,
+	/// The block's post-state is not available in the parachain backend.
+	#[error("block state unavailable: {0}")]
+	StateUnavailable(BlockchainError),
+	/// `ParachainSystem::ValidationData` was absent or undecodable in the block's post-state.
+	#[error("no validation data in the block's post-state")]
+	ValidationDataMissing,
+}
+
+/// Read the [`PersistedValidationData`] a parablock was executed with from its post-state — the
+/// `ParachainSystem::ValidationData` value put by the `set_validation_data` inherent. Coupled to
+/// the conventional `ParachainSystem` pallet name in `construct_runtime!`.
+fn read_validation_data<Block, B>(
+	para_backend: &B,
+	block_hash: Block::Hash,
+) -> Result<PersistedValidationData, HydrateError>
+where
+	Block: BlockT,
+	B: Backend<Block>,
+{
+	let key = [twox_128(b"ParachainSystem"), twox_128(b"ValidationData")].concat();
+	let state = para_backend
+		.state_at(block_hash, TrieCacheContext::Untrusted)
+		.map_err(HydrateError::StateUnavailable)?;
+	let raw = state
+		.storage(&key)
+		.map_err(|_| HydrateError::ValidationDataMissing)?
+		.ok_or(HydrateError::ValidationDataMissing)?;
+	PersistedValidationData::decode(&mut &raw[..])
+		.map_err(|_| HydrateError::ValidationDataMissing)
 }
 
 /// Hydrate a list of unincluded-segment headers (oldest first) into [`CollatorSegmentEntry`]s.
@@ -134,12 +164,11 @@ where
 
 /// Rebuild a [`CollatorSegmentEntry`] for one PoV bundle (a run of consecutive parablocks).
 ///
-/// Each block's [`ResubmissionStore`] row is the anchor: it carries the block's (bundle-compacted)
-/// proof, the relay-parent header, and the persisted-validation-data captured at build/import time.
-/// The bundle's blocks are collected in order and their per-block proofs merged back into the full
-/// bundle proof via [`StorageProof::merge`] — the same shape the block builder produced for the
-/// fresh multi-block PoV. The bundle is anchored on its first block: relay parent, PVD (whose
-/// `parent_head` is the bundle's parent), parent header, and validation-code hash all come from it.
+/// Each block's [`ResubmissionStore`] row carries its (bundle-compacted) proof and relay-parent
+/// header; the per-block proofs are merged back into the full bundle proof via
+/// [`StorageProof::merge`] — the same shape the block builder produced for the fresh multi-block
+/// PoV. The bundle is anchored on its first block: relay parent from its store row, validation
+/// data from its post-state, parent header and validation-code hash from the bundle's parent.
 ///
 /// Returns a [`HydrateError`] identifying *which* lookup failed; the caller logs it with the
 /// failing bundle's first block number/hash. All variants are recoverable at the segment level.
@@ -168,13 +197,24 @@ where
 		.code_hash_at(bundle_parent_hash)
 		.ok_or(HydrateError::NoValidationCodeHash)?;
 
+	// The first block's execution PVD anchors the bundle: its `parent_head` is the bundle's
+	// parent, matching the PoV the block builder originally produced. The relay parent comes
+	// from the same block's store row (all bundle blocks share it).
+	let first_hash = bundle[0].hash();
+	let validation_data = read_validation_data(para_backend, first_hash)?;
+	let relay_parent = store
+		.load(first_hash)
+		.map_err(HydrateError::StoreLoad)?
+		.ok_or(HydrateError::StoredEntryMissing)?
+		.relay_parent_header
+		.hash();
+
 	let mut blocks = Vec::with_capacity(bundle.len());
 	let mut proofs = Vec::with_capacity(bundle.len());
-	let mut anchor = None;
 	for header in bundle {
 		let block_hash = header.hash();
-		// The store row keyed by the block's hash carries its proof and PVD. If it isn't there we
-		// can't reassemble the bundle.
+		// The store row keyed by the block's hash carries its proof. If it isn't there we can't
+		// reassemble the bundle.
 		let stored = store
 			.load(block_hash)
 			.map_err(HydrateError::StoreLoad)?
@@ -186,17 +226,9 @@ where
 			.map_err(HydrateError::BodyBackend)?
 			.ok_or(HydrateError::BodyMissing)?;
 
-		if anchor.is_none() {
-			// The stored PVD already carries the correct `parent_head` (the bundle's parent); the
-			// block builder and the resubmission backfill both anchor it at write time.
-			anchor = Some((stored.relay_parent_header.hash(), stored.persisted_validation_data));
-		}
 		blocks.push(Block::new(header, body));
 		proofs.push((*stored.proof).clone());
 	}
-
-	// Non-empty by construction (`hydrate_segment` never pushes an empty bundle).
-	let (relay_parent, validation_data) = anchor.expect("bundle is non-empty; qed");
 
 	Ok(CollatorSegmentEntry {
 		relay_parent,
