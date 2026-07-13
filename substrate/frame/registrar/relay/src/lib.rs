@@ -20,13 +20,6 @@
 //! Relay half of the parachain registrar. Runs on the relay chain, applying registrations
 //! authorized on a parachain ([`pallet-registrar-para`]) and driving the relay's legacy `paras`
 //! state.
-//!
-//! No user-facing *signed* extrinsics — this half is driven entirely by XCM `Transact` from the
-//! parachain half. The one exception is the unavoidable unsigned code upload (below).
-//!
-//! Bare scaffold — the config, storage, calls and logic land later. Kept
-//! abstract (no network-specific dependency) so the same pallet serves Westend, Kusama and
-//! Polkadot.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -47,10 +40,4 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
-
-	// No user-facing signed extrinsics on the relay side — all signed user ops live on the
-	// parachain half ([`pallet-registrar-para`]) and arrive here as XCM `Transact`.
-	// TODO: the one necessary exception — an *unsigned*, `ValidateUnsigned`-gated
-	// `apply_authorized_parachain_registration` that uploads the actual wasm+head matching a prior
-	// authorization (the unavoidable on-relay upload).
 }

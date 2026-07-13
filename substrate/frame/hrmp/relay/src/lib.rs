@@ -20,13 +20,6 @@
 //! Relay half of HRMP channel management. Runs on the relay chain, applying channel operations
 //! received from a parachain ([`pallet-hrmp-para`]) to the relay's legacy `hrmp` routing table and
 //! reporting back.
-//!
-//! No user-facing extrinsics — this half is driven entirely by XCM `Transact` from the parachain
-//! half.
-//!
-//! Bare scaffold — the config, storage, calls and logic land later. Kept
-//! abstract (no network-specific dependency) so the same pallet serves Westend, Kusama and
-//! Polkadot.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -47,7 +40,4 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
-
-	// No user-facing extrinsics on the relay side — all user ops live on the parachain half
-	// ([`pallet-hrmp-para`]) and arrive here as XCM `Transact` to drive the relay's `hrmp` routing.
 }

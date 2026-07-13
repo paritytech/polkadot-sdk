@@ -19,13 +19,6 @@
 //!
 //! User-facing half of HRMP channel management. Runs on a parachain, holding channel deposits and
 //! driving open / accept / close on the relay-chain counterpart ([`pallet-hrmp-relay`]) over XCM.
-//!
-//! All user-facing extrinsics live on this parachain side — it owns the entire signed user surface;
-//! the relay half has none.
-//!
-//! Bare scaffold — the config, storage, calls and logic land later. Kept
-//! abstract (no network-specific dependency) so the same pallet serves Westend, Kusama and
-//! Polkadot.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
