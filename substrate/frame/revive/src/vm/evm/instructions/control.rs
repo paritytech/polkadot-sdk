@@ -101,7 +101,7 @@ fn return_inner<E: Ext>(
 	let mut output = Default::default();
 	if len != 0 {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(offset, len)?;
+		interpreter.resize_memory(offset, len)?;
 		output = interpreter.memory.slice_len(offset, len).to_vec()
 	}
 

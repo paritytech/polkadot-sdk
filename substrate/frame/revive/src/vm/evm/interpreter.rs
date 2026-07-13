@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::ExtBytecode;
+use super::{EVMGas, ExtBytecode};
 use crate::{
 	Config, DispatchError, Error, Weight,
 	primitives::ExecReturnValue,
@@ -26,7 +26,9 @@ use crate::{
 	},
 };
 use alloc::vec::Vec;
+use core::ops::ControlFlow;
 use pallet_revive_uapi::ReturnFlags;
+use revm::interpreter::{gas::memory_gas, num_words};
 
 /// EVM execution halt - either successful termination or error
 #[derive(Debug, PartialEq)]
@@ -73,6 +75,20 @@ impl<'a, E: Ext> Interpreter<'a, E> {
 	/// Create a new interpreter instance
 	pub fn new(bytecode: ExtBytecode, input: Vec<u8>, ext: &'a mut E) -> Self {
 		Self { ext, bytecode, input, stack: Stack::new(), memory: Memory::new() }
+	}
+
+	/// Charge the quadratic EVM memory-expansion gas and grow memory to fit
+	/// `[offset, offset + len)`. All memory growth must go through here so expansion is never free.
+	pub fn resize_memory(&mut self, offset: usize, len: usize) -> ControlFlow<Halt> {
+		if len != 0 {
+			let current_words = num_words(self.memory.size());
+			let new_words = num_words(offset.saturating_add(len));
+			if new_words > current_words {
+				let cost = memory_gas(new_words).saturating_sub(memory_gas(current_words));
+				self.ext.charge_or_halt(EVMGas(cost))?;
+			}
+		}
+		self.memory.resize(offset, len)
 	}
 }
 

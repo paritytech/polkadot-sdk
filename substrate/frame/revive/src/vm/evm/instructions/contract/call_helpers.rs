@@ -47,7 +47,7 @@ pub fn resize_memory<'a, E: Ext>(
 	let len = as_usize_or_halt::<E::T>(len)?;
 	if len != 0 {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(offset, len)?;
+		interpreter.resize_memory(offset, len)?;
 		ControlFlow::Continue(offset..offset + len)
 	} else {
 		// unrealistic value so we are sure it is not used

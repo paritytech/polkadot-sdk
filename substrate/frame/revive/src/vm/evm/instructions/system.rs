@@ -37,8 +37,8 @@ pub const KECCAK_EMPTY: [u8; 32] =
 ///
 /// Computes Keccak-256 hash of memory data.
 pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	let ([offset], top) = interpreter.stack.popn_top()?;
-	let len = as_usize_or_halt::<E::T>(*top)?;
+	let [offset, len] = interpreter.stack.popn()?;
+	let len = as_usize_or_halt::<E::T>(len)?;
 	interpreter
 		.ext
 		.frame_meter_mut()
@@ -48,11 +48,10 @@ pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 		H256::from(KECCAK_EMPTY)
 	} else {
 		let from = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(from, len)?;
+		interpreter.resize_memory(from, len)?;
 		H256::from(keccak_256(interpreter.memory.slice_len(from, len)))
 	};
-	*top = U256::from_big_endian(hash.as_ref());
-	ControlFlow::Continue(())
+	interpreter.stack.push(U256::from_big_endian(hash.as_ref()))
 }
 
 /// Implements the ADDRESS instruction.
@@ -217,6 +216,6 @@ pub fn memory_resize<'a, E: Ext>(
 
 	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
-	interpreter.memory.resize(memory_offset, len)?;
+	interpreter.resize_memory(memory_offset, len)?;
 	ControlFlow::Continue(Some(memory_offset))
 }

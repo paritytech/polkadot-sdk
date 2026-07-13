@@ -1,0 +1,20 @@
+title: '[pallet-revive] Charge EVM memory-expansion gas'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/12640
+
+    The EVM interpreter grew memory without charging Ethereum's quadratic
+    memory-expansion cost (`3 * words + words^2 / 512`): every memory-touching
+    opcode only paid its fixed cost, so memory could be expanded almost for free
+    and gas accounting diverged from Ethereum (breaking `eth_estimateGas` parity).
+
+    Memory growth is now routed through a single `Interpreter::resize_memory`
+    helper that charges the expansion cost for the delta between the current and
+    new word count before resizing, matching `revm`. This covers `MLOAD`,
+    `MSTORE`, `MSTORE8`, `MCOPY`, `CODECOPY`, `CALLDATACOPY`, `RETURNDATACOPY`,
+    `EXTCODECOPY`, `KECCAK256`, `RETURN`/`REVERT`, and the CALL/CREATE memory
+    ranges.
+crates:
+- name: pallet-revive
+  bump: patch

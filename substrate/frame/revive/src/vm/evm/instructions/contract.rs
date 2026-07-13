@@ -63,7 +63,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		}
 
 		let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
-		interpreter.memory.resize(code_offset, len)?;
+		interpreter.resize_memory(code_offset, len)?;
 		code = interpreter.memory.slice_len(code_offset, len).to_vec();
 	}
 

@@ -86,7 +86,7 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
 	let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
 
-	interpreter.memory.resize(memory_offset, len)?;
+	interpreter.resize_memory(memory_offset, len)?;
 
 	let mut buf = interpreter.memory.slice_mut(memory_offset, len);
 	// Note: This can't panic because we resized memory to fit.
@@ -265,7 +265,7 @@ pub fn log<'ext, const N: usize, E: Ext>(
 		Vec::new()
 	} else {
 		let offset = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(offset, len)?;
+		interpreter.resize_memory(offset, len)?;
 		interpreter.memory.slice(offset..offset + len).to_vec()
 	};
 	if interpreter.stack.len() < N {
