@@ -235,7 +235,7 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 	}
 }
 
-/// Transfer the entire balance of a single [`fungible::Mutate`] currency from one account to
+/// Transfer the entire balance of a single `fungible::Mutate` currency from one account to
 /// another.
 ///
 /// Suitable for runtimes that expose exactly one relevant currency (e.g. native-only runtimes
@@ -294,9 +294,10 @@ where
 				continue;
 			}
 
-			transferred_any = true;
 			// Ignore errors since this can only fail if the receiver does not exist.
-			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
+			if Fungibles::transfer(id, from, to, balance, Preservation::Expendable).is_ok() {
+				transferred_any = true;
+			}
 		}
 		Ok(transferred_any)
 	}
