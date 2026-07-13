@@ -72,6 +72,9 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_revive`.
 pub trait WeightInfo {
 	fn deletion_queue_batch() -> Weight;
+	fn process_new_account_authorization(n: u32, ) -> Weight;
+	fn process_existing_account_authorization(n: u32, ) -> Weight;
+	fn process_invalid_authorization(n: u32, ) -> Weight;
 	fn deletion_queue_per_entry() -> Weight;
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight;
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight;
@@ -204,6 +207,46 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 3_078_000 picoseconds.
 		Weight::from_parts(3_415_000, 1698)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// The range of component `n` is `[0, 255]`.
+	fn process_new_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1055 + n * (353 ±0)`
+		//  Estimated: `2055 + n * (5303 ±0)`
+		// Minimum execution time: 274_000 picoseconds.
+		Weight::from_parts(289_000, 2055)
+			// Standard Error: 90_164
+			.saturating_add(Weight::from_parts(160_133_923, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5303).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 255]`.
+	fn process_existing_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1360 + n * (909 ±0)`
+		//  Estimated: `4882 + n * (5859 ±0)`
+		// Minimum execution time: 321_000 picoseconds.
+		Weight::from_parts(327_000, 4882)
+			// Standard Error: 320_303
+			.saturating_add(Weight::from_parts(254_976_145, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().reads((7_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5859).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 255]`.
+	fn process_invalid_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1258 + n * (3 ±0)`
+		//  Estimated: `2172 + n * (2478 ±0)`
+		// Minimum execution time: 373_000 picoseconds.
+		Weight::from_parts(35_642_151, 2172)
+			// Standard Error: 12_984
+			.saturating_add(Weight::from_parts(52_217_261, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2478).saturating_mul(n.into()))
 	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
@@ -1751,6 +1794,46 @@ impl WeightInfo for () {
 		// Minimum execution time: 3_078_000 picoseconds.
 		Weight::from_parts(3_415_000, 1698)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// The range of component `n` is `[0, 255]`.
+	fn process_new_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1055 + n * (353 ±0)`
+		//  Estimated: `2055 + n * (5303 ±0)`
+		// Minimum execution time: 274_000 picoseconds.
+		Weight::from_parts(289_000, 2055)
+			// Standard Error: 90_164
+			.saturating_add(Weight::from_parts(160_133_923, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((6_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5303).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 255]`.
+	fn process_existing_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1360 + n * (909 ±0)`
+		//  Estimated: `4882 + n * (5859 ±0)`
+		// Minimum execution time: 321_000 picoseconds.
+		Weight::from_parts(327_000, 4882)
+			// Standard Error: 320_303
+			.saturating_add(Weight::from_parts(254_976_145, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().reads((7_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().writes((6_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5859).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 255]`.
+	fn process_invalid_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1258 + n * (3 ±0)`
+		//  Estimated: `2172 + n * (2478 ±0)`
+		// Minimum execution time: 373_000 picoseconds.
+		Weight::from_parts(35_642_151, 2172)
+			// Standard Error: 12_984
+			.saturating_add(Weight::from_parts(52_217_261, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2478).saturating_mul(n.into()))
 	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
