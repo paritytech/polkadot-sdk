@@ -19,8 +19,9 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, ReceiptExtractor,
-	ReceiptProvider, SubxtBlockInfoProvider, SyncLabel,
+	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
+	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
+	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
 	example::TransactionBuilder,
@@ -32,7 +33,7 @@ use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
 use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
 use alloy_rpc_types::{
-	TransactionRequest,
+	BlockId, BlockNumberOrTag, Filter, TransactionRequest,
 	state::{AccountOverride, StateOverride},
 };
 use alloy_signer_local::PrivateKeySigner;
@@ -45,10 +46,8 @@ use jsonrpsee::{
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		BoundedOneOrMany, Filter, FilterResults, GenericTransaction, H256,
-		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
-		TransactionInfo, TransactionUnsigned, U256,
+		Account, Block, GenericTransaction, H256, HashesOrTransactionInfos, TransactionUnsigned,
+		U256,
 	},
 	precompiles::alloy::{
 		self,
@@ -175,8 +174,7 @@ async fn prepare_evm_transactions<Client: EthRpcClient + Sync + Send>(
 	amount: U256,
 	count: usize,
 ) -> anyhow::Result<Vec<TransactionBuilder<Client>>> {
-	let start_nonce =
-		client.get_transaction_count(signer.address(), BlockTag::Latest.into()).await?;
+	let start_nonce = client.get_transaction_count(signer.address(), Default::default()).await?;
 
 	let mut transactions = Vec::new();
 	for i in (0..count).rev() {
@@ -292,7 +290,7 @@ async fn verify_transactions_in_single_block(
 ) -> anyhow::Result<()> {
 	// Fetch the block
 	let block = client
-		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.get_block_by_number(BlockNumberOrTag::Number(block_number.as_u64()), false)
 		.await?
 		.ok_or_else(|| anyhow!("Block {block_number} should exist"))?;
 
@@ -310,6 +308,29 @@ async fn verify_transactions_in_single_block(
 	}
 
 	Ok(())
+}
+
+/// Wait for the eth-rpc's finalized block to catch up to its best block.
+async fn wait_for_finalized_to_reach_best<C: EthRpcClient + Sync>(
+	client: &C,
+) -> anyhow::Result<()> {
+	tokio::time::timeout(tokio::time::Duration::from_secs(5), async {
+		let latest = client
+			.get_block_by_number(BlockNumberOrTag::Latest, false)
+			.await?
+			.expect("latest block should exist")
+			.number;
+		loop {
+			let finalized = client.get_block_by_number(BlockNumberOrTag::Finalized, false).await?;
+			if finalized.map(|block| block.number == latest).unwrap_or(false) {
+				break;
+			}
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+		}
+		anyhow::Ok(())
+	})
+	.await
+	.map_err(|_| anyhow::anyhow!("timed out waiting for finalized block to match best block"))?
 }
 
 #[tokio::test]
@@ -362,6 +383,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_block_number_works,
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
+		test_get_logs_with_block_tags_works,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
@@ -417,7 +439,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 async fn test_transfer() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
-	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	let initial_balance = client.get_balance(ethan.address(), Default::default()).await?;
 
 	let value = 1_000_000_000_000_000_000_000u128.into();
 	let tx = TransactionBuilder::new(client.clone())
@@ -433,7 +455,7 @@ async fn test_transfer() -> anyhow::Result<()> {
 		"Receipt should have the correct contract address."
 	);
 
-	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	let balance = client.get_balance(ethan.address(), Default::default()).await?;
 	assert_eq!(
 		Some(value),
 		balance.checked_sub(initial_balance),
@@ -449,7 +471,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 
 	// Balance transfer
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
-	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	let initial_balance = client.get_balance(ethan.address(), Default::default()).await?;
 	let value = 1_000_000_000_000_000_000_000u128.into();
 	let tx = TransactionBuilder::new(client.clone())
 		.value(value)
@@ -464,7 +486,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 		"Receipt should have the correct contract address."
 	);
 
-	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	let balance = client.get_balance(ethan.address(), Default::default()).await?;
 	assert_eq!(
 		Some(value),
 		balance.checked_sub(initial_balance),
@@ -477,7 +499,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	let value = U256::from(5_000_000_000_000u128);
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).value(value).input(input).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -488,11 +510,11 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	let nonce_after_deploy =
-		client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+		client.get_transaction_count(account.address(), Default::default()).await?;
 
 	assert_eq!(nonce_after_deploy - nonce, U256::from(1), "Nonce should have increased by 1");
 
-	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let initial_balance = client.get_balance(contract_address, Default::default()).await?;
 	assert_eq!(
 		value, initial_balance,
 		"Contract {contract_address:?} balance should be the same as the value sent ({value})."
@@ -512,7 +534,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 		"Receipt should have the correct contract address {contract_address:?}."
 	);
 
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let balance = client.get_balance(contract_address, Default::default()).await?;
 	assert_eq!(
 		Some(value),
 		balance.checked_sub(initial_balance),
@@ -520,7 +542,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	// Balance transfer to contract
-	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let initial_balance = client.get_balance(contract_address, Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone())
 		.value(value)
 		.to(contract_address)
@@ -529,7 +551,7 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 
 	tx.wait_for_receipt().await?;
 
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let balance = client.get_balance(contract_address, Default::default()).await?;
 
 	assert_eq!(
 		Some(value),
@@ -551,7 +573,7 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 		let address = account.address();
 		async move {
 			let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(name, fixture_type)?;
-			let nonce = client.get_transaction_count(address, BlockTag::Latest.into()).await?;
+			let nonce = client.get_transaction_count(address, Default::default()).await?;
 			let tx = TransactionBuilder::new(client).input(bytes).send().await?;
 			tx.wait_for_receipt().await?;
 			Ok::<_, anyhow::Error>(create1(&address, nonce.try_into().unwrap()))
@@ -570,7 +592,7 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 
 	// Get the current nonce and submit two transactions with descending nonces
 	// so they land in the same block.
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 
 	let revert_tx = TransactionBuilder::new(client.clone())
 		.to(revert_contract)
@@ -638,7 +660,7 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	// Verify eth_getTransactionByBlockNumberAndIndex for both
 	let tx0 = client
 		.get_transaction_by_block_number_and_index(
-			block_number.try_into().unwrap(),
+			BlockNumberOrTag::Number(block_number.as_u64()),
 			emit_receipt.transaction_index,
 		)
 		.await?;
@@ -646,7 +668,7 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 
 	let tx1 = client
 		.get_transaction_by_block_number_and_index(
-			block_number.try_into().unwrap(),
+			BlockNumberOrTag::Number(block_number.as_u64()),
 			revert_receipt.transaction_index,
 		)
 		.await?;
@@ -676,7 +698,7 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 
 	// runtime_api.at_latest() uses the latest finalized block, query nonce accordingly
 	let nonce = client
-		.get_transaction_count(account.address(), BlockTag::Finalized.into())
+		.get_transaction_count(account.address(), BlockNumberOrTag::Finalized.into())
 		.await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
@@ -759,7 +781,7 @@ async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
 
 	// Fetch the block immediately (should come from storage EthereumBlock)
 	let evm_block_from_rpc_by_number = client
-		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), false)
+		.get_block_by_number(BlockNumberOrTag::Number(block_number.as_u64()), false)
 		.await?
 		.expect("Block should exist");
 	let evm_block_from_rpc_by_hash =
@@ -802,7 +824,7 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 
 	// Fetch the block with hydrated transactions via RPC (by number and by hash)
 	let evm_block_from_rpc_by_number = client
-		.get_block_by_number(BlockNumberOrTag::U256(block_number.into()), true)
+		.get_block_by_number(BlockNumberOrTag::Number(block_number.as_u64()), true)
 		.await?
 		.expect("Block should exist");
 	let evm_block_from_rpc_by_hash =
@@ -820,7 +842,7 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 		.try_into_unsigned()
 		.expect("Transaction shall be converted");
 	let signed_tx = signer_copy.sign_transaction(unsigned_tx);
-	let expected_tx_info = TransactionInfo::new(&receipt, signed_tx);
+	let expected_tx_info = receipt.transaction_info(signed_tx);
 
 	let tx_info = if let HashesOrTransactionInfos::TransactionInfos(tx_infos) =
 		evm_block_from_rpc_by_number.transactions
@@ -856,7 +878,9 @@ async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyh
 		.expect("Block should exist");
 
 	let account = Account::default();
-	let balance = client.get_balance(account.address(), ethereum_block_hash.into()).await?;
+	let balance = client
+		.get_balance(account.address(), BlockId::hash(B256::from(ethereum_block_hash.0)))
+		.await?;
 
 	assert!(balance >= U256::zero(), "Balance should be retrievable with Ethereum hash");
 	assert_eq!(block_by_hash.hash, ethereum_block_hash, "Block hash should match");
@@ -871,7 +895,9 @@ async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> any
 	log::trace!(target: LOG_TARGET, "Testing with fake Ethereum hash: {fake_eth_hash:?}");
 
 	let account = Account::default();
-	let result = client.get_balance(account.address(), fake_eth_hash.into()).await;
+	let result = client
+		.get_balance(account.address(), BlockId::hash(B256::from(fake_eth_hash.0)))
+		.await;
 
 	assert!(result.is_err(), "Should fail with non-existent Ethereum hash");
 
@@ -886,29 +912,99 @@ async fn test_block_hash_for_tag_with_block_number_works() -> anyhow::Result<()>
 
 	let account = Account::default();
 	let balance = client
-		.get_balance(account.address(), BlockNumberOrTagOrHash::BlockNumber(block_number))
+		.get_balance(account.address(), BlockId::number(block_number.as_u64()))
 		.await?;
 
 	assert!(balance >= U256::zero(), "Balance should be retrievable with block number");
 	Ok(())
 }
 
+/// The standard block tags every RPC entry point must accept.
+const BLOCK_TAGS: [BlockNumberOrTag; 5] = [
+	BlockNumberOrTag::Earliest,
+	BlockNumberOrTag::Safe,
+	BlockNumberOrTag::Finalized,
+	BlockNumberOrTag::Pending,
+	BlockNumberOrTag::Latest,
+];
+
 async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	let tags = vec![
-		BlockTag::Latest,
-		BlockTag::Finalized,
-		BlockTag::Safe,
-		BlockTag::Earliest,
-		BlockTag::Pending,
-	];
-
-	for tag in tags {
+	for tag in BLOCK_TAGS {
 		let balance = client.get_balance(account.address(), tag.into()).await?;
 
 		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
+	}
+
+	Ok(())
+}
+
+/// `eth_getLogs` must accept every standard block tag for `fromBlock`/`toBlock`.
+async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	// Deploy a contract and trigger it to emit a log.
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
+	TransactionBuilder::new(client.clone())
+		.input(bytes.to_vec())
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	let emit_receipt = TransactionBuilder::new(client.clone())
+		.value(U256::from(1_000_000_000_000u128))
+		.to(contract_address)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	let emit_block = emit_receipt.block_number;
+
+	wait_for_finalized_to_reach_best(&*client).await?;
+
+	let logs_of = |results: FilterResults| match results {
+		FilterResults::Logs(logs) => logs,
+		FilterResults::Hashes(hashes) if hashes.is_empty() => Vec::new(),
+		other => panic!("expected Logs from eth_getLogs, got: {other:?}"),
+	};
+	let has_emitted_log = |logs: &[Log]| logs.iter().any(|log| log.block_number == emit_block);
+
+	// `<tag>..latest` range should span the emitted log.
+	for from in BLOCK_TAGS {
+		let logs = logs_of(
+			client
+				.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
+				.await
+				.map_err(|err| anyhow::anyhow!("eth_getLogs {from:?}..latest failed: {err:?}"))?,
+		);
+		assert!(has_emitted_log(&logs), "{from:?}..latest should include the emitted log");
+	}
+
+	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`.
+	for to in BLOCK_TAGS {
+		let logs = logs_of(
+			client
+				.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
+				.await
+				.map_err(|err| anyhow::anyhow!("eth_getLogs earliest..{to:?} failed: {err:?}"))?,
+		);
+		if matches!(to, BlockNumberOrTag::Earliest) {
+			assert!(
+				!has_emitted_log(&logs),
+				"earliest..earliest (genesis) must not contain the log"
+			);
+		} else {
+			assert!(has_emitted_log(&logs), "earliest..{to:?} should include the emitted log");
+		}
 	}
 
 	Ok(())
@@ -927,73 +1023,73 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 
 	// eth_getBlockByNumber
 	let block = client
-		.get_block_by_number(BlockTag::Earliest.into(), false)
+		.get_block_by_number(BlockNumberOrTag::Earliest, false)
 		.await?
 		.expect("earliest block should exist");
 	assert_eq!(block.number, U256::zero(), "earliest block number should be 0");
 
 	// eth_getBalance
-	let balance = client.get_balance(account.address(), BlockTag::Earliest.into()).await?;
+	let balance = client.get_balance(account.address(), BlockNumberOrTag::Earliest.into()).await?;
 	assert!(balance > U256::zero(), "dev account should have a non-zero balance at genesis");
 
 	// eth_getTransactionCount
 	let nonce = client
-		.get_transaction_count(account.address(), BlockTag::Earliest.into())
+		.get_transaction_count(account.address(), BlockNumberOrTag::Earliest.into())
 		.await?;
 	assert_eq!(nonce, U256::zero(), "nonce at genesis should be 0");
 
 	// eth_getCode
-	let code = client.get_code(account.address(), BlockTag::Earliest.into()).await?;
+	let code = client.get_code(account.address(), BlockNumberOrTag::Earliest.into()).await?;
 	assert!(code.is_empty(), "EOA should have no code");
 
 	// eth_getStorageAt
 	let storage = client
-		.get_storage_at(account.address(), U256::zero(), BlockTag::Earliest.into())
+		.get_storage_at(account.address(), U256::zero(), BlockNumberOrTag::Earliest.into())
 		.await?;
 	assert!(storage.0.iter().all(|&b| b == 0), "EOA should have zero storage");
 
 	// eth_getBlockTransactionCountByNumber
 	let tx_count = client
-		.get_block_transaction_count_by_number(Some(BlockTag::Earliest.into()))
+		.get_block_transaction_count_by_number(Some(BlockNumberOrTag::Earliest))
 		.await?;
 	assert_eq!(tx_count, Some(U256::zero()), "genesis block should have no transactions");
 
 	// eth_getTransactionByBlockNumberAndIndex
 	let tx_by_index = client
-		.get_transaction_by_block_number_and_index(BlockTag::Earliest.into(), U256::zero())
+		.get_transaction_by_block_number_and_index(BlockNumberOrTag::Earliest, U256::zero())
 		.await?;
 	assert!(tx_by_index.is_none(), "genesis block should have no transactions");
 
 	// eth_call
-	let call_result = client.call(tx.clone(), Some(BlockTag::Earliest.into()), None).await?;
+	let call_result =
+		client.call(tx.clone(), Some(BlockNumberOrTag::Earliest.into()), None).await?;
 	assert!(call_result.is_empty(), "calling an EOA should return empty bytes");
 
 	// eth_estimateGas
-	let gas = client.estimate_gas(tx.clone(), Some(BlockTag::Earliest.into())).await?;
+	let gas = client.estimate_gas(tx.clone(), Some(BlockNumberOrTag::Earliest)).await?;
 	assert!(gas > U256::zero(), "gas estimate should be non-zero");
 
 	// eth_feeHistory
-	let fee = client.fee_history(U256::from(1), BlockTag::Earliest.into(), None).await?;
+	let fee = client.fee_history(U256::from(1), BlockNumberOrTag::Earliest, None).await?;
 	assert_eq!(fee.oldest_block, U256::zero(), "feeHistory oldest_block should be 0");
 	assert!(!fee.base_fee_per_gas.is_empty(), "feeHistory should include base fee");
 
 	// eth_getLogs
-	let filter = Filter {
-		from_block: Some(BlockTag::Earliest.into()),
-		to_block: Some(BlockTag::Earliest.into()),
-		..Default::default()
-	};
+	let filter = Filter::new()
+		.from_block(BlockNumberOrTag::Earliest)
+		.to_block(BlockNumberOrTag::Earliest);
 	let logs = client.get_logs(Some(filter)).await?;
 	assert_eq!(logs, FilterResults::default(), "genesis block should have no logs");
 
 	// debug_traceBlockByNumber
 	let traces =
-		DebugRpcClient::trace_block_by_number(&*client, BlockTag::Earliest.into(), None).await?;
+		DebugRpcClient::trace_block_by_number(&*client, BlockNumberOrTag::Earliest, None).await?;
 	assert!(traces.is_empty(), "genesis block should have no traces");
 
 	// debug_traceCall
 	let trace =
-		DebugRpcClient::trace_call(&*client, tx.clone(), BlockTag::Earliest.into(), None).await?;
+		DebugRpcClient::trace_call(&*client, tx.clone(), BlockNumberOrTag::Earliest.into(), None)
+			.await?;
 	assert!(
 		matches!(trace, TraceV1::Call(_) | TraceV1::Execution(_)),
 		"traceCall should return a trace"
@@ -1163,7 +1259,7 @@ async fn test_subscribe_new_heads() -> anyhow::Result<()> {
 	};
 
 	let block = client
-		.get_block_by_number(BlockNumberOrTag::U256(header.number), false)
+		.get_block_by_number(BlockNumberOrTag::Number(header.number.as_u64()), false)
 		.await?
 		.expect("Block should exist");
 
@@ -1194,7 +1290,7 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1222,7 +1318,7 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 		other => panic!("Expected Log, got: {other:?}"),
 	};
 
-	let filter = Filter { block_hash: Some(call_receipt.block_hash), ..Default::default() };
+	let filter = Filter::new().at_block_hash(B256::from(call_receipt.block_hash.0));
 	let rpc_logs = client.get_logs(Some(filter)).await?;
 	let rpc_logs: Vec<Log> = match rpc_logs {
 		FilterResults::Logs(logs) => logs,
@@ -1259,7 +1355,7 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1309,7 +1405,7 @@ async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1435,13 +1531,13 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
 
-	let nonce_a = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce_a = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_a = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_a = tx_a.wait_for_receipt().await?;
 	let contract_a = create1(&account.address(), nonce_a.try_into().unwrap());
 	assert_eq!(Some(contract_a), receipt_a.contract_address);
 
-	let nonce_b = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce_b = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_b = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_b = tx_b.wait_for_receipt().await?;
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
@@ -1504,13 +1600,13 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
 
-	let nonce_a = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce_a = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_a = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_a = tx_a.wait_for_receipt().await?;
 	let contract_a = create1(&account.address(), nonce_a.try_into().unwrap());
 	assert_eq!(Some(contract_a), receipt_a.contract_address);
 
-	let nonce_b = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce_b = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx_b = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt_b = tx_b.wait_for_receipt().await?;
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
@@ -1585,7 +1681,7 @@ async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()
 		"SimpleReceiver",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
 	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
 	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
@@ -1682,9 +1778,7 @@ async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<
 		input: test_function_selector.into(),
 		to: Some(contract_address),
 		chain_id: Some(client.chain_id().await?),
-		nonce: Some(
-			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
-		),
+		nonce: Some(client.get_transaction_count(account.address(), Default::default()).await?),
 		r#type: Some(0u8.into()),
 		..Default::default()
 	};
@@ -1981,9 +2075,7 @@ async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<
 		input: test_function_selector.into(),
 		to: Some(contract_address),
 		chain_id: Some(client.chain_id().await?),
-		nonce: Some(
-			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
-		),
+		nonce: Some(client.get_transaction_count(account.address(), Default::default()).await?),
 		r#type: Some(0u8.into()),
 		..Default::default()
 	};
@@ -2183,9 +2275,7 @@ async fn test_gas_estimation_with_no_funds_and_with_gas_specified() -> anyhow::R
 		input: test_function_selector.into(),
 		to: Some(contract_address),
 		chain_id: Some(client.chain_id().await?),
-		nonce: Some(
-			client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?,
-		),
+		nonce: Some(client.get_transaction_count(account.address(), Default::default()).await?),
 		r#type: Some(0u8.into()),
 		gas: Some(U256::from(100_000_000u64)),
 		..Default::default()
