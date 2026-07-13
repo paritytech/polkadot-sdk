@@ -1423,6 +1423,63 @@ fn in_memory_changes_not_discarded() {
 }
 
 #[test]
+fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
+	// Exercises a banked refund: self-reenter, `charge_storage` a removal (no cache reload),
+	// self-reenter again. The second bank fires on an invalidated frame; `load()` reloads so
+	// the removal's pro-rata refund is applied. 30 bytes (not 1) so the refund doesn't round
+	// to 0.
+	let code_bob = MockLoader::insert(Call, |ctx, _| {
+		if ctx.input_data[0] == 0 {
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+			ctx.ext
+				.charge_storage(&Diff { bytes_removed: 30, ..Default::default() })
+				.unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+		}
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = <Test as Config>::Currency::minimum_balance();
+		set_balance(&ALICE, min_balance * 1000);
+		place_contract(&BOB, code_bob);
+		let mut meter =
+			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+				.unwrap();
+		let origin = Origin::from_account_id(ALICE);
+		let exec_config = ExecConfig::new_substrate_tx();
+		assert_ok!(MockStack::run_call(
+			origin.clone(),
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![0],
+			&exec_config,
+		));
+		meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
+
+		// K1 = 35 bytes → deposit 37; 30-byte removal refunds floor(30/35 * 35) = 29 → net 8.
+		let charged = min_balance * 1000 - get_balance(&ALICE);
+		assert_eq!(charged, 8, "banked removal refund not applied: expected net deposit 8");
+	});
+}
+
+#[test]
 fn recursive_call_during_constructor_is_balance_transfer() {
 	let code = MockLoader::insert(Constructor, |ctx, _| {
 		let account_id = ctx.ext.account_id().clone();
