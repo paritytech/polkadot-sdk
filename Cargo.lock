@@ -2786,23 +2786,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-polkadot-bulletin"
-version = "0.4.0"
-dependencies = [
- "bp-header-chain",
- "bp-messages",
- "bp-polkadot-core",
- "bp-runtime",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-api 26.0.0",
- "sp-runtime 31.0.1",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "bp-polkadot-core"
 version = "0.7.0"
 dependencies = [
@@ -3008,7 +2991,6 @@ dependencies = [
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
- "bp-polkadot-bulletin",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
@@ -7273,6 +7255,16 @@ checksum = "8835f84f38484cc86f110a805655697908257fb9a7af005234060891557198e9"
 dependencies = [
  "nonempty",
  "thiserror 1.0.65",
+]
+
+[[package]]
+name = "fp-coretime"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
@@ -12805,7 +12797,7 @@ dependencies = [
 name = "pallet-broker"
 version = "0.6.0"
 dependencies = [
- "bitvec",
+ "fp-coretime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -17486,6 +17478,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
+ "fp-coretime",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-benchmarking-pallet-pov",
@@ -23923,7 +23916,6 @@ dependencies = [
  "hex",
  "hex-literal",
  "parity-scale-codec",
- "rlp 0.6.1",
  "scale-info",
  "serde",
  "snowbridge-milagro-bls",
@@ -25517,7 +25509,6 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-wasm-interface 20.0.0",
- "static_assertions",
  "trybuild",
 ]
 
