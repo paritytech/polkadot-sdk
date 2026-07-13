@@ -1732,14 +1732,6 @@ fn incentive_merged_into_existing_schedule_when_system_slots_exhausted() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		// Record alice's total locked balance before the payout for later verification.
-		let locked_before = pallet_vesting::Vesting::<Test>::get(&alice)
-			.unwrap_or_default()
-			.iter()
-			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
-			.map(|(vi, _)| vi.locked())
-			.sum::<Balance>();
-
 		// GIVEN: all System vesting slots for alice are exhausted.
 		fill_system_vesting_slots(&alice, MAX_SYSTEM_VESTING_SCHEDULES);
 
