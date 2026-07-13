@@ -146,6 +146,11 @@ where
 
 /// Fork from the included head once the relay parent of the parablock we'd build on lags the
 /// scheduling parent by more than this many relay blocks.
+///
+/// TODO: a raw relay-block gap also triggers on a voluntary pause (cores unassigned and later
+/// re-assigned), forking away a still-resubmittable segment. Accumulating the gap only while the
+/// para is scheduled would avoid that. It is a niche case though: what matters for parachains that
+/// plan to disturb the chain this way is that building cleanly resumes, even if some txs are lost.
 const MAX_RELAY_GAP_BEFORE_FORK: u32 = 20;
 
 /// Pick the parent to build on and the unincluded segment to re-advertise: the deepest parent
