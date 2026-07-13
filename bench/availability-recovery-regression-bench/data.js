@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783958074731,
+  "lastUpdate": 1783973400822,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ccdbc9e0007f0c872897743334faf9317db9d9f7",
-          "message": "Skip building on blocks on relay parents in old session (#9990)\n\nFixes: #9977\n\nOn our Kusama Canary chain YAP-3392 has the log entry:\n```\nCollation wasn't advertised because it was built on a relay chain block that is now part of an old session\n``` \n[show up 400+ times (2025-10-03 --\n2025-10-10)](https://grafana.teleport.parity.io/goto/spoPcDeHR?orgId=1).\n\n# Changes\nChanged `offset_relay_parent_find_descendants` to return `None` if the\n`relay_best_hash` or any of its ancestors contains an epoch change.\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-17T15:28:31Z",
-          "tree_id": "2101283c239e9e3d4c3bcabbef6a90f9a88d4d49",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ccdbc9e0007f0c872897743334faf9317db9d9f7"
-        },
-        "date": 1763397544237,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20074632786666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.376390600399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.818890392266669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d7f6d8d7c273fd2e5d59433c46d20c2456b5aa01",
+          "message": "statement-store: new api implementation (#11989)\n\nImpl #10997\n\n## Summary\n\nIn this PR, we add the unstable statement-store JSON-RPC surface and\nwire it into the parachain node RPC stack. This lets clients submit\nSCALE-encoded statements over RPC, open one long-lived statement\nsubscription, and then attach or remove topic filters on that\nsubscription without opening a new stream for each filter.\n\nThe subscription flow is split into `statement_unstable_subscribe` and\n`statement_unstable_addFilter`. A subscription starts empty, each added\nfilter gets its own `filterId`, and live notifications carry the ids of\nthe filters that matched the statement. That lets a client track several\nstatement topics over a single RPC subscription while still knowing\nwhich filters produced each replay or live event.\n\n## RPC Shape\n\nWe add `statement_unstable_submit`, `statement_unstable_subscribe`,\n`statement_unstable_addFilter`, and `statement_unstable_removeFilter`\nunder `sc-rpc-spec-v2::statement`.\n\n`statement_unstable_submit` decodes submitted statement bytes and maps\nstore results into RPC-level outcomes: `new`, `known`, `rejected`, or\n`invalid` (an expired statement is reported as `invalid`). Subscription\nstate is scoped to the jsonrpsee connection that created it, so a filter\ncan only be added to or removed from a subscription owned by the same\nconnection.\n\nFor filters, the unstable RPC accepts `any` and `matchAll`. `matchAny`\nis rejected at the RPC boundary for now, which keeps the external API\naligned with the current unstable contract while the store internals can\nstill use the optimized filter representation.\n\n## Subscription Semantics\n\nA subscription is recorded in the per-connection registry **before** the\njsonrpsee subscription is accepted. The subscription id is read from the\npending sink (`PendingSubscriptionSink::subscription_id()`, available\nsince jsonrpsee 0.24.11) and registered first, so registration\nhappens-before the id is handed to the client. As a result, an\n`addFilter` that arrives immediately after `subscribe` always resolves\nits subscription – there is no accept/`addFilter` race window and no\ntimeout-based lookup. If the accept fails, the registry entry is dropped\nand the subscription is unregistered.\n\nMulti-filter subscriptions are handled by the existing statement\nsubscription matcher workers. `addFilter` validates capacity, allocates\na `filterId`, queues an `AddFilter` message for the matcher, and returns\nwithout waiting for replay snapshot collection. The matcher then\ncollects the replay snapshot and registers the filter in the same\ncritical section, so live statements cannot slip between the snapshot\nand filter registration.\n\nFor each added filter the subscription emits:\n\n- `replayStatements` batches for already-admitted matching statements\n- `replayDone` once that filter's replay is drained\n- `newStatements` for live statements, including all matching\n`filterIds`\n- `stop` if local subscription resource caps are hit\n\nLive statements that arrive while a replay is still in progress are kept\nin matcher-owned pending state, then released once replay ordering\nallows it. Statements already delivered by replay are kept out of the\nlive path for that filter, avoiding duplicate delivery for the common\n\"submit, then subscribe\" case.\n\nEach subscription is capped at 128 active filters\n(`MAX_FILTERS_PER_SUBSCRIPTION`). Filter removal is idempotent, and\ndropping the RPC subscription cleans up matcher state.\n\n## Issues\n\n-\nhttps://github.com/paritytech/polkadot-sdk/issues/12153#issuecomment-4917104450\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-13T18:24:40Z",
+          "tree_id": "e6bb2d66f96a664e9f9150b8ed6934cf9ee22448",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d7f6d8d7c273fd2e5d59433c46d20c2456b5aa01"
+        },
+        "date": 1783973371244,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.067882866366668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13856765126666665,
             "unit": "seconds"
           }
         ]
