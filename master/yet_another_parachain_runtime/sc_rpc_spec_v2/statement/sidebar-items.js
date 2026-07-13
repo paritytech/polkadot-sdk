@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AddFilterResponse","Error","SubmitOutcome","SubscribeEvent"],"mod":["api","error"],"struct":["StatementSpec"],"trait":["StatementSpecApiServer"]};
