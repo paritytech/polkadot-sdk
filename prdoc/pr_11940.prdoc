@@ -26,4 +26,4 @@ crates:
 - name: polkadot-sdk
   bump: patch
 - name: pallet-staking-async-ah-client
-  bump: minor
+  bump: major

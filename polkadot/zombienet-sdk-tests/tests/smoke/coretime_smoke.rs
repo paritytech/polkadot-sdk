@@ -78,13 +78,7 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 		&configure_relay_call,
 		&dev::alice(),
 	)
-	.await
-	.map_err(|e| {
-		// TEMP DEBUG (revert): surface the InvalidTransaction sub-reason (subxt drops it from
-		// Display)
-		eprintln!("TEMP DEBUG configure-relay submit error: display={e:#} debug={e:#?}");
-		e
-	})?;
+	.await?;
 	log::info!("Relay chain configured");
 
 	// Wait for coretime chain to produce blocks
@@ -132,11 +126,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(polkadot_image.as_str())
 				.with_validator(|node| {
-					// TEMP DEBUG (revert): sc_transaction_pool=trace surfaces InvalidTransaction
-					// sub-reason in alice.log
-					node.with_name("alice").with_args(vec![
-						("-lruntime=debug,xcm=trace,sc_transaction_pool=trace").into(),
-					])
+					node.with_name("alice")
+						// Set Alice's initial balance to 200 WND, the original value before the
+						// removal of the staking pallet from the RC.
+						.with_initial_balance(200_000_000_000_000u128)
+						.with_args(vec![("-lruntime=debug,xcm=trace").into()])
 				})
 				.with_validator(|node| {
 					node.with_name("bob")
