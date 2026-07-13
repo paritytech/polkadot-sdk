@@ -7,7 +7,7 @@ crates:
 - name: sp-io
   bump: major
 - name: sp-runtime-interface
-  bump: minor
+  bump: major
 - name: sp-externalities
   bump: major
 - name: polkadot-node-core-pvf-common
