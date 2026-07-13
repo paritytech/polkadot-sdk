@@ -41,12 +41,19 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	// - TODO: reserve — reserve a ParaId; holds the ParaId deposit.
+
 	// - TODO: register — register code+head for a reserved ParaId; holds the code deposit,
 	//   XCM-authorizes on the relay.
+
 	// - TODO: deregister — free the ParaId; releases both deposits.
+
 	// - TODO: swap — swap the slots of two paras.
+
 	// - TODO: add_lock — add the manager lock.
+
 	// - TODO: remove_lock — remove the manager lock.
+
 	// - TODO: schedule_code_upgrade — schedule a validation-code upgrade (XCM to the relay).
+
 	// - TODO: set_current_head — set the current head data (XCM to the relay).
 }

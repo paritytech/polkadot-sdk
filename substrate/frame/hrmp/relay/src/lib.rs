@@ -40,4 +40,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	// - TODO: Extrinsic to accept the messages from the para.
 }

@@ -21,13 +21,6 @@
 //! ([`pallet-hrmp-relay`]). This crate is deliberately free of any FRAME, XCM, or network-specific
 //! dependency, so a single version of the wire types serves Westend, Kusama and Polkadot, and so
 //! both pallets can depend on it without forming a dependency cycle.
-//!
-//! ## Versioning
-//!
-//! The cross-chain message payloads are the interface seam that is expensive to change once
-//! deployed (XCM messages are long-lived on the wire). They are therefore modelled as a versioned
-//! wrapper enum whose codec index is the on-wire version tag: add new versions as new variants and
-//! **never** renumber or remove an existing one.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

@@ -42,12 +42,17 @@ pub mod pallet {
 
 	// - TODO: hrmp_init_open_channel — request to open a channel; holds the sender deposit, XCM to
 	//   the relay.
+
 	// - TODO: hrmp_accept_open_channel — accept a pending open request; holds the recipient
 	//   deposit.
+
 	// - TODO: hrmp_close_channel — close a channel; releases both deposits.
+
 	// - TODO: hrmp_cancel_open_request — cancel a pending open request; releases the sender
 	//   deposit.
+
 	// - TODO: establish_channel_with_system — open a bidirectional channel with a system chain (no
 	//   deposit).
+
 	// - TODO: poke_channel_deposits — re-sync a channel's deposits to the current config.
 }
