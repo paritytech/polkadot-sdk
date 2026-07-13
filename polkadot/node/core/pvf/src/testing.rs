@@ -39,9 +39,12 @@ pub fn validate_candidate(
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 	use polkadot_node_core_pvf_execute_worker::execute_artifact;
+	use sp_maybe_compressed_blob::{blob_type, decompress_as};
 
-	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
-		.expect("Decompressing code failed");
+	let blob_type = blob_type(code)?;
+	assert!(blob_type.is_code());
+
+	let code = decompress_as(blob_type, code, 10 * 1024 * 1024).expect("Decompressing code failed");
 
 	let blob = prevalidate(&code)?;
 	let executor_params = ExecutorParams::default();

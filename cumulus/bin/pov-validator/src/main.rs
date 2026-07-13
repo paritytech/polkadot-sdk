@@ -23,6 +23,7 @@ use polkadot_parachain_primitives::primitives::ValidationParams;
 use polkadot_primitives::PersistedValidationData;
 use sc_executor::WasmExecutor;
 use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
+use sp_maybe_compressed_blob::{blob_type, decompress_as, MaybeCompressedBlobType};
 use std::{fs, path::PathBuf, time::Instant};
 use tracing::level_filters::LevelFilter;
 
@@ -64,12 +65,21 @@ fn main() -> anyhow::Result<()> {
 		anyhow::anyhow!("Failed to read validation code")
 	})?;
 
-	let validation_code =
-		sp_maybe_compressed_blob::decompress(&validation_code, VALIDATION_CODE_BOMB_LIMIT)
-			.map_err(|error| {
-				tracing::error!(%error, "Failed to decompress validation code");
-				anyhow::anyhow!("Failed to decompress validation code")
-			})?;
+	let blob_type = blob_type(&validation_code).map_err(|error| {
+		tracing::error!(%error, "Failed to determine blob type");
+		anyhow::anyhow!("Failed to determine blob type")
+	})?;
+
+	if !blob_type.is_code() {
+		tracing::error!("Validation code is not a code blob");
+		return Err(anyhow::anyhow!("Validation code is not a code blob"));
+	}
+
+	let validation_code = decompress_as(blob_type, &validation_code, VALIDATION_CODE_BOMB_LIMIT)
+		.map_err(|error| {
+			tracing::error!(%error, "Failed to decompress validation code");
+			anyhow::anyhow!("Failed to decompress validation code")
+		})?;
 
 	let pov_file = fs::read(&cli.pov).map_err(|error| {
 		tracing::error!(%error, path = %cli.pov.display(), "Failed to read PoV");
@@ -110,12 +120,11 @@ fn main() -> anyhow::Result<()> {
 		anyhow::anyhow!("Failed to decode `PersistedValidationData`")
 	})?;
 
-	let pov = sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT).map_err(
-		|error| {
+	let pov = decompress_as(MaybeCompressedBlobType::Pov, &pov.block_data.0, POV_BOMB_LIMIT)
+		.map_err(|error| {
 			tracing::error!(%error, "Failed to decompress `PoV`");
 			anyhow::anyhow!("Failed to decompress `PoV`")
-		},
-	)?;
+		})?;
 
 	let validation_params = ValidationParams {
 		relay_parent_number: pvd.relay_parent_number,

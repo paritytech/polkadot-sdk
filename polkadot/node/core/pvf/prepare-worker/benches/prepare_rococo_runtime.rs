@@ -21,12 +21,13 @@ use polkadot_node_core_pvf_common::{
 	pvf::PvfPrepData,
 };
 use polkadot_primitives::ExecutorParams;
+use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType};
 use std::time::Duration;
 
 fn do_prepare_runtime(pvf: PvfPrepData) {
 	let maybe_compressed_code = pvf.maybe_compressed_code();
 	let raw_validation_code =
-		sp_maybe_compressed_blob::decompress(&maybe_compressed_code, usize::MAX).unwrap();
+		decompress_as(MaybeCompressedBlobType::Wasm, &maybe_compressed_code, usize::MAX).unwrap();
 
 	let blob = match prevalidate(&raw_validation_code) {
 		Err(err) => panic!("{:?}", err),
@@ -41,7 +42,7 @@ fn do_prepare_runtime(pvf: PvfPrepData) {
 
 fn prepare_rococo_runtime(c: &mut Criterion) {
 	let blob = rococo_runtime::WASM_BINARY.unwrap();
-	let pvf = match sp_maybe_compressed_blob::decompress(&blob, 64 * 1024 * 1024) {
+	let pvf = match decompress_as(MaybeCompressedBlobType::Wasm, &blob, 64 * 1024 * 1024) {
 		Ok(code) => PvfPrepData::from_code(
 			code.into_owned(),
 			ExecutorParams::default(),

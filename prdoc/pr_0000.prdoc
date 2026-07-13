@@ -1,0 +1,44 @@
+title: 'Implement RFC-135: compressed blob prefixes'
+doc:
+- audience: Node Dev
+  description: |-
+    Implements [RFC-135](https://polkadot-fellows.github.io/RFCs/approved/0135-compressed-blob-prefixes.html):
+    compressed blobs are now typed with dedicated compression prefixes for
+    proofs-of-validity, Wasm code, and PolkaVM code, in addition to the legacy prefix.
+
+    The `sp-maybe-compressed-blob` API is reworked accordingly: `decompress`,
+    `compress_weakly`, `compress_strongly`, and `compress` are replaced with
+    `decompress_as`, `compress_weakly_as`, `compress_strongly_as`, and `compress_as`,
+    which take the expected/desired blob type (`MaybeCompressedBlobType`) as their
+    first argument. The new `blob_type` function determines the type of a maybe
+    compressed blob from its compression prefix or code magic bytes.
+
+    Nodes now recognize and decompress all the typed prefixes, checking the blob type
+    against the expected one. Per the RFC-135 rollout plan, blob producers keep
+    emitting the legacy prefix for Wasm runtimes and PoVs until the majority of the
+    network is able to decompress the typed prefixes.
+crates:
+- name: sp-maybe-compressed-blob
+  bump: major
+- name: sc-executor-common
+  bump: minor
+- name: sc-executor
+  bump: none
+- name: sc-rpc-spec-v2
+  bump: none
+- name: substrate-wasm-builder
+  bump: patch
+- name: polkadot-node-primitives
+  bump: patch
+- name: polkadot-node-core-pvf
+  bump: minor
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor
+- name: polkadot-node-core-pvf-execute-worker
+  bump: minor
+- name: polkadot-node-core-candidate-validation
+  bump: none
+- name: cumulus-client-pov-recovery
+  bump: minor
+- name: cumulus-pov-validator
+  bump: minor
