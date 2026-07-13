@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783834560009,
+  "lastUpdate": 1783958223289,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b879bf2744dc9435425c31d36218cfba63d11fe4",
-          "message": "Benchmark Trie Cache with zombienet (#7979)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/7540\nFixes https://github.com/paritytech/polkadot-sdk/issues/9586\n\nWe wanted to check how many smart contract calls we can include in one\nblock using various weights.\n- We prepared [a zombienet\ntest](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/weights.rs#L28),\nwhere we instantiate [a\ncontract](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/polkadot/zombienet-sdk-tests/tests/parachains/contract.txt#L6)\nwith an ERC20 token and call it from different accounts: each account\nmints 100 tokens per call.\n- To maximize throughput, we also increased the PoV size from 5 MB to 10\nMB and raised the weight limit (the maximum block fill) from 75% to 95%.\n- ref_time of read/write for the current setup were taken from\n[rocksdb_weights](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/rocksdb_weights.rs#L28),\nand then they were changed according to results [of updated\nbenchmarks](https://github.com/paritytech/polkadot-sdk/pull/7867).\n- Block execution time was taken from\n[basic_authorship](https://github.com/paritytech/polkadot-sdk/blob/0f1c2af0be3d33d7fe3965e1ed9a8734773b9782/substrate/client/basic-authorship/src/basic_authorship.rs#L574).\n- Number of transaction and how block filled were taken just looking at\nblocks.\n- PoV size for 1033 extrinsics in current setup (25000 read/100000 write\nweights, block filled to 75%) is 289 KB. I didn’t write down PoV sizes\nfrom other cases but they’re comparable to it.\n- Tests were running on Macbook Pro with M2.\n\n| ref_time of read/write | Block execution time | Block filled |\nExtrinsics in block |\n\n|--------------------------------------|----------------------|--------------|---------------------|\n| **ref_time from the current setup** | | | |\n| 25000/100000 | 679 ms | 75% | 1033 |\n| **ref_time from reference hardware** | | | |\n| 9000/28000 | 905 ms | 94% | 2225 |\n| 9000/28000 | 861 ms | 94% | 2225 |\n| **ref_time from a local machine** | | | |\n| 4000/13000 | 1013 ms | 94% | 2698 |\n| 4000/13000 | 1077 ms | 94% | 2698 |\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2025-11-13T17:02:23Z",
-          "tree_id": "0f1b9603c2c09383f2dde5bf1fe034c88c1d0006",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b879bf2744dc9435425c31d36218cfba63d11fe4"
-        },
-        "date": 1763058843911,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026663594199999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008770098779999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00504036498,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026016583099999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "488dfcb463995c8942cf2f788c70cabf2d4269e6",
+          "message": "`pallet-whitelist`: Deferred Dispatch (#11336)\n\nSolves #11199\n\n---------\n\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-13T13:16:45Z",
+          "tree_id": "f62ea90999e03cfd2a765135750c2d390f6c7905",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/488dfcb463995c8942cf2f788c70cabf2d4269e6"
+        },
+        "date": 1783958195020,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009161245229999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025629233300000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009925502610000012,
             "unit": "seconds"
           }
         ]
