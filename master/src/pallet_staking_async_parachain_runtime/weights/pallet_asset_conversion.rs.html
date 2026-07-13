@@ -221,118 +221,130 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#71 id=71 data-nosnippet>71</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">7</span>))
 <a href=#72 id=72 data-nosnippet>72</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">7</span>))
 <a href=#73 id=73 data-nosnippet>73</a>	}
-<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
-<a href=#75 id=75 data-nosnippet>75</a>	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
-<a href=#76 id=76 data-nosnippet>76</a>	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
-<a href=#77 id=77 data-nosnippet>77</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-<a href=#78 id=78 data-nosnippet>78</a>	/// Storage: `ForeignAssets::Account` (r:2 w:2)
-<a href=#79 id=79 data-nosnippet>79</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-<a href=#80 id=80 data-nosnippet>80</a>	/// Storage: `System::Account` (r:1 w:1)
-<a href=#81 id=81 data-nosnippet>81</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-<a href=#82 id=82 data-nosnippet>82</a>	/// Storage: `PoolAssets::Asset` (r:1 w:1)
-<a href=#83 id=83 data-nosnippet>83</a>	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-<a href=#84 id=84 data-nosnippet>84</a>	/// Storage: `PoolAssets::Account` (r:2 w:2)
-<a href=#85 id=85 data-nosnippet>85</a>	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-<a href=#86 id=86 data-nosnippet>86</a>	</span><span class="kw">fn </span>add_liquidity() -&gt; Weight {
-<a href=#87 id=87 data-nosnippet>87</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#88 id=88 data-nosnippet>88</a>		//  Measured:  `1117`
-<a href=#89 id=89 data-nosnippet>89</a>		//  Estimated: `7404`
-<a href=#90 id=90 data-nosnippet>90</a>		// Minimum execution time: 1_597_000_000 picoseconds.
-<a href=#91 id=91 data-nosnippet>91</a>		</span>Weight::from_parts(<span class="number">1_655_000_000</span>, <span class="number">0</span>)
-<a href=#92 id=92 data-nosnippet>92</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
-<a href=#93 id=93 data-nosnippet>93</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">8</span>))
-<a href=#94 id=94 data-nosnippet>94</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">7</span>))
-<a href=#95 id=95 data-nosnippet>95</a>	}
-<a href=#96 id=96 data-nosnippet>96</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
-<a href=#97 id=97 data-nosnippet>97</a>	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
-<a href=#98 id=98 data-nosnippet>98</a>	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
-<a href=#99 id=99 data-nosnippet>99</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-<a href=#100 id=100 data-nosnippet>100</a>	/// Storage: `ForeignAssets::Account` (r:2 w:2)
-<a href=#101 id=101 data-nosnippet>101</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-<a href=#102 id=102 data-nosnippet>102</a>	/// Storage: `System::Account` (r:1 w:1)
-<a href=#103 id=103 data-nosnippet>103</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-<a href=#104 id=104 data-nosnippet>104</a>	/// Storage: `PoolAssets::Asset` (r:1 w:1)
-<a href=#105 id=105 data-nosnippet>105</a>	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-<a href=#106 id=106 data-nosnippet>106</a>	/// Storage: `PoolAssets::Account` (r:1 w:1)
-<a href=#107 id=107 data-nosnippet>107</a>	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-<a href=#108 id=108 data-nosnippet>108</a>	</span><span class="kw">fn </span>remove_liquidity() -&gt; Weight {
-<a href=#109 id=109 data-nosnippet>109</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#110 id=110 data-nosnippet>110</a>		//  Measured:  `1106`
-<a href=#111 id=111 data-nosnippet>111</a>		//  Estimated: `7404`
-<a href=#112 id=112 data-nosnippet>112</a>		// Minimum execution time: 1_500_000_000 picoseconds.
-<a href=#113 id=113 data-nosnippet>113</a>		</span>Weight::from_parts(<span class="number">1_633_000_000</span>, <span class="number">0</span>)
-<a href=#114 id=114 data-nosnippet>114</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
-<a href=#115 id=115 data-nosnippet>115</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">7</span>))
-<a href=#116 id=116 data-nosnippet>116</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">6</span>))
-<a href=#117 id=117 data-nosnippet>117</a>	}
-<a href=#118 id=118 data-nosnippet>118</a>	<span class="doccomment">/// Storage: `ForeignAssets::Asset` (r:2 w:2)
-<a href=#119 id=119 data-nosnippet>119</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-<a href=#120 id=120 data-nosnippet>120</a>	/// Storage: `ForeignAssets::Account` (r:4 w:4)
-<a href=#121 id=121 data-nosnippet>121</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-<a href=#122 id=122 data-nosnippet>122</a>	/// Storage: `System::Account` (r:2 w:2)
-<a href=#123 id=123 data-nosnippet>123</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-<a href=#124 id=124 data-nosnippet>124</a>	/// The range of component `n` is `[2, 3]`.
-<a href=#125 id=125 data-nosnippet>125</a>	</span><span class="kw">fn </span>swap_exact_tokens_for_tokens(n: u32, ) -&gt; Weight {
-<a href=#126 id=126 data-nosnippet>126</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#127 id=127 data-nosnippet>127</a>		//  Measured:  `0 + n * (557 ±0)`
-<a href=#128 id=128 data-nosnippet>128</a>		//  Estimated: `7404 + n * (393 ±92)`
-<a href=#129 id=129 data-nosnippet>129</a>		// Minimum execution time: 930_000_000 picoseconds.
-<a href=#130 id=130 data-nosnippet>130</a>		</span>Weight::from_parts(<span class="number">960_000_000</span>, <span class="number">0</span>)
-<a href=#131 id=131 data-nosnippet>131</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
-<a href=#132 id=132 data-nosnippet>132</a>			<span class="comment">// Standard Error: 17_993_720
-<a href=#133 id=133 data-nosnippet>133</a>			</span>.saturating_add(Weight::from_parts(<span class="number">41_959_183</span>, <span class="number">0</span>).saturating_mul(n.into()))
-<a href=#134 id=134 data-nosnippet>134</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
-<a href=#135 id=135 data-nosnippet>135</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
-<a href=#136 id=136 data-nosnippet>136</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">393</span>).saturating_mul(n.into()))
-<a href=#137 id=137 data-nosnippet>137</a>	}
-<a href=#138 id=138 data-nosnippet>138</a>	<span class="doccomment">/// Storage: `System::Account` (r:2 w:2)
-<a href=#139 id=139 data-nosnippet>139</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-<a href=#140 id=140 data-nosnippet>140</a>	/// Storage: `ForeignAssets::Asset` (r:2 w:2)
-<a href=#141 id=141 data-nosnippet>141</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
-<a href=#142 id=142 data-nosnippet>142</a>	/// Storage: `ForeignAssets::Account` (r:4 w:4)
-<a href=#143 id=143 data-nosnippet>143</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
-<a href=#144 id=144 data-nosnippet>144</a>	/// The range of component `n` is `[2, 3]`.
-<a href=#145 id=145 data-nosnippet>145</a>	</span><span class="kw">fn </span>swap_tokens_for_exact_tokens(n: u32, ) -&gt; Weight {
-<a href=#146 id=146 data-nosnippet>146</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#147 id=147 data-nosnippet>147</a>		//  Measured:  `0 + n * (557 ±0)`
-<a href=#148 id=148 data-nosnippet>148</a>		//  Estimated: `7404 + n * (393 ±92)`
-<a href=#149 id=149 data-nosnippet>149</a>		// Minimum execution time: 940_000_000 picoseconds.
-<a href=#150 id=150 data-nosnippet>150</a>		</span>Weight::from_parts(<span class="number">956_000_000</span>, <span class="number">0</span>)
-<a href=#151 id=151 data-nosnippet>151</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
-<a href=#152 id=152 data-nosnippet>152</a>			<span class="comment">// Standard Error: 15_746_647
-<a href=#153 id=153 data-nosnippet>153</a>			</span>.saturating_add(Weight::from_parts(<span class="number">39_193_877</span>, <span class="number">0</span>).saturating_mul(n.into()))
-<a href=#154 id=154 data-nosnippet>154</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
-<a href=#155 id=155 data-nosnippet>155</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
-<a href=#156 id=156 data-nosnippet>156</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">393</span>).saturating_mul(n.into()))
-<a href=#157 id=157 data-nosnippet>157</a>	}
-<a href=#158 id=158 data-nosnippet>158</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
-<a href=#159 id=159 data-nosnippet>159</a>	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-<a href=#160 id=160 data-nosnippet>160</a>	/// Storage: `Assets::Asset` (r:2 w:2)
-<a href=#161 id=161 data-nosnippet>161</a>	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-<a href=#162 id=162 data-nosnippet>162</a>	/// Storage: `Assets::Account` (r:2 w:2)
-<a href=#163 id=163 data-nosnippet>163</a>	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-<a href=#164 id=164 data-nosnippet>164</a>	/// Storage: `PoolAssets::Asset` (r:1 w:1)
-<a href=#165 id=165 data-nosnippet>165</a>	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
-<a href=#166 id=166 data-nosnippet>166</a>	/// Storage: `PoolAssets::Account` (r:1 w:1)
-<a href=#167 id=167 data-nosnippet>167</a>	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-<a href=#168 id=168 data-nosnippet>168</a>	/// The range of component `n` is `[0, 3]`.
-<a href=#169 id=169 data-nosnippet>169</a>	</span><span class="kw">fn </span>touch(n: u32, ) -&gt; Weight {
-<a href=#170 id=170 data-nosnippet>170</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#171 id=171 data-nosnippet>171</a>		//  Measured:  `1571`
-<a href=#172 id=172 data-nosnippet>172</a>		//  Estimated: `6360`
-<a href=#173 id=173 data-nosnippet>173</a>		// Minimum execution time: 381_000_000 picoseconds.
-<a href=#174 id=174 data-nosnippet>174</a>		</span>Weight::from_parts(<span class="number">398_540_909</span>, <span class="number">6360</span>)
-<a href=#175 id=175 data-nosnippet>175</a>			<span class="comment">// Standard Error: 1_330_283
-<a href=#176 id=176 data-nosnippet>176</a>			</span>.saturating_add(Weight::from_parts(<span class="number">209_463_636</span>, <span class="number">0</span>).saturating_mul(n.into()))
-<a href=#177 id=177 data-nosnippet>177</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">7_u64</span>))
-<a href=#178 id=178 data-nosnippet>178</a>			.saturating_add(T::DbWeight::get().writes((<span class="number">2_u64</span>).saturating_mul(n.into())))
-<a href=#179 id=179 data-nosnippet>179</a>	}
-<a href=#180 id=180 data-nosnippet>180</a>	<span class="kw">fn </span>get_reserves() -&gt; Weight {
-<a href=#181 id=181 data-nosnippet>181</a>		<span class="comment">// Placeholder: will be replaced by running benchmarks.
-<a href=#182 id=182 data-nosnippet>182</a>		</span>Weight::from_parts(<span class="number">16_000_000</span>, <span class="number">6566</span>)
-<a href=#183 id=183 data-nosnippet>183</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
-<a href=#184 id=184 data-nosnippet>184</a>	}
-<a href=#185 id=185 data-nosnippet>185</a>}
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Same as [`Self::create_pool`] plus one extra write to `AssetConversion::PoolFees`.
+<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="kw">fn </span>create_pool_with_fee() -&gt; Weight {
+<a href=#76 id=76 data-nosnippet>76</a>		<span class="self">Self</span>::create_pool().saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
+<a href=#77 id=77 data-nosnippet>77</a>	}
+<a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
+<a href=#79 id=79 data-nosnippet>79</a>	/// Storage: `AssetConversion::PoolFees` (r:0 w:1)
+<a href=#80 id=80 data-nosnippet>80</a>	</span><span class="kw">fn </span>set_pool_fee() -&gt; Weight {
+<a href=#81 id=81 data-nosnippet>81</a>		Weight::from_parts(<span class="number">15_000_000</span>, <span class="number">0</span>)
+<a href=#82 id=82 data-nosnippet>82</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3495</span>))
+<a href=#83 id=83 data-nosnippet>83</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
+<a href=#84 id=84 data-nosnippet>84</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
+<a href=#85 id=85 data-nosnippet>85</a>	}
+<a href=#86 id=86 data-nosnippet>86</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
+<a href=#87 id=87 data-nosnippet>87</a>	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+<a href=#88 id=88 data-nosnippet>88</a>	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
+<a href=#89 id=89 data-nosnippet>89</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+<a href=#90 id=90 data-nosnippet>90</a>	/// Storage: `ForeignAssets::Account` (r:2 w:2)
+<a href=#91 id=91 data-nosnippet>91</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+<a href=#92 id=92 data-nosnippet>92</a>	/// Storage: `System::Account` (r:1 w:1)
+<a href=#93 id=93 data-nosnippet>93</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+<a href=#94 id=94 data-nosnippet>94</a>	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+<a href=#95 id=95 data-nosnippet>95</a>	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+<a href=#96 id=96 data-nosnippet>96</a>	/// Storage: `PoolAssets::Account` (r:2 w:2)
+<a href=#97 id=97 data-nosnippet>97</a>	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+<a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">fn </span>add_liquidity() -&gt; Weight {
+<a href=#99 id=99 data-nosnippet>99</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#100 id=100 data-nosnippet>100</a>		//  Measured:  `1117`
+<a href=#101 id=101 data-nosnippet>101</a>		//  Estimated: `7404`
+<a href=#102 id=102 data-nosnippet>102</a>		// Minimum execution time: 1_597_000_000 picoseconds.
+<a href=#103 id=103 data-nosnippet>103</a>		</span>Weight::from_parts(<span class="number">1_655_000_000</span>, <span class="number">0</span>)
+<a href=#104 id=104 data-nosnippet>104</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
+<a href=#105 id=105 data-nosnippet>105</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">8</span>))
+<a href=#106 id=106 data-nosnippet>106</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">7</span>))
+<a href=#107 id=107 data-nosnippet>107</a>	}
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
+<a href=#109 id=109 data-nosnippet>109</a>	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+<a href=#110 id=110 data-nosnippet>110</a>	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
+<a href=#111 id=111 data-nosnippet>111</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+<a href=#112 id=112 data-nosnippet>112</a>	/// Storage: `ForeignAssets::Account` (r:2 w:2)
+<a href=#113 id=113 data-nosnippet>113</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+<a href=#114 id=114 data-nosnippet>114</a>	/// Storage: `System::Account` (r:1 w:1)
+<a href=#115 id=115 data-nosnippet>115</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+<a href=#116 id=116 data-nosnippet>116</a>	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+<a href=#117 id=117 data-nosnippet>117</a>	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+<a href=#118 id=118 data-nosnippet>118</a>	/// Storage: `PoolAssets::Account` (r:1 w:1)
+<a href=#119 id=119 data-nosnippet>119</a>	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+<a href=#120 id=120 data-nosnippet>120</a>	</span><span class="kw">fn </span>remove_liquidity() -&gt; Weight {
+<a href=#121 id=121 data-nosnippet>121</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#122 id=122 data-nosnippet>122</a>		//  Measured:  `1106`
+<a href=#123 id=123 data-nosnippet>123</a>		//  Estimated: `7404`
+<a href=#124 id=124 data-nosnippet>124</a>		// Minimum execution time: 1_500_000_000 picoseconds.
+<a href=#125 id=125 data-nosnippet>125</a>		</span>Weight::from_parts(<span class="number">1_633_000_000</span>, <span class="number">0</span>)
+<a href=#126 id=126 data-nosnippet>126</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
+<a href=#127 id=127 data-nosnippet>127</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">7</span>))
+<a href=#128 id=128 data-nosnippet>128</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">6</span>))
+<a href=#129 id=129 data-nosnippet>129</a>	}
+<a href=#130 id=130 data-nosnippet>130</a>	<span class="doccomment">/// Storage: `ForeignAssets::Asset` (r:2 w:2)
+<a href=#131 id=131 data-nosnippet>131</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+<a href=#132 id=132 data-nosnippet>132</a>	/// Storage: `ForeignAssets::Account` (r:4 w:4)
+<a href=#133 id=133 data-nosnippet>133</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+<a href=#134 id=134 data-nosnippet>134</a>	/// Storage: `System::Account` (r:2 w:2)
+<a href=#135 id=135 data-nosnippet>135</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+<a href=#136 id=136 data-nosnippet>136</a>	/// The range of component `n` is `[2, 3]`.
+<a href=#137 id=137 data-nosnippet>137</a>	</span><span class="kw">fn </span>swap_exact_tokens_for_tokens(n: u32, ) -&gt; Weight {
+<a href=#138 id=138 data-nosnippet>138</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#139 id=139 data-nosnippet>139</a>		//  Measured:  `0 + n * (557 ±0)`
+<a href=#140 id=140 data-nosnippet>140</a>		//  Estimated: `7404 + n * (393 ±92)`
+<a href=#141 id=141 data-nosnippet>141</a>		// Minimum execution time: 930_000_000 picoseconds.
+<a href=#142 id=142 data-nosnippet>142</a>		</span>Weight::from_parts(<span class="number">960_000_000</span>, <span class="number">0</span>)
+<a href=#143 id=143 data-nosnippet>143</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
+<a href=#144 id=144 data-nosnippet>144</a>			<span class="comment">// Standard Error: 17_993_720
+<a href=#145 id=145 data-nosnippet>145</a>			</span>.saturating_add(Weight::from_parts(<span class="number">41_959_183</span>, <span class="number">0</span>).saturating_mul(n.into()))
+<a href=#146 id=146 data-nosnippet>146</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
+<a href=#147 id=147 data-nosnippet>147</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
+<a href=#148 id=148 data-nosnippet>148</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">393</span>).saturating_mul(n.into()))
+<a href=#149 id=149 data-nosnippet>149</a>	}
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="doccomment">/// Storage: `System::Account` (r:2 w:2)
+<a href=#151 id=151 data-nosnippet>151</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+<a href=#152 id=152 data-nosnippet>152</a>	/// Storage: `ForeignAssets::Asset` (r:2 w:2)
+<a href=#153 id=153 data-nosnippet>153</a>	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+<a href=#154 id=154 data-nosnippet>154</a>	/// Storage: `ForeignAssets::Account` (r:4 w:4)
+<a href=#155 id=155 data-nosnippet>155</a>	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+<a href=#156 id=156 data-nosnippet>156</a>	/// The range of component `n` is `[2, 3]`.
+<a href=#157 id=157 data-nosnippet>157</a>	</span><span class="kw">fn </span>swap_tokens_for_exact_tokens(n: u32, ) -&gt; Weight {
+<a href=#158 id=158 data-nosnippet>158</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#159 id=159 data-nosnippet>159</a>		//  Measured:  `0 + n * (557 ±0)`
+<a href=#160 id=160 data-nosnippet>160</a>		//  Estimated: `7404 + n * (393 ±92)`
+<a href=#161 id=161 data-nosnippet>161</a>		// Minimum execution time: 940_000_000 picoseconds.
+<a href=#162 id=162 data-nosnippet>162</a>		</span>Weight::from_parts(<span class="number">956_000_000</span>, <span class="number">0</span>)
+<a href=#163 id=163 data-nosnippet>163</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7404</span>))
+<a href=#164 id=164 data-nosnippet>164</a>			<span class="comment">// Standard Error: 15_746_647
+<a href=#165 id=165 data-nosnippet>165</a>			</span>.saturating_add(Weight::from_parts(<span class="number">39_193_877</span>, <span class="number">0</span>).saturating_mul(n.into()))
+<a href=#166 id=166 data-nosnippet>166</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
+<a href=#167 id=167 data-nosnippet>167</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
+<a href=#168 id=168 data-nosnippet>168</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">393</span>).saturating_mul(n.into()))
+<a href=#169 id=169 data-nosnippet>169</a>	}
+<a href=#170 id=170 data-nosnippet>170</a>	<span class="doccomment">/// Storage: `AssetConversion::Pools` (r:1 w:0)
+<a href=#171 id=171 data-nosnippet>171</a>	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+<a href=#172 id=172 data-nosnippet>172</a>	/// Storage: `Assets::Asset` (r:2 w:2)
+<a href=#173 id=173 data-nosnippet>173</a>	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+<a href=#174 id=174 data-nosnippet>174</a>	/// Storage: `Assets::Account` (r:2 w:2)
+<a href=#175 id=175 data-nosnippet>175</a>	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+<a href=#176 id=176 data-nosnippet>176</a>	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+<a href=#177 id=177 data-nosnippet>177</a>	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+<a href=#178 id=178 data-nosnippet>178</a>	/// Storage: `PoolAssets::Account` (r:1 w:1)
+<a href=#179 id=179 data-nosnippet>179</a>	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+<a href=#180 id=180 data-nosnippet>180</a>	/// The range of component `n` is `[0, 3]`.
+<a href=#181 id=181 data-nosnippet>181</a>	</span><span class="kw">fn </span>touch(n: u32, ) -&gt; Weight {
+<a href=#182 id=182 data-nosnippet>182</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#183 id=183 data-nosnippet>183</a>		//  Measured:  `1571`
+<a href=#184 id=184 data-nosnippet>184</a>		//  Estimated: `6360`
+<a href=#185 id=185 data-nosnippet>185</a>		// Minimum execution time: 381_000_000 picoseconds.
+<a href=#186 id=186 data-nosnippet>186</a>		</span>Weight::from_parts(<span class="number">398_540_909</span>, <span class="number">6360</span>)
+<a href=#187 id=187 data-nosnippet>187</a>			<span class="comment">// Standard Error: 1_330_283
+<a href=#188 id=188 data-nosnippet>188</a>			</span>.saturating_add(Weight::from_parts(<span class="number">209_463_636</span>, <span class="number">0</span>).saturating_mul(n.into()))
+<a href=#189 id=189 data-nosnippet>189</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">7_u64</span>))
+<a href=#190 id=190 data-nosnippet>190</a>			.saturating_add(T::DbWeight::get().writes((<span class="number">2_u64</span>).saturating_mul(n.into())))
+<a href=#191 id=191 data-nosnippet>191</a>	}
+<a href=#192 id=192 data-nosnippet>192</a>	<span class="kw">fn </span>get_reserves() -&gt; Weight {
+<a href=#193 id=193 data-nosnippet>193</a>		<span class="comment">// Placeholder: will be replaced by running benchmarks.
+<a href=#194 id=194 data-nosnippet>194</a>		</span>Weight::from_parts(<span class="number">16_000_000</span>, <span class="number">6566</span>)
+<a href=#195 id=195 data-nosnippet>195</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
+<a href=#196 id=196 data-nosnippet>196</a>	}
+<a href=#197 id=197 data-nosnippet>197</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -683,20 +683,21 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#533 id=533 data-nosnippet>533</a>			pallet_asset_conversion::Error::InvalidPath |
 <a href=#534 id=534 data-nosnippet>534</a>			pallet_asset_conversion::Error::NonUniquePath |
 <a href=#535 id=535 data-nosnippet>535</a>			pallet_asset_conversion::Error::IncorrectPoolAssetId |
-<a href=#536 id=536 data-nosnippet>536</a>			pallet_asset_conversion::Error::BelowMinimum =&gt; {
-<a href=#537 id=537 data-nosnippet>537</a>				<span class="macro">frame_support::defensive!</span>(<span class="string">"get_reserves returned unexpected error"</span>);
-<a href=#538 id=538 data-nosnippet>538</a>				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
-<a href=#539 id=539 data-nosnippet>539</a>			},
-<a href=#540 id=540 data-nosnippet>540</a>		})<span class="question-mark">?</span>;
-<a href=#541 id=541 data-nosnippet>541</a>
-<a href=#542 id=542 data-nosnippet>542</a>		<span class="prelude-val">Ok</span>(IAssetConversion::getReservesCall::abi_encode_returns(
-<a href=#543 id=543 data-nosnippet>543</a>			<span class="kw-2">&amp;</span>IAssetConversion::getReservesReturn {
-<a href=#544 id=544 data-nosnippet>544</a>				reserve1: <span class="self">Self</span>::to_u256(reserve1)<span class="question-mark">?</span>,
-<a href=#545 id=545 data-nosnippet>545</a>				reserve2: <span class="self">Self</span>::to_u256(reserve2)<span class="question-mark">?</span>,
-<a href=#546 id=546 data-nosnippet>546</a>			},
-<a href=#547 id=547 data-nosnippet>547</a>		))
-<a href=#548 id=548 data-nosnippet>548</a>	}
-<a href=#549 id=549 data-nosnippet>549</a>}
+<a href=#536 id=536 data-nosnippet>536</a>			pallet_asset_conversion::Error::BelowMinimum |
+<a href=#537 id=537 data-nosnippet>537</a>			pallet_asset_conversion::Error::FeeTooHigh =&gt; {
+<a href=#538 id=538 data-nosnippet>538</a>				<span class="macro">frame_support::defensive!</span>(<span class="string">"get_reserves returned unexpected error"</span>);
+<a href=#539 id=539 data-nosnippet>539</a>				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
+<a href=#540 id=540 data-nosnippet>540</a>			},
+<a href=#541 id=541 data-nosnippet>541</a>		})<span class="question-mark">?</span>;
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="prelude-val">Ok</span>(IAssetConversion::getReservesCall::abi_encode_returns(
+<a href=#544 id=544 data-nosnippet>544</a>			<span class="kw-2">&amp;</span>IAssetConversion::getReservesReturn {
+<a href=#545 id=545 data-nosnippet>545</a>				reserve1: <span class="self">Self</span>::to_u256(reserve1)<span class="question-mark">?</span>,
+<a href=#546 id=546 data-nosnippet>546</a>				reserve2: <span class="self">Self</span>::to_u256(reserve2)<span class="question-mark">?</span>,
+<a href=#547 id=547 data-nosnippet>547</a>			},
+<a href=#548 id=548 data-nosnippet>548</a>		))
+<a href=#549 id=549 data-nosnippet>549</a>	}
+<a href=#550 id=550 data-nosnippet>550</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
