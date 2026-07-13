@@ -791,6 +791,27 @@ impl Client {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
 	}
 
+	/// Get all transaction receipts for the given block.
+	///
+	/// Returns `None` if the block does not exist, matching `eth_getBlockReceipts`.
+	pub async fn block_receipts(
+		&self,
+		at: BlockId,
+	) -> Result<Option<Vec<ReceiptInfo>>, ClientError> {
+		let substrate_hash = match self.block_hash_for_tag(at).await {
+			Ok(hash) => hash,
+			Err(ClientError::BlockNotFound | ClientError::EthereumBlockNotFound) => {
+				return Ok(None);
+			},
+			Err(err) => return Err(err),
+		};
+		let Some(block) = self.block_provider.block_by_hash(&substrate_hash).await? else {
+			return Ok(None);
+		};
+		let receipts = self.receipt_provider.block_receipts(&block).await?;
+		Ok(Some(receipts.into_iter().map(|(_, receipt)| receipt).collect()))
+	}
+
 	/// Get The post dispatch weight associated with this Ethereum transaction hash.
 	pub async fn post_dispatch_weight(&self, tx_hash: &H256) -> Option<Weight> {
 		use crate::subxt_client::system::events::ExtrinsicSuccess;

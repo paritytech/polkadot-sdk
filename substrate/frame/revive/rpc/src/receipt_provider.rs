@@ -532,6 +532,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.await
 	}
 
+	/// Fetch all receipts for the given block, resolving the ethereum block hash internally.
+	pub async fn block_receipts(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
+		self.receipt_extractor.extract_from_block(block).await
+	}
+
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
 	/// Used for historic sync where fork detection is unnecessary.
 	pub async fn insert_block_receipts_past(
