@@ -28,13 +28,25 @@ use std::time::Duration;
 /// For incoming light client requests.
 pub mod handler;
 
-/// Generate the light client protocol name from the genesis hash and fork id.
-fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
+/// The version of the light client protocol under which all request types, including
+/// `RemoteReadExtrinsicsRequest`, are served.
+const PROTOCOL_VERSION: u32 = 3;
+
+/// The previous version of the light client protocol, kept as a fallback for peers that only
+/// know about the request types that predate `RemoteReadExtrinsicsRequest`.
+const LEGACY_PROTOCOL_VERSION: u32 = 2;
+
+/// Generate the light client protocol name from the genesis hash, fork id, and protocol version.
+fn generate_protocol_name<Hash: AsRef<[u8]>>(
+	genesis_hash: Hash,
+	fork_id: Option<&str>,
+	version: u32,
+) -> String {
 	let genesis_hash = genesis_hash.as_ref();
 	if let Some(fork_id) = fork_id {
-		format!("/{}/{}/light/2", array_bytes::bytes2hex("", genesis_hash), fork_id)
+		format!("/{}/{}/light/{}", array_bytes::bytes2hex("", genesis_hash), fork_id, version)
 	} else {
-		format!("/{}/light/2", array_bytes::bytes2hex("", genesis_hash))
+		format!("/{}/light/{}", array_bytes::bytes2hex("", genesis_hash), version)
 	}
 }
 
@@ -56,8 +68,11 @@ pub fn generate_protocol_config<
 	inbound_queue: async_channel::Sender<IncomingRequest>,
 ) -> N::RequestResponseProtocolConfig {
 	N::request_response_config(
-		generate_protocol_name(genesis_hash, fork_id).into(),
-		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		generate_protocol_name(&genesis_hash, fork_id, PROTOCOL_VERSION).into(),
+		vec![
+			generate_protocol_name(&genesis_hash, fork_id, LEGACY_PROTOCOL_VERSION).into(),
+			generate_legacy_protocol_name(protocol_id).into(),
+		],
 		1 * 1024 * 1024,
 		MAX_RESPONSE_SIZE,
 		Duration::from_secs(15),
