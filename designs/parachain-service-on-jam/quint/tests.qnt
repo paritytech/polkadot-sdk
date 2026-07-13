@@ -24,118 +24,57 @@ module tests {
 
   // --- Deterministic helpers ---------------------------------------------
 
-  /// Apply one happy-path work package: always-accumulate flushes first,
-  /// then refine succeeds and accumulate runs. `codeHash`
-  /// is the hash the collator says it validated against (active *or*
-  /// pending — both are accepted by `accumulateOkPrefix` step 3).
-  action applyHappyPath(
-    paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
+  /// Apply a sequence of happy-path work packages in one block via the shared
+  /// `accumulateBlock` pipeline — the SAME function the model step
+  /// (`stepRefineAccumulate`) uses — so these tests exercise the real logic
+  /// rather than a parallel copy. Each package is refined (at guarantee time,
+  /// against the pre-block state) and paired with lookup-anchor 0 (prune
+  /// nothing). Each element is `(para, codeHash, msgs)`; `codeHash` is what the
+  /// collator says it validated against (active *or* pending — both accepted by
+  /// `accumulateOkPrefix` step 3).
+  action applyHappyPaths(
+    pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
   ): bool = {
     // A block advances the clock to its own timeslot.
     val blockNow = now + 1
-    // Refine ran at guarantee time, against the pre-block state — it must not
-    // see this block's always-accumulate effects.
-    val pi = svc.paraInfo(paraId)
-    val pkg: WorkPackage = {
-      authorizedParas: List(paraId),
-      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen }, pov: 0 })
-    }
-    val newHead = pi.headData + 1
-    val wr: WorkResult = {
-      result: WorkOk(refine(
-        svc, pkg, false, false,
-        Some(headHash(pi.headData)), Some(newHead), msgs
-      )[0]),
-      authTrace: 0
-    }
-    // The block then runs always-accumulate, then applies the package.
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
-    // lookup-anchor 0 = prune nothing; these deterministic tests don't
-    // exercise §5.1 log pruning (covered by the `parachain_log_above_lookup`
-    // invariant under `quint run`).
-    val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow, 0
-    )
+    // Refine each package at guarantee time against the pre-block state (it must
+    // not see this block's always-accumulate effects), paired with anchor 0.
+    val packages: List[(WorkResult, Timeslot)] = pkgs.foldl(List(), (acc, p) => {
+      val pi = svc.paraInfo(p._1)
+      val pkg: WorkPackage = {
+        authorizedParas: List(p._1),
+        items: List({ validationCode: { hash: p._2, len: FixedCodeLen }, pov: 0 })
+      }
+      val wr: WorkResult = {
+        result: WorkOk(refine(
+          svc, pkg, false, false,
+          Some(headHash(pi.headData)), Some(pi.headData + 1), p._3
+        )[0]),
+        authTrace: 0
+      }
+      acc.append((wr, 0))
+    })
+    // Run the exact per-block Accumulate pipeline the model step runs.
+    val blockOut = accumulateBlock(
+      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages)
     all {
-      svc' = out.state,
+      svc' = blockOut.state,
       now' = blockNow,
-      jamStagingSet' = match out.jamDesignate {
-        | Some(v) => v
-        | None => jamStagingSet
-      },
-      solicitedSet' = out.solicited,
+      jamStagingSet' = blockOut.staging,
+      solicitedSet' = blockOut.solicited,
       prevSvc' = svc,
-      lastStepWorkResults' = List(wr),
+      lastStepWorkResults' = blockOut.results,
       lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
-      logPrunedBelow' = logPrunedBelow
+      lastStepAssigns' = blockOut.assigns,
+      logPrunedBelow' =
+        blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
     }
   }
 
-  /// Two happy-path work packages applied in one step (same block). The
-  /// second package refines against the post-wp1 state, so a same-para
-  /// pair chains heads correctly.
-  action applyTwoHappyPaths(
-    p1: ParaId, c1: ValidationCodeHash, m1: List[UpwardMessage],
-    p2: ParaId, c2: ValidationCodeHash, m2: List[UpwardMessage]
-  ): bool = {
-    // Both packages accumulate in one block at its own timeslot.
-    val blockNow = now + 1
-    // Refine wr1 at guarantee time, against the pre-block state.
-    val pi1 = svc.paraInfo(p1)
-    val pkg1: WorkPackage = {
-      authorizedParas: List(p1),
-      items: List({ validationCode: { hash: c1, len: FixedCodeLen }, pov: 0 })
-    }
-    val nh1 = pi1.headData + 1
-    val wr1: WorkResult = {
-      result: WorkOk(refine(
-        svc, pkg1, false, false,
-        Some(headHash(pi1.headData)), Some(nh1), m1
-      )[0]),
-      authTrace: 0
-    }
-    // Block: always-accumulate first, then apply wr1.
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
-    val out1 = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr1, solicitedSet, None, FixedCodeLen, blockNow, 0
-    )
-    val pi2 = out1.state.paraInfo(p2)
-    val pkg2: WorkPackage = {
-      authorizedParas: List(p2),
-      items: List({ validationCode: { hash: c2, len: FixedCodeLen }, pov: 0 })
-    }
-    val nh2 = pi2.headData + 1
-    val wr2: WorkResult = {
-      result: WorkOk(refine(
-        out1.state, pkg2, false, false,
-        Some(headHash(pi2.headData)), Some(nh2), m2
-      )[0]),
-      authTrace: 0
-    }
-    val out2Package = accumulateOnePackage(
-      out1.state, wr2, out1.solicited, out1.jamDesignate,
-      FixedCodeLen, blockNow, 0
-    )
-    val out2 = {
-      ...out2Package,
-      jamAssigns: out1.jamAssigns.concat(out2Package.jamAssigns)
-    }
-    all {
-      svc' = out2.state,
-      now' = blockNow,
-      jamStagingSet' = match out2.jamDesignate {
-        | Some(v) => v
-        | None => jamStagingSet
-      },
-      solicitedSet' = out2.solicited,
-      prevSvc' = svc,
-      lastStepWorkResults' = List(wr1, wr2),
-      lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns),
-      logPrunedBelow' = logPrunedBelow
-    }
-  }
+  /// Singular convenience wrapper: apply one happy-path work package.
+  action applyHappyPath(
+    paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
+  ): bool = applyHappyPaths(List((paraId, codeHash, msgs)))
 
   /// Generic guard-only assertion wrapper: holds all primes at their
   /// current values and requires `pred` to be true.
@@ -196,10 +135,10 @@ module tests {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     init
-      .then(applyTwoHappyPaths(
-        CoretimeParaId, coretimeCode, List(),
-        AssetHubParaId, assetHubCode, List()
-      ))
+      .then(applyHappyPaths(List(
+        (CoretimeParaId, coretimeCode, List()),
+        (AssetHubParaId, assetHubCode, List())
+      )))
       .then(expectThat(all {
         lastStepWorkResults.length() == 2,
         svc.paraInfo(CoretimeParaId).headData == 1,

@@ -34,9 +34,8 @@ module accumulate {
   }
 
   /// Result of accumulating ONE work package's `ParachainWorkDigest` against
-  /// the current state. Multi-package steps thread this forward across
-  /// packages by calling `accumulateOnePackage` in sequence with the
-  /// previous call's `state`, `solicited`, and `jamDesignate`.
+  /// the current state. Multi-package steps combine these via `accumulateAll`,
+  /// which threads `state`, `solicited`, and `jamDesignate` across packages.
   type PerPackageOutcome = {
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash, int)],
@@ -46,6 +45,33 @@ module accumulate {
     // processed a candidate (`None` for a JAM-substituted `WorkErr`). The
     // caller folds it into the ghost `logPrunedBelow`.
     logPruned: Option[(ParaId, Timeslot)]
+  }
+
+  /// Result of accumulating ALL of a block's work packages in sequence.
+  type MultiPackageOutcome = {
+    state: ParachainServiceState,
+    solicited: Set[(ParaId, Hash, int)],
+    jamDesignate: Option[List[ValidatorKey]],
+    // Every package's `assign` calls, concatenated in package order.
+    jamAssigns: List[AssignCall],
+    // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
+    // order; the caller folds these into the ghost `logPrunedBelow`.
+    logPruned: List[(ParaId, Timeslot)]
+  }
+
+  /// Outcome of a whole block's Accumulate (`accumulateBlock`): the new state
+  /// plus everything a caller needs to update its ghost/step variables.
+  type BlockOutcome = {
+    state: ParachainServiceState,
+    // New `jamStagingSet` (unchanged unless a package designated).
+    staging: List[ValidatorKey],
+    solicited: Set[(ParaId, Hash, int)],
+    // Always-accumulate `assign`s followed by the packages' `assign`s.
+    assigns: List[AssignCall],
+    // Each candidate-bearing package's `(para, lookup-anchor)` prune record.
+    logPruned: List[(ParaId, Timeslot)],
+    // The block's work results, in order (for `lastStepWorkResults`).
+    results: List[WorkResult]
   }
 
   // ---- Replay a single upward message -----------------------------------
@@ -450,6 +476,36 @@ module accumulate {
     }
   }
 
+  /// Accumulate a block's work packages in order (§5.1). 
+  pure def accumulateAll(
+    state: ParachainServiceState,
+    solicited: Set[(ParaId, Hash, int)],
+    prevDesignate: Option[List[ValidatorKey]],
+    codeLen: int,
+    now: Timeslot,
+    packages: List[(WorkResult, Timeslot)]
+  ): MultiPackageOutcome = {
+    packages.foldl(
+      { state: state,
+        solicited: solicited,
+        jamDesignate: prevDesignate,
+        jamAssigns: List(),
+        logPruned: List() },
+      (acc, p) => {
+        val out = accumulateOnePackage(
+          acc.state, p._1, acc.solicited, acc.jamDesignate, codeLen, now, p._2)
+        { state: out.state,
+          solicited: out.solicited,
+          jamDesignate: out.jamDesignate,
+          jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
+          logPruned: match out.logPruned {
+            | Some(pair) => acc.logPruned.append(pair)
+            | None => acc.logPruned
+          }
+        }
+      })
+  }
+
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
   /// Apply pending authorizer queues that are due: for each core whose scheduled
@@ -477,5 +533,30 @@ module accumulate {
           }
       }
     )
+  }
+
+  /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
+  /// (flush due authorizer queues), then accumulate the block's work packages.
+  pure def accumulateBlock(
+    state: ParachainServiceState,
+    now: Timeslot,
+    staging: List[ValidatorKey],
+    solicited: Set[(ParaId, Hash, int)],
+    codeLen: int,
+    packages: List[(WorkResult, Timeslot)]
+  ): BlockOutcome = {
+    val flushed = applyAlwaysAccumulate(state, now)
+    val acc = accumulateAll(flushed.state, solicited, None, codeLen, now, packages)
+    {
+      state: acc.state,
+      staging: match acc.jamDesignate {
+        | Some(v) => v
+        | None => staging
+      },
+      solicited: acc.solicited,
+      assigns: flushed.assigns.concat(acc.jamAssigns),
+      logPruned: acc.logPruned,
+      results: packages.foldl(List(), (a, p) => a.append(p._1))
+    }
   }
 }

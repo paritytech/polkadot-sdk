@@ -77,6 +77,11 @@ module main {
   /// Construct one nondet work package's inputs against a service state `s`.
   /// Used twice in `stepRefineAccumulate` to model 1 or 2 work packages per
   /// block, from the same or different paras, with mixed valid/invalid outcomes.
+  /// `curHead` is the head the collator builds on — the caller forwards the
+  /// para's latest head this block (tracked across packages), so a second
+  /// package for the same para chains off the first's new head. The result is
+  /// parent `headHash(curHead)`, new head `curHead + 1`, which chains correctly
+  /// and passes Accumulate's parent-head check (§5.1 step 3).
   /// `declParent` / `declHead` model whether the PVF called
   /// `set_parent_head_hash` / `set_head`; when false the corresponding
   /// declaration is `None`, which Refine rejects with `MissingHeadDeclaration`
@@ -86,7 +91,7 @@ module main {
   /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 3),
   /// exercising that check.
   pure def buildPackage(
-    s: ParachainServiceState,
+    curHead: HeadData,
     paraId: ParaId,
     candidate: ParachainCandidate,
     m1: UpwardMessage,
@@ -108,13 +113,6 @@ module main {
       if (itemCount == 0) { authorizedParas: List(paraId), items: List() }
       else if (itemCount == 1) { authorizedParas: List(paraId), items: List(candidate) }
       else { authorizedParas: List(paraId, paraId), items: List(candidate, candidate) }
-    // The collator builds on the para's current head. For a live para that is
-    // `headHash(headData)` and the new head is `headData + 1`, so the result
-    // chains correctly and passes Accumulate's parent-head check (§5.1 step 3).
-    // For a non-live para (e.g. cleaned up by an earlier package this block)
-    // there is no head; we declare an arbitrary one — the candidate is dropped
-    // at Accumulate (§5.1 step 1) regardless.
-    val curHead = if (s.isLive(paraId)) s.paraInfo(paraId).headData else 0
     {
       pkg: pkg, msgs: msgs,
       parentHead:
@@ -157,8 +155,12 @@ module main {
     // parent-head check's rejection (§5.1 step 3). Forced to active code so it
     // is rejected on the parent, not the code, keeping `acc_error_logged` valid.
     nondet wp1StaleParent = oneOf(Set(false, true))
+    // Latest head for wp1's para this block. A non-live para (e.g. not yet
+    // registered) has no head; we use 0 — such a candidate is dropped at
+    // Accumulate (§5.1 step 1) regardless.
+    val wp1Head = if (svc.isLive(wp1Para)) svc.paraInfo(wp1Para).headData else 0
     val wp1 = buildPackage(
-      svc, wp1Para, wp1Candidate, wp1M1, wp1M2,
+      wp1Head, wp1Para, wp1Candidate, wp1M1, wp1M2,
       wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead, wp1StaleParent
     )
     val wp1Wr: WorkResult = {
@@ -171,15 +173,12 @@ module main {
       authTrace: wp1AuthTrace
     }
 
-    // Block: run always-accumulate (flush) once, then apply the packages.
-    val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
-
-    // Second work package (possibly same para — captures multi-package mix)
-    nondet wp2Para = oneOf(afterAlwaysAccumulate.state.parachains.keys())
-    nondet wp2Candidate = oneOf(arbitraryCandidates(afterAlwaysAccumulate.state, wp2Para))
+    // Second work package. 
+    nondet wp2Para = oneOf(svc.parachains.keys())
+    nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
     nondet wp2PvfPanic = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
-      wp2Para, afterAlwaysAccumulate.state.paraInfo(wp2Para).validationCode.ref.hash)
+      wp2Para, svc.paraInfo(wp2Para).validationCode.ref.hash)
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
@@ -190,6 +189,23 @@ module main {
     nondet wp2DeclParent = oneOf(Set(false, true))
     nondet wp2DeclHead = oneOf(Set(false, true))
     nondet wp2StaleParent = oneOf(Set(false, true))
+    // Chain off wp1's new head when same para; else wp2's own pre-block head.
+    val wp2Head =
+      if (wp2Para == wp1Para) wp1Head + 1
+      else if (svc.isLive(wp2Para)) svc.paraInfo(wp2Para).headData else 0
+    val wp2 = buildPackage(
+      wp2Head, wp2Para, wp2Candidate, wp2M1, wp2M2,
+      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead, wp2StaleParent
+    )
+    val wp2Wr: WorkResult = {
+      result:
+        if (wp2IsJamSkip) WorkErr
+        else WorkOk(refine(
+          svc, wp2.pkg, wp2AuthMalformed, wp2PvfPanic,
+          wp2.parentHead, wp2.newHead, wp2.msgs
+        )[0]),
+      authTrace: wp2AuthTrace
+    }
 
     // 0 packages models a pure always-accumulate block (the service still
     // accumulates with no work packages); 1 or 2 exercise the normal path.
@@ -210,76 +226,30 @@ module main {
     nondet lookupAnchor1 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
     nondet lookupAnchor2 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
 
-    val passThrough: PerPackageOutcome =
-      {
-        state: afterAlwaysAccumulate.state,
-        solicited: solicitedSet,
-        jamDesignate: None,
-        jamAssigns: List(),
-        logPruned: None
-      }
-    val out1 =
-      if (numPkgs == 0) passThrough
-      else accumulateOnePackage(afterAlwaysAccumulate.state, wp1Wr, solicitedSet, None, FixedCodeLen, blockNow, lookupAnchor1)
-    // wp2 refines against the post-wp1 state so a second package for the
-    // SAME para chains off wp1's new head; different para → identical to
-    // refining against `afterAlwaysAccumulate.state`. wp1 may have cleaned up `wp2Para`
-    // (it was chosen from the post-flush `afterAlwaysAccumulate.state.parachains`);
-    // `buildPackage` and `refine` both guard the resulting unregistered para
-    // (it fails Refine with `InvalidCodeHash` and is dropped at Accumulate).
-    val wp2 = buildPackage(
-      out1.state, wp2Para, wp2Candidate, wp2M1, wp2M2,
-      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead, wp2StaleParent
-    )
-    val wp2Wr: WorkResult = {
-      result:
-        if (wp2IsJamSkip) WorkErr
-        else WorkOk(refine(
-          out1.state, wp2.pkg, wp2AuthMalformed, wp2PvfPanic,
-          wp2.parentHead, wp2.newHead, wp2.msgs
-        )[0]),
-      authTrace: wp2AuthTrace
-    }
-    val out2 =
-      if (numPkgs == 2) {
-        val second = accumulateOnePackage(
-          out1.state, wp2Wr, out1.solicited, out1.jamDesignate, FixedCodeLen, blockNow, lookupAnchor2)
-        { ...second, jamAssigns: out1.jamAssigns.concat(second.jamAssigns) }
-      } else out1
-
-    val newStaging = match out2.jamDesignate {
-      | Some(v) => v
-      | None => jamStagingSet
-    }
-
-    val results =
+    // Assemble the block's packages (each a refined work result + its lookup-
+    // anchor), then run the shared per-block Accumulate pipeline — the same
+    // `accumulateBlock` the deterministic tests use.
+    val packages: List[(WorkResult, Timeslot)] =
       if (numPkgs == 0) List()
-      else if (numPkgs == 1) List(wp1Wr)
-      else List(wp1Wr, wp2Wr)
+      else if (numPkgs == 1) List((wp1Wr, lookupAnchor1))
+      else List((wp1Wr, lookupAnchor1), (wp2Wr, lookupAnchor2))
+    val blockOut = accumulateBlock(
+      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages)
 
-    // Log pruning already happened inside `accumulateOnePackage` (per
-    // candidate, before its entries were appended). Fold each package's
-    // `(para, lookup-anchor)` into the ghost `logPrunedBelow`; a later package
-    // for the same para wins (its prune is the last applied).
-    val pruneRecords =
-      if (numPkgs == 0) List()
-      else if (numPkgs == 1) List(out1.logPruned)
-      else List(out1.logPruned, out2.logPruned)
+    // Fold each candidate's `(para, lookup-anchor)` into the ghost
+    // `logPrunedBelow`; a later package for the same para wins.
     val newLogPrunedBelow =
-      pruneRecords.foldl(logPrunedBelow, (m, opt) => match opt {
-        | Some(pair) => m.put(pair._1, pair._2)
-        | None => m
-      })
+      blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
 
     all {
-      svc' = out2.state,
-      jamStagingSet' = newStaging,
+      svc' = blockOut.state,
+      jamStagingSet' = blockOut.staging,
       now' = blockNow,
-      solicitedSet' = out2.solicited,
+      solicitedSet' = blockOut.solicited,
       prevSvc' = svc,
-      lastStepWorkResults' = results,
+      lastStepWorkResults' = blockOut.results,
       lastStepBouncedTransfers' = List(),
-      lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out2.jamAssigns),
+      lastStepAssigns' = blockOut.assigns,
       logPrunedBelow' = newLogPrunedBelow
     }
   }
