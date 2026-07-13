@@ -138,6 +138,9 @@ impl RuntimeApi {
 				Err(RuntimeApiError::MethodNotFound { method_name, .. }) => {
 					log::debug!(target: LOG_TARGET, "Method {method_name:?} not found falling back");
 				},
+				// Hit when the target block's runtime wasm doesn't export the method:
+				// `sc-executor` returns "Exported method <name> is not found" (see
+				// `substrate/client/executor/wasmtime/src/instance_wrapper.rs`).
 				Err(RuntimeApiError::CannotCallApi(BackendError::Rpc(RpcError::ClientError(
 					RpcsError::User(UserError { message, .. }),
 				)))) if message.contains("is not found") => {
@@ -183,8 +186,9 @@ impl RuntimeApi {
 							.unvalidated();
 						self.at_block.runtime_apis().call(payload).await
 					},
-					// This will be hit if we are trying to hit a block where the runtime did not
-					// have this new runtime `eth_transact_with_config` defined.
+					// Hit when the target block's runtime predates `eth_transact_with_config`:
+					// `sc-executor` returns "Exported method <name> is not found" (see
+					// `substrate/client/executor/wasmtime/src/instance_wrapper.rs`).
 					RuntimeApiError::CannotCallApi(BackendError::Rpc(RpcError::ClientError(
 						RpcsError::User(UserError { ref message, .. }),
 					))) if message.contains("eth_transact_with_config is not found") => {

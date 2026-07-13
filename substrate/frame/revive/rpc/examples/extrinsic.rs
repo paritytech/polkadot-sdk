@@ -49,9 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let at_block = client.at_block(block_hash).await?;
 	let extrinsics = at_block.extrinsics().fetch().await?;
-	if let Some(result) = extrinsics.find_first::<InstantiateWithCode>() {
-		result?;
-	}
+	// Surface a decode error if the extrinsic is present but malformed; a missing extrinsic is
+	// not an error.
+	extrinsics.find_first::<InstantiateWithCode>().transpose()?;
 
 	Ok(())
 }

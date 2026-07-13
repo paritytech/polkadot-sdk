@@ -36,8 +36,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let extrinsics = at_block.extrinsics().fetch().await?;
 	let remarks = extrinsics
 		.find::<Remark>()
-		.filter_map(|remark| remark.ok().map(|r| r.remark))
-		.collect::<Vec<_>>();
+		.map(|remark| remark.map(|r| r.remark))
+		.collect::<Result<Vec<_>, _>>()?;
 
 	dbg!(remarks);
 	Ok(())
