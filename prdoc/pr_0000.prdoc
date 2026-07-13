@@ -1,0 +1,30 @@
+title: 'statement-store: configurable per-category limits'
+doc:
+- audience: Node Dev
+  description: |-
+    The statement store now partitions its capacity into per-category buckets with
+    individually configurable limits, based on the reason a statement is stored
+    (`StatementCategory`): explicit affinity, DHT affinity, or pending gossip. This
+    prevents traffic stored for one reason from crowding out traffic stored for another.
+
+    Statements are submitted with a category mask via the new
+    `StatementStore::submit_with_category_mask` trait method (plain `submit` uses the
+    full mask). The store picks the highest-priority bucket in the mask
+    (`ExplicitAffinity > DhtAffine > PendingGossip`) with free capacity, falling through
+    the mask as buckets fill up. When every bucket in the mask is full, the statement
+    may borrow free space from a higher-priority bucket; borrowed space is reclaimed
+    first when native statements need the bucket.
+
+    Per-category limits are configured with the new `sc_statement_store::Config` fields
+    (`explicit_affinity_limits`, `dht_affinity_limits`, `pending_gossip_limits`). A
+    bucket without dedicated limits is only bounded by the global store limits, which
+    keeps the default behavior unchanged.
+crates:
+- name: sp-statement-store
+  bump: minor
+- name: sc-statement-store
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: staging-node-cli
+  bump: patch

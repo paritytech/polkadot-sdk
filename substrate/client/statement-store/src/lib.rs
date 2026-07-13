@@ -38,6 +38,32 @@
 //! statements are deleted and a `Rejected` result is returned.
 //! The order in which statements with the same priority are deleted is unspecified.
 //!
+//! ## Category buckets
+//!
+//! In addition to the global limits, the store capacity is partitioned into per-category
+//! buckets, one for each reason a statement may be kept in the store (see
+//! [`StatementCategory`]): explicit affinity, DHT affinity, and pending gossip. Each bucket has
+//! its own configurable limits ([`Config`]); a bucket without dedicated limits falls back to the
+//! global ones, which makes the partitioning transparent unless configured otherwise.
+//!
+//! A statement is submitted with a [`CategoryMask`] of the categories it qualifies for
+//! ([`StatementStore::submit_with_category_mask`]; plain [`StatementStore::submit`] uses the
+//! full mask). The store picks the bucket that will account for the statement as follows:
+//! * The first bucket in the mask, in priority order (`ExplicitAffinity > DhtAffine >
+//!   PendingGossip`), with free capacity;
+//! * otherwise, the first bucket in the mask that can be freed up by evicting statements that
+//!   *borrow* its space (see below), lowest priority first;
+//! * otherwise, the first bucket with free capacity that has higher priority than the mask, closest
+//!   priority first. The statement is then stored as *borrowing* the space of the lender bucket,
+//!   and borrowed space is reclaimed first whenever a bucket runs full.
+//!
+//! If no bucket can accommodate the statement, it is rejected.
+//!
+//! The bucket a statement is accounted to is not persisted: after a restart, statements are
+//! redistributed over the buckets in priority order as they are loaded, and any excess is
+//! accounted to the pending-gossip bucket, possibly leaving it over its limit until it drains
+//! naturally.
+//!
 //! ## Statement expiration
 //!
 //! Each time a statement is removed from the store (Either evicted by higher priority statement or
@@ -72,7 +98,7 @@ use sp_statement_store::{
 	OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult, Statement,
 	StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
-pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
+pub use sp_statement_store::{CategoryMask, Error, StatementCategory, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	sync::Arc,
@@ -194,6 +220,15 @@ pub const DEFAULT_NETWORK_WORKERS: usize = 1;
 /// Default maximum statements per second per peer before rate limiting kicks in.
 pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
 
+/// Limits for a single category bucket (see [`StatementCategory`]).
+#[derive(Debug, Clone, Copy)]
+pub struct CategoryLimits {
+	/// Maximum number of statements accounted to the bucket.
+	pub max_statements: usize,
+	/// Maximum total data size of the statements accounted to the bucket.
+	pub max_size: usize,
+}
+
 /// Statement store and network handler configuration.
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
@@ -203,6 +238,15 @@ pub struct Config {
 	/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
 	pub max_total_size: usize,
+	/// Limits for statements stored because of explicit affinity. `None` means the bucket is
+	/// only limited by the global limits.
+	pub explicit_affinity_limits: Option<CategoryLimits>,
+	/// Limits for statements stored because of DHT affinity. `None` means the bucket is only
+	/// limited by the global limits.
+	pub dht_affinity_limits: Option<CategoryLimits>,
+	/// Limits for statements stored only to be re-forwarded by periodic propagation. `None`
+	/// means the bucket is only limited by the global limits.
+	pub pending_gossip_limits: Option<CategoryLimits>,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
 	pub purge_after_sec: u64,
 	/// Number of concurrent workers for statement validation from the network.
@@ -227,6 +271,20 @@ impl Config {
 		}
 		Ok(())
 	}
+
+	/// Returns the effective limits of the given category bucket: the configured ones, or the
+	/// global limits if no dedicated limits are configured.
+	fn category_limits(&self, category: StatementCategory) -> CategoryLimits {
+		match category {
+			StatementCategory::ExplicitAffinity => self.explicit_affinity_limits,
+			StatementCategory::DhtAffine => self.dht_affinity_limits,
+			StatementCategory::PendingGossip => self.pending_gossip_limits,
+		}
+		.unwrap_or(CategoryLimits {
+			max_statements: self.max_total_statements,
+			max_size: self.max_total_size,
+		})
+	}
 }
 
 impl Default for Config {
@@ -234,6 +292,9 @@ impl Default for Config {
 		Config {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
+			explicit_affinity_limits: None,
+			dht_affinity_limits: None,
+			pending_gossip_limits: None,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
@@ -298,12 +359,39 @@ struct QueryIndex {
 	recent: HashSet<Hash>,
 }
 
+/// Bookkeeping record of a stored statement.
+struct EntryInfo {
+	/// The account that authored the statement.
+	account: AccountId,
+	/// Expiry timestamp, doubling as the eviction priority.
+	expiry: Expiry,
+	/// Size of the statement `Data` field.
+	len: usize,
+	/// The category bucket the statement is accounted to.
+	category: StatementCategory,
+	/// Whether the statement borrows the space of a bucket whose category is not in the
+	/// statement's submission mask. Borrowed space is reclaimed first when the bucket runs
+	/// full.
+	borrowed: bool,
+}
+
+/// Usage accounting of a single category bucket.
+#[derive(Default)]
+struct BucketUsage {
+	/// Number of statements accounted to the bucket.
+	count: usize,
+	/// Total data size of the statements accounted to the bucket.
+	size: usize,
+	/// Statements borrowing this bucket's space, ordered by expiry (lowest, i.e. first to be
+	/// reclaimed, first).
+	borrowed: BTreeSet<(Expiry, Hash)>,
+}
+
 /// Index for submit operations (constraint checking, entries, accounts).
 #[derive(Default)]
 struct SubmitIndex {
-	/// Statement hash → (account, expiry/priority, data size); the authoritative set of stored
-	/// statements.
-	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
+	/// Statement hash → bookkeeping record; the authoritative set of stored statements.
+	entries: HashMap<Hash, EntryInfo>,
 	/// Removed or expired statements, retained for the purge period to block re-acceptance.
 	evicted: EvictedIndex,
 	/// Per-account tracking (priority-ordered hashes, channels, size) for quota enforcement.
@@ -314,6 +402,8 @@ struct SubmitIndex {
 	config: Config,
 	/// Running total of data size across all stored statements.
 	total_size: usize,
+	/// Per-category usage accounting, indexed by `StatementCategory as usize`.
+	buckets: [BucketUsage; StatementCategory::COUNT],
 }
 
 struct ClientWrapper<Block, Client, BE> {
@@ -522,18 +612,53 @@ impl SubmitIndex {
 		SubmitIndex { config, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		category: StatementCategory,
+		borrowed: bool,
+	) {
 		let expiry = Expiry(statement.expiry());
-		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		self.total_size += statement.data_len();
+		let len = statement.data_len();
+		self.entries
+			.insert(hash, EntryInfo { account, expiry, len, category, borrowed });
+		self.total_size += len;
+		let bucket = &mut self.buckets[category as usize];
+		bucket.count += 1;
+		bucket.size += len;
+		if borrowed {
+			bucket.borrowed.insert((expiry, hash));
+		}
 		let account_info = self.accounts.entry(account).or_default();
-		account_info.data_size += statement.data_len();
+		account_info.data_size += len;
 		if let Some(channel) = statement.channel() {
 			account_info.channels.insert(channel, ChannelEntry { hash, expiry });
 		}
 		account_info
 			.by_priority
-			.insert(PriorityKey { hash, expiry }, (statement.channel(), statement.data_len()));
+			.insert(PriorityKey { hash, expiry }, (statement.channel(), len));
+	}
+
+	/// Insert a statement loaded from the database on startup.
+	///
+	/// The bucket a statement was accounted to is not persisted, so loaded statements are
+	/// redistributed: each one is accounted to the first bucket, in priority order, with free
+	/// capacity, and to the pending-gossip bucket when every bucket is full (possibly leaving
+	/// it over its limit until it drains).
+	fn insert_loaded(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+		let len = statement.data_len();
+		let mut category = StatementCategory::PendingGossip;
+		for cat in StatementCategory::ALL_BY_PRIORITY {
+			let limits = self.config.category_limits(cat);
+			let bucket = &self.buckets[cat as usize];
+			if bucket.count < limits.max_statements && bucket.size + len <= limits.max_size {
+				category = cat;
+				break;
+			}
+		}
+		self.insert_new(hash, account, statement, category, false);
 	}
 
 	fn query(&self, hash: &Hash) -> IndexQuery {
@@ -556,8 +681,16 @@ impl SubmitIndex {
 	}
 
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
-		if let Some((account, expiry, len)) = self.entries.remove(hash) {
+		if let Some(EntryInfo { account, expiry, len, category, borrowed }) =
+			self.entries.remove(hash)
+		{
 			self.total_size -= len;
+			let bucket = &mut self.buckets[category as usize];
+			bucket.count -= 1;
+			bucket.size -= len;
+			if borrowed {
+				bucket.borrowed.remove(&(expiry, *hash));
+			}
 			if current_time < expiry.get_expiration_timestamp_secs() {
 				let purge_at = expiry
 					.get_expiration_timestamp_secs()
@@ -592,6 +725,7 @@ impl SubmitIndex {
 		account: &AccountId,
 		validation: &StatementAllowance,
 		current_time: u64,
+		mask: CategoryMask,
 	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
@@ -685,9 +819,26 @@ impl SubmitIndex {
 				would_free_size += len;
 			}
 		}
+		// Pick the category bucket that will account for the statement.
+		let Some((category, borrowed, reclaimed)) =
+			self.select_bucket(statement_len, mask, &evicted)
+		else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Ignored statement {} from account {} because every bucket in its category mask is full",
+				HexDisplay::from(&hash),
+				HexDisplay::from(account),
+			);
+			return Err(RejectionReason::StoreFull);
+		};
+		let reclaimed_size: usize =
+			reclaimed.iter().map(|h| self.entries.get(h).map_or(0, |entry| entry.len)).sum();
+
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
+		if !(self.total_size + statement_len <=
+			self.config.max_total_size + would_free_size + reclaimed_size &&
+			self.entries.len() <
+				self.config.max_total_statements + evicted.len() + reclaimed.len())
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -700,11 +851,94 @@ impl SubmitIndex {
 			return Err(RejectionReason::StoreFull);
 		}
 
+		evicted.extend(reclaimed);
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, category, borrowed);
 		Ok(evicted)
+	}
+
+	/// Pick the category bucket that will account for a new statement of size `statement_len`
+	/// submitted with the category mask `mask`, given that the statements in `evicted` are going
+	/// to be removed to satisfy per-account constraints.
+	///
+	/// Returns the selected category, whether the statement borrows the bucket's space (the
+	/// bucket's category is not in the mask), and the borrowing statements that have to be
+	/// evicted from the bucket to make room. Returns `None` if no bucket can accommodate the
+	/// statement:
+	/// * The first bucket in the mask, in priority order, with free capacity is selected;
+	/// * otherwise, the first bucket in the mask that can be freed up by reclaiming borrowed space
+	///   is selected, reclaiming from the lowest-priority borrowers first;
+	/// * otherwise, the statement borrows space from the first bucket with free capacity that has
+	///   higher priority than the mask, in order of increasing priority distance.
+	fn select_bucket(
+		&self,
+		statement_len: usize,
+		mask: CategoryMask,
+		evicted: &HashSet<Hash>,
+	) -> Option<(StatementCategory, bool, Vec<Hash>)> {
+		// Per-bucket space about to be freed by the per-account evictions.
+		let mut freed = [(0usize, 0usize); StatementCategory::COUNT];
+		for h in evicted {
+			if let Some(entry) = self.entries.get(h) {
+				let (count, size) = &mut freed[entry.category as usize];
+				*count += 1;
+				*size += entry.len;
+			}
+		}
+
+		// Whether `bucket` fits the new statement after `freed` and `reclaimed` space is
+		// released. Comparisons are rearranged to avoid underflow.
+		let fits = |cat: StatementCategory, reclaimed: (usize, usize)| {
+			let limits = self.config.category_limits(cat);
+			let bucket = &self.buckets[cat as usize];
+			let (freed_count, freed_size) = freed[cat as usize];
+			let (reclaimed_count, reclaimed_size) = reclaimed;
+			bucket.count < limits.max_statements + freed_count + reclaimed_count &&
+				bucket.size + statement_len <= limits.max_size + freed_size + reclaimed_size
+		};
+
+		// A bucket in the mask with free capacity, in priority order.
+		for cat in StatementCategory::ALL_BY_PRIORITY {
+			if mask.contains(cat) && fits(cat, (0, 0)) {
+				return Some((cat, false, Vec::new()));
+			}
+		}
+
+		// A bucket in the mask that can be freed up by reclaiming borrowed space, evicting the
+		// lowest-priority borrowers first.
+		for cat in StatementCategory::ALL_BY_PRIORITY {
+			if !mask.contains(cat) {
+				continue;
+			}
+			let mut reclaimed = Vec::new();
+			let mut reclaimed_space = (0usize, 0usize);
+			for (_, h) in &self.buckets[cat as usize].borrowed {
+				if evicted.contains(h) {
+					// Already accounted for in `freed`.
+					continue;
+				}
+				reclaimed.push(*h);
+				reclaimed_space.0 += 1;
+				reclaimed_space.1 += self.entries.get(h).map_or(0, |entry| entry.len);
+				if fits(cat, reclaimed_space) {
+					return Some((cat, false, reclaimed));
+				}
+			}
+		}
+
+		// Borrow from a higher-priority bucket with free capacity, closest priority first.
+		let top = StatementCategory::ALL_BY_PRIORITY
+			.into_iter()
+			.position(|cat| mask.contains(cat))?;
+		for cat in StatementCategory::ALL_BY_PRIORITY[..top].iter().rev() {
+			if fits(*cat, (0, 0)) {
+				return Some((*cat, true, Vec::new()));
+			}
+		}
+
+		None
 	}
 }
 
@@ -843,7 +1077,7 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							submit_index.insert_new(hash, account_id, &statement);
+							submit_index.insert_loaded(hash, account_id, &statement);
 							query_index.insert(hash, &statement);
 						} else {
 							log::debug!(
@@ -1108,9 +1342,17 @@ impl Store {
 			accounts_count,
 			capacity_statements,
 			capacity_bytes,
-		): (Vec<_>, usize, usize, usize, usize, usize, usize) = {
+			buckets,
+		): (Vec<_>, usize, usize, usize, usize, usize, usize, Vec<_>) = {
 			let mut submit_index = self.submit_index.write();
 			let deleted = submit_index.maintain(self.timestamp());
+			let buckets = StatementCategory::ALL_BY_PRIORITY
+				.into_iter()
+				.map(|category| {
+					let bucket = &submit_index.buckets[category as usize];
+					(category.label(), bucket.count, bucket.size, bucket.borrowed.len())
+				})
+				.collect();
 			(
 				deleted,
 				submit_index.entries.len(),
@@ -1119,6 +1361,7 @@ impl Store {
 				submit_index.accounts.len(),
 				submit_index.config.max_total_statements,
 				submit_index.config.max_total_size,
+				buckets,
 			)
 		};
 		let deleted: Vec<_> =
@@ -1137,6 +1380,11 @@ impl Store {
 			metrics.expired_total.set(expired_count as u64);
 			metrics.capacity_statements.set(capacity_statements as u64);
 			metrics.capacity_bytes.set(capacity_bytes as u64);
+			for (label, count, size, borrowed) in &buckets {
+				metrics.statements_per_category.with_label_values(&[label]).set(*count as u64);
+				metrics.bytes_per_category.with_label_values(&[label]).set(*size as u64);
+				metrics.borrowed_per_category.with_label_values(&[label]).set(*borrowed as u64);
+			}
 		});
 
 		log::trace!(
@@ -1445,6 +1693,21 @@ impl StatementStore for Store {
 	///
 	/// Returns `SubmitResult::New` on success.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
+		self.submit_with_category_mask(statement, source, CategoryMask::all())
+	}
+
+	/// Like [`submit`](StatementStore::submit), with the set of reasons ("categories") the
+	/// statement is stored for. The mask selects the category buckets the statement may be
+	/// accounted to; see the module documentation for the bucket-selection rules.
+	fn submit_with_category_mask(
+		&self,
+		statement: Statement,
+		source: StatementSource,
+		mask: CategoryMask,
+	) -> SubmitResult {
+		// An empty mask carries no category information; treat it like `submit`, which places
+		// the statement in whatever bucket has capacity.
+		let mask = if mask.is_empty() { CategoryMask::all() } else { mask };
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
@@ -1577,17 +1840,22 @@ impl StatementStore for Store {
 		let evicted = {
 			let mut submit_index = self.submit_index.write();
 
-			let evicted =
-				match submit_index.insert(hash, &statement, &account_id, &validation, current_time)
-				{
-					Ok(evicted) => evicted,
-					Err(reason) => {
-						self.metrics.report(|metrics| {
-							metrics.rejections.with_label_values(&[reason.label()]).inc();
-						});
-						return SubmitResult::Rejected(reason);
-					},
-				};
+			let evicted = match submit_index.insert(
+				hash,
+				&statement,
+				&account_id,
+				&validation,
+				current_time,
+				mask,
+			) {
+				Ok(evicted) => evicted,
+				Err(reason) => {
+					self.metrics.report(|metrics| {
+						metrics.rejections.with_label_values(&[reason.label()]).inc();
+					});
+					return SubmitResult::Rejected(reason);
+				},
+			};
 
 			let mut commit = Vec::new();
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
@@ -1733,12 +2001,12 @@ impl StatementStoreSubscriptionApi for Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, Store};
+	use crate::{col, CategoryLimits, Store};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, CategoryMask, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason,
+		Statement, StatementCategory, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -3123,7 +3391,7 @@ mod tests {
 			let mut submit_index = store.submit_index.write();
 			let mut query_index = store.query_index.write();
 			for s in [&s1, &s2, &s3, &s4, &s5] {
-				submit_index.insert_new(s.hash(), account(4), s);
+				submit_index.insert_loaded(s.hash(), account(4), s);
 				query_index.insert(s.hash(), s);
 			}
 		}
@@ -3165,9 +3433,9 @@ mod tests {
 		{
 			let mut submit_index = store.submit_index.write();
 			let mut query_index = store.query_index.write();
-			submit_index.insert_new(h1, account(0), &s1);
+			submit_index.insert_loaded(h1, account(0), &s1);
 			query_index.insert(h1, &s1);
-			submit_index.insert_new(h2, account(0), &s2);
+			submit_index.insert_loaded(h2, account(0), &s2);
 			query_index.insert(h2, &s2);
 		}
 
@@ -3203,9 +3471,9 @@ mod tests {
 		{
 			let mut submit_index = store.submit_index.write();
 			let mut query_index = store.query_index.write();
-			submit_index.insert_new(h1, account(2), &s1);
+			submit_index.insert_loaded(h1, account(2), &s1);
 			query_index.insert(h1, &s1);
-			submit_index.insert_new(h2, account(2), &s2);
+			submit_index.insert_loaded(h2, account(2), &s2);
 			query_index.insert(h2, &s2);
 		}
 
@@ -3429,5 +3697,269 @@ mod tests {
 		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
 		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
+	}
+
+	fn limits(max_statements: usize, max_size: usize) -> Option<CategoryLimits> {
+		Some(CategoryLimits { max_statements, max_size })
+	}
+
+	fn set_category_limits(
+		store: &Store,
+		explicit: Option<CategoryLimits>,
+		dht: Option<CategoryLimits>,
+		pending: Option<CategoryLimits>,
+	) {
+		let mut submit_index = store.submit_index.write();
+		submit_index.config.explicit_affinity_limits = explicit;
+		submit_index.config.dht_affinity_limits = dht;
+		submit_index.config.pending_gossip_limits = pending;
+	}
+
+	fn placement(store: &Store, statement: &Statement) -> Option<(StatementCategory, bool)> {
+		store
+			.submit_index
+			.read()
+			.entries
+			.get(&statement.hash())
+			.map(|entry| (entry.category, entry.borrowed))
+	}
+
+	#[test]
+	fn category_buckets_fill_in_priority_order() {
+		use StatementCategory::*;
+		let (store, _temp) = test_store();
+		set_category_limits(&store, limits(2, 1000), limits(2, 1000), limits(1, 1000));
+		let source = StatementSource::Network;
+
+		// A full mask falls through the buckets in priority order as they fill up.
+		let statements: Vec<_> = (0..5).map(|i| statement(5 + i, 1, None, 100)).collect();
+		for s in &statements {
+			assert_eq!(store.submit(s.clone(), source), SubmitResult::New);
+		}
+		let expected = [ExplicitAffinity, ExplicitAffinity, DhtAffine, DhtAffine, PendingGossip];
+		for (s, expected) in statements.iter().zip(expected) {
+			assert_eq!(placement(&store, s), Some((expected, false)));
+		}
+
+		// Every bucket is full now.
+		assert_eq!(
+			store.submit(statement(11, 1, None, 100), source),
+			SubmitResult::Rejected(RejectionReason::StoreFull)
+		);
+	}
+
+	#[test]
+	fn category_mask_restricts_buckets() {
+		use StatementCategory::*;
+		let (store, _temp) = test_store();
+		set_category_limits(&store, limits(1, 1000), limits(1, 1000), limits(1, 1000));
+		let source = StatementSource::Network;
+
+		assert_eq!(
+			store.submit_with_category_mask(
+				statement(5, 1, None, 100),
+				source,
+				ExplicitAffinity.into()
+			),
+			SubmitResult::New
+		);
+		// The explicit-affinity bucket is full, and there is nothing to reclaim or borrow from.
+		assert_eq!(
+			store.submit_with_category_mask(
+				statement(6, 1, None, 100),
+				source,
+				ExplicitAffinity.into()
+			),
+			SubmitResult::Rejected(RejectionReason::StoreFull)
+		);
+		// The DHT bucket is still available for DHT-masked statements though.
+		assert_eq!(
+			store.submit_with_category_mask(statement(6, 1, None, 100), source, DhtAffine.into()),
+			SubmitResult::New
+		);
+		// A multi-category mask falls through to its first bucket with free capacity.
+		let s = statement(7, 1, None, 100);
+		assert_eq!(
+			store.submit_with_category_mask(s.clone(), source, ExplicitAffinity | PendingGossip),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &s), Some((PendingGossip, false)));
+	}
+
+	#[test]
+	fn lower_category_borrows_from_higher_buckets() {
+		use StatementCategory::*;
+		let (store, _temp) = test_store();
+		set_category_limits(&store, limits(1, 1000), limits(1, 1000), limits(1, 1000));
+		let source = StatementSource::Network;
+		let pending: CategoryMask = PendingGossip.into();
+
+		// Fills the pending-gossip bucket.
+		let s1 = statement(5, 1, None, 100);
+		assert_eq!(store.submit_with_category_mask(s1.clone(), source, pending), SubmitResult::New);
+		assert_eq!(placement(&store, &s1), Some((PendingGossip, false)));
+		// Borrows the closest higher-priority bucket first...
+		let s2 = statement(6, 1, None, 100);
+		assert_eq!(store.submit_with_category_mask(s2.clone(), source, pending), SubmitResult::New);
+		assert_eq!(placement(&store, &s2), Some((DhtAffine, true)));
+		// ...and the top-priority one after that.
+		let s3 = statement(7, 1, None, 100);
+		assert_eq!(store.submit_with_category_mask(s3.clone(), source, pending), SubmitResult::New);
+		assert_eq!(placement(&store, &s3), Some((ExplicitAffinity, true)));
+		// Nothing left to borrow from.
+		assert_eq!(
+			store.submit_with_category_mask(statement(8, 1, None, 100), source, pending),
+			SubmitResult::Rejected(RejectionReason::StoreFull)
+		);
+
+		// A DHT-masked statement reclaims the space borrowed from the DHT bucket...
+		let s4 = statement(8, 1, None, 100);
+		assert_eq!(
+			store.submit_with_category_mask(s4.clone(), source, DhtAffine | PendingGossip),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &s4), Some((DhtAffine, false)));
+		assert_eq!(placement(&store, &s2), None);
+		assert!(store.submit_index.read().evicted.contains(&s2.hash()));
+
+		// ...and a statement with explicit affinity reclaims the explicit-affinity bucket.
+		let s5 = statement(9, 1, None, 100);
+		assert_eq!(
+			store.submit_with_category_mask(s5.clone(), source, ExplicitAffinity.into()),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &s5), Some((ExplicitAffinity, false)));
+		assert_eq!(placement(&store, &s3), None);
+		assert!(store.submit_index.read().evicted.contains(&s3.hash()));
+
+		// Nothing is borrowed anymore and every bucket is full natively, so there is no room
+		// for pending-gossip statements at all.
+		assert_eq!(
+			store.submit_with_category_mask(statement(10, 1, None, 100), source, pending),
+			SubmitResult::Rejected(RejectionReason::StoreFull)
+		);
+	}
+
+	#[test]
+	fn borrowed_space_is_reclaimed_first() {
+		use StatementCategory::*;
+		let (store, _temp) = test_store();
+		set_category_limits(&store, limits(1, 1000), limits(1, 1000), limits(1, 1000));
+		let source = StatementSource::Network;
+
+		// Fill the pending-gossip bucket, then borrow the DHT bucket with a high-priority
+		// statement.
+		assert_eq!(
+			store.submit_with_category_mask(
+				statement(5, 1, None, 100),
+				source,
+				PendingGossip.into()
+			),
+			SubmitResult::New
+		);
+		let borrower = statement(6, 10, None, 100);
+		assert_eq!(
+			store.submit_with_category_mask(borrower.clone(), source, PendingGossip.into()),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &borrower), Some((DhtAffine, true)));
+
+		// A native statement reclaims the borrowed space even though its priority is lower
+		// than the borrower's.
+		let native = statement(7, 1, None, 100);
+		assert_eq!(
+			store.submit_with_category_mask(native.clone(), source, DhtAffine.into()),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &native), Some((DhtAffine, false)));
+		assert_eq!(placement(&store, &borrower), None);
+		assert!(store.submit_index.read().evicted.contains(&borrower.hash()));
+	}
+
+	#[test]
+	fn empty_mask_is_unrestricted() {
+		use StatementCategory::*;
+		let (store, _temp) = test_store();
+		let s = signed_statement(1);
+		assert_eq!(
+			store.submit_with_category_mask(
+				s.clone(),
+				StatementSource::Network,
+				CategoryMask::EMPTY
+			),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &s), Some((ExplicitAffinity, false)));
+	}
+
+	#[test]
+	fn account_eviction_frees_bucket_space() {
+		use StatementCategory::*;
+		let (store, _temp) = test_store();
+		set_category_limits(&store, limits(1, 1000), None, None);
+		let source = StatementSource::Network;
+
+		// Account 1 is limited to a single statement, and the explicit-affinity bucket is
+		// full, but replacing the account's statement with a higher-priority one frees the
+		// bucket space up.
+		let s1 = statement(1, 1, None, 100);
+		let s2 = statement(1, 2, None, 100);
+		assert_eq!(
+			store.submit_with_category_mask(s1.clone(), source, ExplicitAffinity.into()),
+			SubmitResult::New
+		);
+		assert_eq!(
+			store.submit_with_category_mask(s2.clone(), source, ExplicitAffinity.into()),
+			SubmitResult::New
+		);
+		assert_eq!(placement(&store, &s2), Some((ExplicitAffinity, false)));
+		assert_eq!(placement(&store, &s1), None);
+		let submit_index = store.submit_index.read();
+		assert_eq!(submit_index.buckets[ExplicitAffinity as usize].count, 1);
+		assert_eq!(submit_index.buckets[ExplicitAffinity as usize].size, 100);
+	}
+
+	#[test]
+	fn loaded_statements_are_redistributed() {
+		use StatementCategory::*;
+		let config = crate::Config {
+			explicit_affinity_limits: limits(1, 1000),
+			dht_affinity_limits: limits(1, 1000),
+			..Default::default()
+		};
+		let (store, temp) = test_store();
+		{
+			let mut submit_index = store.submit_index.write();
+			submit_index.config = config;
+		}
+		let source = StatementSource::Network;
+		for seed in 5..8 {
+			assert_eq!(store.submit(statement(seed, 1, None, 100), source), SubmitResult::New);
+		}
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		// Category tags are not persisted; on reload, statements fill the buckets in priority
+		// order again.
+		let client = std::sync::Arc::new(TestClient);
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			config,
+			client,
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(store.statements().unwrap().len(), 3);
+		let submit_index = store.submit_index.read();
+		for category in [ExplicitAffinity, DhtAffine, PendingGossip] {
+			let bucket = &submit_index.buckets[category as usize];
+			assert_eq!(bucket.count, 1);
+			assert_eq!(bucket.size, 100);
+			assert!(bucket.borrowed.is_empty());
+		}
 	}
 }

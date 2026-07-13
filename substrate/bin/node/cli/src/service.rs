@@ -853,6 +853,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		purge_after_sec: cli.statement_store_purge_after_sec,
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
+		..Default::default()
 	};
 
 	let task_manager = match config.network.network_backend {

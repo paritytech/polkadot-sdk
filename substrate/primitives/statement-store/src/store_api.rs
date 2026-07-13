@@ -105,6 +105,116 @@ impl From<TopicFilter> for OptimizedTopicFilter {
 	}
 }
 
+/// The reason a statement is kept in the store.
+///
+/// The store partitions its capacity into per-category buckets with individually configurable
+/// limits, so that traffic stored for one reason cannot crowd out traffic stored for another.
+/// The order of the variants is the bucket-selection priority order:
+/// [`ExplicitAffinity`](Self::ExplicitAffinity) > [`DhtAffine`](Self::DhtAffine) >
+/// [`PendingGossip`](Self::PendingGossip).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StatementCategory {
+	/// One of the statement's topics is in the local explicit-affinity set (driven by RPC
+	/// subscriptions or node configuration).
+	ExplicitAffinity,
+	/// The local node is among the closest peers to one of the statement's topics in the DHT
+	/// keyspace.
+	DhtAffine,
+	/// The local node has no affinity to the statement, but keeps it briefly so that periodic
+	/// propagation can re-forward it.
+	PendingGossip,
+}
+
+impl StatementCategory {
+	/// The number of categories.
+	pub const COUNT: usize = 3;
+
+	/// All categories, ordered by bucket-selection priority, highest first.
+	pub const ALL_BY_PRIORITY: [StatementCategory; StatementCategory::COUNT] = [
+		StatementCategory::ExplicitAffinity,
+		StatementCategory::DhtAffine,
+		StatementCategory::PendingGossip,
+	];
+
+	/// Returns a short string label suitable for use in metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			StatementCategory::ExplicitAffinity => "explicit_affinity",
+			StatementCategory::DhtAffine => "dht_affine",
+			StatementCategory::PendingGossip => "pending_gossip",
+		}
+	}
+
+	const fn bit(self) -> u8 {
+		match self {
+			StatementCategory::ExplicitAffinity => 0b001,
+			StatementCategory::DhtAffine => 0b010,
+			StatementCategory::PendingGossip => 0b100,
+		}
+	}
+}
+
+/// A set of [`StatementCategory`] values, specifying every reason a statement is submitted to
+/// the store for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CategoryMask(u8);
+
+impl CategoryMask {
+	/// The empty mask.
+	pub const EMPTY: CategoryMask = CategoryMask(0);
+	/// The mask containing every category.
+	pub const ALL: CategoryMask = CategoryMask(
+		StatementCategory::ExplicitAffinity.bit() |
+			StatementCategory::DhtAffine.bit() |
+			StatementCategory::PendingGossip.bit(),
+	);
+
+	/// Returns the mask containing every category.
+	pub fn all() -> CategoryMask {
+		Self::ALL
+	}
+
+	/// Returns `true` if the mask contains no categories.
+	pub fn is_empty(&self) -> bool {
+		self.0 == 0
+	}
+
+	/// Returns `true` if the mask contains the given category.
+	pub fn contains(&self, category: StatementCategory) -> bool {
+		self.0 & category.bit() != 0
+	}
+}
+
+impl From<StatementCategory> for CategoryMask {
+	fn from(category: StatementCategory) -> Self {
+		CategoryMask(category.bit())
+	}
+}
+
+impl core::ops::BitOr for CategoryMask {
+	type Output = CategoryMask;
+
+	fn bitor(self, rhs: CategoryMask) -> CategoryMask {
+		CategoryMask(self.0 | rhs.0)
+	}
+}
+
+impl core::ops::BitOr<StatementCategory> for CategoryMask {
+	type Output = CategoryMask;
+
+	fn bitor(self, rhs: StatementCategory) -> CategoryMask {
+		CategoryMask(self.0 | rhs.bit())
+	}
+}
+
+impl core::ops::BitOr for StatementCategory {
+	type Output = CategoryMask;
+
+	fn bitor(self, rhs: StatementCategory) -> CategoryMask {
+		CategoryMask(self.bit() | rhs.bit())
+	}
+}
+
 /// Reason why a statement was rejected from the store.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -302,6 +412,22 @@ pub trait StatementStore: Send + Sync {
 
 	/// Submit a statement.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult;
+
+	/// Submit a statement together with the set of reasons ("categories") for which the local
+	/// node wants to store it.
+	///
+	/// Stores supporting per-category limits use the mask to pick the capacity bucket the
+	/// statement is stored in (see [`StatementCategory`]). The default implementation ignores
+	/// the mask and behaves like [`submit`](Self::submit).
+	fn submit_with_category_mask(
+		&self,
+		statement: Statement,
+		source: StatementSource,
+		mask: CategoryMask,
+	) -> SubmitResult {
+		let _ = mask;
+		self.submit(statement, source)
+	}
 
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;

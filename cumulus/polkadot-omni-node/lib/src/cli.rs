@@ -321,6 +321,7 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
+					..Default::default()
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
