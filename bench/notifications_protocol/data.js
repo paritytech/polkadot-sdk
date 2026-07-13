@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783957202218,
+  "lastUpdate": 1783972410174,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -191615,6 +191615,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2664779548,
             "range": "± 76518511",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d7f6d8d7c273fd2e5d59433c46d20c2456b5aa01",
+          "message": "statement-store: new api implementation (#11989)\n\nImpl #10997\n\n## Summary\n\nIn this PR, we add the unstable statement-store JSON-RPC surface and\nwire it into the parachain node RPC stack. This lets clients submit\nSCALE-encoded statements over RPC, open one long-lived statement\nsubscription, and then attach or remove topic filters on that\nsubscription without opening a new stream for each filter.\n\nThe subscription flow is split into `statement_unstable_subscribe` and\n`statement_unstable_addFilter`. A subscription starts empty, each added\nfilter gets its own `filterId`, and live notifications carry the ids of\nthe filters that matched the statement. That lets a client track several\nstatement topics over a single RPC subscription while still knowing\nwhich filters produced each replay or live event.\n\n## RPC Shape\n\nWe add `statement_unstable_submit`, `statement_unstable_subscribe`,\n`statement_unstable_addFilter`, and `statement_unstable_removeFilter`\nunder `sc-rpc-spec-v2::statement`.\n\n`statement_unstable_submit` decodes submitted statement bytes and maps\nstore results into RPC-level outcomes: `new`, `known`, `rejected`, or\n`invalid` (an expired statement is reported as `invalid`). Subscription\nstate is scoped to the jsonrpsee connection that created it, so a filter\ncan only be added to or removed from a subscription owned by the same\nconnection.\n\nFor filters, the unstable RPC accepts `any` and `matchAll`. `matchAny`\nis rejected at the RPC boundary for now, which keeps the external API\naligned with the current unstable contract while the store internals can\nstill use the optimized filter representation.\n\n## Subscription Semantics\n\nA subscription is recorded in the per-connection registry **before** the\njsonrpsee subscription is accepted. The subscription id is read from the\npending sink (`PendingSubscriptionSink::subscription_id()`, available\nsince jsonrpsee 0.24.11) and registered first, so registration\nhappens-before the id is handed to the client. As a result, an\n`addFilter` that arrives immediately after `subscribe` always resolves\nits subscription – there is no accept/`addFilter` race window and no\ntimeout-based lookup. If the accept fails, the registry entry is dropped\nand the subscription is unregistered.\n\nMulti-filter subscriptions are handled by the existing statement\nsubscription matcher workers. `addFilter` validates capacity, allocates\na `filterId`, queues an `AddFilter` message for the matcher, and returns\nwithout waiting for replay snapshot collection. The matcher then\ncollects the replay snapshot and registers the filter in the same\ncritical section, so live statements cannot slip between the snapshot\nand filter registration.\n\nFor each added filter the subscription emits:\n\n- `replayStatements` batches for already-admitted matching statements\n- `replayDone` once that filter's replay is drained\n- `newStatements` for live statements, including all matching\n`filterIds`\n- `stop` if local subscription resource caps are hit\n\nLive statements that arrive while a replay is still in progress are kept\nin matcher-owned pending state, then released once replay ordering\nallows it. Statements already delivered by replay are kept out of the\nlive path for that filter, avoiding duplicate delivery for the common\n\"submit, then subscribe\" case.\n\nEach subscription is capped at 128 active filters\n(`MAX_FILTERS_PER_SUBSCRIPTION`). Filter removal is idempotent, and\ndropping the RPC subscription cleans up matcher state.\n\n## Issues\n\n-\nhttps://github.com/paritytech/polkadot-sdk/issues/12153#issuecomment-4917104450\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-13T18:24:40Z",
+          "tree_id": "e6bb2d66f96a664e9f9150b8ed6934cf9ee22448",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d7f6d8d7c273fd2e5d59433c46d20c2456b5aa01"
+        },
+        "date": 1783972379869,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4688853,
+            "range": "± 56751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 304143,
+            "range": "± 3186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4855745,
+            "range": "± 98592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 378834,
+            "range": "± 6145",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5627571,
+            "range": "± 258478",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 925252,
+            "range": "± 9819",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11064109,
+            "range": "± 65611",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5021057,
+            "range": "± 99089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 47305805,
+            "range": "± 972714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40115237,
+            "range": "± 517715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 407555424,
+            "range": "± 4492045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 327364779,
+            "range": "± 2490632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2762102059,
+            "range": "± 26303659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2496945733,
+            "range": "± 29008108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3511086,
+            "range": "± 63748",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1825915,
+            "range": "± 15474",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3645747,
+            "range": "± 70792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1893671,
+            "range": "± 12692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4140021,
+            "range": "± 61323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2263959,
+            "range": "± 22413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8356140,
+            "range": "± 159892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5364367,
+            "range": "± 51528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39629116,
+            "range": "± 524870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38022354,
+            "range": "± 532027",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 343843713,
+            "range": "± 6674431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 288207981,
+            "range": "± 2891759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2642798497,
+            "range": "± 46832159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2571638139,
+            "range": "± 56871481",
             "unit": "ns/iter"
           }
         ]
