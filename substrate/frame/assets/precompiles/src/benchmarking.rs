@@ -26,11 +26,9 @@
 use crate::{
 	foreign_assets::pallet::{Config, Pallet},
 	migration::MigrateForeignAssetPrecompileMappings,
-	Erc20TransferLogsCallback, InlineIdConfig,
 };
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
-use pallet_assets::AssetsCallback;
 use sp_core::{H160, U256};
 use sp_runtime::traits::StaticLookup;
 
@@ -59,11 +57,6 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 		T: crate::permit::Config,
 		<T as pallet_assets::Config<T::AssetsInstance>>::Balance: From<u32>,
 		<T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter: From<<T as pallet_assets::Config<T::AssetsInstance>>::AssetId>,
-		// Erc20TransferLogsCallback bounds
-		T: pallet_revive::Config,
-		<T as pallet_assets::Config<T::AssetsInstance>>::AssetId: Into<u32>,
-		pallet_revive::precompiles::alloy::primitives::U256:
-			TryFrom<<T as pallet_assets::Config<T::AssetsInstance>>::Balance>,
 )]
 mod benchmarks {
 	use super::*;
@@ -119,32 +112,6 @@ mod benchmarks {
 			meter.consumed(),
 			<() as crate::weights::WeightInfo>::migrate_foreign_asset_step() * 2
 		);
-	}
-
-	// ==================== Erc20TransferLogsCallback benchmarks ====================
-
-	/// One mirrored ERC-20 `Transfer` log: token-address derivation, log encoding and the
-	/// `ContractEmitted` event deposit. Receipt capture is a no-op outside an ethereum
-	/// transaction and, like a contract's own log, is not separately metered.
-	#[benchmark]
-	fn erc20_transfer_log() {
-		let from: T::AccountId = whitelisted_caller();
-		let to: T::AccountId = account("to", 0, 0);
-		let asset_id: <T as pallet_assets::Config<T::AssetsInstance>>::AssetId =
-			<T as pallet_assets::Config<T::AssetsInstance>>::BenchmarkHelper::create_asset_id_parameter(7).into();
-		let amount = <T as pallet_assets::Config<T::AssetsInstance>>::Balance::from(1000u32);
-		let events_before = frame_system::Pallet::<T>::event_count();
-
-		#[block]
-		{
-			<Erc20TransferLogsCallback<T, InlineIdConfig<0x0120>, T::AssetsInstance> as AssetsCallback<
-				_,
-				_,
-				_,
-			>>::transferred(&asset_id, &from, &to, amount);
-		}
-
-		assert_eq!(frame_system::Pallet::<T>::event_count(), events_before + 1);
 	}
 
 	// ==================== Permit benchmarks ====================
