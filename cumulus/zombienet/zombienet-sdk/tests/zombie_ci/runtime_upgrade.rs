@@ -11,17 +11,18 @@ use cumulus_zombienet_sdk_helpers::{
 use polkadot_primitives::{Id as ParaId, MAX_CODE_SIZE};
 use serde_json::json;
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
+	subxt::{
+		ext::jsonrpsee::{
+			client_transport::ws::{Url, WsTransportClientBuilder},
+			core::client::Client,
+		},
+		OnlineClient, PolkadotConfig,
+	},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 async fn big_message_client(ws_uri: &str) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
-	use zombienet_sdk::subxt::ext::jsonrpsee::{
-		client_transport::ws::{Url, WsTransportClientBuilder},
-		core::client::Client,
-	};
-
 	let url = Url::parse(ws_uri)?;
 	let (sender, receiver) = WsTransportClientBuilder::default()
 		.max_request_size(25 * 1024 * 1024)
