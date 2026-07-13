@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["WhitelistedCall"]};
+window.SIDEBAR_ITEMS = {"struct":["DeferredDispatch","WhitelistedCall"]};

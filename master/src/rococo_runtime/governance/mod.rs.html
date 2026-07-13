@@ -221,29 +221,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#71 id=71 data-nosnippet>71</a>	<span class="kw">type </span>WhitelistOrigin =
 <a href=#72 id=72 data-nosnippet>72</a>		EitherOf&lt;EnsureRootWithSuccess&lt;<span class="self">Self</span>::AccountId, ConstU16&lt;<span class="number">65535</span>&gt;&gt;, Fellows&gt;;
 <a href=#73 id=73 data-nosnippet>73</a>	<span class="kw">type </span>DispatchWhitelistedOrigin = EitherOf&lt;EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;, WhitelistedCaller&gt;;
-<a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">type </span>Preimages = Preimage;
-<a href=#75 id=75 data-nosnippet>75</a>}
-<a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a><span class="kw">impl </span>pallet_referenda::Config <span class="kw">for </span>Runtime {
-<a href=#78 id=78 data-nosnippet>78</a>	<span class="kw">type </span>WeightInfo = weights::pallet_referenda_referenda::WeightInfo&lt;<span class="self">Self</span>&gt;;
-<a href=#79 id=79 data-nosnippet>79</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-<a href=#80 id=80 data-nosnippet>80</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#81 id=81 data-nosnippet>81</a>	<span class="kw">type </span>Scheduler = Scheduler;
-<a href=#82 id=82 data-nosnippet>82</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#83 id=83 data-nosnippet>83</a>	<span class="kw">type </span>SubmitOrigin = frame_system::EnsureSigned&lt;AccountId&gt;;
-<a href=#84 id=84 data-nosnippet>84</a>	<span class="kw">type </span>CancelOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, ReferendumCanceller&gt;;
-<a href=#85 id=85 data-nosnippet>85</a>	<span class="kw">type </span>KillOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, ReferendumKiller&gt;;
-<a href=#86 id=86 data-nosnippet>86</a>	<span class="kw">type </span>Slash = Treasury;
-<a href=#87 id=87 data-nosnippet>87</a>	<span class="kw">type </span>Votes = pallet_conviction_voting::VotesOf&lt;Runtime&gt;;
-<a href=#88 id=88 data-nosnippet>88</a>	<span class="kw">type </span>Tally = pallet_conviction_voting::TallyOf&lt;Runtime&gt;;
-<a href=#89 id=89 data-nosnippet>89</a>	<span class="kw">type </span>SubmissionDeposit = SubmissionDeposit;
-<a href=#90 id=90 data-nosnippet>90</a>	<span class="kw">type </span>MaxQueued = ConstU32&lt;<span class="number">100</span>&gt;;
-<a href=#91 id=91 data-nosnippet>91</a>	<span class="kw">type </span>UndecidingTimeout = UndecidingTimeout;
-<a href=#92 id=92 data-nosnippet>92</a>	<span class="kw">type </span>AlarmInterval = AlarmInterval;
-<a href=#93 id=93 data-nosnippet>93</a>	<span class="kw">type </span>Tracks = TracksInfo;
-<a href=#94 id=94 data-nosnippet>94</a>	<span class="kw">type </span>Preimages = Preimage;
-<a href=#95 id=95 data-nosnippet>95</a>	<span class="kw">type </span>BlockNumberProvider = System;
-<a href=#96 id=96 data-nosnippet>96</a>}
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">type </span>DeferredDispatchExpiration = ConstU32&lt;{ <span class="number">28 </span>* DAYS }&gt;;
+<a href=#75 id=75 data-nosnippet>75</a>	<span class="kw">type </span>BlockNumberProvider = System;
+<a href=#76 id=76 data-nosnippet>76</a>	<span class="kw">type </span>Preimages = Preimage;
+<a href=#77 id=77 data-nosnippet>77</a>}
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a><span class="kw">impl </span>pallet_referenda::Config <span class="kw">for </span>Runtime {
+<a href=#80 id=80 data-nosnippet>80</a>	<span class="kw">type </span>WeightInfo = weights::pallet_referenda_referenda::WeightInfo&lt;<span class="self">Self</span>&gt;;
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
+<a href=#82 id=82 data-nosnippet>82</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#83 id=83 data-nosnippet>83</a>	<span class="kw">type </span>Scheduler = Scheduler;
+<a href=#84 id=84 data-nosnippet>84</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#85 id=85 data-nosnippet>85</a>	<span class="kw">type </span>SubmitOrigin = frame_system::EnsureSigned&lt;AccountId&gt;;
+<a href=#86 id=86 data-nosnippet>86</a>	<span class="kw">type </span>CancelOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, ReferendumCanceller&gt;;
+<a href=#87 id=87 data-nosnippet>87</a>	<span class="kw">type </span>KillOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, ReferendumKiller&gt;;
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="kw">type </span>Slash = Treasury;
+<a href=#89 id=89 data-nosnippet>89</a>	<span class="kw">type </span>Votes = pallet_conviction_voting::VotesOf&lt;Runtime&gt;;
+<a href=#90 id=90 data-nosnippet>90</a>	<span class="kw">type </span>Tally = pallet_conviction_voting::TallyOf&lt;Runtime&gt;;
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="kw">type </span>SubmissionDeposit = SubmissionDeposit;
+<a href=#92 id=92 data-nosnippet>92</a>	<span class="kw">type </span>MaxQueued = ConstU32&lt;<span class="number">100</span>&gt;;
+<a href=#93 id=93 data-nosnippet>93</a>	<span class="kw">type </span>UndecidingTimeout = UndecidingTimeout;
+<a href=#94 id=94 data-nosnippet>94</a>	<span class="kw">type </span>AlarmInterval = AlarmInterval;
+<a href=#95 id=95 data-nosnippet>95</a>	<span class="kw">type </span>Tracks = TracksInfo;
+<a href=#96 id=96 data-nosnippet>96</a>	<span class="kw">type </span>Preimages = Preimage;
+<a href=#97 id=97 data-nosnippet>97</a>	<span class="kw">type </span>BlockNumberProvider = System;
+<a href=#98 id=98 data-nosnippet>98</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
