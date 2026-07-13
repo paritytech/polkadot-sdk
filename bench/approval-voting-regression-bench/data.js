@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783958148114,
+  "lastUpdate": 1783973478376,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a2165432ce392662b142dbfe75b9bfd3914a59a2",
-          "message": "frame-system: Only enable special benchmarking code when running in `no_std` (#10321)\n\nThis fixes `cargo test -p cumulus-pallet-parachain-system --features\nruntime-benchmarks`",
-          "timestamp": "2025-11-14T16:32:17Z",
-          "tree_id": "4a2f6c52d4d107188868f1b069efd0b710968e03",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2165432ce392662b142dbfe75b9bfd3914a59a2"
-        },
-        "date": 1763142174356,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.78999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00003569706,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00003569706,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4620088630899986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000035966730000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4556083197500014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005715642550000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.50082585435,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.935246697019989,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000035966730000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43597599300000167,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6476446783708645,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.29339772802999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.49801635827,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.4760171281329715,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d7f6d8d7c273fd2e5d59433c46d20c2456b5aa01",
+          "message": "statement-store: new api implementation (#11989)\n\nImpl #10997\n\n## Summary\n\nIn this PR, we add the unstable statement-store JSON-RPC surface and\nwire it into the parachain node RPC stack. This lets clients submit\nSCALE-encoded statements over RPC, open one long-lived statement\nsubscription, and then attach or remove topic filters on that\nsubscription without opening a new stream for each filter.\n\nThe subscription flow is split into `statement_unstable_subscribe` and\n`statement_unstable_addFilter`. A subscription starts empty, each added\nfilter gets its own `filterId`, and live notifications carry the ids of\nthe filters that matched the statement. That lets a client track several\nstatement topics over a single RPC subscription while still knowing\nwhich filters produced each replay or live event.\n\n## RPC Shape\n\nWe add `statement_unstable_submit`, `statement_unstable_subscribe`,\n`statement_unstable_addFilter`, and `statement_unstable_removeFilter`\nunder `sc-rpc-spec-v2::statement`.\n\n`statement_unstable_submit` decodes submitted statement bytes and maps\nstore results into RPC-level outcomes: `new`, `known`, `rejected`, or\n`invalid` (an expired statement is reported as `invalid`). Subscription\nstate is scoped to the jsonrpsee connection that created it, so a filter\ncan only be added to or removed from a subscription owned by the same\nconnection.\n\nFor filters, the unstable RPC accepts `any` and `matchAll`. `matchAny`\nis rejected at the RPC boundary for now, which keeps the external API\naligned with the current unstable contract while the store internals can\nstill use the optimized filter representation.\n\n## Subscription Semantics\n\nA subscription is recorded in the per-connection registry **before** the\njsonrpsee subscription is accepted. The subscription id is read from the\npending sink (`PendingSubscriptionSink::subscription_id()`, available\nsince jsonrpsee 0.24.11) and registered first, so registration\nhappens-before the id is handed to the client. As a result, an\n`addFilter` that arrives immediately after `subscribe` always resolves\nits subscription – there is no accept/`addFilter` race window and no\ntimeout-based lookup. If the accept fails, the registry entry is dropped\nand the subscription is unregistered.\n\nMulti-filter subscriptions are handled by the existing statement\nsubscription matcher workers. `addFilter` validates capacity, allocates\na `filterId`, queues an `AddFilter` message for the matcher, and returns\nwithout waiting for replay snapshot collection. The matcher then\ncollects the replay snapshot and registers the filter in the same\ncritical section, so live statements cannot slip between the snapshot\nand filter registration.\n\nFor each added filter the subscription emits:\n\n- `replayStatements` batches for already-admitted matching statements\n- `replayDone` once that filter's replay is drained\n- `newStatements` for live statements, including all matching\n`filterIds`\n- `stop` if local subscription resource caps are hit\n\nLive statements that arrive while a replay is still in progress are kept\nin matcher-owned pending state, then released once replay ordering\nallows it. Statements already delivered by replay are kept out of the\nlive path for that filter, avoiding duplicate delivery for the common\n\"submit, then subscribe\" case.\n\nEach subscription is capped at 128 active filters\n(`MAX_FILTERS_PER_SUBSCRIPTION`). Filter removal is idempotent, and\ndropping the RPC subscription cleans up matcher state.\n\n## Issues\n\n-\nhttps://github.com/paritytech/polkadot-sdk/issues/12153#issuecomment-4917104450\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-13T18:24:40Z",
+          "tree_id": "e6bb2d66f96a664e9f9150b8ed6934cf9ee22448",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d7f6d8d7c273fd2e5d59433c46d20c2456b5aa01"
+        },
+        "date": 1783973448643,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63572.229999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.770621711399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.785947398950001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8095578438700004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7614848088499984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005828252290000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020953920000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.273092791639959,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020953920000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002402394,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.375650865089992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7640019111899675,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4595872002329,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002402394,
             "unit": "seconds"
           }
         ]
