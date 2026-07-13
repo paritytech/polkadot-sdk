@@ -382,13 +382,6 @@ where
 		let result = self.inner.import_block(params).await.map_err(Into::into)?;
 
 		if let Some((block, proof)) = imported {
-			// TEMP PROBE: remove after diagnosing missing resubmission entries.
-			tracing::debug!(
-				target: "aura::resubmission",
-				number = ?block.header().number(),
-				hash = ?block.header().hash(),
-				"resubmission probe: sending imported block to backfill channel",
-			);
 			let _ = self.sender.unbounded_send((block, proof));
 		}
 

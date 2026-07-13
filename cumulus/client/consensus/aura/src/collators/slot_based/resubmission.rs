@@ -37,7 +37,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
-use polkadot_primitives::{ApprovedPeerId, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::ApprovedPeerId;
 use sc_client_api::{backend::AuxStore, BlockchainEvents};
 use sp_api::StorageProof;
 use sp_application_crypto::{AppCrypto, AppPublic};
@@ -183,15 +183,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 {
 	let block_hash = header.hash();
 	let number = *header.number();
-
-	// TEMP PROBE: remove after diagnosing missing resubmission entries.
-	tracing::debug!(
-		target: LOG_TARGET,
-		?number,
-		?block_hash,
-		finalized = ?para_client.info().finalized_number,
-		"resubmission probe: backfill received imported block",
-	);
 
 	if number <= para_client.info().finalized_number {
 		return;
