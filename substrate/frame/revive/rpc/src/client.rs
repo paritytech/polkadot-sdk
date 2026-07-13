@@ -49,7 +49,7 @@ use std::{
 };
 use storage_api::StorageApi;
 use subxt::{
-	Config, OnlineClient,
+	OnlineClient,
 	backend::{StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
@@ -66,9 +66,6 @@ use subxt::{
 
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
-
-/// The substrate block header.
-pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 
 /// The substrate block number type.
 pub type SubstrateBlockNumber = u64;
