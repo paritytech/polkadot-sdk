@@ -404,7 +404,7 @@ mod benchmarks {
 
 		// Mint all relevant assets into the bounty account so the benchmark exercises real
 		// transfers instead of being a no-op for runtimes with non-trivial TransferAllAssets.
-		T::TransferAllAssets::setup_assets_for_benchmark(&bounty_account);
+		T::TransferAllAssets::ensure_successful(&bounty_account);
 
 		assert!(
 			!T::Currency::free_balance(&bounty_account).is_zero(),

@@ -226,7 +226,7 @@ pub trait TransferAllAssets<AccountId> {
 	/// Called during benchmarking so that `force_transfer_all_assets` exercises real transfers
 	/// instead of being a no-op. The default implementation is a no-op.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn setup_assets_for_benchmark(_from: &AccountId) {}
+	fn ensure_successful(_from: &AccountId) {}
 }
 
 impl<AccountId> TransferAllAssets<AccountId> for () {
@@ -235,13 +235,14 @@ impl<AccountId> TransferAllAssets<AccountId> for () {
 	}
 }
 
-/// Transfer the entire native balance from one account to another.
+/// Transfer the entire balance of a single [`fungible::Mutate`] currency from one account to
+/// another.
 ///
-/// Suitable for runtimes that only need to sweep native tokens (no multi-asset support).
-/// For runtimes with fungible assets, prefer [`TransferAllFungibles`] with native included in
-/// `RelevantAssets`.
-pub struct TransferAllNative<AccountId, Currency>(core::marker::PhantomData<(AccountId, Currency)>);
-impl<AccountId, C> TransferAllAssets<AccountId> for TransferAllNative<AccountId, C>
+/// Suitable for runtimes that expose exactly one relevant currency (e.g. native-only runtimes
+/// without multi-asset support). For runtimes with multi-asset support, prefer
+/// [`TransferAllFungibles`] with all relevant asset IDs in `RelevantAssets`.
+pub struct TransferFungible<AccountId, Currency>(core::marker::PhantomData<(AccountId, Currency)>);
+impl<AccountId, C> TransferAllAssets<AccountId> for TransferFungible<AccountId, C>
 where
 	C: FungibleMutate<AccountId>,
 	AccountId: Eq,
@@ -256,7 +257,7 @@ where
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn setup_assets_for_benchmark(from: &AccountId) {
+	fn ensure_successful(from: &AccountId) {
 		let _ = C::mint_into(from, 1_000_000u32.into());
 	}
 }
@@ -301,7 +302,7 @@ where
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn setup_assets_for_benchmark(from: &AccountId) {
+	fn ensure_successful(from: &AccountId) {
 		for id in RelevantAssets::get() {
 			if !Fungibles::asset_exists(id.clone()) {
 				// For native assets, Create is a no-op; for fungible assets this ensures the
