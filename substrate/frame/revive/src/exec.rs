@@ -1235,6 +1235,16 @@ where
 			input_data,
 			self.exec_config,
 		)? {
+			// Reject instantiating at an address already under construction by an ancestor
+			// frame (EIP-684). It isn't in `AccountInfoOf` yet, so `ContractInfo::new`'s
+			// `is_contract` guard can't catch this re-entrant `CREATE2` collision.
+			if frame.entry_point == ExportedFunction::Constructor &&
+				self.frames().any(|f| {
+					f.entry_point == ExportedFunction::Constructor &&
+						f.account_id == frame.account_id
+				}) {
+				return Err(Error::<T>::DuplicateContract.into());
+			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
