@@ -39,10 +39,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Inspect as FunInspect, Mutate as FunMutate},
-		tokens::Preservation,
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
+		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
+		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,

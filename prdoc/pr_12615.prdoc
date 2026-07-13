@@ -14,3 +14,5 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: minor
+- name: pallet-vesting
+  bump: mainor
