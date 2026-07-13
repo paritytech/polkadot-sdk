@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783972450195,
+  "lastUpdate": 1783983743183,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -107243,6 +107243,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2642513207,
             "range": "± 36332344",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "27f395f50b06df004d354cacfd482d2a36c09993",
+          "message": "`pallet-asset-conversion`: Support per-pair swap fee (#12369)\n\nresolves #12301\n\nThe issue proposed adding `lp_fee: Option<Permill>` to `create_pool`. I\nimplemented it as a separate `create_pool_with_fee` extrinsic instead,\nto avoid a SCALE-encoding break of `create_pool` and churn across ~24\nfiles spanning two pallets-worth of tests. Happy to switch to the inline\nparam if you'd prefer.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-13T21:33:19Z",
+          "tree_id": "8c13ca558a1b970d6d4b172f1fdd08bb759a0658",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/27f395f50b06df004d354cacfd482d2a36c09993"
+        },
+        "date": 1783983713278,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19507955,
+            "range": "± 146415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19659941,
+            "range": "± 135558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21330284,
+            "range": "± 117719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26408819,
+            "range": "± 239493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58309700,
+            "range": "± 734069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 347630216,
+            "range": "± 3879154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2645653382,
+            "range": "± 34345556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16643219,
+            "range": "± 242371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16840154,
+            "range": "± 267560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17133181,
+            "range": "± 221995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21777467,
+            "range": "± 94950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58324126,
+            "range": "± 793447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 338781989,
+            "range": "± 2524166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2538665539,
+            "range": "± 11906875",
             "unit": "ns/iter"
           }
         ]
