@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783973516490,
+  "lastUpdate": 1783984768544,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d393f375cd06cc7d898baf9aea4dccc08dc430b6",
-          "message": "[CI/CD] Check semver job improvements (#10323)\n\nThis PR adds couple of improvements to the Check semver job for the\nstable branches:\n1. The `validate: false` option can be set now not only on the `mojor`\nbumps but on the `minor` and `patch` as well, this one is useful when\nfor the backport cases when a desired bump does not match with the one,\nthat `parity-publish` semver check has predicted (like\n[here](https://github.com/paritytech/polkadot-sdk/actions/runs/19135068993/job/54685184577?pr=10221))\n2. Possibility to skip check, when it is really not needed but still\nfails (like on the post crates release\n[prs](https://github.com/paritytech/polkadot-sdk/actions/runs/18311557391/job/52141285274?pr=9951))\n\ncloses: https://github.com/paritytech/release-engineering/issues/274",
-          "timestamp": "2025-11-14T14:28:17Z",
-          "tree_id": "3f7c30e5977ccc6cc31219ad3606eb57052b560f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d393f375cd06cc7d898baf9aea4dccc08dc430b6"
-        },
-        "date": 1763134667868,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033940407112000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04394090826599994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08499785849599997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "27f395f50b06df004d354cacfd482d2a36c09993",
+          "message": "`pallet-asset-conversion`: Support per-pair swap fee (#12369)\n\nresolves #12301\n\nThe issue proposed adding `lp_fee: Option<Permill>` to `create_pool`. I\nimplemented it as a separate `create_pool_with_fee` extrinsic instead,\nto avoid a SCALE-encoding break of `create_pool` and churn across ~24\nfiles spanning two pallets-worth of tests. Happy to switch to the inline\nparam if you'd prefer.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-13T21:33:19Z",
+          "tree_id": "8c13ca558a1b970d6d4b172f1fdd08bb759a0658",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/27f395f50b06df004d354cacfd482d2a36c09993"
+        },
+        "date": 1783984739199,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.138,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09385530693399989,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039272338479999995,
             "unit": "seconds"
           }
         ]
