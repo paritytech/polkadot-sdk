@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783973440333,
+  "lastUpdate": 1783984693249,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41631a229756ddbdb0f38f7f75481dc77ba9c2c3",
-          "message": "chore: update zombienet environment vars (#10293)\n\n# Description\n#9724\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-11-17T10:50:13Z",
-          "tree_id": "90cc81cb92205fe20074da6abef1760407baf1fe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41631a229756ddbdb0f38f7f75481dc77ba9c2c3"
-        },
-        "date": 1763380650162,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15971178561333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013286837260000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0073367572999999756,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02262450583333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14482139908,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "27f395f50b06df004d354cacfd482d2a36c09993",
+          "message": "`pallet-asset-conversion`: Support per-pair swap fee (#12369)\n\nresolves #12301\n\nThe issue proposed adding `lp_fee: Option<Permill>` to `create_pool`. I\nimplemented it as a separate `create_pool_with_fee` extrinsic instead,\nto avoid a SCALE-encoding break of `create_pool` and churn across ~24\nfiles spanning two pallets-worth of tests. Happy to switch to the inline\nparam if you'd prefer.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-13T21:33:19Z",
+          "tree_id": "8c13ca558a1b970d6d4b172f1fdd08bb759a0658",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/27f395f50b06df004d354cacfd482d2a36c09993"
+        },
+        "date": 1783984663679,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010411721013333304,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007901168613333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023812637413333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14583281174,
             "unit": "seconds"
           }
         ]
