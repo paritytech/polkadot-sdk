@@ -16,18 +16,16 @@
 // limitations under the License.
 
 //! # Running
-//! Running this fuzzer can be done with `cargo hfuzz run call`. `honggfuzz` CLI
-//! options can be used by setting `HFUZZ_RUN_ARGS`, such as `-n 4` to use 4 threads.
+//! Running this fuzzer can be done with `cargo ziggy fuzz`. Use `-j N` for parallel jobs,
+//! e.g. `cargo ziggy fuzz -j 4 --no-honggfuzz -G 128`.
 //!
-//! # Debugging a panic
-//! Once a panic is found, it can be debugged with
-//! `cargo hfuzz run-debug per_thing_rational hfuzz_workspace/call/*.fuzz`.
+//! # Coverage
+//! Generate coverage reports with `cargo ziggy cover -s ..`.
 
 use frame_support::{
 	assert_ok,
 	traits::{Currency, GetCallName, UnfilteredDispatchable},
 };
-use honggfuzz::fuzz;
 use pallet_nomination_pools::{
 	log,
 	mock::*,
@@ -36,102 +34,160 @@ use pallet_nomination_pools::{
 	BondExtra, BondedPool, GlobalMaxCommission, LastPoolId, MaxPoolMembers, MaxPoolMembersPerPool,
 	MaxPools, MinCreateBond, MinJoinBond, PoolId,
 };
-use rand::{seq::SliceRandom, Rng};
 use sp_runtime::{assert_eq_error_rate, Perbill, Perquintill};
 
 const ERA: BlockNumber = 1000;
 const MAX_ED_MULTIPLE: Balance = 10_000;
 const MIN_ED_MULTIPLE: Balance = 10;
 
-// not quite elegant, just to make it available in random_signed_origin.
+// not quite elegant, just to make it available in signed_origin_from_bytes.
 const REWARD_AGENT_ACCOUNT: AccountId = 42;
 
-/// Grab random accounts, either known ones, or new ones.
-fn random_signed_origin<R: Rng>(rng: &mut R) -> (RuntimeOrigin, AccountId) {
+/// Simple deterministic byte reader that maps fuzz input into structured values.
+struct InputBytes<'a> {
+	bytes: &'a [u8],
+	pos: usize,
+}
+
+impl<'a> InputBytes<'a> {
+	fn new(bytes: &'a [u8]) -> Self {
+		Self { bytes, pos: 0 }
+	}
+
+	fn next_u8(&mut self) -> u8 {
+		if self.bytes.is_empty() {
+			return 0;
+		}
+		let b = self.bytes[self.pos % self.bytes.len()];
+		self.pos = self.pos.wrapping_add(1);
+		b
+	}
+
+	fn next_u32(&mut self) -> u32 {
+		let mut raw = [0u8; 4];
+		for byte in &mut raw {
+			*byte = self.next_u8();
+		}
+		u32::from_le_bytes(raw)
+	}
+
+	fn next_u64(&mut self) -> u64 {
+		let mut raw = [0u8; 8];
+		for byte in &mut raw {
+			*byte = self.next_u8();
+		}
+		u64::from_le_bytes(raw)
+	}
+
+	fn range_u32(&mut self, min: u32, max: u32) -> u32 {
+		debug_assert!(min <= max);
+		if min == max {
+			return min;
+		}
+		let span = max.saturating_sub(min).saturating_add(1);
+		min + (self.next_u32() % span)
+	}
+
+	fn range_u64(&mut self, min: u64, max: u64) -> u64 {
+		debug_assert!(min <= max);
+		if min == max {
+			return min;
+		}
+		let span = max.saturating_sub(min).saturating_add(1);
+		min + (self.next_u64() % span)
+	}
+}
+
+/// Grab accounts deterministically: either an existing member or a new one.
+fn signed_origin_from_bytes(input: &mut InputBytes<'_>) -> (RuntimeOrigin, AccountId) {
 	let count = PoolMembers::<T>::count();
-	if rng.gen::<bool>() && count > 0 {
+	if input.next_u8() % 2 == 0 && count > 0 {
 		// take an existing account.
-		let skip = rng.gen_range(0..count as usize);
+		let skip = input.range_u32(0, count.saturating_sub(1)) as usize;
 
 		// this is tricky: the account might be our reward agent, which we never want to be
-		// randomly chosen here. Try another one, or, if it is only our agent, return a random
-		// one nonetheless.
+		// chosen here. If it is, return a fresh account instead.
 		let candidate = PoolMembers::<T>::iter_keys().skip(skip).take(1).next().unwrap();
 		let acc =
-			if candidate == REWARD_AGENT_ACCOUNT { rng.gen::<AccountId>() } else { candidate };
+			if candidate == REWARD_AGENT_ACCOUNT { input.next_u64() } else { candidate };
 
 		(RuntimeOrigin::signed(acc), acc)
 	} else {
 		// create a new account
-		let acc = rng.gen::<AccountId>();
+		let acc = input.next_u64();
 		(RuntimeOrigin::signed(acc), acc)
 	}
 }
 
-fn random_ed_multiple<R: Rng>(rng: &mut R) -> Balance {
-	let multiple = rng.gen_range(MIN_ED_MULTIPLE..MAX_ED_MULTIPLE);
+fn ed_multiple_from_bytes(input: &mut InputBytes<'_>) -> Balance {
+	let multiple = input.range_u64(MIN_ED_MULTIPLE, MAX_ED_MULTIPLE);
 	ExistentialDeposit::get() * multiple
 }
 
-fn fund_account<R: Rng>(rng: &mut R, account: &AccountId) {
-	let target_amount = random_ed_multiple(rng);
+fn fund_account(input: &mut InputBytes<'_>, account: &AccountId) {
+	let target_amount = ed_multiple_from_bytes(input);
 	if let Some(top_up) = target_amount.checked_sub(Balances::free_balance(account)) {
 		let _ = Balances::deposit_creating(account, top_up);
 	}
 	assert!(Balances::free_balance(account) >= target_amount);
 }
 
-fn random_existing_pool<R: Rng>(mut rng: &mut R) -> Option<PoolId> {
-	BondedPools::<T>::iter_keys().collect::<Vec<_>>().choose(&mut rng).map(|x| *x)
+fn existing_pool_from_bytes(input: &mut InputBytes<'_>) -> Option<PoolId> {
+	let pools: Vec<_> = BondedPools::<T>::iter_keys().collect();
+	if pools.is_empty() {
+		None
+	} else {
+		let idx = input.range_u32(0, (pools.len() - 1) as u32) as usize;
+		Some(pools[idx])
+	}
 }
 
-fn random_call<R: Rng>(mut rng: &mut R) -> (pools::Call<T>, RuntimeOrigin) {
-	let op = rng.gen::<usize>();
+fn call_from_bytes(input: &mut InputBytes<'_>) -> (pools::Call<T>, RuntimeOrigin) {
 	let mut op_count = <pools::Call<T> as GetCallName>::get_call_names().len();
 	// Exclude set_state, set_metadata, set_configs, update_roles and chill.
 	op_count -= 5;
 
-	match op % op_count {
+	match input.next_u8() as usize % op_count {
 		0 => {
 			// join
-			let pool_id = random_existing_pool(&mut rng).unwrap_or_default();
-			let (origin, who) = random_signed_origin(&mut rng);
-			fund_account(&mut rng, &who);
-			let amount = random_ed_multiple(&mut rng);
+			let pool_id = existing_pool_from_bytes(input).unwrap_or_default();
+			let (origin, who) = signed_origin_from_bytes(input);
+			fund_account(input, &who);
+			let amount = ed_multiple_from_bytes(input);
 			(PoolsCall::<T>::join { amount, pool_id }, origin)
 		},
 		1 => {
 			// bond_extra
-			let (origin, who) = random_signed_origin(&mut rng);
-			let extra = if rng.gen::<bool>() {
+			let (origin, who) = signed_origin_from_bytes(input);
+			let extra = if input.next_u8() % 2 == 0 {
 				BondExtra::Rewards
 			} else {
-				fund_account(&mut rng, &who);
-				let amount = random_ed_multiple(&mut rng);
+				fund_account(input, &who);
+				let amount = ed_multiple_from_bytes(input);
 				BondExtra::FreeBalance(amount)
 			};
 			(PoolsCall::<T>::bond_extra { extra }, origin)
 		},
 		2 => {
 			// claim_payout
-			let (origin, _) = random_signed_origin(&mut rng);
+			let (origin, _) = signed_origin_from_bytes(input);
 			(PoolsCall::<T>::claim_payout {}, origin)
 		},
 		3 => {
 			// unbond
-			let (origin, who) = random_signed_origin(&mut rng);
-			let amount = random_ed_multiple(&mut rng);
+			let (origin, who) = signed_origin_from_bytes(input);
+			let amount = ed_multiple_from_bytes(input);
 			(PoolsCall::<T>::unbond { member_account: who, unbonding_points: amount }, origin)
 		},
 		4 => {
 			// pool_withdraw_unbonded
-			let pool_id = random_existing_pool(&mut rng).unwrap_or_default();
-			let (origin, _) = random_signed_origin(&mut rng);
+			let pool_id = existing_pool_from_bytes(input).unwrap_or_default();
+			let (origin, _) = signed_origin_from_bytes(input);
 			(PoolsCall::<T>::pool_withdraw_unbonded { pool_id, num_slashing_spans: 0 }, origin)
 		},
 		5 => {
 			// withdraw_unbonded
-			let (origin, who) = random_signed_origin(&mut rng);
+			let (origin, who) = signed_origin_from_bytes(input);
 			(
 				PoolsCall::<T>::withdraw_unbonded { member_account: who, num_slashing_spans: 0 },
 				origin,
@@ -139,9 +195,9 @@ fn random_call<R: Rng>(mut rng: &mut R) -> (pools::Call<T>, RuntimeOrigin) {
 		},
 		6 => {
 			// create
-			let (origin, who) = random_signed_origin(&mut rng);
-			let amount = random_ed_multiple(&mut rng);
-			fund_account(&mut rng, &who);
+			let (origin, who) = signed_origin_from_bytes(input);
+			let amount = ed_multiple_from_bytes(input);
+			fund_account(input, &who);
 			let root = who;
 			let bouncer = who;
 			let nominator = who;
@@ -149,8 +205,8 @@ fn random_call<R: Rng>(mut rng: &mut R) -> (pools::Call<T>, RuntimeOrigin) {
 		},
 		7 => {
 			// nominate
-			let (origin, _) = random_signed_origin(&mut rng);
-			let pool_id = random_existing_pool(&mut rng).unwrap_or_default();
+			let (origin, _) = signed_origin_from_bytes(input);
+			let pool_id = existing_pool_from_bytes(input).unwrap_or_default();
 			let validators = Default::default();
 			(PoolsCall::<T>::nominate { pool_id, validators }, origin)
 		},
@@ -231,124 +287,121 @@ fn main() {
 		System::set_block_number(1);
 	});
 
-	loop {
-		fuzz!(|seed: [u8; 32]| {
-			use ::rand::{rngs::SmallRng, SeedableRng};
-			let mut rng = SmallRng::from_seed(seed);
+	ziggy::fuzz!(|data: &[u8]| {
+		let mut input = InputBytes::new(data);
 
-			ext.execute_with(|| {
-				let (call, origin) = random_call(&mut rng);
-				let outcome = call.clone().dispatch_bypass_filter(origin.clone());
-				iteration += 1;
-				match outcome {
-					Ok(_) => ok += 1,
-					Err(_) => err += 1,
-				};
+		ext.execute_with(|| {
+			let (call, origin) = call_from_bytes(&mut input);
+			let outcome = call.clone().dispatch_bypass_filter(origin.clone());
+			iteration += 1;
+			match outcome {
+				Ok(_) => ok += 1,
+				Err(_) => err += 1,
+			};
+
+			log!(
+				trace,
+				"iteration {}, call {:?}, origin {:?}, outcome: {:?}, so far {} ok {} err",
+				iteration,
+				call,
+				origin,
+				outcome,
+				ok,
+				err,
+			);
+
+			// possibly join the reward_agent
+			if iteration > ERA / 2 && BondedPools::<T>::count() > 0 {
+				reward_agent.join();
+			}
+			// and possibly roughly every 4 era, trigger payout for the agent. Doing this more
+			// frequent is also harmless.
+			if input.range_u32(0, (4 * ERA - 1) as u32) == 0 {
+				reward_agent.claim_payout();
+			}
+
+			// execute sanity checks at a fixed interval, possibly on every block.
+			if iteration.is_multiple_of(
+				(std::env::var("SANITY_CHECK_INTERVAL")
+					.ok()
+					.and_then(|x| x.parse::<u64>().ok()))
+				.unwrap_or(1),
+			) {
+				log!(info, "running sanity checks at {}", iteration);
+				Pools::do_try_state(u8::MAX).unwrap();
+			}
+
+			// collect and reset events.
+			System::events()
+				.into_iter()
+				.map(|r| r.event)
+				.filter_map(|e| {
+					if let pallet_nomination_pools::mock::RuntimeEvent::Pools(inner) = e {
+						Some(inner)
+					} else {
+						None
+					}
+				})
+				.for_each(|e| {
+					if let Some((_, c)) = events_histogram
+						.iter_mut()
+						.find(|(x, _)| std::mem::discriminant(x) == std::mem::discriminant(&e))
+					{
+						*c += 1;
+					} else {
+						events_histogram.push((e, 1))
+					}
+				});
+			System::reset_events();
+
+			// trigger an era change, and check the status of the reward agent.
+			if iteration.is_multiple_of(ERA) {
+				CurrentEra::mutate(|c| *c += 1);
+				BondedPools::<T>::iter().for_each(|(id, _)| {
+					let amount = ed_multiple_from_bytes(&mut input);
+					let _ =
+						Balances::deposit_creating(&Pools::generate_reward_account(id), amount);
+					// if we just paid out the reward agent, let's calculate how much we expect
+					// our reward agent to have earned.
+					if reward_agent.pool_id.map_or(false, |mid| mid == id) {
+						let all_points = BondedPool::<T>::get(id).map(|p| p.points).unwrap();
+						let member_points =
+							PoolMembers::<T>::get(reward_agent.who).map(|m| m.points).unwrap();
+						let agent_share = Perquintill::from_rational(member_points, all_points);
+						log::info!(
+							target: "reward-agent",
+							"🤖 REWARD = amount = {:?}, ratio: {:?}, share {:?}",
+							amount,
+							agent_share,
+							agent_share * amount,
+						);
+						reward_agent.expected_reward += agent_share * amount;
+					}
+				});
 
 				log!(
-					trace,
-					"iteration {}, call {:?}, origin {:?}, outcome: {:?}, so far {} ok {} err",
+					info,
+					"iteration {}, {} pools, {} members, {} ok {} err, events = {:?}",
 					iteration,
-					call,
-					origin,
-					outcome,
+					BondedPools::<T>::count(),
+					PoolMembers::<T>::count(),
 					ok,
 					err,
+					events_histogram
+						.iter()
+						.map(|(x, c)| (
+							format!("{:?}", x)
+								.split(" ")
+								.map(|x| x.to_string())
+								.collect::<Vec<_>>()
+								.first()
+								.cloned()
+								.unwrap(),
+							c,
+						))
+						.collect::<Vec<_>>(),
 				);
-
-				// possibly join the reward_agent
-				if iteration > ERA / 2 && BondedPools::<T>::count() > 0 {
-					reward_agent.join();
-				}
-				// and possibly roughly every 4 era, trigger payout for the agent. Doing this more
-				// frequent is also harmless.
-				if rng.gen_range(0..(4 * ERA)) == 0 {
-					reward_agent.claim_payout();
-				}
-
-				// execute sanity checks at a fixed interval, possibly on every block.
-				if iteration.is_multiple_of(
-					(std::env::var("SANITY_CHECK_INTERVAL")
-						.ok()
-						.and_then(|x| x.parse::<u64>().ok()))
-					.unwrap_or(1),
-				) {
-					log!(info, "running sanity checks at {}", iteration);
-					Pools::do_try_state(u8::MAX).unwrap();
-				}
-
-				// collect and reset events.
-				System::events()
-					.into_iter()
-					.map(|r| r.event)
-					.filter_map(|e| {
-						if let pallet_nomination_pools::mock::RuntimeEvent::Pools(inner) = e {
-							Some(inner)
-						} else {
-							None
-						}
-					})
-					.for_each(|e| {
-						if let Some((_, c)) = events_histogram
-							.iter_mut()
-							.find(|(x, _)| std::mem::discriminant(x) == std::mem::discriminant(&e))
-						{
-							*c += 1;
-						} else {
-							events_histogram.push((e, 1))
-						}
-					});
-				System::reset_events();
-
-				// trigger an era change, and check the status of the reward agent.
-				if iteration.is_multiple_of(ERA) {
-					CurrentEra::mutate(|c| *c += 1);
-					BondedPools::<T>::iter().for_each(|(id, _)| {
-						let amount = random_ed_multiple(&mut rng);
-						let _ =
-							Balances::deposit_creating(&Pools::generate_reward_account(id), amount);
-						// if we just paid out the reward agent, let's calculate how much we expect
-						// our reward agent to have earned.
-						if reward_agent.pool_id.map_or(false, |mid| mid == id) {
-							let all_points = BondedPool::<T>::get(id).map(|p| p.points).unwrap();
-							let member_points =
-								PoolMembers::<T>::get(reward_agent.who).map(|m| m.points).unwrap();
-							let agent_share = Perquintill::from_rational(member_points, all_points);
-							log::info!(
-								target: "reward-agent",
-								"🤖 REWARD = amount = {:?}, ratio: {:?}, share {:?}",
-								amount,
-								agent_share,
-								agent_share * amount,
-							);
-							reward_agent.expected_reward += agent_share * amount;
-						}
-					});
-
-					log!(
-						info,
-						"iteration {}, {} pools, {} members, {} ok {} err, events = {:?}",
-						iteration,
-						BondedPools::<T>::count(),
-						PoolMembers::<T>::count(),
-						ok,
-						err,
-						events_histogram
-							.iter()
-							.map(|(x, c)| (
-								format!("{:?}", x)
-									.split(" ")
-									.map(|x| x.to_string())
-									.collect::<Vec<_>>()
-									.first()
-									.cloned()
-									.unwrap(),
-								c,
-							))
-							.collect::<Vec<_>>(),
-					);
-				}
-			})
+			}
 		})
-	}
+	});
 }

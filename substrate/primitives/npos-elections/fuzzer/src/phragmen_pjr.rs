@@ -20,33 +20,22 @@
 //!
 //! ## Running a single iteration
 //!
-//! Honggfuzz shuts down each individual loop iteration after a configurable time limit.
-//! It can be helpful to run a single iteration on your hardware to help benchmark how long that
-//! time limit should reasonably be. Simply run the program without the `fuzzing` configuration to
-//! run a single iteration: `cargo run --bin phragmen_pjr`.
+//! Run a single iteration without the `fuzzing` configuration:
+//! `cargo run --bin phragmen_pjr`.
 //!
 //! ## Running
 //!
-//! Run with `HFUZZ_RUN_ARGS="-t 10" cargo hfuzz run phragmen_pjr`.
+//! Run with `cargo ziggy fuzz -j 4 --no-honggfuzz -G 128`.
 //!
-//! Note the environment variable: by default, `cargo hfuzz` shuts down each iteration after 1
-//! second of runtime. We significantly increase that to ensure that the fuzzing gets a chance to
-//! complete. Running a single iteration can help determine an appropriate value for this parameter.
+//! ## Coverage
 //!
-//! ## Debugging a panic
-//!
-//! Once a panic is found, it can be debugged with
-//! `HFUZZ_RUN_ARGS="-t 10" cargo hfuzz run-debug phragmen_pjr hfuzz_workspace/phragmen_pjr/*.fuzz`.
-
-#[cfg(fuzzing)]
-use honggfuzz::fuzz;
+//! Generate coverage reports with `cargo ziggy cover -s ..`.
 
 #[cfg(not(fuzzing))]
 use clap::Parser;
 
 mod common;
-use common::{generate_random_npos_inputs, to_range};
-use rand::{self, SeedableRng};
+use common::{bytes_from_seed, generate_npos_inputs, InputBytes};
 use sp_npos_elections::{pjr_check_core, seq_phragmen_core, setup_inputs, standard_threshold};
 
 type AccountId = u64;
@@ -58,12 +47,12 @@ const MAX_VOTERS: usize = 2500;
 
 #[cfg(fuzzing)]
 fn main() {
-	loop {
-		fuzz!(|data: (usize, usize, u64)| {
-			let (candidate_count, voter_count, seed) = data;
-			iteration(candidate_count, voter_count, seed);
-		});
-	}
+	ziggy::fuzz!(|data: &[u8]| {
+		let mut input = InputBytes::new(data);
+		let candidate_count = input.range_usize(MIN_CANDIDATES, MAX_CANDIDATES);
+		let voter_count = input.range_usize(MIN_VOTERS, MAX_VOTERS);
+		iteration(candidate_count, voter_count, &mut input);
+	});
 }
 
 #[cfg(not(fuzzing))]
@@ -86,22 +75,18 @@ struct Opt {
 #[cfg(not(fuzzing))]
 fn main() {
 	let opt = Opt::parse();
-	// candidates and voters by default use the maxima, which turn out to be one less than
-	// the constant.
+	let seed_bytes = bytes_from_seed(opt.seed.unwrap_or_default());
+	let mut input = InputBytes::new(&seed_bytes);
 	iteration(
 		opt.candidates.unwrap_or(MAX_CANDIDATES - 1),
 		opt.voters.unwrap_or(MAX_VOTERS - 1),
-		opt.seed.unwrap_or_default(),
+		&mut input,
 	);
 }
 
-fn iteration(mut candidate_count: usize, mut voter_count: usize, seed: u64) {
-	let rng = rand::rngs::SmallRng::seed_from_u64(seed);
-	candidate_count = to_range(candidate_count, MIN_CANDIDATES, MAX_CANDIDATES);
-	voter_count = to_range(voter_count, MIN_VOTERS, MAX_VOTERS);
-
+fn iteration(candidate_count: usize, voter_count: usize, input: &mut InputBytes) {
 	let (rounds, candidates, voters) =
-		generate_random_npos_inputs(candidate_count, voter_count, rng);
+		generate_npos_inputs(candidate_count, voter_count, input);
 
 	let (candidates, voters) = setup_inputs(candidates, voters);
 

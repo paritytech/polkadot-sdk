@@ -19,8 +19,8 @@ path = "src/paged_list.rs"
 [dependencies]
 arbitrary = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
-honggfuzz = { workspace = true }
 pallet-paged-list = { features = ["std"], workspace = true }
+ziggy = { workspace = true }
 
 [features]
 default = ["std"]

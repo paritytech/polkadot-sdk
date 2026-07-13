@@ -1,0 +1,197 @@
+name: tests fuzzing
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  detect-fuzzers:
+    runs-on: ubuntu-latest
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      has_fuzzers: ${{ steps.build-matrix.outputs.has_fuzzers }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Detect changed files
+        id: changed
+        uses: tj-actions/changed-files@8cba46e29c11878d930bca7870bb54394d3e8b21 # v47.0.2
+        with:
+          files_yaml: |
+            sp_arithmetic:
+              - 'substrate/primitives/arithmetic/**'
+            sp_npos_elections:
+              - 'substrate/primitives/npos-elections/**'
+            pallet_paged_list:
+              - 'substrate/frame/paged-list/**'
+            pallet_nomination_pools:
+              - 'substrate/frame/nomination-pools/**'
+            pallet_bags_list:
+              - 'substrate/frame/bags-list/**'
+            election_solution_type:
+              - 'substrate/frame/election-provider-support/**'
+            xcm_simulator:
+              - 'polkadot/xcm/**'
+            erasure_coding:
+              - 'polkadot/erasure-coding/**'
+            sp_core:
+              - 'substrate/primitives/core/**'
+            sp_state_machine:
+              - 'substrate/primitives/state-machine/**'
+
+      - name: Build fuzzer matrix
+        id: build-matrix
+        run: |
+          FUZZERS="[]"
+
+          add_fuzzer() {
+            local key="$1" dir="$2" framework="$3"
+            FUZZERS=$(echo "$FUZZERS" | jq -c --arg d "$dir" --arg f "$framework" '. + [{"dir": $d, "framework": $f}]')
+          }
+
+          if [ "${{ steps.changed.outputs.sp_arithmetic_any_changed }}" == "true" ]; then
+            add_fuzzer sp_arithmetic "substrate/primitives/arithmetic/fuzzer" honggfuzz
+          fi
+          if [ "${{ steps.changed.outputs.sp_npos_elections_any_changed }}" == "true" ]; then
+            add_fuzzer sp_npos_elections "substrate/primitives/npos-elections/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.pallet_paged_list_any_changed }}" == "true" ]; then
+            add_fuzzer pallet_paged_list "substrate/frame/paged-list/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.pallet_nomination_pools_any_changed }}" == "true" ]; then
+            add_fuzzer pallet_nomination_pools "substrate/frame/nomination-pools/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.pallet_bags_list_any_changed }}" == "true" ]; then
+            add_fuzzer pallet_bags_list "substrate/frame/bags-list/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.election_solution_type_any_changed }}" == "true" ]; then
+            add_fuzzer election_solution_type "substrate/frame/election-provider-support/solution-type/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.xcm_simulator_any_changed }}" == "true" ]; then
+            add_fuzzer xcm_simulator "polkadot/xcm/xcm-simulator/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.erasure_coding_any_changed }}" == "true" ]; then
+            add_fuzzer erasure_coding "polkadot/erasure-coding/fuzzer" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.sp_core_any_changed }}" == "true" ]; then
+            add_fuzzer sp_core "substrate/primitives/core/fuzz" ziggy
+          fi
+          if [ "${{ steps.changed.outputs.sp_state_machine_any_changed }}" == "true" ]; then
+            add_fuzzer sp_state_machine "substrate/primitives/state-machine/fuzz" ziggy
+          fi
+
+          COUNT=$(echo "$FUZZERS" | jq 'length')
+          echo "Detected $COUNT fuzzer(s) to run"
+          echo "$FUZZERS" | jq .
+
+          echo "matrix=$FUZZERS" >> $GITHUB_OUTPUT
+          if [ "$COUNT" -gt 0 ]; then
+            echo "has_fuzzers=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_fuzzers=false" >> $GITHUB_OUTPUT
+          fi
+
+  run-fuzzers:
+    needs: [preflight, detect-fuzzers]
+    if: ${{ needs.detect-fuzzers.outputs.has_fuzzers == 'true' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        fuzzer: ${{ fromJSON(needs.detect-fuzzers.outputs.matrix) }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      # honggfuzz settings (only used by sp-arithmetic until it is migrated to ziggy)
+      HFUZZ_RUN_ARGS: >-
+        --exit_upon_crash
+        --exit_code_upon_crash 1
+        --timeout 10
+        --run_time 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # ziggy targets
+      - name: Install ziggy and AFL++ tooling
+        if: ${{ matrix.fuzzer.framework == 'ziggy' }}
+        run: |
+          cargo install --force ziggy cargo-afl
+          cargo afl system-config || true
+
+      - name: Run ziggy targets
+        if: ${{ matrix.fuzzer.framework == 'ziggy' }}
+        working-directory: ${{ matrix.fuzzer.dir }}
+        run: |
+          for target in $(cargo read-manifest | jq -r '.targets[] | select(.kind[] == "bin") | .name'); do
+            echo "::group::Fuzzing $target"
+            # Run for 60 seconds per target with AFL++ only
+            timeout 120 cargo ziggy fuzz --no-honggfuzz -G 128 --target "$target" -- -V 60 \
+              || { status=$?; if [ $status -eq 101 ]; then printf "fuzzing crash for %s\n" "$target"; exit 1; elif [ $status -eq 124 ]; then echo "timeout reached, continuing"; else printf "fuzzing failure for %s (exit %d)\n" "$target" "$status"; exit 1; fi; }
+            echo "::endgroup::"
+          done
+
+      - name: Upload ziggy artifacts
+        if: ${{ failure() && matrix.fuzzer.framework == 'ziggy' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ziggy-${{ github.sha }}-${{ strategy.job-index }}
+          path: ${{ matrix.fuzzer.dir }}/output/
+
+      # honggfuzz targets (sp-arithmetic only, pending migration)
+      - name: Build honggfuzz targets
+        if: ${{ matrix.fuzzer.framework == 'honggfuzz' }}
+        working-directory: ${{ matrix.fuzzer.dir }}
+        run: forklift cargo hfuzz build
+
+      - name: Run honggfuzz targets
+        if: ${{ matrix.fuzzer.framework == 'honggfuzz' }}
+        working-directory: ${{ matrix.fuzzer.dir }}
+        run: |
+          for target in $(cargo read-manifest | jq -r '.targets | .[] | .name'); do
+            echo "::group::Fuzzing $target"
+            forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; }
+            echo "::endgroup::"
+          done
+
+      - name: Upload honggfuzz artifacts
+        if: ${{ failure() && matrix.fuzzer.framework == 'honggfuzz' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: hfuzz-${{ github.sha }}-${{ strategy.job-index }}
+          path: ${{ matrix.fuzzer.dir }}/hfuzz_workspace/
+
+  confirm-required-fuzzing-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All fuzzing tests passed
+    needs:
+      - detect-fuzzers
+      - run-fuzzers
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi

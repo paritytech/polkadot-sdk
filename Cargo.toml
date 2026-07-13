@@ -546,6 +546,7 @@ members = [
 	"substrate/primitives/session",
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
+	"substrate/primitives/state-machine/fuzz",
 	"substrate/primitives/statement-store",
 	"substrate/primitives/std",
 	"substrate/primitives/storage",
@@ -879,7 +880,7 @@ hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 hkdf = { version = "0.12.0" }
 hmac = { version = "0.12.1" }
-honggfuzz = { version = "0.5.55" }
+honggfuzz = { version = "0.5.58" }
 http = { version = "1.1" }
 http-body-util = { version = "0.1.2", default-features = false }
 humantime-serde = { version = "1.1" }
@@ -913,7 +914,7 @@ kvdb-rocksdb = { version = "0.21.0" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
-libfuzzer-sys = { version = "0.4" }
+libfuzzer-sys = { version = "0.4.12" }
 libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
 libp2p-kad = { version = "0.46.2", default-features = false }
@@ -1499,6 +1500,7 @@ xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
+ziggy = { version = "1", default-features = false }
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-configuration = { version = "0.4.9" }
 zombienet-orchestrator = { version = "0.4.9" }

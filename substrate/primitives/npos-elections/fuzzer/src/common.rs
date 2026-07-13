@@ -20,20 +20,68 @@
 // Each function will be used based on which fuzzer binary is being used.
 #![allow(dead_code)]
 
-use rand::{self, seq::SliceRandom, Rng, RngCore};
 use sp_npos_elections::{phragmms, seq_phragmen, BalancingConfig, ElectionResult, VoteWeight};
 use sp_runtime::Perbill;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
-/// converts x into the range [a, b] in a pseudo-fair way.
-pub fn to_range(x: usize, a: usize, b: usize) -> usize {
-	// does not work correctly if b < 2 * a
-	assert!(b >= 2 * a);
-	let collapsed = x % b;
-	if collapsed >= a {
-		collapsed
-	} else {
-		collapsed + a
+pub type AccountId = u64;
+
+/// Simple deterministic byte reader that maps fuzz input into structured values.
+///
+/// Each byte position has a consistent meaning, allowing the coverage-guided fuzzer
+/// to learn which bytes control which behavior. When all bytes are consumed, values
+/// wrap around from the beginning.
+pub struct InputBytes<'a> {
+	bytes: &'a [u8],
+	pos: usize,
+}
+
+impl<'a> InputBytes<'a> {
+	pub fn new(bytes: &'a [u8]) -> Self {
+		Self { bytes, pos: 0 }
+	}
+
+	pub fn next_u8(&mut self) -> u8 {
+		if self.bytes.is_empty() {
+			return 0;
+		}
+		let b = self.bytes[self.pos % self.bytes.len()];
+		self.pos = self.pos.wrapping_add(1);
+		b
+	}
+
+	pub fn next_u32(&mut self) -> u32 {
+		let mut raw = [0u8; 4];
+		for byte in &mut raw {
+			*byte = self.next_u8();
+		}
+		u32::from_le_bytes(raw)
+	}
+
+	pub fn next_u64(&mut self) -> u64 {
+		let mut raw = [0u8; 8];
+		for byte in &mut raw {
+			*byte = self.next_u8();
+		}
+		u64::from_le_bytes(raw)
+	}
+
+	pub fn range_usize(&mut self, min: usize, max: usize) -> usize {
+		debug_assert!(min <= max);
+		if min == max {
+			return min;
+		}
+		let span = (max - min).saturating_add(1);
+		min + (self.next_u32() as usize % span)
+	}
+
+	pub fn range_u64(&mut self, min: u64, max: u64) -> u64 {
+		debug_assert!(min <= max);
+		if min == max {
+			return min;
+		}
+		let span = max.saturating_sub(min).saturating_add(1);
+		min + (self.next_u64() % span)
 	}
 }
 
@@ -42,79 +90,58 @@ pub enum ElectionType {
 	Phragmms(Option<BalancingConfig>),
 }
 
-pub type AccountId = u64;
+/// Select `n` unique items from `pool` using deterministic input bytes.
+pub fn choose_n<T: Clone>(pool: &[T], n: usize, input: &mut InputBytes) -> Vec<T> {
+	let mut indices: Vec<usize> = (0..pool.len()).collect();
+	let mut chosen = Vec::with_capacity(n);
+	for _ in 0..n.min(indices.len()) {
+		if indices.is_empty() {
+			break;
+		}
+		let idx = input.range_usize(0, indices.len() - 1);
+		let selected = indices.swap_remove(idx);
+		chosen.push(pool[selected].clone());
+	}
+	chosen
+}
 
-/// Generate a set of inputs suitable for fuzzing an election algorithm
+/// Generate a set of inputs suitable for fuzzing an election algorithm.
 ///
-/// Given parameters governing how many candidates and voters should exist, generates a voting
-/// scenario suitable for fuzz-testing an election algorithm.
+/// Uses deterministic byte mapping instead of RNG for better coverage-guided fuzzing.
+/// Candidate and voter IDs are sequential for simplicity and determinism.
 ///
-/// The returned candidate list is sorted. This sorting property should not affect the result of the
-/// calculation.
-///
-/// The returned voters list is sorted. This enables binary searching for a particular voter by
-/// account id. This sorting property should not affect the results of the calculation.
-///
-/// Each voter's selection of candidates to vote for is sorted.
-///
-/// Note that this does not generate balancing parameters.
-pub fn generate_random_npos_inputs(
+/// The returned candidate list is sorted. The returned voters list is sorted.
+/// Each voter's selection of candidates is sorted.
+pub fn generate_npos_inputs(
 	candidate_count: usize,
 	voter_count: usize,
-	mut rng: impl Rng,
+	input: &mut InputBytes,
 ) -> (usize, Vec<AccountId>, Vec<(AccountId, VoteWeight, Vec<AccountId>)>) {
-	// cache for fast generation of unique candidate and voter ids
-	let mut used_ids = HashSet::with_capacity(candidate_count + voter_count);
+	let rounds = input.range_usize(1, candidate_count.saturating_sub(1).max(1));
 
-	// always generate a sensible desired number of candidates: elections are uninteresting if we
-	// desire 0 candidates, or a number of candidates >= the actual number of candidates present
-	let rounds = rng.gen_range(1..candidate_count);
+	// Sequential IDs: naturally sorted, no duplicates.
+	let candidates: Vec<AccountId> = (1..=(candidate_count as u64)).collect();
 
-	// candidates are easy: just a completely random set of IDs
-	let mut candidates: Vec<AccountId> = Vec::with_capacity(candidate_count);
-	for _ in 0..candidate_count {
-		let mut id = rng.gen();
-		// insert returns `false` when the value was already present
-		while !used_ids.insert(id) {
-			id = rng.gen();
-		}
-		candidates.push(id);
-	}
-	candidates.sort();
-	candidates.dedup();
-	assert_eq!(candidates.len(), candidate_count);
-
+	let voter_offset = candidate_count as u64 + 1;
 	let mut voters = Vec::with_capacity(voter_count);
-	for _ in 0..voter_count {
-		let mut id = rng.gen();
-		// insert returns `false` when the value was already present
-		while !used_ids.insert(id) {
-			id = rng.gen();
-		}
-
-		let vote_weight = rng.gen();
-
-		// it's not interesting if a voter chooses 0 or all candidates, so rule those cases out.
-		let n_candidates_chosen = rng.gen_range(1..candidates.len());
-
-		let mut chosen_candidates = Vec::with_capacity(n_candidates_chosen);
-		chosen_candidates.extend(candidates.choose_multiple(&mut rng, n_candidates_chosen));
+	for i in 0..voter_count {
+		let id = voter_offset + i as u64;
+		let vote_weight: VoteWeight = input.next_u64();
+		let n_chosen = input.range_usize(1, candidates.len().saturating_sub(1).max(1));
+		let mut chosen_candidates = choose_n(&candidates, n_chosen, input);
 		chosen_candidates.sort();
 		voters.push((id, vote_weight, chosen_candidates));
 	}
 
-	voters.sort();
-	voters.dedup_by_key(|(id, _weight, _chosen_candidates)| *id);
-	assert_eq!(voters.len(), voter_count);
-
 	(rounds, candidates, voters)
 }
 
-pub fn generate_random_npos_result(
+/// Generate a full election result with deterministic input bytes.
+pub fn generate_npos_result(
 	voter_count: u64,
 	target_count: u64,
 	to_elect: usize,
-	mut rng: impl RngCore,
+	input: &mut InputBytes,
 	election_type: ElectionType,
 ) -> (
 	ElectionResult<AccountId, Perbill>,
@@ -122,8 +149,8 @@ pub fn generate_random_npos_result(
 	Vec<(AccountId, VoteWeight, Vec<AccountId>)>,
 	BTreeMap<AccountId, VoteWeight>,
 ) {
-	let prefix = 100_000;
-	// Note, it is important that stakes are always bigger than ed.
+	let prefix = 100_000u64;
+	// Note: stakes must always be bigger than ed.
 	let base_stake: u64 = 1_000_000_000_000;
 	let ed: u64 = base_stake;
 
@@ -132,25 +159,16 @@ pub fn generate_random_npos_result(
 
 	(1..=target_count).for_each(|acc| {
 		candidates.push(acc);
-		let stake_var = rng.gen_range(ed..100 * ed);
+		let stake_var = input.range_u64(ed, 100 * ed);
 		stake_of.insert(acc, base_stake + stake_var);
 	});
 
 	let mut voters = Vec::with_capacity(voter_count as usize);
 	(prefix..=(prefix + voter_count)).for_each(|acc| {
-		let edge_per_this_voter = rng.gen_range(1..candidates.len());
-		// all possible targets
-		let mut all_targets = candidates.clone();
-		// we remove and pop into `targets` `edge_per_this_voter` times.
-		let targets = (0..edge_per_this_voter)
-			.map(|_| {
-				let upper = all_targets.len() - 1;
-				let idx = rng.gen_range(0..upper);
-				all_targets.remove(idx)
-			})
-			.collect::<Vec<AccountId>>();
+		let edge_count = input.range_usize(1, candidates.len().saturating_sub(1).max(1));
+		let targets = choose_n(&candidates, edge_count, input);
 
-		let stake_var = rng.gen_range(ed..100 * ed);
+		let stake_var = input.range_u64(ed, 100 * ed);
 		let stake = base_stake + stake_var;
 		stake_of.insert(acc, stake);
 		voters.push((acc, stake, targets));
@@ -169,4 +187,18 @@ pub fn generate_random_npos_result(
 		voters,
 		stake_of,
 	)
+}
+
+/// Generate a deterministic byte buffer from a u64 seed (for non-fuzzing CLI mode).
+pub fn bytes_from_seed(seed: u64) -> Vec<u8> {
+	let mut state = seed | 1; // ensure non-zero
+	(0..4096)
+		.map(|_| {
+			// xorshift64
+			state ^= state << 13;
+			state ^= state >> 7;
+			state ^= state << 17;
+			(state & 0xFF) as u8
+		})
+		.collect()
 }

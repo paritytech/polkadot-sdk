@@ -1,30 +1,27 @@
 [package]
 name = "sp-state-machine-fuzz"
-version = "0.0.0"
-publish = false
+version = "2.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
-edition = "2021"
+homepage.workspace = true
+repository.workspace = true
+description = "Fuzzer for sp-state-machine storage append operations."
+publish = false
 
-[package.metadata]
-cargo-fuzz = true
+[lints]
+workspace = true
 
-[dependencies]
-libfuzzer-sys = "0.4"
-sp-runtime = { path = "../../runtime" }
-
-[dependencies.sp-state-machine]
-features = ["fuzzing"]
-path = ".."
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
-
-[profile.release]
-debug = 1
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
 name = "fuzz_append"
-path = "fuzz_targets/fuzz_append.rs"
-test = false
-doc = false
+path = "src/fuzz_append.rs"
+
+[dependencies]
+ziggy = { workspace = true }
+arbitrary = { workspace = true, features = ["derive"] }
+
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { features = ["fuzzing"], workspace = true, default-features = true }

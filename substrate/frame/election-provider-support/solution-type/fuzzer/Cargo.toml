@@ -20,7 +20,7 @@ name = "compact"
 path = "src/compact.rs"
 
 [dependencies]
-honggfuzz = { workspace = true }
+ziggy = { workspace = true }
 
 codec = { features = ["derive"], workspace = true }
 frame-election-provider-solution-type = { workspace = true, default-features = true }

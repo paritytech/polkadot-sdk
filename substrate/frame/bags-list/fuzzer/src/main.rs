@@ -16,19 +16,13 @@
 // limitations under the License.
 
 //! # Running
-//! Running this fuzzer can be done with `cargo hfuzz run bags-list`. `honggfuzz` CLI options can
-//! be used by setting `HFUZZ_RUN_ARGS`, such as `-n 4` to use 4 threads.
+//! Running this fuzzer can be done with `cargo ziggy fuzz`. Use `-j N` for parallel jobs,
+//! e.g. `cargo ziggy fuzz -j 4 --no-honggfuzz -G 128`.
 //!
-//! # Debugging a panic
-//! Once a panic is found, it can be debugged with
-//! `cargo hfuzz run-debug fixed_point hfuzz_workspace/bags_list/*.fuzz`.
-//!
-//! # More information
-//! More information about `honggfuzz` can be found
-//! [here](https://docs.rs/honggfuzz/).
+//! # Coverage
+//! Generate coverage reports with `cargo ziggy cover -s ..`.
 
 use frame_election_provider_support::{SortedListProvider, VoteWeight};
-use honggfuzz::fuzz;
 use pallet_bags_list::mock::{AccountId, BagsList, ExtBuilder};
 
 const ID_RANGE: AccountId = 25_000;
@@ -53,8 +47,8 @@ impl From<u32> for Action {
 }
 
 fn main() {
-	ExtBuilder::default().build_and_execute(|| loop {
-		fuzz!(|data: (AccountId, VoteWeight, u32)| {
+	ExtBuilder::default().build_and_execute(|| {
+		ziggy::fuzz!(|data: (AccountId, VoteWeight, u32)| {
 			let (account_id_seed, vote_weight, action_seed) = data;
 
 			let id = account_id_seed % ID_RANGE;
@@ -89,6 +83,6 @@ fn main() {
 			}
 
 			assert!(BagsList::do_try_state().is_ok());
-		})
+		});
 	});
 }

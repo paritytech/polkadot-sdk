@@ -276,47 +276,6 @@ jobs:
         run: |
           forklift cargo build --locked -p westend-runtime --features metadata-hash
 
-  # disabled until https://github.com/paritytech/polkadot-sdk/issues/5812 is resolved
-  # cargo-hfuzz:
-  #   timeout-minutes: 20
-  #   needs: [preflight, check-metadata-hash]
-  #   runs-on: ${{ needs.preflight.outputs.RUNNER }}
-  #   container:
-  #     image: ${{ needs.preflight.outputs.IMAGE }}
-  #   env:
-  #     # max 10s per iteration, 60s per file
-  #     HFUZZ_RUN_ARGS: |
-  #       --exit_upon_crash
-  #       --exit_code_upon_crash 1
-  #       --timeout 10
-  #       --run_time 60
-
-  #     # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
-  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
-  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
-  #     # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
-  #     HFUZZ_BUILD_ARGS: |
-  #       --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
-  #       --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-  #     - name: Run honggfuzz
-  #       run: |
-  #         cd substrate/primitives/arithmetic/fuzzer
-  #         forklift cargo hfuzz build
-  #         for target in $(cargo read-manifest | jq -r '.targets | .[] | .name');
-  #         do
-  #           forklift cargo hfuzz run "$target" || { printf "fuzzing failure for %s\n" "$target"; exit 1; };
-  #         done
-
-  #     - name: Upload artifacts
-  #       uses: actions/upload-artifact@v4.3.6
-  #       with:
-  #         path: substrate/primitives/arithmetic/fuzzer/hfuzz_workspace/
-  #         name: hfuzz-${{ github.sha }}
-
   cargo-check-each-crate:
     timeout-minutes: 120
     needs: [preflight]
@@ -413,7 +372,6 @@ jobs:
       - check-tracing
       - cargo-check-each-crate
       - test-deterministic-wasm
-      # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:
       - run: |

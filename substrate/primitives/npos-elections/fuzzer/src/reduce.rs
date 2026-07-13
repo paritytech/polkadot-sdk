@@ -17,24 +17,20 @@
 
 //! Fuzzing for the reduce algorithm.
 //!
-//! It that reduce always return a new set og edges in which the bound is kept (`edges_after <= m +
+//! It that reduce always return a new set of edges in which the bound is kept (`edges_after <= m +
 //! n,`) and the result must effectively be the same, meaning that the same support map should be
 //! computable from both.
 //!
 //! # Running
 //!
-//! Run with `cargo hfuzz run reduce`. `honggfuzz`.
+//! Run with `cargo ziggy fuzz -j 4 --no-honggfuzz -G 128`.
 //!
-//! # Debugging a panic
+//! # Coverage
 //!
-//! Once a panic is found, it can be debugged with
-//! `cargo hfuzz run-debug reduce hfuzz_workspace/reduce/*.fuzz`.
-
-use honggfuzz::fuzz;
+//! Generate coverage reports with `cargo ziggy cover -s ..`.
 
 mod common;
-use common::to_range;
-use rand::{self, Rng, RngCore, SeedableRng};
+use common::{choose_n, InputBytes};
 use sp_npos_elections::{reduce, to_support_map, ExtendedBalance, StakedAssignment};
 
 type Balance = u128;
@@ -44,31 +40,28 @@ type AccountId = u64;
 const KSM: Balance = 1_000_000_000_000;
 
 fn main() {
-	loop {
-		fuzz!(|data: (usize, usize, u64)| {
-			let (mut voter_count, mut target_count, seed) = data;
-			let rng = rand::rngs::SmallRng::seed_from_u64(seed);
-			target_count = to_range(target_count, 100, 1000);
-			voter_count = to_range(voter_count, 100, 2000);
-			let (assignments, winners) =
-				generate_random_phragmen_assignment(voter_count, target_count, 8, 8, rng);
-			reduce_and_compare(&assignments, &winners);
-		});
-	}
+	ziggy::fuzz!(|data: &[u8]| {
+		let mut input = InputBytes::new(data);
+		let voter_count = input.range_usize(100, 2000);
+		let target_count = input.range_usize(100, 1000);
+		let (assignments, winners) =
+			generate_phragmen_assignment(voter_count, target_count, 8, 8, &mut input);
+		reduce_and_compare(&assignments, &winners);
+	});
 }
 
-fn generate_random_phragmen_assignment(
+fn generate_phragmen_assignment(
 	voter_count: usize,
 	target_count: usize,
 	avg_edge_per_voter: usize,
 	edge_per_voter_var: usize,
-	mut rng: impl RngCore,
+	input: &mut InputBytes,
 ) -> (Vec<StakedAssignment<AccountId>>, Vec<AccountId>) {
 	// prefix to distinguish the voter and target account ranges.
 	let target_prefix = 1_000_000;
 	assert!(voter_count < target_prefix);
 
-	let mut assignments = Vec::with_capacity(voter_count as usize);
+	let mut assignments = Vec::with_capacity(voter_count);
 	let mut winners: Vec<AccountId> = Vec::new();
 
 	let all_targets = (target_prefix..(target_prefix + target_count))
@@ -76,25 +69,25 @@ fn generate_random_phragmen_assignment(
 		.collect::<Vec<AccountId>>();
 
 	(1..=voter_count).for_each(|acc| {
-		let mut targets_to_chose_from = all_targets.clone();
-		let targets_to_chose = if edge_per_voter_var > 0 {
-			rng.gen_range(
-				avg_edge_per_voter - edge_per_voter_var..avg_edge_per_voter + edge_per_voter_var,
+		let targets_to_choose = if edge_per_voter_var > 0 {
+			input.range_usize(
+				avg_edge_per_voter.saturating_sub(edge_per_voter_var),
+				avg_edge_per_voter + edge_per_voter_var,
 			)
 		} else {
 			avg_edge_per_voter
 		};
 
-		let distribution = (0..targets_to_chose)
-			.map(|_| {
-				let target =
-					targets_to_chose_from.remove(rng.gen_range(0..targets_to_chose_from.len()));
+		let chosen = choose_n(&all_targets, targets_to_choose, input);
+		let distribution: Vec<(AccountId, ExtendedBalance)> = chosen
+			.into_iter()
+			.map(|target| {
 				if winners.iter().all(|w| *w != target) {
 					winners.push(target);
 				}
-				(target, rng.gen_range(1 * KSM..100 * KSM))
+				(target, input.range_u64(KSM, 100 * KSM))
 			})
-			.collect::<Vec<(AccountId, ExtendedBalance)>>();
+			.collect();
 
 		assignments.push(StakedAssignment { who: (acc as AccountId), distribution });
 	});

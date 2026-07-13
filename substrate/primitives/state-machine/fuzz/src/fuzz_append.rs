@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// http://www.apache.org/licenses/LICENSE-2.0
+// 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![no_main]
+//! Differential fuzzer for storage append operations.
+//!
+//! Compares a simple reference overlay implementation against the real
+//! `OverlayedChanges`/`TrieBackend` stack to verify correctness of storage append, insert,
+//! remove, and nested transaction operations.
+//!
+//! ## Running
+//! Run with `cargo ziggy fuzz -j 4 --no-honggfuzz -G 128`.
+//!
+//! ## Coverage
+//! Generate coverage reports with `cargo ziggy cover -s ..`.
 
-use libfuzzer_sys::fuzz_target;
-use sp_state_machine::fuzzing::{fuzz_append, FuzzAppendPayload};
 use sp_runtime::traits::BlakeTwo256;
+use sp_state_machine::fuzzing::{fuzz_append, FuzzAppendPayload};
 
-fuzz_target!(|data: FuzzAppendPayload| {
-	fuzz_append::<BlakeTwo256>(data);
-});
+fn main() {
+	ziggy::fuzz!(|data: FuzzAppendPayload| {
+		fuzz_append::<BlakeTwo256>(data);
+	});
+}
