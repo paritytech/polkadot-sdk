@@ -38,8 +38,8 @@ module tests {
     // A block advances the clock to its own timeslot.
     val blockNow = now + 1
     // Refine each package at guarantee time against the pre-block state (it must
-    // not see this block's always-accumulate effects), paired with anchor 0.
-    val packages: List[(WorkResult, Timeslot)] = pkgs.foldl(List(), (acc, p) => {
+    // not see this block's always-accumulate effects).
+    val packages: List[WorkResult] = pkgs.foldl(List(), (acc, p) => {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
         authorizedParas: List(p._1),
@@ -48,11 +48,11 @@ module tests {
       val wr: WorkResult = {
         result: WorkOk(refine(
           svc, pkg, false, false,
-          Some(headHash(pi.headData)), Some(pi.headData + 1), p._3
+          Some(headHash(pi.headData)), Some(pi.headData + 1), p._3, 0
         )[0]),
         authTrace: 0
       }
-      acc.append((wr, 0))
+      acc.append(wr)
     })
     // Run the exact per-block Accumulate pipeline the model step runs.
     val blockOut = accumulateBlock(
@@ -165,13 +165,13 @@ module tests {
     val wr: WorkResult = {
       result: WorkOk(refine(
         svc, pkg, false, false,
-        Some(headHash(StaleParentHead)), Some(StaleParentHead), msgs
+        Some(headHash(StaleParentHead)), Some(StaleParentHead), msgs, 0
       )[0]),
       authTrace: 0
     }
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow, 0
+      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow
     )
     all {
       svc' = out.state,
@@ -802,13 +802,13 @@ module tests {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val parentOnly =
-      refine(initialState, pkg, false, false, Some(headHash(0)), None, List())[0]
+      refine(initialState, pkg, false, false, Some(headHash(0)), None, List(), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, false, None, Some(1), List())[0]
+      refine(initialState, pkg, false, false, None, Some(1), List(), 0)[0]
     val neither =
-      refine(initialState, pkg, false, false, None, None, List())[0]
+      refine(initialState, pkg, false, false, None, None, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), List())[0]
+      refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), List(), 0)[0]
     all {
       // Missing new head, missing parent head, or both → rejected.
       assert(parentOnly == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
@@ -820,7 +820,8 @@ module tests {
         validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen },
         parentHeadHash: headHash(0),
         headData: 1,
-        upwardMessages: List()
+        upwardMessages: List(),
+        lookupAnchor: 0
       })),
       init
     }

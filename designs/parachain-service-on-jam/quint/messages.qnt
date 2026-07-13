@@ -125,14 +125,17 @@ module messages {
 
   // --- Refine output per work item ---------------------------------------
 
+  /// A successful Refine output for one parachain candidate.
   type ParachainWorkDigestOk = {
     paraId: ParaId,
     validationCode: ValidationCodeRef,
     parentHeadHash: Hash,
     headData: HeadData,
-    upwardMessages: List[UpwardMessage]
+    upwardMessages: List[UpwardMessage],
+    lookupAnchor: Timeslot
   }
 
+  /// Refine output per work item: a success digest or a Refine error.
   type ParachainWorkDigest =
   | Ok(ParachainWorkDigestOk)
   | Err({ paraId: ParaId, error: RefineLog })

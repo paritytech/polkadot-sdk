@@ -130,6 +130,21 @@ module main {
     nondet blockGap = oneOf(Set(1, 2))
     val blockNow = now + blockGap
 
+    // §5.1 lookup-anchor: each candidate carries a lookup-anchor — a past block
+    // (slot `<= now`) no older than `MaxLookupAge` (~24h) before this block
+    // (`>= blockNow - MaxLookupAge`; gray paper `t_l >= H_t - L`). The service's
+    // Refine reads it from `work_package_context()` and emits it in the work
+    // digest, so Accumulate can prune each candidate para's log below it. Since
+    // `lookupAnchor <= now < blockNow`, entries appended this block survive.
+    val lookLo = if (blockNow > MaxLookupAge) blockNow - MaxLookupAge else 0
+    // Apalache cannot encode a variable-bound integer range (`lookLo.to(now)`),
+    // so we sample three representative anchors in `[lookLo, now]` — the floor,
+    // the midpoint, and the tip — which exercise full, partial, and no old-log
+    // pruning. (`quint run` samples these three instead of every value in the
+    // range; the log-pruning invariants only depend on the pruning depth.)
+    nondet lookupAnchor1 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
+    nondet lookupAnchor2 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
+
     // First work package — refined at guarantee time against the pre-block
     // state (it must not see this block's always-accumulate effects).
     nondet wp1Para = oneOf(svc.parachains.keys())
@@ -168,7 +183,7 @@ module main {
         if (wp1IsJamSkip) WorkErr
         else WorkOk(refine(
           svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic,
-          wp1.parentHead, wp1.newHead, wp1.msgs
+          wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1
         )[0]),
       authTrace: wp1AuthTrace
     }
@@ -202,7 +217,7 @@ module main {
         if (wp2IsJamSkip) WorkErr
         else WorkOk(refine(
           svc, wp2.pkg, wp2AuthMalformed, wp2PvfPanic,
-          wp2.parentHead, wp2.newHead, wp2.msgs
+          wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2
         )[0]),
       authTrace: wp2AuthTrace
     }
@@ -211,28 +226,12 @@ module main {
     // accumulates with no work packages); 1 or 2 exercise the normal path.
     nondet numPkgs = oneOf(Set(0, 1, 2))
 
-    // §5.1 lookup-anchor: each candidate carries a lookup-anchor — a past
-    // block (slot `<= now`) no older than `MaxLookupAge` (~24h) before this
-    // block (`>= blockNow - MaxLookupAge`; gray paper `t_l >= H_t - L`).
-    // `accumulateOnePackage` prunes the candidate para's log below it before
-    // appending the candidate's own entries; since `lookupAnchor <= now <
-    // blockNow`, entries appended this block (at `blockNow`) survive.
-    val lookLo = if (blockNow > MaxLookupAge) blockNow - MaxLookupAge else 0
-    // Apalache cannot encode a variable-bound integer range (`lookLo.to(now)`),
-    // so we sample three representative anchors in `[lookLo, now]` — the floor,
-    // the midpoint, and the tip — which exercise full, partial, and no old-log
-    // pruning. (`quint run` samples these three instead of every value in the
-    // range; the log-pruning invariants only depend on the pruning depth.)
-    nondet lookupAnchor1 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
-    nondet lookupAnchor2 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
-
-    // Assemble the block's packages (each a refined work result + its lookup-
-    // anchor), then run the shared per-block Accumulate pipeline — the same
-    // `accumulateBlock` the deterministic tests use.
-    val packages: List[(WorkResult, Timeslot)] =
+    // Assemble the block's packages, then run the shared per-block Accumulate
+    // pipeline — the same `accumulateBlock` the deterministic tests use.
+    val packages: List[WorkResult] =
       if (numPkgs == 0) List()
-      else if (numPkgs == 1) List((wp1Wr, lookupAnchor1))
-      else List((wp1Wr, lookupAnchor1), (wp2Wr, lookupAnchor2))
+      else if (numPkgs == 1) List(wp1Wr)
+      else List(wp1Wr, wp2Wr)
     val blockOut = accumulateBlock(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages)
 

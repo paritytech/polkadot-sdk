@@ -400,8 +400,7 @@ module accumulate {
     solicited: Set[(ParaId, Hash, int)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
-    now: Timeslot,
-    lookupAnchor: Timeslot
+    now: Timeslot
   ): PerPackageOutcome = {
     match wr.result {
       // §3.3: gray paper `WorkExecResult::Error` — JAM substituted an
@@ -421,15 +420,15 @@ module accumulate {
             // authorizer trace, truncated to `StoredAuthTraceCap` before
             // storing to keep the log bounded (the Gray Paper only caps the
             // 48 KiB combined budget). No-op inside `appendRefineLog` for an
-            // unregistered para (§5.1 step 1). §5.1: prune the para's log
-            // below the candidate's lookup-anchor before appending this entry.
+            // unregistered para (§5.1 step 1). No pruning: a Refine failure is
+            // not a candidate, so it carries no lookup-anchor and does not prune
             {
-              state: pruneLogBelow(state, e.paraId, lookupAnchor)
+              state: state
                 .appendRefineLog(e.paraId, now, e.error, truncateAuthTrace(wr.authTrace)),
               solicited: solicited,
               jamDesignate: prevDesignate,
               jamAssigns: List(),
-              logPruned: Some((e.paraId, lookupAnchor))
+              logPruned: None
             }
           | Ok(ok) =>
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
@@ -438,12 +437,12 @@ module accumulate {
               // check may still record an accumulate event (e.g. `InvalidCodeHash`).
               // Prune below the lookup-anchor before persisting it.
               {
-                state: pruneLogBelow(pre.state, ok.paraId, lookupAnchor)
+                state: pruneLogBelow(pre.state, ok.paraId, ok.lookupAnchor)
                   .appendAccumulateLogs(ok.paraId, now, pre.logs),
                 solicited: solicited,
                 jamDesignate: prevDesignate,
                 jamAssigns: List(),
-                logPruned: Some((ok.paraId, lookupAnchor))
+                logPruned: Some((ok.paraId, ok.lookupAnchor))
               }
             } else {
               val baseAcc = {
@@ -464,12 +463,12 @@ module accumulate {
               // §5.1: prune below the candidate's lookup-anchor before
               // appending this candidate's collected accumulate events.
               {
-                state: pruneLogBelow(acc.state, ok.paraId, lookupAnchor)
+                state: pruneLogBelow(acc.state, ok.paraId, ok.lookupAnchor)
                   .appendAccumulateLogs(ok.paraId, now, acc.logs),
                 solicited: newSolicited,
                 jamDesignate: acc.jamDesignate,
                 jamAssigns: acc.jamAssigns,
-                logPruned: Some((ok.paraId, lookupAnchor))
+                logPruned: Some((ok.paraId, ok.lookupAnchor))
               }
             }
         }
@@ -483,7 +482,7 @@ module accumulate {
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
     now: Timeslot,
-    packages: List[(WorkResult, Timeslot)]
+    packages: List[WorkResult]
   ): MultiPackageOutcome = {
     packages.foldl(
       { state: state,
@@ -493,7 +492,7 @@ module accumulate {
         logPruned: List() },
       (acc, p) => {
         val out = accumulateOnePackage(
-          acc.state, p._1, acc.solicited, acc.jamDesignate, codeLen, now, p._2)
+          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now)
         { state: out.state,
           solicited: out.solicited,
           jamDesignate: out.jamDesignate,
@@ -543,7 +542,7 @@ module accumulate {
     staging: List[ValidatorKey],
     solicited: Set[(ParaId, Hash, int)],
     codeLen: int,
-    packages: List[(WorkResult, Timeslot)]
+    packages: List[WorkResult]
   ): BlockOutcome = {
     val flushed = applyAlwaysAccumulate(state, now)
     val acc = accumulateAll(flushed.state, solicited, None, codeLen, now, packages)
@@ -556,7 +555,7 @@ module accumulate {
       solicited: acc.solicited,
       assigns: flushed.assigns.concat(acc.jamAssigns),
       logPruned: acc.logPruned,
-      results: packages.foldl(List(), (a, p) => a.append(p._1))
+      results: packages
     }
   }
 }

@@ -105,14 +105,16 @@ module refine {
     ref: ValidationCodeRef,
     parentHead: Hash,
     newHead: HeadData,
-    msgs: List[UpwardMessage]
+    msgs: List[UpwardMessage],
+    lookupAnchor: Timeslot
   ): ParachainWorkDigest =
   Ok({
       paraId: paraId,
       validationCode: ref,
       parentHeadHash: parentHead,
       headData: newHead,
-      upwardMessages: msgs
+      upwardMessages: msgs,
+      lookupAnchor: lookupAnchor
   })
 
   /// `true` iff the code identified by `ref` has a non-empty referencer set
@@ -141,7 +143,8 @@ module refine {
     pvfPanic: bool,
     parentHead: Option[Hash],
     newHead: Option[HeadData],
-    msgs: List[UpwardMessage]
+    msgs: List[UpwardMessage],
+    lookupAnchor: Timeslot
   ): ParachainWorkDigest = {
     if (not(codeAvailable(s, candidate.validationCode)))
     refineErr(para_id, InvalidCodeHash)
@@ -162,7 +165,7 @@ module refine {
         match newHead {
           | None => refineErr(para_id, MissingHeadDeclaration)
           | Some(nh) =>
-            refineOk(para_id, candidate.validationCode, ph, nh, msgs)
+            refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor)
         }
     }
   }
@@ -186,7 +189,8 @@ module refine {
     pvfPanic: bool,
     parentHead: Option[Hash],
     newHead: Option[HeadData],
-    msgs: List[UpwardMessage]
+    msgs: List[UpwardMessage],
+    lookupAnchor: Timeslot
   ): List[ParachainWorkDigest] = {
     val errParaId =
       if (pkg.authorizedParas.length() > 0) pkg.authorizedParas[0]
@@ -200,7 +204,7 @@ module refine {
     else
     List(refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      pvfPanic, parentHead, newHead, msgs
+      pvfPanic, parentHead, newHead, msgs, lookupAnchor
     ))
   }
 }

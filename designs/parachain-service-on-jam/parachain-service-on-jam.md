@@ -372,6 +372,8 @@ enum ParachainWorkDigest {
         /// Upward messages emitted through host functions during Refine.
         /// Accumulate replays these in order.
         upward_messages: Vec<UpwardMessage>,
+        /// The work package's lookup-anchor timeslot.
+        lookup_anchor: Timeslot,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
@@ -613,12 +615,13 @@ change, and it never reaches the steps below. Otherwise:
    at Accumulate for a parachain the Coretime chain cleaned up between guarantee and
    accumulation; this check is the earliest possible reject. No `parachain_log` entry
    is recorded — there is no `parachain_log[para_id]` to append to.
-2. **Refine-result dispatch**: If the work digest is a **Refine failure**
-   (`ParachainWorkDigest::Err`, where `refine` completed and returned an error digest —
-   see §3.3), forward its `RefineLog` into a `RefineLogEntry` appended to
-   `parachain_log[para_id]` (the work-report's authorizer trace is already attached)
-   under the eviction rules below, then stop — no further steps run. A **Refine success**
-   (`ParachainWorkDigest::Ok`) proceeds through the remaining steps.
+ 2. **Refine-result dispatch**: If the work digest is a **Refine failure**
+    (`ParachainWorkDigest::Err`, where `refine` completed and returned an error digest —
+    see §3.3), forward its `RefineLog` into a `RefineLogEntry` appended to
+    `parachain_log[para_id]` (the work-report's authorizer trace is already attached)
+    under the eviction rules below, then stop — no further steps run and no log
+    pruning is done. A **Refine success**
+    (`ParachainWorkDigest::Ok`) proceeds through the remaining steps.
 3. **Parent head check**: Verify the work digest's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
