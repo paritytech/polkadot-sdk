@@ -67,6 +67,14 @@ inclusion time, we achieve:
   block times
 - **Better scalability**: Off-chain message passing with on-chain commitment
   verification
+- **Unbounded channels**: As many channels and lanes per peer as chains
+  want—no deposits, no relay chain state per channel, no governance in the
+  loop
+- **Native pub-sub**: Broadcast event streams any chain can subscribe to
+  unilaterally—oracle feeds, notifications—a long-requested capability
+  ([#606](https://github.com/paritytech/polkadot-sdk/issues/606)) that HRMP
+  has no answer to, delivered here without a single byte of relay chain
+  state per feed or subscriber
 - **Compatibility with Low-Latency v2**: Works seamlessly with older relay
   parents
 
@@ -109,6 +117,13 @@ For many cross-chain use cases, 12-18+ second messaging latency is prohibitive:
 - **User Experience**: Multi-chain dApps feel sluggish when every cross-chain
   action takes 20+ seconds
 
+And beyond latency, HRMP simply lacks primitives the ecosystem keeps asking
+for: one-to-many dissemination (an oracle publishing the DOT price to every
+interested chain—the motivating example of
+[#606](https://github.com/paritytech/polkadot-sdk/issues/606)) has no
+efficient HRMP shape at all (n channels, n copies of every message, n× relay
+state), and channels themselves are scarce, deposit-gated resources.
+
 ### The Opportunity
 
 By moving message coordination off-chain and using cryptographic commitments for
@@ -116,7 +131,9 @@ verification, we can:
 
 1. Achieve messaging latencies comparable to parachain block times
 2. Remove message data from relay chain state entirely
-3. Build super chains
+3. Make channels abundant and add pub-sub—one broadcast stream serves any
+   number of subscribers at zero marginal cost
+4. Build super chains
 
 ---
 
@@ -141,6 +158,28 @@ verification, we can:
 
 6. **Horizontal Scaling**: Maintain Polkadot's horizontal scaling
    properties—full nodes only need to follow chains they care about.
+
+7. **Richer Primitives**: Make channels abundant (no deposits, no per-channel
+   relay state, multiple lanes per peer) and provide native pub-sub event
+   streams ([#606](https://github.com/paritytech/polkadot-sdk/issues/606))—
+   subscribe unilaterally, zero marginal cost per subscriber.
+
+---
+
+## Non-Goals
+
+1. **Sender-stalling delivery guarantees**: "guaranteed delivery" here means
+   a channel either advances past a message or stalls at it—we never stall
+   the *sender's* block production waiting for receipt (see the Delivery
+   Contract).
+2. **Relay-chain-managed channels**: no channel registry, deposits, or
+   flow-control enforcement on the relay chain. Channels, event streams and
+   any future semantics are parachain-layer conventions over stream ids the
+   relay chain never sees; it holds one fixed-size commitment window per
+   sender and nothing else.
+3. **Message confidentiality**: payloads are public, as all chain data is.
+4. **Cross-source ordering**: ordering is guaranteed within a stream only;
+   no ordering relation is defined between streams or between sources.
 
 ---
 
@@ -179,26 +218,32 @@ efficient proofs for late-arriving blocks.
 Instead of routing messages through relay chain state, we:
 
 1. **Accumulate Messages**: Each chain maintains append-only message
-   *streams* (MMRs), identified by opaque stream ids. The standard layout is
-   one stream per destination, plus optional broadcast streams—but the ids'
-   meaning is parachain convention, invisible to the relay chain.
+   *streams* (MMRs), identified by structured stream ids the relay chain
+   never sees. The standard layout: one channel stream per channel a chain
+   sends on, one ack register per channel it receives on, plus optional
+   broadcast streams—the ids' meaning is parachain convention.
 
-2. **Emit Commitments**: Sending chains emit a "provides" commitment (the set
-   of stream roots that changed in this block); receiving chains emit
-   "requires" commitments (the streams they depend on, by explicit
-   `(sender, stream)` key, with the expected root).
+2. **Emit Commitments**: Sending chains commit **one hash** per block—the
+   `StreamsRoot`, root of a keyed commitment tree over all their stream
+   roots. Receiving chains emit "requires" commitments: one
+   `(source, StreamsRoot)` entry per source chain whose streams they depend
+   on in this block.
 
 3. **Off-Chain Coordination**: Collators exchange messages directly, without
    relay chain involvement.
 
-4. **Relay Chain Enforcement**: At inclusion time, the relay chain verifies that
-   all "requires" are satisfied by corresponding "provides".
+4. **Relay Chain Enforcement**: At inclusion time, the relay chain verifies
+   that all "requires" are satisfied by corresponding "provides"—a hash
+   membership check against a small per-sender window of recent
+   `StreamsRoot`s. It never sees streams, positions, or proofs.
 
-5. **Extension Proofs**: Requires may reference an older root than the
-   sender's current provides—an MMR extension proof bridges the gap. Carried
-   in the block body (catch-up: a lagging receiver consumes only part of a
-   backlog) or in the POV (late block: an already-authored block resubmitted
-   after the provides moved on).
+5. **Proofs, all parachain-side**: The receiver's own runtime (or the PVF)
+   verifies everything below the top hash: tree inclusion proofs connect a
+   stream's root to the sender's `StreamsRoot`; MMR extension proofs bridge
+   an older consumption point to a current root. Carried in the block body
+   (catch-up: a lagging receiver consumes only part of a backlog) or in the
+   POV (late block: an already-authored block resubmitted after the window
+   moved on).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -212,11 +257,11 @@ Instead of routing messages through relay chain state, we:
 ┌─────────────────────────────────────────────────────────────────────┐
 │                  Speculative Messaging (Fast)                       │
 ├─────────────────────────────────────────────────────────────────────┤
-│  Chain A Block    →    Off-chain     →    Chain B Block             │
-│  (provides: MMR root)  msg passing        (requires: A's MMR root)  │
-│                        ~block time                                  │
+│  Chain A Block      →     Off-chain    →   Chain B Block            │
+│  (provides:               msg passing      (requires:               │
+│   StreamsRoot(A))         ~block time       (A, StreamsRoot(A)))    │
 │                                                                     │
-│  Relay chain only verifies: provides(A) satisfies requires(B)       │
+│  Relay chain only verifies: requires(B) ∈ recent provides of A      │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -226,8 +271,8 @@ Instead of routing messages through relay chain state, we:
 │  (provides: R_N)                       (provides: R_{N+K})          │
 │                                                                     │
 │  Chain B Block M (built against R_N, arrives late)                  │
-│  POV includes: proof that R_{N+K} extends R_N                       │
-│  PVF lifts B's requires from R_N to R_{N+K} before matching         │
+│  POV includes: proof lifting B's dependency from R_N to R_{N+K}     │
+│  PVF verifies it and rewrites B's requires before matching          │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -238,165 +283,351 @@ Instead of routing messages through relay chain state, we:
 ### Message Accumulators and Streams
 
 Each parachain maintains a set of append-only message **streams**—one Merkle
-Mountain Range (MMR) each—identified by an opaque `StreamId`:
+Mountain Range (MMR) each—identified by a `StreamId`. Ids are
+**relay-invisible, parachain-structured**: the relay chain never interprets
+(or even sees) an id—only the `StreamsRoot` reaches it; ids exist in tree
+paths, proofs and networking. The parachain protocol therefore defines them
+outright:
 
 ```rust
-/// Opaque stream identifier, scoped to the sending chain: the full stream
-/// key is (sender ParaId, StreamId), with the sender implicit wherever the
-/// context is the sender's own candidate. The relay chain never interprets
-/// the id—what a stream *means* (directed to whom, broadcast, lossy,
-/// ordered, one of several lanes to the same peer) is parachain-layer
-/// convention (see Stream Conventions below). u64: wide enough for the
-/// standard conventions to embed a ParaId plus a tag, with room to spare.
-struct StreamId(u64);
+/// Stream identifier, scoped to the sending chain: the full stream key is
+/// (sender ParaId, StreamId), with the sender implicit wherever the
+/// context is the sender's own candidate.
+///
+/// StreamId has a MANUAL, CANONICAL SCALE ENCODING (no derive), and that
+/// encoding is used everywhere—wire, storage, and as the commitment-tree
+/// key. One format, always exactly 8 bytes:
+///
+///   Channel   → 0x00 ++ recipient.to_be_bytes() ++ [domain] ++ num.to_be_bytes()
+///   Ack       → 0x01 ++ recipient.to_be_bytes() ++ [domain] ++ num.to_be_bytes()
+///   Broadcast → 0x02 ++ domain.to_be_bytes() ++ [subdomain] ++ num.to_be_bytes()
+///   Private   → kind ++ body
+///               kinds 0x03..=0x7F: reserved for future standard kinds
+///               kinds 0x80..=0xFF: private use—body semantics defined by
+///                                  the chain, never assigned by the
+///                                  standard
+///
+/// The kind byte doubles as the variant discriminant; multi-byte fields
+/// are big-endian, so the encoding, compared lexicographically, sorts
+/// like the field tuple compared numerically (kind subtrees cluster in
+/// the trie; sequential ids are neighbors). Note this deliberately
+/// deviates from default SCALE integer encoding (little-endian)—which is
+/// exactly why the impl is manual: SCALE-encoding a StreamId IS the
+/// sanctioned key derivation, and there is no second format to confuse
+/// it with.
+///
+/// This encoding is CONSENSUS-CRITICAL and frozen: every implementation
+/// must reproduce it bit-identically (a receiver derives the same trie
+/// path the sender used), locked by test vectors in the primitives.
+/// Decode enforces canonicality (decode∘encode = identity; fixed length,
+/// no redundant encodings) and REJECTS reserved kinds 0x03..=0x7F: no
+/// correct consensus path ever decodes a kind it does not know (you only
+/// key your own streams and streams you chose to consume), so an unknown
+/// kind is a loud boundary error, not a value. Tooling that walks foreign
+/// trees parses raw key bytes with its own lenient presentation parser.
+///
+/// One uniform rule: a stream id's ParaId field names the chain the
+/// stream is ADDRESSED TO—its `recipient`, the party that reads it. A
+/// channel's messages are for the recipient; a register is for the chain
+/// it grants credit to. Broadcast streams have no addressee, hence no
+/// field.
+enum StreamId {
+    Channel   { recipient: ParaId, domain: u8, num: u16 },
+    Ack       { recipient: ParaId, domain: u8, num: u16 },
+    Broadcast { domain: u16, subdomain: u8, num: u32 },
+    /// `kind >= 0x80`; 7 body bytes, chain-defined.
+    Private   { kind: u8, body: [u8; 7] },
+}
 ```
 
-**Standard conventions** (parachain-layer; the relay chain is oblivious):
+**Domain / subdomain are reserved fields—set to 0 by default.** The
+transport treats a kind's whole body as one opaque discriminator; the named
+fields are *allocation convention*, not protocol semantics (port-ranges
+logic: TCP doesn't know well-known from ephemeral, allocation policy does).
+Their intent: a chain can delegate address space to applications—hand a
+pallet or contract subsystem a `domain`, within which it manages `num`
+autonomously; broadcast gets a second level (`subdomain`) for app-internal
+classes. Until a chain does this, everything runs at domain 0, and APIs may
+hide the fields entirely.
 
-- **Direct stream** `Dest(ParaId)`: one stream per destination, carrying the
-  ordered, flow-controlled channel protocol (see
-  [Channels and Flow Control](#channels-and-flow-control)). This is the
-  HRMP-replacement workhorse.
-- **Broadcast stream** `Broadcast(n)`: sender-wide event streams, no
-  addressee, lossy latest-wins consumption by any interested chain (see
-  [Event Streams](#event-streams)). `n` leaves room for per-topic streams.
-- Anything else two chains agree on—e.g. multiple independent reliable
-  lanes to one peer (the channel handshake can negotiate ids), an
-  out-of-band priority lane, or semantics not yet invented—deployable
-  without relay chain changes, by construction.
+Two properties fall out of the structured definition:
 
-The standard layout for plain chain-to-chain messaging:
+- **Deterministic addressing**: `Channel { recipient, 0, 0 }` is computable
+  by both sides—no id negotiation, no directory. B knows which of A's
+  streams to watch and which tree key to verify before any contact.
+- **Trivial extensibility, no versioning needed**: unlike message payloads
+  (which ordered consumption *must* parse), a stream id never has to be
+  understood—a chain simply doesn't consume streams whose kind it doesn't
+  know. Unknown kinds are inert, not errors, so new kinds are pure tag
+  assignments: standard ones from the reserved range, chain-specific
+  semantics in the private range, collision-free by construction.
+
+**The standard kinds** (what the tags mean):
+
+- **Channel stream** `Channel { recipient, domain, num }`: ordered,
+  flow-controlled, guaranteed delivery, **unidirectional**—the
+  HRMP-replacement workhorse (see
+  [Channels and Flow Control](#channels-and-flow-control)). The
+  discriminator allows any number of independent channels to the same
+  recipient.
+- **Ack stream** `Ack { recipient, domain, num }`: the lossy confirmation
+  register the *receiver* of a channel maintains, addressed to the
+  channel's sender—same discriminator as the channel, kind flipped,
+  recipient swapped to the other end: acceptance, watermark, credit and
+  close in one latest-wins blob, read out-of-band (see
+  [Flow Control](#flow-control)). Naming note: despite the id's name, these
+  carry *confirmations* between parachains—unrelated to Low-Latency v2's
+  collator *acknowledgements* (see the Terminology note in Channels and
+  Flow Control).
+- **Broadcast stream** `Broadcast { domain, subdomain, num }`: sender-wide
+  event streams, no addressee, lossy latest-wins consumption by any
+  interested chain (see [Event Streams](#event-streams)).
+- Anything else a chain wants—an out-of-band priority lane, or semantics
+  not yet invented—rides a private-use kind, deployable without anyone's
+  coordination, by construction.
+
+The standard layout for plain chain-to-chain messaging (domain/subdomain
+zeros elided):
 
 ```
-Chain A (sender):
-  ├── stream Dest(B)      → [Msg1, Msg2, Msg3, ...]   (ordered channel A→B)
-  ├── stream Dest(C)      → [Msg1, Msg2, ...]         (ordered channel A→C)
-  └── stream Broadcast(0) → [Evt1, Evt2, ...]         (events, any subscriber)
+Chain A:
+  ├── Channel{B, 0}   → [Msg1, Msg2, Msg3, ...]  (A's channel to B)
+  ├── Channel{C, 0}   → [Msg1, Msg2, ...]        (A's channel to C)
+  ├── Ack{B, 0}       → [.., Register]           (belongs to a DIFFERENT
+  │                                               channel: B's channel to A,
+  │                                               if B opened one)
+  └── Broadcast{0}    → [Evt1, Evt2, ...]        (events, any subscriber)
 ```
 
-**Why per-destination streams (for the direct convention)?**
+Channels are unidirectional: each one is a sender's data stream plus the
+*receiver's* register. So A's `Channel{B, 0}` is completed by a stream in
+*B's* set—B's `Ack{A, 0}`—not by anything of A's. The `Ack{B, 0}` shown
+above is A playing receiver in the opposite-direction channel, which exists
+only if B opened it; a chain that only ever sends to B has no Ack streams
+at all.
+
+**Why per-destination streams (for the channel convention)?**
 - Receiver only cares about their own stream—high volume to other chains
   does not affect them
 - Proof size: O(log m) where m = messages to that receiver
 - Late block proofs only grow with messages to that specific receiver
 
-The commitment is **flat**: the candidate commits to the set of stream
-roots directly, as a canonical sorted list of `(StreamId, MmrRoot)` pairs.
-There is no top-level Merkle tree over the stream roots.
+Multiple channels to the same recipient are supported (distinct
+discriminators) and inherit all of the above. One caveat belongs with that
+choice: the no-selective-censorship property of ordered delivery holds
+*per channel*—within one channel, the receiver's collators can only stall
+everything or nothing; across several channels they can stall one lane
+while advancing another. Splitting traffic over multiple channels is
+therefore also choosing the granularity at which censorship is
+all-or-nothing (see [Censorship Profile](#censorship-profile) for the same
+consideration in stronger form for event streams).
 
-**Why flat and not a top-level Merkle commitment?**
+#### The Stream Commitment Tree
 
-An earlier revision of this design (≤ 0.2) committed to a single top-level
-Merkle root over all per-destination MMR roots. The analysis on
-[PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449) showed that
-for realistic destination counts (D = 10–100) the flat list wins:
+A sender's block commits to *all* its streams with **one hash**: the
+`StreamsRoot`, root of a keyed commitment tree whose entries are
+`StreamId → stream MMR root`. This is the only thing the relay chain ever
+stores or compares—everything below it is proven parachain-side.
 
-| Scheme | `provides` size | Late proof (top-level part) | Live matching |
-|---|---|---|---|
-| Top-level Merkle root | 32 B | ~2 × log₂(D) hashes ≈ 250–450 B | hash == hash |
-| Flat `(StreamId, Hash)` list | ~40 B × entries | none | lookup by stream key |
+```rust
+/// Root of a sender's stream commitment tree: a binary compact (Patricia)
+/// trie keyed by the canonical SCALE encoding of StreamId (8 bytes),
+/// leaves = the streams' MMR roots.
+/// Distinct newtype from MmrRoot—the two kinds of root flow through
+/// different checks and must not be confusable.
+struct StreamsRoot(Hash);
 
-- **No inclusion proofs**: the receiver's expected root is directly an entry in
-  the sender's provides set—top-level Merkle inclusion proofs (and their two
-  extra fields in `LateBlockProof`) disappear entirely.
-- **Late proofs only when the pair changed**: with a top-level root, a message
-  to *any* destination changes the sender's commitment, forcing every
-  slightly-late receiver into a late block proof. With per-stream roots, a late
-  proof is only needed when the sender appended messages *to this specific
-  receiver* in the meantime.
-- **Stable under stream-set changes**: adding/removing a stream in a
-  Merkle tree repositions leaves and invalidates in-flight proofs referencing
-  old sibling paths. In the flat list, entries are looked up by `StreamId`;
-  in-flight references stay valid.
-- **Cost**: commitment size grows linearly with the number of destinations
-  *touched in this block* (typically 1–2 entries, ~36 B each). A Merkle
-  commitment only wins back at D ≫ 100 simultaneous destinations per block; we
-  cap the number of entries (see [Practical Limits](#practical-limits)) instead.
+/// Proof that one stream's MMR root is the entry at its StreamId under a
+/// given StreamsRoot: the sibling hashes along the id's path through the
+/// trie (~log₂(S) of them) plus the path-compression metadata the compact
+/// trie structure requires. The verifier reconstructs the path from
+/// (StreamId, MmrRoot) upward and compares the result against the
+/// StreamsRoot—id and root are both bound by the path, neither is taken on
+/// faith.
+///
+/// The node encoding is CONSENSUS-CRITICAL and protocol-fixed: every
+/// implementation must reproduce byte-identical StreamsRoots and every
+/// foreign node must verify these proofs. The concrete byte format is
+/// specified with the primitives (companion to the #12346 family), under
+/// two constraints mandated here: domain-tagged node hashing with no
+/// ambiguous parses (same rationale as Leaf Hashing), and injective node
+/// encoding.
+struct TreeInclusionProof {
+    siblings: Vec<Hash>,
+    // + compact-trie path metadata
+}
+```
+
+An example: chain A runs a channel to B (ParaId 2001 = `0x7D1`) with B's
+ack register for the reverse channel, a channel to C (`0x7D2`), and one
+broadcast stream. Four keys, and the tree they span (binary trie, shared
+key prefixes compressed into single edges):
+
+```
+Keys (kind ++ recipient ++ domain ++ num, hex):
+  Channel{B}    00 000007D1 00 0000
+  Channel{C}    00 000007D2 00 0000
+  Ack{B}        01 000007D1 00 0000
+  Broadcast{0}  02 0000 00 00000000
+
+                        StreamsRoot
+                       /           \
+              (kind 0x00..)      (kind 0x01|0x02..)
+               /        \          /            \
+     ..07D1 0000..  ..07D2 0000..  01..07D1..    02..00..
+     Channel{B}     Channel{C}     Ack{B}        Broadcast{0}
+     = MMR root     = MMR root     = MMR root    = MMR root
+
+Inclusion proof for Channel{B} = the sibling hash at each branch on its
+path: H(Channel{C} leaf), H(subtree of Ack + Broadcast) — 2 hashes here.
+```
+
+Everything between branch points is one compressed edge, so the tree has
+exactly one branch per *distinguishing* bit among the keys present—proof
+length tracks the number of streams, not the key width.
+
+Properties the tree must have, and why a keyed binary trie:
+
+- **Inclusion proofs O(log S)** (S = the sender's stream count): a receiver
+  proves "stream X has root R under StreamsRoot T" with ~log₂(S) hashes
+  (~300 B at S=100, sibling paths shared when proving several streams of
+  one sender at once).
+- **Stable under insertion**: adding a stream perturbs only the insert
+  path—it does not reposition other leaves (a *positional* Merkle tree over
+  a sorted list would; that instability was a correct objection against the
+  hierarchical scheme in the 0.3 analysis, and it is an artifact of the
+  positional structure, not of hierarchy).
+- **Cheap maintenance**: the sender updates k touched leaves per block in
+  O(k·log S) hashes; node storage O(S). Trivial at realistic stream counts.
+- **Domain-separated hashing**: tree leaf and inner nodes carry distinct
+  hash tags, same discipline and same attack rationale as the message MMR
+  (see [Leaf Hashing](#leaf-hashing-and-domain-separation))—a leaf must
+  never be parseable as an inner node or vice versa.
+
+**History: why the aggregated commitment, when 0.3 deliberately removed
+it?**
+
+Version ≤0.2 had a top-level commitment; the
+[PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449) analysis
+flattened it into per-destination entries—correctly, *for its regime*:
+10–100 destination entries per sender, requires keyed to the receiving
+para, and only transient costs (receipt size, PoV bytes) in play. The
+analysis stated its own reversal condition: the aggregated commitment
+"wins back" once entry counts grow.
+
+Streams crossed that line, twice over:
+
+- **Entry counts multiply**: channel + ack + broadcast streams, several per
+  peer, unbounded in principle.
+- **A new cost class appears** that the 0.3 analysis never had to price: a
+  flat scheme keys *persistent relay state* by stream, dragging in
+  permanence rules for dormant entries, a per-sender stream budget, and
+  offboarding hygiene.
+
+The tree removes the entire per-stream relay footprint at once: provides is
+32 B regardless of stream count, requires is bounded by the number of
+*parachains*, and how many streams a chain runs is nobody's business but
+its own. Read that as the user-facing headline it is: **outbound streams
+are effectively unbounded and free**. Where HRMP rations channels through
+deposits and relay state, and a flat stream scheme would have needed a
+per-sender budget, a chain here opens as many channels, lanes and topic
+feeds as it likes—the only party paying for a stream is the chain running
+it. What we pay, honestly: receivers carry ~300 B of inclusion proofs
+per source per consuming block, late block proofs regain an inclusion
+component, and proof-free lag tolerance denominates in sender blocks rather
+than per-stream changes (see
+[Relay Chain Matching](#relay-chain-matching) for why that tolerance is
+cheap to buy).
 
 ### Candidate Commitments (Verified by Relay Chain)
 
-The commitments are minimal—just the stream roots needed for relay
-chain verification. They are transported as UMP signals
+The commitments are minimal—one hash out (the sender's `StreamsRoot`), a
+bounded per-source set in (the receiver's dependencies). They are
+transported as UMP signals
 ([#12347](https://github.com/paritytech/polkadot-sdk/issues/12347)) rather than
 new fields in `CandidateCommitments`, so no candidate receipt format change is
 needed:
 
 ```rust
-/// Root of a message stream MMR (bagged peaks).
+/// Root of a single message stream's MMR (bagged peaks).
 ///
-/// Newtype over `Hash`: roots flow through every layer (commitments, relay
-/// storage, wire batches, extension proofs) alongside block hashes, leaf
-/// hashes and peaks—confusing them must not typecheck. Leaf and inner-node
+/// Newtype over `Hash`: roots flow through every layer (tree leaves, wire
+/// batches, extension proofs) alongside block hashes, leaf hashes, peaks
+/// and StreamsRoots—confusing them must not typecheck. Leaf and inner-node
 /// hashes stay bare `Hash`: they are internal to the accumulator code and
 /// already domain-separated cryptographically by the hash tags.
 struct MmrRoot(Hash);
 
-/// Canonical, bounded set of (Key, MmrRoot) entries. Manual `Decode`
-/// REJECTS input whose keys aren't strictly increasing (no silent
+/// Canonical, bounded set of (ParaId, StreamsRoot) entries. Manual `Decode`
+/// REJECTS input whose ParaIds aren't strictly increasing (no silent
 /// normalization): the bytes come from untrusted parachain wasm, so
-/// malformed sets (duplicate keys with conflicting roots) must fail
+/// malformed sets (duplicate sources with conflicting roots) must fail
 /// loudly at the boundary; canonical bytes make decode∘encode the identity
 /// (re-encode-and-hash agrees with the original candidate bytes); and other
 /// implementations only need "sorted, unique, bounded" instead of replicating
 /// a lenient parser's quirks. Construction is sealed: `try_from_iter` (sorts,
 /// rejects duplicates) and `Decode` are the only ways in; no mutable access.
 ///
-/// Two instantiations: provides entries are keyed by the sender's own
-/// StreamId (sender implicit—it's the sender's candidate); requires entries
-/// name the full stream key (ParaId, StreamId), since a receiver may depend
-/// on any chain's streams.
-struct CommitmentSet<Key>(BoundedVec<(Key, MmrRoot), MaxCommitmentEntries>);
-
-type ProvidesSet = CommitmentSet<StreamId>;
-type RequiresSet = CommitmentSet<(ParaId, StreamId)>;
+/// One entry per SOURCE, not per stream: the StreamsRoot covers all of that
+/// source's streams at once, so the set is naturally bounded by the number
+/// of parachains a receiver consumes from.
+struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), MaxCommitmentEntries>);
 
 enum UMPSignal {
     // ... existing signals ...
-    /// Sender side: (stream, root) for every stream that changed in this
-    /// block.
-    ProvidesRoots(ProvidesSet),
-    /// Receiver side: ((sender, stream), expected root) for every stream we
-    /// depend on in this block.
+    /// Sender side: the root of our stream commitment tree after this
+    /// block. One hash, constant size. Emitted only by blocks that touched
+    /// at least one stream—an untouched tree has an unchanged root, and
+    /// re-emitting it would only push a duplicate into the relay window.
+    Provides(StreamsRoot),
+    /// Receiver side: (source, expected StreamsRoot) for every source chain
+    /// whose streams we depend on in this block.
     ///
-    /// Relay semantics: the named root must be (or be lifted via extension
-    /// proof to) a committed root of that stream—in-block for catch-up
-    /// during normal operation, POV-carried for late blocks (see Catch-Up
-    /// and Late Block Proofs). What the dependency *means* is convention:
-    /// for the standard channel protocol it asserts consumed messages are a
-    /// *prefix* of this root (NOT consumed exactly up to it); for event
-    /// streams it anchors inclusion proofs. Consumption depth is therefore
-    /// not derivable from requires; don't build acknowledgement or pruning
-    /// logic on it—the Confirm signals of
-    /// [Channels and Flow Control](#channels-and-flow-control) carry the
-    /// consumption watermark instead.
-    RequiresRoots(RequiresSet),
+    /// Relay semantics: the named root must be a recently committed
+    /// StreamsRoot of that source (window membership; the PVF may have
+    /// rewritten the entry to a current one via a late block proof—see Late
+    /// Block Proofs). Everything below the hash is the receiver's own
+    /// business, verified in its STF: tree inclusion proofs connect each
+    /// consumed stream's root to this StreamsRoot; what the dependency
+    /// *means* per stream is convention—for channels, that consumed
+    /// messages are a *prefix* of the stream root (NOT consumed exactly up
+    /// to it); for event streams, that inclusion proofs anchor to it.
+    /// Consumption depth is therefore not derivable from requires; don't
+    /// build acknowledgement or pruning logic on it—the Register of
+    /// [Flow Control](#flow-control) carries the consumption watermark
+    /// instead.
+    Requires(RequiresSet),
 }
 ```
 
-Note that the expected root in a requires entry is the root of one specific
-stream of the source, not any aggregate over the source's other streams.
+**Terminology: the anchor.** We call the `StreamsRoot` a requires entry
+names the block's **anchor** for that source: everything the block consumed
+from the source—whatever streams, however far—is proven (in the block's own
+STF) *under* that one root. "Anchoring a stream" means supplying the tree
+inclusion proof (plus, when lagging, an extension proof) that connects the
+consumed stream state to the anchor.
 
-The relay chain matches each "requires" entry against committed roots of the
-named stream. A parachain block will only be made available/enacted when all
-its "requires" are provided. **Who** requires a stream is unrestricted:
-a requires entry only constrains the *requiring* candidate's enactment
-(atomic groups need mutual requires, i.e. both parties opting in), so
-third-party dependencies are self-imposed and harmless—and unilateral
-broadcast subscription falls out for free.
+The relay chain matches each requires entry against the recent
+`StreamsRoot`s of the named source. A parachain block will only be made
+available/enacted when all its requires are provided. **Who** requires a
+source is unrestricted: a requires entry only constrains the *requiring*
+candidate's enactment (atomic groups need mutual requires, i.e. both
+parties opting in), so third-party dependencies are self-imposed and
+harmless—and unilateral broadcast subscription falls out for free.
 
-Since a block only emits provides entries for streams it actually appended
-to, the relay chain maintains the **latest root per stream** in storage
-(comparable in footprint to today's per-channel HRMP state, ~44 B per
-active stream). Additionally, it keeps a small window of recent roots per
-stream (see [Relay Chain Matching](#relay-chain-matching)), so receivers
-that are only a few blocks behind match directly without a late block proof.
+Relay chain storage is one small ring per sender—the last W `StreamsRoot`s
+(see [Relay Chain Matching](#relay-chain-matching))—so receivers that are a
+few sender blocks behind match directly without any proof. Note what the
+relay chain does *not* store: anything per stream. Stream count, existence,
+addressing and dormancy are invisible to it; a chain can run three streams
+or three thousand without touching relay chain state size.
 
 ### Parachain Runtime State (Internal)
 
 Each parachain runtime maintains internal state for message tracking.
 
 ```rust
-/// Index of a message (= leaf) in a per-destination MMR, starting at 0.
+/// Index of a message (= leaf) in a stream's MMR, starting at 0.
 ///
 /// Positions are never stored per message: they are always derived as
 /// `frontier leaf count + index into the current block's message vec`. They
@@ -452,8 +683,8 @@ struct IncomingMessageState {
 
 struct SourceState {
     /// Frontier of the stream's MMR as far as we have processed it (channel
-    /// consumption; event-stream subscribers keep per-topic highwaters
-    /// instead—see Event Streams). Both the last processed position (= the
+    /// consumption; event-stream subscribers keep a single highwater
+    /// position instead—see Event Streams). Both the last processed position (= the
     /// frontier's leaf count) and the root we built against (bag the peaks)
     /// are derived from it: we append incoming message leaves and recompute
     /// the root ourselves.
@@ -461,41 +692,137 @@ struct SourceState {
 }
 ```
 
-Note there is no stored root anywhere—on either side. The stream roots
-that go into `ProvidesRoots` and `RequiresRoots` are computed on demand from
-the respective frontiers. Storing a root would just cache a computable value
-and add an invariant to maintain.
+The sender additionally maintains its **stream commitment tree** (see
+[The Stream Commitment Tree](#the-stream-commitment-tree)): node storage
+O(S), updated along the paths of the k streams touched per block—
+O(k·log S) hashes—yielding the block's `StreamsRoot`.
+
+Note there is no stored *stream* root anywhere—on either side. The stream
+roots that feed the commitment tree and the receiver's checks are computed
+on demand from the respective frontiers. Storing one would just cache a
+computable value and add an invariant to maintain.
 
 **Sender lifecycle**: the stored frontier is bumped in the same step that
 clears `OutboundMessages`—at the *next* block's initialization, appending the
 previous block's leaves. During all of block N the stored frontier therefore
 reflects the state as of block N−1, so `position = leaf_count + i` holds
-unchanged throughout the block, including in its finalization. The root
-committed in block N's `ProvidesRoots` is computed transiently at block end
-(bag the stored frontier plus this block's leaves in memory) without
-persisting. One write per (block, destination), no mid-block ordering hazard,
-and clear + bump are one atomic step. The messages of block N remain readable
-in block N's state, which is where the collator extracts them.
+unchanged throughout the block, including in its finalization. The stream
+roots of block N (stored frontier plus this block's leaves, bagged in
+memory) are computed transiently at block end and folded into the
+commitment tree, whose new root is committed as block N's `Provides`—one
+tree-path write per touched stream, no mid-block ordering hazard, and
+clear + bump are one atomic step. A block that touched no stream folds
+nothing and emits no `Provides`. The messages of block N remain available
+at block N—collators extract them via the runtime API below, never by
+reading storage directly.
+
+```
+Block N init:      append block N−1's OutboundMessages to frontiers,
+                   clear OutboundMessages            (one atomic step)
+Block N execution: sends host-append to OutboundMessages;
+                   positions = frontier.leaf_count + i (frontier untouched)
+Block N end:       stream roots = bag(frontier + this block's leaves),
+                   fold touched roots into tree      (transient, in memory)
+                   → emit Provides(new StreamsRoot), deposit header digest
+Block N+1 init:    ...same cycle; now the frontier catches up to N.
+```
+
+#### Runtime API (the Node–Runtime Boundary)
+
+Collators never read messaging storage directly; everything the node side
+needs crosses this API. It is also the completeness check for the design:
+if authoring or serving needs a fact not listed here, something is missing.
+
+```rust
+type Payload = Vec<u8>;
+
+/// Called at a block of this chain: that block's sends, per stream—what a
+/// collator extracts for delivery and appends to its archive.
+fn outbound_messages() -> Vec<(StreamId, Vec<Payload>)>;
+
+/// Everything this chain currently consumes, with resume state: what the
+/// inherent provider must fetch, and from which position.
+///
+/// Deliberately unpaginated: this is a node-local call—no PoV, no weight,
+/// no consensus limit of any kind. The only bound is wasm memory and call
+/// time, i.e. tens of MB at a *million* entries; realistic consumed-stream
+/// counts are orders of magnitude below. Pagination would be API surface
+/// for a regime that can't occur.
+fn consumed_streams() -> Vec<ConsumedStream>;
+
+struct ConsumedStream {
+    source: ParaId,
+    stream: StreamId,
+    resume: ResumeState,
+}
+
+enum ResumeState {
+    /// Ordered channel: fetch from this position (= the tracked frontier's
+    /// leaf count).
+    Channel { next: MessagePosition },
+    /// Event subscription: fetch only events newer than this (lossy,
+    /// latest-wins—typically only the head matters).
+    Events { highwater: MessagePosition },
+    /// Ack register: lossy; only the current head is ever read.
+    Register,
+}
+
+/// Channel views, both directions—credit and watermark standing, phases,
+/// which ack registers to read (outbound) and which are due a publish
+/// check (inbound). For authoring decisions and diagnostics.
+/// (OutChannelState/InChannelState are defined in Channels and Flow
+/// Control, where the channel protocol is specified.)
+fn out_channels() -> Vec<((ParaId, u8, u16), OutChannelState)>;
+fn in_channels() -> Vec<((ParaId, u8, u16), InChannelState)>;
+```
+
+Inputs flow back into the runtime exclusively through the messaging
+inherent ([#12531](https://github.com/paritytech/polkadot-sdk/issues/12531)):
+fetched batches with their proofs, the anchors the collator selected,
+catch-up proofs, and ack-register reads. The runtime verifies everything
+(see Verification below)—the API and the inherent are a trust boundary,
+not a trusted channel.
+
+**Recovery from downtime falls out of this split.** All authoring-relevant
+state is consensus state behind the API—a returning collator syncs its
+chain and resumes: `consumed_streams()` says where fetching continues;
+already-consumed messages need no refetch (state reflects them). The one
+node-local structure, the sender-side archive, rebuilds during sync if the
+node executes the missed blocks (each block's `outbound_messages()`
+regenerates in passing); a node syncing without execution instead fetches
+the missing range from its own chain's other nodes—the ordinary fetch
+protocol, pointed at one's own streams.
 
 ### Off-Chain Communication (Between Collators)
 
 Messages are exchanged off-chain between collators. The relay chain never sees
-message contents—only commitments.
+message contents—only commitments. This section defines the wire data
+(batches), the fetch protocol (how receivers obtain them), and how received
+data is verified. It is normative for interoperability: the two ends are
+implemented by different chains' collators.
+
+#### Wire Format
 
 ```rust
 /// What a sender shares with receivers (off-chain)
 struct MessageBatch {
     /// Source chain and stream (for the channel protocol: the source's
-    /// Dest(receiver) stream)
+    /// Channel{recipient, domain, num} stream)
     source: ParaId,
     stream: StreamId,
     /// Source block that produced these messages
     source_block: Hash,
-    /// The stream's MMR root after this block. For a candidate-final block this is the root committed in
-    /// `ProvidesRoots`; for blocks batched into one candidate (Basti blocks)
-    /// intermediate roots are never committed and serve only as integrity
-    /// checkpoints during fetching.
+    /// The stream's MMR root after this block. For a candidate-final block
+    /// this is the root committed (under the StreamsRoot) by that block.
+    /// When several parachain blocks are bundled into one candidate/POV
+    /// ("Basti blocks"), only the bundle-final block's state reaches a
+    /// commitment—intermediate blocks' roots are never committed and serve
+    /// only as integrity checkpoints during fetching.
     root: MmrRoot,
+    /// Tree inclusion proof: `root` is this stream's entry under the source
+    /// block's committed StreamsRoot (absent for intermediate batched
+    /// blocks, whose roots are uncommitted checkpoints). ~log₂(S) hashes.
+    tree_proof: Option<TreeInclusionProof>,
     /// Position of the first message. Trust-free convenience: verification
     /// never relies on it (see below)—it serves fetch-protocol addressing
     /// and clean error reporting on mismatch.
@@ -516,48 +843,86 @@ struct MessageBatch {
 }
 ```
 
-With the flat commitment there is nothing left to prove about tree structure:
-no `provides_root` / `subtree_root` distinction and no inclusion proof. The
-receiver verifies by *recomputing*:
+#### Fetch Protocol
+
+Addressing is always by *(stream, message position)*, never by block.
+Per-stream positions are dense (0, 1, 2, ... with no gaps, by construction),
+so a receiver resuming after downtime does not traverse the sender's blocks
+looking for ones that wrote to its stream—source blocks that wrote nothing
+simply don't occupy position space. Blocks appear only as batch boundaries
+in responses.
+
+```rust
+/// "Give me messages of this stream, from position `start` onward."
+/// Served by the sending chain's full nodes from their (stream, position)
+/// archive (see Networking for archive maintenance and retention).
+struct MessageRangeRequest {
+    /// The requested stream of the serving chain.
+    stream: StreamId,
+    /// Typically the receiver's frontier leaf count.
+    start: MessagePosition,
+    /// Response size bound—fetching stays chunked and resumable no matter
+    /// how large the backlog.
+    max_bytes: u32,
+}
+
+/// Consecutive `MessageBatch`es (each one source block's sends, with its
+/// boundary root), starting at `start`, ending early if `max_bytes` is hit.
+struct MessageRangeResponse {
+    batches: Vec<MessageBatch>,
+}
+
+/// "Where does this stream currently stand?" Lets a resuming receiver size
+/// its backlog and pick the root to catch up toward.
+struct HeadRequest { stream: StreamId }
+struct HeadResponse {
+    /// Leaf count of the stream's MMR.
+    head: MessagePosition,
+    /// Root and source block it was committed in.
+    root: MmrRoot,
+    source_block: Hash,
+}
+```
+
+Everything is bounded by construction: a batch is one source block's sends,
+a response is capped by `max_bytes`—there is no "everything up to the
+current root" request. In the speculative hot path batches are also pushed
+to the destination's collators on block production, not only pulled (see
+[Networking](#networking)).
+
+#### Verification
+
+Received payloads are verified by *recomputation*; the tree proof then ties
+the result to the sender's commitment. Nothing in a batch is taken on
+faith:
 
 1. Hash each payload into its leaf (`H(LEAF_TAG ‖ version ‖ payload)`) and
-   append to the tracked frontier for this source, in batch order. Order and
-   count need no explicit check: appending in any other order or skipping a
-   message yields a different root.
-2. Check the recomputed root equals `root`—a lying `base` or version hint
-   cannot redirect anything, it only makes this check fail.
-3. Authenticate against the source's *committed* state: the root the receiver
-   ultimately requires must be (or be lifted via extension proof to) an entry
-   in an observed `ProvidesRoots` commitment—intermediate batch roots along
-   the way are checkpoints, not trust anchors
-
-**Bounded fetching**: a batch is one source block's sends—bounded by the
-sender's block limits, never "everything up to the current root". Lagging
-receivers fetch a *sequence* of batches via position-addressed range requests
-(see [Networking](#networking)), verify incrementally (each batch's stated
-root checkpoints the recomputed frontier—garbage is detected at the first
-checkpoint, drop the peer, refetch), and consume as much as fits per block,
-requiring a windowed root—directly when the stopping point is one, lifted via
-catch-up proof otherwise.
+   append to the tracked frontier for this stream, in batch order. Order
+   and count need no explicit check: appending in any other order or
+   skipping a message yields a different root.
+2. Check the recomputed root equals the batch's `root`—a lying `base` or
+   version hint cannot redirect anything, it only makes this check fail.
+   When fetching a multi-batch backlog, this check runs per batch: garbage
+   from a bad peer is caught at the first batch boundary, the peer dropped,
+   the range refetched elsewhere.
+3. Verify `tree_proof` connects `root` to an observed `StreamsRoot`
+   commitment of the source (observed via header digest, backed candidate,
+   or relay state—whichever the consumption tier prescribes).
 
 **Consumption boundaries**: a receiving block may stop consuming at any
-point—the choice only decides whether a proof is needed. Proof-free requires
-stopping at a root that is *currently in the relay's per-stream window*. Note a
-source block boundary alone does not guarantee that:
+point—the choice only decides whether an *extension* proof is needed on top
+of the (always present) tree inclusion proof:
 
-1. The boundary root may have slid out of the window (sender kept sending to
-   us).
-2. It may never have been committed at all: when several parachain blocks are
-   batched into one candidate (Basti blocks), only the batch-final root
-   appears in `ProvidesRoots`—intermediate blocks' roots are as uncommitted
-   as a mid-batch stop.
+| Stopping point | Needed to anchor |
+|---|---|
+| Exactly at the stream's entry under a windowed `StreamsRoot` | tree proof only |
+| Anywhere else: mid-batch; an intermediate bundled ("Basti") block whose root never reached a commitment; a boundary whose `StreamsRoot` slid out of the window | tree proof + extension proof (= the catch-up mechanism, see [Catch-Up](#catch-up-partial-consumption-in-normal-operation)) |
 
-Any other stopping point—mid-batch, intermediate batched block, outdated
-boundary—is bridged to a windowed root by an extension proof, which is
-exactly what the catch-up mechanism provides (see
-[Catch-Up](#catch-up-partial-consumption-in-normal-operation)). Per-block
-batch roots still serve as integrity checkpoints during fetching either way;
-they just aren't all *requirable*.
+The non-obvious part of the second row: the window can slide past your
+boundary because the sender kept producing on *any* of its streams, not
+just this one—stopping at a batch boundary is no guarantee of the cheap
+row. Batch roots that aren't anchorable still serve as integrity
+checkpoints during fetching (step 2 above).
 
 #### Leaf Hashing and Domain Separation
 
@@ -627,12 +992,13 @@ primitives, [#12346](https://github.com/paritytech/polkadot-sdk/issues/12346)/
 the "name the attack it prevents" test in this architecture:
 
 - **source / destination**: stream context is already bound *structurally*.
-  Roots are per stream, committed as keyed `(StreamId, root)` entries and
-  stored keyed by `(sender, StreamId)` on the relay—a root never exists
-  detached from its stream. A message in A's `Dest(C)` stream lives only
-  under that stream's root and can never verify against the `Dest(B)` root,
-  regardless of preimage contents. Cross-stream/cross-source replay is
-  impossible without any leaf-level binding.
+  Every stream root lives at its `StreamId`'s key in the sender's
+  commitment tree, and every verification walks a tree proof that binds
+  that key—a root never exists detached from its stream. A message in A's
+  `Channel{C, d, n}` stream lives only under that stream's entry and can
+  never verify against the `Channel{B, d, n}` entry, regardless of
+  preimage contents. Cross-stream/cross-source replay is impossible
+  without any leaf-level binding.
 - **position**: order and multiplicity are what the MMR *is*—appending the
   same payloads in a different order or count yields a different root.
   Nothing is left for a position field to prevent.
@@ -653,30 +1019,54 @@ When the relay chain processes candidates for inclusion, it performs commitment
 matching. The relay chain only sees the minimal commitments (hashes), not
 internal state.
 
-The relay chain maintains, per stream, a small window of the most recent
-provides roots:
+The relay chain maintains **one small ring per sender**—the last W committed
+`StreamsRoot`s—and nothing else:
 
 ```rust
-/// Bounded ring of the last W provides roots for one stream. Pushed on each
-/// inclusion of a sender candidate whose ProvidesRoots carries an entry for
-/// this stream; oldest root drops out. This is the only historical-root
-/// storage anywhere in the system—parachain runtimes keep frontiers only,
-/// which reproduce just the current root.
-struct RecentRoots(BoundedVec<MmrRoot, ConstU32<W>>);
+/// Bounded ring of the last W StreamsRoots of one sender. Pushed on each
+/// enactment of a sender candidate that emitted a Provides signal (idle
+/// blocks push nothing—an inactive sender's window never expires); oldest
+/// root drops out. This is the only historical-commitment storage anywhere
+/// in the system—parachain runtimes keep frontiers and tree nodes, which
+/// reproduce only the current state.
+struct RecentRoots(BoundedVec<StreamsRoot, ConstU32<W>>);
 
-RecentProvides: StorageMap<(ParaId, StreamId), RecentRoots>,
+RecentProvides: StorageMap<ParaId, RecentRoots>,
 ```
 
-The window means a receiver that built against a root from a few sender blocks
-ago still matches directly—extension proofs (catch-up or late block) are only
-needed when the sender out-ran the window. W is thus the proof-free lag
-tolerance, at a cost of W × 32 B per active stream.
+Total relay chain state for all of messaging: W × 32 B per registered
+sender—**fixed-size, independent of how many streams, channels or
+subscribers exist**. Pruned as a whole when the sender offboards; there is
+nothing finer-grained to manage.
+
+#### Window Depth
+
+A receiver anchors its block to a `StreamsRoot` it observed at *authoring*
+time; matching happens against relay state at *inclusion*. W must therefore
+cover the sender blocks produced during the candidate pipeline (authoring →
+backing → inclusion, ~2–3 relay blocks ≈ 12–18 s in normal operation).
+Since the window slides one entry per provides-emitting sender block:
+
+| Sender block time | Sender blocks in 18 s | W = 128 covers |
+|---|---|---|
+| 6 s | 3 | ~13 min |
+| 2 s | 9 | ~4 min |
+| 500 ms (Low-Latency v2) | 36 | ~64 s |
+
+At W = 128 the cost is 4 KB per sender—about 800 KB relay-wide at 200
+parachains—so W can be chosen generously (governance-adjustable) and the
+normal pipeline matches proof-free with an order of magnitude of slack even
+at the fastest block times. Outrunning the window is not a failure mode: a
+*lagging author* takes the normal catch-up path (its proofs are generated
+fresh against the current window—see Catch-Up); only an *already-sealed*
+block whose anchor slid out needs the POV-carried late block proof, as in
+the resubmission flow generally.
 
 #### Matching Against the Virtually Extended Window
 
 There is only *one* check. Candidates arriving together (live communication)
-are not a special case: before checking, the stored window is **virtually
-extended** by the `ProvidesRoots` of all candidates being processed in this
+are not a special case: before checking, the stored windows are **virtually
+extended** by the `Provides` roots of all candidates being processed in this
 relay chain block. Every requires entry is then matched against the extended
 window. On enactment the transient extensions become permanent (pushed into
 `RecentRoots`); if a providing candidate doesn't make it, its extensions
@@ -685,17 +1075,16 @@ evaporate with it.
 ```rust
 fn verify_requires(
     candidates: &[CandidateReceipt],  // all candidates in this relay block
-    stored: &BTreeMap<(ParaId, StreamId), RecentRoots>,
+    stored: &BTreeMap<ParaId, RecentRoots>,
 ) -> Result<(), Error> {
-    // Transient: stored window ∪ provides of the candidates at hand
+    // Transient: stored windows ∪ provides of the candidates at hand
     let window = VirtualWindow::new(stored, candidates);
 
     for receiver_candidate in candidates {
-        for (stream_key, expected_root) in receiver_candidate.requires_roots().iter() {
-            // stream_key = (sender ParaId, StreamId), named explicitly by
-            // the requiring candidate—no destination inference; the
-            // receiver's own identity plays no role in the lookup.
-            if !window.contains(stream_key, expected_root) {
+        for (source, expected_root) in receiver_candidate.requires().iter() {
+            // The receiver's own identity plays no role in the lookup—any
+            // para may depend on any sender's commitment.
+            if !window.contains(source, expected_root) {
                 // Not stored, not provided alongside - needs a late block
                 // proof in the POV (resubmission flow)
                 return Err(Error::RequiresProof);
@@ -706,10 +1095,12 @@ fn verify_requires(
 }
 ```
 
-Note what is *absent*: no check that a required stream exists or that its
-sender is registered (a nonexistent stream never matches—pure self-harm for
-the requiring candidate, and the lookup happens anyway), and no restriction
-on who may require which stream (see Candidate Commitments).
+This is the relay chain's entire involvement in messaging. Note what is
+*absent*: no per-stream anything (streams are proven parachain-side, below
+the hash), no check that a required source is registered (an absent window
+never matches—pure self-harm for the requiring candidate, and the lookup
+happens anyway), and no restriction on who may require which source (see
+Candidate Commitments).
 
 Mutual dependencies (A requires B's provides and vice versa, the Basti block /
 super-chain case) match naturally—both entries are in the virtual extension.
@@ -719,11 +1110,16 @@ transient provides can only enact if that candidate enacts. Dependent groups
 become available/enacted atomically—all or nothing (see
 [Cycle Prevention](#cycle-prevention)).
 
-Note the graceful property of per-stream roots: if the sender appended
-nothing *to this stream*, its stored root is unchanged no matter how much
-the sender wrote to other streams—the receiver matches directly without any
-proof. Under the old top-level-root scheme, any unrelated send would have
-forced a late block proof.
+One property of the flat scheme is deliberately given up here, priced in
+the Window Depth analysis above: under per-stream relay entries, a quiet
+stream's stored root never moved, so its receiver matched proof-free after
+*any* lag. Under the single `StreamsRoot`, any sender activity slides the
+window—lag tolerance denominates in sender blocks. The window makes that
+tolerance wide and cheap, and beyond it the catch-up path (one extension
+proof + one tree proof, in-block, generated fresh at authoring) degrades
+gracefully. What is bought with it: relay state independent of stream
+count, and the per-stream permanence/budget/eviction rules that per-stream
+entries would force on the relay chain disappear wholesale.
 
 ### Catch-Up: Partial Consumption in Normal Operation
 
@@ -752,7 +1148,7 @@ blocks are permanent, candidates transient).
 
 So the proof goes *into the block*. Incoming messages already enter via an
 inherent ([#12531](https://github.com/paritytech/polkadot-sdk/issues/12531));
-the same inherent carries, per lagging source, the lift for the unconsumed
+the same inherent carries, per lagging stream, the lift for the unconsumed
 tail:
 
 ```rust
@@ -774,27 +1170,43 @@ struct CatchUpProof {
     /// The stream this lift applies to
     source: ParaId,
     stream: StreamId,
-    /// A currently committed root of that stream, ahead of what we consume
+    /// This stream's root under `anchor` (the StreamsRoot the block will
+    /// require for this source), ahead of what we consume
     new_root: MmrRoot,
     /// Extension proof: our post-consumption frontier root is a prefix
     /// of new_root
     extension: MMRExtensionProof,
+    /// Tree inclusion proof: new_root is this stream's entry under `anchor`
+    tree_proof: TreeInclusionProof,
 }
 ```
 
-The runtime appends the consumed leaves to its frontier, verifies the
-extension proof from the resulting (possibly intermediate) root to `new_root`
-as part of the STF, and emits the requires entry at `new_root` directly. No
-PVF special-casing, no commitment transformation—the block validates anywhere
-from its own body. Unconsumed messages stay pending; the frontier catches up
-over subsequent blocks, each within its weight budget.
+The anchor itself is not a field of the proof: it is the requires entry
+the block emits for this source—one anchor, shared by all of the source's
+streams and referenced by every catch-up proof for it. The runtime appends
+the consumed leaves to its frontier, verifies the extension proof from the
+resulting (possibly intermediate) root to `new_root` and the tree proof
+from `new_root` to that anchor as part of the STF, and emits the requires
+entry directly. No PVF special-casing, no commitment transformation—the
+block validates anywhere from its own body. Unconsumed messages stay
+pending; the frontier catches up over subsequent blocks, each within its
+weight budget.
+
+**One anchor per source.** A block emits a single requires entry per
+source, so all streams consumed from that source in this block anchor under
+the *same* `StreamsRoot`. This costs nothing on the hot path: a stream
+consumed exactly to its entry under the anchor needs only its tree proof.
+An extension proof appears exactly where the receiver's consumption
+boundary lags the anchored root—which is the catch-up case by definition,
+never a new proof class.
 
 Two regimes, graduated by lag:
-1. **Small lag**: the consumed-boundary root is still in the relay's
-   per-stream window → direct match, no proof at all. Window depth =
-   proof-free lag tolerance.
-2. **Backlog beyond the window**: in-block catch-up proof as above, O(log n)
-   (~1 KB) regardless of backlog size.
+1. **Small lag**: the boundary's `StreamsRoot` is still in the relay's
+   window for this source → the batch's tree proof anchors it, no extension
+   proof. Window depth = extension-free lag tolerance.
+2. **Backlog beyond the window**: in-block catch-up proof as above—one
+   extension proof (O(log n), ~1 KB) plus one tree proof (O(log S),
+   ~0.3 KB) regardless of backlog size.
 
 ### Late Block Proofs
 
@@ -814,28 +1226,28 @@ header chain in Low-Latency v2.
 #### The Problem
 
 ```
-Timeline (roots of A's per-destination MMR for B):
-  Block A_N: sends to B, provides (B, R_N)
-  Block A_{N+1}: sends to B again, provides (B, R_{N+1})
-  Block A_{N+2}: sends to B again, provides (B, R_{N+2})
+Timeline (T_i = A's StreamsRoot after block i; R_i = A's stream root for B):
+  Block A_N: sends to B, provides T_N (containing R_N)
+  Block A_{N+1}: sends (to B or anyone), provides T_{N+1}
+  ... more than W further A blocks ...
 
-  Block B_M: built against A_N's state (requires (A, R_N))
+  Block B_M: built against A_N's state (requires (A, T_N))
 
-  By the time B_M arrives at the relay chain, A_{N+2} is already included and
-  R_N has dropped out of the relay chain's provides window for (A, B).
-  B_M's requires (R_N) doesn't match any stored root (latest: R_{N+2}).
+  By the time B_M arrives at the relay chain, A's window has slid past T_N.
+  B_M's requires (T_N) doesn't match any stored StreamsRoot.
 ```
 
-Note this only happens when A kept sending *to B*. If A's later blocks sent to
-other chains only, the stored (A, B) root would still be R_N and B_M would
-match directly.
+Note the window is deep (see Window Depth): this arises only when B_M's
+inclusion was delayed beyond W sender blocks—the resubmission flow, not
+normal operation.
 
 #### The Solution
 
 The late block includes a proof in its POV (outside the block itself)
-demonstrating that the root it built against is an ancestor of the current one:
-since MMRs are append-only, a single extension proof shows that the messages
-B processed are a prefix of the current MMR.
+lifting its dependency to the current commitment: an extension proof shows
+the messages B processed are a prefix of the stream's current MMR (streams
+are append-only), and a tree proof places that current stream root under a
+current `StreamsRoot`.
 
 ```rust
 /// Late block proof included in POV (not in commitments!)
@@ -844,18 +1256,19 @@ struct LateBlockProof {
     source: ParaId,
     stream: StreamId,
 
-    /// The stream's current provides root we're updating to
+    /// The stream's root under `new_anchor`
     new_root: MmrRoot,
+    /// A current StreamsRoot of the source—what the block's requires entry
+    /// is rewritten to
+    new_anchor: StreamsRoot,
 
-    /// Proof that the MMR at the old root (the block's requires) is a prefix
-    /// of the MMR at new_root (defined in Catch-Up above)
+    /// Proof that the MMR at the old root (what the block consumed to) is
+    /// a prefix of the MMR at new_root (defined in Catch-Up above)
     extension: MMRExtensionProof,
+    /// Proof that new_root is this stream's entry under new_anchor
+    tree_proof: TreeInclusionProof,
 }
 ```
-
-This is the entire proof: with the flat commitment there are no top-level
-inclusion proofs to carry (an earlier revision needed two Merkle proofs plus
-the extension proof).
 
 ```
       MMR(A→B) at R_old                MMR(A→B) at R_new
@@ -881,36 +1294,50 @@ the newer messages—proof size stays O(log n) regardless of how many were
 appended (see Requires semantics: prefix-of, not consumed-exactly).
 ```
 
-The extension proof itself is identical in shape to the one carried in-block
-by catch-up proofs—only the transport (POV vs. inherent) and the verifier
-(PVF transform vs. STF) differ.
+The proofs are identical in shape to the ones carried in-block by catch-up
+proofs—only the transport (POV vs. inherent) and the verifier (PVF
+transform vs. STF) differ.
 
 #### Verification
 
-The PVF verifies the late block proof and **transforms** the block's original
-`requires` entry into an updated one that references the stream's current
-root. This way, the relay chain only ever sees a commitment it can verify
-against currently-available state.
+The PVF verifies the late block proofs and **transforms** the block's
+original requires entry for that source into one referencing a current
+`StreamsRoot`. This way, the relay chain only ever sees a commitment it can
+verify against currently-available state. One late block proof is needed
+per stream the block consumed from the stale source; all of them lift to
+the same `new_anchor`, which replaces the entry.
+
+Where the per-stream boundaries come from: the PVF re-executes the block,
+and the STF—which verifies each stream's anchoring anyway—exposes the
+per-stream boundary roots `(stream, consumed-to root)` alongside the
+requires entries in its execution output. The POV adds only the proofs:
 
 ```rust
 fn process_late_block_requires(
-    stream_key: (ParaId, StreamId),
-    expected_root: MmrRoot,  // From the block itself (references old root)
-    proof: &LateBlockProof,  // From POV
-) -> Result<((ParaId, StreamId), MmrRoot), Error> {
-    // Verify the old MMR is a prefix of the MMR at new_root
-    verify_mmr_extension(expected_root, proof.new_root, &proof.extension)?;
-
-    // Return UPDATED entry for the candidate's RequiresRoots.
-    // The relay chain will verify this against the stored provides window.
-    Ok((stream_key, proof.new_root))
+    source: ParaId,
+    // (stream, root the block consumed to)—from block re-execution: the
+    // STF exposes these alongside the requires entries
+    consumed: &[(StreamId, MmrRoot)],
+    proofs: &[LateBlockProof],  // From POV, one per stream in `consumed`
+) -> Result<(ParaId, StreamsRoot), Error> {
+    let new_anchor = common_anchor(proofs)?;
+    for ((stream, old_root), proof) in consumed.iter().zip(proofs) {
+        // The consumed prefix is contained in the stream's current root...
+        verify_mmr_extension(old_root, &proof.new_root, &proof.extension)?;
+        // ...and that root is this stream's entry under the new anchor.
+        verify_tree_inclusion(*stream, &proof.new_root, &new_anchor, &proof.tree_proof)?;
+    }
+    // Return UPDATED entry for the candidate's Requires set.
+    // The relay chain will verify this against the source's window.
+    Ok((source, new_anchor))
 }
 ```
 
-Note: The PVF verifies the proof—the relay chain only sees the transformed
-commitment. Message positions, MMR sizes, and proof details are all internal to
-the parachain. The proof just demonstrates that the messages the receiver
-processed are a prefix of the stream's current MMR.
+Note: The PVF verifies the proofs—the relay chain only sees the transformed
+commitment. Message positions, MMR sizes, stream ids and proof details are
+all internal to the parachain. The proofs just demonstrate that everything
+the receiver consumed is a prefix of the respective stream under the
+source's current commitment.
 
 ### Proof Size Considerations
 
@@ -919,22 +1346,41 @@ we must consider commitment and proof sizes for worst-case scenarios.
 
 #### Commitment Size
 
-- `ProvidesRoots`: ~40 B per stream *touched in this block*—typically 1–2
-  entries. A chain fanning out to 100 streams in one block commits ~4 KB.
-- `RequiresRoots`: ~44 B per stream depended on in this block (full
-  `(ParaId, StreamId)` key plus root).
+- `Provides`: one `StreamsRoot`, 32 B—constant, regardless of how many
+  streams were touched. A chain fanning out to 100 destinations in one
+  block commits the same 32 B as one sending to a single peer.
+- `Requires`: ~36 B per *source* depended on in this block—naturally
+  bounded by the number of parachains, independent of how many streams per
+  source are consumed.
+
+#### Recurring Tree Proof Size
+
+Each consumed stream carries a tree inclusion proof to its source's
+`StreamsRoot`: ~log₂(S) hashes (S = the source's stream count).
+
+- S = 100 streams: ~7 hashes ≈ 224 B, call it ~300 B with structure
+  overhead, per source per consuming block; several streams of one source
+  share upper path segments.
+
+This is the recurring price of the constant-size commitment—it rides in the
+block body/POV, not on the relay chain, and was measured as acceptable in
+the original flat-vs-hierarchical analysis
+([PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449): a few
+hundred bytes per source per block, sub-percent of the POV budget).
 
 #### Late Block Proof Size
 
-A late block proof is a single MMR extension proof per stale source:
-O(log m) where m = messages the source has sent to this receiver.
+A late block proof is one MMR extension proof plus one tree proof per stale
+stream: O(log m) + O(log S), m = messages in that stream.
 
-- Typical (1000 messages to us): ~log₂(1000) ≈ 10 hashes ≈ 320 bytes
+- Typical (1000 messages to us): ~log₂(1000) ≈ 10 hashes ≈ 320 B, plus
+  ~300 B tree proof.
 - Worst case (24 hours of messages to one receiver, ~10⁹ leaves): ~30 hashes
-  ≈ 960 bytes
+  ≈ 960 B, plus the tree proof.
 
-There is no top-level proof component: proof size is entirely independent of
-how many destinations the sender talks to and how much it sends to others.
+Extension proof size is independent of how much the sender wrote to *other*
+streams; the tree proof grows only logarithmically with the sender's stream
+count.
 
 #### Practical Limits
 
@@ -942,48 +1388,51 @@ Proofs are expected to stay small and should therefore practically fit into any
 POV. To be sure, we should nevertheless set aside a few kB (e.g. 50) for not
 breaking the late submission opportunity due to the POV getting too large.
 
-The number of entries in a `CommitmentSet` is capped
-(`MaxCommitmentEntries`, on the order of 100–200). This bounds candidate
-receipt growth and relay chain matching work per candidate. Chains needing to
-fan out to more destinations than the cap must spread the sends over multiple
-blocks—at which point (D ≫ 100 *per block*, sustained) a top-level Merkle
-commitment would be worth reconsidering.
+The number of entries in a `RequiresSet` is capped
+(`MaxCommitmentEntries`). Since entries are per source, the natural ceiling
+is the number of registered parachains (~200)—the cap exists to bound
+candidate receipt growth and relay matching work per candidate, not to
+constrain topology. Provides needs no cap at all: it is one hash.
 
-Per-destination MMRs naturally keep proofs small because:
-- Receiver only proves against their own MMR
-- That MMR only contains messages to that specific receiver
-- High volume to other chains doesn't affect proof size
+Per-destination streams naturally keep proofs small because:
+- Receiver only proves against the stream addressed to it
+- That stream only contains messages to that specific receiver
+- High volume to other chains doesn't affect extension proof size (and
+  affects the tree proof only logarithmically)
 
 ### Channels and Flow Control
 
 The layers so far move bytes and verify them: streams define what was
 sent, commitments and proofs let the relay chain enforce that dependencies
 hold. This section defines the **standard reliable convention**—the
-interpretation of `Dest(ParaId)` streams, and the HRMP replacement proper:
-what a message *is* (message kinds), the delivery contract (ordered,
+interpretation of `Channel` streams, and the HRMP replacement proper: what
+a message *is* (message kinds), the delivery contract (ordered,
 "guaranteed"), how a communication relationship starts and ends (channels),
 how the receiver paces the sender and tells it what may be discarded (flow
 control and pruning), and the escape hatch when a channel stalls for good
-(recovery). A channel rides a symmetric pair of direct streams: A's
-`Dest(B)` and B's `Dest(A)`. The lossy counterpart—broadcast streams—is
-specified in [Event Streams](#event-streams).
+(recovery). A channel is **unidirectional**: one sender data stream
+(`Channel { recipient, domain, num }`—ordered data + lifecycle signals) plus the
+receiver's mirrored confirmation register (`Ack`). Bidirectional
+communication is simply two independent channels, one each way. The lossy
+pub-sub counterpart—broadcast streams—is specified in
+[Event Streams](#event-streams).
 
-Nothing in this section involves the relay chain (with one exception:
-[bounding per-stream state](#relay-chain-state-bounds)). Channels are a
-bilateral affair between the two parachain runtimes, conducted over the very
-transport they govern—the control signals are ordinary messages in the same
-ordered streams. To the relay chain, all of it is opaque `StreamId`s and
-roots; chains wanting different semantics (multiple reliable lanes to one
-peer, an out-of-band priority lane) can deploy them as their own convention
-without anyone's permission.
+Nothing in this section involves the relay chain. Channels are a bilateral
+affair between the two parachain runtimes, conducted over the very
+transport they govern—lifecycle signals are ordinary messages in the
+ordered streams, confirmations live in the ack registers. To the relay
+chain, all of it is one `StreamsRoot` per sender; chains wanting different
+semantics (more lanes per peer, an out-of-band priority lane) can deploy
+them as their own convention without anyone's permission—or even knowledge.
 
-**Terminology.** This section's *confirmations* (`Confirm` signals,
+**Terminology.** This section's *confirmations* (the `Register`,
 watermarks) are flow-control state between two parachains. They are
 unrelated to the collator *acknowledgements* of Low-Latency v2 (signatures
 committing to a block becoming canonical, see
 [Acknowledgement Extensions](#acknowledgement-extensions)). Distinct words,
 used consistently: collators *acknowledge blocks*, parachains *confirm
-messages*.
+messages*. (The `Ack{..}` stream-id name is a concession to brevity—it
+carries confirmations.)
 
 #### Message Kinds
 
@@ -997,9 +1446,13 @@ Every leaf payload is a typed message:
 /// No leaf-format version bump is needed for this structure or any future
 /// evolution of it.
 enum SpecMsgKind {
-    /// Protocol-level signalling: channel lifecycle and flow control.
-    /// Emitted and consumed by the messaging pallet itself, never by
-    /// applications. Window-exempt and per-block capped (see Flow Control).
+    /// Protocol-level signalling: the sender-side channel lifecycle
+    /// (open/close/upgrade). The receiver's side of the channel—acceptance,
+    /// flow control, close—lives entirely out-of-band in its register (see
+    /// Flow Control). Emitted and consumed by the messaging pallet itself,
+    /// never by applications. Ordinary messages in every respect:
+    /// window-counted, ordered, confirmed by the watermark like any other
+    /// position.
     Signal(SpecMsgSignal),
     /// Userspace payload. The transport delivers the bytes in order and is
     /// deliberately blind to their meaning—the only distinction it ever
@@ -1012,49 +1465,46 @@ enum SpecMsgKind {
     Data(Vec<u8>),
 }
 
-/// Sending API exposed by the messaging pallet. Fails when the channel is
-/// not open toward `dest` or the send would exceed the granted window (see
-/// Flow Control)—no hidden queueing; backpressure surfaces to the caller.
-fn send(dest: ParaId, msg: SpecMsgKind) -> Result<(), SendError>;
+/// Sending API exposed by the messaging pallet (domain/num default to 0).
+/// Fails when the channel is not open or the send would exceed the granted
+/// window (see Flow Control)—no hidden queueing; backpressure surfaces to
+/// the caller.
+fn send(recipient: ParaId, domain: u8, num: u16, msg: SpecMsgKind) -> Result<(), SendError>;
 ```
 
 Design points:
 
-- **One channel stream per direction.** Signals and data interleave in the
-  single `Dest(peer)` stream; ordering across kinds is preserved by
-  construction. Applications needing sub-streams multiplex inside `Data`.
-  Multiple lanes per peer were deliberately rejected *as the default
-  protocol*: every lane replicates the full per-stream state (frontier,
-  watermark, window) through every layer. Chains for which the trade-off
-  pays (e.g. an out-of-band priority lane) can define their own multi-lane
-  convention over additional stream ids—the transport permits it; the
-  standard protocol just doesn't prescribe it.
+- **One data lane per channel.** Signals and data interleave in the single
+  `Channel` stream; ordering across kinds is preserved by construction.
+  Applications needing sub-streams multiplex inside `Data`, or open further
+  channels (distinct discriminator)—each additional channel replicates the
+  full per-channel state (frontier, watermark, window) through every layer,
+  so the default is one per peer and direction.
 - **Versioning is per channel, not per message.** Ordered consumption cannot
   skip what it cannot parse—a receiver facing an unknown enum variant has no
   sound option (skipping violates the delivery contract, stalling bricks the
   channel). So a receiver must never face one. The mechanism is
-  **monotonic version announcements**: each side announces the highest
-  signal-protocol version it supports (`OpenChannel`/`AcceptChannel`
-  initially, the `Upgrade` signal later); the effective version is the min
-  of the two latest announcements; and a sender may use a variant only
-  after it has *consumed* the peer announcement permitting it. Ordering
-  makes this race-free—the enabling announcement causally precedes every
-  use—given two rules: announcements never decrease, and a chain never
-  drops parse support for a version it announced while the channel is open
-  (parsing old variants is cheap to keep; a genuine downgrade is the one
-  case that still requires close + reopen). A small **frozen core** of
-  signals (`OpenChannel`, `AcceptChannel`, `CloseChannel`, `Confirm`,
-  `Upgrade`) is parseable at every version—`OpenChannel` (variant index 0)
-  because it must parse before any announcement exists, the rest because
-  they are the machinery announcements ride on; only variants beyond the
-  core are version-gated.
+  **monotonic version announcements**: each party announces the highest
+  protocol version it supports—the sender in-band (`OpenChannel` initially,
+  `Upgrade` later), the receiver in its register; the effective version is
+  the min of the two latest announcements; and the sender may use a variant
+  only after *reading* the register announcement permitting it (the enabling
+  announcement is thereby known before every use). Two supporting rules:
+  announcements never decrease, and a party never drops parse support for a
+  version it announced while the channel is open (parsing old variants is
+  cheap to keep; a genuine downgrade is the one case that still requires
+  close + reopen). A **frozen core** is parseable at every version: the
+  signals `OpenChannel` (variant index 0—it must parse before any
+  announcement exists), `CloseChannel` and `Upgrade`, and the `Register`
+  format itself (it is the machinery the receiver's announcements ride on);
+  only variants beyond the core are version-gated.
 
 #### Delivery Contract: Ordered and "Guaranteed"
 
 **Ordered delivery is not an added mechanism—it falls out of the existing
 machinery, in two layers of different strength.** Order and multiplicity
-are *structural*: the receiver appends incoming leaves to its per-source
-frontier, and a reordered, duplicated or fabricated sequence yields a
+are *structural*: the receiver appends incoming leaves to its frontier for
+that stream, and a reordered, duplicated or fabricated sequence yields a
 different root—it cannot match the committed one, no matter what the
 runtime does (see
 [Off-Chain Communication](#off-chain-communication-between-collators)).
@@ -1104,15 +1554,30 @@ contract.
 
 #### Channels
 
-A channel is the lifecycle and flow-control state for one (A, B) pair. It is
-**symmetric**: one channel spans both MMR directions (A→B and B→A) and one
-handshake opens both. This is forced, not chosen: confirmations for A→B
-travel on B→A, so a usable channel is always bidirectional—a direction used
-only by confirmations is simply quiet.
+A channel is **unidirectional**: it consists of the sender's data stream
+`Channel { recipient, domain, num }` and the receiver's register stream
+`Ack { recipient, domain, num }`—same discriminator, kind flipped,
+recipient swapped to the other end. The sender speaks through data and
+lifecycle signals; the receiver's *entire* voice in the channel is its
+register. Bidirectional communication is two independent channels—each
+with its own discriminator, each in its own sender's namespace, no pairing
+between them.
 
-**Accumulator lifetime ≠ channel lifetime.** The pair's two direct streams and their
-frontiers are *eternal*: positions never reset, frontiers are never
-discarded (O(log n) ≈ a few hundred bytes per peer, kept forever). A channel
+```
+     One channel = sender's data stream + receiver's register
+
+  A writes:  Channel{recipient: B, d, n}  ── data + signals ──▶  B consumes
+  B writes:  Ack{recipient: A, d, n}      ◀── register ────────  A reads
+
+  (One rule throughout: the recipient field names who READS the stream.
+   Collision-free in B's own stream set—the kind tag separates the
+   register from B's channels, the recipient field from registers for
+   other senders' channels.)
+```
+
+**Accumulator lifetime ≠ channel lifetime.** The channel's streams and
+their frontiers are *eternal*: positions never reset, frontiers are never
+discarded (O(log n) ≈ a few hundred bytes per stream, kept forever). A channel
 is state layered *on top of* the accumulators—opening, closing and reopening
 manipulate that layer only. This single decision deletes an entire problem
 class: no channel epochs, no replay-across-reopen analysis, no
@@ -1122,41 +1587,30 @@ closing while messages are unconfirmed—an unconfirmed tail simply remains
 deliverable after reopen.
 
 ```rust
+/// Lifecycle signals—the SENDER side of the channel; in-band, ordered,
+/// window-counted messages on the Channel stream. The receiver side
+/// (acceptance, credit, watermark, close) lives in its Register—see Flow
+/// Control.
 enum SpecMsgSignal {
     /// Request/announce a channel. Variant index 0, frozen across all
     /// versions. `version` is the sender's initial version announcement
-    /// (highest supported); `grant` is the credit extended to the peer for
-    /// the *reverse* direction.
-    OpenChannel { version: u8, grant: WindowGrant },
-    /// Accept a pending open. `version` is the accepter's own announcement
-    /// (highest supported—the effective version is the min of both sides'
-    /// latest announcements); `grant` is the credit for the peer's
-    /// (forward) direction. Its consumption transitions the opener to
-    /// Open; the `OpenChannel` leaf itself needs no `Confirm` (signals
-    /// never do).
-    AcceptChannel { version: u8, grant: WindowGrant },
-    /// Half-close: the signaling side sends nothing further after this
-    /// leaf (until a later reopen). Sent while the channel is still
-    /// pending, it is a rejection of the open request.
+    /// (highest supported).
+    OpenChannel { version: u8 },
+    /// Half-close: the sender sends nothing further after this leaf (until
+    /// a later reopen).
     CloseChannel,
-    /// Cumulative confirmation + window update (see Flow Control).
-    /// `up_to`: all stream positions < up_to have been consumed and are
-    /// covered—monotonic, stale values ignored. `grant`: absolute credit
-    /// for window-counted messages beyond `up_to`.
-    Confirm { up_to: MessagePosition, grant: WindowGrant },
-    /// Raise this side's version announcement mid-channel (monotonic;
-    /// lower-than-current values are invalid). The sender may use variants
-    /// enabled by a new effective version only after consuming the peer
-    /// announcement that permits them—see Message Kinds for the full
-    /// rules. Genuine downgrades require close + reopen.
+    /// Raise the sender's version announcement mid-channel (monotonic;
+    /// lower-than-current values are invalid). New variants are usable
+    /// only after reading the register announcement permitting them—see
+    /// Message Kinds. Genuine downgrades require close + reopen.
     Upgrade { version: u8 },
 }
 
-/// Receiver-granted credit. Both limits apply simultaneously; message
-/// count bounds the receiver's bookkeeping, bytes bound its weight/POV
-/// budget per block. `max_message_size` additionally caps individual
-/// messages (subject to the global `MaxMsgLen`)—mirrors HRMP's
-/// `max_message_size`.
+/// Receiver-granted credit (carried in the Register). Both limits apply
+/// simultaneously; message count bounds the receiver's bookkeeping, bytes
+/// bound its weight/POV budget per block. `max_message_size` additionally
+/// caps individual messages (subject to the global `MaxMsgLen`)—mirrors
+/// HRMP's `max_message_size`.
 struct WindowGrant {
     max_messages: u32,
     max_bytes: u64,
@@ -1164,158 +1618,202 @@ struct WindowGrant {
 }
 ```
 
-**Opening.** A opens by sending `OpenChannel` as a message to B—at whatever
-the current position is (0 on first contact, the resume position on
-reopen). Until a matching `AcceptChannel` (or a crossing `OpenChannel`, see
-below) has been *consumed* from the reverse direction, A may send nothing
-further on this channel. This gates resource commitment on responsiveness:
-toward a dead or unwilling peer, the sender's total exposure is one tiny
-leaf in its own archive.
+**Opening.** A opens by sending `OpenChannel` on the data stream—at
+whatever the current position is (0 on first contact, the resume position
+on reopen). The `OpenChannel` leaf is the one message sendable without
+credit—necessarily, since no register exists yet. Everything after it is
+gated by the flow-control machinery itself: until A has *read* a register
+for this channel (see Flow Control), it holds no credit and may send
+nothing further. Toward a dead or unwilling peer, the sender's total
+exposure is one tiny leaf in its own archive and tree.
 
-Two properties worth noting:
+**Acceptance = the first register publish.** There is no `AcceptChannel`
+signal: B accepts by creating its `Ack { A, d, n }` stream and publishing a
+register (initial credit + its version announcement)—a deliberate resource
+commitment in B's own commitment tree, which is precisely what consent
+should cost. Policy (open to all, allowlist, governance, XCM-negotiated) is
+B's runtime's concern, not this document's; the analog of
+`hrmp_accept_open_channel`. Rejection is publishing a `closed` register—or
+simply never publishing, which costs B literally nothing. Crossing opens
+need no special case: two chains opening toward each other have created two
+channels, which is exactly what happened.
 
-- **Unwanted opens cost the receiver nothing.** B tracks no state for
-  channels it never engages with—an ignored `OpenChannel` sits in *A's*
-  archive, occupying A's resources. There is no receiver-side spam surface,
-  which is why no deposits are needed at this layer (HRMP's deposits exist
-  because channel state lives on the relay chain; see
-  [Relay Chain State Bounds](#relay-chain-state-bounds) for the one relay
-  resource that does need bounding).
-- **Simultaneous open converges** (TCP analog): if B's own `OpenChannel` is
-  pending when A's arrives, each side's open doubles as the other's
-  accept—both already carry the reverse-direction grant, so both sides hold
-  credit and the channel is open. No `AcceptChannel` needed. Nothing needs
-  negotiating: grants are unilateral (each side simply announces the credit
-  it extends), and the two opens are simply both sides' initial version
-  announcements—effective version = min, always mutually supported since
-  versions are contiguous (supporting v implies supporting all v′ < v).
+**Unwanted opens cost the receiver nothing—and the relay chain nothing.**
+B tracks no state for channels it never engages with—an ignored
+`OpenChannel` sits in *A's* archive and *A's* commitment tree, occupying
+A's resources only. There is no receiver-side spam surface and no
+relay-side one (relay state is per *sender*, fixed size—see
+[Relay Chain Matching](#relay-chain-matching)), which is why no deposits
+are needed anywhere: HRMP's deposits exist because its channel state lives
+on the relay chain.
 
-Acceptance is the receiver's *consent*—the analog of
-`hrmp_accept_open_channel`, decided by runtime policy (open to all,
-allowlist, governance, XCM-negotiated; not this document's concern).
-Rejection is `CloseChannel` in the pending state; simply never engaging is
-equally valid (and cheaper).
-
-**Closing.** `CloseChannel` is a half-close: the closing side stops sending;
-the other side may finish sending, confirm what it consumed, and close its
-direction in turn. Close is *advisory resource release*, nothing more: the
-peer may prune channel bookkeeping, archives drain via normal confirmation,
-and the relay chain is not involved at all (its stream entries just go
-idle; see below). Because frontiers survive, close is safe at any time—no
-all-confirmed precondition, no draining protocol. A receiver facing an
-abusive peer doesn't even need `CloseChannel`: consumption is voluntary, it
-can simply stop and drop channel state (*abandonment*)—the frontier is all
-it must keep.
+**Closing.** From the sender: `CloseChannel` in-band—it stops sending; the
+receiver drains what it wants, publishes its final watermark, and may drop
+channel bookkeeping. From the receiver: a register with `closed` set (its
+watermark tells the sender what was consumed). Close is *advisory resource
+release* either way—the relay chain has no per-channel state to begin
+with—and because frontiers survive, it is safe at any time: no
+all-confirmed precondition, no draining protocol. Neither side even needs
+the polite form: a receiver can simply stop consuming and drop channel
+state (*abandonment*), a sender facing a never-publishing receiver stops at
+the window by construction and can do the same—the frontier is all either
+must keep.
 
 **Reopening.** `OpenChannel` again, at the current position; frontiers
-resume seamlessly. The one obligation this places on both sides: **retain
-the frontier after close**—it is the only state whose loss is unrecoverable
-by protocol means (a receiver that discarded its frontier can no longer
-verify anything against the pair's eternal MMR). Should that ever happen
-anyway, the fallback is a bilateral, governance-level reset of the pair to a
-fresh epoch—an exceptional action explicitly outside the protocol, in the
-same category as the ParaId-reuse residual (see Security Analysis): a stuck
+resume seamlessly. The one obligation this places on the *receiver*:
+**retain the consumption frontier after close**—it is the only state whose
+loss is unrecoverable by protocol means (a receiver that discarded its
+frontier can no longer verify anything against the stream's eternal MMR;
+the sender's outbound frontier is consensus state and persists by
+construction). Should that ever happen
+anyway, the fallback is a bilateral, governance-level reset to a fresh
+epoch—an exceptional action explicitly outside the protocol, in the same
+category as the ParaId-reuse residual (see Security Analysis): a stuck
 channel, never forgery.
 
-Channel state, kept by each side per peer (alongside `OutboundFrontier` /
-`SourceState`, which stay exactly as defined):
+Channel state (alongside `OutboundFrontier` / `SourceState`, which stay
+exactly as defined)—note the two sides keep *different* state, as befits a
+unidirectional protocol:
 
 ```rust
-Channels: StorageMap<ParaId, ChannelState>,
+/// Sender side, per outbound channel—keyed by the channel discriminator
+/// (recipient, domain, num).
+OutChannels: StorageMap<(ParaId, u8, u16), OutChannelState>,
 
-struct ChannelState {
-    phase: ChannelPhase,  // Pending | Open | HalfClosed(Direction) | Closed
-    version: u8,
-    // Our sending direction:
-    /// Credit the peer granted us.
-    granted_to_us: WindowGrant,
-    /// The peer's confirmation watermark for our stream. Together with the
-    /// (locally known) kinds and sizes of our sent messages beyond it, this
-    /// determines remaining credit.
-    confirmed: MessagePosition,
-    // Our receiving direction:
-    /// Credit we granted the peer.
-    granted_by_us: WindowGrant,
-    /// Watermark of the last Confirm we emitted (to decide when the next
-    /// one is due).
-    last_confirm_sent: MessagePosition,
+struct OutChannelState {
+    phase: ChannelPhase,        // Opening | Open | Closed
+    /// Our latest in-band version announcement.
+    announced_version: u8,
+    /// Latest register read: peer's watermark for our stream (determines
+    /// remaining credit together with locally known sizes of messages
+    /// beyond it), credit, peer's version announcement, closed flag.
+    register: Option<Register>,
+}
+
+/// Receiver side, per inbound channel—keyed by our Ack stream's
+/// discriminator (recipient = the channel's sender, domain, num).
+InChannels: StorageMap<(ParaId, u8, u16), InChannelState>,
+
+struct InChannelState {
+    /// The register we last published on our Ack stream—our entire channel
+    /// state as far as the peer is concerned; also decides when the next
+    /// publish is due.
+    published: Register,
+    /// Sender's latest in-band version announcement (from consumed
+    /// OpenChannel/Upgrade signals).
+    peer_version: u8,
 }
 ```
 
 #### Flow Control
 
-Two needs, one signal. Both flow from receiver to sender:
+Two needs, one register. Both flow from receiver to sender:
 
 1. **Rate limiting**: the receiver paces the sender to what it is willing to
    consume—bounding its own backlog and the sender's archive growth.
 2. **Pruning watermark**: the sender learns which messages are consumed and
    need no longer be retained for retransmission.
 
-The `Confirm` signal serves both: `up_to` is the watermark, `grant` the
-credit. This is a classic credit window (TCP-style), and ordered delivery
-is what makes it this cheap—one cumulative position, idempotent, latest
-supersedes.
+Both are served by the **register**—the single object the channel's
+receiver publishes on its `Ack` stream, and the receiver's entire voice in
+the channel:
 
-**Window accounting.** Only `Data` messages count against the
-window; `Signal`s are **exempt**. A sender's in-flight amount is the count
-and byte sum of its window-counted messages at positions ≥ the peer's
-watermark; sending a new one requires in-flight < grant (both limits).
-Shrinking a grant never invalidates already-sent messages—it only gates new
-sends. The watermark itself covers *all* positions including signals (it is
-a stream position); only the credit computation filters by kind.
+```rust
+/// The complete receiver-side state of one channel, published as a leaf on
+/// the Ack stream. Only the LATEST leaf matters (the stream is consumed
+/// lossily, latest-wins); each publish supersedes all earlier ones. Its
+/// very existence is the channel acceptance. `up_to` and `version` are
+/// monotonic—a register that regresses either is a protocol violation.
+/// `grant` is NOT: the receiver may shrink it at any time (shrinking only
+/// gates new sends, see Window accounting).
+struct Register {
+    /// Receiver's version announcement (see Message Kinds).
+    version: u8,
+    /// Cumulative watermark: all positions < up_to of the channel's data
+    /// stream (messages AND lifecycle signals—it is a stream position)
+    /// have been consumed.
+    up_to: MessagePosition,
+    /// Absolute credit for messages beyond `up_to`.
+    grant: WindowGrant,
+    /// Receiver-side close (see Closing). A closed register's grant is
+    /// void; `up_to` still reports what was consumed.
+    closed: bool,
+}
+```
 
-**Signal exemption is a hard protocol rule, not guidance.** With
-window-gated signals the system deadlocks: both directions' windows full →
-B's `Confirm` for A→B is itself a message on B→A → B→A's window is full →
-the confirmation cannot enter the stream → A never learns of freed credit →
-nothing ever unblocks. Consumption alone cannot save it, because the unlock
-signal itself is gated. (TCP has the same rule for the same reason: ACKs
-carry no data and consume no window.)
+This is a classic credit window (TCP-style), and ordered delivery is what
+makes it one `u64` + one grant: cumulative, idempotent, latest supersedes.
+Losing or delaying a register read is harmless—the next read catches up.
 
-Exemption needs a bound of its own—signals are protocol-emitted, but by the
-*peer's* runtime, which is untrusted code. Hence: **at most
-`MAX_SIGNALS_PER_BLOCK` signal messages per channel per sender block** (a
-small constant; batches make per-block counts checkable at consumption).
-Exceeding it is a protocol violation; the receiver may abandon the channel.
-The residual grief (a peer maxing the cap with well-formed signals) is
-bounded by the receiver's own willingness to consume—which is always
-voluntary.
+**Why out-of-band?** The register is the canonical latest-wins object, and
+carrying it *inside* the ordered stream—the design's earlier shape—forced a
+cluster of special cases that all vanish with the move:
 
-**Confirm triggering—and why confirmations aren't confirmed.** A `Confirm`
-is emitted only when *window-counted* messages have been consumed since the
-last one. Consuming a pure-signal stretch triggers nothing: signals occupy
-no window (nothing to release) and their retention cost is negligible. This
-rule is what makes "we don't confirm confirmations" precise—and it is
-load-bearing: were confirms triggered by *any* consumption, two idle
-channels would confirm each other's confirmations forever (A consumes B's
-`Confirm` → emits one → B consumes it → emits one → …). With the rule, the
-regress terminates: a quiet channel ends with at most one unconfirmed
-trailing signal leaf per side—tiny, archived, harmless. There is no special
-casing anywhere else: signals are ordinary leaves, covered by whatever later
-watermark passes them.
+- *Window exemption*: in-band confirms had to be exempt from the credit
+  window, else deadlock (both directions full → the unlock signal itself
+  cannot enter the stream). Out-of-band there is no gate to exempt from;
+  lifecycle signals, no longer needing exemption cover, become ordinary
+  window-counted messages.
+- *Signal-rate caps*: exemption needed its own bound against flooding by
+  the peer's (untrusted) runtime. An ack stream cannot be used to force
+  consumption work—the reader takes one leaf, the head; flooding only
+  bloats the flooder's own accumulator.
+- *Confirm-of-confirm regress*: an in-band confirm is itself a message
+  needing (careful non-)confirmation. A lossy register is never confirmed,
+  by construction—nothing to terminate.
+- *The coupling caveat*: in-band confirms queued behind bulk payload were
+  learned only after consuming the bulk, entangling one direction's credit
+  with the other direction's congestion. The register is readable at any
+  time, at proof cost O(log n), regardless of what stands in any queue.
 
-**Coalescing (guidance).** Every `Confirm` is a leaf: it grows the reverse
-MMR and produces a provides entry for that block. Confirming every block is
-sound but usually pointless; confirm when unconfirmed window-counted
-consumption reaches a fraction of the granted window (e.g. ¼—the delayed-ACK
-analog) or an age threshold, whichever first. Chains valuing archive
-tightness over signal volume tune accordingly.
+The price, honestly: reading the register costs an inclusion proof
+(~20–30 hashes) where in-band consumption was proof-free—the standard
+lossy-vs-ordered trade (see [Event Streams](#event-streams)), spent here on
+a few hundred bytes per channel per consuming block.
 
-**Queueing priority (guidance) and the actual coupling bound.** Because
-confirmations ride the reverse stream *in order*, a confirmation queued
-behind bulk payload is learned only after the receiver of that stream has
-consumed the bulk. Runtimes SHOULD therefore enqueue due signals ahead of
-new application payload within each block. But note what this does and
-doesn't buy: priority helps *freshness* (the newest confirm sits early in
-the newest block); it cannot help against a *standing backlog*—an in-order
-stream admits no overtaking of what was already sent. The real bound is
-window sizing, and it sits with the affected party: the backlog that can
-ever stand between A and its confirmations on B→A is capped by the B→A
-window, which *A itself granted*. A caps its own worst-case confirmation
-latency through the credit it extends; the trade-off is B's throughput
-toward A. (A peer could also delay confirmations by simply not emitting
-them—receiver-side stalling is inherent to any credit scheme and adds no new
-threat; the flooding variant is merely less diagnosable.)
+**Window accounting.** Everything on the data stream counts against the
+window—`Data` and `Signal` alike (signals are few and tiny; special-casing
+them buys nothing anymore). A sender's in-flight amount is the count and
+byte sum of its messages at positions ≥ the peer's watermark; sending
+requires in-flight < grant (both limits). Shrinking a grant never
+invalidates already-sent messages—it only gates new sends.
+
+**Publishing (receiver side).** The first publish is the acceptance and
+carries the initial credit; thereafter, republish when consumption
+progressed enough to matter: a fraction of the granted window (e.g. ¼—the
+delayed-ACK analog) or an age threshold, whichever first. Each publish is
+one small leaf on the Ack stream; publishing every block is sound and
+cheap, just usually pointless. The Ack stream's archive retention is
+trivial: only the head is ever served.
+
+**Reading (sender side).** The sender's inherent supplies the peer's latest
+register leaf plus proofs: an MMR inclusion proof to the Ack stream's root
+and a tree proof to the peer's `StreamsRoot`—the ordinary anchoring
+machinery, one code path. What *kind* of read it is follows entirely from
+**which anchor the block author picks** (a per-source authoring policy, not
+a protocol mode):
+
+- **Newest observed `StreamsRoot`** (from the peer's header digest,
+  off-chain): speculative-tier freshness. If the anchor is not yet
+  included, the requires entry matches the virtual window and carries an
+  enactment dependency on the peer's candidate—exactly as for data
+  consumption, and shared with it: a chain also consuming the peer's data
+  emits the *same* entry, so the register read is free at the commitment
+  level.
+- **Newest *included* `StreamsRoot`** (observed on the relay chain):
+  matches *stored* window state, so it creates **no enactment dependency
+  whatsoever**—and the read is inclusion-tier *by definition*, i.e.
+  pruning-safe with no further condition. A pure unidirectional sender
+  anchoring this way risks nothing on the peer's liveness; its total
+  commitment overhead is one ~36 B requires entry.
+
+Flow control tolerates the staleness of the second option easily (window
+sizing must absorb round-trip latency anyway), which makes it the sensible
+default for register-only reads; the first option exists for chains that
+want credit at speculative freshness and accept the coupling. The same
+policy generalizes to data consumption: anchor at the newest root you
+*need*—included anchors buy dependency-freedom, speculative anchors buy
+latency.
 
 **Enforcement is cooperative, and that suffices.** The sender's own STF
 refuses `send` beyond credit—this protects the sender's archive and
@@ -1323,12 +1821,15 @@ surfaces backpressure to its applications, which is who rate limiting is
 *for*. The receiver needs no protection from overruns: consumption is
 voluntary, and positions make overruns detectable (messages beyond the
 granted window)—a violation the receiver may answer by abandoning the
-channel. Nothing here needs relay-chain enforcement.
+channel. A peer can always stall the sender by simply not publishing—
+receiver-side stalling is inherent to any credit scheme and adds no new
+threat. Nothing here needs relay-chain enforcement.
 
-**Trust tiers.** Credit updates may act on speculatively received
-confirmations—the worst case of a confirm that never lands is wrongly
-generous or wrongly stingy throttling, both recoverable. **Pruning may
-not**; see next.
+**Trust tiers.** Credit updates may act on speculatively anchored register
+reads—the worst case of a register that never lands is wrongly generous or
+wrongly stingy throttling, both recoverable. **Pruning may not**: prune
+only on registers read at inclusion tier (the peer block carrying the
+register enacted, or the sender's trust-domain equivalent); see next.
 
 #### Archive Pruning
 
@@ -1339,17 +1840,18 @@ sender's own nodes. The protocol's job is only to define when pruning is
 *safe*:
 
 > Prune payloads (and leaf hashes) below watermark W once the receiver block
-> whose confirmation asserts W is irreversible from the sender's
+> that published the register asserting W is irreversible from the sender's
 > perspective—the same tier table that governs consumption trust: same trust
 > domain → acknowledged by the receiver's collators; across domains →
-> included on the relay chain.
+> included on the relay chain (which anchoring the register read at an
+> included `StreamsRoot` gives by definition).
 
 This adds **no new trust assumption**: a sender that consumes speculatively
 from a peer already trusts that peer's acknowledged blocks won't revert
 (backed by Low-Latency v2 slashing); pruning on the same tier is the same
 bet. The block/candidate split makes the rule robust—blocks are permanent,
-candidates transient, so a confirmation survives availability timeouts and
-resubmission unchanged.
+candidates transient, so a published register survives availability
+timeouts and resubmission unchanged.
 
 Pruning keeps the MMR serviceable: retain the frontier (peaks) at the
 pruning boundary plus everything above it—that is exactly what appending
@@ -1357,7 +1859,7 @@ and proof generation over the unpruned tail require; nothing below the
 boundary is ever needed again (the receiver confirmed it and can never
 re-request below its own watermark).
 
-**Unsafe pruning is policy, not protocol.** A receiver that stops confirming
+**Unsafe pruning is policy, not protocol.** A receiver that stops publishing
 forever (dead chain, abandoned channel) leaves the sender's archive growing
 with every further send—but sending to a non-confirming peer stops at the
 window anyway, so the exposure is bounded by in-flight + unconfirmed tail.
@@ -1374,7 +1876,7 @@ every archive (all sender-chain nodes pruned unsafely or vanished), the
 receiver cannot skip, the channel is stalled permanently. Recovery is a
 **skip-ahead**, reusing existing machinery rather than adding a proof type:
 
-The receiver advances its per-source frontier from its current state to some
+The receiver advances its frontier for the stalled stream from its current state to some
 newer committed root *without executing the skipped payloads*, by verifying
 an MMR extension proof (the catch-up proof structure, Appendix B)—whose
 verification yields the new peak set (`merge_prefix(old_peaks,
@@ -1390,80 +1892,57 @@ governance origin by default; chains that prefer automation can configure a
 per-channel age policy (skip ranges older than T with no delivery progress).
 Default off—stalls should be loud.
 
-#### Relay Chain State Bounds
-
-The one relay-chain resource the parachain-layer conventions touch:
-`RecentProvides` entries are created lazily when a sender's first provides
-entry for a new stream enacts—so streams are manufacturable, and per-stream
-state needs explicit bounding. Two parts, with sharply different elasticity:
-
-- **The latest root per stream is the matching datum and must persist while
-  the sender is registered.** Eviction is unsound, not merely degraded:
-  extension proofs lift an old root *to a currently stored* one—if a stream
-  has no entry at all, there is nothing to lift to, and only a fresh append
-  by the (possibly dormant) sender would recreate it. A receiver consuming
-  a dormant stream's backlog would be unmatchable through no fault of its
-  own. Cost: ~44 B per stream ever written to, HRMP-channel-comparable;
-  pruned when the *sender* offboards.
-- **The window ring is the elastic part.** Any depth ≥ 1 is sound; shrinking
-  it only narrows the proof-free lag tolerance (more catch-up proofs, no
-  loss of matchability). Under state pressure, window depth is the knob.
-
-Stream *creation* is capped instead of evicted: every sender has a budget of
-at most `MaxStreamsPerSender` live streams. A provides entry that would
-create a stream beyond the budget invalidates the candidate at enactment;
-the sender runtime mirror-checks the limit so honest chains never author
-such a block (an `OpenChannel` toward a fresh destination beyond the budget
-fails at `send`). The budget is a governance-adjustable constant sized
-generously (HRMP-channel-count-comparable)—it exists to bound state, not to
-police how chains partition their ids among conventions.
-
-One hygiene consequence of id opacity: the relay chain cannot prune streams
-*addressed to* an offboarded receiver—it cannot see addressing. Such
-entries linger within the sender's budget until the sender stops
-maintaining them; it is the sender's own incentive (freeing budget) that
-cleans them up.
-
 ### Event Streams
 
-The **standard lossy convention**—the interpretation of `Broadcast(n)`
-streams. Where channels serve directed, complete, ordered communication,
+The **standard lossy convention**—the interpretation of
+`Broadcast { domain, subdomain, num }` streams (fields elided as
+`Broadcast { num }` below; domain/subdomain default 0).
+Where channels serve directed, complete, ordered communication,
 event streams serve pub-sub: a chain emits notifications, *any* interested
 chain consumes them, and only the latest matters. Canonical examples: oracle
 prices, state-change notifications, liveness beacons.
 
-The relay chain machinery is reused wholesale: the broadcast stream is an
-ordinary stream, its roots ride in `ProvidesRoots`, subscribers depending on
-it speculatively emit ordinary requires entries against it—one relay entry
-per stream serving *every* subscriber (horizontal scaling holds regardless
-of audience size). What changes is entirely the consumption discipline.
+The commitment machinery is reused wholesale: the broadcast stream is an
+ordinary entry under the sender's `StreamsRoot`; subscribers depending on
+it speculatively emit an ordinary `(source, StreamsRoot)` requires entry.
+Nothing anywhere scales with audience size: the sender doesn't know its
+subscribers, the relay chain doesn't either—horizontal scaling holds
+regardless. What changes is entirely the consumption discipline.
 
 #### Consumption: Inclusion Proofs, Not Prefix
 
 A subscriber does not track a frontier and does not consume leaves 0..N—it
-wants *specific* leaves (typically the latest event per topic it follows).
-Verification is by **MMR inclusion proof**: payload plus the O(log n)
-sibling path against a root the subscriber requires (speculative tier) or
-reads from enacted relay state (inclusion tier). The two disciplines,
-side by side:
+wants the *newest* leaves, typically just the head. Verification is by
+**MMR inclusion proof**: payload plus the O(log n) sibling path to the
+event stream's root, plus the tree proof placing that root under a
+`StreamsRoot` the subscriber requires—at a speculative anchor (enactment
+dependency, freshest) or an already-included one (dependency-free,
+inclusion tier), the same anchor-choice policy as everywhere else. The two
+disciplines, side by side:
 
 | | Prefix (channels) | Inclusion (event streams) |
 |---|---|---|
 | Verifies | everything up to a point | one leaf, any position |
 | Proof bytes | none—recomputation is the check | O(log n) hashes per leaf |
-| Receiver state | frontier (peaks + count) | highwater position per topic |
+| Receiver state | frontier (peaks + count) | one highwater position |
 | Must consume | all of it, in order | only what it cares about |
 | Gaps | unrepresentable | the normal case |
 
 The inclusion proof is the price of lossiness: channels get proof-free
-appends *because* they take everything in order. Consuming the latest
-events of k topics from one root shares upper path segments (sublinear in
-k); consuming *every* event by inclusion proof would be O(n log n) versus
-prefix's O(n) with zero proof bytes—"I actually want all of them" is a
-channel workload wearing a costume, and belongs there.
+appends *because* they take everything in order. Consuming *every* event by
+inclusion proof would be O(n log n) versus prefix's O(n) with zero proof
+bytes—"I actually want all of them" is a channel workload wearing a
+costume, and belongs there.
+
+**One stream per feed.** A publisher runs one broadcast stream per logical
+feed (per asset, per market, ...)—ids are abundant (2⁵⁶ broadcast space),
+and "keep the newest" is then trivial: the current value of a feed *is* the
+head of its stream, exactly as with ack registers. The spec defines no
+sub-stream topic scheme; an application that wants topics multiplexed
+inside one stream can build them in its payloads, on its own.
 
 **Replay protection without gap state**: the subscriber keeps one
-**monotonic highwater position** per (stream, topic)—accept an event only
+**monotonic highwater position** per consumed stream—accept an event only
 if its position (proven by the path shape) exceeds the highwater. Latest-
 wins needs exactly this and nothing more: an old event can never be
 replayed as the latest; missed events are simply *never looked at*—nothing
@@ -1486,7 +1965,12 @@ configured away:
   contract, not a failure.
 - **No handshake**: subscribing is unilateral and invisible to the
   sender—start consuming (and, for the speculative tier, requiring), done.
-  Enabled precisely by the relay's indifference to who requires a stream.
+  Enabled precisely by the relay's indifference to who requires a source.
+
+The channel protocol's **ack streams** (see [Flow Control](#flow-control))
+are exactly this convention with a fixed payload: a lossy stream whose feed
+is the confirmation register, latest = the head leaf, retention = keep the
+head. One consumption discipline, two uses.
 
 #### Composing with Channels: Gap Detection and Repair
 
@@ -1494,10 +1978,9 @@ Lossiness is per the *transport* contract; applications needing occasional
 completeness compose the two primitives (the market-data-feed pattern:
 lossy stream + reliable retransmission path):
 
-- **Detection**: per-topic sequence numbers in event payloads. (Stream
-  positions do not substitute: they are dense across *all* topics of the
-  stream, so a position jump within one topic's consumption is
-  uninformative.)
+- **Detection**: pure position arithmetic—per-feed streams make positions
+  dense per feed, so "highwater p, head p+4" *is* the gap. No sequence
+  numbers, no app-level numbering.
 - **Repair**: over an ordinary channel to the source—request/response,
   where dedup and ordering are already solved. Note the repair payload is
   usually not the missed events: for latest-wins semantics nothing needs
@@ -1554,19 +2037,25 @@ inclusion of Block A instead of collator acknowledgement.
 
 ### Cycle Prevention
 
-When two chains want to exchange messages speculatively in the same block, we
-risk deadlock: each waits for the other's acknowledgement. For non-super chains
-(above scenario), we trivially break cycles, by sticking to the procedure
-above. In particular t=1: We only process the messages in block `A` once we
-have seen the entire block. By doing this both ways, block `A` can not depend
-on the current block `B`, because it did not exist when `A` was built. This
-holds even for multi-party communication.
+When two chains exchange messages speculatively in the same production
+cycle, acknowledgements risk deadlock: each side's collators wait for the
+other block to be sufficiently confirmed before acknowledging their own.
 
-Conclusion: By not allowing intra-block communication, no cycles between blocks
-can exist and above acknowledgment procedure is sound. For Basti Blocks, we
-will end up with cycles between POVs, but those don't seem problematic, apart
-from the fact that those candidates can only become available atomically: All
-or nothing.
+The invariant that prevents it: **a block may only depend on blocks that
+were complete before it was built.** The acknowledgement timing above
+enforces exactly this—messages from block `A` are consumed only once the
+entire block `A` has been seen (t=1). Applied by both sides, block `A`
+cannot depend on the concurrently produced block `B`, because `B` did not
+exist when `A` was authored. Dependencies therefore always point strictly
+backward in time; no cycle between blocks can form. The argument is
+pairwise-free and holds for arbitrary multi-party communication.
+
+Bundled candidates ("Basti blocks") and super chains do produce cycles *at
+the candidate level* (mutual requires between co-arriving candidates).
+Those are handled, not forbidden: they match through the virtual window and
+form atomic enactment-dependency groups—available and enacted all or
+nothing (see
+[Matching Against the Virtually Extended Window](#matching-against-the-virtually-extended-window)).
 
 ### Super Chains
 
@@ -1784,8 +2273,9 @@ for less time-sensitive communication.
 
 | Aspect | HRMP | Speculative Messaging |
 |--------|------|----------------------|
-| Latency | 12-18+ seconds | Parachain block time (speculative) or 2 relay blocks (inclusion-based) |
+| Latency | 12-18+ seconds | Parachain block time (speculative) or ~2-3 relay blocks (inclusion-based) |
 | Scalability | Limited (relay chain state) | High (off-chain, only commitments on-chain) |
+| Channels / streams | Scarce: deposits, per-channel relay state, governance-mediated | **Effectively unbounded**: no deposits, no budget, no relay state per stream—open channels, lanes and topic feeds at will |
 | Trust | Relay chain only | Relay chain + optional collator acknowledgements |
 | Message data | Flows through relay chain | Never touches relay chain |
 
@@ -1816,30 +2306,27 @@ messaging) while maintaining horizontal scaling.
 
 ### Relay Chain Runtime Changes
 
-1. **New UMP signals**: `ProvidesRoots` / `RequiresRoots` carrying
-   `CommitmentSet`s ([#12347](https://github.com/paritytech/polkadot-sdk/issues/12347)).
+1. **New UMP signals**: `Provides(StreamsRoot)` / `Requires(RequiresSet)`
+   ([#12347](https://github.com/paritytech/polkadot-sdk/issues/12347)).
    Reusing UMP signals avoids a candidate receipt format change. Rollout
    caveat: older validators reject unknown UMP signals, so the node-side
    support must be deployed to a supermajority of validators before the
    corresponding `node_features` bit is enabled.
-2. **Per-stream provides storage**: Maintain a window of recent roots per
-   (sender, `StreamId`), updated on inclusion of sender candidates—the id
-   itself opaque, never interpreted. Entries must be pruned when the sending
-   parachain is offboarded. The latest root per stream must otherwise
-   persist (eviction breaks matching for dormant streams); stream creation
-   is capped per sender via `MaxStreamsPerSender`—see
-   [Relay Chain State Bounds](#relay-chain-state-bounds).
+2. **Per-sender provides storage**: One ring of the last W `StreamsRoot`s
+   per sender, pushed on enactment of provides-emitting candidates; pruned
+   as a whole on offboarding. Fixed size (W × 32 B per sender), independent
+   of stream count—there is nothing else to store or manage.
 3. **Commitment matching**: At inclusion time, verify each requires entry
-   `(source, expected_root)` against the stored window *virtually extended*
-   by the `ProvidesRoots` of the candidates at hand—one unified check;
+   `(source, expected_root)` against the stored windows *virtually extended*
+   by the `Provides` roots of the candidates at hand—one unified check;
    extensions become permanent on enactment, and matches against the virtual
    part create atomic enactment dependencies.
 
-Note: The relay chain has no MMR verification logic and does not track message
-history. Extension proofs are verified in the receiving parachain's STF
-(catch-up, in-block) or in the PVF, which transforms commitments before the
-relay chain sees them (late block, POV). The relay chain only performs simple
-hash matching.
+Note: The relay chain has no MMR or tree verification logic and does not
+track message history. Extension and tree proofs are verified in the
+receiving parachain's STF (catch-up, in-block) or in the PVF, which
+transforms commitments before the relay chain sees them (late block, POV).
+The relay chain only performs simple hash matching.
 
 ### PVF Changes
 
@@ -1860,33 +2347,34 @@ struct MessagingProofInputs {
 
 The PVF then:
 
-1. **Executes the block**: The block produces `requires` commitments based on
-   the messages it processed (referencing the `provides` roots it was built
-   against)
+1. **Executes the block**: The block produces its requires entries based on
+   the messages it processed (referencing the `StreamsRoot`s it anchored
+   at)
 
-2. **Processes late block proofs**: For each requires entry where a
-   `LateBlockProof` is provided:
-   - Verifies the extension proof connects the old root (the block's
-     `expected_root` for this source) to the new root (`proof.new_root`)
-   - Transforms the entry to reference the new root
+2. **Processes late block proofs**: For each source whose entry has
+   `LateBlockProof`s provided, it verifies them (extension proofs from the
+   block's consumption boundaries, tree proofs into the new anchor—see
+   `process_late_block_requires` in Late Block Proofs) and rewrites the
+   entry to the new anchor
 
-3. **Outputs transformed commitments**: The `RequiresRoots` commitment set
-   contains the (possibly transformed) entries that the relay chain can verify
-   against currently available provides
+3. **Outputs transformed commitments**: The `Requires` set contains the
+   (possibly rewritten) entries that the relay chain can verify against
+   currently available provides
 
 ```rust
 fn process_messaging_commitments(
-    block_requires: CommitmentSet,        // From block execution
+    block_requires: RequiresSet,          // From block execution
     proof_inputs: &MessagingProofInputs,  // From POV
-) -> Result<CommitmentSet, Error> {
-    CommitmentSet::try_from_iter(block_requires.iter().map(|(source, root)| {
-        if let Some(proof) = find_proof_for_source(&proof_inputs, *source) {
-            // Transform: verify proof and update to current root
-            process_late_block_requires(*source, *root, proof)
-        } else {
-            // No transformation needed - block was built against a root still
-            // in the relay chain's provides window
-            Ok((*source, *root))
+) -> Result<RequiresSet, Error> {
+    RequiresSet::try_from_iter(block_requires.iter().map(|(source, anchor)| {
+        match proofs_for_source(&proof_inputs, *source) {
+            Some(proofs) =>
+                // Rewrite: verify proofs and update to a current anchor
+                process_late_block_requires(*source, consumed_of(*source), proofs),
+            None =>
+                // No rewrite needed - block anchored at a StreamsRoot still
+                // in the relay chain's window
+                Ok((*source, *anchor)),
         }
     }))
 }
@@ -1898,16 +2386,19 @@ only sees commitments it can verify against current state.
 
 ### Parachain Runtime Changes 
 
-1. **MMR maintenance**: Append messages to the per-stream MMR frontiers,
-   emit `ProvidesRoots` for streams touched in this block
-2. **Requires generation**: Track incoming frontiers per source, emit
-   `RequiresRoots`
+1. **Accumulator maintenance**: Append messages to the per-stream MMR
+   frontiers, fold the touched streams' roots into the stream commitment
+   tree, emit `Provides(StreamsRoot)`
+2. **Requires generation**: Track consumed streams per source, verify tree
+   inclusion (and, when lagging, extension) proofs in the STF, emit one
+   `Requires` entry per source at the anchoring `StreamsRoot`
 3. **Trust domain configuration**: Define trusted peers for speculative messaging
 4. **Message processing**: Consume incoming batches via the messaging inherent,
-   appending to the per-source frontier; verify catch-up proofs in the STF
-5. **Channel state machine and flow control**: Per-peer `ChannelState`
-   (handshake, credit windows, confirmation watermarks), signal
-   emission/consumption, `send`-side window enforcement—see
+   appending to the per-stream frontier; verify catch-up proofs in the STF
+5. **Channel state machine and flow control**: Per-channel state
+   (`OutChannels`/`InChannels`), lifecycle signal emission/consumption,
+   register publishing on the ack stream and register reads via the
+   inherent, `send`-side window enforcement—see
    [Channels and Flow Control](#channels-and-flow-control)
 
 Note: this document deviates from the initial sketches in
@@ -1915,7 +2406,7 @@ Note: this document deviates from the initial sketches in
 [#12350](https://github.com/paritytech/polkadot-sdk/issues/12350) and the
 merged primitives ([PR #12368](https://github.com/paritytech/polkadot-sdk/pull/12368))
 in three places:
-- `OutboundMessages` is a per-destination vec rather than a
+- `OutboundMessages` is a per-stream vec rather than a
   `(ParaId, position)` map (invalid states unrepresentable, host-side append)
 - the off-chain batch carries `base + payloads` rather than per-message
   `(destination, position, payload)`—positions are derived, not stored
@@ -1927,74 +2418,45 @@ The issues and the primitives crate should be updated accordingly.
 
 ### Collator Changes
 
+All against the runtime API defined in
+[Runtime API](#runtime-api-the-noderuntime-boundary)—no direct storage
+reads.
+
 1. **Cross-chain message fetching**: Obtain messages from peer chains
 2. **MMR proof generation**: Create extension proofs for late blocks. This is
    necessarily node-side: the runtime only stores frontiers (peaks), which is
    enough to *verify* but not to *generate* an ancestry proof. The receiver's
    node has the required data anyway—its old frontier plus all subsequently
-   fetched messages for the (source→us) pair let it rebuild the MMR segment
+   fetched messages for that (source, stream) let it rebuild the MMR segment
    and generate the proof off-chain.
 3. **Extended acknowledgement rules**: Verify message dependencies before acknowledging
 4. **Super-block production** (if applicable): Coordinate multi-chain block production
 
 ### Networking
 
-Addressing is always by *(stream, message position)*, never by block.
-Per-stream positions are dense (0, 1, 2, ... with no gaps, by construction),
-so a receiver resuming after downtime does not traverse the sender's blocks
-looking for ones that wrote to its stream—source blocks that wrote nothing
-simply don't occupy position space. Blocks appear only as batch boundaries
-in responses: the committed roots a receiver can emit requires at.
+The request/response fetch protocol is part of the wire specification—see
+[Fetch Protocol](#fetch-protocol). What remains here is node-side
+infrastructure:
 
-Sender-side full nodes maintain an off-chain (stream, position) → message
-archive, built while following their own chain (`OutboundMessages` only holds
-the current block), and serve the requests below. Channel-stream archives
-are prunable below the per-channel confirmation watermark (see
-[Archive Pruning](#archive-pruning)), event-stream archives by local
-retention policy (see [Event Streams](#event-streams)).
-
-```rust
-/// "Give me messages of this stream, from position `start` onward."
-struct MessageRangeRequest {
-    /// The requested stream of the serving chain.
-    stream: StreamId,
-    /// Typically the receiver's frontier leaf count.
-    start: MessagePosition,
-    /// Response size bound—fetching stays chunked and resumable no matter
-    /// how large the backlog.
-    max_bytes: u32,
-}
-
-/// Consecutive `MessageBatch`es (each one source block's sends, with its
-/// boundary root), starting at `start`, ending early if `max_bytes` is hit.
-struct MessageRangeResponse {
-    batches: Vec<MessageBatch>,
-}
-
-/// "Where does this stream currently stand?" Lets a resuming receiver size
-/// its backlog and pick the root to catch up toward.
-struct HeadRequest { stream: StreamId }
-struct HeadResponse {
-    /// Leaf count of the stream's MMR.
-    head: MessagePosition,
-    /// Root and source block it was committed in.
-    root: MmrRoot,
-    source_block: Hash,
-}
-```
-
-Beyond request/response, the protocol needs:
-
-1. **Live propagation**: push new `MessageBatch`es to (collators of) the
+1. **Archives**: sender-side full nodes maintain an off-chain
+   (stream, position) → message archive, built while following their own
+   chain (`OutboundMessages` only holds the current block); this is what
+   serves fetch requests. Channel-stream archives are prunable below the
+   per-channel confirmation watermark (see
+   [Archive Pruning](#archive-pruning)), event-stream archives by local
+   retention policy (see [Event Streams](#event-streams)).
+2. **Live propagation**: push new `MessageBatch`es to (collators of) the
    destination chain on block production—the speculative hot path.
-2. **Acknowledgement propagation**: quick distribution of acknowledgement
+3. **Acknowledgement propagation**: quick distribution of acknowledgement
    signatures (Low-Latency v2).
-3. **MMR state sharing**: allow peers to request proofs/peaks where node-local
-   data doesn't suffice.
-4. **Event subscription**: topic index queries (position of latest event
-   per topic—trust-free, inclusion proofs verify the answer), inclusion
-   proof requests, and topic-scoped live push for subscribers (see
-   [Event Streams](#event-streams)).
+4. **MMR and tree state sharing**: allow peers to request MMR proofs/peaks
+   and stream-commitment-tree inclusion proofs where node-local data
+   doesn't suffice.
+5. **Event subscription**: per-stream live push for subscribers plus
+   head/inclusion-proof requests—nothing beyond the fetch protocol's
+   existing shapes, pointed at broadcast streams (see
+   [Event Streams](#event-streams)). Ack-register reads use the same
+   machinery (a `HeadRequest` on the peer's ack stream plus proofs).
 
 ### Off-Chain Verification
 
@@ -2008,24 +2470,23 @@ Verification](offchain-block-verification-design.md).
 
 Interface points with this document:
 
-- The sender commits the hash of its `ProvidesRoots` set into a **header
-  digest**, deposited via `frame_system::deposit_log` at block end from the
-  same computation that emits the UMP signal. This lets a batch be verified
-  against a header alone—no candidate required.
+- The sender commits its `StreamsRoot` into a **header digest**, deposited
+  via `frame_system::deposit_log` at block end from the same computation
+  that emits the UMP signal. This lets a batch be verified against a header
+  alone—no candidate required.
 
   Unlike headers and ack blobs (chain-opaque, judged by the chain's own wasm
   via [Off-Chain Block
   Verification](offchain-block-verification-design.md)), this check is
-  performed by the *foreign node directly*—a pure function of header and
-  set, no state involved. The digest format is therefore **protocol
+  performed by the *foreign node directly*—a pure function of header, batch
+  and proofs, no state involved. The digest format is therefore **protocol
   standard**, not chain-internal:
 
-  - `DigestItem::Consensus(SPMS_ENGINE_ID, blake2_256(provides_set.encode()))`,
-    at most one per header (engine id value TBD);
-  - well-defined because `CommitmentSet`'s encoding is canonical—one logical
-    set, exactly one hash;
-  - receiver check: recompute batch root → `(stream, root)` ∈ supplied
-    set → `blake2_256(set.encode())` == digest payload.
+  - `DigestItem::Consensus(SPMS_ENGINE_ID, streams_root)`, at most one per
+    header (engine id value TBD)—the commitment being a single hash, the
+    digest carries it directly;
+  - receiver check: recompute batch root → verify the batch's tree proof
+    from that root to `streams_root` → compare against the digest payload.
 
   A chain deviating from the format self-excludes: receivers cannot verify
   its digests and it simply gets no speculative delivery.
@@ -2033,11 +2494,11 @@ Interface points with this document:
   Freedom removed by this standardization: participating chains must use the
   standard Substrate header layout (this is the one place a foreign node
   parses a header itself—everywhere else headers stay chain-opaque), and
-  multiple messaging pallet instances must aggregate into one set per
-  header. Both constraints gate only the speculative/optimistic tiers;
-  inclusion-based messaging rides on UMP signals and is header-format
-  agnostic. Hash and encoding were already protocol-fixed at the messaging
-  layer, so no chain-internal choice is overridden.
+  multiple messaging pallet instances must aggregate into one commitment
+  tree per header. Both constraints gate only the speculative/optimistic
+  tiers; inclusion-based messaging rides on UMP signals and is header-format
+  agnostic. Hash and tree structure were already protocol-fixed at the
+  messaging layer, so no chain-internal choice is overridden.
 - Tiers, all served by that digest:
 
 | Tier | Provides root source | Trust |
@@ -2094,17 +2555,20 @@ acknowledging collator violated Low-Latency v2 rules and is slashable.
 replayed/reordered within a channel.
 
 **Mitigation**: Structural, not leaf-level. Stream context is bound by the
-per-stream roots themselves: a message to C lives only under the committed
-root of A's `Dest(C)` stream and cannot verify against the `Dest(B)` stream
-root a receiver checks—stream keys are explicit in every commitment and
-lookup. Order and multiplicity within a stream are what the MMR structure
-encodes—replayed or reordered messages yield a different root (for event
-streams, cross-stream replay is equally impossible; *within*-stream replay
-of an old event as new is blocked by the monotonic highwater, position
-being proven by the inclusion path). Domain tags prevent inner nodes
-or roots from being reinterpreted as leaves (see
+commitment tree: a message to C lives only under the `Channel{C, d, n}` entry
+of A's `StreamsRoot`, and the tree proof a receiver verifies names the
+`StreamId` explicitly—the same payload cannot verify under the
+`Channel{B, d, n}` entry. Order and multiplicity within a stream are what the
+MMR structure encodes—replayed or reordered messages yield a different root
+(for event streams, cross-stream replay is equally impossible;
+*within*-stream replay of an old event as new is blocked by the monotonic
+highwater, position being proven by the inclusion path). Domain tags
+prevent inner nodes or roots from being reinterpreted as leaves, in the MMR
+and in the commitment tree alike (see
 [Leaf Hashing](#leaf-hashing-and-domain-separation), including what is
-deliberately *not* in the preimage and why).
+deliberately *not* in the preimage and why—the same ambiguity attack and
+the same fix, RFC 6962-style tagging, apply to the tree's leaf/inner
+nodes).
 
 ### Threat: ParaId Reuse
 
@@ -2134,8 +2598,8 @@ preimage), the leaf-format version byte allows adding it.
 
 ### Threat: False Confirmation
 
-**Attack**: A receiving chain's runtime (untrusted code) emits a `Confirm`
-watermark ahead of what it actually durably consumed.
+**Attack**: A receiving chain's runtime (untrusted code) publishes a
+register whose watermark is ahead of what it actually durably consumed.
 
 **Mitigation**: Self-harm only. The sender prunes its archive up to the
 watermark; if the receiver never really consumed that range, the receiver
@@ -2146,33 +2610,36 @@ frontier/root machinery is untouched by confirmations. Confirming *behind*
 unconfirmed tail, and is covered by sender-local retention policy (see
 [Archive Pruning](#archive-pruning)).
 
-### Threat: Signal Flooding
+### Threat: Signal / Register Flooding
 
-**Attack**: Signals are window-exempt (a hard rule—see
-[Flow Control](#flow-control)); a malicious peer runtime floods the channel
-with well-formed signals to impose consumption cost, which ordered delivery
-forces the receiver to process rather than skip.
+**Attack**: A malicious peer runtime floods the channel with protocol
+messages to impose consumption cost.
 
-**Mitigation**: `MAX_SIGNALS_PER_BLOCK` per channel per sender block, checkable
-at consumption (batches carry block boundaries); exceeding it is a protocol
-violation and grounds for abandoning the channel. Within the cap, the grief is
-bounded by signals being tiny and cheap to process—and by consumption being
-voluntary: the receiver can stop at any time, keeping only its frontier.
+**Mitigation**: Nothing to exploit on either lane. Lifecycle signals on the
+data stream are ordinary window-counted messages—flooding them exhausts the
+flooder's own credit like any spam, bounded by the grant the receiver
+itself extended. Register publishes on the ack stream cannot force work at
+all: the reader takes exactly one leaf (the head) per read, so publishing
+a million registers only bloats the publisher's own accumulator and
+archive. And consumption is always voluntary: the receiver can stop at any
+time, keeping only its frontier.
 
 ### Threat: Pruning on a Reverted Confirmation
 
-**Attack**: The sender prunes on a confirmation carried in a receiver block
+**Attack**: The sender prunes on a register published in a receiver block
 that never becomes canonical; the receiver's canonical history then still
 needs the pruned range.
 
-**Mitigation**: The pruning tier rule: prune only once the confirmation-carrying
+**Mitigation**: The pruning tier rule: prune only once the register-carrying
 block is irreversible under the sender's trust model (same trust domain:
-acknowledged, backed by Low-Latency v2 slashing; cross-domain: included).
+acknowledged, backed by Low-Latency v2 slashing; cross-domain: included—
+which reading at an already-included anchor yields by construction).
 This is the same bet the sender already makes when consuming speculatively
 from that peer—pruning adds no new trust assumption. Blocks being permanent
-(candidates transient) makes confirmations survive availability timeouts and
-resubmission. Credit updates, whose failure mode is merely wrong throttling,
-may act on speculative confirmations without this restriction.
+(candidates transient) makes published registers survive availability
+timeouts and resubmission. Credit updates, whose failure mode is merely
+wrong throttling, may act on speculatively read registers without this
+restriction.
 
 ### Threat: Super-Chain Collusion
 
@@ -2199,12 +2666,15 @@ alternative that:
   resubmitted blocks with older requirements still be included (POV late
   block proofs)
 - **Self-governing channels**: ordered, guaranteed delivery with TCP-style
-  credit flow control and safe pruning—negotiated and enforced bilaterally,
-  in-band, with no relay chain involvement
-- **Semantics-free relay chain**: streams are opaque ids; channels, lossy
-  broadcast/pub-sub event streams, multiple lanes per peer, and semantics
-  not yet invented are all parachain-layer conventions—deployable without
-  relay chain changes
+  credit flow control (out-of-band confirmation registers) and safe
+  pruning—negotiated and enforced bilaterally, with no relay chain
+  involvement
+- **Unbounded, free streams over a fixed-size relay footprint**: one 32 B
+  commitment per sender block, one small root window per sender—independent
+  of how many channels, event streams or subscribers exist. Chains open
+  channels, lanes and topic feeds at will, no deposits or budgets; the
+  semantics (ordered, lossy, or not yet invented) are parachain-layer
+  conventions, deployable without relay chain changes
 - **Maintains horizontal scaling**: Even for super chains: Full nodes can still
   be per chain and don't need to keep the entire state or process all sub-chain
   blocks.
@@ -2221,18 +2691,21 @@ Different layers handle different data:
 
 | Layer | Data | Purpose |
 |-------|------|---------|
-| **UMP Signals** | `ProvidesRoots` (`(StreamId, root)`) / `RequiresRoots` (`((ParaId, StreamId), root)`) commitment sets | Relay chain verification |
-| **Relay Chain State** | Window of recent roots per (sender, `StreamId`)—ids opaque, never interpreted | Matching against included blocks |
-| **Messaging Inherent (block body)** | Incoming messages, catch-up extension proofs | Consume messages; lift requires past unconsumed backlog (self-contained) |
-| **Late Block Proofs (POV)** | MMR extension proofs | Prove old requires is a prefix of current provides (resubmission only) |
-| **Parachain Runtime** | Per-stream MMR frontiers, per-peer channel state, per-topic highwaters | Internal bookkeeping, flow control, event consumption |
+| **UMP Signals** | `Provides(StreamsRoot)` / `Requires` set of `(ParaId, StreamsRoot)` | Relay chain verification |
+| **Relay Chain State** | Ring of the last W `StreamsRoot`s per sender—fixed size, nothing per stream | Matching against included blocks |
+| **Stream Commitment Tree** | Keyed trie `StreamId → stream MMR root`, maintained by the sender | One-hash commitment over all streams; inclusion proofs verified parachain-side |
+| **Messaging Inherent (block body)** | Incoming messages, tree inclusion proofs, catch-up extension proofs, ack-register reads | Consume messages; anchor streams under the source's StreamsRoot; lift requires past unconsumed backlog (self-contained) |
+| **Late Block Proofs (POV)** | MMR extension + tree inclusion proofs | Rewrite a stale anchor to a current one (resubmission only) |
+| **Parachain Runtime** | Per-stream MMR frontiers, commitment tree nodes, per-channel state, per-stream highwaters | Internal bookkeeping, flow control, event consumption |
 | **Off-Chain (Collators)** | Actual messages | Message delivery |
-| **In-Band Signals** | `OpenChannel` / `AcceptChannel` / `CloseChannel` / `Confirm` / `Upgrade`—ordinary messages in the same streams | Channel lifecycle + flow control; never seen by the relay chain |
-| **Stream Conventions** | `Dest(ParaId)` channels, `Broadcast(n)` event streams, custom layouts | Parachain-layer semantics over opaque ids—extensible without relay changes |
+| **In-Band Signals** | `OpenChannel` / `CloseChannel` / `Upgrade`—the sender side of the channel lifecycle, ordinary window-counted messages | Channel lifecycle; never seen by the relay chain |
+| **Ack Streams** | The latest `Register { version, up_to, grant, closed }`, lossy latest-wins—the receiver's entire channel voice | Acceptance + flow control + pruning watermark + close, out-of-band |
+| **Stream Conventions** | `Channel{recipient, domain, num}`, `Ack{..}` (mirroring, recipient swapped), `Broadcast{domain, subdomain, num}`, private kinds | Parachain-layer semantics over relay-invisible ids—extensible without relay changes |
 
 The relay chain only sees hashes. It verifies that provides/requires match. It
-never sees message contents, MMR sizes, or processing positions—proofs are
-verified in the receiving runtime's STF (catch-up) or the PVF (late block).
+never sees streams, message contents, MMR sizes, or processing
+positions—proofs are verified in the receiving runtime's STF (catch-up) or
+the PVF (late block).
 
 ## Appendix B: MMR Extension Proof Details
 
@@ -2282,27 +2755,44 @@ impl MMRExtensionProof {
 | Same super-chain | Messages from co-authored blocks are immediately trusted |
 | Same trust domain | Wait for source block acknowledgement |
 | Cross-domain | Wait for source block inclusion on relay chain |
-| Cycle prevention | No intra block communication apart from super chains (wait for next block, not inclusion) |
+| Cycle prevention | A block depends only on blocks complete before it was built; candidate-level cycles (super chains, bundled candidates) form atomic enactment groups |
 
 ## Appendix D: Commitment Schema Summary
 
 ```rust
 // === STREAMS ===
 
-// Opaque, sender-scoped stream identifier; full key = (sender, StreamId).
-// Meaning is parachain convention: Dest(ParaId) channels, Broadcast(n)
-// event streams, anything else chains agree on.
-struct StreamId(u64);
+// Sender-scoped stream identifier; full key = (sender, StreamId).
+// Relay-invisible, parachain-structured. Manual canonical SCALE encoding
+// (8 bytes: kind byte ++ big-endian fields; consensus-critical, frozen,
+// test-vector-locked)—used as wire format AND as the commitment-tree key;
+// decode rejects reserved kinds. Domain/subdomain: reserved delegation
+// fields, 0 by default.
+// Uniform rule: `recipient` names the chain the stream is addressed to
+// (who reads it); broadcast has no addressee.
+enum StreamId {
+    Channel   { recipient: ParaId, domain: u8, num: u16 }, // kind 0x00
+    Ack       { recipient: ParaId, domain: u8, num: u16 }, // kind 0x01: same
+                        // discriminator as its channel, recipient swapped
+    Broadcast { domain: u16, subdomain: u8, num: u32 },    // kind 0x02
+    Private   { kind: u8, body: [u8; 7] },                 // kind 0x80..=0xFF
+    // kinds 0x03..=0x7F reserved for future standard kinds
+}
 
 // === COMMITMENTS (UMP signals, verified by relay chain) ===
 
-// Canonical sorted set, strictly increasing keys enforced at decode
-struct CommitmentSet<Key>(BoundedVec<(Key, MmrRoot), MaxCommitmentEntries>);
+// Root of the sender's stream commitment tree (keyed binary trie,
+// StreamId → stream MMR root). ONE hash commits all streams.
+struct StreamsRoot(Hash);
+
+// Canonical sorted set, strictly increasing ParaIds enforced at decode;
+// one entry per SOURCE (bounded by paras), covering all its streams.
+struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), MaxCommitmentEntries>);
 
 enum UMPSignal {
     // ...
-    ProvidesRoots(CommitmentSet<StreamId>),           // our stream → its root
-    RequiresRoots(CommitmentSet<(ParaId, StreamId)>), // any stream we depend on
+    Provides(StreamsRoot),  // constant 32 B, however many streams changed
+    Requires(RequiresSet),  // sources we depend on, at their anchors
 }
 
 // === CATCH-UP PROOF (in the block body, via the messaging inherent) ===
@@ -2312,65 +2802,82 @@ enum UMPSignal {
 struct CatchUpProof {
     source: ParaId,
     stream: StreamId,
-    new_root: MmrRoot,
-    extension: MMRExtensionProof,
+    new_root: MmrRoot,               // stream root under the anchor
+    extension: MMRExtensionProof,    // consumed boundary ⊑ new_root
+    tree_proof: TreeInclusionProof,  // new_root ∈ anchor StreamsRoot
 }
 
 // === LATE BLOCK PROOF (in POV, not commitments) ===
-// Resubmission flow only: PVF overrides the unaltered block's requires.
+// Resubmission flow only: PVF rewrites the unaltered block's requires.
 
 struct LateBlockProof {
     source: ParaId,
     stream: StreamId,
     new_root: MmrRoot,
+    new_anchor: StreamsRoot,         // requires entry rewritten to this
     extension: MMRExtensionProof,
+    tree_proof: TreeInclusionProof,
 }
 
-// === RELAY CHAIN STATE ===
+// === RELAY CHAIN STATE (all of it) ===
 
-// Window of recent roots per (sender, StreamId); latest root persists while
-// sender registered; stream creation capped by MaxStreamsPerSender
+// RecentProvides: ParaId → ring of last W StreamsRoots. Fixed size,
+// nothing per stream; pruned wholesale on sender offboarding.
 
 // === PARACHAIN RUNTIME STATE (internal, not on relay chain) ===
 
-// Sender tracks: per-stream MMR frontiers (roots computed on demand)
+// Sender tracks: per-stream MMR frontiers (roots computed on demand) +
+//   commitment tree nodes (StreamsRoot computed by folding touched roots)
 // Channel receiver tracks: per-stream MMR frontier (position and root
 //   derived from it)
-// Event subscriber tracks: per-(stream, topic) monotonic highwater
+// Event subscriber tracks: one monotonic highwater per consumed stream
 
 // === OFF-CHAIN (between collators) ===
 
-// MessageBatch: source, source_block, root, base, leaf_version, payloads
-// (positions implicit: base + i; verification derives them from the
-// receiver's own frontier; base and leaf_version are trust-free hints,
-// authenticated by the root check)
+// MessageBatch: source, stream, source_block, root, tree_proof, base,
+// leaf_version, payloads (positions implicit: base + i; verification
+// derives them from the receiver's own frontier; base and leaf_version are
+// trust-free hints, authenticated by the root check; tree_proof anchors
+// root under the block's committed StreamsRoot / header digest)
 
-// === MESSAGE PAYLOADS (leaf payload = SCALE(SpecMsgKind); preimage
-// framing and LEAF_VERSION untouched) ===
+// === CHANNEL-STREAM PAYLOADS (leaf payload = SCALE(SpecMsgKind);
+// preimage framing and LEAF_VERSION untouched) ===
 
 enum SpecMsgKind {
-    Signal(SpecMsgSignal),  // window-exempt, per-block capped
+    Signal(SpecMsgSignal),  // lifecycle only; ordinary window-counted msgs
     Data(Vec<u8>),          // userspace; demux (incl. XCM envelope) upper-layer
 }
 
-// Versioned by monotonic per-side announcements (effective = min of the
-// two latest); the listed variants are the frozen core, parseable at
-// every version.
+// Sender side of the channel lifecycle. Versioned by monotonic per-side
+// announcements (sender in-band, receiver in the Register; effective =
+// min); the listed variants + the Register format are the frozen core,
+// parseable at every version.
 enum SpecMsgSignal {
-    OpenChannel { version: u8, grant: WindowGrant },    // index 0, initial announcement
-    AcceptChannel { version: u8, grant: WindowGrant },
-    CloseChannel,                                       // half-close / reject
-    Confirm { up_to: MessagePosition, grant: WindowGrant },
-    Upgrade { version: u8 },                            // raise announcement mid-channel
+    OpenChannel { version: u8 },   // index 0, initial announcement
+    CloseChannel,                  // sender half-close
+    Upgrade { version: u8 },       // raise announcement mid-channel
+}
+
+// === ACK-STREAM PAYLOAD (the receiver's entire channel voice; lossy,
+// latest-wins, read by inclusion proof; first publish = acceptance) ===
+
+struct Register {
+    version: u8,               // receiver's announcement, monotonic
+    up_to: MessagePosition,    // cumulative watermark, monotonic
+    grant: WindowGrant,        // absolute credit beyond up_to, may shrink
+    closed: bool,              // receiver-side close / rejection
 }
 
 struct WindowGrant { max_messages: u32, max_bytes: u64, max_message_size: u32 }
 
 // === PARACHAIN RUNTIME STATE (channels, in addition to frontiers) ===
 
-// Channels: per-peer ChannelState (phase, version, credit granted each way,
-// confirmation watermarks). Frontiers are eternal—channel close/reopen
-// never touches them.
+// Sender:   OutChannels: (recipient, domain, num) → phase, own
+//           announcement, latest Register read (credit + watermark +
+//           peer version).
+// Receiver: InChannels: (recipient = channel's sender, domain, num) →
+//           published Register, sender's announced version.
+// Frontiers are eternal—channel close/reopen never touches them.
 ```
 
 ## Appendix E: Comparison of Messaging Modes

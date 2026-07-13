@@ -549,10 +549,11 @@ Track the source's included heads (anchors) and its code/upgrade timeline.
    construction: after the first block whose relay parent shows the upgrade
    go-ahead signal (B_apply, itself still old-code), speculation pauses
    until a new-code included anchor exists (see Code Management).
-3. Messaging-specific: recompute the batch root from the payloads, check it
-   is in the provides set, and check the set's hash against the target's
-   header digest (format protocol-standardized—a node-side pure check, no
-   wasm involved; see the messaging design).
+3. Messaging-specific: recompute the batch root from the payloads, verify
+   the batch's tree proof connecting it to the sender's `StreamsRoot`, and
+   check that root against the target's header digest (format
+   protocol-standardized—a node-side pure check, no wasm involved; see the
+   messaging design).
 4. Accept at the returned `Confidence`; advance the verified frontier.
 
 ### Degradation ladder
