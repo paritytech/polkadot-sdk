@@ -117,10 +117,6 @@ pub struct LogsSubscriptionFilter {
 	addresses: Option<BTreeSet<H160>>,
 
 	/// Defines if the filter is configured to filter based on the topics.
-	///
-	/// The number of positions is preserved from the request (rather than padded to a fixed
-	/// length) so the go-ethereum length rule can be enforced: a filter of length `N` only
-	/// matches logs with at least `N` topics. A `None` entry is an explicit `null` wildcard.
 	topics: Option<Vec<Option<BTreeSet<H256>>>>,
 }
 
