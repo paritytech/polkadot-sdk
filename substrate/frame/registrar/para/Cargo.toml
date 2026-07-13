@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "AHM v2: Coretime-chain control-plane pallet for the parachain registrar. Holds registration intent and deposit, driving the relay chain over XCM."
+description = "User facing control plane for managing parachain registrations that are stored on the relay chain."
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true

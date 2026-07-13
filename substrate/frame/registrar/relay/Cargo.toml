@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "AHM v2: Relay-chain consensus-plane pallet for the parachain registrar. Applies registrations authorized on the Coretime chain and drives the relay's paras state."
+description = "Relay pallet as counter-part for the pallet-registrar-para"
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true

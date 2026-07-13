@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Shared, network-agnostic primitives and versioned CT<->RC XCM message types for the parachain registrar para/relay pallet pair."
+description = "Shared Para<->Relay message types."
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true

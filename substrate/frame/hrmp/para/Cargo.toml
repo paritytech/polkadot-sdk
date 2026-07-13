@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "AHM v2: Coretime-chain control-plane pallet for HRMP channels. Holds channel deposits and drives HRMP open/accept/close on the relay chain over XCM."
+description = "User facing control plane for managing HRMP channels that are stored on the relay chain."
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true
