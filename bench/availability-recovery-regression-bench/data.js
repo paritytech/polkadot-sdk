@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783834399921,
+  "lastUpdate": 1783958074731,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41631a229756ddbdb0f38f7f75481dc77ba9c2c3",
-          "message": "chore: update zombienet environment vars (#10293)\n\n# Description\n#9724\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-11-17T10:50:13Z",
-          "tree_id": "90cc81cb92205fe20074da6abef1760407baf1fe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41631a229756ddbdb0f38f7f75481dc77ba9c2c3"
-        },
-        "date": 1763380616408,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.643680483266667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20682908963333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.794271935766664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jessechejieh@gmail.com",
+            "name": "jessechejieh",
+            "username": "jessechejieh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "488dfcb463995c8942cf2f788c70cabf2d4269e6",
+          "message": "`pallet-whitelist`: Deferred Dispatch (#11336)\n\nSolves #11199\n\n---------\n\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-13T13:16:45Z",
+          "tree_id": "f62ea90999e03cfd2a765135750c2d390f6c7905",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/488dfcb463995c8942cf2f788c70cabf2d4269e6"
+        },
+        "date": 1783958044646,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13986903869999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.818890392266669,
             "unit": "seconds"
           }
         ]
