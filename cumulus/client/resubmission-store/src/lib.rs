@@ -19,18 +19,15 @@
 //!
 //! Persists a [`StoredEntry`] per imported parablock, keyed by parablock hash, holding everything
 //! needed to reconstruct and resubmit the collation for an unincluded block without assuming the
-//! relay parent is still available: the storage proof, the relay parent header, the relay-parent
-//! session and the persisted validation data.
+//! relay parent is still available: the storage proof, the relay parent header and the relay-parent
+//! session.
 //!
 //! Entries are pruned on parachain finality via [`prune_finalized_entries`], which is meant to run
 //! on the same task that records entries so a recorded entry is always observed by a subsequent
 //! finality notification.
 
 use codec::{Decode, Encode};
-use cumulus_primitives_core::{
-	relay_chain::{Header as RelayHeader, SessionIndex},
-	PersistedValidationData,
-};
+use cumulus_primitives_core::relay_chain::{Header as RelayHeader, SessionIndex};
 use sc_client_api::{
 	backend::AuxStore,
 	client::{AuxDataOperations, FinalityNotification},
@@ -54,8 +51,6 @@ pub struct StoredEntry {
 	pub relay_parent_header: RelayHeader,
 	/// Relay parent's `session_index_for_child`.
 	pub relay_parent_session: SessionIndex,
-	/// Persisted validation data at the relay parent, resolved with the `TimedOut` assumption.
-	pub persisted_validation_data: PersistedValidationData,
 }
 
 fn entry_key<H: Encode>(block_hash: H) -> Vec<u8> {
@@ -90,10 +85,8 @@ pub fn prepare_resubmission_aux_data<Block: BlockT>(
 	proof: Arc<StorageProof>,
 	relay_parent_header: RelayHeader,
 	relay_parent_session: SessionIndex,
-	persisted_validation_data: &PersistedValidationData,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
-	let encoded_entry =
-		(&proof, &relay_parent_header, &relay_parent_session, persisted_validation_data).encode();
+	let encoded_entry = (&proof, &relay_parent_header, &relay_parent_session).encode();
 	let encoded_version = STORE_CURRENT_VERSION.encode();
 
 	[(entry_key(block_hash), encoded_entry), (STORE_VERSION_KEY.to_vec(), encoded_version)]
@@ -222,21 +215,11 @@ mod tests {
 		}
 	}
 
-	fn test_pvd() -> PersistedValidationData {
-		PersistedValidationData {
-			parent_head: vec![1, 2, 3].into(),
-			relay_parent_number: 1,
-			relay_parent_storage_root: Default::default(),
-			max_pov_size: 5_000_000,
-		}
-	}
-
 	fn create_test_entry() -> StoredEntry {
 		StoredEntry {
 			proof: Arc::new(StorageProof::new(vec![vec![1, 2, 3], vec![4, 5, 6]])),
 			relay_parent_header: test_relay_header(7),
 			relay_parent_session: 1,
-			persisted_validation_data: test_pvd(),
 		}
 	}
 
@@ -252,7 +235,6 @@ mod tests {
 			entry.proof.clone(),
 			entry.relay_parent_header.clone(),
 			entry.relay_parent_session,
-			&entry.persisted_validation_data,
 		)
 		.collect();
 		let insert_pairs: Vec<_> =
@@ -266,13 +248,11 @@ mod tests {
 		let proof = Arc::new(StorageProof::new(vec![vec![10, 20, 30]]));
 		let relay_parent_header = test_relay_header(42);
 		let relay_parent_session = 42;
-		let persisted_validation_data = test_pvd();
 		let pairs: Vec<_> = prepare_resubmission_aux_data::<Block>(
 			hash,
 			proof.clone(),
 			relay_parent_header.clone(),
 			relay_parent_session,
-			&persisted_validation_data,
 		)
 		.collect();
 
@@ -286,7 +266,6 @@ mod tests {
 		assert_eq!(decoded_entry.proof, proof);
 		assert_eq!(decoded_entry.relay_parent_header, relay_parent_header);
 		assert_eq!(decoded_entry.relay_parent_session, relay_parent_session);
-		assert_eq!(decoded_entry.persisted_validation_data, persisted_validation_data);
 
 		assert_eq!(pairs[1].0, STORE_VERSION_KEY.to_vec());
 		let decoded_version =
@@ -448,14 +427,12 @@ mod tests {
 				entry_a.proof.clone(),
 				entry_a.relay_parent_header.clone(),
 				entry_a.relay_parent_session,
-				&entry_a.persisted_validation_data,
 			)
 			.chain(prepare_resubmission_aux_data::<Block>(
 				hash_b,
 				entry_b.proof.clone(),
 				entry_b.relay_parent_header.clone(),
 				entry_b.relay_parent_session,
-				&entry_b.persisted_validation_data,
 			))
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();
@@ -538,7 +515,6 @@ mod tests {
 				entry.proof,
 				entry.relay_parent_header,
 				entry.relay_parent_session,
-				&entry.persisted_validation_data,
 			)
 			.collect();
 			let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();

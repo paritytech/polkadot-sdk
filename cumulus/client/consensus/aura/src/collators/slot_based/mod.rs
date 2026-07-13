@@ -226,7 +226,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		block_import_handle,
 		relay_client.clone(),
 		para_client.clone(),
-		para_id,
 	);
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);

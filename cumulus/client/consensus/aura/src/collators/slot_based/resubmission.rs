@@ -17,10 +17,10 @@
 
 //! Resolving relay-chain data needed to record resubmission entries.
 //!
-//! [`resolve_session`] and [`resolve_pvd`] are shared by the build path (block_builder_task) and
-//! the resubmission backfill task. [`run_resubmission_backfill`] is the task that records
-//! resubmission entries for blocks imported at the tip (built by other collators), doing the
-//! relay-chain queries off the block-import path.
+//! [`resolve_session`] is shared by the build path (block_builder_task) and the resubmission
+//! backfill task. [`run_resubmission_backfill`] is the task that records resubmission entries for
+//! blocks imported at the tip (built by other collators), doing the relay-chain queries off the
+//! block-import path.
 
 use super::SlotBasedBlockImportHandle;
 use cumulus_client_resubmission_store::{
@@ -31,11 +31,10 @@ use cumulus_primitives_core::{
 		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
 		SessionIndex,
 	},
-	CumulusDigestItem, PersistedValidationData, RelayBlockIdentifier,
+	CumulusDigestItem, RelayBlockIdentifier,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
-use polkadot_primitives::{Id as ParaId, OccupiedCoreAssumption};
 use sc_client_api::{backend::AuxStore, BlockchainEvents};
 use sp_api::StorageProof;
 use sp_blockchain::HeaderBackend;
@@ -57,12 +56,6 @@ pub(crate) enum ResubmissionError {
 
 	#[error("failed to fetch relay-parent session: {0}")]
 	Session(RelayChainError),
-
-	#[error("no persisted validation data (TimedOut) for relay parent")]
-	PersistedValidationDataUnavailable,
-
-	#[error("failed to fetch persisted validation data: {0}")]
-	PersistedValidationData(RelayChainError),
 }
 
 /// Fetch the session index for the given relay parent.
@@ -74,20 +67,6 @@ pub(crate) async fn resolve_session<R: RelayChainInterface + ?Sized>(
 		.session_index_for_child(relay_parent)
 		.await
 		.map_err(ResubmissionError::Session)
-}
-
-/// Fetch the persisted validation data (with `OccupiedCoreAssumption::TimedOut`, so `parent_head`
-/// is the currently-included head) for the given relay parent.
-pub(crate) async fn resolve_pvd<R: RelayChainInterface + ?Sized>(
-	relay_client: &R,
-	relay_parent: RelayHash,
-	para_id: ParaId,
-) -> Result<PersistedValidationData, ResubmissionError> {
-	relay_client
-		.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::TimedOut)
-		.await
-		.map_err(ResubmissionError::PersistedValidationData)?
-		.ok_or(ResubmissionError::PersistedValidationDataUnavailable)
 }
 
 /// Resolve the relay-parent header from a [`RelayBlockIdentifier`] found in a parablock's digest.
@@ -133,7 +112,6 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 	mut block_import_handle: SlotBasedBlockImportHandle<Block>,
 	relay_client: RClient,
 	para_client: Arc<Client>,
-	para_id: ParaId,
 ) where
 	Block: BlockT,
 	RClient: RelayChainInterface,
@@ -175,7 +153,6 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 				backfill_resubmission_entry(
 					&relay_client,
 					&*para_client,
-					para_id,
 					block.header(),
 					proof,
 				)
@@ -191,7 +168,6 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 async fn backfill_resubmission_entry<Block, R, Client>(
 	relay_client: &R,
 	para_client: &Client,
-	para_id: ParaId,
 	header: &Block::Header,
 	proof: Arc<StorageProof>,
 ) where
@@ -240,19 +216,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 			return;
 		},
 	};
-	let persisted_validation_data = match resolve_pvd(relay_client, relay_parent, para_id).await {
-		Ok(pvd) => pvd,
-		Err(err) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?block_hash,
-				?err,
-				"Could not resolve persisted validation data; skipping resubmission entry.",
-			);
-			return;
-		},
-	};
-
 	if number <= para_client.info().finalized_number {
 		return;
 	}
@@ -262,7 +225,6 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		proof,
 		relay_parent_header,
 		relay_parent_session,
-		&persisted_validation_data,
 	)
 	.collect();
 	let refs: Vec<_> = pairs.iter().map(|(k, v)| (k.as_slice(), v.as_slice())).collect();

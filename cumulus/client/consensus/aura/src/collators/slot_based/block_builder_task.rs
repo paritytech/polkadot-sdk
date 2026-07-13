@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-	resubmission::{resolve_pvd, resolve_session},
-	CollatorMessage,
-};
+use super::{resubmission::resolve_session, CollatorMessage};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -746,17 +743,6 @@ where
 			);
 		})
 		.ok();
-	let pvd = resolve_pvd(relay_client, relay_parent_hash, para_id)
-		.await
-		.inspect_err(|err| {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?relay_parent_hash,
-				?err,
-				"Could not resolve persisted validation data; resubmission entry will be skipped.",
-			);
-		})
-		.ok();
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
@@ -903,13 +889,12 @@ where
 		}
 
 		let proof = Arc::new(built_block.proof);
-		if let (Some(relay_parent_session), Some(pvd)) = (session, pvd.as_ref()) {
+		if let Some(relay_parent_session) = session {
 			prepare_resubmission_aux_data::<Block>(
 				built_block.block.header().hash(),
 				proof.clone(),
 				relay_parent_header.clone(),
 				relay_parent_session,
-				pvd,
 			)
 			.for_each(|(k, v)| {
 				import_block.auxiliary.push((k, Some(v)));

@@ -329,7 +329,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 
 		let Some(resubmission_body) = resubmission_body else { return Ok(None) };
 
-		let block = Block::new(params.header.clone(), resubmission_body);
+		let block = Block::new(params.post_header(), resubmission_body);
 		Ok(Some((block, Arc::new(storage_proof))))
 	}
 }
