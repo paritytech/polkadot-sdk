@@ -1389,7 +1389,12 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 	/// overlay are not taken into account when deleting keys in the backend.
 	#[deprecated = "Use `clear` instead"]
 	fn remove_all(limit: Option<u32>) -> sp_io::KillStorageResult {
-		unhashed::clear_prefix(&Self::final_prefix(), limit, None).into()
+		let counters = unhashed::clear_prefix(&Self::final_prefix(), limit, None);
+		if counters.more {
+			sp_io::KillStorageResult::SomeRemaining(counters.loops)
+		} else {
+			sp_io::KillStorageResult::AllRemoved(counters.loops)
+		}
 	}
 
 	/// Attempt to remove all items from the map.
@@ -1416,7 +1421,10 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 	/// operating on the same map should always pass `Some`, and this should be equal to the
 	/// previous call result's `maybe_cursor` field.
 	fn clear(limit: u32, maybe_cursor: Option<&[u8]>) -> sp_io::MultiRemovalResults {
-		unhashed::clear_prefix(&Self::final_prefix(), Some(limit), maybe_cursor)
+		let mut cursor = sp_io::MultiRemovalCursor::new();
+		cursor.set_input(maybe_cursor);
+		unhashed::clear_prefix(&Self::final_prefix(), Some(limit), Some(&mut cursor))
+			.into_results(cursor)
 	}
 
 	/// Iter over all value of the storage.

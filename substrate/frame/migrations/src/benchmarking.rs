@@ -234,7 +234,7 @@ mod benches {
 		// However, the benchmarking PoV results are correctly dependent on the amount of
 		// keys removed.
 
-		if result.maybe_cursor.is_none() {
+		if !result.more {
 			// All the keys removed
 			#[cfg(not(test))]
 			ensure!(result.backend == n, "Not all keys are removed");

@@ -100,7 +100,7 @@ where
 
 		meter.consume(T::WeightInfo::reset_pallet_migration(outcome.backend));
 
-		Ok(Some(outcome.maybe_cursor.is_none()))
+		Ok(Some(!outcome.more))
 	}
 
 	#[cfg(feature = "try-runtime")]
