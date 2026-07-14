@@ -141,10 +141,10 @@ a large transaction throughput.
 - `--extrinsic-subtract-weight`: Enable subtraction of signature and extension weights from the
   generated extrinsic base weight expression (default: true). (`--subtract-extensions` is kept as
   an alias.)
-- `--signature-weight`: Manual weight of the signature verification to subtract
-  (format: `ref_time,proof_size`).
-- `--extension-weight`: Manual weight of the transaction extensions to subtract
-  (format: `ref_time,proof_size`).
+- `--signature-weight`: Manual `ref_time` of the signature verification to subtract
+  (proof size is assumed to be zero).
+- `--extension-weight`: Manual `ref_time` of the transaction extensions to subtract
+  (proof size is assumed to be zero).
 
 ## Precision Note
 

@@ -50,6 +50,7 @@ pub use sp_core::{
 	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect,
 	TypedGet,
 };
+use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 #[cfg(feature = "std")]
 use std::fmt::Display;
 #[cfg(feature = "std")]
@@ -186,58 +187,46 @@ impl Verify for sp_core::ecdsa_bls381::Signature {
 /// storage).
 pub trait SignatureWeight {
 	/// The weight of verifying a signature of this type.
-	fn weight(&self) -> sp_weights::Weight;
+	fn weight(&self) -> Weight;
 }
 
 impl SignatureWeight for sp_core::ed25519::Signature {
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight(&self) -> Weight {
 		// Calibrated from `pallet_verify_signature::verify_signature` on reference hardware
 		// (kitchensink-runtime, sr25519). sr25519 is more expensive than ed25519, but we may want
 		// to refine the result later.
-		sp_weights::Weight::from_parts(
-			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
-			0,
-		)
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814), 0)
 	}
 }
 
 impl SignatureWeight for sp_core::sr25519::Signature {
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight(&self) -> Weight {
 		// Calibrated from `pallet_verify_signature::verify_signature` on reference hardware
 		// (kitchensink-runtime).
-		sp_weights::Weight::from_parts(
-			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
-			0,
-		)
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814), 0)
 	}
 }
 
 impl SignatureWeight for sp_core::ecdsa::Signature {
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight(&self) -> Weight {
 		// ECDSA verification additionally recovers the public key, so it is heavier.
 		// TODO: calibrate via a dedicated benchmark.
 		// Rough estimate; we may want to refine the result later.
-		sp_weights::Weight::from_parts(
-			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
-			0,
-		)
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000), 0)
 	}
 }
 
 impl SignatureWeight for sp_core::ecdsa::KeccakSignature {
-	fn weight(&self) -> sp_weights::Weight {
+	fn weight(&self) -> Weight {
 		// Same ECDSA recovery cost as `ecdsa::Signature`, with a Keccak digest.
 		// TODO: calibrate via a dedicated benchmark.
-		sp_weights::Weight::from_parts(
-			sp_weights::constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000),
-			0,
-		)
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000), 0)
 	}
 }
 
 impl SignatureWeight for () {
-	fn weight(&self) -> sp_weights::Weight {
-		sp_weights::Weight::zero()
+	fn weight(&self) -> Weight {
+		Weight::zero()
 	}
 }
 

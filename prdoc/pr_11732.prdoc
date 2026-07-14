@@ -19,15 +19,10 @@ doc:
     the dispatch weight of signed extrinsics in `GetDispatchInfo::get_dispatch_info`, so it is
     reflected in fees and block-weight accounting without any per-runtime configuration.
 
-    This replaces the previous extension-based mechanism: `frame_system::ChargeSignatureWeight` and
-    `frame_system::Config::SignatureWeight` are removed.
-
 crates:
 - name: frame-benchmarking-cli
   bump: minor
 - name: sp-runtime
   bump: major
 - name: frame-support
-  bump: major
-- name: frame-system
   bump: major

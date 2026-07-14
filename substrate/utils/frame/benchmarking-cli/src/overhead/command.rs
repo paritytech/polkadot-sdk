@@ -169,34 +169,20 @@ pub struct OverheadParams {
 	#[arg(long, default_value_t = true, alias = "subtract-extensions")]
 	pub extrinsic_subtract_weight: bool,
 
-	/// Weight of signature verification for the remark extrinsic used by the benchmark.
+	/// `ref_time` of signature verification for the remark extrinsic used by the benchmark.
 	///
 	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
-	/// reporting benchmark statistics. Format: `ref_time,proof_size` (`Weight::from_parts`).
-	#[arg(long, value_parser = parse_weight)]
-	pub signature_weight: Option<Weight>,
+	/// reporting benchmark statistics. Proof size is assumed to be zero (signature verification
+	/// does not touch storage).
+	#[arg(long)]
+	pub signature_weight: Option<u64>,
 
-	/// Weight of all transaction extensions on the remark extrinsic used by the benchmark.
+	/// `ref_time` of all transaction extensions on the remark extrinsic used by the benchmark.
 	///
 	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
-	/// reporting benchmark statistics. Format: `ref_time,proof_size` (`Weight::from_parts`).
-	#[arg(long, value_parser = parse_weight)]
-	pub extension_weight: Option<Weight>,
-}
-
-/// Parses a weight in the format `ref_time,proof_size`.
-fn parse_weight(s: &str) -> std::result::Result<Weight, String> {
-	let parts: Vec<&str> = s.split(',').collect();
-	if parts.len() != 2 {
-		return Err("Weight must be in the format `ref_time,proof_size`".to_string());
-	}
-	let ref_time = parts[0]
-		.parse::<u64>()
-		.map_err(|_| format!("Could not parse ref_time: {}", parts[0]))?;
-	let proof_size = parts[1]
-		.parse::<u64>()
-		.map_err(|_| format!("Could not parse proof_size: {}", parts[1]))?;
-	Ok(Weight::from_parts(ref_time, proof_size))
+	/// reporting benchmark statistics. Proof size is assumed to be zero.
+	#[arg(long)]
+	pub extension_weight: Option<u64>,
 }
 
 /// How the genesis state for benchmarking should be built.
@@ -673,8 +659,8 @@ impl OverheadCmd {
 			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
 
 			let subtract_weights = self.params.extrinsic_subtract_weight.then_some((
-				self.params.signature_weight.unwrap_or_default(),
-				self.params.extension_weight.unwrap_or_default(),
+				Weight::from_parts(self.params.signature_weight.unwrap_or_default(), 0),
+				Weight::from_parts(self.params.extension_weight.unwrap_or_default(), 0),
 			));
 
 			info!(target: LOG_TARGET, "Per-extrinsic execution overhead [ns]:\n{:?}", stats);
