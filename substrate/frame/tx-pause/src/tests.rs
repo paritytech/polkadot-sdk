@@ -114,7 +114,7 @@ fn can_filter_balance_in_proxy_when_paused() {
 			full_name::<Test>(b"Balances", b"transfer_allow_death"),
 		));
 
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, (), 0));
 
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(1, 1))));
 		System::assert_last_event(

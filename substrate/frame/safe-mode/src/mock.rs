@@ -103,6 +103,8 @@ impl Default for ProxyType {
 }
 
 impl InstanceFilter<RuntimeCall> for ProxyType {
+	type ProxyData = ();
+
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
@@ -115,6 +117,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::JustUtility => matches!(c, RuntimeCall::Utility { .. }),
 		}
 	}
+
 	fn is_superset(&self, o: &Self) -> bool {
 		self == &ProxyType::Any || self == o
 	}
@@ -125,8 +128,10 @@ impl pallet_proxy::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
+	type ProxyData = ();
 	type ProxyDepositBase = ConstU64<1>;
 	type ProxyDepositFactor = ConstU64<1>;
+	type ProxyDataDepositFactor = ConstU64<0>;
 	type MaxProxies = ConstU32<4>;
 	type WeightInfo = ();
 	type CallHasher = BlakeTwo256;

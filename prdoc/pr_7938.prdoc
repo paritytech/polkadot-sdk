@@ -1,0 +1,35 @@
+title: '[proxy-pallet] Add configurable proxy data for enhanced filtering with transfer
+  limits'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Attempts to resolve #7564
+
+    This PR enhances the Proxy pallet to support configurable proxy data that can be used for advanced filtering. The main feature added is the ability to create proxies with transfer limits that reset after configurable periods, addressing security concerns where proxies could transfer all funds without restrictions.
+crates:
+- name: pallet-proxy
+  bump: major
+- name: frame-support
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-safe-mode
+  bump: major
+- name: pallet-tx-pause
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: pallet-contracts
+  bump: major
+- name: people-westend-runtime
+  bump: major

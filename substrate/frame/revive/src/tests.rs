@@ -318,8 +318,10 @@ impl pallet_proxy::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ();
+	type ProxyData = ();
 	type ProxyDepositBase = ConstU128<1>;
 	type ProxyDepositFactor = ConstU128<1>;
+	type ProxyDataDepositFactor = ConstU128<0>;
 	type MaxProxies = ConstU32<32>;
 	type WeightInfo = ();
 	type MaxPending = ConstU32<32>;

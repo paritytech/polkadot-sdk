@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { features = ["max-encoded-len"], workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["derive"], workspace = true, default-features = false}
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
@@ -30,6 +31,7 @@ std = [
 	"codec/std",
 	"frame/std",
 	"scale-info/std",
+	"serde/std",
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",

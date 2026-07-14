@@ -171,7 +171,7 @@ fn can_filter_balance_in_batch_when_activated() {
 #[test]
 fn can_filter_balance_in_proxy_when_activated() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
+		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, (), 0));
 
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer())));
 		System::assert_last_event(pallet_proxy::Event::ProxyExecuted { result: Ok(()) }.into());

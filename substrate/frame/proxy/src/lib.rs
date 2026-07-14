@@ -68,11 +68,13 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 	MaxEncodedLen,
 	TypeInfo,
 )]
-pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
+pub struct ProxyDefinition<AccountId, ProxyType, ProxyData, BlockNumber> {
 	/// The account which may act on behalf of another.
 	pub delegate: AccountId,
 	/// A value defining the subset of calls that it is allowed to make.
 	pub proxy_type: ProxyType,
+	/// Additional data associated with this proxy definition.
+	pub proxy_data: ProxyData,
 	/// The number of blocks that an announcement must be in place for before the corresponding
 	/// call may be dispatched. If zero, then no announcement is needed.
 	pub delay: BlockNumber,
@@ -153,9 +155,19 @@ pub mod pallet {
 			+ Member
 			+ Ord
 			+ PartialOrd
-			+ frame::traits::InstanceFilter<<Self as Config>::RuntimeCall>
+			+ InstanceFilter<<Self as Config>::RuntimeCall, ProxyData = Self::ProxyData>
 			+ Default
 			+ MaxEncodedLen;
+
+		/// Additional data associated with a proxy type that can be used for filtering.
+		/// This data will be stored alongside the proxy definition and passed to filters.
+		type ProxyData: Parameter
+			+ Member
+			+ Default
+			+ MaxEncodedLen
+			+ MaybeSerializeDeserialize
+			+ TypeInfo
+			+ Ord;
 
 		/// The base amount of currency needed to reserve for creating a proxy.
 		///
@@ -171,6 +183,13 @@ pub mod pallet {
 		/// into account `32 + proxy_type.encode().len()` bytes of data.
 		#[pallet::constant]
 		type ProxyDepositFactor: Get<BalanceOf<Self>>;
+
+		/// The amount of currency needed per byte of `ProxyData` stored per proxy.
+		///
+		/// Since `ProxyData` is stored inline with each `ProxyDefinition`, larger data types
+		/// require a proportionally larger deposit. Set to zero when `ProxyData = ()`.
+		#[pallet::constant]
+		type ProxyDataDepositFactor: Get<BalanceOf<Self>>;
 
 		/// The maximum amount of proxies allowed for a single account.
 		#[pallet::constant]
@@ -268,6 +287,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `proxy`: The account that the `caller` would like to make a proxy.
 		/// - `proxy_type`: The permissions allowed for this proxy account.
+		/// - `proxy_data`: Additional data associated with this proxy (e.g., transfer limits).
 		/// - `delay`: The announcement period required of the initial proxy. Will generally be
 		/// zero.
 		#[pallet::call_index(1)]
@@ -276,11 +296,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			delegate: AccountIdLookupOf<T>,
 			proxy_type: T::ProxyType,
+			proxy_data: T::ProxyData,
 			delay: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-			Self::add_proxy_delegate(&who, delegate, proxy_type, delay)
+			Self::add_proxy_delegate(&who, delegate, proxy_type, proxy_data, delay)
 		}
 
 		/// Unregister a proxy account for the sender.
@@ -290,17 +311,20 @@ pub mod pallet {
 		/// Parameters:
 		/// - `proxy`: The account that the `caller` would like to remove as a proxy.
 		/// - `proxy_type`: The permissions currently enabled for the removed proxy account.
+		/// - `proxy_data`: The proxy data originally passed when adding the proxy.
+		/// - `delay`: The announcement period required of the initial proxy.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::remove_proxy(T::MaxProxies::get()))]
 		pub fn remove_proxy(
 			origin: OriginFor<T>,
 			delegate: AccountIdLookupOf<T>,
 			proxy_type: T::ProxyType,
+			proxy_data: T::ProxyData,
 			delay: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
-			Self::remove_proxy_delegate(&who, delegate, proxy_type, delay)
+			Self::remove_proxy_delegate(&who, delegate, proxy_type, proxy_data, delay)
 		}
 
 		/// Unregister all proxy accounts for the sender.
@@ -348,8 +372,13 @@ pub mod pallet {
 			let pure = Self::pure_account(&who, &proxy_type, index, None);
 			ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
 
-			let proxy_def =
-				ProxyDefinition { delegate: who.clone(), proxy_type: proxy_type.clone(), delay };
+			// Use default proxy data for pure accounts
+			let proxy_def = ProxyDefinition {
+				delegate: who.clone(),
+				proxy_type: proxy_type.clone(),
+				proxy_data: T::ProxyData::default(),
+				delay,
+			};
 			let bounded_proxies: BoundedVec<_, T::MaxProxies> =
 				vec![proxy_def].try_into().map_err(|_| Error::<T>::TooMany)?;
 
@@ -706,6 +735,7 @@ pub mod pallet {
 			delegator: T::AccountId,
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
+			proxy_data: T::ProxyData,
 			delay: BlockNumberFor<T>,
 		},
 		/// A proxy was removed.
@@ -713,6 +743,7 @@ pub mod pallet {
 			delegator: T::AccountId,
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
+			proxy_data: T::ProxyData,
 			delay: BlockNumberFor<T>,
 		},
 		/// A deposit stored for proxies or announcements was poked / updated.
@@ -753,7 +784,7 @@ pub mod pallet {
 		T::AccountId,
 		(
 			BoundedVec<
-				ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
+				ProxyDefinition<T::AccountId, T::ProxyType, T::ProxyData, BlockNumberFor<T>>,
 				T::MaxProxies,
 			>,
 			BalanceOf<T>,
@@ -776,15 +807,20 @@ pub mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
+		/// Check if a `RuntimeCall` is allowed for a given `ProxyType` and its associated data.
+		///
+		/// Passing the actual `proxy_data` is required when the proxy type uses data-dependent
+		/// filtering (e.g. a transfer-amount limit). Use `T::ProxyData::default()` when no data
+		/// is relevant.
 		pub fn check_permissions(
 			call: <T as Config>::RuntimeCall,
 			proxy_type: T::ProxyType,
+			proxy_data: T::ProxyData,
 		) -> bool {
-			proxy_type.filter(&call)
+			proxy_type.filter_with_data(&call, &proxy_data)
 		}
 
-		/// Check if one `ProxyType` is a subset of another `ProxyType`.
+		/// Check if one `ProxyType` is a super-set of another `ProxyType`.
 		pub fn is_superset(to_check: T::ProxyType, against: T::ProxyType) -> bool {
 			to_check.is_superset(&against)
 		}
@@ -796,7 +832,10 @@ impl<T: Config> Pallet<T> {
 	pub fn proxies(
 		account: T::AccountId,
 	) -> (
-		BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
+		BoundedVec<
+			ProxyDefinition<T::AccountId, T::ProxyType, T::ProxyData, BlockNumberFor<T>>,
+			T::MaxProxies,
+		>,
 		BalanceOf<T>,
 	) {
 		Proxies::<T>::get(account)
@@ -848,12 +887,14 @@ impl<T: Config> Pallet<T> {
 	/// - `delegator`: The delegator account.
 	/// - `delegatee`: The account that the `delegator` would like to make a proxy.
 	/// - `proxy_type`: The permissions allowed for this proxy account.
+	/// - `proxy_data`: Additional data associated with this proxy.
 	/// - `delay`: The announcement period required of the initial proxy. Will generally be
 	/// zero.
 	pub fn add_proxy_delegate(
 		delegator: &T::AccountId,
 		delegatee: T::AccountId,
 		proxy_type: T::ProxyType,
+		proxy_data: T::ProxyData,
 		delay: BlockNumberFor<T>,
 	) -> DispatchResult {
 		ensure!(delegator != &delegatee, Error::<T>::NoSelfProxy);
@@ -861,10 +902,12 @@ impl<T: Config> Pallet<T> {
 			let proxy_def = ProxyDefinition {
 				delegate: delegatee.clone(),
 				proxy_type: proxy_type.clone(),
+				proxy_data: proxy_data.clone(),
 				delay,
 			};
 			let i = proxies.binary_search(&proxy_def).err().ok_or(Error::<T>::Duplicate)?;
 			proxies.try_insert(i, proxy_def).map_err(|_| Error::<T>::TooMany)?;
+
 			let new_deposit = Self::deposit(proxies.len() as u32);
 			if new_deposit > *deposit {
 				T::Currency::reserve(delegator, new_deposit - *deposit)?;
@@ -872,10 +915,12 @@ impl<T: Config> Pallet<T> {
 				T::Currency::unreserve(delegator, *deposit - new_deposit);
 			}
 			*deposit = new_deposit;
+
 			Self::deposit_event(Event::<T>::ProxyAdded {
 				delegator: delegator.clone(),
 				delegatee,
-				proxy_type,
+				proxy_type: proxy_type.clone(),
+				proxy_data: proxy_data.clone(),
 				delay,
 			});
 			Ok(())
@@ -886,14 +931,15 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Parameters:
 	/// - `delegator`: The delegator account.
-	/// - `delegatee`: The account that the `delegator` would like to make a proxy.
+	/// - `delegatee`: The account that the `delegator` would like to remove as a proxy.
 	/// - `proxy_type`: The permissions allowed for this proxy account.
-	/// - `delay`: The announcement period required of the initial proxy. Will generally be
-	/// zero.
+	/// - `proxy_data`: The proxy data originally passed when adding the proxy.
+	/// - `delay`: The announcement period required of the initial proxy.
 	pub fn remove_proxy_delegate(
 		delegator: &T::AccountId,
 		delegatee: T::AccountId,
 		proxy_type: T::ProxyType,
+		proxy_data: T::ProxyData,
 		delay: BlockNumberFor<T>,
 	) -> DispatchResult {
 		Proxies::<T>::try_mutate_exists(delegator, |x| {
@@ -901,6 +947,7 @@ impl<T: Config> Pallet<T> {
 			let proxy_def = ProxyDefinition {
 				delegate: delegatee.clone(),
 				proxy_type: proxy_type.clone(),
+				proxy_data: proxy_data.clone(),
 				delay,
 			};
 			let i = proxies.binary_search(&proxy_def).ok().ok_or(Error::<T>::NotFound)?;
@@ -917,7 +964,8 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::ProxyRemoved {
 				delegator: delegator.clone(),
 				delegatee,
-				proxy_type,
+				proxy_type: proxy_type.clone(),
+				proxy_data: proxy_data.clone(),
 				delay,
 			});
 			Ok(())
@@ -928,7 +976,10 @@ impl<T: Config> Pallet<T> {
 		if num_proxies == 0 {
 			Zero::zero()
 		} else {
-			T::ProxyDepositBase::get() + T::ProxyDepositFactor::get() * num_proxies.into()
+			let data_size = T::ProxyData::max_encoded_len() as u32;
+			T::ProxyDepositBase::get() +
+				T::ProxyDepositFactor::get() * num_proxies.into() +
+				T::ProxyDataDepositFactor::get() * (data_size * num_proxies).into()
 		}
 	}
 
@@ -983,8 +1034,17 @@ impl<T: Config> Pallet<T> {
 		real: &T::AccountId,
 		delegate: &T::AccountId,
 		force_proxy_type: Option<T::ProxyType>,
-	) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
-		let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
+	) -> Result<
+		ProxyDefinition<T::AccountId, T::ProxyType, T::ProxyData, BlockNumberFor<T>>,
+		DispatchError,
+	> {
+		let f = |x: &ProxyDefinition<
+			T::AccountId,
+			T::ProxyType,
+			T::ProxyData,
+			BlockNumberFor<T>,
+		>|
+		 -> bool {
 			&x.delegate == delegate &&
 				force_proxy_type.as_ref().map_or(true, |y| &x.proxy_type == y)
 		};
@@ -992,11 +1052,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_proxy(
-		def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
+		def: ProxyDefinition<T::AccountId, T::ProxyType, T::ProxyData, BlockNumberFor<T>>,
 		real: T::AccountId,
 		call: <T as Config>::RuntimeCall,
 	) {
 		use frame::traits::{InstanceFilter as _, OriginTrait as _};
+
+		// Retain identifiers needed after the filter closure consumes `def`.
+		let real_for_update = real.clone();
+		let delegate_for_update = def.delegate.clone();
+		let proxy_type_for_update = def.proxy_type.clone();
+		// Clone the call so we can pass it to `post_dispatch` after it is dispatched.
+		let call_for_post = call.clone();
+
 		// This is a freshly authenticated new account, the origin restrictions doesn't apply.
 		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
 		origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {
@@ -1018,10 +1086,22 @@ impl<T: Config> Pallet<T> {
 				{
 					false
 				},
-				_ => def.proxy_type.filter(c),
+				_ => def.proxy_type.filter_with_data(c, &def.proxy_data),
 			}
 		});
 		let e = call.dispatch(origin);
+
+		// On success, let the proxy type update its stored data (e.g. increment amount_used).
+		if e.is_ok() {
+			Proxies::<T>::mutate(&real_for_update, |(proxies, _)| {
+				if let Some(stored) = proxies.iter_mut().find(|p| {
+					p.delegate == delegate_for_update && p.proxy_type == proxy_type_for_update
+				}) {
+					proxy_type_for_update.post_dispatch(&call_for_post, &mut stored.proxy_data);
+				}
+			});
+		}
+
 		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
 	}
 
@@ -1037,6 +1117,7 @@ impl<T: Config> Pallet<T> {
 				delegator: delegator.clone(),
 				delegatee: proxy_def.delegate,
 				proxy_type: proxy_def.proxy_type,
+				proxy_data: proxy_def.proxy_data,
 				delay: proxy_def.delay,
 			});
 		});

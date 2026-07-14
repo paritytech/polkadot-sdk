@@ -77,8 +77,8 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		InstanceFilter, LinearStoragePrice, TransformOrigin,
+		fungible::HoldConsideration, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
+		EitherOfDiverse, InstanceFilter, LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -338,6 +338,8 @@ impl Default for ProxyType {
 	}
 }
 impl InstanceFilter<RuntimeCall> for ProxyType {
+	type ProxyData = ();
+
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
@@ -390,6 +392,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 		}
 	}
+
 	fn is_superset(&self, o: &Self) -> bool {
 		match (self, o) {
 			(x, y) if x == y => true,
@@ -406,8 +409,10 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
+	type ProxyData = ();
 	type ProxyDepositBase = ProxyDepositBase;
 	type ProxyDepositFactor = ProxyDepositFactor;
+	type ProxyDataDepositFactor = ConstU128<0>;
 	type MaxProxies = ConstU32<32>;
 	type WeightInfo = weights::pallet_proxy::WeightInfo<Runtime>;
 	type MaxPending = ConstU32<32>;

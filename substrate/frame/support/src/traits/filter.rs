@@ -78,8 +78,28 @@ impl<F: FilterStack<T>, T> Drop for ClearFilterGuard<F, T> {
 
 /// Simple trait for providing a filter over a reference to some type, given an instance of itself.
 pub trait InstanceFilter<T>: Sized + Send + Sync {
+	/// The type of additional proxy data used for filtering decisions.
+	/// Defaults to `()` for proxy types that do not need extra data.
+	type ProxyData: Default;
+
 	/// Determine if a given value should be allowed through the filter (returns `true`) or not.
-	fn filter(&self, _: &T) -> bool;
+	fn filter(&self, c: &T) -> bool;
+
+	/// Determine if a given value should be allowed through the filter with additional proxy data.
+	///
+	/// The default implementation ignores `proxy_data` and delegates to [`Self::filter`].
+	/// Override this when the filtering decision depends on the per-proxy configuration stored in
+	/// `proxy_data` (e.g. a maximum transfer amount).
+	fn filter_with_data(&self, c: &T, _proxy_data: &Self::ProxyData) -> bool {
+		self.filter(c)
+	}
+
+	/// Called by the proxy pallet after a proxied call dispatches successfully.
+	///
+	/// Receives a mutable reference to the proxy's stored `proxy_data` so that stateful
+	/// limits (e.g. amount already transferred in the current period) can be updated in storage.
+	/// The default implementation is a no-op.
+	fn post_dispatch(&self, _call: &T, _proxy_data: &mut Self::ProxyData) {}
 
 	/// Determines whether `self` matches at least everything that `_o` does.
 	fn is_superset(&self, _o: &Self) -> bool {
@@ -88,9 +108,12 @@ pub trait InstanceFilter<T>: Sized + Send + Sync {
 }
 
 impl<T> InstanceFilter<T> for () {
+	type ProxyData = ();
+
 	fn filter(&self, _: &T) -> bool {
 		true
 	}
+
 	fn is_superset(&self, _o: &Self) -> bool {
 		true
 	}

@@ -68,18 +68,53 @@ impl pallet_utility::Config for Test {
 	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
 )]
 pub enum ProxyType {
 	Any,
 	JustTransfer,
 	JustUtility,
+	TransferWithLimit,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
 	}
 }
-impl frame::traits::InstanceFilter<RuntimeCall> for ProxyType {
+
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct TransferLimitData {
+	pub max_amount: u64,
+	pub period_start: u64,  // Block number when period starts
+	pub period_length: u64, // Length of period in blocks
+	pub amount_used: u64,   // Amount already used in current period
+}
+
+impl Default for TransferLimitData {
+	fn default() -> Self {
+		Self { max_amount: u64::MAX, period_start: 0, period_length: 0, amount_used: 0 }
+	}
+}
+
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	type ProxyData = TransferLimitData;
+
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
@@ -90,12 +125,71 @@ impl frame::traits::InstanceFilter<RuntimeCall> for ProxyType {
 				)
 			},
 			ProxyType::JustUtility => matches!(c, RuntimeCall::Utility { .. }),
+			ProxyType::TransferWithLimit => false, // must use filter_with_data
 		}
 	}
+
+	fn filter_with_data(&self, c: &RuntimeCall, proxy_data: &TransferLimitData) -> bool {
+		match self {
+			ProxyType::TransferWithLimit => {
+				if let RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+					value,
+					..
+				}) = c
+				{
+					let current_block = System::block_number();
+					let period_end = proxy_data.period_start + proxy_data.period_length;
+
+					// If the current period has expired, treat used amount as 0.
+					let effective_used =
+						if proxy_data.period_length > 0 && current_block >= period_end {
+							0
+						} else {
+							proxy_data.amount_used
+						};
+
+					effective_used.saturating_add(*value) <= proxy_data.max_amount
+				} else {
+					false
+				}
+			},
+			other => other.filter(c),
+		}
+	}
+
+	/// After a successful transfer, persist the updated usage (and reset the period if needed).
+	fn post_dispatch(&self, call: &RuntimeCall, proxy_data: &mut TransferLimitData) {
+		if let ProxyType::TransferWithLimit = self {
+			if let RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+				value,
+				..
+			}) = call
+			{
+				let current_block = System::block_number();
+				let period_end = proxy_data.period_start + proxy_data.period_length;
+
+				// Reset the period window when it has expired.
+				if proxy_data.period_length > 0 && current_block >= period_end {
+					proxy_data.period_start = current_block;
+					proxy_data.amount_used = 0;
+				}
+
+				proxy_data.amount_used = proxy_data.amount_used.saturating_add(*value);
+			}
+		}
+	}
+
 	fn is_superset(&self, o: &Self) -> bool {
-		self == &ProxyType::Any || self == o
+		match (self, o) {
+			(ProxyType::Any, _) => true,
+			(ProxyType::TransferWithLimit, ProxyType::TransferWithLimit) => true,
+			(ProxyType::JustTransfer, ProxyType::JustTransfer) => true,
+			(ProxyType::JustUtility, ProxyType::JustUtility) => true,
+			_ => false,
+		}
 	}
 }
+
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(c: &RuntimeCall) -> bool {
@@ -120,8 +214,10 @@ impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
+	type ProxyData = TransferLimitData;
 	type ProxyDepositBase = ProxyDepositBase;
 	type ProxyDepositFactor = ProxyDepositFactor;
+	type ProxyDataDepositFactor = ConstU64<0>;
 	type MaxProxies = ConstU32<4>;
 	type WeightInfo = ();
 	type CallHasher = BlakeTwo256;
@@ -172,17 +268,30 @@ fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 #[test]
 fn announcement_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		System::assert_last_event(
 			ProxyEvent::ProxyAdded {
 				delegator: 1,
 				delegatee: 3,
 				proxy_type: ProxyType::Any,
+				proxy_data: TransferLimitData::default(),
 				delay: 1,
 			}
 			.into(),
 		);
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(2),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		assert_eq!(Balances::reserved_balance(3), 0);
 
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
@@ -212,10 +321,45 @@ fn announcement_works() {
 }
 
 #[test]
+fn proxy_call_struct_variant_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
+
+		let call = Box::new(call_transfer(3, 1));
+
+		let proxy_call = RuntimeCall::Proxy(super::Call::proxy {
+			real: 1,
+			force_proxy_type: None,
+			call: call.clone(),
+		});
+
+		assert_ok!(proxy_call.dispatch(RuntimeOrigin::signed(2)));
+	});
+}
+
+#[test]
 fn remove_announcement_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(2),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 2, [2; 32].into()));
 		let e = Error::<Test>::NotFound;
@@ -233,8 +377,20 @@ fn remove_announcement_works() {
 #[test]
 fn reject_announcement_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(2),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 2, [2; 32].into()));
 		let e = Error::<Test>::NotFound;
@@ -264,7 +420,13 @@ fn announcer_must_be_proxy() {
 #[test]
 fn calling_proxy_doesnt_remove_announcement() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 
 		let call = Box::new(call_transfer(6, 1));
 		let call_hash = BlakeTwo256::hash_of(&call);
@@ -281,7 +443,13 @@ fn calling_proxy_doesnt_remove_announcement() {
 #[test]
 fn delayed_requires_pre_announcement() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		let call = Box::new(call_transfer(6, 1));
 		let e = Error::<Test>::Unannounced;
 		assert_noop!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()), e);
@@ -297,8 +465,20 @@ fn delayed_requires_pre_announcement() {
 #[test]
 fn proxy_announced_removes_announcement_and_returns_deposit() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(2),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		let call = Box::new(call_transfer(6, 1));
 		let call_hash = BlakeTwo256::hash_of(&call);
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, call_hash));
@@ -319,9 +499,27 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 fn filtering_works() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 1000);
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::JustTransfer, 0));
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 4, ProxyType::JustUtility, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::JustTransfer,
+			TransferLimitData::default(),
+			0
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			4,
+			ProxyType::JustUtility,
+			TransferLimitData::default(),
+			0
+		));
 
 		let call = Box::new(call_transfer(6, 1));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
@@ -369,11 +567,12 @@ fn filtering_works() {
 			ProxyEvent::ProxyExecuted { result: Ok(()) }.into(),
 		]);
 
-		let inner = Box::new(RuntimeCall::Proxy(ProxyCall::new_call_variant_add_proxy(
-			5,
-			ProxyType::Any,
-			0,
-		)));
+		let inner = Box::new(RuntimeCall::Proxy(ProxyCall::add_proxy {
+			delegate: 5.try_into().unwrap(),
+			proxy_type: ProxyType::Any,
+			proxy_data: TransferLimitData::default(),
+			delay: 0,
+		}));
 		let call = Box::new(RuntimeCall::Utility(UtilityCall::batch { calls: vec![*inner] }));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, call.clone()));
 		expect_events(vec![
@@ -407,6 +606,7 @@ fn filtering_works() {
 				delegator: 1,
 				delegatee: 2,
 				proxy_type: ProxyType::Any,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
@@ -414,6 +614,7 @@ fn filtering_works() {
 				delegator: 1,
 				delegatee: 3,
 				proxy_type: ProxyType::JustTransfer,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
@@ -421,6 +622,7 @@ fn filtering_works() {
 				delegator: 1,
 				delegatee: 4,
 				proxy_type: ProxyType::JustUtility,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
@@ -428,6 +630,7 @@ fn filtering_works() {
 				delegator: 1,
 				delegatee: 5,
 				proxy_type: ProxyType::Any,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
@@ -439,72 +642,148 @@ fn filtering_works() {
 #[test]
 fn add_remove_proxies_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_noop!(
-			Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0),
+			Proxy::add_proxy(
+				RuntimeOrigin::signed(1),
+				2,
+				ProxyType::Any,
+				TransferLimitData::default(),
+				0
+			),
 			Error::<Test>::Duplicate
 		);
 		assert_eq!(Balances::reserved_balance(1), 2);
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::JustTransfer,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 3);
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 4);
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 4, ProxyType::JustUtility, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			4,
+			ProxyType::JustUtility,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 5);
 		assert_noop!(
-			Proxy::add_proxy(RuntimeOrigin::signed(1), 4, ProxyType::Any, 0),
+			Proxy::add_proxy(
+				RuntimeOrigin::signed(1),
+				4,
+				ProxyType::Any,
+				TransferLimitData::default(),
+				0
+			),
 			Error::<Test>::TooMany
 		);
 		assert_noop!(
-			Proxy::remove_proxy(RuntimeOrigin::signed(1), 3, ProxyType::JustTransfer, 0),
+			Proxy::remove_proxy(
+				RuntimeOrigin::signed(1),
+				3,
+				ProxyType::JustTransfer,
+				TransferLimitData::default(),
+				0
+			),
 			Error::<Test>::NotFound
 		);
-		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 4, ProxyType::JustUtility, 0));
+		assert_ok!(Proxy::remove_proxy(
+			RuntimeOrigin::signed(1),
+			4,
+			ProxyType::JustUtility,
+			TransferLimitData::default(),
+			0
+		));
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 4,
 				proxy_type: ProxyType::JustUtility,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
 		);
 		assert_eq!(Balances::reserved_balance(1), 4);
-		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+		assert_ok!(Proxy::remove_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 3);
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 3,
 				proxy_type: ProxyType::Any,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
 		);
-		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+		assert_ok!(Proxy::remove_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 2);
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 2,
 				proxy_type: ProxyType::Any,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
 		);
-		assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
+		assert_ok!(Proxy::remove_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::JustTransfer,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 0);
 		System::assert_last_event(
 			ProxyEvent::ProxyRemoved {
 				delegator: 1,
 				delegatee: 2,
 				proxy_type: ProxyType::JustTransfer,
+				proxy_data: TransferLimitData::default(),
 				delay: 0,
 			}
 			.into(),
 		);
 		assert_noop!(
-			Proxy::add_proxy(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0),
+			Proxy::add_proxy(
+				RuntimeOrigin::signed(1),
+				1,
+				ProxyType::Any,
+				TransferLimitData::default(),
+				0
+			),
 			Error::<Test>::NoSelfProxy
 		);
 	});
@@ -513,10 +792,22 @@ fn add_remove_proxies_works() {
 #[test]
 fn cannot_add_proxy_without_balance() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(5),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(5), 2);
 		assert_noop!(
-			Proxy::add_proxy(RuntimeOrigin::signed(5), 4, ProxyType::Any, 0),
+			Proxy::add_proxy(
+				RuntimeOrigin::signed(5),
+				4,
+				ProxyType::Any,
+				TransferLimitData::default(),
+				0
+			),
 			DispatchError::ConsumerRemaining,
 		);
 	});
@@ -525,8 +816,20 @@ fn cannot_add_proxy_without_balance() {
 #[test]
 fn proxying_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::JustTransfer,
+			TransferLimitData::default(),
+			0
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 
 		let call = Box::new(call_transfer(6, 1));
 		assert_noop!(
@@ -602,18 +905,25 @@ fn pure_works() {
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
 		assert_eq!(Balances::free_balance(6), 1);
 
-		let call = Box::new(RuntimeCall::Proxy(ProxyCall::new_call_variant_kill_pure(
-			1,
-			ProxyType::Any,
-			0,
-			1,
-			0,
-		)));
+		let call = Box::new(RuntimeCall::Proxy(ProxyCall::kill_pure {
+			spawner: 1.try_into().unwrap(),
+			proxy_type: ProxyType::Any,
+			index: 0,
+			height: 1,
+			ext_index: 0,
+		}));
 		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), anon2, None, call.clone()));
 		let de: DispatchError = DispatchError::from(Error::<Test>::NoPermission).stripped();
 		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Err(de) }.into());
 		assert_noop!(
-			Proxy::kill_pure(RuntimeOrigin::signed(1), 1, ProxyType::Any, 0, 1, 0),
+			Proxy::kill_pure(
+				RuntimeOrigin::signed(1),
+				1.try_into().unwrap(),
+				ProxyType::Any,
+				0,
+				1,
+				0
+			),
 			Error::<Test>::NoPermission
 		);
 		assert_eq!(Balances::free_balance(1), 1);
@@ -625,7 +935,14 @@ fn pure_works() {
 		);
 
 		// Actually kill the pure proxy.
-		assert_ok!(Proxy::kill_pure(RuntimeOrigin::signed(anon), 1, ProxyType::Any, 0, 1, 0));
+		assert_ok!(Proxy::kill_pure(
+			RuntimeOrigin::signed(anon),
+			1.try_into().unwrap(),
+			ProxyType::Any,
+			0,
+			1,
+			0
+		));
 		System::assert_last_event(
 			ProxyEvent::PureKilled {
 				pure: anon,
@@ -642,7 +959,13 @@ fn pure_works() {
 fn poke_deposit_works_for_proxy_deposits() {
 	new_test_ext().execute_with(|| {
 		// Add a proxy and check initial deposit
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
 
 		// Change the proxy deposit base to trigger deposit update
@@ -670,7 +993,13 @@ fn poke_deposit_works_for_proxy_deposits() {
 fn poke_deposit_works_for_announcement_deposits() {
 	new_test_ext().execute_with(|| {
 		// Setup proxy and make announcement
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
 		let announcements = Announcements::<Test>::get(3);
@@ -707,7 +1036,13 @@ fn poke_deposit_works_for_announcement_deposits() {
 fn poke_deposit_charges_fee_when_deposit_unchanged() {
 	new_test_ext().execute_with(|| {
 		// Add a proxy and check initial deposit
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
 
 		// Poke the deposit without changing deposit required and check fee
@@ -748,7 +1083,13 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 fn poke_deposit_handles_insufficient_balance() {
 	new_test_ext().execute_with(|| {
 		// Setup with account that has minimal balance
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(5),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		let initial_deposit = Balances::reserved_balance(5);
 
 		// Change deposit base to require more than available balance
@@ -769,9 +1110,21 @@ fn poke_deposit_handles_insufficient_balance() {
 fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 	new_test_ext().execute_with(|| {
 		// Setup both proxy and announcement for the same account
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			0
+		));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
-		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(2),
+			3,
+			ProxyType::Any,
+			TransferLimitData::default(),
+			1
+		));
 		assert_eq!(Balances::reserved_balance(2), 2); // Base(1) + Factor(1) * 1
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
 		let announcements = Announcements::<Test>::get(2);
@@ -864,5 +1217,137 @@ fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 fn poke_deposit_fails_for_unsigned_origin() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin,);
+	});
+}
+
+#[test]
+fn transfer_with_limit_works() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		Balances::make_free_balance_be(&1, 100);
+
+		// max 5 tokens per 10-block period
+		let limit_data =
+			TransferLimitData { max_amount: 5, period_start: 1, period_length: 10, amount_used: 0 };
+
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::TransferWithLimit,
+			limit_data,
+			0
+		));
+
+		// First transfer of 3 tokens succeeds; amount_used in storage becomes 3.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 3))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(Proxy::proxies(1).0[0].proxy_data.amount_used, 3);
+
+		// 3 + 3 = 6 > 5: must be filtered; amount_used stays at 3.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 3))));
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
+		);
+		assert_eq!(Proxy::proxies(1).0[0].proxy_data.amount_used, 3);
+
+		// 3 + 2 = 5 == limit: succeeds; amount_used becomes 5.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 2))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(Proxy::proxies(1).0[0].proxy_data.amount_used, 5);
+
+		// 5 + 1 = 6 > 5: filtered; amount_used stays at 5.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 1))));
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
+		);
+		assert_eq!(Proxy::proxies(1).0[0].proxy_data.amount_used, 5);
+	});
+}
+
+#[test]
+fn transfer_limit_resets_after_period() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		Balances::make_free_balance_be(&1, 100);
+
+		// max 5 tokens per 10-block period (period_end = block 11)
+		let limit_data =
+			TransferLimitData { max_amount: 5, period_start: 1, period_length: 10, amount_used: 0 };
+
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::TransferWithLimit,
+			limit_data,
+			0
+		));
+
+		// Exhaust the limit.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 5))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(Proxy::proxies(1).0[0].proxy_data.amount_used, 5);
+
+		// Attempt within same period is blocked.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 1))));
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
+		);
+
+		// Move into the next period (block >= period_start + period_length = 11).
+		System::set_block_number(11);
+
+		// Period has expired: transfer succeeds; storage is reset then incremented.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 3))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		let stored = Proxy::proxies(1).0[0].proxy_data;
+		assert_eq!(stored.period_start, 11);
+		assert_eq!(stored.amount_used, 3);
+	});
+}
+
+#[test]
+fn different_proxies_have_separate_limits() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		Balances::make_free_balance_be(&1, 100);
+
+		// Two delegates, each with its own independent limit.
+		let limit_2 =
+			TransferLimitData { max_amount: 5, period_start: 1, period_length: 10, amount_used: 0 };
+		let limit_3 =
+			TransferLimitData { max_amount: 3, period_start: 1, period_length: 10, amount_used: 0 };
+
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			2,
+			ProxyType::TransferWithLimit,
+			limit_2,
+			0
+		));
+		assert_ok!(Proxy::add_proxy(
+			RuntimeOrigin::signed(1),
+			3,
+			ProxyType::TransferWithLimit,
+			limit_3,
+			0
+		));
+
+		// Proxy 2 exhausts its own limit of 5; proxy 3's counter must be unaffected.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(2), 1, None, Box::new(call_transfer(6, 5))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+
+		// Proxy 3 can still transfer up to its own limit of 3.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(3), 1, None, Box::new(call_transfer(6, 3))));
+		System::assert_last_event(ProxyEvent::ProxyExecuted { result: Ok(()) }.into());
+		assert_eq!(Proxy::proxies(1).0[0].proxy_data.amount_used, 5); // proxy 2 unchanged
+		assert_eq!(Proxy::proxies(1).0[1].proxy_data.amount_used, 3); // proxy 3 independent
+
+		// Proxy 3 is now at its limit; any further transfer must be filtered.
+		assert_ok!(Proxy::proxy(RuntimeOrigin::signed(3), 1, None, Box::new(call_transfer(6, 1))));
+		System::assert_last_event(
+			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
+		);
+		// amount_used for proxy 3 stays at 3 (post_dispatch not called on filtered calls).
+		assert_eq!(Proxy::proxies(1).0[1].proxy_data.amount_used, 3);
 	});
 }

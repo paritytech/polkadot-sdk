@@ -2257,11 +2257,13 @@ fn staking_proxy_can_manage_staking_operator() {
 	let add_call = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
 		delegate: AccountId::from(BOB).into(),
 		proxy_type: ProxyType::StakingOperator,
+		proxy_data: Default::default(),
 		delay: 0,
 	});
 	let remove_call = RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
 		delegate: AccountId::from(BOB).into(),
 		proxy_type: ProxyType::StakingOperator,
+		proxy_data: Default::default(),
 		delay: 0,
 	});
 
@@ -2373,6 +2375,7 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 			let add_operator_call = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
 				delegate: operator.clone().into(),
 				proxy_type: ProxyType::StakingOperator,
+				proxy_data: Default::default(),
 				delay: 0,
 			});
 			assert_ok!(Proxy::proxy(

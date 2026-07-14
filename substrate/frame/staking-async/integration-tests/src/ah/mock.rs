@@ -1236,6 +1236,8 @@ impl Default for ProxyType {
 }
 
 impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
+	type ProxyData = (); // Add this line
+
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
@@ -1264,8 +1266,10 @@ impl pallet_proxy::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type ProxyType = ProxyType;
+	type ProxyData = ();
 	type ProxyDepositBase = ConstU128<1>;
 	type ProxyDepositFactor = ConstU128<1>;
+	type ProxyDataDepositFactor = ConstU128<0>;
 	type MaxProxies = ConstU32<32>;
 	type MaxPending = ConstU32<32>;
 	type CallHasher = frame::deps::sp_runtime::traits::BlakeTwo256;

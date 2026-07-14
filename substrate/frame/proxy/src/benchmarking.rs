@@ -46,6 +46,7 @@ fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(),
 			RawOrigin::Signed(caller.clone()).into(),
 			real,
 			T::ProxyType::default(),
+			T::ProxyData::default(),
 			BlockNumberFor::<T>::zero(),
 		)?;
 	}
@@ -69,6 +70,7 @@ fn add_announcements<T: Config>(
 			RawOrigin::Signed(real.clone()).into(),
 			caller_lookup,
 			T::ProxyType::default(),
+			T::ProxyData::default(),
 			BlockNumberFor::<T>::zero(),
 		)?;
 		real
@@ -242,6 +244,7 @@ mod benchmarks {
 			RawOrigin::Signed(caller.clone()),
 			real,
 			T::ProxyType::default(),
+			T::ProxyData::default(),
 			BlockNumberFor::<T>::zero(),
 		);
 
@@ -262,6 +265,7 @@ mod benchmarks {
 			RawOrigin::Signed(caller.clone()),
 			delegate,
 			T::ProxyType::default(),
+			T::ProxyData::default(),
 			BlockNumberFor::<T>::zero(),
 		);
 
@@ -364,12 +368,14 @@ mod benchmarks {
 			RawOrigin::Signed(account_1.clone()).into(),
 			T::Lookup::unlookup(account_2.clone()),
 			T::ProxyType::default(),
+			T::ProxyData::default(),
 			BlockNumberFor::<T>::zero(),
 		)?;
 		Proxy::<T>::add_proxy(
 			RawOrigin::Signed(account_2.clone()).into(),
 			T::Lookup::unlookup(account_3.clone()),
 			T::ProxyType::default(),
+			T::ProxyData::default(),
 			BlockNumberFor::<T>::zero(),
 		)?;
 		let (proxies, initial_proxy_deposit) = Proxies::<T>::get(&account_2);

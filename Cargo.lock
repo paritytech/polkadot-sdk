@@ -14090,6 +14090,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "serde",
 ]
 
 [[package]]
