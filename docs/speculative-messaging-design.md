@@ -1204,7 +1204,7 @@ struct MMRExtensionProof {
     connecting_nodes: Vec<Hash>,
 }
 
-/// Part of the messaging inherent (in the block body, not the POV)
+/// Part of the messaging inherent
 struct CatchUpProof {
     /// The stream this lift applies to
     source: ParaId,
@@ -1221,36 +1221,23 @@ struct CatchUpProof {
 }
 ```
 
-The required `StreamsRoot` is itself not a field of the proof: it is the
-requires entry the block emits for this source—one root, shared by all of
-the source's streams and referenced by every catch-up proof for it. The
-runtime appends the consumed leaves to its frontier, verifies the extension
-proof from the resulting (possibly intermediate) root to `new_root` and the
-tree proof from `new_root` to that required root as part of the STF, and
-emits the requires entry directly. No PVF special-casing, no commitment
-transformation—the block validates anywhere from its own body. Unconsumed
-messages stay pending; the frontier catches up over subsequent blocks, each
-within its weight budget.
-
-**One required root per source.** A block emits a single requires entry
-per source, so all streams consumed from that source in this block are
-proven under the *same* `StreamsRoot`. This costs nothing on the hot path:
-a stream consumed exactly to its entry under the required root needs only
-its tree proof. An extension proof appears exactly where the receiver's
-consumption boundary lags the required root—which is the catch-up case by
-definition, never a new proof class.
-
-Under block bundling ("Basti blocks") the rule extends from block to
-**candidate**: a candidate carries one `RequiresSet` (one entry per
-source), so the bundling collator—who authors every block in the
-bundle—must use the same required `StreamsRoot` for a given source
-throughout it. The candidate's requires is then the union of identical
-entries, and its provides is the bundle-final `StreamsRoot` (intermediate
-blocks' roots never reach a commitment—see `MessageBatch`). Merging
-*different* required roots instead would be unsound: a later root subsumes
-an earlier one only for prefix consumption chained within the bundle, not
-for inclusion-proof reads (registers, events) verified against the earlier
-one.
+Under block bundling ("Basti blocks") the candidate carries one requires
+entry per source, merged by the PVF: blocks emit requires only for
+sources they received from, so the PVF collects the entries across the
+bundle's blocks; where two blocks name the same source, the later block's
+wins. Consuming across blocks like this is ordinary speculative messaging
+between parachain blocks—earlier bundle blocks verify against the
+source's per-block roots as they appear, including roots that will never
+be committed (a source that is itself bundling: its intermediate blocks).
+The constraint falls on the **last** consuming block: its required root
+must be one the source actually commits toward the relay chain (a
+bundle-boundary root—windowed, or a co-arriving candidate's provides),
+and it must settle whatever earlier blocks verified to that boundary.
+Prefix streams settle via the ordinary catch-up proof—the frontier
+carries across the bundle's blocks, so the lift needs no further
+consumption; inclusion-proof reads settle by re-proving the read leaf
+against the boundary root (append-only: the leaf is still under it). The
+relay chain validates only that final entry.
 
 Two regimes, decided by one question—did this block consume the stream up
 to the required root's entry?
@@ -1271,8 +1258,7 @@ lives in the POV, and the PVF overrides the block's requires with the lifted
 entry. This only arises in the resubmission flow, where a collator assembles a
 fresh candidate/POV around the unaltered block anyway—and each resubmission
 attempt regenerates the proof against the *then-current* provides, so the
-block never goes stale no matter how often it is retried. Blocks in normal
-operation never carry one. The mechanism is similar to the scheduling parent
+block never goes stale no matter how often it is retried. The mechanism is similar to the scheduling parent
 header chain in Low-Latency v2.
 
 #### The Problem
@@ -2145,8 +2131,9 @@ super-chain special cases:
   [Relay Chain Matching](#matching-against-the-virtually-extended-window)).
 - **Candidate-level cycles** are handled, not forbidden (see
   [Cycle Handling](#cycle-handling)).
-- **Bundled blocks** follow the one-required-root-per-source-per-candidate
-  rule (see [Catch-Up](#catch-up-partial-consumption-in-normal-operation)).
+- **Bundled blocks** settle each source at a committed boundary root, the
+  PVF merging per-block requires
+  (see [Catch-Up](#catch-up-partial-consumption-in-normal-operation)).
 
 What remains there—production coordination, super-block acknowledgements,
 partial-failure handling—is additive on top of this document and can evolve

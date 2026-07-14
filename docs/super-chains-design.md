@@ -11,8 +11,8 @@
 > **Status note.** This document is an early sketch, factored out of the
 > Speculative Messaging design, which defines everything super chains need
 > from the messaging layer: mutual requires through the virtually extended
-> window, atomic enactment groups, the
-> one-required-root-per-source-per-candidate rule, and cycle handling. What
+> window, atomic enactment groups, bundle requires settling at committed
+> boundary roots, and cycle handling. What
 > remains here—production coordination, super-block acknowledgements,
 > failure handling—has not received the same rigor and will change.
 
