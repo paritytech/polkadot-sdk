@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784017250479,
+  "lastUpdate": 1784026769495,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a2165432ce392662b142dbfe75b9bfd3914a59a2",
-          "message": "frame-system: Only enable special benchmarking code when running in `no_std` (#10321)\n\nThis fixes `cargo test -p cumulus-pallet-parachain-system --features\nruntime-benchmarks`",
-          "timestamp": "2025-11-14T16:32:17Z",
-          "tree_id": "4a2f6c52d4d107188868f1b069efd0b710968e03",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2165432ce392662b142dbfe75b9bfd3914a59a2"
-        },
-        "date": 1763142208494,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96799999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034448676591999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04455522712599995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08198015629399989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43c4371ad4f3f3fd305e667664f0009e147a6b18",
+          "message": "SyncEvent: Add peer roles (#12598)\n\nThis adds peer roles to `SyncEvent::PeerConnected`. This allows\nprotocols that want to follow the sync peersets to directly filter by\nlight-clients/full-nodes. Not currently in use, but will be used by\nbitswap client refactoring.",
+          "timestamp": "2026-07-14T09:07:09Z",
+          "tree_id": "41a041eb8f9561261a2aa82eb12cfa82bca083ce",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/43c4371ad4f3f3fd305e667664f0009e147a6b18"
+        },
+        "date": 1784026740719,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.146,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038664024555999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08360069054199994,
             "unit": "seconds"
           }
         ]
