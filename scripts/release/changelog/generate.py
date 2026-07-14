@@ -283,6 +283,51 @@ def demote_headings(text, min_level=5):
     return "\n".join(out)
 
 
+# Lines that start (or are) a markdown block construct and must never be merged
+# into the preceding line: lists, headings, blockquotes, tables, HTML, reference
+# definitions, and setext-underline/thematic-break lines.
+BLOCK_LINE_RE = re.compile(
+    r"^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|\||<|\[[^\]]+\]:)"
+)
+RULE_LINE_RE = re.compile(r"^\s*[=\-_*]{2,}\s*$")
+
+
+def unwrap_soft_breaks(text):
+    """Join hard-wrapped lines inside plain paragraphs. GitHub renders every single
+    newline in a release body as a hard line break (comment-style rendering), so a
+    prdoc description wrapped at 80-100 columns shows as a ragged, narrow paragraph.
+    Joining soft-wrapped lines matches CommonMark's soft-break semantics and lets
+    the text reflow to the reader's window. Structural lines (lists, headings,
+    quotes, tables, HTML, code fences, explicit hard breaks) are left untouched."""
+    out = []
+    prev_in_code = True  # never join into a line we have not seen
+    for line, in_code in scan_fences(text.splitlines()):
+        joinable = (
+            out
+            and not in_code
+            and not prev_in_code
+            and line.strip()
+            and out[-1].strip()
+            and not BLOCK_LINE_RE.match(line)
+            and not RULE_LINE_RE.match(line)
+            and not BLOCK_LINE_RE.match(out[-1])
+            and not out[-1].endswith("  ")  # markdown two-space hard break
+            and not out[-1].rstrip().lower().endswith("<br>")
+            and not out[-1].rstrip().lower().endswith("<br/>")
+        )
+        if joinable:
+            out[-1] = out[-1].rstrip() + " " + line.strip()
+        else:
+            out.append(line)
+        prev_in_code = in_code
+    return "\n".join(out)
+
+
+def rendered_description(text):
+    """Prdoc description prepared for markdown rendering (raw text stays in the JSON)."""
+    return demote_headings(unwrap_soft_breaks(text))
+
+
 UNSAFE_PREFIX_RE = re.compile(r"```|~~~|<!--|<details\b", re.IGNORECASE)
 
 
@@ -457,7 +502,7 @@ def render_entry_body(entry, limit, drop_low):
     description = entry["docs"][0]["description"] if entry["docs"] else ""
     if (limit > 0 and description
             and not (drop_low and max_bump_rank(entry["crates"]) <= BUMP_RANK["patch"])):
-        text, truncated = truncate_markdown(demote_headings(description), limit)
+        text, truncated = truncate_markdown(rendered_description(description), limit)
         if text:
             lines += [text, ""]
         if truncated:
@@ -517,7 +562,7 @@ def render_full_entry(entry):
             heading = doc["title"] or entry["title"]
             lines += [f"**For {' '.join(f'`{a}`' for a in doc['audiences'])}** — {heading}", ""]
         if doc["description"]:
-            lines += [demote_headings(doc["description"]), ""]
+            lines += [rendered_description(doc["description"]), ""]
     if entry["crates"]:
         crate_lines = []
         for c in entry["crates"]:
@@ -567,7 +612,7 @@ def render_full_changelog(entries, topics, tag, previous_tag, audience_descripti
                     heading = doc["title"] or e["title"]
                     lines += [f"#### [#{e['pr']}]({e['url']}): {heading}", ""]
                     if doc["description"]:
-                        lines += [demote_headings(doc["description"]), ""]
+                        lines += [rendered_description(doc["description"]), ""]
     lines += badge_definitions(entries)
     return "\n".join(lines).rstrip() + "\n"
 
