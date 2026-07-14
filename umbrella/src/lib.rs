@@ -118,6 +118,10 @@ pub use cumulus_client_pov_recovery;
 #[cfg(feature = "cumulus-client-proof-size-recording")]
 pub use cumulus_client_proof_size_recording;
 
+/// Per-block proof store for unincluded segment resubmission.
+#[cfg(feature = "cumulus-client-resubmission-store")]
+pub use cumulus_client_resubmission_store;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
@@ -227,6 +231,10 @@ pub use ethereum_standards;
 /// finalizing nodes.
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
+
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "fp-coretime")]
+pub use fp_coretime;
 
 /// Macro for benchmarking a FRAME runtime.
 #[cfg(feature = "frame-benchmarking")]

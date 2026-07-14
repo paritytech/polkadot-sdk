@@ -2786,23 +2786,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bp-polkadot-bulletin"
-version = "0.4.0"
-dependencies = [
- "bp-header-chain",
- "bp-messages",
- "bp-polkadot-core",
- "bp-runtime",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-api 26.0.0",
- "sp-runtime 31.0.1",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "bp-polkadot-core"
 version = "0.7.0"
 dependencies = [
@@ -3008,7 +2991,6 @@ dependencies = [
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
- "bp-polkadot-bulletin",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-runtime",
@@ -4918,6 +4900,7 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-parachain-inherent",
  "cumulus-client-proof-size-recording",
+ "cumulus-client-resubmission-store",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -4959,6 +4942,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint 0.17.0",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -4995,6 +4979,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint 0.17.0",
+ "substrate-test-runtime",
  "tokio",
  "tracing",
 ]
@@ -5121,6 +5106,21 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
+]
+
+[[package]]
+name = "cumulus-client-resubmission-store"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "parity-scale-codec",
+ "sc-client-api 28.0.0",
+ "sc-client-db",
+ "sp-blockchain 28.0.0",
+ "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
+ "substrate-test-runtime",
+ "tempfile",
 ]
 
 [[package]]
@@ -7273,6 +7273,16 @@ checksum = "8835f84f38484cc86f110a805655697908257fb9a7af005234060891557198e9"
 dependencies = [
  "nonempty",
  "thiserror 1.0.65",
+]
+
+[[package]]
+name = "fp-coretime"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
@@ -12805,6 +12815,7 @@ dependencies = [
 name = "pallet-broker"
 version = "0.6.0"
 dependencies = [
+ "fp-coretime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -17112,6 +17123,7 @@ dependencies = [
  "sc-network-sync",
  "sc-offchain",
  "sc-rpc",
+ "sc-rpc-spec-v2",
  "sc-runtime-utilities",
  "sc-service",
  "sc-statement-store",
@@ -17458,6 +17470,7 @@ dependencies = [
  "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
  "cumulus-client-proof-size-recording",
+ "cumulus-client-resubmission-store",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -17485,6 +17498,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
+ "fp-coretime",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-benchmarking-pallet-pov",
@@ -22263,8 +22277,10 @@ dependencies = [
  "sc-block-builder",
  "sc-chain-spec 28.0.0",
  "sc-client-api 28.0.0",
+ "sc-keystore",
  "sc-rpc",
  "sc-service",
+ "sc-statement-store",
  "sc-transaction-pool",
  "sc-transaction-pool-api 28.0.0",
  "sc-utils 14.0.0",
@@ -22280,11 +22296,13 @@ dependencies = [
  "sp-maybe-compressed-blob 11.0.0",
  "sp-rpc",
  "sp-runtime 31.0.1",
+ "sp-statement-store",
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint 0.17.0",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
+ "tempfile",
  "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
