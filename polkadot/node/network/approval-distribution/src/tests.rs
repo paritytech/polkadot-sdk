@@ -477,7 +477,6 @@ impl AssignmentCriteria for MockAssignmentCriteria {
 			polkadot_primitives::CoreIndex,
 			polkadot_primitives::GroupIndex,
 		)>,
-		_enable_assignments_v2: bool,
 	) -> HashMap<polkadot_primitives::CoreIndex, criteria::OurAssignment> {
 		HashMap::new()
 	}
