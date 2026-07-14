@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784026695222,
+  "lastUpdate": 1784052470077,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e9bbdf08e180f687a2f10bed77d5b52391446df2",
-          "message": "fix P256Verify precompile address (#10336)\n\nfix https://github.com/paritytech/contract-issues/issues/220\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-17T22:01:37Z",
-          "tree_id": "31a8f0ef32c7c531e9e240acff4f6c2494fc2486",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9bbdf08e180f687a2f10bed77d5b52391446df2"
-        },
-        "date": 1763421188200,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013078691726666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022779345246666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15944471233333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0076467680599999754,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02374632147333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "142614787+andreitrand@users.noreply.github.com",
+            "name": "Andrei Trandafir",
+            "username": "andreitrand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48cd73b7c38c13f56bab70ea819ef58b49be80cc",
+          "message": "Post AHM Cleanup: Remove Staking (and friends) from Westend Runtime (#11940)\n\n* Remove following pallets from Westend runtime:\npallet_election_provider_multi_phase, pallet_bags_list,\npallet_nomination_pools, pallet_fast_unstake, pallet_delegated_staking\n(including weights and other related code such as bag generation logic)\n* Ensure try runtime checks pass for Westend (without any [excluded\npallets](https://github.com/paritytech/polkadot-sdk/commit/463ef05cf1b5dbbcd91379a952d0ba0f0af347bb#diff-5264d812f7aadfc486efffd3322b11c8dee5e8ddf2e77e0a9e70b573f3d2afddR2829))\n*  Retain the ProxyType::Staking to allow setting session key via it.\n\nEarlier CI failure\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/19711056203/job/56471786443#step:9:534\nis also fixed by retaining now-deprecated enum variants which prevented\ncorrect serialization / deserialization. We initially suspected that\nhttps://github.com/paritytech/polkadot-sdk/issues/8717 and Westend still\nhad some staking holds, but this turned out to not be related.\n\nGiven the scope of this change, we have left out several sub-tasks which\nare being tracked in\nhttps://github.com/paritytech/polkadot-sdk/issues/12513.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/9442\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T16:23:11Z",
+          "tree_id": "c7aefad251be362a13c80f1efd848caa6e05aad6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/48cd73b7c38c13f56bab70ea819ef58b49be80cc"
+        },
+        "date": 1784052439104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007439984146666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010085095573333305,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02368084432,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14310044226666677,
             "unit": "seconds"
           }
         ]
