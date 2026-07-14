@@ -1260,6 +1260,7 @@ where
 			fork_id,
 			client.clone(),
 			Box::new(spawn_handle.clone()),
+			metrics_registry,
 		);
 		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
 		protocol_config

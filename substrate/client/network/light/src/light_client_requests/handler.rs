@@ -25,7 +25,10 @@
 use crate::schema;
 use codec::{self, Decode, Encode};
 use futures::{prelude::*, select};
-use log::{debug, trace};
+use log::{debug, error, trace};
+use prometheus_endpoint::{
+	exponential_buckets, register, HistogramOpts, HistogramVec, PrometheusError, Registry,
+};
 use prost::Message;
 use sc_client_api::{BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
@@ -41,13 +44,39 @@ use sp_core::{
 	traits::SpawnNamed,
 };
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 
 const LOG_TARGET: &str = "light-client-request-handler";
 
 /// Incoming requests bounded queue size. For now due to lack of data on light client request
 /// handling in production systems, this value is chosen to match the block request limit.
 const MAX_LIGHT_REQUEST_QUEUE: usize = 20;
+
+/// Prometheus metrics of the light client request handler.
+struct Metrics {
+	/// Time actively processing a light client request, by request type and outcome. Excludes
+	/// the time spent waiting in the request queue.
+	request_processing: HistogramVec,
+}
+
+impl Metrics {
+	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			request_processing: register(
+				HistogramVec::new(
+					HistogramOpts::new(
+						"light_client_request_processing_seconds",
+						"Time actively processing a light client request (excluding queueing), \
+						 by request type and outcome.",
+					)
+					.buckets(exponential_buckets(0.0001, 2.0, 20)?),
+					&["request", "outcome"],
+				)?,
+				registry,
+			)?,
+		})
+	}
+}
 
 /// Handler for incoming light client requests from a remote peer.
 pub struct LightClientRequestHandler<B, Client> {
@@ -56,6 +85,8 @@ pub struct LightClientRequestHandler<B, Client> {
 	client: Arc<Client>,
 	/// Task spawner, used to pre-warm the capped runtime off the async reactor.
 	spawn_handle: Box<dyn SpawnNamed>,
+	/// Prometheus metrics, `None` if no registry was provided or registration failed.
+	metrics: Option<Metrics>,
 	_block: PhantomData<B>,
 }
 
@@ -76,6 +107,7 @@ where
 		fork_id: Option<&str>,
 		client: Arc<Client>,
 		spawn_handle: Box<dyn SpawnNamed>,
+		metrics_registry: Option<&Registry>,
 	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
@@ -90,10 +122,34 @@ where
 			tx,
 		);
 
+		let metrics = metrics_registry.and_then(|registry| match Metrics::register(registry) {
+			Ok(metrics) => Some(metrics),
+			Err(e) => {
+				error!(target: LOG_TARGET, "Failed to register metrics: {}", e);
+				None
+			},
+		});
+
 		(
-			Self { client, request_receiver, spawn_handle, _block: PhantomData::default() },
+			Self {
+				client,
+				request_receiver,
+				spawn_handle,
+				metrics,
+				_block: PhantomData::default(),
+			},
 			protocol_config,
 		)
+	}
+
+	/// Record the processing time and outcome of serving one request.
+	fn observe_request(&self, request: &str, started: Instant, ok: bool) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.request_processing
+				.with_label_values(&[request, if ok { "ok" } else { "err" }])
+				.observe(started.elapsed().as_secs_f64());
+		}
 	}
 
 	/// Pre-warm the dedicated capped executor by compiling the runtime at `hash` on the blocking
@@ -239,7 +295,10 @@ where
 
 		// Runs on the capped executor: a call exceeding the wall-clock limit traps into `Err`,
 		// yielding an empty proof.
-		let response = match self.client.execution_proof(block, &request.method, &request.data) {
+		let started = Instant::now();
+		let result = self.client.execution_proof(block, &request.method, &request.data);
+		self.observe_request("call", started, result.is_ok());
+		let response = match result {
 			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
 			Err(e) => {
 				trace!(
@@ -277,20 +336,22 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
-		let response =
-			match self.client.read_proof(block, &mut request.keys.iter().map(AsRef::as_ref)) {
-				Ok(proof) => schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
-				Err(error) => {
-					trace!(
-						"remote read request from {} ({} at {:?}) failed with: {}",
-						peer,
-						fmt_keys(request.keys.first(), request.keys.last()),
-						request.block,
-						error,
-					);
-					schema::v1::light::RemoteReadResponse { proof: None }
-				},
-			};
+		let started = Instant::now();
+		let result = self.client.read_proof(block, &mut request.keys.iter().map(AsRef::as_ref));
+		self.observe_request("read", started, result.is_ok());
+		let response = match result {
+			Ok(proof) => schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
+			Err(error) => {
+				trace!(
+					"remote read request from {} ({} at {:?}) failed with: {}",
+					peer,
+					fmt_keys(request.keys.first(), request.keys.last()),
+					request.block,
+					error,
+				);
+				schema::v1::light::RemoteReadResponse { proof: None }
+			},
+		};
 
 		Ok(schema::v1::light::Response {
 			response: Some(schema::v1::light::response::Response::RemoteReadResponse(response)),
@@ -322,13 +383,16 @@ where
 			Some((ChildType::ParentKeyId, storage_key)) => Ok(ChildInfo::new_default(storage_key)),
 			None => Err(sp_blockchain::Error::InvalidChildStorageKey),
 		};
-		let response = match child_info.and_then(|child_info| {
+		let started = Instant::now();
+		let result = child_info.and_then(|child_info| {
 			self.client.read_child_proof(
 				block,
 				&child_info,
 				&mut request.keys.iter().map(AsRef::as_ref),
 			)
-		}) {
+		});
+		self.observe_request("read_child", started, result.is_ok());
+		let response = match result {
 			Ok(proof) => schema::v1::light::RemoteReadResponse { proof: Some(proof.encode()) },
 			Err(error) => {
 				trace!(

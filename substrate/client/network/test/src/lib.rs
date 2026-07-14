@@ -939,6 +939,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				None,
 				client.clone(),
 				Box::new(sp_core::testing::TaskExecutor::new()),
+				None,
 			);
 			self.spawn_task(handler.run().boxed());
 			protocol_config
