@@ -30,6 +30,7 @@ use sp_timestamp::Timestamp;
 
 use std::{sync::Arc, time::Duration};
 
+mod finality;
 mod level_monitor;
 mod parachain_consensus;
 mod parent_search;
@@ -37,6 +38,7 @@ mod relay_chain_data_cache;
 #[cfg(test)]
 mod tests;
 
+pub use finality::old_finalized_hash;
 pub use parent_search::*;
 pub use relay_chain_data_cache::{
 	RelayChainData, RelayChainDataCache, SessionData, SessionDataError,

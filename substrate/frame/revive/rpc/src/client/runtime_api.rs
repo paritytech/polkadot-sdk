@@ -16,17 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	ClientError,
+	BlockId, ClientError,
 	client::Balance,
 	subxt_client::{self, SrcChainConfig},
 };
 use futures::{StreamExt, TryFutureExt, stream};
 use pallet_revive::{
 	DryRunConfig, EthTransactInfo, TracingConfig,
-	evm::{
-		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
-		ReceiptGasInfo, StateOverrideSet, U256,
-	},
+	evm::{Block as EthBlock, GenericTransaction, H160, StateOverrideSet, U256},
 };
 use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
@@ -75,14 +72,9 @@ impl RuntimeApi {
 	pub async fn estimate_gas(
 		&self,
 		tx: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 	) -> Result<U256, ClientError> {
-		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
-				Some(Timestamp::current().as_millis())
-			},
-			_ => None,
-		};
+		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
 
 		// Not all versions of pallet-revive have all of the runtime functions that we require. Thus
 		// we need to be able to perform the gas estimation through any of the runtime functions
@@ -143,15 +135,10 @@ impl RuntimeApi {
 	pub async fn dry_run(
 		&self,
 		tx: GenericTransaction,
-		block: BlockNumberOrTagOrHash,
+		block: BlockId,
 		state_overrides: Option<StateOverrideSet>,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
-				Some(Timestamp::current().as_millis())
-			},
-			_ => None,
-		};
+		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
 
 		let config = DryRunConfig::default()
 			.with_timestamp_override(timestamp_override)
@@ -323,7 +310,7 @@ impl RuntimeApi {
 	}
 
 	/// Get the receipt data for the current block.
-	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
+	pub async fn eth_receipt_data(&self) -> Result<Vec<ReceiptGasInfoV1>, ClientError> {
 		let payload = subxt_client::apis().revive_api().eth_receipt_data().unvalidated();
 		let receipt_data = self.0.call(payload).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "eth_receipt_data runtime call failed: {err:?}");

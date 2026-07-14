@@ -41,6 +41,7 @@ std = [
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
 	"emulated-integration-tests-common?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -612,6 +613,7 @@ runtime-full = [
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
 	"ethereum-standards",
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -905,6 +907,7 @@ node = [
 	"cumulus-client-parachain-inherent",
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
+	"cumulus-client-resubmission-store",
 	"cumulus-client-service",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
@@ -1215,6 +1218,11 @@ path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
 path = "../substrate/primitives/ethereum-standards"
+
+[dependencies.fp-coretime]
+default-features = false
+optional = true
+path = "../substrate/frame/primitives/coretime"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -2340,6 +2348,11 @@ path = "../cumulus/client/pov-recovery"
 default-features = false
 optional = true
 path = "../cumulus/client/proof-size-recording"
+
+[dependencies.cumulus-client-resubmission-store]
+default-features = false
+optional = true
+path = "../cumulus/client/resubmission-store"
 
 [dependencies.cumulus-client-service]
 default-features = false
