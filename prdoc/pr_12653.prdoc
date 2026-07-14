@@ -1,0 +1,12 @@
+title: Remove deprecated ProposerFactory::with_proof_recording
+doc:
+- audience: Node Dev
+  description: |-
+    ## Summary
+    - Remove `ProposerFactory::with_proof_recording`, which only forwarded to `new`.
+    - No in-tree callers remain.
+
+    Part of #11561
+crates:
+- name: sc-basic-authorship
+  bump: major
