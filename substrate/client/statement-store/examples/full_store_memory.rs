@@ -19,8 +19,8 @@
 //! Builds the full-store fixture (~4M statements, see `benches/full_store/common.rs`) and
 //! measures the *benefit* side of moving the statement-store index to disk:
 //!
-//! - live heap (tracking global allocator) after population, after draining `recent`, after a
-//!   drop + reopen (the steady-state index footprint a node restart would pay), and after a read
+//! - live heap (tracking global allocator) after population, after draining `recent`, after a drop
+//!   + reopen (the steady-state index footprint a node restart would pay), and after a read
 //!   workload (whether reads retain memory);
 //! - process RSS at the same points (coarse: includes mmapped DB pages and allocator retention);
 //! - wall-clock population and reopen (index load) times;

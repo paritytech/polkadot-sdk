@@ -108,9 +108,10 @@ fn main() {
 	// Whole-store snapshot: `Any` enumerates every statement hash under the store lock. The
 	// snapshot Vec (~4.2M hashes) travels to the matcher and is freed on unsubscribe, so pace
 	// generously.
-	let (mean, min, max) = timed_loop(5, Duration::from_millis(500), create, |(handle, _stream)| {
-		handle.add_filter(OptimizedTopicFilter::Any).expect("filter attaches");
-	});
+	let (mean, min, max) =
+		timed_loop(5, Duration::from_millis(500), create, |(handle, _stream)| {
+			handle.add_filter(OptimizedTopicFilter::Any).expect("filter attaches");
+		});
 	println!(
 		"ADDFILTER_META add_filter_any_4m mean_s={:.3} min_s={:.3} max_s={:.3}",
 		mean, min, max
@@ -167,8 +168,9 @@ fn main() {
 
 	// Remove the handful of sacrificial submissions so the fixture stays pristine for reruns.
 	let public = sacrifice_keypair().public();
-	let who: [u8; 32] =
-		AsRef::<[u8]>::as_ref(&public).try_into().expect("ed25519 public key is 32 bytes; qed");
+	let who: [u8; 32] = AsRef::<[u8]>::as_ref(&public)
+		.try_into()
+		.expect("ed25519 public key is 32 bytes; qed");
 	store.remove_by(who).expect("cleanup succeeds");
 
 	// Let the matcher drain outstanding unsubscribes before dropping the store.

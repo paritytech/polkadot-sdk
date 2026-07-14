@@ -31,11 +31,11 @@
 //! - `i < 1000 && i % 10 == 5` → decryption key `DK42`  (100 statements; bounded key set);
 //! - `i % 10 == 3`             → topics `T2, T3`        (419,431 statements; the *scaled* ~10% set,
 //!   completing the `read_scaling` 1k/10k/50k curve at 4M);
-//! - `i >= 1000`               → one diverse topic `topic(1000 + i/8)` (~524k distinct topics,
-//!   8 statements each: a deep, realistic topic index);
-//! - `i >= 1000 && i % 4 == 0` → diverse key `dec_key(100_000 + i/16)` (~262k distinct keys,
-//!   4 statements each; `i % 10 == 3` is odd so the scaled set stays key-less, and the
-//!   `None`-key set ends up with ~3.15M members).
+//! - `i >= 1000`               → one diverse topic `topic(1000 + i/8)` (~524k distinct topics, 8
+//!   statements each: a deep, realistic topic index);
+//! - `i >= 1000 && i % 4 == 0` → diverse key `dec_key(100_000 + i/16)` (~262k distinct keys, 4
+//!   statements each; `i % 10 == 3` is odd so the scaled set stays key-less, and the `None`-key set
+//!   ends up with ~3.15M members).
 //!
 //! Write benches use a dedicated 65th ("sacrificial") account with fresh high-range ids, so they
 //! never perturb the fixture accounts; the eviction bench reopens the store with a per-account
@@ -136,7 +136,10 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_prefix: Option<&sc_client_api::StorageKey>,
 		_start_key: Option<&sc_client_api::StorageKey>,
 	) -> sp_blockchain::Result<
-		sc_client_api::backend::KeysIter<<TestBackend as sc_client_api::Backend<Block>>::State, Block>,
+		sc_client_api::backend::KeysIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
 	> {
 		unimplemented!()
 	}
@@ -147,7 +150,10 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_prefix: Option<&sc_client_api::StorageKey>,
 		_start_key: Option<&sc_client_api::StorageKey>,
 	) -> sp_blockchain::Result<
-		sc_client_api::backend::PairsIter<<TestBackend as sc_client_api::Backend<Block>>::State, Block>,
+		sc_client_api::backend::PairsIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
 	> {
 		unimplemented!()
 	}
@@ -168,7 +174,10 @@ impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
 		_prefix: Option<&sc_client_api::StorageKey>,
 		_start_key: Option<&sc_client_api::StorageKey>,
 	) -> sp_blockchain::Result<
-		sc_client_api::backend::KeysIter<<TestBackend as sc_client_api::Backend<Block>>::State, Block>,
+		sc_client_api::backend::KeysIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
 	> {
 		unimplemented!()
 	}

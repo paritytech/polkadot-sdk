@@ -24,8 +24,8 @@
 //! run against it in phases:
 //!
 //! 1. reads on the shared store (point lookups, bounded / diverse / scaled queries, scans);
-//! 2. writes through a dedicated sacrificial account (fresh high-range ids, so the fixture
-//!    accounts are never perturbed);
+//! 2. writes through a dedicated sacrificial account (fresh high-range ids, so the fixture accounts
+//!    are never perturbed);
 //! 3. sacrificial-account cleanup (`remove_by`), restoring exact fixture counts;
 //! 4. eviction: the store is reopened with a per-account allowance of exactly the fixture
 //!    per-account count, so every submit by a fixture account evicts one statement;
@@ -347,8 +347,9 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 /// eviction phase and for later reruns against the same fixture.
 fn cleanup_sacrifice(store: &Store) {
 	let public = sacrifice_keypair().public();
-	let who: [u8; 32] =
-		AsRef::<[u8]>::as_ref(&public).try_into().expect("ed25519 public key is 32 bytes; qed");
+	let who: [u8; 32] = AsRef::<[u8]>::as_ref(&public)
+		.try_into()
+		.expect("ed25519 public key is 32 bytes; qed");
 	let started = Instant::now();
 	store.remove_by(who).expect("remove_by succeeds");
 	store.maintain();
@@ -370,14 +371,7 @@ fn eviction_bench(c: &mut Criterion, dir: &std::path::Path) {
 				let base = fresh_id_base();
 				(0..TOTAL_OPS as u64)
 					.map(|k| {
-						create_statement(
-							base + k,
-							&[],
-							None,
-							STATEMENT_DATA_SIZE,
-							expiry,
-							&acc0,
-						)
+						create_statement(base + k, &[], None, STATEMENT_DATA_SIZE, expiry, &acc0)
 					})
 					.collect::<Vec<_>>()
 			},
