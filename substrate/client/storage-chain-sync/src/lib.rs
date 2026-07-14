@@ -331,7 +331,7 @@ where
 		let payload = self.fetch_all(missing).await?;
 
 		if !classified.ops.is_empty() || !payload.is_empty() {
-			log::info!(
+			log::debug!(
 				target: LOG_TARGET,
 				"gap-sync block #{block_number:?} ({parent_hash:?}, finalized={finalized_hash:?}): \
 				 {infos_len} indexed entries, {} synthetic ops, {} renew payloads",
@@ -402,15 +402,13 @@ where
 			return;
 		}
 		for (hash, _) in &fetched {
-			log::info!(
+			log::debug!(
 				target: LOG_TARGET,
 				"attaching bitswap-fetched indexed transaction {hash:?} to BlockImportParams",
 			);
 		}
-		params.prefetched_indexed_transactions = PrefetchedIndexedTransactions {
-			ops: Vec::new(),
-			renew_payloads: fetched.into_iter().map(|(h, b)| (sp_core::H256::from(h), b)).collect(),
-		};
+		params.prefetched_indexed_transactions.renew_payloads =
+			fetched.into_iter().map(|(h, b)| (sp_core::H256::from(h), b)).collect();
 	}
 
 	/// Query `TransactionStorageApi::indexed_transactions(block_number)` against the

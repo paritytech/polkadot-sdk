@@ -109,12 +109,9 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		let network = self.network.get().ok_or(FetchError::NetworkHandleUnset)?;
 		let peer_source = self.peer_source.get().ok_or(FetchError::SyncingHandleUnset)?;
 
-		let mut peers = match peer_source.current_peers().await {
-			Ok(peers) => peers,
-			Err(_) => {
-				log::warn!(target: LOG_TARGET, "current_peers() channel cancelled");
-				return Ok(HashMap::new());
-			},
+		let Ok(mut peers) = peer_source.current_peers().await else {
+			log::warn!(target: LOG_TARGET, "current_peers() channel cancelled");
+			return Ok(HashMap::new());
 		};
 		if peers.is_empty() {
 			log::debug!(
