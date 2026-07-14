@@ -907,6 +907,7 @@ node = [
 	"cumulus-client-parachain-inherent",
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
+	"cumulus-client-resubmission-store",
 	"cumulus-client-service",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
@@ -2347,6 +2348,11 @@ path = "../cumulus/client/pov-recovery"
 default-features = false
 optional = true
 path = "../cumulus/client/proof-size-recording"
+
+[dependencies.cumulus-client-resubmission-store]
+default-features = false
+optional = true
+path = "../cumulus/client/resubmission-store"
 
 [dependencies.cumulus-client-service]
 default-features = false
