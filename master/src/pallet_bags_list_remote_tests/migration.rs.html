@@ -168,7 +168,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#18 id=18 data-nosnippet>18</a>
 <a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">use crate</span>::{RuntimeT, LOG_TARGET};
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>frame_support::traits::PalletInfoAccess;
-<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>pallet_staking::Nominators;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>pallet_staking_async::Nominators;
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>remote_externalities::{Builder, Mode, OnlineConfig};
 <a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>sp_runtime::{traits::Block <span class="kw">as </span>BlockT, DeserializeOwned};
 <a href=#24 id=24 data-nosnippet>24</a>
@@ -186,7 +186,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#36 id=36 data-nosnippet>36</a>	<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::new()
 <a href=#37 id=37 data-nosnippet>37</a>		.mode(Mode::Online(OnlineConfig {
 <a href=#38 id=38 data-nosnippet>38</a>			transport_uris: <span class="macro">vec!</span>[ws_url.to_string()],
-<a href=#39 id=39 data-nosnippet>39</a>			pallets: <span class="macro">vec!</span>[pallet_staking::Pallet::&lt;Runtime&gt;::name().to_string()],
+<a href=#39 id=39 data-nosnippet>39</a>			pallets: <span class="macro">vec!</span>[pallet_staking_async::Pallet::&lt;Runtime&gt;::name().to_string()],
 <a href=#40 id=40 data-nosnippet>40</a>			..Default::default()
 <a href=#41 id=41 data-nosnippet>41</a>		}))
 <a href=#42 id=42 data-nosnippet>42</a>		.build()
@@ -200,21 +200,22 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#50 id=50 data-nosnippet>50</a>
 <a href=#51 id=51 data-nosnippet>51</a>		<span class="kw">use </span>frame_election_provider_support::SortedListProvider;
 <a href=#52 id=52 data-nosnippet>52</a>		<span class="comment">// run the actual migration
-<a href=#53 id=53 data-nosnippet>53</a>		</span><span class="kw">let </span>moved = &lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::unsafe_regenerate(
-<a href=#54 id=54 data-nosnippet>54</a>			pallet_staking::Nominators::&lt;Runtime&gt;::iter().map(|(n, <span class="kw">_</span>)| n),
-<a href=#55 id=55 data-nosnippet>55</a>			Box::new(|x| <span class="prelude-val">Some</span>(pallet_staking::Pallet::&lt;Runtime&gt;::weight_of(x))),
+<a href=#53 id=53 data-nosnippet>53</a>		</span><span class="kw">let </span>moved = &lt;Runtime <span class="kw">as </span>pallet_staking_async::Config&gt;::VoterList::unsafe_regenerate(
+<a href=#54 id=54 data-nosnippet>54</a>			pallet_staking_async::Nominators::&lt;Runtime&gt;::iter().map(|(n, <span class="kw">_</span>)| n),
+<a href=#55 id=55 data-nosnippet>55</a>			Box::new(|x| <span class="prelude-val">Some</span>(pallet_staking_async::Pallet::&lt;Runtime&gt;::weight_of(x))),
 <a href=#56 id=56 data-nosnippet>56</a>		);
 <a href=#57 id=57 data-nosnippet>57</a>		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Moved {} nominators"</span>, moved);
 <a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a>		<span class="kw">let </span>voter_list_len = &lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::iter().count() <span class="kw">as </span>u32;
-<a href=#60 id=60 data-nosnippet>60</a>		<span class="kw">let </span>voter_list_count = &lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::count();
-<a href=#61 id=61 data-nosnippet>61</a>		<span class="comment">// and confirm it is equal to the length of the `VoterList`.
-<a href=#62 id=62 data-nosnippet>62</a>		</span><span class="macro">assert_eq!</span>(pre_migrate_nominator_count, voter_list_len);
-<a href=#63 id=63 data-nosnippet>63</a>		<span class="macro">assert_eq!</span>(pre_migrate_nominator_count, voter_list_count);
-<a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a>		<span class="kw">crate</span>::display_and_check_bags::&lt;Runtime&gt;(currency_unit, currency_name);
-<a href=#66 id=66 data-nosnippet>66</a>	});
-<a href=#67 id=67 data-nosnippet>67</a>}
+<a href=#59 id=59 data-nosnippet>59</a>		<span class="kw">let </span>voter_list_len =
+<a href=#60 id=60 data-nosnippet>60</a>			&lt;Runtime <span class="kw">as </span>pallet_staking_async::Config&gt;::VoterList::iter().count() <span class="kw">as </span>u32;
+<a href=#61 id=61 data-nosnippet>61</a>		<span class="kw">let </span>voter_list_count = &lt;Runtime <span class="kw">as </span>pallet_staking_async::Config&gt;::VoterList::count();
+<a href=#62 id=62 data-nosnippet>62</a>		<span class="comment">// and confirm it is equal to the length of the `VoterList`.
+<a href=#63 id=63 data-nosnippet>63</a>		</span><span class="macro">assert_eq!</span>(pre_migrate_nominator_count, voter_list_len);
+<a href=#64 id=64 data-nosnippet>64</a>		<span class="macro">assert_eq!</span>(pre_migrate_nominator_count, voter_list_count);
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a>		<span class="kw">crate</span>::display_and_check_bags::&lt;Runtime&gt;(currency_unit, currency_name);
+<a href=#67 id=67 data-nosnippet>67</a>	});
+<a href=#68 id=68 data-nosnippet>68</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

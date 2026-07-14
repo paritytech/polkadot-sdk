@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ConvictionVotingPalletStr","DrainLegacyTreasuryToAccumulationAccount","OriginsPalletStr","ReferendaPalletStr","TreasuryPalletStr","WhitelistPalletStr"],"type":["Unreleased"]};
+window.SIDEBAR_ITEMS = {"struct":["ConvictionVotingPalletStr","DrainLegacyTreasuryToAccumulationAccount","ElectionProviderMultiPhasePalletStr","FastUnstakePalletStr","NominationPoolsPalletStr","OriginsPalletStr","ReferendaPalletStr","StakingPalletStr","TreasuryPalletStr","VoterListPalletStr","WhitelistPalletStr"],"type":["Unreleased"]};

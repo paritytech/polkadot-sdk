@@ -181,12 +181,12 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#31 id=31 data-nosnippet>31</a>///
 <a href=#32 id=32 data-nosnippet>32</a>/// For example, this can be the `Runtime` type of the Polkadot runtime.
 <a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">pub trait </span>RuntimeT&lt;I: <span class="lifetime">'static</span>&gt;:
-<a href=#34 id=34 data-nosnippet>34</a>	pallet_staking::Config + pallet_bags_list::Config&lt;I&gt; + frame_system::Config
+<a href=#34 id=34 data-nosnippet>34</a>	pallet_staking_async::Config + pallet_bags_list::Config&lt;I&gt; + frame_system::Config
 <a href=#35 id=35 data-nosnippet>35</a>{
 <a href=#36 id=36 data-nosnippet>36</a>}
 <a href=#37 id=37 data-nosnippet>37</a><span class="kw">impl</span>&lt;
 <a href=#38 id=38 data-nosnippet>38</a>		I: <span class="lifetime">'static</span>,
-<a href=#39 id=39 data-nosnippet>39</a>		T: pallet_staking::Config + pallet_bags_list::Config&lt;I&gt; + frame_system::Config,
+<a href=#39 id=39 data-nosnippet>39</a>		T: pallet_staking_async::Config + pallet_bags_list::Config&lt;I&gt; + frame_system::Config,
 <a href=#40 id=40 data-nosnippet>40</a>	&gt; RuntimeT&lt;I&gt; <span class="kw">for </span>T
 <a href=#41 id=41 data-nosnippet>41</a>{
 <a href=#42 id=42 data-nosnippet>42</a>}
@@ -203,10 +203,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#53 id=53 data-nosnippet>53</a>	<span class="kw">use </span>frame_election_provider_support::SortedListProvider;
 <a href=#54 id=54 data-nosnippet>54</a>	<span class="kw">use </span>frame_support::traits::Get;
 <a href=#55 id=55 data-nosnippet>55</a>
-<a href=#56 id=56 data-nosnippet>56</a>	<span class="kw">let </span>min_nominator_bond = &lt;pallet_staking::MinNominatorBond&lt;Runtime&gt;&gt;::get();
+<a href=#56 id=56 data-nosnippet>56</a>	<span class="kw">let </span>min_nominator_bond = &lt;pallet_staking_async::MinNominatorBond&lt;Runtime&gt;&gt;::get();
 <a href=#57 id=57 data-nosnippet>57</a>	<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"min nominator bond is {:?}"</span>, min_nominator_bond);
 <a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a>	<span class="kw">let </span>voter_list_count = &lt;Runtime <span class="kw">as </span>pallet_staking::Config&gt;::VoterList::count();
+<a href=#59 id=59 data-nosnippet>59</a>	<span class="kw">let </span>voter_list_count = &lt;Runtime <span class="kw">as </span>pallet_staking_async::Config&gt;::VoterList::count();
 <a href=#60 id=60 data-nosnippet>60</a>
 <a href=#61 id=61 data-nosnippet>61</a>	<span class="comment">// go through every bag to track the total number of voters within bags and log some info about
 <a href=#62 id=62 data-nosnippet>62</a>	// how voters are distributed within the bags.
@@ -243,7 +243,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#93 id=93 data-nosnippet>93</a>				.try_into()
 <a href=#94 id=94 data-nosnippet>94</a>				.map_err(|<span class="kw">_</span>| <span class="string">"runtime must configure score to at most u64 to use this test"</span>)
 <a href=#95 id=95 data-nosnippet>95</a>				.unwrap();
-<a href=#96 id=96 data-nosnippet>96</a>			<span class="kw">let </span>vote_weight_as_balance: pallet_staking::BalanceOf&lt;Runtime&gt; =
+<a href=#96 id=96 data-nosnippet>96</a>			<span class="kw">let </span>vote_weight_as_balance: pallet_staking_async::BalanceOf&lt;Runtime&gt; =
 <a href=#97 id=97 data-nosnippet>97</a>				vote_weight_thresh_u64.try_into().map_err(|<span class="kw">_</span>| <span class="string">"can't convert"</span>).unwrap();
 <a href=#98 id=98 data-nosnippet>98</a>
 <a href=#99 id=99 data-nosnippet>99</a>			<span class="kw">if </span>vote_weight_as_balance &lt; min_nominator_bond {

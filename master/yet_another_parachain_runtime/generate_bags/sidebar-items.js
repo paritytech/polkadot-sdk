@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["constant_ratio","generate_thresholds","thresholds"]};
+window.SIDEBAR_ITEMS = {"fn":["constant_ratio","generate_thresholds","generate_thresholds_async","thresholds"]};
