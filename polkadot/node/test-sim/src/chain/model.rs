@@ -20,6 +20,7 @@ use crate::{contract::Query, harness::dispatcher::AnswerQuery};
 use polkadot_node_subsystem::messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
+	vstaging::SessionExecutionConfig,
 	BlockNumber, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	CoreIndex, GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures,
 	PersistedValidationData, SessionIndex, ValidatorId, ValidatorIndex,
@@ -618,6 +619,24 @@ impl ChainModel {
 			},
 			RuntimeApiRequest::ValidationCodeBombLimit(_session, tx) => {
 				let _ = tx.send(Ok(60 * 1024 * 1024));
+			},
+			RuntimeApiRequest::SessionExecutionConfig(_session, tx) => {
+				let constraints = self
+					.backing_constraints_at
+					.values()
+					.chain(self.backing_constraints.values())
+					.next()
+					.cloned()
+					.unwrap_or_else(default_constraints);
+				let _ = tx.send(Ok(Some(SessionExecutionConfig {
+					max_pov_size: constraints.max_pov_size,
+					validation_code_bomb_limit: 60 * 1024 * 1024,
+					max_code_size: constraints.max_code_size,
+					max_head_data_size: constraints.max_head_data_size,
+					max_upward_message_num_per_candidate: constraints.max_ump_num_per_candidate,
+					max_upward_message_size: 1_000,
+					hrmp_max_message_num_per_candidate: constraints.max_hrmp_num_per_candidate,
+				})));
 			},
 			RuntimeApiRequest::MaxRelayParentSessionAge(_session, tx) => {
 				let _ = tx.send(Ok(8));

@@ -37,6 +37,16 @@ pub struct SessionExecutionConfig {
 	pub max_pov_size: u32,
 	/// The maximum uncompressed validation code size, in bytes.
 	pub validation_code_bomb_limit: u32,
+	/// The maximum compressed validation code size, in bytes.
+	pub max_code_size: u32,
+	/// The maximum head-data size, in bytes.
+	pub max_head_data_size: u32,
+	/// The maximum number of upward messages a candidate may send.
+	pub max_upward_message_num_per_candidate: u32,
+	/// The maximum size of an individual upward message, in bytes.
+	pub max_upward_message_size: u32,
+	/// The maximum number of outbound HRMP messages a candidate may send.
+	pub hrmp_max_message_num_per_candidate: u32,
 }
 
 /// Information about a relay parent.

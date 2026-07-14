@@ -536,6 +536,7 @@ async fn handle_potential_relay_parent_info_calls<T>(
 						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
 							max_pov_size,
 							validation_code_bomb_limit: 0,
+							..Default::default()
 						})))
 						.unwrap();
 					}

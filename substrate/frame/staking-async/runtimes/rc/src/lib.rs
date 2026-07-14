@@ -2173,6 +2173,7 @@ sp_api::impl_runtime_apis! {
 			parachains_runtime_api_impl::validators::<Runtime>()
 		}
 
+		#[allow(deprecated)]
 		fn validation_code_bomb_limit() -> u32 {
 			parachains_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
 		}

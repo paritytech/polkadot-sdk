@@ -132,6 +132,18 @@ impl<T: pallet_authority_discovery::Config> AuthorityDiscoveryConfig for T {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Resolve the [`SessionExecutionConfig`] snapshot for `session_index`.
+	pub fn session_execution_config(session_index: SessionIndex) -> SessionExecutionConfig {
+		SessionExecutionConfigs::<T>::get(session_index).unwrap_or_else(|| {
+			log::debug!(
+				target: "runtime::session_info",
+				"No SessionExecutionConfig for session {:?}; falling back to ActiveConfig.",
+				session_index,
+			);
+			configuration::ActiveConfig::<T>::get().session_execution_config()
+		})
+	}
+
 	/// Handle an incoming session change.
 	pub(crate) fn initializer_on_new_session(
 		notification: &crate::initializer::SessionChangeNotification<BlockNumberFor<T>>,

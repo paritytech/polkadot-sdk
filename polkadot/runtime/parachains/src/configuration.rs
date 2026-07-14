@@ -366,6 +366,11 @@ where
 		SessionExecutionConfig {
 			max_pov_size: self.max_pov_size,
 			validation_code_bomb_limit: self.validation_code_bomb_limit(),
+			max_code_size: self.max_code_size,
+			max_head_data_size: self.max_head_data_size,
+			max_upward_message_num_per_candidate: self.max_upward_message_num_per_candidate,
+			max_upward_message_size: self.max_upward_message_size,
+			hrmp_max_message_num_per_candidate: self.hrmp_max_message_num_per_candidate,
 		}
 	}
 

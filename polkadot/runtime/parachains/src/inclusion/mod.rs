@@ -23,7 +23,7 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
 	paras::{self, UpgradeStrategy},
-	scheduler,
+	scheduler, session_info,
 	shared::{self, AllowedSchedulingParentsTracker},
 	util::make_persisted_validation_data_with_parent,
 };
@@ -44,12 +44,13 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, skip_ump_signals, supermajority_threshold, well_known_keys,
-	BackedCandidate, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	effective_minimum_backing_votes, skip_ump_signals, supermajority_threshold,
+	vstaging::SessionExecutionConfig, well_known_keys, BackedCandidate, CandidateCommitments,
+	CandidateDescriptorV2 as CandidateDescriptor, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData,
-	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
-	ValidatorIndex, ValidityAttestation,
+	Id as ParaId, SessionIndex, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -271,6 +272,7 @@ pub mod pallet {
 		+ hrmp::Config
 		+ configuration::Config
 		+ scheduler::Config
+		+ session_info::Config
 	{
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -822,6 +824,10 @@ impl<T: Config> Pallet<T> {
 	) -> bool {
 		let prev_context = Self::para_most_recent_context(&para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
+		// The API is called at the current chain head; the prospective candidate's
+		// relay parent is the current block, so its session is the current session.
+		let session_index = shared::CurrentSessionIndex::<T>::get();
+		let session_config = check_ctx.session_config(session_index);
 
 		if let Err(err) = check_ctx.check_validation_outputs(
 			para_id,
@@ -832,6 +838,7 @@ impl<T: Config> Pallet<T> {
 			&validation_outputs.upward_messages,
 			BlockNumberFor::<T>::from(validation_outputs.hrmp_watermark),
 			&validation_outputs.horizontal_messages,
+			&session_config,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
@@ -924,7 +931,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
 	pub(crate) fn check_upward_messages(
-		config: &HostConfiguration<BlockNumberFor<T>>,
+		host_config: &HostConfiguration<BlockNumberFor<T>>,
+		session_config: &SessionExecutionConfig,
 		para: ParaId,
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
@@ -937,38 +945,38 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let additional_msgs = upward_messages.len() as u32;
-		if additional_msgs > config.max_upward_message_num_per_candidate {
+		if additional_msgs > session_config.max_upward_message_num_per_candidate {
 			return Err(UmpAcceptanceCheckErr::MoreMessagesThanPermitted {
 				sent: additional_msgs,
-				permitted: config.max_upward_message_num_per_candidate,
+				permitted: session_config.max_upward_message_num_per_candidate,
 			});
 		}
 
 		let (para_queue_count, mut para_queue_size) = Self::relay_dispatch_queue_size(para);
 
-		if para_queue_count.saturating_add(additional_msgs) > config.max_upward_queue_count {
+		if para_queue_count.saturating_add(additional_msgs) > host_config.max_upward_queue_count {
 			return Err(UmpAcceptanceCheckErr::CapacityExceeded {
 				count: para_queue_count.saturating_add(additional_msgs).into(),
-				limit: config.max_upward_queue_count.into(),
+				limit: host_config.max_upward_queue_count.into(),
 			});
 		}
 
 		for (idx, msg) in upward_messages.into_iter().enumerate() {
 			let msg_size = msg.len() as u32;
-			if msg_size > config.max_upward_message_size {
+			if msg_size > session_config.max_upward_message_size {
 				return Err(UmpAcceptanceCheckErr::MessageSize {
 					idx: idx as u32,
 					msg_size,
-					max_size: config.max_upward_message_size,
+					max_size: session_config.max_upward_message_size,
 				});
 			}
 			// make sure that the queue is not overfilled.
 			// we do it here only once since returning false invalidates the whole relay-chain
 			// block.
-			if para_queue_size.saturating_add(msg_size) > config.max_upward_queue_size {
+			if para_queue_size.saturating_add(msg_size) > host_config.max_upward_queue_size {
 				return Err(UmpAcceptanceCheckErr::TotalSizeExceeded {
 					total_size: para_queue_size.saturating_add(msg_size).into(),
-					limit: config.max_upward_queue_size.into(),
+					limit: host_config.max_upward_queue_size.into(),
 				});
 			}
 			para_queue_size.saturating_accrue(msg_size);
@@ -1207,15 +1215,20 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 	}
 }
 
-/// A collection of data required for checking a candidate.
+/// Context for running the acceptance checks on a backed candidate.
 pub(crate) struct CandidateCheckContext<T: Config> {
-	config: configuration::HostConfiguration<BlockNumberFor<T>>,
+	/// The para's most recent relay-parent context, if any. A candidate's relay parent must
+	/// not move backwards relative to it.
 	prev_context: Option<BlockNumberFor<T>>,
 }
 
 impl<T: Config> CandidateCheckContext<T> {
 	pub(crate) fn new(prev_context: Option<BlockNumberFor<T>>) -> Self {
-		Self { config: configuration::ActiveConfig::<T>::get(), prev_context }
+		Self { prev_context }
+	}
+
+	fn session_config(&self, session_index: SessionIndex) -> SessionExecutionConfig {
+		session_info::Pallet::<T>::session_execution_config(session_index)
 	}
 
 	/// Execute verification of the candidate.
@@ -1266,11 +1279,14 @@ impl<T: Config> CandidateCheckContext<T> {
 			}
 		}
 
+		let session_config = self.session_config(session_index);
+
 		{
 			let persisted_validation_data = make_persisted_validation_data_with_parent::<T>(
 				relay_parent_number,
 				state_root,
 				parent_head_data,
+				session_index,
 			);
 
 			let expected = persisted_validation_data.hash();
@@ -1304,6 +1320,7 @@ impl<T: Config> CandidateCheckContext<T> {
 			&backed_candidate_receipt.commitments.upward_messages,
 			BlockNumberFor::<T>::from(backed_candidate_receipt.commitments.hrmp_watermark),
 			&backed_candidate_receipt.commitments.horizontal_messages,
+			&session_config,
 		) {
 			log::debug!(
 				target: LOG_TARGET,
@@ -1343,16 +1360,17 @@ impl<T: Config> CandidateCheckContext<T> {
 		upward_messages: &[polkadot_primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor<T>,
 		horizontal_messages: &[polkadot_primitives::OutboundHrmpMessage<ParaId>],
+		session_config: &SessionExecutionConfig,
 	) -> Result<(), AcceptanceCheckErr> {
-		// Safe convertions when `self.config.max_head_data_size` is in bounds of `usize` type.
-		let max_head_data_size = usize::try_from(self.config.max_head_data_size)
+		// Safe conversion when `session_config.max_head_data_size` is in bounds of `usize` type.
+		let max_head_data_size = usize::try_from(session_config.max_head_data_size)
 			.map_err(|_| AcceptanceCheckErr::HeadDataTooLarge)?;
 		ensure!(head_data.0.len() <= max_head_data_size, AcceptanceCheckErr::HeadDataTooLarge);
 
 		// if any, the code upgrade attempt is allowed.
 		if let Some(new_validation_code) = new_validation_code {
-			// Safe convertions when `self.config.max_code_size` is in bounds of `usize` type.
-			let max_code_size = usize::try_from(self.config.max_code_size)
+			// Safe conversion when `session_config.max_code_size` is in bounds of `usize` type.
+			let max_code_size = usize::try_from(session_config.max_code_size)
 				.map_err(|_| AcceptanceCheckErr::NewCodeTooLarge)?;
 
 			ensure!(
@@ -1381,8 +1399,9 @@ impl<T: Config> CandidateCheckContext<T> {
 			);
 			e
 		})?;
-		Pallet::<T>::check_upward_messages(&self.config, para_id, upward_messages).map_err(
-			|e| {
+		let host_config = configuration::ActiveConfig::<T>::get();
+		Pallet::<T>::check_upward_messages(&host_config, session_config, para_id, upward_messages)
+			.map_err(|e| {
 				log::debug!(
 					target: LOG_TARGET,
 					"Check upward messages for parachain `{}` failed, error: {:?}",
@@ -1390,8 +1409,7 @@ impl<T: Config> CandidateCheckContext<T> {
 					e
 				);
 				e
-			},
-		)?;
+			})?;
 		hrmp::Pallet::<T>::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)
 			.map_err(|e| {
 				log::debug!(
@@ -1403,16 +1421,20 @@ impl<T: Config> CandidateCheckContext<T> {
 				);
 				e
 			})?;
-		hrmp::Pallet::<T>::check_outbound_hrmp(&self.config, para_id, horizontal_messages)
-			.map_err(|e| {
-				log::debug!(
-					target: LOG_TARGET,
-					"Check outbound hrmp for parachain `{}` failed, error: {:?}",
-					u32::from(para_id),
-					e
-				);
+		hrmp::Pallet::<T>::check_outbound_hrmp(
+			session_config.hrmp_max_message_num_per_candidate,
+			para_id,
+			horizontal_messages,
+		)
+		.map_err(|e| {
+			log::debug!(
+				target: LOG_TARGET,
+				"Check outbound hrmp for parachain `{}` failed, error: {:?}",
+				u32::from(para_id),
 				e
-			})?;
+			);
+			e
+		})?;
 
 		Ok(())
 	}
