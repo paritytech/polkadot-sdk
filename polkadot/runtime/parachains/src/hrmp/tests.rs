@@ -27,6 +27,7 @@ use crate::{
 	},
 	shared,
 };
+use assert_matches::assert_matches;
 use frame_support::{assert_noop, assert_ok};
 use polkadot_primitives::{BlockNumber, InboundDownwardMessage};
 use sp_runtime::traits::BadOrigin;
@@ -520,7 +521,8 @@ fn send_recv_messages() {
 		assert!(Hrmp::check_outbound_hrmp(
 			config.hrmp_max_message_num_per_candidate,
 			para_a,
-			&msgs
+			&msgs,
+			&Default::default()
 		)
 		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
@@ -532,6 +534,50 @@ fn send_recv_messages() {
 		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 6).is_ok());
 		let _ = Hrmp::prune_hrmp(para_b, 6);
 		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn check_outbound_hrmp_accounts_for_segment_usage() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_channel_max_message_size = 20;
+	genesis.hrmp_channel_max_total_size = 20;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+
+		let config = configuration::ActiveConfig::<Test>::get();
+		let msgs: HorizontalMessages =
+			vec![OutboundHrmpMessage { recipient: para_b, data: vec![0u8; 15] }]
+				.try_into()
+				.unwrap();
+		assert!(Hrmp::check_outbound_hrmp(
+			config.hrmp_max_message_num_per_candidate,
+			para_a,
+			&msgs,
+			&Default::default(),
+		)
+		.is_ok());
+
+		let already_sent = BTreeMap::from([(para_b, (1u32, 10u32))]);
+		assert_matches!(
+			Hrmp::check_outbound_hrmp(
+				config.hrmp_max_message_num_per_candidate,
+				para_a,
+				&msgs,
+				&already_sent,
+			),
+			Err(OutboundHrmpAcceptanceErr::TotalSizeExceeded { total_size: 25, limit: 20, .. })
+		);
 	});
 }
 
@@ -634,7 +680,8 @@ fn check_sent_messages() {
 		assert!(Hrmp::check_outbound_hrmp(
 			config.hrmp_max_message_num_per_candidate,
 			para_a,
-			&msgs
+			&msgs,
+			&Default::default()
 		)
 		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs.clone());
@@ -938,7 +985,8 @@ fn watermark_can_remain_the_same() {
 		assert!(Hrmp::check_outbound_hrmp(
 			config.hrmp_max_message_num_per_candidate,
 			para_a,
-			&msgs
+			&msgs,
+			&Default::default()
 		)
 		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
@@ -953,7 +1001,8 @@ fn watermark_can_remain_the_same() {
 		assert!(Hrmp::check_outbound_hrmp(
 			config.hrmp_max_message_num_per_candidate,
 			para_c,
-			&msgs
+			&msgs,
+			&Default::default()
 		)
 		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_c, msgs);
@@ -1020,7 +1069,8 @@ fn watermark_maxed_out_at_relay_parent() {
 		assert!(Hrmp::check_outbound_hrmp(
 			config.hrmp_max_message_num_per_candidate,
 			para_a,
-			&msgs
+			&msgs,
+			&Default::default()
 		)
 		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
