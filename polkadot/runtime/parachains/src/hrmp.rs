@@ -1234,20 +1234,15 @@ impl<T: Config> Pallet<T> {
 		valid_watermarks
 	}
 
-	/// Check that all outbound HRMP messages sent by a candidate pass the acceptance criteria.
-	///
-	/// `max_hrmp_num_per_candidate` is the per-candidate HRMP message limit; it is
-	/// read from the candidate's session snapshot by the caller so this check stays
-	/// consistent with the configuration the collator used.
 	pub(crate) fn check_outbound_hrmp(
-		max_hrmp_num_per_candidate: u32,
+		config: &HostConfiguration<BlockNumberFor<T>>,
 		sender: ParaId,
 		out_hrmp_msgs: &[OutboundHrmpMessage<ParaId>],
 	) -> Result<(), OutboundHrmpAcceptanceErr> {
-		if out_hrmp_msgs.len() as u32 > max_hrmp_num_per_candidate {
+		if out_hrmp_msgs.len() as u32 > config.hrmp_max_message_num_per_candidate {
 			return Err(OutboundHrmpAcceptanceErr::MoreMessagesThanPermitted {
 				sent: out_hrmp_msgs.len() as u32,
-				permitted: max_hrmp_num_per_candidate,
+				permitted: config.hrmp_max_message_num_per_candidate,
 			});
 		}
 

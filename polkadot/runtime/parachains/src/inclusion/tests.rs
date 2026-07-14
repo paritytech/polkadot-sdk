@@ -403,12 +403,10 @@ fn make_vdata_hash_with_block_number(
 	para_id: ParaId,
 	relay_parent_number: BlockNumber,
 ) -> Option<Hash> {
-	let session_index = shared::CurrentSessionIndex::<Test>::get();
 	let persisted_validation_data = crate::util::make_persisted_validation_data::<Test>(
 		para_id,
 		relay_parent_number,
 		Default::default(),
-		session_index,
 	)?;
 	Some(persisted_validation_data.hash())
 }
@@ -1344,7 +1342,6 @@ fn candidate_checks() {
 					RELAY_PARENT_NUM,
 					Default::default(),
 					candidate_b_1.commitments.head_data.clone(),
-					shared::CurrentSessionIndex::<Test>::get(),
 				)
 				.hash(),
 				hrmp_watermark: RELAY_PARENT_NUM,
@@ -1430,7 +1427,6 @@ fn candidate_checks() {
 					RELAY_PARENT_NUM,
 					Default::default(),
 					candidate_b_1.commitments.head_data.clone(),
-					shared::CurrentSessionIndex::<Test>::get(),
 				)
 				.hash(),
 				hrmp_watermark: RELAY_PARENT_NUM,
@@ -2175,7 +2171,6 @@ fn backing_works_with_elastic_scaling() {
 				RELAY_PARENT_NUM,
 				Default::default(),
 				candidate_b_1.commitments.head_data.clone(),
-				shared::CurrentSessionIndex::<Test>::get(),
 			)
 			.hash(),
 			hrmp_watermark: RELAY_PARENT_NUM,

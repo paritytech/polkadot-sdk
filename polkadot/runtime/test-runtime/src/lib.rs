@@ -1142,7 +1142,6 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::scheduling_lookahead::<Runtime>()
 		}
 
-		#[allow(deprecated)]
 		fn validation_code_bomb_limit() -> u32 {
 			runtime_impl::validation_code_bomb_limit::<Runtime>()
 		}

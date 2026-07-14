@@ -202,15 +202,11 @@ pub fn persisted_validation_data<T: initializer::Config>(
 	assumption: OccupiedCoreAssumption,
 ) -> Option<PersistedValidationData<T::Hash, BlockNumberFor<T>>> {
 	let (relay_parent_number, relay_parent_storage_root) = current_relay_parent::<T>();
-	// The PVD is being constructed at the current chain head, so the session of
-	// the relay parent is the current session.
-	let session_index = shared::CurrentSessionIndex::<T>::get();
 	with_assumption::<T, _, _>(para_id, assumption, || {
 		crate::util::make_persisted_validation_data::<T>(
 			para_id,
 			relay_parent_number,
 			relay_parent_storage_root,
-			session_index,
 		)
 	})
 }
@@ -221,9 +217,6 @@ pub fn assumed_validation_data<T: initializer::Config>(
 	expected_persisted_validation_data_hash: Hash,
 ) -> Option<(PersistedValidationData<T::Hash, BlockNumberFor<T>>, ValidationCodeHash)> {
 	let (relay_parent_number, relay_parent_storage_root) = current_relay_parent::<T>();
-	// The PVD is being constructed at the current chain head, so the session of
-	// the relay parent is the current session.
-	let session_index = shared::CurrentSessionIndex::<T>::get();
 	// This closure obtains the `persisted_validation_data` for the given `para_id` and matches
 	// its hash against an expected one.
 	let make_validation_data = || {
@@ -231,7 +224,6 @@ pub fn assumed_validation_data<T: initializer::Config>(
 			para_id,
 			relay_parent_number,
 			relay_parent_storage_root,
-			session_index,
 		)
 		.filter(|validation_data| validation_data.hash() == expected_persisted_validation_data_hash)
 	};
@@ -470,10 +462,6 @@ pub fn backing_constraints<T: initializer::Config>(
 	let config = configuration::ActiveConfig::<T>::get();
 	let now = frame_system::Pallet::<T>::block_number();
 
-	let current_session = shared::CurrentSessionIndex::<T>::get();
-	let session_cfg = session_info::SessionExecutionConfigs::<T>::get(current_session)
-		.unwrap_or_else(|| config.session_execution_config());
-
 	// Workaround for issue #64.
 	let min_global_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
 		StorageVersion::new(1)
@@ -521,16 +509,16 @@ pub fn backing_constraints<T: initializer::Config>(
 
 	Some(Constraints {
 		min_relay_parent_number: min_para_relay_parent_number,
-		max_pov_size: session_cfg.max_pov_size,
-		max_code_size: session_cfg.max_code_size,
-		max_head_data_size: session_cfg.max_head_data_size,
+		max_pov_size: config.max_pov_size,
+		max_code_size: config.max_code_size,
+		max_head_data_size: Constraints::<BlockNumberFor<T>>::DEFAULT_MAX_HEAD_DATA_SIZE,
 		ump_remaining,
 		ump_remaining_bytes,
-		max_ump_num_per_candidate: session_cfg.max_upward_message_num_per_candidate,
+		max_ump_num_per_candidate: config.max_upward_message_num_per_candidate,
 		dmp_remaining_messages,
 		hrmp_inbound,
 		hrmp_channels_out,
-		max_hrmp_num_per_candidate: session_cfg.hrmp_max_message_num_per_candidate,
+		max_hrmp_num_per_candidate: config.hrmp_max_message_num_per_candidate,
 		required_parent,
 		validation_code_hash,
 		upgrade_restriction,
@@ -608,12 +596,7 @@ pub fn candidates_pending_availability<T: initializer::Config>(
 	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }
 
-/// Implementation for `validation_code_bomb_limit` function from the runtime API.
-///
-/// Deprecated. Use `session_execution_config(session_index).validation_code_bomb_limit`
-/// from the staging runtime API instead. Kept for backwards compatibility with v12
-/// clients.
-#[deprecated(note = "use `session_execution_config(session_index).validation_code_bomb_limit`")]
+/// Implementation for `validation_code_bomb_limit` function from the runtime API
 pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
 	configuration::ActiveConfig::<T>::get().validation_code_bomb_limit()
 }

@@ -91,9 +91,7 @@ fn queue_upward_msg(para: ParaId, msg: UpwardMessage) {
 
 fn try_queue_upward_msg(para: ParaId, msg: UpwardMessage) -> Result<(), UmpAcceptanceCheckErr> {
 	let msgs = vec![msg];
-	let active = configuration::ActiveConfig::<Test>::get();
-	let session_cfg = active.session_execution_config();
-	ParaInclusion::check_upward_messages(&active, &session_cfg, para, &msgs)?;
+	ParaInclusion::check_upward_messages(&configuration::ActiveConfig::<Test>::get(), para, &msgs)?;
 	ParaInclusion::receive_upward_messages(para, msgs.as_slice());
 	Ok(())
 }
@@ -111,10 +109,13 @@ mod check_upward_messages {
 
 	/// Check that these messages *could* be queued.
 	fn check(para: ParaId, msgs: Vec<UpwardMessage>, err: Option<UmpAcceptanceCheckErr>) {
-		let active = configuration::ActiveConfig::<Test>::get();
-		let session_cfg = active.session_execution_config();
 		assert_eq!(
-			ParaInclusion::check_upward_messages(&active, &session_cfg, para, &msgs[..]).err(),
+			ParaInclusion::check_upward_messages(
+				&configuration::ActiveConfig::<Test>::get(),
+				para,
+				&msgs[..]
+			)
+			.err(),
 			err
 		);
 	}
@@ -666,9 +667,12 @@ fn enqueue_ump_signals() {
 			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
 		]);
 
-		let active = configuration::ActiveConfig::<Test>::get();
-		let session_cfg = active.session_execution_config();
-		ParaInclusion::check_upward_messages(&active, &session_cfg, para, &messages).unwrap();
+		ParaInclusion::check_upward_messages(
+			&configuration::ActiveConfig::<Test>::get(),
+			para,
+			&messages,
+		)
+		.unwrap();
 
 		// We expect that all messages except UMP signal and separator are processed
 		ParaInclusion::receive_upward_messages(para, &messages);

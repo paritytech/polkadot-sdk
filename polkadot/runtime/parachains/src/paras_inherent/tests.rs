@@ -3257,7 +3257,6 @@ mod sanitizers {
 							ParaId::from(idx1),
 							RELAY_PARENT_NUM,
 							Default::default(),
-							shared::CurrentSessionIndex::<Test>::get(),
 						)
 						.unwrap()
 						.hash(),
@@ -3440,7 +3439,6 @@ mod sanitizers {
 						ParaId::from(1),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3478,7 +3476,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -3515,7 +3512,6 @@ mod sanitizers {
 						ParaId::from(2),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3552,7 +3548,6 @@ mod sanitizers {
 						ParaId::from(3),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3589,7 +3584,6 @@ mod sanitizers {
 						ParaId::from(4),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3626,7 +3620,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -3660,7 +3653,6 @@ mod sanitizers {
 						ParaId::from(6),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3693,7 +3685,6 @@ mod sanitizers {
 						ParaId::from(7),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3726,7 +3717,6 @@ mod sanitizers {
 						ParaId::from(8),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3889,7 +3879,6 @@ mod sanitizers {
 						ParaId::from(1),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3921,7 +3910,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -3953,7 +3941,6 @@ mod sanitizers {
 						ParaId::from(2),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -3988,7 +3975,6 @@ mod sanitizers {
 						ParaId::from(2),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -4020,7 +4006,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						candidate_2.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4051,7 +4036,6 @@ mod sanitizers {
 						ParaId::from(3),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -4088,7 +4072,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4123,7 +4106,6 @@ mod sanitizers {
 						ParaId::from(4),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -4326,7 +4308,6 @@ mod sanitizers {
 						ParaId::from(1),
 						RELAY_PARENT_NUM,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -4363,7 +4344,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM - 1,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM - 1,
@@ -4395,7 +4375,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4427,7 +4406,6 @@ mod sanitizers {
 						ParaId::from(2),
 						RELAY_PARENT_NUM - 1,
 						Default::default(),
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.unwrap()
 					.hash(),
@@ -4464,7 +4442,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4500,7 +4477,6 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,

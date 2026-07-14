@@ -2621,17 +2621,9 @@ fn fetch_params_uses_correct_sessions_for_v3() {
 	};
 
 	let fetch_fut = async move {
-		let mut params_cache = SessionParamsCache::new(ByLength::new(DISPUTE_WINDOW.get()));
-		let params = fetch_params(
-			recent_leaf,
-			caller_session,
-			&descriptor,
-			true,
-			&mut params_cache,
-			ctx.sender(),
-		)
-		.await
-		.expect("fetch_params should succeed");
+		let params = fetch_params(recent_leaf, caller_session, &descriptor, true, ctx.sender())
+			.await
+			.expect("fetch_params should succeed");
 
 		assert_eq!(params.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT);
 	};
@@ -2704,17 +2696,9 @@ fn fetch_params_uses_fallback_session_for_v1() {
 	};
 
 	let fetch_fut = async move {
-		let mut params_cache = SessionParamsCache::new(ByLength::new(DISPUTE_WINDOW.get()));
-		let params = fetch_params(
-			recent_leaf,
-			caller_session,
-			&descriptor,
-			false,
-			&mut params_cache,
-			ctx.sender(),
-		)
-		.await
-		.expect("fetch_params should succeed");
+		let params = fetch_params(recent_leaf, caller_session, &descriptor, false, ctx.sender())
+			.await
+			.expect("fetch_params should succeed");
 
 		assert_eq!(params.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT);
 	};
@@ -2774,12 +2758,10 @@ fn fetch_params_propagates_runtime_api_error() {
 	};
 
 	let fetch_fut = async move {
-		let mut params_cache = SessionParamsCache::new(ByLength::new(DISPUTE_WINDOW.get()));
-		let err =
-			fetch_params(recent_leaf, session, &descriptor, false, &mut params_cache, ctx.sender())
-				.await
-				.map(|_| ())
-				.expect_err("fetch_params should propagate runtime error");
+		let err = fetch_params(recent_leaf, session, &descriptor, false, ctx.sender())
+			.await
+			.map(|_| ())
+			.expect_err("fetch_params should propagate runtime error");
 
 		assert!(err.contains("runtime error"), "unexpected error: {err}");
 	};
@@ -2822,11 +2804,8 @@ fn fetch_params_v3_cross_session_uses_execution_session_for_bomb_limit() {
 
 	// Distinct from `VALIDATION_CODE_BOMB_LIMIT` so the assertion can prove the
 	// value came from the execution-session config rather than a stray fallback.
-	let exec_cfg = SessionExecutionConfig {
-		max_pov_size: 4096,
-		validation_code_bomb_limit: 123_456,
-		..Default::default()
-	};
+	let exec_cfg =
+		SessionExecutionConfig { max_pov_size: 4096, validation_code_bomb_limit: 123_456 };
 	assert_ne!(
 		exec_cfg.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT,
 		"test sentinel collision: cfg value must differ from the legacy-path value",
@@ -2866,17 +2845,9 @@ fn fetch_params_v3_cross_session_uses_execution_session_for_bomb_limit() {
 	};
 
 	let fetch_fut = async move {
-		let mut params_cache = SessionParamsCache::new(ByLength::new(DISPUTE_WINDOW.get()));
-		let params = fetch_params(
-			recent_leaf,
-			caller_session,
-			&descriptor,
-			true,
-			&mut params_cache,
-			ctx.sender(),
-		)
-		.await
-		.expect("fetch_params should succeed");
+		let params = fetch_params(recent_leaf, caller_session, &descriptor, true, ctx.sender())
+			.await
+			.expect("fetch_params should succeed");
 
 		assert_eq!(
 			params.validation_code_bomb_limit, exec_cfg.validation_code_bomb_limit,

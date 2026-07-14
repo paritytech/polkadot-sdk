@@ -28,7 +28,7 @@ use polkadot_node_core_pvf::{
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 use polkadot_node_core_pvf_common::execute::ValidationContext;
-use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult, DISPUTE_WINDOW};
+use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
@@ -63,8 +63,6 @@ use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
 
 use codec::Encode;
-
-use schnellru::{ByLength, LruMap};
 
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
 
@@ -185,7 +183,6 @@ where
 ///   invalidate a candidate that was valid when constructed.
 ///
 /// For V1 descriptors execution and scheduling session are identical.
-#[derive(Clone)]
 struct SessionParams {
 	/// Fetched for the relay-parent (execution) session.
 	executor_params: ExecutorParams,
@@ -193,21 +190,17 @@ struct SessionParams {
 	validation_code_bomb_limit: u32,
 }
 
-type SessionParamsCache = LruMap<SessionIndex, SessionParams>;
-
 /// Fetch session-scoped parameters for a candidate.
 ///
 /// For V2+ descriptors the session comes from the descriptor itself. For V1
 /// descriptors `scheduling_session_index` is used as fallback (V1 has
 /// `relay_parent == scheduling_parent`, so execution and scheduling session are
-/// identical). Results are cached per execution session in `cache` so a warm
-/// session is served without any runtime API round-trip.
+/// identical). Results are cached centrally by the `runtime-api` subsystem.
 async fn fetch_params<Sender>(
 	recent_leaf: Hash,
 	scheduling_session_index: SessionIndex,
 	candidate_descriptor: &CandidateDescriptor,
 	v3_ever_seen: bool,
-	cache: &mut SessionParamsCache,
 	sender: &mut Sender,
 ) -> Result<SessionParams, String>
 where
@@ -218,10 +211,6 @@ where
 	let execution_session = candidate_descriptor
 		.session_index_for_candidate_validation(v3_ever_seen)
 		.unwrap_or(scheduling_session_index);
-
-	if let Some(cached) = cache.get(&execution_session) {
-		return Ok(cached.clone());
-	}
 
 	let executor_params = request_session_executor_params(recent_leaf, execution_session, sender)
 		.await
@@ -245,10 +234,7 @@ where
 			})?,
 	};
 
-	let params = SessionParams { executor_params, validation_code_bomb_limit };
-	let _ = cache.insert(execution_session, params.clone());
-
-	Ok(params)
+	Ok(SessionParams { executor_params, validation_code_bomb_limit })
 }
 
 /// Fetch the per-session `SessionExecutionConfig`.
@@ -590,7 +576,6 @@ async fn run<Context>(
 											*scheduling_session_index,
 											&candidate_receipt.descriptor,
 											state.v3_ever_seen,
-											&mut state.session_params_cache,
 											ctx.sender(),
 										)
 										.await
@@ -668,8 +653,6 @@ struct State {
 	v3_ever_seen: bool,
 	/// PVF preparation state (proactive pre-compilation for next session).
 	pvf_prep: PvfPrepState,
-	/// Per-session cache of assembled validation parameters, keyed by execution session.
-	session_params_cache: SessionParamsCache,
 }
 
 impl Default for State {
@@ -679,7 +662,6 @@ impl Default for State {
 			last_active_leaf: None,
 			v3_ever_seen: false,
 			pvf_prep: PvfPrepState::default(),
-			session_params_cache: LruMap::new(ByLength::new(DISPUTE_WINDOW.get())),
 		}
 	}
 }
