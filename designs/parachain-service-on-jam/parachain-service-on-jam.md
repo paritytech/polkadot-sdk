@@ -1000,6 +1000,19 @@ incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
 **Asset Hub baseline footprint ≈ 1.33 MiB**, added on top of the generic
 per-para baseline.
 
+#### Write-time invariant
+
+Every mutation that would grow `used_state_balance` is guarded by a headroom
+pre-check against `total_state_balance` before the write. On insufficient
+headroom the write is skipped and `AccumulateLog::InsufficientStateBalance` is
+appended to the parachain log; otherwise the write is applied and
+`used_state_balance` is bumped atomically. Baseline-covered state is
+pre-charged and needs no per-write check.
+
+Because every growth is pre-checked, a state write never fails on balance
+grounds. A defensive write-time balance failure indicates a bookkeeping bug and
+can leave the entire service stuck until manual intervention.
+
 ### 6.2 Registration
 
 Registration is the composition of `parachain_set_state_balance`,
