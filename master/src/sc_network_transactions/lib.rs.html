@@ -527,7 +527,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#377 id=377 data-nosnippet>377</a>
 <a href=#378 id=378 data-nosnippet>378</a>	<span class="kw">fn </span>handle_sync_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SyncEvent) {
 <a href=#379 id=379 data-nosnippet>379</a>		<span class="kw">match </span>event {
-<a href=#380 id=380 data-nosnippet>380</a>			SyncEvent::PeerConnected(remote) =&gt; {
+<a href=#380 id=380 data-nosnippet>380</a>			SyncEvent::PeerConnected { peer_id: remote, roles: <span class="kw">_ </span>} =&gt; {
 <a href=#381 id=381 data-nosnippet>381</a>				<span class="kw">let </span>addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
 <a href=#382 id=382 data-nosnippet>382</a>					.collect::&lt;multiaddr::Multiaddr&gt;();
 <a href=#383 id=383 data-nosnippet>383</a>				<span class="kw">let </span>result = <span class="self">self</span>.network.add_peers_to_reserved_set(

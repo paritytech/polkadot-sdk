@@ -1123,7 +1123,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#973 id=973 data-nosnippet>973</a>	///   joined.
 <a href=#974 id=974 data-nosnippet>974</a>	</span><span class="kw">fn </span>handle_sync_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SyncEvent) {
 <a href=#975 id=975 data-nosnippet>975</a>		<span class="kw">match </span>event {
-<a href=#976 id=976 data-nosnippet>976</a>			SyncEvent::PeerConnected(remote) =&gt; {
+<a href=#976 id=976 data-nosnippet>976</a>			SyncEvent::PeerConnected { peer_id: remote, roles: <span class="kw">_ </span>} =&gt; {
 <a href=#977 id=977 data-nosnippet>977</a>				<span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
 <a href=#978 id=978 data-nosnippet>978</a>					<span class="macro">log::trace!</span>(
 <a href=#979 id=979 data-nosnippet>979</a>						target: LOG_TARGET,
@@ -4257,260 +4257,269 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#4107 id=4107 data-nosnippet>4107</a>		<span class="kw">let </span>peer2 = PeerId::random();
 <a href=#4108 id=4108 data-nosnippet>4108</a>		<span class="kw">let </span>peer3 = PeerId::random();
 <a href=#4109 id=4109 data-nosnippet>4109</a>
-<a href=#4110 id=4110 data-nosnippet>4110</a>		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
-<a href=#4111 id=4111 data-nosnippet>4111</a>		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
-<a href=#4112 id=4112 data-nosnippet>4112</a>		handler.handle_sync_event(SyncEvent::PeerConnected(peer3));
-<a href=#4113 id=4113 data-nosnippet>4113</a>
-<a href=#4114 id=4114 data-nosnippet>4114</a>		<span class="comment">// No network calls while major sync is active
-<a href=#4115 id=4115 data-nosnippet>4115</a>		</span><span class="macro">assert!</span>(network.get_added_reserved().is_empty());
-<a href=#4116 id=4116 data-nosnippet>4116</a>		<span class="macro">assert!</span>(network.get_removed_reserved().is_empty());
-<a href=#4117 id=4117 data-nosnippet>4117</a>		<span class="macro">assert_eq!</span>(handler.deferred_peers.len(), <span class="number">3</span>);
-<a href=#4118 id=4118 data-nosnippet>4118</a>
-<a href=#4119 id=4119 data-nosnippet>4119</a>		<span class="comment">// Disconnect before sync ends must remove from buffer only
-<a href=#4120 id=4120 data-nosnippet>4120</a>		</span>handler.handle_sync_event(SyncEvent::PeerDisconnected(peer1));
-<a href=#4121 id=4121 data-nosnippet>4121</a>		<span class="macro">assert_eq!</span>(handler.deferred_peers.len(), <span class="number">2</span>);
-<a href=#4122 id=4122 data-nosnippet>4122</a>		<span class="macro">assert!</span>(!handler.deferred_peers.contains(<span class="kw-2">&amp;</span>peer1), <span class="string">"disconnected peer must leave buffer"</span>);
-<a href=#4123 id=4123 data-nosnippet>4123</a>		<span class="macro">assert!</span>(handler.deferred_peers.contains(<span class="kw-2">&amp;</span>peer2));
-<a href=#4124 id=4124 data-nosnippet>4124</a>		<span class="macro">assert!</span>(handler.deferred_peers.contains(<span class="kw-2">&amp;</span>peer3));
-<a href=#4125 id=4125 data-nosnippet>4125</a>		<span class="macro">assert!</span>(network.get_removed_reserved().is_empty(), <span class="string">"no remove call for buffered peer"</span>);
-<a href=#4126 id=4126 data-nosnippet>4126</a>	}
+<a href=#4110 id=4110 data-nosnippet>4110</a>		handler.handle_sync_event(SyncEvent::PeerConnected {
+<a href=#4111 id=4111 data-nosnippet>4111</a>			peer_id: peer1,
+<a href=#4112 id=4112 data-nosnippet>4112</a>			roles: sc_network::Roles::FULL,
+<a href=#4113 id=4113 data-nosnippet>4113</a>		});
+<a href=#4114 id=4114 data-nosnippet>4114</a>		handler.handle_sync_event(SyncEvent::PeerConnected {
+<a href=#4115 id=4115 data-nosnippet>4115</a>			peer_id: peer2,
+<a href=#4116 id=4116 data-nosnippet>4116</a>			roles: sc_network::Roles::FULL,
+<a href=#4117 id=4117 data-nosnippet>4117</a>		});
+<a href=#4118 id=4118 data-nosnippet>4118</a>		handler.handle_sync_event(SyncEvent::PeerConnected {
+<a href=#4119 id=4119 data-nosnippet>4119</a>			peer_id: peer3,
+<a href=#4120 id=4120 data-nosnippet>4120</a>			roles: sc_network::Roles::FULL,
+<a href=#4121 id=4121 data-nosnippet>4121</a>		});
+<a href=#4122 id=4122 data-nosnippet>4122</a>
+<a href=#4123 id=4123 data-nosnippet>4123</a>		<span class="comment">// No network calls while major sync is active
+<a href=#4124 id=4124 data-nosnippet>4124</a>		</span><span class="macro">assert!</span>(network.get_added_reserved().is_empty());
+<a href=#4125 id=4125 data-nosnippet>4125</a>		<span class="macro">assert!</span>(network.get_removed_reserved().is_empty());
+<a href=#4126 id=4126 data-nosnippet>4126</a>		<span class="macro">assert_eq!</span>(handler.deferred_peers.len(), <span class="number">3</span>);
 <a href=#4127 id=4127 data-nosnippet>4127</a>
-<a href=#4128 id=4128 data-nosnippet>4128</a>	<span class="attr">#[test]
-<a href=#4129 id=4129 data-nosnippet>4129</a>	</span><span class="kw">fn </span>deferred_peers_flushed_on_sync_end_without_remove() {
-<a href=#4130 id=4130 data-nosnippet>4130</a>		<span class="kw">let </span>(sync, flag) = TestSync::with_syncing(<span class="bool-val">true</span>);
-<a href=#4131 id=4131 data-nosnippet>4131</a>		<span class="kw">let </span>network = TestNetwork::new();
-<a href=#4132 id=4132 data-nosnippet>4132</a>		<span class="kw">let </span>notification_service = TestNotificationService::new();
-<a href=#4133 id=4133 data-nosnippet>4133</a>		<span class="kw">let </span>statement_store = TestStatementStore::new();
-<a href=#4134 id=4134 data-nosnippet>4134</a>		<span class="kw">let </span>(queue_sender, _queue_receiver) = async_channel::bounded(<span class="number">100</span>);
-<a href=#4135 id=4135 data-nosnippet>4135</a>
-<a href=#4136 id=4136 data-nosnippet>4136</a>		<span class="kw">let </span>peer1 = PeerId::random();
-<a href=#4137 id=4137 data-nosnippet>4137</a>		<span class="kw">let </span>peer2 = PeerId::random();
-<a href=#4138 id=4138 data-nosnippet>4138</a>		<span class="kw">let </span><span class="kw-2">mut </span>deferred = HashSet::new();
-<a href=#4139 id=4139 data-nosnippet>4139</a>		deferred.insert(peer1);
-<a href=#4140 id=4140 data-nosnippet>4140</a>		deferred.insert(peer2);
-<a href=#4141 id=4141 data-nosnippet>4141</a>
-<a href=#4142 id=4142 data-nosnippet>4142</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = StatementHandler {
-<a href=#4143 id=4143 data-nosnippet>4143</a>			protocol_name: <span class="string">"/statement/1"</span>.into(),
-<a href=#4144 id=4144 data-nosnippet>4144</a>			notification_service: Box::new(notification_service),
-<a href=#4145 id=4145 data-nosnippet>4145</a>			propagate_timeout: (Box::pin(futures::stream::pending())
-<a href=#4146 id=4146 data-nosnippet>4146</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
-<a href=#4147 id=4147 data-nosnippet>4147</a>				.fuse(),
-<a href=#4148 id=4148 data-nosnippet>4148</a>			pending_statements: FuturesUnordered::new(),
-<a href=#4149 id=4149 data-nosnippet>4149</a>			pending_statements_peers: HashMap::new(),
-<a href=#4150 id=4150 data-nosnippet>4150</a>			network: network.clone(),
-<a href=#4151 id=4151 data-nosnippet>4151</a>			sync,
-<a href=#4152 id=4152 data-nosnippet>4152</a>			sync_event_stream: (Box::pin(futures::stream::pending())
-<a href=#4153 id=4153 data-nosnippet>4153</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = sc_network_sync::types::SyncEvent&gt; + Send&gt;&gt;)
-<a href=#4154 id=4154 data-nosnippet>4154</a>				.fuse(),
-<a href=#4155 id=4155 data-nosnippet>4155</a>			peers: HashMap::new(),
-<a href=#4156 id=4156 data-nosnippet>4156</a>			statement_store: Arc::new(statement_store),
-<a href=#4157 id=4157 data-nosnippet>4157</a>			queue_sender,
-<a href=#4158 id=4158 data-nosnippet>4158</a>			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-<a href=#4159 id=4159 data-nosnippet>4159</a>				.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
-<a href=#4160 id=4160 data-nosnippet>4160</a>			metrics: <span class="prelude-val">None</span>,
-<a href=#4161 id=4161 data-nosnippet>4161</a>			initial_sync_timeout: Box::pin(futures::future::pending()),
-<a href=#4162 id=4162 data-nosnippet>4162</a>			pending_affinities_timeout: Box::pin(futures::future::pending()),
-<a href=#4163 id=4163 data-nosnippet>4163</a>			pending_initial_syncs: HashMap::new(),
-<a href=#4164 id=4164 data-nosnippet>4164</a>			initial_sync_peer_queue: VecDeque::new(),
-<a href=#4165 id=4165 data-nosnippet>4165</a>			deferred_peers: deferred,
-<a href=#4166 id=4166 data-nosnippet>4166</a>			dropped_statements_during_sync: <span class="bool-val">false</span>,
-<a href=#4167 id=4167 data-nosnippet>4167</a>			sync_recovery_peer: <span class="prelude-val">None</span>,
-<a href=#4168 id=4168 data-nosnippet>4168</a>			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-<a href=#4169 id=4169 data-nosnippet>4169</a>		};
-<a href=#4170 id=4170 data-nosnippet>4170</a>
-<a href=#4171 id=4171 data-nosnippet>4171</a>		flag.store(<span class="bool-val">false</span>, std::sync::atomic::Ordering::Relaxed);
-<a href=#4172 id=4172 data-nosnippet>4172</a>		handler.drain_deferred_peers();
-<a href=#4173 id=4173 data-nosnippet>4173</a>
-<a href=#4174 id=4174 data-nosnippet>4174</a>		<span class="macro">assert!</span>(handler.deferred_peers.is_empty());
-<a href=#4175 id=4175 data-nosnippet>4175</a>
-<a href=#4176 id=4176 data-nosnippet>4176</a>		<span class="kw">let </span>added = network.get_added_reserved();
-<a href=#4177 id=4177 data-nosnippet>4177</a>		<span class="macro">assert_eq!</span>(added.len(), <span class="number">1</span>);
-<a href=#4178 id=4178 data-nosnippet>4178</a>		<span class="kw">let </span>added_addrs = <span class="kw-2">&amp;</span>added[<span class="number">0</span>];
-<a href=#4179 id=4179 data-nosnippet>4179</a>		<span class="kw">let </span>expected_addr1: sc_network::Multiaddr =
-<a href=#4180 id=4180 data-nosnippet>4180</a>			iter::once(multiaddr::Protocol::P2p(peer1.into())).collect();
-<a href=#4181 id=4181 data-nosnippet>4181</a>		<span class="kw">let </span>expected_addr2: sc_network::Multiaddr =
-<a href=#4182 id=4182 data-nosnippet>4182</a>			iter::once(multiaddr::Protocol::P2p(peer2.into())).collect();
-<a href=#4183 id=4183 data-nosnippet>4183</a>		<span class="macro">assert!</span>(added_addrs.contains(<span class="kw-2">&amp;</span>expected_addr1), <span class="string">"peer1 must be in added set"</span>);
-<a href=#4184 id=4184 data-nosnippet>4184</a>		<span class="macro">assert!</span>(added_addrs.contains(<span class="kw-2">&amp;</span>expected_addr2), <span class="string">"peer2 must be in added set"</span>);
-<a href=#4185 id=4185 data-nosnippet>4185</a>
-<a href=#4186 id=4186 data-nosnippet>4186</a>		<span class="macro">assert!</span>(network.get_removed_reserved().is_empty());
-<a href=#4187 id=4187 data-nosnippet>4187</a>	}
-<a href=#4188 id=4188 data-nosnippet>4188</a>
-<a href=#4189 id=4189 data-nosnippet>4189</a>	<span class="attr">#[tokio::test]
-<a href=#4190 id=4190 data-nosnippet>4190</a>	</span><span class="kw">async fn </span>sync_recovery_schedules_remove_for_one_connected_peer() {
-<a href=#4191 id=4191 data-nosnippet>4191</a>		<span class="kw">let </span>network = TestNetwork::new();
-<a href=#4192 id=4192 data-nosnippet>4192</a>		<span class="kw">let </span>notification_service = TestNotificationService::new();
-<a href=#4193 id=4193 data-nosnippet>4193</a>		<span class="kw">let </span>(sync, _flag) = TestSync::with_syncing(<span class="bool-val">false</span>);
-<a href=#4194 id=4194 data-nosnippet>4194</a>		<span class="kw">let </span>(queue_sender, <span class="kw">_</span>) = async_channel::bounded(<span class="number">2</span>);
-<a href=#4195 id=4195 data-nosnippet>4195</a>		<span class="kw">let </span>statement_store = TestStatementStore::new();
-<a href=#4196 id=4196 data-nosnippet>4196</a>
-<a href=#4197 id=4197 data-nosnippet>4197</a>		<span class="kw">let </span>connected_peer = PeerId::random();
-<a href=#4198 id=4198 data-nosnippet>4198</a>
-<a href=#4199 id=4199 data-nosnippet>4199</a>		<span class="kw">let </span><span class="kw-2">mut </span>peers = HashMap::new();
-<a href=#4200 id=4200 data-nosnippet>4200</a>		peers.insert(
-<a href=#4201 id=4201 data-nosnippet>4201</a>			connected_peer,
-<a href=#4202 id=4202 data-nosnippet>4202</a>			Peer {
-<a href=#4203 id=4203 data-nosnippet>4203</a>				known_statements: LruHashSet::new(NonZeroUsize::new(<span class="number">1024</span>).unwrap()),
-<a href=#4204 id=4204 data-nosnippet>4204</a>				rate_limiter: PeerRateLimiter::new(
-<a href=#4205 id=4205 data-nosnippet>4205</a>					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-<a href=#4206 id=4206 data-nosnippet>4206</a>						.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
-<a href=#4207 id=4207 data-nosnippet>4207</a>					NonZeroU32::new(
-<a href=#4208 id=4208 data-nosnippet>4208</a>						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-<a href=#4209 id=4209 data-nosnippet>4209</a>					)
-<a href=#4210 id=4210 data-nosnippet>4210</a>					.expect(<span class="string">"burst capacity is nonzero"</span>),
-<a href=#4211 id=4211 data-nosnippet>4211</a>				),
-<a href=#4212 id=4212 data-nosnippet>4212</a>				protocol_version: PeerProtocolVersion::V1,
-<a href=#4213 id=4213 data-nosnippet>4213</a>				topic_affinity: <span class="prelude-val">None</span>,
-<a href=#4214 id=4214 data-nosnippet>4214</a>				is_light: <span class="bool-val">false</span>,
-<a href=#4215 id=4215 data-nosnippet>4215</a>				pending_topic_affinity: <span class="prelude-val">None</span>,
-<a href=#4216 id=4216 data-nosnippet>4216</a>			},
-<a href=#4217 id=4217 data-nosnippet>4217</a>		);
-<a href=#4218 id=4218 data-nosnippet>4218</a>
-<a href=#4219 id=4219 data-nosnippet>4219</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = StatementHandler {
-<a href=#4220 id=4220 data-nosnippet>4220</a>			protocol_name: <span class="macro">format!</span>(<span class="string">"/{STATEMENT_PROTOCOL_V1}"</span>).into(),
-<a href=#4221 id=4221 data-nosnippet>4221</a>			notification_service: Box::new(notification_service),
-<a href=#4222 id=4222 data-nosnippet>4222</a>			propagate_timeout: (Box::pin(futures::stream::pending())
-<a href=#4223 id=4223 data-nosnippet>4223</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
-<a href=#4224 id=4224 data-nosnippet>4224</a>				.fuse(),
-<a href=#4225 id=4225 data-nosnippet>4225</a>			pending_statements: FuturesUnordered::new(),
-<a href=#4226 id=4226 data-nosnippet>4226</a>			pending_statements_peers: HashMap::new(),
-<a href=#4227 id=4227 data-nosnippet>4227</a>			network: network.clone(),
-<a href=#4228 id=4228 data-nosnippet>4228</a>			sync,
-<a href=#4229 id=4229 data-nosnippet>4229</a>			sync_event_stream: (Box::pin(futures::stream::pending())
-<a href=#4230 id=4230 data-nosnippet>4230</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = sc_network_sync::types::SyncEvent&gt; + Send&gt;&gt;)
-<a href=#4231 id=4231 data-nosnippet>4231</a>				.fuse(),
-<a href=#4232 id=4232 data-nosnippet>4232</a>			peers,
-<a href=#4233 id=4233 data-nosnippet>4233</a>			statement_store: Arc::new(statement_store),
-<a href=#4234 id=4234 data-nosnippet>4234</a>			queue_sender,
-<a href=#4235 id=4235 data-nosnippet>4235</a>			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-<a href=#4236 id=4236 data-nosnippet>4236</a>				.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
-<a href=#4237 id=4237 data-nosnippet>4237</a>			metrics: <span class="prelude-val">None</span>,
-<a href=#4238 id=4238 data-nosnippet>4238</a>			initial_sync_timeout: Box::pin(futures::future::pending()),
-<a href=#4239 id=4239 data-nosnippet>4239</a>			pending_affinities_timeout: Box::pin(futures::future::pending()),
-<a href=#4240 id=4240 data-nosnippet>4240</a>			pending_initial_syncs: HashMap::new(),
-<a href=#4241 id=4241 data-nosnippet>4241</a>			initial_sync_peer_queue: VecDeque::new(),
-<a href=#4242 id=4242 data-nosnippet>4242</a>			deferred_peers: HashSet::new(),
-<a href=#4243 id=4243 data-nosnippet>4243</a>			dropped_statements_during_sync: <span class="bool-val">true</span>,
-<a href=#4244 id=4244 data-nosnippet>4244</a>			sync_recovery_peer: <span class="prelude-val">None</span>,
-<a href=#4245 id=4245 data-nosnippet>4245</a>			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
-<a href=#4246 id=4246 data-nosnippet>4246</a>		};
-<a href=#4247 id=4247 data-nosnippet>4247</a>
-<a href=#4248 id=4248 data-nosnippet>4248</a>		handler.start_sync_recovery();
-<a href=#4249 id=4249 data-nosnippet>4249</a>
-<a href=#4250 id=4250 data-nosnippet>4250</a>		<span class="comment">// One remove call must have been issued for the connected peer
-<a href=#4251 id=4251 data-nosnippet>4251</a>		</span>{
-<a href=#4252 id=4252 data-nosnippet>4252</a>			<span class="kw">let </span>removed = network.removed_reserved.lock().unwrap();
-<a href=#4253 id=4253 data-nosnippet>4253</a>			<span class="macro">assert_eq!</span>(
-<a href=#4254 id=4254 data-nosnippet>4254</a>				removed.len(),
-<a href=#4255 id=4255 data-nosnippet>4255</a>				<span class="number">1</span>,
-<a href=#4256 id=4256 data-nosnippet>4256</a>				<span class="string">"Expected exactly one remove_peers_from_reserved_set call"
-<a href=#4257 id=4257 data-nosnippet>4257</a>			</span>);
-<a href=#4258 id=4258 data-nosnippet>4258</a>			<span class="macro">assert!</span>(removed[<span class="number">0</span>].contains(<span class="kw-2">&amp;</span>connected_peer));
-<a href=#4259 id=4259 data-nosnippet>4259</a>		}
-<a href=#4260 id=4260 data-nosnippet>4260</a>
-<a href=#4261 id=4261 data-nosnippet>4261</a>		<span class="comment">// The recovery peer must be stored and the timeout future must be armed
-<a href=#4262 id=4262 data-nosnippet>4262</a>		</span><span class="macro">assert_eq!</span>(handler.sync_recovery_peer, <span class="prelude-val">Some</span>(connected_peer));
-<a href=#4263 id=4263 data-nosnippet>4263</a>
-<a href=#4264 id=4264 data-nosnippet>4264</a>		<span class="comment">// Calling try_readd_sync_recovery_peer directly (as the select arm would after the future
-<a href=#4265 id=4265 data-nosnippet>4265</a>		// resolves) must re-add the peer and clear the field
-<a href=#4266 id=4266 data-nosnippet>4266</a>		</span>handler.try_readd_sync_recovery_peer();
-<a href=#4267 id=4267 data-nosnippet>4267</a>		<span class="macro">assert!</span>(handler.sync_recovery_peer.is_none());
-<a href=#4268 id=4268 data-nosnippet>4268</a>		{
-<a href=#4269 id=4269 data-nosnippet>4269</a>			<span class="kw">let </span>added = network.added_reserved.lock().unwrap();
-<a href=#4270 id=4270 data-nosnippet>4270</a>			<span class="macro">assert_eq!</span>(added.len(), <span class="number">1</span>);
-<a href=#4271 id=4271 data-nosnippet>4271</a>			<span class="kw">let </span>expected_addr: multiaddr::Multiaddr =
-<a href=#4272 id=4272 data-nosnippet>4272</a>				iter::once(multiaddr::Protocol::P2p(connected_peer.into())).collect();
-<a href=#4273 id=4273 data-nosnippet>4273</a>			<span class="macro">assert!</span>(added[<span class="number">0</span>].contains(<span class="kw-2">&amp;</span>expected_addr));
-<a href=#4274 id=4274 data-nosnippet>4274</a>		}
-<a href=#4275 id=4275 data-nosnippet>4275</a>
-<a href=#4276 id=4276 data-nosnippet>4276</a>		<span class="comment">// Re-entry guard: restore state to simulate a second sync-end while recovery is still
-<a href=#4277 id=4277 data-nosnippet>4277</a>		// in flight (sync_recovery_peer is Some). The second call must not issue another remove.
-<a href=#4278 id=4278 data-nosnippet>4278</a>		</span>{
-<a href=#4279 id=4279 data-nosnippet>4279</a>			<span class="kw">let </span>peer2 = PeerId::random();
-<a href=#4280 id=4280 data-nosnippet>4280</a>			handler.sync_recovery_peer = <span class="prelude-val">Some</span>(peer2);
-<a href=#4281 id=4281 data-nosnippet>4281</a>			handler.start_sync_recovery();
-<a href=#4282 id=4282 data-nosnippet>4282</a>			<span class="macro">assert_eq!</span>(
-<a href=#4283 id=4283 data-nosnippet>4283</a>				handler.sync_recovery_peer,
-<a href=#4284 id=4284 data-nosnippet>4284</a>				<span class="prelude-val">Some</span>(peer2),
-<a href=#4285 id=4285 data-nosnippet>4285</a>				<span class="string">"Re-entry guard: recovery peer must not change on second call"
-<a href=#4286 id=4286 data-nosnippet>4286</a>			</span>);
-<a href=#4287 id=4287 data-nosnippet>4287</a>			<span class="macro">assert_eq!</span>(
-<a href=#4288 id=4288 data-nosnippet>4288</a>				network.removed_reserved.lock().unwrap().len(),
-<a href=#4289 id=4289 data-nosnippet>4289</a>				<span class="number">1</span>,
-<a href=#4290 id=4290 data-nosnippet>4290</a>				<span class="string">"Re-entry guard: no extra remove call while recovery is in flight"
-<a href=#4291 id=4291 data-nosnippet>4291</a>			</span>);
-<a href=#4292 id=4292 data-nosnippet>4292</a>		}
-<a href=#4293 id=4293 data-nosnippet>4293</a>	}
-<a href=#4294 id=4294 data-nosnippet>4294</a>
-<a href=#4295 id=4295 data-nosnippet>4295</a>	<span class="attr">#[tokio::test]
-<a href=#4296 id=4296 data-nosnippet>4296</a>	</span><span class="kw">async fn </span>sync_recovery_gated_by_dropped_statements_flag() {
-<a href=#4297 id=4297 data-nosnippet>4297</a>		<span class="kw">let </span>make_peer = || Peer {
-<a href=#4298 id=4298 data-nosnippet>4298</a>			known_statements: LruHashSet::new(NonZeroUsize::new(<span class="number">1024</span>).unwrap()),
-<a href=#4299 id=4299 data-nosnippet>4299</a>			rate_limiter: PeerRateLimiter::new(
-<a href=#4300 id=4300 data-nosnippet>4300</a>				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-<a href=#4301 id=4301 data-nosnippet>4301</a>					.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
-<a href=#4302 id=4302 data-nosnippet>4302</a>				NonZeroU32::new(
-<a href=#4303 id=4303 data-nosnippet>4303</a>					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-<a href=#4304 id=4304 data-nosnippet>4304</a>				)
-<a href=#4305 id=4305 data-nosnippet>4305</a>				.expect(<span class="string">"burst capacity is nonzero"</span>),
-<a href=#4306 id=4306 data-nosnippet>4306</a>			),
-<a href=#4307 id=4307 data-nosnippet>4307</a>			protocol_version: PeerProtocolVersion::V1,
-<a href=#4308 id=4308 data-nosnippet>4308</a>			topic_affinity: <span class="prelude-val">None</span>,
-<a href=#4309 id=4309 data-nosnippet>4309</a>			is_light: <span class="bool-val">false</span>,
-<a href=#4310 id=4310 data-nosnippet>4310</a>			pending_topic_affinity: <span class="prelude-val">None</span>,
-<a href=#4311 id=4311 data-nosnippet>4311</a>		};
-<a href=#4312 id=4312 data-nosnippet>4312</a>
-<a href=#4313 id=4313 data-nosnippet>4313</a>		<span class="kw">let </span>make_handler =
-<a href=#4314 id=4314 data-nosnippet>4314</a>			|network: TestNetwork, dropped: bool| -&gt; StatementHandler&lt;TestNetwork, TestSync&gt; {
-<a href=#4315 id=4315 data-nosnippet>4315</a>				<span class="kw">let </span>(sync, <span class="kw">_</span>) = TestSync::with_syncing(<span class="bool-val">false</span>);
-<a href=#4316 id=4316 data-nosnippet>4316</a>				<span class="kw">let </span>(queue_sender, <span class="kw">_</span>) = async_channel::bounded(<span class="number">2</span>);
-<a href=#4317 id=4317 data-nosnippet>4317</a>				<span class="kw">let </span><span class="kw-2">mut </span>peers = HashMap::new();
-<a href=#4318 id=4318 data-nosnippet>4318</a>				peers.insert(PeerId::random(), make_peer());
-<a href=#4319 id=4319 data-nosnippet>4319</a>				StatementHandler {
-<a href=#4320 id=4320 data-nosnippet>4320</a>					protocol_name: <span class="macro">format!</span>(<span class="string">"/{STATEMENT_PROTOCOL_V1}"</span>).into(),
-<a href=#4321 id=4321 data-nosnippet>4321</a>					notification_service: Box::new(TestNotificationService::new()),
-<a href=#4322 id=4322 data-nosnippet>4322</a>					propagate_timeout: (Box::pin(futures::stream::pending())
-<a href=#4323 id=4323 data-nosnippet>4323</a>						<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
-<a href=#4324 id=4324 data-nosnippet>4324</a>						.fuse(),
-<a href=#4325 id=4325 data-nosnippet>4325</a>					pending_statements: FuturesUnordered::new(),
-<a href=#4326 id=4326 data-nosnippet>4326</a>					pending_statements_peers: HashMap::new(),
-<a href=#4327 id=4327 data-nosnippet>4327</a>					network,
-<a href=#4328 id=4328 data-nosnippet>4328</a>					sync,
-<a href=#4329 id=4329 data-nosnippet>4329</a>					sync_event_stream: (Box::pin(futures::stream::pending())
-<a href=#4330 id=4330 data-nosnippet>4330</a>						<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = sc_network_sync::types::SyncEvent&gt; + Send&gt;&gt;)
-<a href=#4331 id=4331 data-nosnippet>4331</a>						.fuse(),
-<a href=#4332 id=4332 data-nosnippet>4332</a>					peers,
-<a href=#4333 id=4333 data-nosnippet>4333</a>					statement_store: Arc::new(TestStatementStore::new()),
-<a href=#4334 id=4334 data-nosnippet>4334</a>					queue_sender,
-<a href=#4335 id=4335 data-nosnippet>4335</a>					statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-<a href=#4336 id=4336 data-nosnippet>4336</a>						.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
-<a href=#4337 id=4337 data-nosnippet>4337</a>					metrics: <span class="prelude-val">None</span>,
-<a href=#4338 id=4338 data-nosnippet>4338</a>					initial_sync_timeout: Box::pin(futures::future::pending()),
-<a href=#4339 id=4339 data-nosnippet>4339</a>					pending_affinities_timeout: Box::pin(futures::future::pending()),
-<a href=#4340 id=4340 data-nosnippet>4340</a>					pending_initial_syncs: HashMap::new(),
-<a href=#4341 id=4341 data-nosnippet>4341</a>					initial_sync_peer_queue: VecDeque::new(),
-<a href=#4342 id=4342 data-nosnippet>4342</a>					deferred_peers: HashSet::new(),
-<a href=#4343 id=4343 data-nosnippet>4343</a>					dropped_statements_during_sync: dropped,
-<a href=#4344 id=4344 data-nosnippet>4344</a>					sync_recovery_peer: <span class="prelude-val">None</span>,
-<a href=#4345 id=4345 data-nosnippet>4345</a>					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
-<a href=#4346 id=4346 data-nosnippet>4346</a>				}
-<a href=#4347 id=4347 data-nosnippet>4347</a>			};
-<a href=#4348 id=4348 data-nosnippet>4348</a>
-<a href=#4349 id=4349 data-nosnippet>4349</a>		<span class="comment">// flag=false → no recovery
-<a href=#4350 id=4350 data-nosnippet>4350</a>		</span><span class="kw">let </span>net = TestNetwork::new();
-<a href=#4351 id=4351 data-nosnippet>4351</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = make_handler(net.clone(), <span class="bool-val">false</span>);
-<a href=#4352 id=4352 data-nosnippet>4352</a>		handler.start_sync_recovery();
-<a href=#4353 id=4353 data-nosnippet>4353</a>		<span class="macro">assert!</span>(handler.sync_recovery_peer.is_none());
-<a href=#4354 id=4354 data-nosnippet>4354</a>		<span class="macro">assert!</span>(net.get_removed_reserved().is_empty());
-<a href=#4355 id=4355 data-nosnippet>4355</a>
-<a href=#4356 id=4356 data-nosnippet>4356</a>		<span class="comment">// flag=true → recovery fires
-<a href=#4357 id=4357 data-nosnippet>4357</a>		</span><span class="kw">let </span>net2 = TestNetwork::new();
-<a href=#4358 id=4358 data-nosnippet>4358</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler2 = make_handler(net2.clone(), <span class="bool-val">true</span>);
-<a href=#4359 id=4359 data-nosnippet>4359</a>		handler2.start_sync_recovery();
-<a href=#4360 id=4360 data-nosnippet>4360</a>		<span class="macro">assert!</span>(handler2.sync_recovery_peer.is_some());
-<a href=#4361 id=4361 data-nosnippet>4361</a>		<span class="macro">assert_eq!</span>(net2.get_removed_reserved().len(), <span class="number">1</span>);
-<a href=#4362 id=4362 data-nosnippet>4362</a>	}
-<a href=#4363 id=4363 data-nosnippet>4363</a>}
+<a href=#4128 id=4128 data-nosnippet>4128</a>		<span class="comment">// Disconnect before sync ends must remove from buffer only
+<a href=#4129 id=4129 data-nosnippet>4129</a>		</span>handler.handle_sync_event(SyncEvent::PeerDisconnected(peer1));
+<a href=#4130 id=4130 data-nosnippet>4130</a>		<span class="macro">assert_eq!</span>(handler.deferred_peers.len(), <span class="number">2</span>);
+<a href=#4131 id=4131 data-nosnippet>4131</a>		<span class="macro">assert!</span>(!handler.deferred_peers.contains(<span class="kw-2">&amp;</span>peer1), <span class="string">"disconnected peer must leave buffer"</span>);
+<a href=#4132 id=4132 data-nosnippet>4132</a>		<span class="macro">assert!</span>(handler.deferred_peers.contains(<span class="kw-2">&amp;</span>peer2));
+<a href=#4133 id=4133 data-nosnippet>4133</a>		<span class="macro">assert!</span>(handler.deferred_peers.contains(<span class="kw-2">&amp;</span>peer3));
+<a href=#4134 id=4134 data-nosnippet>4134</a>		<span class="macro">assert!</span>(network.get_removed_reserved().is_empty(), <span class="string">"no remove call for buffered peer"</span>);
+<a href=#4135 id=4135 data-nosnippet>4135</a>	}
+<a href=#4136 id=4136 data-nosnippet>4136</a>
+<a href=#4137 id=4137 data-nosnippet>4137</a>	<span class="attr">#[test]
+<a href=#4138 id=4138 data-nosnippet>4138</a>	</span><span class="kw">fn </span>deferred_peers_flushed_on_sync_end_without_remove() {
+<a href=#4139 id=4139 data-nosnippet>4139</a>		<span class="kw">let </span>(sync, flag) = TestSync::with_syncing(<span class="bool-val">true</span>);
+<a href=#4140 id=4140 data-nosnippet>4140</a>		<span class="kw">let </span>network = TestNetwork::new();
+<a href=#4141 id=4141 data-nosnippet>4141</a>		<span class="kw">let </span>notification_service = TestNotificationService::new();
+<a href=#4142 id=4142 data-nosnippet>4142</a>		<span class="kw">let </span>statement_store = TestStatementStore::new();
+<a href=#4143 id=4143 data-nosnippet>4143</a>		<span class="kw">let </span>(queue_sender, _queue_receiver) = async_channel::bounded(<span class="number">100</span>);
+<a href=#4144 id=4144 data-nosnippet>4144</a>
+<a href=#4145 id=4145 data-nosnippet>4145</a>		<span class="kw">let </span>peer1 = PeerId::random();
+<a href=#4146 id=4146 data-nosnippet>4146</a>		<span class="kw">let </span>peer2 = PeerId::random();
+<a href=#4147 id=4147 data-nosnippet>4147</a>		<span class="kw">let </span><span class="kw-2">mut </span>deferred = HashSet::new();
+<a href=#4148 id=4148 data-nosnippet>4148</a>		deferred.insert(peer1);
+<a href=#4149 id=4149 data-nosnippet>4149</a>		deferred.insert(peer2);
+<a href=#4150 id=4150 data-nosnippet>4150</a>
+<a href=#4151 id=4151 data-nosnippet>4151</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = StatementHandler {
+<a href=#4152 id=4152 data-nosnippet>4152</a>			protocol_name: <span class="string">"/statement/1"</span>.into(),
+<a href=#4153 id=4153 data-nosnippet>4153</a>			notification_service: Box::new(notification_service),
+<a href=#4154 id=4154 data-nosnippet>4154</a>			propagate_timeout: (Box::pin(futures::stream::pending())
+<a href=#4155 id=4155 data-nosnippet>4155</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
+<a href=#4156 id=4156 data-nosnippet>4156</a>				.fuse(),
+<a href=#4157 id=4157 data-nosnippet>4157</a>			pending_statements: FuturesUnordered::new(),
+<a href=#4158 id=4158 data-nosnippet>4158</a>			pending_statements_peers: HashMap::new(),
+<a href=#4159 id=4159 data-nosnippet>4159</a>			network: network.clone(),
+<a href=#4160 id=4160 data-nosnippet>4160</a>			sync,
+<a href=#4161 id=4161 data-nosnippet>4161</a>			sync_event_stream: (Box::pin(futures::stream::pending())
+<a href=#4162 id=4162 data-nosnippet>4162</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = sc_network_sync::types::SyncEvent&gt; + Send&gt;&gt;)
+<a href=#4163 id=4163 data-nosnippet>4163</a>				.fuse(),
+<a href=#4164 id=4164 data-nosnippet>4164</a>			peers: HashMap::new(),
+<a href=#4165 id=4165 data-nosnippet>4165</a>			statement_store: Arc::new(statement_store),
+<a href=#4166 id=4166 data-nosnippet>4166</a>			queue_sender,
+<a href=#4167 id=4167 data-nosnippet>4167</a>			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+<a href=#4168 id=4168 data-nosnippet>4168</a>				.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
+<a href=#4169 id=4169 data-nosnippet>4169</a>			metrics: <span class="prelude-val">None</span>,
+<a href=#4170 id=4170 data-nosnippet>4170</a>			initial_sync_timeout: Box::pin(futures::future::pending()),
+<a href=#4171 id=4171 data-nosnippet>4171</a>			pending_affinities_timeout: Box::pin(futures::future::pending()),
+<a href=#4172 id=4172 data-nosnippet>4172</a>			pending_initial_syncs: HashMap::new(),
+<a href=#4173 id=4173 data-nosnippet>4173</a>			initial_sync_peer_queue: VecDeque::new(),
+<a href=#4174 id=4174 data-nosnippet>4174</a>			deferred_peers: deferred,
+<a href=#4175 id=4175 data-nosnippet>4175</a>			dropped_statements_during_sync: <span class="bool-val">false</span>,
+<a href=#4176 id=4176 data-nosnippet>4176</a>			sync_recovery_peer: <span class="prelude-val">None</span>,
+<a href=#4177 id=4177 data-nosnippet>4177</a>			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+<a href=#4178 id=4178 data-nosnippet>4178</a>		};
+<a href=#4179 id=4179 data-nosnippet>4179</a>
+<a href=#4180 id=4180 data-nosnippet>4180</a>		flag.store(<span class="bool-val">false</span>, std::sync::atomic::Ordering::Relaxed);
+<a href=#4181 id=4181 data-nosnippet>4181</a>		handler.drain_deferred_peers();
+<a href=#4182 id=4182 data-nosnippet>4182</a>
+<a href=#4183 id=4183 data-nosnippet>4183</a>		<span class="macro">assert!</span>(handler.deferred_peers.is_empty());
+<a href=#4184 id=4184 data-nosnippet>4184</a>
+<a href=#4185 id=4185 data-nosnippet>4185</a>		<span class="kw">let </span>added = network.get_added_reserved();
+<a href=#4186 id=4186 data-nosnippet>4186</a>		<span class="macro">assert_eq!</span>(added.len(), <span class="number">1</span>);
+<a href=#4187 id=4187 data-nosnippet>4187</a>		<span class="kw">let </span>added_addrs = <span class="kw-2">&amp;</span>added[<span class="number">0</span>];
+<a href=#4188 id=4188 data-nosnippet>4188</a>		<span class="kw">let </span>expected_addr1: sc_network::Multiaddr =
+<a href=#4189 id=4189 data-nosnippet>4189</a>			iter::once(multiaddr::Protocol::P2p(peer1.into())).collect();
+<a href=#4190 id=4190 data-nosnippet>4190</a>		<span class="kw">let </span>expected_addr2: sc_network::Multiaddr =
+<a href=#4191 id=4191 data-nosnippet>4191</a>			iter::once(multiaddr::Protocol::P2p(peer2.into())).collect();
+<a href=#4192 id=4192 data-nosnippet>4192</a>		<span class="macro">assert!</span>(added_addrs.contains(<span class="kw-2">&amp;</span>expected_addr1), <span class="string">"peer1 must be in added set"</span>);
+<a href=#4193 id=4193 data-nosnippet>4193</a>		<span class="macro">assert!</span>(added_addrs.contains(<span class="kw-2">&amp;</span>expected_addr2), <span class="string">"peer2 must be in added set"</span>);
+<a href=#4194 id=4194 data-nosnippet>4194</a>
+<a href=#4195 id=4195 data-nosnippet>4195</a>		<span class="macro">assert!</span>(network.get_removed_reserved().is_empty());
+<a href=#4196 id=4196 data-nosnippet>4196</a>	}
+<a href=#4197 id=4197 data-nosnippet>4197</a>
+<a href=#4198 id=4198 data-nosnippet>4198</a>	<span class="attr">#[tokio::test]
+<a href=#4199 id=4199 data-nosnippet>4199</a>	</span><span class="kw">async fn </span>sync_recovery_schedules_remove_for_one_connected_peer() {
+<a href=#4200 id=4200 data-nosnippet>4200</a>		<span class="kw">let </span>network = TestNetwork::new();
+<a href=#4201 id=4201 data-nosnippet>4201</a>		<span class="kw">let </span>notification_service = TestNotificationService::new();
+<a href=#4202 id=4202 data-nosnippet>4202</a>		<span class="kw">let </span>(sync, _flag) = TestSync::with_syncing(<span class="bool-val">false</span>);
+<a href=#4203 id=4203 data-nosnippet>4203</a>		<span class="kw">let </span>(queue_sender, <span class="kw">_</span>) = async_channel::bounded(<span class="number">2</span>);
+<a href=#4204 id=4204 data-nosnippet>4204</a>		<span class="kw">let </span>statement_store = TestStatementStore::new();
+<a href=#4205 id=4205 data-nosnippet>4205</a>
+<a href=#4206 id=4206 data-nosnippet>4206</a>		<span class="kw">let </span>connected_peer = PeerId::random();
+<a href=#4207 id=4207 data-nosnippet>4207</a>
+<a href=#4208 id=4208 data-nosnippet>4208</a>		<span class="kw">let </span><span class="kw-2">mut </span>peers = HashMap::new();
+<a href=#4209 id=4209 data-nosnippet>4209</a>		peers.insert(
+<a href=#4210 id=4210 data-nosnippet>4210</a>			connected_peer,
+<a href=#4211 id=4211 data-nosnippet>4211</a>			Peer {
+<a href=#4212 id=4212 data-nosnippet>4212</a>				known_statements: LruHashSet::new(NonZeroUsize::new(<span class="number">1024</span>).unwrap()),
+<a href=#4213 id=4213 data-nosnippet>4213</a>				rate_limiter: PeerRateLimiter::new(
+<a href=#4214 id=4214 data-nosnippet>4214</a>					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+<a href=#4215 id=4215 data-nosnippet>4215</a>						.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
+<a href=#4216 id=4216 data-nosnippet>4216</a>					NonZeroU32::new(
+<a href=#4217 id=4217 data-nosnippet>4217</a>						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+<a href=#4218 id=4218 data-nosnippet>4218</a>					)
+<a href=#4219 id=4219 data-nosnippet>4219</a>					.expect(<span class="string">"burst capacity is nonzero"</span>),
+<a href=#4220 id=4220 data-nosnippet>4220</a>				),
+<a href=#4221 id=4221 data-nosnippet>4221</a>				protocol_version: PeerProtocolVersion::V1,
+<a href=#4222 id=4222 data-nosnippet>4222</a>				topic_affinity: <span class="prelude-val">None</span>,
+<a href=#4223 id=4223 data-nosnippet>4223</a>				is_light: <span class="bool-val">false</span>,
+<a href=#4224 id=4224 data-nosnippet>4224</a>				pending_topic_affinity: <span class="prelude-val">None</span>,
+<a href=#4225 id=4225 data-nosnippet>4225</a>			},
+<a href=#4226 id=4226 data-nosnippet>4226</a>		);
+<a href=#4227 id=4227 data-nosnippet>4227</a>
+<a href=#4228 id=4228 data-nosnippet>4228</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = StatementHandler {
+<a href=#4229 id=4229 data-nosnippet>4229</a>			protocol_name: <span class="macro">format!</span>(<span class="string">"/{STATEMENT_PROTOCOL_V1}"</span>).into(),
+<a href=#4230 id=4230 data-nosnippet>4230</a>			notification_service: Box::new(notification_service),
+<a href=#4231 id=4231 data-nosnippet>4231</a>			propagate_timeout: (Box::pin(futures::stream::pending())
+<a href=#4232 id=4232 data-nosnippet>4232</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
+<a href=#4233 id=4233 data-nosnippet>4233</a>				.fuse(),
+<a href=#4234 id=4234 data-nosnippet>4234</a>			pending_statements: FuturesUnordered::new(),
+<a href=#4235 id=4235 data-nosnippet>4235</a>			pending_statements_peers: HashMap::new(),
+<a href=#4236 id=4236 data-nosnippet>4236</a>			network: network.clone(),
+<a href=#4237 id=4237 data-nosnippet>4237</a>			sync,
+<a href=#4238 id=4238 data-nosnippet>4238</a>			sync_event_stream: (Box::pin(futures::stream::pending())
+<a href=#4239 id=4239 data-nosnippet>4239</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = sc_network_sync::types::SyncEvent&gt; + Send&gt;&gt;)
+<a href=#4240 id=4240 data-nosnippet>4240</a>				.fuse(),
+<a href=#4241 id=4241 data-nosnippet>4241</a>			peers,
+<a href=#4242 id=4242 data-nosnippet>4242</a>			statement_store: Arc::new(statement_store),
+<a href=#4243 id=4243 data-nosnippet>4243</a>			queue_sender,
+<a href=#4244 id=4244 data-nosnippet>4244</a>			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+<a href=#4245 id=4245 data-nosnippet>4245</a>				.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
+<a href=#4246 id=4246 data-nosnippet>4246</a>			metrics: <span class="prelude-val">None</span>,
+<a href=#4247 id=4247 data-nosnippet>4247</a>			initial_sync_timeout: Box::pin(futures::future::pending()),
+<a href=#4248 id=4248 data-nosnippet>4248</a>			pending_affinities_timeout: Box::pin(futures::future::pending()),
+<a href=#4249 id=4249 data-nosnippet>4249</a>			pending_initial_syncs: HashMap::new(),
+<a href=#4250 id=4250 data-nosnippet>4250</a>			initial_sync_peer_queue: VecDeque::new(),
+<a href=#4251 id=4251 data-nosnippet>4251</a>			deferred_peers: HashSet::new(),
+<a href=#4252 id=4252 data-nosnippet>4252</a>			dropped_statements_during_sync: <span class="bool-val">true</span>,
+<a href=#4253 id=4253 data-nosnippet>4253</a>			sync_recovery_peer: <span class="prelude-val">None</span>,
+<a href=#4254 id=4254 data-nosnippet>4254</a>			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
+<a href=#4255 id=4255 data-nosnippet>4255</a>		};
+<a href=#4256 id=4256 data-nosnippet>4256</a>
+<a href=#4257 id=4257 data-nosnippet>4257</a>		handler.start_sync_recovery();
+<a href=#4258 id=4258 data-nosnippet>4258</a>
+<a href=#4259 id=4259 data-nosnippet>4259</a>		<span class="comment">// One remove call must have been issued for the connected peer
+<a href=#4260 id=4260 data-nosnippet>4260</a>		</span>{
+<a href=#4261 id=4261 data-nosnippet>4261</a>			<span class="kw">let </span>removed = network.removed_reserved.lock().unwrap();
+<a href=#4262 id=4262 data-nosnippet>4262</a>			<span class="macro">assert_eq!</span>(
+<a href=#4263 id=4263 data-nosnippet>4263</a>				removed.len(),
+<a href=#4264 id=4264 data-nosnippet>4264</a>				<span class="number">1</span>,
+<a href=#4265 id=4265 data-nosnippet>4265</a>				<span class="string">"Expected exactly one remove_peers_from_reserved_set call"
+<a href=#4266 id=4266 data-nosnippet>4266</a>			</span>);
+<a href=#4267 id=4267 data-nosnippet>4267</a>			<span class="macro">assert!</span>(removed[<span class="number">0</span>].contains(<span class="kw-2">&amp;</span>connected_peer));
+<a href=#4268 id=4268 data-nosnippet>4268</a>		}
+<a href=#4269 id=4269 data-nosnippet>4269</a>
+<a href=#4270 id=4270 data-nosnippet>4270</a>		<span class="comment">// The recovery peer must be stored and the timeout future must be armed
+<a href=#4271 id=4271 data-nosnippet>4271</a>		</span><span class="macro">assert_eq!</span>(handler.sync_recovery_peer, <span class="prelude-val">Some</span>(connected_peer));
+<a href=#4272 id=4272 data-nosnippet>4272</a>
+<a href=#4273 id=4273 data-nosnippet>4273</a>		<span class="comment">// Calling try_readd_sync_recovery_peer directly (as the select arm would after the future
+<a href=#4274 id=4274 data-nosnippet>4274</a>		// resolves) must re-add the peer and clear the field
+<a href=#4275 id=4275 data-nosnippet>4275</a>		</span>handler.try_readd_sync_recovery_peer();
+<a href=#4276 id=4276 data-nosnippet>4276</a>		<span class="macro">assert!</span>(handler.sync_recovery_peer.is_none());
+<a href=#4277 id=4277 data-nosnippet>4277</a>		{
+<a href=#4278 id=4278 data-nosnippet>4278</a>			<span class="kw">let </span>added = network.added_reserved.lock().unwrap();
+<a href=#4279 id=4279 data-nosnippet>4279</a>			<span class="macro">assert_eq!</span>(added.len(), <span class="number">1</span>);
+<a href=#4280 id=4280 data-nosnippet>4280</a>			<span class="kw">let </span>expected_addr: multiaddr::Multiaddr =
+<a href=#4281 id=4281 data-nosnippet>4281</a>				iter::once(multiaddr::Protocol::P2p(connected_peer.into())).collect();
+<a href=#4282 id=4282 data-nosnippet>4282</a>			<span class="macro">assert!</span>(added[<span class="number">0</span>].contains(<span class="kw-2">&amp;</span>expected_addr));
+<a href=#4283 id=4283 data-nosnippet>4283</a>		}
+<a href=#4284 id=4284 data-nosnippet>4284</a>
+<a href=#4285 id=4285 data-nosnippet>4285</a>		<span class="comment">// Re-entry guard: restore state to simulate a second sync-end while recovery is still
+<a href=#4286 id=4286 data-nosnippet>4286</a>		// in flight (sync_recovery_peer is Some). The second call must not issue another remove.
+<a href=#4287 id=4287 data-nosnippet>4287</a>		</span>{
+<a href=#4288 id=4288 data-nosnippet>4288</a>			<span class="kw">let </span>peer2 = PeerId::random();
+<a href=#4289 id=4289 data-nosnippet>4289</a>			handler.sync_recovery_peer = <span class="prelude-val">Some</span>(peer2);
+<a href=#4290 id=4290 data-nosnippet>4290</a>			handler.start_sync_recovery();
+<a href=#4291 id=4291 data-nosnippet>4291</a>			<span class="macro">assert_eq!</span>(
+<a href=#4292 id=4292 data-nosnippet>4292</a>				handler.sync_recovery_peer,
+<a href=#4293 id=4293 data-nosnippet>4293</a>				<span class="prelude-val">Some</span>(peer2),
+<a href=#4294 id=4294 data-nosnippet>4294</a>				<span class="string">"Re-entry guard: recovery peer must not change on second call"
+<a href=#4295 id=4295 data-nosnippet>4295</a>			</span>);
+<a href=#4296 id=4296 data-nosnippet>4296</a>			<span class="macro">assert_eq!</span>(
+<a href=#4297 id=4297 data-nosnippet>4297</a>				network.removed_reserved.lock().unwrap().len(),
+<a href=#4298 id=4298 data-nosnippet>4298</a>				<span class="number">1</span>,
+<a href=#4299 id=4299 data-nosnippet>4299</a>				<span class="string">"Re-entry guard: no extra remove call while recovery is in flight"
+<a href=#4300 id=4300 data-nosnippet>4300</a>			</span>);
+<a href=#4301 id=4301 data-nosnippet>4301</a>		}
+<a href=#4302 id=4302 data-nosnippet>4302</a>	}
+<a href=#4303 id=4303 data-nosnippet>4303</a>
+<a href=#4304 id=4304 data-nosnippet>4304</a>	<span class="attr">#[tokio::test]
+<a href=#4305 id=4305 data-nosnippet>4305</a>	</span><span class="kw">async fn </span>sync_recovery_gated_by_dropped_statements_flag() {
+<a href=#4306 id=4306 data-nosnippet>4306</a>		<span class="kw">let </span>make_peer = || Peer {
+<a href=#4307 id=4307 data-nosnippet>4307</a>			known_statements: LruHashSet::new(NonZeroUsize::new(<span class="number">1024</span>).unwrap()),
+<a href=#4308 id=4308 data-nosnippet>4308</a>			rate_limiter: PeerRateLimiter::new(
+<a href=#4309 id=4309 data-nosnippet>4309</a>				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+<a href=#4310 id=4310 data-nosnippet>4310</a>					.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
+<a href=#4311 id=4311 data-nosnippet>4311</a>				NonZeroU32::new(
+<a href=#4312 id=4312 data-nosnippet>4312</a>					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+<a href=#4313 id=4313 data-nosnippet>4313</a>				)
+<a href=#4314 id=4314 data-nosnippet>4314</a>				.expect(<span class="string">"burst capacity is nonzero"</span>),
+<a href=#4315 id=4315 data-nosnippet>4315</a>			),
+<a href=#4316 id=4316 data-nosnippet>4316</a>			protocol_version: PeerProtocolVersion::V1,
+<a href=#4317 id=4317 data-nosnippet>4317</a>			topic_affinity: <span class="prelude-val">None</span>,
+<a href=#4318 id=4318 data-nosnippet>4318</a>			is_light: <span class="bool-val">false</span>,
+<a href=#4319 id=4319 data-nosnippet>4319</a>			pending_topic_affinity: <span class="prelude-val">None</span>,
+<a href=#4320 id=4320 data-nosnippet>4320</a>		};
+<a href=#4321 id=4321 data-nosnippet>4321</a>
+<a href=#4322 id=4322 data-nosnippet>4322</a>		<span class="kw">let </span>make_handler =
+<a href=#4323 id=4323 data-nosnippet>4323</a>			|network: TestNetwork, dropped: bool| -&gt; StatementHandler&lt;TestNetwork, TestSync&gt; {
+<a href=#4324 id=4324 data-nosnippet>4324</a>				<span class="kw">let </span>(sync, <span class="kw">_</span>) = TestSync::with_syncing(<span class="bool-val">false</span>);
+<a href=#4325 id=4325 data-nosnippet>4325</a>				<span class="kw">let </span>(queue_sender, <span class="kw">_</span>) = async_channel::bounded(<span class="number">2</span>);
+<a href=#4326 id=4326 data-nosnippet>4326</a>				<span class="kw">let </span><span class="kw-2">mut </span>peers = HashMap::new();
+<a href=#4327 id=4327 data-nosnippet>4327</a>				peers.insert(PeerId::random(), make_peer());
+<a href=#4328 id=4328 data-nosnippet>4328</a>				StatementHandler {
+<a href=#4329 id=4329 data-nosnippet>4329</a>					protocol_name: <span class="macro">format!</span>(<span class="string">"/{STATEMENT_PROTOCOL_V1}"</span>).into(),
+<a href=#4330 id=4330 data-nosnippet>4330</a>					notification_service: Box::new(TestNotificationService::new()),
+<a href=#4331 id=4331 data-nosnippet>4331</a>					propagate_timeout: (Box::pin(futures::stream::pending())
+<a href=#4332 id=4332 data-nosnippet>4332</a>						<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
+<a href=#4333 id=4333 data-nosnippet>4333</a>						.fuse(),
+<a href=#4334 id=4334 data-nosnippet>4334</a>					pending_statements: FuturesUnordered::new(),
+<a href=#4335 id=4335 data-nosnippet>4335</a>					pending_statements_peers: HashMap::new(),
+<a href=#4336 id=4336 data-nosnippet>4336</a>					network,
+<a href=#4337 id=4337 data-nosnippet>4337</a>					sync,
+<a href=#4338 id=4338 data-nosnippet>4338</a>					sync_event_stream: (Box::pin(futures::stream::pending())
+<a href=#4339 id=4339 data-nosnippet>4339</a>						<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = sc_network_sync::types::SyncEvent&gt; + Send&gt;&gt;)
+<a href=#4340 id=4340 data-nosnippet>4340</a>						.fuse(),
+<a href=#4341 id=4341 data-nosnippet>4341</a>					peers,
+<a href=#4342 id=4342 data-nosnippet>4342</a>					statement_store: Arc::new(TestStatementStore::new()),
+<a href=#4343 id=4343 data-nosnippet>4343</a>					queue_sender,
+<a href=#4344 id=4344 data-nosnippet>4344</a>					statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+<a href=#4345 id=4345 data-nosnippet>4345</a>						.expect(<span class="string">"DEFAULT_STATEMENTS_PER_SECOND is nonzero"</span>),
+<a href=#4346 id=4346 data-nosnippet>4346</a>					metrics: <span class="prelude-val">None</span>,
+<a href=#4347 id=4347 data-nosnippet>4347</a>					initial_sync_timeout: Box::pin(futures::future::pending()),
+<a href=#4348 id=4348 data-nosnippet>4348</a>					pending_affinities_timeout: Box::pin(futures::future::pending()),
+<a href=#4349 id=4349 data-nosnippet>4349</a>					pending_initial_syncs: HashMap::new(),
+<a href=#4350 id=4350 data-nosnippet>4350</a>					initial_sync_peer_queue: VecDeque::new(),
+<a href=#4351 id=4351 data-nosnippet>4351</a>					deferred_peers: HashSet::new(),
+<a href=#4352 id=4352 data-nosnippet>4352</a>					dropped_statements_during_sync: dropped,
+<a href=#4353 id=4353 data-nosnippet>4353</a>					sync_recovery_peer: <span class="prelude-val">None</span>,
+<a href=#4354 id=4354 data-nosnippet>4354</a>					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+<a href=#4355 id=4355 data-nosnippet>4355</a>				}
+<a href=#4356 id=4356 data-nosnippet>4356</a>			};
+<a href=#4357 id=4357 data-nosnippet>4357</a>
+<a href=#4358 id=4358 data-nosnippet>4358</a>		<span class="comment">// flag=false → no recovery
+<a href=#4359 id=4359 data-nosnippet>4359</a>		</span><span class="kw">let </span>net = TestNetwork::new();
+<a href=#4360 id=4360 data-nosnippet>4360</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler = make_handler(net.clone(), <span class="bool-val">false</span>);
+<a href=#4361 id=4361 data-nosnippet>4361</a>		handler.start_sync_recovery();
+<a href=#4362 id=4362 data-nosnippet>4362</a>		<span class="macro">assert!</span>(handler.sync_recovery_peer.is_none());
+<a href=#4363 id=4363 data-nosnippet>4363</a>		<span class="macro">assert!</span>(net.get_removed_reserved().is_empty());
+<a href=#4364 id=4364 data-nosnippet>4364</a>
+<a href=#4365 id=4365 data-nosnippet>4365</a>		<span class="comment">// flag=true → recovery fires
+<a href=#4366 id=4366 data-nosnippet>4366</a>		</span><span class="kw">let </span>net2 = TestNetwork::new();
+<a href=#4367 id=4367 data-nosnippet>4367</a>		<span class="kw">let </span><span class="kw-2">mut </span>handler2 = make_handler(net2.clone(), <span class="bool-val">true</span>);
+<a href=#4368 id=4368 data-nosnippet>4368</a>		handler2.start_sync_recovery();
+<a href=#4369 id=4369 data-nosnippet>4369</a>		<span class="macro">assert!</span>(handler2.sync_recovery_peer.is_some());
+<a href=#4370 id=4370 data-nosnippet>4370</a>		<span class="macro">assert_eq!</span>(net2.get_removed_reserved().len(), <span class="number">1</span>);
+<a href=#4371 id=4371 data-nosnippet>4371</a>	}
+<a href=#4372 id=4372 data-nosnippet>4372</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

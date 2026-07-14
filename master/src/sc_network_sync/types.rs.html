@@ -278,26 +278,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#128 id=128 data-nosnippet>128</a><span class="doccomment">/// Syncing-related events that other protocols can subscribe to.
 <a href=#129 id=129 data-nosnippet>129</a></span><span class="kw">pub enum </span>SyncEvent {
 <a href=#130 id=130 data-nosnippet>130</a>	<span class="doccomment">/// Peer that the syncing implementation is tracking connected.
-<a href=#131 id=131 data-nosnippet>131</a>	</span>PeerConnected(PeerId),
-<a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a>	<span class="doccomment">/// Peer that the syncing implementation was tracking disconnected.
-<a href=#134 id=134 data-nosnippet>134</a>	</span>PeerDisconnected(PeerId),
-<a href=#135 id=135 data-nosnippet>135</a>}
-<a href=#136 id=136 data-nosnippet>136</a>
-<a href=#137 id=137 data-nosnippet>137</a><span class="kw">pub trait </span>SyncEventStream: Send + Sync {
-<a href=#138 id=138 data-nosnippet>138</a>	<span class="doccomment">/// Subscribe to syncing-related events.
-<a href=#139 id=139 data-nosnippet>139</a>	</span><span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt;;
+<a href=#131 id=131 data-nosnippet>131</a>	</span>PeerConnected {
+<a href=#132 id=132 data-nosnippet>132</a>		<span class="doccomment">/// The peer that connected.
+<a href=#133 id=133 data-nosnippet>133</a>		</span>peer_id: PeerId,
+<a href=#134 id=134 data-nosnippet>134</a>		<span class="doccomment">/// The roles the peer advertised in its handshake.
+<a href=#135 id=135 data-nosnippet>135</a>		</span>roles: Roles,
+<a href=#136 id=136 data-nosnippet>136</a>	},
+<a href=#137 id=137 data-nosnippet>137</a>
+<a href=#138 id=138 data-nosnippet>138</a>	<span class="doccomment">/// Peer that the syncing implementation was tracking disconnected.
+<a href=#139 id=139 data-nosnippet>139</a>	</span>PeerDisconnected(PeerId),
 <a href=#140 id=140 data-nosnippet>140</a>}
 <a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a><span class="kw">impl</span>&lt;T&gt; SyncEventStream <span class="kw">for </span>Arc&lt;T&gt;
-<a href=#143 id=143 data-nosnippet>143</a><span class="kw">where
-<a href=#144 id=144 data-nosnippet>144</a>	</span>T: <span class="question-mark">?</span>Sized,
-<a href=#145 id=145 data-nosnippet>145</a>	T: SyncEventStream,
-<a href=#146 id=146 data-nosnippet>146</a>{
-<a href=#147 id=147 data-nosnippet>147</a>	<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt; {
-<a href=#148 id=148 data-nosnippet>148</a>		T::event_stream(<span class="self">self</span>, name)
-<a href=#149 id=149 data-nosnippet>149</a>	}
-<a href=#150 id=150 data-nosnippet>150</a>}
+<a href=#142 id=142 data-nosnippet>142</a><span class="kw">pub trait </span>SyncEventStream: Send + Sync {
+<a href=#143 id=143 data-nosnippet>143</a>	<span class="doccomment">/// Subscribe to syncing-related events.
+<a href=#144 id=144 data-nosnippet>144</a>	</span><span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt;;
+<a href=#145 id=145 data-nosnippet>145</a>}
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a><span class="kw">impl</span>&lt;T&gt; SyncEventStream <span class="kw">for </span>Arc&lt;T&gt;
+<a href=#148 id=148 data-nosnippet>148</a><span class="kw">where
+<a href=#149 id=149 data-nosnippet>149</a>	</span>T: <span class="question-mark">?</span>Sized,
+<a href=#150 id=150 data-nosnippet>150</a>	T: SyncEventStream,
+<a href=#151 id=151 data-nosnippet>151</a>{
+<a href=#152 id=152 data-nosnippet>152</a>	<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt; {
+<a href=#153 id=153 data-nosnippet>153</a>		T::event_stream(<span class="self">self</span>, name)
+<a href=#154 id=154 data-nosnippet>154</a>	}
+<a href=#155 id=155 data-nosnippet>155</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
