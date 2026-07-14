@@ -430,6 +430,14 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			const ENTROPY_BYTES: usize = 32;
+			assert!(
+				<T::AccountId as MaxEncodedLen>::max_encoded_len() >= ENTROPY_BYTES,
+				"T::AccountId is too small to preserve the full PSM reserve-account entropy",
+			);
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()

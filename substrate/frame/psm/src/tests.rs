@@ -1151,9 +1151,11 @@ mod governance {
 		new_test_ext().execute_with(|| {
 			// 12345 is not created in the fungibles pallet and not approved in PSM.
 			let ghost: u32 = 12345;
-			assert!(!<Assets as frame_support::traits::fungibles::Inspect<u128>>::asset_exists(
-				ghost
-			));
+			assert!(
+				!<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(
+					ghost
+				)
+			);
 			assert!(!crate::Pallet::<Test>::is_approved_asset(&INTERNAL_ASSET_ID, &ghost));
 
 			assert_noop!(
@@ -1628,8 +1630,8 @@ mod helpers {
 				&INTERNAL_ASSET_ID,
 			)
 				.using_encoded(sp_io::hashing::blake2_256);
-			let expected =
-				u128::decode(&mut TrailingZeroInput::new(entropy.as_ref())).expect("valid account");
+			let expected = AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+				.expect("valid account");
 			assert_eq!(account, expected);
 			assert_ne!(account, ALICE);
 			assert_ne!(account, BOB);
@@ -3281,8 +3283,8 @@ mod decimal_scaling {
 			// internal_to_external(debt). try_state check 2 uses the external-side
 			// comparison and must still pass.
 			let psm = psm_account();
-			fund_external_asset(DAI_MOCK_ASSET_ID, psm, 7 * DAI_UNIT);
-			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, psm), 1007 * DAI_UNIT);
+			fund_external_asset(DAI_MOCK_ASSET_ID, psm.clone(), 7 * DAI_UNIT);
+			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, psm.clone()), 1007 * DAI_UNIT);
 
 			// Invariants hold under a donated scale-up reserve.
 			assert_ok!(Psm::do_try_state());
@@ -3315,11 +3317,11 @@ mod admin {
 	const DEFAULT_MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
 
 	fn root_origin() -> OriginCaller {
-		frame_system::RawOrigin::<u128>::Root.into()
+		frame_system::RawOrigin::<AccountId>::Root.into()
 	}
 
-	fn signed_origin(who: u128) -> OriginCaller {
-		frame_system::RawOrigin::<u128>::Signed(who).into()
+	fn signed_origin(who: AccountId) -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Signed(who).into()
 	}
 
 	#[test]
@@ -3480,7 +3482,7 @@ mod admin {
 		new_test_ext().execute_with(|| {
 			// An account that owns the internal asset but has no native balance to cover the
 			// creation deposit. The consideration must reject it.
-			const POOR: u128 = 7;
+			const POOR: AccountId = AccountId::new([7; 32]);
 			assert_ok!(Assets::force_create(RuntimeOrigin::root(), NEW_INTERNAL, POOR, true, 1));
 			assert_eq!(Balances::free_balance(POOR), 0);
 

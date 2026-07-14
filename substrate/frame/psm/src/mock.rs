@@ -28,15 +28,17 @@ use frame_system::{
 	mocking::MockBlock, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, GenesisConfig,
 };
 use sp_io::TestExternalities as TestState;
-use sp_runtime::{traits::IdentityLookup, BuildStorage, Permill};
+use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage, Permill};
 
-// Test accounts. `u128` keeps derived reserve accounts distinct from the small user ids below.
-pub const ALICE: u128 = 1;
-pub const BOB: u128 = 2;
-pub const CHARLIE: u128 = 3;
-pub const INSURANCE_FUND: u128 = 100;
+pub type AccountId = AccountId32;
+
+// Test accounts use the same 32-byte shape as production runtimes.
+pub const ALICE: AccountId = AccountId::new([1; 32]);
+pub const BOB: AccountId = AccountId::new([2; 32]);
+pub const CHARLIE: AccountId = AccountId::new([3; 32]);
+pub const INSURANCE_FUND: AccountId = AccountId::new([100; 32]);
 /// Account whose signed origin acts as the emergency admin on the test PSM.
-pub const EMERGENCY_ACCOUNT: u128 = 999;
+pub const EMERGENCY_ACCOUNT: AccountId = AccountId::new([99; 32]);
 
 // Asset IDs
 pub const INTERNAL_ASSET_ID: u32 = 1;
@@ -92,7 +94,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type DbWeight = RocksDbWeight;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type AccountId = u128;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
 
@@ -110,8 +112,8 @@ impl pallet_assets::Config for Test {
 	type AssetId = u32;
 	type AssetIdParameter = u32;
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<u128>>;
-	type ForceOrigin = EnsureRoot<u128>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -120,27 +122,28 @@ parameter_types! {
 	pub const PsmCreationDeposit: u128 = 1_000_000;
 	pub const PsmDepositSlope: u128 = 0;
 	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(crate::HoldReason::CreationDeposit);
-	pub const NoPsmDepositor: Option<u128> = None;
+	pub const NoPsmDepositor: Option<AccountId> = None;
 }
 
 type PsmCreateOrigin =
-	EitherOf<EnsureRootWithSuccess<u128, NoPsmDepositor>, crate::EnsureAssetOwner<Test>>;
+	EitherOf<EnsureRootWithSuccess<AccountId, NoPsmDepositor>, crate::EnsureAssetOwner<Test>>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl crate::BenchmarkHelper<u32, u128> for PsmBenchmarkHelper {
+impl crate::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 	fn get_asset_id(asset_index: u32) -> u32 {
 		asset_index
 	}
-	fn create_asset(asset_id: u32, owner: &u128, decimals: u8) {
+	fn create_asset(asset_id: u32, owner: &AccountId, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
-		if !<Assets as frame_support::traits::fungibles::Inspect<u128>>::asset_exists(asset_id) {
-			let _ = <Assets as Create<u128>>::create(asset_id, *owner, true, 1);
+		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
+		{
+			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
 		}
 		// Fund the owner's native balance so they can pay the metadata deposit.
-		let _ = Balances::force_set_balance(RuntimeOrigin::root(), *owner, INITIAL_BALANCE);
-		let _ = <Assets as MetadataMutate<u128>>::set(
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), owner.clone(), INITIAL_BALANCE);
+		let _ = <Assets as MetadataMutate<AccountId>>::set(
 			asset_id,
 			owner,
 			b"Benchmark".to_vec(),
@@ -153,7 +156,7 @@ impl crate::BenchmarkHelper<u32, u128> for PsmBenchmarkHelper {
 impl crate::Config for Test {
 	type Fungibles = Assets;
 	type Consideration = HoldConsideration<
-		u128,
+		AccountId,
 		Balances,
 		PsmHoldReason,
 		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, u128>,
@@ -228,13 +231,12 @@ pub fn new_test_ext() -> TestState {
 /// `Signed(EMERGENCY_ACCOUNT)` as emergency_admin. We bypass `create_psm` here so tests don't
 /// depend on balance funding plumbing.
 fn install_test_psm() {
-	let internal_decimals =
-		<Assets as frame_support::traits::fungibles::metadata::Inspect<u128>>::decimals(
-			INTERNAL_ASSET_ID,
-		);
-	let full_admin: OriginCaller = frame_system::RawOrigin::<u128>::Root.into();
+	let internal_decimals = <Assets as frame_support::traits::fungibles::metadata::Inspect<
+		AccountId,
+	>>::decimals(INTERNAL_ASSET_ID);
+	let full_admin: OriginCaller = frame_system::RawOrigin::<AccountId>::Root.into();
 	let emergency_admin: OriginCaller =
-		frame_system::RawOrigin::<u128>::Signed(EMERGENCY_ACCOUNT).into();
+		frame_system::RawOrigin::<AccountId>::Signed(EMERGENCY_ACCOUNT).into();
 	crate::Psm::<Test>::insert(
 		INTERNAL_ASSET_ID,
 		crate::PsmInfo::<Test> {
@@ -273,7 +275,7 @@ fn install_test_psm() {
 }
 
 pub struct ExtBuilder {
-	mint_ops: Vec<(u128, u32, u128)>,
+	mint_ops: Vec<(AccountId, u32, u128)>,
 }
 
 impl Default for ExtBuilder {
@@ -284,12 +286,12 @@ impl Default for ExtBuilder {
 
 impl ExtBuilder {
 	/// Queue a PSM mint: `who` mints `amount` of USDC.
-	pub fn mints(self, who: u128, amount: u128) -> Self {
+	pub fn mints(self, who: AccountId, amount: u128) -> Self {
 		self.mints_asset(who, USDC_ASSET_ID, amount)
 	}
 
 	/// Queue a PSM mint of a specific asset.
-	pub fn mints_asset(mut self, who: u128, asset_id: u32, amount: u128) -> Self {
+	pub fn mints_asset(mut self, who: AccountId, asset_id: u32, amount: u128) -> Self {
 		self.mint_ops.push((who, asset_id, amount));
 		self
 	}
@@ -356,12 +358,12 @@ pub fn register_external_asset_with_weight(asset_id: u32, weight: Permill) {
 	));
 }
 
-pub fn fund_external_asset(asset_id: u32, account: u128, amount: u128) {
+pub fn fund_external_asset(asset_id: u32, account: AccountId, amount: u128) {
 	use frame_support::traits::fungibles::Mutate;
 	let _ = Assets::mint_into(asset_id, &account, amount);
 }
 
-pub fn fund_internal(account: u128, amount: u128) {
+pub fn fund_internal(account: AccountId, amount: u128) {
 	use frame_support::traits::fungibles::Mutate;
 	let _ = Assets::mint_into(INTERNAL_ASSET_ID, &account, amount);
 }
@@ -378,10 +380,10 @@ pub fn create_asset_with_metadata(asset_id: u32) {
 	));
 }
 
-pub fn get_asset_balance(asset_id: u32, account: u128) -> u128 {
+pub fn get_asset_balance(asset_id: u32, account: AccountId) -> u128 {
 	Assets::balance(asset_id, account)
 }
 
-pub fn psm_account() -> u128 {
+pub fn psm_account() -> AccountId {
 	crate::Pallet::<Test>::psm_account(&INTERNAL_ASSET_ID)
 }
