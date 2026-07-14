@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784052470077,
+  "lastUpdate": 1784070234181,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "94250b4a4a2beb6ccde75a515bd1f38a5155ada2",
-          "message": "parachain-consensus: Do not pin blocks on the relay chain during syncing (#10333)\n\nWe had reports in the past about `polkadot-parachain` consuming a lot of\nmemory during syncing. I spend some time investigating this again.\n\nThis graph shows memory consumption during sync process:\n<img width=\"1256\" height=\"302\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/eec1b510-1aa8-446e-8088-5ff0daab6252\"\n/>\n\nWe see a rise up to 50gb and then release of a lot of memory and node\nstabilizes at around 20gb. While I still find that relatively high, I\nfound that the large reduction in memory towards the end was caused by\nfinality notifications. I tracked down the culprit to be\n`parachain-consensus`. It is doing long-blocking finalization operations\nand keeps finality notifications around while doing so.\n\nIn this PR I introduce a new task that fetches the included block and\nthen immediately releases the finality notifications of the relay chain.\n\nMemory is now more bounded at around ~12gb:\n<img width=\"1248\" height=\"308\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/5a8be3bb-02a2-400f-9d0d-87ec298ce09f\"\n/>\n\ncloses #1662\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T08:05:34Z",
-          "tree_id": "592ae967e6ecfb77711b98f69fd403857a0af0e2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/94250b4a4a2beb6ccde75a515bd1f38a5155ada2"
-        },
-        "date": 1763457208484,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007404391839999972,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01294715325333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02265514516666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15829735373333342,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14310044226666677,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f0d49627d02c0d304b2525cc49842e514dfa7ab9",
+          "message": "Introduce StorageChainBlockImport (#12242)\n\nStorage chains rely on Renew extrinsics to keep indexed transaction\npayloads alive past their original retention window. A node that\ntip-syncs past a Renew without ever having executed the original store\nends up with an empty TRANSACTION column locally, and apply_index_ops\nfails. This PR adds StorageChainBlockImport, a block-import wrapper that\nintercepts this case during tip-sync, fetches the missing bytes over\nbitswap, and hands them to the backend through the\nPrefetchedIndexedTransactions carrier introduced in #12086.\n\n\nGap-sync (the same problem after warp-sync) is wired up but stays\ndisabled in production — the sync layer doesn't yet fetch bodies inside\nthe pruning window. The dispatch and its tests are already in place\nbehind the existing origin filter, so flipping the gate is a one-line\nchange once the sync-layer work lands.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T21:19:15Z",
+          "tree_id": "a0bd3e86a87439820bc525d1730f53eb290df6a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f0d49627d02c0d304b2525cc49842e514dfa7ab9"
+        },
+        "date": 1784070204530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076721853399999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009794515106666634,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023611015653333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14423160549333336,
             "unit": "seconds"
           }
         ]
