@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784017211726,
+  "lastUpdate": 1784026732085,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ccdbc9e0007f0c872897743334faf9317db9d9f7",
-          "message": "Skip building on blocks on relay parents in old session (#9990)\n\nFixes: #9977\n\nOn our Kusama Canary chain YAP-3392 has the log entry:\n```\nCollation wasn't advertised because it was built on a relay chain block that is now part of an old session\n``` \n[show up 400+ times (2025-10-03 --\n2025-10-10)](https://grafana.teleport.parity.io/goto/spoPcDeHR?orgId=1).\n\n# Changes\nChanged `offset_relay_parent_find_descendants` to return `None` if the\n`relay_best_hash` or any of its ancestors contains an epoch change.\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-17T15:28:31Z",
-          "tree_id": "2101283c239e9e3d4c3bcabbef6a90f9a88d4d49",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ccdbc9e0007f0c872897743334faf9317db9d9f7"
-        },
-        "date": 1763397609311,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63620.31999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002217642,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4859506376800007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.51759847659,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42351584384000135,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002217642,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002523303,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002523303,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.341029201909997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.484904208349998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7022579498210404,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9577606467699955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4657702919200006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005529096760000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.761986584100002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43c4371ad4f3f3fd305e667664f0009e147a6b18",
+          "message": "SyncEvent: Add peer roles (#12598)\n\nThis adds peer roles to `SyncEvent::PeerConnected`. This allows\nprotocols that want to follow the sync peersets to directly filter by\nlight-clients/full-nodes. Not currently in use, but will be used by\nbitswap client refactoring.",
+          "timestamp": "2026-07-14T09:07:09Z",
+          "tree_id": "41a041eb8f9561261a2aa82eb12cfa82bca083ce",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/43c4371ad4f3f3fd305e667664f0009e147a6b18"
+        },
+        "date": 1784026703493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.56000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8052304314000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7981356717999689,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001885155,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001885155,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.284708334789968,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3513845119499943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.750883353180002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8013465056400015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7725834701700007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.381104487962501,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001816519,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001816519,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005144390649999994,
             "unit": "seconds"
           }
         ]
