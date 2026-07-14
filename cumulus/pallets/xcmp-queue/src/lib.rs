@@ -942,7 +942,10 @@ impl<T: Config> Pallet<T> {
 		known_xcm_senders: &mut BTreeSet<ParaId>,
 		meter: &mut WeightMeter,
 	) -> Result<(), DispatchError> {
-		let mut is_first_sender_batch = known_xcm_senders.insert(sender);
+		// We want to retry only pages containing double encoded XCMs.
+		let can_retry_page = encoding == XcmEncoding::Double;
+
+		let mut is_first_sender_batch = !known_xcm_senders.contains(&sender);
 		if is_first_sender_batch {
 			if meter.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages()).is_err() {
 				defensive!(
@@ -950,7 +953,12 @@ impl<T: Config> Pallet<T> {
                                     Used weight: {:?}",
 					meter.consumed_ratio()
 				);
-				return encoding.transactional_result::<T>();
+
+				if can_retry_page {
+					return Err(Error::<T>::RetryPage.into());
+				} else {
+					return Ok(());
+				}
 			}
 		}
 
@@ -960,8 +968,8 @@ impl<T: Config> Pallet<T> {
 				match Self::take_first_concatenated_xcms(data, encoding, XCM_BATCH_SIZE, meter) {
 					Ok(batch) => batch,
 					Err((e, batch)) => {
-						if e == TakeXcmError::OutOfWeight {
-							encoding.transactional_result::<T>()?;
+						if can_retry_page && e == TakeXcmError::OutOfWeight {
+							return Err(Error::<T>::RetryPage.into());
 						}
 
 						can_process_next_batch = false;
@@ -976,7 +984,10 @@ impl<T: Config> Pallet<T> {
 			let enqueueing_result =
 				Self::enqueue_xcmp_messages(sender, &batch, is_first_sender_batch, meter);
 			if enqueueing_result.has_out_of_weight_msgs {
-				encoding.transactional_result::<T>()?;
+				if can_retry_page {
+					return Err(Error::<T>::RetryPage.into());
+				}
+
 				break;
 			}
 			if enqueueing_result.has_dropped_msgs {
@@ -985,6 +996,8 @@ impl<T: Config> Pallet<T> {
 			is_first_sender_batch = false;
 		}
 
+		// Now that we know that the changes won't be rolled back, let's update `known_xcm_senders`.
+		known_xcm_senders.insert(sender);
 		Ok(())
 	}
 
@@ -1088,15 +1101,6 @@ enum XcmEncoding {
 	Double,
 }
 
-impl XcmEncoding {
-	fn transactional_result<T: Config>(&self) -> DispatchResult {
-		match self {
-			Self::Simple => Ok(()),
-			Self::Double => Err(Error::<T>::RetryPage.into()),
-		}
-	}
-}
-
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 		iter: I,
@@ -1111,6 +1115,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 				Ok(f) => f,
 				Err(_) => {
 					tracing::error!("Unknown XCMP message format - dropping");
+					num_processed_pages += 1;
 					continue;
 				},
 			};
@@ -1141,6 +1146,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						},
 						_ => {
 							// This branch is unreachable.
+							num_processed_pages += 1;
 							continue;
 						},
 					};

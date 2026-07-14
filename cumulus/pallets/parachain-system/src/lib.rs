@@ -39,7 +39,9 @@ use cumulus_primitives_core::{
 	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{
+	v0, HashedMessage, MessageQueueChain, ParachainInherentData,
+};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -1475,11 +1477,12 @@ impl<T: Config> Pallet<T> {
 			max_weight,
 		);
 		num_processed_pages = cmp::min(num_processed_pages, messages.len());
+		let (processed_messages, unprocessed_messages) = messages.split_at(num_processed_pages);
 
 		let mut prev_msg_metadata = None;
 		let mut last_processed_block = HrmpWatermark::<T>::get();
 		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
-		for (sender, msg) in &messages[..num_processed_pages] {
+		for (sender, msg) in processed_messages {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
 				&mut prev_msg_metadata,
@@ -1495,20 +1498,11 @@ impl<T: Config> Pallet<T> {
 
 		LastHrmpMqcHeads::<T>::put(&mqc_heads);
 
-		for (sender, msg) in &messages[num_processed_pages..] {
-			Self::check_hrmp_message_metadata(
-				ingress_channels,
-				&mut prev_msg_metadata,
-				(msg.sent_at, *sender),
-			);
-			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
-
-			if msg.sent_at == last_processed_msg.sent_at {
-				last_processed_msg.reverse_idx += 1;
-			}
-		}
-
-		for (sender, msg) in hashed_messages {
+		let unprocessed_messages = unprocessed_messages
+			.iter()
+			.map(|(sender, msg)| (*sender, HashedMessage::from(msg)))
+			.collect::<Vec<_>>();
+		for (sender, msg) in unprocessed_messages.iter().chain(hashed_messages) {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
 				&mut prev_msg_metadata,
