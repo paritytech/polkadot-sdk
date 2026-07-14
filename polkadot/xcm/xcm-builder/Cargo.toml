@@ -41,7 +41,11 @@ pallet-xcm = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 polkadot-test-runtime = { workspace = true }
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
+primitive-types = { features = [
+	"codec",
+	"num-traits",
+	"scale-info",
+], workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm-simulator = { workspace = true, default-features = true }
 

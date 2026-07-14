@@ -92,7 +92,7 @@ pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-vesting = { workspace = true }
 pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-benchmarks = { workspace = true }
 westend-runtime-constants = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
@@ -183,7 +183,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-vesting/std",
-	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-benchmarks/std",
 	"pallet-xcm/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",

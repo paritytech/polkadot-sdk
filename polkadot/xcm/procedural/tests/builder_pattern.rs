@@ -18,7 +18,79 @@
 //! Tests directly on the actual Xcm struct and Instruction enum.
 
 use frame_support::BoundedVec;
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, GetWeight};
+
+#[derive(xcm_procedural::XcmWeightInfoTrait)]
+pub enum MacroTestInstruction<Call> {
+	ClearOrigin,
+	WithdrawAsset(Assets),
+	TransferAsset { assets: Assets, beneficiary: Location },
+	SetAppendix(Xcm<Call>),
+}
+
+pub struct MacroTestWeightInfo;
+
+impl<Call> XcmWeightInfo<Call> for MacroTestWeightInfo {
+	fn clear_origin() -> Weight {
+		Weight::from_parts(11, 11)
+	}
+
+	fn withdraw_asset(assets: &Assets) -> Weight {
+		let id = if assets.len() == 0 { 101 } else { 102 };
+		Weight::from_parts(id, id)
+	}
+
+	fn transfer_asset(assets: &Assets, beneficiary: &Location) -> Weight {
+		let assets_tag = if assets.len() == 0 { 0 } else { 10 };
+		let beneficiary_tag = if beneficiary == &Here.into() { 1 } else { 2 };
+		let id = 200 + assets_tag + beneficiary_tag;
+		Weight::from_parts(id, id)
+	}
+
+	fn set_appendix(xcm: &Xcm<Call>) -> Weight {
+		let id = 300 + xcm.0.len() as u64;
+		Weight::from_parts(id, id)
+	}
+}
+
+mod generic_w_name_collision {
+	use xcm::latest::{prelude::*, GetWeight};
+
+	#[derive(xcm_procedural::XcmWeightInfoTrait)]
+	pub enum GenericWInstruction<W> {
+		ClearOrigin,
+		SetAppendix(Xcm<W>),
+	}
+
+	pub struct GenericWWeightInfo;
+
+	impl<W> XcmWeightInfo<W> for GenericWWeightInfo {
+		fn clear_origin() -> Weight {
+			Weight::from_parts(1, 1)
+		}
+
+		fn set_appendix(_xcm: &Xcm<W>) -> Weight {
+			Weight::from_parts(2, 2)
+		}
+	}
+
+	#[test]
+	fn generated_dispatch_handles_enum_with_generic_named_w() {
+		fn assert_get_weight_impl<T: GetWeight<GenericWWeightInfo>>() {}
+		assert_get_weight_impl::<GenericWInstruction<()>>();
+
+		assert_eq!(
+			GetWeight::<GenericWWeightInfo>::weight(&GenericWInstruction::<()>::ClearOrigin),
+			Weight::from_parts(1, 1)
+		);
+		assert_eq!(
+			GetWeight::<GenericWWeightInfo>::weight(&GenericWInstruction::<()>::SetAppendix(Xcm(
+				vec![ClearOrigin],
+			))),
+			Weight::from_parts(2, 2)
+		);
+	}
+}
 
 #[test]
 fn builder_pattern_works() {
@@ -157,5 +229,40 @@ fn bounded_vecs_use_vecs_and_truncate_them() {
 				beneficiary: AccountId32 { id: [0u8; 32], network: None }.into()
 			},
 		])
+	);
+}
+
+#[test]
+fn generated_dispatch_covers_representative_variant_shapes() {
+	fn assert_get_weight_impl<T: GetWeight<MacroTestWeightInfo>>() {}
+	assert_get_weight_impl::<MacroTestInstruction<()>>();
+
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<()>::ClearOrigin),
+		Weight::from_parts(11, 11)
+	);
+
+	let tuple_assets: Assets = (Here, 1u128).into();
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<()>::WithdrawAsset(
+			tuple_assets,
+		)),
+		Weight::from_parts(102, 102)
+	);
+
+	let named_assets: Assets = (Here, 1u128).into();
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<()>::TransferAsset {
+			assets: named_assets,
+			beneficiary: Here.into(),
+		}),
+		Weight::from_parts(211, 211)
+	);
+
+	assert_eq!(
+		GetWeight::<MacroTestWeightInfo>::weight(&MacroTestInstruction::<()>::SetAppendix(Xcm(
+			vec![ClearOrigin],
+		))),
+		Weight::from_parts(301, 301)
 	);
 }

@@ -21,6 +21,7 @@ use super::{
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
 	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
+use crate::weights::pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 use crate::{governance::pallet_custom_origins::Treasurer, Balance, RuntimeHoldReason};
 use frame_support::{
 	parameter_types,
@@ -33,12 +34,21 @@ use pallet_staking_async_rc_runtime_constants::{
 	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use pallet_xcm::XcmPassthrough;
+use pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetMatcher, AssetTypes, AssetWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		MatchedAssetWeigher,
+	},
+};
 use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
 use sp_core::ConstU32;
+use sp_runtime::BoundedVec;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+use xcm::v5::AssetTransferFilter;
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
@@ -193,6 +203,65 @@ pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurali
 /// the `DescendOrigin` instruction.
 pub type Aliasers = AliasChildLocation;
 
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
+
+// The rc runtime only knows about one asset, the balances pallet.
+const MAX_ASSETS: u64 = 1;
+
+pub struct RcAssetMatcher;
+impl AssetMatcher for RcAssetMatcher {
+	fn classify(asset: &xcm::latest::prelude::Asset) -> AssetTypes {
+		match asset {
+			Asset { id: AssetId(Location { parents: 0, interior: Here }), .. } => {
+				AssetTypes::Balances
+			},
+			_ => AssetTypes::Unknown,
+		}
+	}
+
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+}
+
+pub struct RcXcmWeightConfig;
+impl<Call> AutoXcmWeightConfig<Call> for RcXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type AssetWeigher = MatchedAssetWeigher<RcAssetMatcher>;
+
+	fn universal_origin() -> Weight {
+		Weight::MAX
+	}
+
+	fn initiate_transfer(
+		remote_fees: &Option<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
+	) -> Weight {
+		let base_weight = XcmBenchWeight::<Runtime>::initiate_transfer();
+		let mut weight = if let Some(remote_fees) = remote_fees {
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				remote_fees.inner(),
+				base_weight,
+			)
+		} else {
+			base_weight
+		};
+
+		for asset_filter in assets {
+			let extra = <Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				asset_filter.inner(),
+				base_weight,
+			);
+			weight = weight.saturating_add(extra);
+		}
+		weight
+	}
+}
+
+pub type RcXcmWeight<Call> = AutoXcmWeight<Call, RcXcmWeightConfig>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -204,11 +273,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = WeightInfoBounds<RcXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type Trader =
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToAuthor<Runtime>>;
 	type ResponseHandler = XcmPallet;
@@ -299,11 +364,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = WeightInfoBounds<RcXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

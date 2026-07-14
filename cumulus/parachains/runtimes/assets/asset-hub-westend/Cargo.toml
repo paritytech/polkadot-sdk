@@ -116,7 +116,7 @@ primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace 
 
 # Polkadot
 pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-benchmarks = { workspace = true }
 pallet-xcm-precompiles = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-primitives = { workspace = true }
@@ -422,7 +422,7 @@ std = [
 	"pallet-vesting-precompiles/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
-	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-benchmarks/std",
 	"pallet-xcm-bridge-hub-router/std",
 	"pallet-xcm-precompiles/std",
 	"pallet-xcm/std",

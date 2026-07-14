@@ -20,13 +20,14 @@ use super::{
 	RuntimeHoldReason, RuntimeOrigin, ToRococoXcmRouter, TransactionByteFee, Uniques, WeightToFee,
 	XcmpQueue,
 };
+use crate::weights::pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
 	matching::{
 		IsForeignConcreteAsset, NonTeleportableAssetFromTrustedReserve, ParentLocation,
 		TeleportableAssetWithTrustedReserve,
 	},
-	TrustBackedAssetsAsLocation,
+	IsLocalAccountKey20, TrustBackedAssetsAsLocation,
 };
 use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
@@ -40,20 +41,33 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
+use pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetFilterCountWeigher, AssetWeigher, AssetsWeigher, AutoXcmWeight, AutoXcmWeightConfig,
+		CountBasedAssetsAndFilterWeigher, XcmGenericWeightInfo,
+	},
+};
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
+use sp_runtime::{
+	traits::{AccountIdConversion, TryConvertInto},
+	BoundedVec,
+};
 use testnet_parachains_constants::westend::{
 	accumulate_forward::AccumulateForwardPalletId, locations::AssetHubParaId,
 };
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
 };
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	v5::AssetTransferFilter,
+};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -279,9 +293,9 @@ impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }]) |
-				(1, [Parachain(COLLECTIVES_ID), PalletInstance(64)]) |
-				(1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
+			(1, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+				| (1, [Parachain(COLLECTIVES_ID), PalletInstance(64)])
+				| (1, [Parachain(COLLECTIVES_ID), PalletInstance(65)])
 		)
 	}
 }
@@ -317,9 +331,9 @@ impl Contains<Location> for SystemChainAccumulationAccounts {
 			(1, [AccountId32 { id, .. }]) => *id == accumulation_account,
 			// Sibling system parachain accumulation account.
 			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
-				ParaId::from(*id).is_system() &&
-					matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID) &&
-					*account_id == accumulation_account
+				ParaId::from(*id).is_system()
+					&& matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID)
+					&& *account_id == accumulation_account
 			},
 			_ => false,
 		}
@@ -425,6 +439,94 @@ pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
 	AccountId,
 >;
 
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
+
+const MAX_ASSETS: u64 = 100;
+
+/// Count-based filter weigher for Asset Hub Westend.
+pub struct AssetHubWestendCountWeigher;
+impl AssetFilterCountWeigher for AssetHubWestendCountWeigher {
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+
+	fn max_assets_into_holding() -> u64 {
+		MaxAssetsIntoHolding::get() as u64
+	}
+
+	fn minimum_asset_count() -> u64 {
+		1
+	}
+}
+
+/// Per-asset weight hook for Asset Hub Westend.
+///
+/// ERC20 assets routed via Snowbridge are priced in Ethereum gas (a fixed ceiling)
+/// rather than Substrate execution weight. All other assets use the provided weight
+/// as-is.
+pub struct WestendERC20AssetWeigher;
+impl AssetsWeigher for WestendERC20AssetWeigher {
+	fn weigh_assets(assets: &xcm::latest::prelude::Assets, weight: Weight) -> Weight {
+		assets.inner().iter().fold(Weight::zero(), |acc, asset| {
+			let asset_weight = if IsLocalAccountKey20::contains(&asset.id.0) {
+				ERC20TransferGasLimit::get()
+			} else {
+				weight
+			};
+
+			acc.saturating_add(asset_weight)
+		})
+	}
+}
+
+pub struct AssetHubWestendXcmWeightConfig;
+impl<Call> AutoXcmWeightConfig<Call> for AssetHubWestendXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type AssetWeigher =
+		CountBasedAssetsAndFilterWeigher<AssetHubWestendCountWeigher, WestendERC20AssetWeigher>;
+
+	fn exchange_asset(
+		give: &AssetFilter,
+		receive: &xcm::latest::prelude::Assets,
+		_maximal: &bool,
+	) -> Weight {
+		let base_weight = <Self::GenericWeights as XcmGenericWeightInfo>::exchange_asset();
+		let give_weight =
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(give, base_weight);
+		let receive_weight =
+			<Self::AssetWeigher as AssetWeigher>::weigh_assets(receive.into(), base_weight);
+		give_weight.max(receive_weight)
+	}
+
+	fn initiate_transfer(
+		remote_fees: &Option<AssetTransferFilter>,
+		assets: &BoundedVec<AssetTransferFilter, MaxAssetTransferFilters>,
+	) -> Weight {
+		let base_weight = XcmBenchWeight::<Runtime>::initiate_transfer();
+		let mut weight = if let Some(remote_fees) = remote_fees {
+			<Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				remote_fees.inner(),
+				base_weight,
+			)
+		} else {
+			base_weight
+		};
+
+		for asset_filter in assets {
+			let extra = <Self::AssetWeigher as AssetWeigher>::weigh_asset_filter(
+				asset_filter.inner(),
+				base_weight,
+			);
+			weight = weight.saturating_add(extra);
+		}
+		weight
+	}
+}
+
+pub type AssetHubWestendXcmWeight<Call> = AutoXcmWeight<Call, AssetHubWestendXcmWeightConfig>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -436,11 +538,8 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubWestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher =
+		WeightInfoBounds<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to DAP
 	// instead of StakingPot (use crate::Dap as the OnUnbalanced handler).
 	type Trader = (
@@ -554,11 +653,8 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::AssetHubWestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher =
+		WeightInfoBounds<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
