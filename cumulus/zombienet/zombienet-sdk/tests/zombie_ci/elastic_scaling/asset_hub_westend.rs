@@ -91,6 +91,66 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	wait_for_first_session_change(&mut blocks_sub).await?;
 
+	// ===== TEMP DEBUG (revert): diagnose why para 1000 never produces a backed candidate =====
+	// PVF prep never fires because no candidate for para 1000 is ever backed. CI only captures the
+	// test-process log (not per-node logs), so surface relay-side scheduling (claim queue) and
+	// collator authoring here over ~2 minutes, before the PVF-prepare wait that times out.
+	{
+		use codec::Decode;
+		use polkadot_primitives::CoreIndex;
+		use std::collections::{BTreeMap, VecDeque};
+		use tokio::time::{sleep, Duration};
+
+		let collator_client: Option<OnlineClient<PolkadotConfig>> =
+			match network.get_node("collator-0") {
+				Ok(node) => node.wait_client().await.ok(),
+				Err(_) => None,
+			};
+
+		match relay_client.runtime_api().at_latest().await {
+			Ok(api) => match api.call_raw("ParachainHost_scheduling_lookahead", None).await {
+				Ok(bytes) => {
+					log::info!("TEMP DEBUG scheduling_lookahead={:?}", u32::decode(&mut &bytes[..]))
+				},
+				Err(e) => log::info!("TEMP DEBUG scheduling_lookahead call err: {e}"),
+			},
+			Err(e) => log::info!("TEMP DEBUG runtime_api err: {e}"),
+		}
+
+		for round in 0..20u32 {
+			let claim_queue = match relay_client.runtime_api().at_latest().await {
+				Ok(api) => match api.call_raw("ParachainHost_claim_queue", None).await {
+					Ok(bytes) => {
+						match BTreeMap::<CoreIndex, VecDeque<ParaId>>::decode(&mut &bytes[..]) {
+							Ok(cq) => format!("{cq:?}"),
+							Err(e) => format!("decode err: {e}"),
+						}
+					},
+					Err(e) => format!("call err: {e}"),
+				},
+				Err(e) => format!("api err: {e}"),
+			};
+
+			let relay_best = match relay_client.blocks().at_latest().await {
+				Ok(b) => b.number().to_string(),
+				Err(e) => format!("err: {e}"),
+			};
+			let para_best = match &collator_client {
+				Some(c) => match c.blocks().at_latest().await {
+					Ok(b) => b.number().to_string(),
+					Err(e) => format!("err: {e}"),
+				},
+				None => "n/a".to_string(),
+			};
+
+			log::info!(
+				"TEMP DEBUG round={round} relay_best={relay_best} collator0_para_best={para_best} claim_queue={claim_queue}"
+			);
+			sleep(Duration::from_secs(6)).await;
+		}
+	}
+	// ===== END TEMP DEBUG =====
+
 	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&network, 1).await?;
 
