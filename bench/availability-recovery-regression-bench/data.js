@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784017135327,
+  "lastUpdate": 1784026657752,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "94250b4a4a2beb6ccde75a515bd1f38a5155ada2",
-          "message": "parachain-consensus: Do not pin blocks on the relay chain during syncing (#10333)\n\nWe had reports in the past about `polkadot-parachain` consuming a lot of\nmemory during syncing. I spend some time investigating this again.\n\nThis graph shows memory consumption during sync process:\n<img width=\"1256\" height=\"302\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/eec1b510-1aa8-446e-8088-5ff0daab6252\"\n/>\n\nWe see a rise up to 50gb and then release of a lot of memory and node\nstabilizes at around 20gb. While I still find that relatively high, I\nfound that the large reduction in memory towards the end was caused by\nfinality notifications. I tracked down the culprit to be\n`parachain-consensus`. It is doing long-blocking finalization operations\nand keeps finality notifications around while doing so.\n\nIn this PR I introduce a new task that fetches the included block and\nthen immediately releases the finality notifications of the relay chain.\n\nMemory is now more bounded at around ~12gb:\n<img width=\"1248\" height=\"308\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/5a8be3bb-02a2-400f-9d0d-87ec298ce09f\"\n/>\n\ncloses #1662\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T08:05:34Z",
-          "tree_id": "592ae967e6ecfb77711b98f69fd403857a0af0e2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/94250b4a4a2beb6ccde75a515bd1f38a5155ada2"
-        },
-        "date": 1763457176337,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.289439292366666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19812094823333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.016363044000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43c4371ad4f3f3fd305e667664f0009e147a6b18",
+          "message": "SyncEvent: Add peer roles (#12598)\n\nThis adds peer roles to `SyncEvent::PeerConnected`. This allows\nprotocols that want to follow the sync peersets to directly filter by\nlight-clients/full-nodes. Not currently in use, but will be used by\nbitswap client refactoring.",
+          "timestamp": "2026-07-14T09:07:09Z",
+          "tree_id": "41a041eb8f9561261a2aa82eb12cfa82bca083ce",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/43c4371ad4f3f3fd305e667664f0009e147a6b18"
+        },
+        "date": 1784026628900,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1415822148,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.012635729166664,
             "unit": "seconds"
           }
         ]
