@@ -24,6 +24,7 @@ parking_lot = { workspace = true, default-features = true }
 anyhow = { workspace = true }
 sc-allocator = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
 sp-runtime-interface = { workspace = true, default-features = true }
 sp-wasm-interface = { features = ["wasmtime"], workspace = true, default-features = true }
 wasmtime = { features = [

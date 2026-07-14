@@ -32,6 +32,7 @@ use sc_executor_common::{
 	util::checked_range,
 	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
 };
+use sp_arithmetic::traits::SaturatedConversion as _;
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{HostFunctions, Pointer, WordSize};
 use std::{
@@ -43,7 +44,7 @@ use std::{
 	thread::{self, JoinHandle},
 	time::Duration,
 };
-use wasmtime::{AsContext, Cache, CacheConfig, Engine, Memory};
+use wasmtime::{AsContext, Cache, CacheConfig, Engine, EngineWeak, Memory};
 
 const MAX_INSTANCE_COUNT: u32 = 64;
 
@@ -145,11 +146,15 @@ impl InstanceCounter {
 }
 
 /// Interval between engine epoch increments, bounding the granularity of the execution timeout.
-const EPOCH_TICK_PERIOD: Duration = Duration::from_millis(1);
+const EPOCH_TICK_PERIOD: Duration = Duration::from_millis(100);
 
 /// Number of epoch ticks after which a call should trap, rounded up and at least one.
 fn deadline_ticks_from_timeout(timeout: Duration) -> u64 {
-	timeout.as_nanos().div_ceil(EPOCH_TICK_PERIOD.as_nanos()).max(1) as u64
+	timeout
+		.as_nanos()
+		.div_ceil(EPOCH_TICK_PERIOD.as_nanos())
+		.max(1)
+		.saturated_into::<u64>()
 }
 
 /// Background thread advancing an [`Engine`]'s epoch to enable wall-clock interruption of calls.
@@ -160,7 +165,7 @@ struct EpochTicker {
 }
 
 impl EpochTicker {
-	fn spawn(engine: Engine) -> Self {
+	fn spawn(engine: EngineWeak) -> Self {
 		let stop = Arc::new(AtomicBool::new(false));
 		let handle = thread::Builder::new()
 			.name("wasmtime-epoch-ticker".into())
@@ -169,7 +174,11 @@ impl EpochTicker {
 				move || {
 					while !stop.load(Ordering::Relaxed) {
 						thread::sleep(EPOCH_TICK_PERIOD);
-						engine.increment_epoch();
+						if let Some(engine) = engine.upgrade() {
+							engine.increment_epoch();
+						} else {
+							break;
+						}
 					}
 				}
 			})
@@ -657,7 +666,7 @@ where
 	// Derive the per-call epoch deadline and spawn the epoch ticker when a timeout is configured.
 	let (epoch_deadline_ticks, epoch_ticker) = match config.semantics.execution_timeout {
 		Some(timeout) => {
-			(Some(deadline_ticks_from_timeout(timeout)), Some(EpochTicker::spawn(engine.clone())))
+			(Some(deadline_ticks_from_timeout(timeout)), Some(EpochTicker::spawn(engine.weak())))
 		},
 		None => (None, None),
 	};
