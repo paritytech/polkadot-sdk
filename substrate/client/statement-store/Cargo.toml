@@ -51,3 +51,14 @@ tempfile = { workspace = true }
 name = "statement_store"
 harness = false
 required-features = []
+
+[[bench]]
+name = "full_store"
+path = "benches/full_store/main.rs"
+harness = false
+required-features = []
+
+[[bench]]
+name = "add_filter"
+harness = false
+required-features = []
