@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784026657752,
+  "lastUpdate": 1784052429409,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c8f5da2e895b439cf401e20faca55ad76f9e90d1",
-          "message": "Version bumps and prdocs reordering from stable2509-2 (#10339)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-11-18T09:50:51Z",
-          "tree_id": "e0a0d83ba4a3920bce9eb53c2cbc49e36eaf39fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8f5da2e895b439cf401e20faca55ad76f9e90d1"
-        },
-        "date": 1763465400659,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.423377768133337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19918352743333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.012635729166664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "142614787+andreitrand@users.noreply.github.com",
+            "name": "Andrei Trandafir",
+            "username": "andreitrand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48cd73b7c38c13f56bab70ea819ef58b49be80cc",
+          "message": "Post AHM Cleanup: Remove Staking (and friends) from Westend Runtime (#11940)\n\n* Remove following pallets from Westend runtime:\npallet_election_provider_multi_phase, pallet_bags_list,\npallet_nomination_pools, pallet_fast_unstake, pallet_delegated_staking\n(including weights and other related code such as bag generation logic)\n* Ensure try runtime checks pass for Westend (without any [excluded\npallets](https://github.com/paritytech/polkadot-sdk/commit/463ef05cf1b5dbbcd91379a952d0ba0f0af347bb#diff-5264d812f7aadfc486efffd3322b11c8dee5e8ddf2e77e0a9e70b573f3d2afddR2829))\n*  Retain the ProxyType::Staking to allow setting session key via it.\n\nEarlier CI failure\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/19711056203/job/56471786443#step:9:534\nis also fixed by retaining now-deprecated enum variants which prevented\ncorrect serialization / deserialization. We initially suspected that\nhttps://github.com/paritytech/polkadot-sdk/issues/8717 and Westend still\nhad some staking holds, but this turned out to not be related.\n\nGiven the scope of this change, we have left out several sub-tasks which\nare being tracked in\nhttps://github.com/paritytech/polkadot-sdk/issues/12513.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/9442\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T16:23:11Z",
+          "tree_id": "c7aefad251be362a13c80f1efd848caa6e05aad6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/48cd73b7c38c13f56bab70ea819ef58b49be80cc"
+        },
+        "date": 1784052394401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.03763729336667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13645592343333332,
             "unit": "seconds"
           }
         ]
