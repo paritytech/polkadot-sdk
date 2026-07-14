@@ -75,10 +75,15 @@ use sp_statement_store::{
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	sync::Arc,
+	sync::{Arc, Weak},
 	time::{Duration, Instant},
 };
-pub use subscription::StatementStoreSubscriptionApi;
+use subscription::ReplaySnapshotProvider;
+pub use subscription::{
+	AddFilterError, MultiFilterEventStream, MultiFilterSubscriptionApi,
+	MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi, SubscriptionHandle,
+	MAX_FILTERS_PER_SUBSCRIPTION,
+};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 2;
@@ -460,6 +465,26 @@ enum Eviction {
 	Removed,
 	/// The statement was removed and is banned from re-acceptance until this timestamp.
 	Banned(u64),
+}
+
+impl ReplaySnapshotProvider for Weak<Store> {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.with_snapshot_hashes(filter, enqueue)
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.statement_by_hash(hash)
+	}
 }
 
 /// What [`SubmitIndex::insert`] evicted to make room for a new statement.
@@ -2137,6 +2162,55 @@ impl StatementStoreSubscriptionApi for Store {
 				.ok();
 		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
+	}
+}
+
+impl Store {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
+		// Hold the submit-index read lock across both the on-disk index scan and the `AddFilter`
+		// enqueue. `submit` assigns the statement's sequence number and commits its body under the
+		// write lock and only notifies matchers afterwards, so with the read lock held here every
+		// statement is either already committed (and therefore visible to the scan below) or its
+		// `NewStatement` notification is enqueued after the `AddFilter` message and matched live.
+		// Statements that end up in both are deduplicated by hash on the matcher side. The lock
+		// order (`submit_index` → `query_index`, taken briefly inside `iterate_with`) matches
+		// `populate`.
+		let _guard = self.submit_index.read();
+		let mut snapshot_hashes = Vec::new();
+		let mut seen = HashSet::new();
+		self.iterate_with(None, filter, |hash| {
+			if seen.insert(*hash) {
+				snapshot_hashes.push(*hash);
+			}
+			Ok(())
+		})?;
+		enqueue(snapshot_hashes);
+		Ok(())
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))
+	}
+}
+
+impl MultiFilterSubscriptionApi for Arc<Store> {
+	fn create_subscription(&self) -> (SubscriptionHandle, MultiFilterEventStream) {
+		let inner =
+			Arc::new(parking_lot::Mutex::new(crate::subscription::SubscriptionHandleInner::new()));
+		let snapshot_provider: Arc<dyn ReplaySnapshotProvider> = Arc::new(Arc::downgrade(self));
+		let (sub_id, stream) = self.subscription_manager.subscribe_empty(snapshot_provider.clone());
+
+		let handle = SubscriptionHandle {
+			sub_id,
+			inner,
+			matchers: self.subscription_manager.matchers(),
+			snapshot_provider,
+		};
+		(handle, stream)
 	}
 }
 
@@ -4134,5 +4208,86 @@ mod tests {
 			N
 		);
 		assert_eq!(seen_set, all_hashes, "delivered set must equal submitted set");
+	}
+
+	// Tests for the multi-filter subscription API (`MultiFilterSubscriptionApi` /
+	// `create_subscription`), as opposed to the single-filter `subscribe_statement` tests above.
+	mod multi_filter {
+		use super::*;
+		use crate::{
+			MultiFilterEventStream, MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent,
+		};
+		use futures::StreamExt;
+		use sp_statement_store::OptimizedTopicFilter;
+		use std::{collections::HashSet, sync::Arc, time::Duration};
+
+		fn arc_test_store() -> (Arc<Store>, tempfile::TempDir) {
+			let (store, dir) = test_store();
+			(Arc::new(store), dir)
+		}
+
+		async fn drain_all(
+			stream: &mut MultiFilterEventStream,
+			idle: Duration,
+		) -> Vec<MultiFilterSubscriptionEvent> {
+			let mut events = Vec::new();
+			while let Ok(Some(event)) = tokio::time::timeout(idle, stream.next()).await {
+				events.push(event);
+			}
+			events
+		}
+
+		#[tokio::test]
+		async fn add_filter_replays_snapshot_and_delivers_later_submissions_live() {
+			let (store, _dir) = arc_test_store();
+			let (handle, mut stream) = store.create_subscription();
+
+			const NUM_STATEMENTS: u8 = 50;
+			const NUM_PRE_FILTER: u8 = 20;
+
+			// Statements stored before the filter is attached; the replay snapshot must cover
+			// exactly these.
+			for i in 0..NUM_PRE_FILTER {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
+
+			let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
+
+			// The snapshot is collected atomically with the filter registration, so statements
+			// submitted after `add_filter` returns must arrive as live events only.
+			for i in NUM_PRE_FILTER..NUM_STATEMENTS {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
+
+			let mut snapshot_hashes: HashSet<[u8; 32]> = HashSet::new();
+			let mut live_with_filter: HashSet<[u8; 32]> = HashSet::new();
+			for event in drain_all(&mut stream, Duration::from_millis(300)).await {
+				match event {
+					MultiFilterSubscriptionEvent::ReplayStatements { statements, .. } => {
+						snapshot_hashes.extend(
+							statements
+								.iter()
+								.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap().hash()),
+						);
+					},
+					MultiFilterSubscriptionEvent::NewStatement(event)
+						if event.matched_filter_ids.contains(&filter_id) =>
+					{
+						live_with_filter.insert(event.hash);
+					},
+					_ => {},
+				}
+			}
+
+			let expected_replayed: HashSet<[u8; 32]> =
+				(0..NUM_PRE_FILTER).map(|i| signed_statement(i).hash()).collect();
+			let expected_live: HashSet<[u8; 32]> =
+				(NUM_PRE_FILTER..NUM_STATEMENTS).map(|i| signed_statement(i).hash()).collect();
+
+			assert_eq!(snapshot_hashes, expected_replayed);
+			assert_eq!(live_with_filter, expected_live);
+		}
 	}
 }
