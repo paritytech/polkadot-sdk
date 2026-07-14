@@ -121,8 +121,10 @@ where
 	// (`block_import::get_ignored_nodes`) uses, so merging the per-block proofs below reconstructs
 	// exactly one PoV per bundle. Start a new bundle whenever the index doesn't continue the run
 	// (a fresh bundle opens at 0) or the digest is absent (a standalone single-block bundle). We
-	// intentionally key off the index rather than `is_last`, which a `UseFullCore` early-break can
-	// leave unset on the real last block.
+	// intentionally key off the index rather than `is_last`: `is_last` is stamped as a pre-digest
+	// from the planned bundle length, and the builder stops a bundle early when the just-built
+	// block's digest carries `UseFullCore` (or a runtime upgrade) — leaving a truncated bundle
+	// with no `is_last` block at all.
 	let mut bundles: Vec<Vec<Block::Header>> = Vec::new();
 	let mut current: Vec<Block::Header> = Vec::new();
 	let mut prev_index: Option<u8> = None;

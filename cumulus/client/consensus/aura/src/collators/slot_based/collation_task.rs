@@ -156,8 +156,7 @@ impl<Block: BlockT> CollatorMessage<Block> {
 					result_sender,
 					session_index,
 					validation_data,
-				}) = build_segment_collation(entry, None, collator_service, &relay_client, export_pov)
-					.await
+				}) = build_collation(entry, None, collator_service, &relay_client, export_pov).await
 				else {
 					return;
 				};
@@ -204,7 +203,7 @@ impl<Block: BlockT> CollatorMessage<Block> {
 				// not abort the whole segment.
 				let mut collations = Vec::with_capacity(all_entries.len());
 				for entry in all_entries {
-					if let Some(collation) = build_segment_collation(
+					if let Some(collation) = build_collation(
 						entry,
 						Some(scheduling_proof.clone()),
 						collator_service,
@@ -243,9 +242,6 @@ impl<Block: BlockT> CollatorMessage<Block> {
 	}
 }
 
-/// Build one collation from a segment entry: build the PoV, export it if configured, and look up
-/// the session index. Returns `None` if the collation could not be built or the session lookup
-/// failed.
 /// Mirror the PVF's `signed_scheduling_info` override on the collator side: strip the existing
 /// scheduling tail from `upward_messages` (everything from the first `UMP_SEPARATOR` onwards)
 /// and re-emit it from `signed_info.payload`. After this, collation-generation's
@@ -272,7 +268,9 @@ fn override_ump_scheduling_tail(
 		.try_push(UMPSignal::ApprovedPeer(signed_info.payload.peer_id.clone()).encode());
 }
 
-async fn build_segment_collation<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
+/// Build one collation from an entry: build the PoV, export it if configured, and look up the
+/// session index. Returns `None` if the collation could not be built or the session lookup failed.
+async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
 	entry: CollatorSegmentEntry<Block>,
 	scheduling_proof: Option<SchedulingProof>,
 	collator_service: &impl CollatorServiceInterface<Block>,

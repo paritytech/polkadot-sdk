@@ -121,7 +121,7 @@ async fn v4_fork_from_included() -> Result<(), anyhow::Error> {
 	log::info!("Asserting recovery after fork");
 	assert_para_throughput(&relay_client, 30, [(ParaId::from(PARA_ID), 30..120)], []).await?;
 	let collator_client: OnlineClient<PolkadotConfig> = collator_alice.wait_client().await?;
-	assert_finality_lag(&collator_client, 40).await?;
+	assert_finality_lag(&collator_client, 15).await?;
 
 	log::info!("V4 fork-from-included stability test finished successfully");
 	Ok(())
