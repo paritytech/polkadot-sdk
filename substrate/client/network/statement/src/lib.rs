@@ -634,7 +634,7 @@ struct PendingSendResult {
 
 /// Type alias for the pending sends future collection, this is a list of in-flight sends to peers.
 type PendingSends =
-	FuturesUnordered <Pin<Box<dyn Future<Output = PendingSendResult> + Send + 'static>>>;
+	FuturesUnordered<Pin<Box<dyn Future<Output = PendingSendResult> + Send + 'static>>>;
 
 /// Encoding overhead for V1: just the `Compact<u32>` vec length prefix (max 5 bytes).
 const V1_ENVELOPE_OVERHEAD: usize = 5;
