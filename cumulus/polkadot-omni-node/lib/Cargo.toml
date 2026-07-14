@@ -115,12 +115,14 @@ cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 sc-consensus-aura = { workspace = true }
 
-[dev-dependencies]
-assert_cmd = { workspace = true }
-cumulus-test-runtime = { workspace = true }
-nix = { features = ["signal"], workspace = true }
-tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
-wait-timeout = { workspace = true }
+# Test dependencies
+assert_cmd = { workspace = true, optional = true }
+cumulus-test-runtime = { workspace = true, optional = true }
+nix = { workspace = true, optional = true, features = ["signal"] }  # Add the signal feature here
+tokio = { version = "1.43.1", features = ["macros", "parking_lot", "rt", "time"], optional = true }
+wait-timeout = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
+hex = { workspace = true }
 
 [features]
 default = []
@@ -144,4 +146,13 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
+]
+
+node-conformance-tests = [
+    "assert_cmd",
+    "cumulus-test-runtime",
+    "nix",  # This will now include the signal feature we added above
+    "tokio",
+    "wait-timeout",
+    "tempfile",
 ]

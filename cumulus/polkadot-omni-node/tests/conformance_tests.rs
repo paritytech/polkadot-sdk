@@ -14,20 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use tempfile::tempdir;
+//! Conformance tests for `polkadot-omni-node`.
+//!
+//! These tests verify that `polkadot-omni-node` behaves correctly for all standard
+//! operations defined in `polkadot-omni-node-lib`'s conformance test suite.
 
-mod common;
+use assert_cmd::cargo::cargo_bin;
 
-#[tokio::test]
-#[cfg(unix)]
-#[ignore]
-async fn interrupt_polkadot_mdns_issue_test() {
-	use nix::sys::signal::Signal::{SIGINT, SIGTERM};
-
-	let base_dir = tempdir().expect("could not create a temp dir");
-
-	let args = &["--", "--chain=rococo-local"];
-
-	common::run_node_for_a_while(base_dir.path(), args, SIGINT).await;
-	common::run_node_for_a_while(base_dir.path(), args, SIGTERM).await;
-}
+polkadot_omni_node_lib::instantiate_conformance_tests!(cargo_bin("polkadot-omni-node"));

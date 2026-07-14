@@ -19,7 +19,7 @@
 
 pub mod cli;
 mod command;
-mod common;
+pub mod common;
 pub mod extra_subcommand;
 mod fake_runtime_api;
 mod nodes;
@@ -28,3 +28,24 @@ pub use cli::CliConfig;
 pub use command::{run, run_with_custom_cli, RunConfig};
 pub use common::{chain_spec, runtime};
 pub use nodes::NODE_VERSION;
+
+/// Conformance tests for node binaries built on top of this library.
+///
+/// This module is only available when the `node-conformance-tests` feature is enabled.
+/// Use the [`instantiate_conformance_tests!`] macro to run all conformance tests
+/// for a given binary.
+#[cfg(feature = "node-conformance-tests")]
+pub mod tests {
+	/// Common utility functions and helpers for conformance tests.
+	///
+	/// This module provides shared functionality used across different
+	/// conformance tests, including process management and output parsing.
+	pub mod common;
+
+	/// Conformance test implementations.
+	///
+	/// This module contains the actual test implementations that verify
+	/// node behavior for various scenarios including startup, shutdown,
+	/// argument parsing, and chain operations.
+	pub mod conformance;
+}

@@ -16,7 +16,6 @@
 
 #![cfg(unix)]
 
-use assert_cmd::cargo::cargo_bin;
 use nix::{
 	sys::signal::{kill, Signal},
 	unistd::Pid,
@@ -43,7 +42,7 @@ pub fn wait_for(child: &mut Child, secs: u64) -> Result<ExitStatus, ()> {
 			let result = wait_timeout::ChildExt::wait_timeout(child, Duration::from_secs(secs - 5))
 				.map_err(|_| ())?;
 			if let Some(exit_status) = result {
-				return Ok(exit_status)
+				return Ok(exit_status);
 			}
 		}
 		eprintln!("Took too long to exit (> {} seconds). Killing...", secs);
@@ -55,8 +54,13 @@ pub fn wait_for(child: &mut Child, secs: u64) -> Result<ExitStatus, ()> {
 
 /// Run the node for a while (till the RPC is up + 30 secs)
 /// TODO: needs to be revisited to hit the RPC
-pub async fn run_node_for_a_while(base_path: &Path, args: &[&str], signal: Signal) {
-	let mut cmd = Command::new(cargo_bin("polkadot-parachain"))
+pub async fn run_node_for_a_while(
+	binary_path: &Path,
+	base_path: &Path,
+	args: &[&str],
+	signal: Signal,
+) {
+	let mut cmd = Command::new(binary_path)
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
 		.arg("-d")
@@ -81,6 +85,11 @@ pub async fn run_node_for_a_while(base_path: &Path, args: &[&str], signal: Signa
 	assert!(wait_for(&mut child, 40).map(|x| x.success()).unwrap());
 }
 
+/// A wrapper around [`std::process::Child`] that ensures the child process is killed
+/// when the wrapper is dropped.
+///
+/// This is useful for ensuring cleanup of child processes in tests, even when
+/// the test panics or exits early.
 pub struct KillChildOnDrop(pub Child);
 
 impl Drop for KillChildOnDrop {

@@ -1,0 +1,15 @@
+title: 'cumulus: refactor omni-node-lib ignored tests into reusable conformance test
+  suite'
+doc:
+- audience: Node Dev
+  description: |-
+    closes https://github.com/paritytech/polkadot-sdk/issues/8736
+
+    Refactors ignored `polkadot-omni-node-lib` integration tests into a reusable conformance suite behind a `node-conformance-tests` feature flag. Tests are parameterized by binary path and instantiated via a macro for both `polkadot-parachain` and `polkadot-omni-node`, removing `#[ignore]` and ensuring CI coverage for both, while allowing third-party nodes to opt in.
+crates:
+- name: polkadot-omni-node
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: polkadot-parachain-bin
+  bump: patch

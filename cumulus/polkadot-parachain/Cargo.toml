@@ -61,6 +61,8 @@ polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+polkadot-omni-node-lib = { workspace = true, features = ["node-conformance-tests"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

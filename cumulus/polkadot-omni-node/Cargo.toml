@@ -24,6 +24,7 @@ polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
@@ -36,4 +37,8 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
+]
+
+node-conformance-tests = [
+    "polkadot-omni-node-lib/node-conformance-tests",
 ]

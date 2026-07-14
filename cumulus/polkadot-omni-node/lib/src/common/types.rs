@@ -14,6 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Common type definitions used throughout the parachain node.
+//!
+//! This module provides type aliases and re-exports for commonly used types
+//! in parachain node implementations, reducing boilerplate and ensuring
+//! consistency across the codebase.
+
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_primitives_core::relay_chain::UncheckedExtrinsic;
 use sc_consensus::DefaultImportQueue;
@@ -25,14 +31,28 @@ use sp_runtime::{generic, traits::BlakeTwo256};
 
 pub use parachains_common_types::{AccountId, Balance, Hash, Nonce};
 
+/// Header type for parachain blocks.
+///
+/// Uses BlakeTwo256 hashing and is generic over the block number type.
 type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
+
+/// Block type for parachain nodes.
+///
+/// Consists of a header and unchecked extrinsics from the relay chain.
 pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
 
+/// Host functions available in the parachain runtime when benchmarks are disabled.
+///
+/// Combines parachain host functions with statement store host functions.
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
 );
+
+/// Host functions available in the parachain runtime when benchmarks are enabled.
+///
+/// Extends the standard host functions with benchmarking capabilities.
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
@@ -40,15 +60,29 @@ pub type ParachainHostFunctions = (
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
+/// Full client type for parachain nodes.
+///
+/// Combines a block type, runtime API, and WASM executor with the appropriate
+/// host functions.
 pub type ParachainClient<Block, RuntimeApi> =
 	TFullClient<Block, RuntimeApi, WasmExecutor<ParachainHostFunctions>>;
 
+/// Backend type for parachain nodes.
+///
+/// Uses the full backend implementation from sc-service.
 pub type ParachainBackend<Block> = TFullBackend<Block>;
 
+/// Block import type for parachain nodes.
+///
+/// Wraps the underlying block import with parachain-specific functionality.
 pub type ParachainBlockImport<Block, BI> =
 	TParachainBlockImport<Block, BI, ParachainBackend<Block>>;
 
-/// Assembly of PartialComponents (enough to run chain ops subcommands)
+/// Complete assembly of partial components for parachain service construction.
+///
+/// This type alias represents all the components needed to build a parachain node,
+/// including the client, backend, import queue, transaction pool, and additional
+/// services like telemetry and block import.
 pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialComponents<
 	ParachainClient<Block, RuntimeApi>,
 	ParachainBackend<Block>,
