@@ -600,6 +600,11 @@ Append any `OnTransfer` calls received from other JAM services this block to
 `incoming_transfers`. If the queue is full the service bounces the funds back to the
 sender with the same memo.
 
+A transfer whose memo is all 1-bits (`[0xFF; 128]`) is a **recovery transfer**: it is
+neither queued nor bounced. Its balance still credits the Parachain Service, so it is a
+way to fund the Parachain Service when it has run out of storage and can therefore no
+longer grow `incoming_transfers` to accept (or bounce) normal transfers.
+
 #### Per-work-package work
 
 Performed once for each work package that is being accumulated in this block, in order.

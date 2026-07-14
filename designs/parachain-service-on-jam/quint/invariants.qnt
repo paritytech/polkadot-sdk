@@ -315,6 +315,12 @@ module invariants {
   val incoming_transfers_bounded: bool =
     svc.incomingTransfers.length() <= IncomingTransfersMaxLen
 
+  /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is never queued: it
+  /// is dropped from the queue at ingress (§5.1), so no queued transfer ever
+  /// carries `AllOnesMemo`.
+  val recovery_memo_never_queued: bool =
+    svc.incomingTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
+
   /// Each pending authorizer queue must fit within JAM's queue length.
   val pending_authorizer_queue_bounded: bool =
     svc.pendingAuthorizerQueues.keys().forall(c =>
@@ -397,6 +403,7 @@ module invariants {
     refine_error_logged,
     acc_error_logged,
     incoming_transfers_bounded,
+    recovery_memo_never_queued,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
     pending_authorizer_apply_at_future,

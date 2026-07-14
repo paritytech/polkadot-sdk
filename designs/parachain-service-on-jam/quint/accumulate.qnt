@@ -534,6 +534,23 @@ module accumulate {
     )
   }
 
+  /// §5.1 incoming-transfer processing.
+  pure def applyIncomingTransfer(
+    s: ParachainServiceState,
+    t: { from: ServiceId, amount: Balance, memo: Memo }
+  ): {
+    state: ParachainServiceState,
+    bounced: List[{ from: ServiceId, amount: Balance, memo: Memo }]
+  } = {
+    if (t.memo == AllOnesMemo)
+      { state: s, bounced: List() }
+    else if (s.incomingTransfers.length() >= IncomingTransfersMaxLen)
+      { state: s, bounced: List(t) }
+    else
+      { state: { ...s, incomingTransfers: s.incomingTransfers.append(t) },
+        bounced: List() }
+  }
+
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
   /// (flush due authorizer queues), then accumulate the block's work packages.
   pure def accumulateBlock(

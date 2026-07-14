@@ -254,30 +254,21 @@ module main {
   }
 
   // --- Step (b): another service sends an OnTransfer into Asset Hub ----
-  //
-  /// Models JAM-level OnTransfer ingress (§5.1, incoming-transfer phase):
-  /// append to `incoming_transfers` if it has space, otherwise record a bounce
-  /// in `lastStepBouncedTransfers` (the Parachain Service must emit a matching
-  /// outgoing JAM transfer back to the sender with the same memo).
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
     nondet amount = oneOf(Set(100, 1000, 10000))
-    nondet memo = oneOf(Set(0, 1, 2))
-    val incoming = { from: senderId, amount: amount, memo: memo }
-    val full = svc.incomingTransfers.length() >= IncomingTransfersMaxLen
-    val newSvc =
-      if (full) svc
-      else { ...svc, incomingTransfers: svc.incomingTransfers.append(incoming) }
-    val bounced = if (full) List(incoming) else List()
+    // `AllOnesMemo` exercises the recovery path (neither queued nor bounced).
+    nondet memo = oneOf(Set(0, 1, 2, AllOnesMemo))
+    val out = applyIncomingTransfer(svc, { from: senderId, amount: amount, memo: memo })
     all {
-      svc' = newSvc,
+      svc' = out.state,
       now' = now,
       jamStagingSet' = jamStagingSet,
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
       lastStepWorkResults' = List(),
-      lastStepBouncedTransfers' = bounced,
+      lastStepBouncedTransfers' = out.bounced,
       lastStepAssigns' = List(),
       logPrunedBelow' = logPrunedBelow
     }

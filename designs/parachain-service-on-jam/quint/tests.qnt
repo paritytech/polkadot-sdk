@@ -93,38 +93,38 @@ module tests {
 
   // --- Bounce-on-full -----------------------------------------------------
 
-  /// Pre-built `incoming_transfers` at capacity for `bounceOnFullTest`.
+  /// Pre-built `incoming_transfers` at capacity for the bounce/recovery tests.
   pure val fullIncomingTransfersFixture: List[{
     from: ServiceId, amount: Balance, memo: Memo
   }] =
     range(0, IncomingTransfersMaxLen).foldl(List(), (acc, i) =>
       acc.append({ from: MkServiceId(0), amount: i, memo: 0 }))
 
-  /// Sets `svc.incomingTransfers` to the full fixture without going through
-  /// `stepIncomingTransfer` (which would take 1 000 steps).
-  action fillIncomingTransfers = all {
-    svc' = { ...svc, incomingTransfers: fullIncomingTransfersFixture },
-    now' = now,
-    jamStagingSet' = jamStagingSet,
-    solicitedSet' = solicitedSet,
-    prevSvc' = svc,
-    lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers,
-    lastStepAssigns' = lastStepAssigns,
-    logPrunedBelow' = logPrunedBelow
+  /// With `incoming_transfers` at capacity, a normal transfer bounces: the queue
+  /// does not grow and the transfer is returned for the service to send back.
+  run bounceOnFullTest = {
+    val full = { ...initialState, incomingTransfers: fullIncomingTransfersFixture }
+    val out = applyIncomingTransfer(full, { from: MkServiceId(0), amount: 100, memo: 0 })
+    all {
+      assert(out.state.incomingTransfers.length() == IncomingTransfersMaxLen),
+      assert(out.bounced.length() == 1),
+      init
+    }
   }
 
-  /// With `incoming_transfers` at capacity, the next ingress must bounce:
-  /// the queue length must NOT grow, and exactly one entry must appear
-  /// in `lastStepBouncedTransfers`.
-  run bounceOnFullTest =
-    init
-      .then(fillIncomingTransfers)
-      .then(stepIncomingTransfer)
-      .then(expectThat(all {
-        svc.incomingTransfers.length() == IncomingTransfersMaxLen,
-        lastStepBouncedTransfers.length() == 1
-      }))
+  /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is neither queued nor
+  /// bounced, even when `incoming_transfers` is at capacity — the mechanism to
+  /// fund a service that has run out of storage.
+  run recoveryTransferNotQueuedTest = {
+    val full = { ...initialState, incomingTransfers: fullIncomingTransfersFixture }
+    val out = applyIncomingTransfer(
+      full, { from: MkServiceId(0), amount: 100, memo: AllOnesMemo })
+    all {
+      assert(out.state.incomingTransfers == full.incomingTransfers),
+      assert(out.bounced == List()),
+      init
+    }
+  }
 
   // --- Multi-package accumulate ------------------------------------------
 

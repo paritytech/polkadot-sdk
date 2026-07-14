@@ -46,6 +46,12 @@ module types {
   type HeadData = int
   type Memo = int
 
+  /// The all-1-bits transfer memo (`[0xFF; 128]` in the real 128-byte memo),
+  /// used as a RECOVERY marker: a transfer carrying it is not queued for Asset
+  /// Hub (§5.1). Modeled as -1 (all bits set in the i64 evaluator), distinct
+  /// from the ordinary small-int memos the model samples.
+  pure val AllOnesMemo: Memo = -1
+
   // --- Hash conversion helpers -------------------------------------------
   //
   // The cross-parachain `preimage_registry` keys preimages by `Hash`, so a
