@@ -115,18 +115,6 @@ impl<A, C> ProposerFactory<A, C> {
 		}
 	}
 
-	/// Deprecated, use [`Self::new`] instead.
-	#[deprecated(note = "Proof recording is now handled differently. Use `new` instead.")]
-	pub fn with_proof_recording(
-		spawn_handle: impl SpawnNamed + 'static,
-		client: Arc<C>,
-		transaction_pool: Arc<A>,
-		prometheus: Option<&PrometheusRegistry>,
-		telemetry: Option<TelemetryHandle>,
-	) -> Self {
-		Self::new(spawn_handle, client, transaction_pool, prometheus, telemetry)
-	}
-
 	/// Set the default block size limit in bytes.
 	///
 	/// The default value for the block size limit is:
