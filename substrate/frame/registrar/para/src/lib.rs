@@ -47,7 +47,7 @@ pub mod pallet {
 
 	// - TODO: deregister — free the ParaId; releases both deposits.
 
-	// - TODO: swap — swap the slots of two paras.
+	// - TODO: swap — swap the slots of two paras. (Do we still need this? leases are deprecated)
 
 	// - TODO: add_lock — add the manager lock.
 

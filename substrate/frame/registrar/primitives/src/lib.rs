@@ -40,11 +40,8 @@ pub enum MessageToRelay {
 /// Version 1 payloads for [`MessageToRelay`].
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToRelayV1 {
-	/// Placeholder so the crate compiles before the control-plane operations land.
-	///
-	/// Replaced by the real message(s): authorize parachain registration.
 	#[codec(index = 0)]
-	Placeholder,
+	TODO,
 }
 
 /// Registrar report messages sent back to the parachain.
@@ -60,9 +57,6 @@ pub enum MessageToPara {
 /// Version 1 payloads for [`MessageToPara`].
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToParaV1 {
-	/// Placeholder so the crate compiles before the report operations land.
-	///
-	/// Replaced by the real reports: confirm / fail / refund for a registration.
 	#[codec(index = 0)]
-	Placeholder,
+	TODO,
 }
