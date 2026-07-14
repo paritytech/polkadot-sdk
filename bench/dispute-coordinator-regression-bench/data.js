@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784026806663,
+  "lastUpdate": 1784052589580,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "94dcf6c0b25bacf8e71becfdd95a9d5bc6d84ce4",
-          "message": "Rename `SlotSchedule` to `TargetBlockRate` (#10316)\n\nThis renames the `SlotSchedule` runtime api to `TargetBlockRate`. It\nalso changes the signature to only returning the target block rate. As\ndiscussed at the retreat, we don't need the block time returned as part\nof this runtime api.",
-          "timestamp": "2025-11-17T09:01:50Z",
-          "tree_id": "9bfed2b0f4b5be08724b747481acad9d5bde7a94",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/94dcf6c0b25bacf8e71becfdd95a9d5bc6d84ce4"
-        },
-        "date": 1763375017223,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026764201600000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008642931729999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00502841023,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009350636959999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "142614787+andreitrand@users.noreply.github.com",
+            "name": "Andrei Trandafir",
+            "username": "andreitrand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48cd73b7c38c13f56bab70ea819ef58b49be80cc",
+          "message": "Post AHM Cleanup: Remove Staking (and friends) from Westend Runtime (#11940)\n\n* Remove following pallets from Westend runtime:\npallet_election_provider_multi_phase, pallet_bags_list,\npallet_nomination_pools, pallet_fast_unstake, pallet_delegated_staking\n(including weights and other related code such as bag generation logic)\n* Ensure try runtime checks pass for Westend (without any [excluded\npallets](https://github.com/paritytech/polkadot-sdk/commit/463ef05cf1b5dbbcd91379a952d0ba0f0af347bb#diff-5264d812f7aadfc486efffd3322b11c8dee5e8ddf2e77e0a9e70b573f3d2afddR2829))\n*  Retain the ProxyType::Staking to allow setting session key via it.\n\nEarlier CI failure\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/19711056203/job/56471786443#step:9:534\nis also fixed by retaining now-deprecated enum variants which prevented\ncorrect serialization / deserialization. We initially suspected that\nhttps://github.com/paritytech/polkadot-sdk/issues/8717 and Westend still\nhad some staking holds, but this turned out to not be related.\n\nGiven the scope of this change, we have left out several sub-tasks which\nare being tracked in\nhttps://github.com/paritytech/polkadot-sdk/issues/12513.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/9442\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T16:23:11Z",
+          "tree_id": "c7aefad251be362a13c80f1efd848caa6e05aad6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/48cd73b7c38c13f56bab70ea819ef58b49be80cc"
+        },
+        "date": 1784052558773,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01024128854999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002521912310000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009242113389999987,
             "unit": "seconds"
           }
         ]
