@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784025315268,
+  "lastUpdate": 1784069528438,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -107567,6 +107567,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2779702978,
             "range": "± 53266594",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f0d49627d02c0d304b2525cc49842e514dfa7ab9",
+          "message": "Introduce StorageChainBlockImport (#12242)\n\nStorage chains rely on Renew extrinsics to keep indexed transaction\npayloads alive past their original retention window. A node that\ntip-syncs past a Renew without ever having executed the original store\nends up with an empty TRANSACTION column locally, and apply_index_ops\nfails. This PR adds StorageChainBlockImport, a block-import wrapper that\nintercepts this case during tip-sync, fetches the missing bytes over\nbitswap, and hands them to the backend through the\nPrefetchedIndexedTransactions carrier introduced in #12086.\n\n\nGap-sync (the same problem after warp-sync) is wired up but stays\ndisabled in production — the sync layer doesn't yet fetch bodies inside\nthe pruning window. The dispatch and its tests are already in place\nbehind the existing origin filter, so flipping the gate is a one-line\nchange once the sync-layer work lands.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T21:19:15Z",
+          "tree_id": "a0bd3e86a87439820bc525d1730f53eb290df6a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f0d49627d02c0d304b2525cc49842e514dfa7ab9"
+        },
+        "date": 1784069496759,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19773825,
+            "range": "± 207696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19959126,
+            "range": "± 318495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21323080,
+            "range": "± 214197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26706731,
+            "range": "± 263265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62502242,
+            "range": "± 861902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 381589651,
+            "range": "± 11424139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2869988803,
+            "range": "± 171247352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17406771,
+            "range": "± 255444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17560524,
+            "range": "± 241166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18380820,
+            "range": "± 344485",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23591572,
+            "range": "± 287359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65429350,
+            "range": "± 1145963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 381945694,
+            "range": "± 5019754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2781325074,
+            "range": "± 58823827",
             "unit": "ns/iter"
           }
         ]
