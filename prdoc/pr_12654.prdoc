@@ -1,0 +1,12 @@
+title: Remove deprecated pallet_staking::ExposureOf.
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+    - Remove deprecated `pallet_staking::ExposureOf` (use `DefaultExposureOf` / `UnitIdentificationOf`).
+    - No remaining in-repo callers.
+
+    Part of #11561
+crates:
+- name: pallet-staking
+  bump: major
