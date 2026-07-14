@@ -31,10 +31,15 @@ module main {
   /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `ConsumeTransfersUpTo`).
   /// Per-para balance budget at init: baseline + headroom for the active
   /// code preimage + headroom for one pending-upgrade code preimage + a
-  /// small buffer for other state (staged validator keys, solicited
-  /// preimages used by tests, etc.).
+  /// small buffer for other state (solicited preimages used by tests, etc.).
   pure val InitialParaBalance: int =
     BaselineFootprint + preimageFootprint(FixedCodeLen) * 2 + BaselineFootprint
+
+  /// Asset Hub's initial balance must additionally cover its reserved
+  /// service-global items (§6.1), so it starts from `AssetHubBaselineFootprint`
+  /// with the same code-preimage + buffer headroom as any other para.
+  pure val InitialAssetHubBalance: int =
+    AssetHubBaselineFootprint + preimageFootprint(FixedCodeLen) * 2 + BaselineFootprint
 
   pure val initialState: ParachainServiceState = {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
@@ -42,7 +47,7 @@ module main {
     val s1 = parachainSetStateBalance(emptyState, CoretimeParaId, InitialParaBalance).state
     val s2 = parachainSetValidationCode(s1, CoretimeParaId, coretimeCode, FixedCodeLen).state
     val s3 = parachainSetHead(s2, CoretimeParaId, 0).state
-    val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialParaBalance).state
+    val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialAssetHubBalance).state
     val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen).state
     parachainSetHead(s5, AssetHubParaId, 0).state
   }

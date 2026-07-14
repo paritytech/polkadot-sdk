@@ -27,7 +27,7 @@ module management {
     newTotal: Balance
   ): MgmtOutcome = {
     if (not(s.isLive(para_id))) {
-      match initParaInfo(newTotal) {
+      match initParaInfo(para_id, newTotal) {
         | None =>
         // Rejected — new_total below baseline.
         {
@@ -37,7 +37,7 @@ module management {
           log: Some(StateBalanceUpdateRejected({
                 attempted: newTotal,
                 currentTotal: 0,
-                currentUsed: BaselineFootprint
+                currentUsed: baselineFor(para_id)
           }))
         }
         | Some(pi) =>

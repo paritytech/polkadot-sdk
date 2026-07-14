@@ -96,21 +96,17 @@ module invariants {
       not(svc.isLive(para_id)) or svc.hasReferencer(h, len, para_id)
   })
 
-  /// Every live para's `usedStateBalance` is at least the baseline footprint.
-  /// After registration the baseline is pre-charged and never released
-  /// (§6.1); only preimage referencer churn and staged-key churn move the
-  /// figure above baseline.
+  /// Every live para's `usedStateBalance` is at least its baseline footprint
+  /// After registration the baseline is pre-charged and never released; only
+  /// preimage referencer churn moves the figure above baseline.
   val used_above_baseline: bool =
   svc.parachains.keys().forall(para_id =>
-    svc.paraInfo(para_id).usedStateBalance >= BaselineFootprint)
+    svc.paraInfo(para_id).usedStateBalance >= baselineFor(para_id))
 
-  /// Full footprint accounting (§6.1). For every live para,
-  /// `usedStateBalance` equals
-  ///     `BaselineFootprint`
-  ///   + Σ `preimageFootprint(len)` over every preimage the para references
-  ///   + (Asset Hub only) `ValidatorKeySize * |stagedValidatorKeys|`.
-  /// Catches off-by-one bugs in `addReferencer` / `removeReferencer` /
-  /// `applySetValidatorKeys` / `parachainSetValidationCode`'s swap.
+  /// Full footprint accounting (§6.1). For every live para, `usedStateBalance`
+  /// equals its baseline footprint plus Σ `preimageFootprint(len)` over
+  /// every preimage the para references. Catches off-by-one bugs in
+  /// `addReferencer` / `removeReferencer` / `parachainSetValidationCode`'s swap.
   val used_balance_consistency: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
@@ -119,11 +115,7 @@ module invariants {
           if (e.referencers.contains(para_id)) acc + preimageFootprint(key._2)
           else acc
       })
-      val stagedFootprint =
-      if (para_id == AssetHubParaId)
-      ValidatorKeySize * svc.stagedValidatorKeys.length()
-      else 0
-      pi.usedStateBalance == BaselineFootprint + refSum + stagedFootprint
+      pi.usedStateBalance == baselineFor(para_id) + refSum
   })
 
   /// Every referencer recorded in `preimage_registry` is a currently-live

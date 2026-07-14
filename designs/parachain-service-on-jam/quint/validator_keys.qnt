@@ -43,20 +43,11 @@ module validator_keys {
     chunk: List[ValidatorKey],
     isLast: bool
   ): ChunkOutcome = {
-    val pi = s.paraInfo(AssetHubParaId)
     if (isLast) {
       // Final chunk: assemble the full set in memory, hand it to `designate`,
-      // and clear the staging buffer in the same step. These keys never
-      // persist in service storage, so no headroom check or balance charge
-      // is needed for them — we only release the footprint the prior
-      // (partial) buffer was holding.
+      // and clear the staging buffer in the same step.
       val assembled = s.stagedValidatorKeys.concat(chunk)
-      val priorFootprint = ValidatorKeySize * s.stagedValidatorKeys.length()
-      val sCleared = {
-        ...s,
-        stagedValidatorKeys: List(),
-        parachains: s.parachains.put(AssetHubParaId, pi.addUsed(-priorFootprint))
-      }
+      val sCleared = { ...s, stagedValidatorKeys: List() }
       val ok = ValCount.contains(assembled.length())
       {
         state: sCleared,
@@ -67,24 +58,17 @@ module validator_keys {
         else Some(DesignateRejected({ len: assembled.length() }))
       }
     } else {
-      // Partial append: the chunk stays in the buffer until finalization, so
-      // it must fit in the available state balance.
-      val delta = ValidatorKeySize * chunk.length()
-      if (not(pi.hasHeadroom(delta))) {
-        // Append rejected; buffer and balance unchanged.
+      // Partial append: the chunk stays in the buffer until finalization.
+      if (s.stagedValidatorKeys.length() + chunk.length() > MaxStagedValidatorKeys) {
         {
           state: s,
           jamDesignate: false,
           designateVec: List(),
-          log: Some(InsufficientStateBalance(FromValidatorKeys))
+          log: Some(StagedValidatorKeysOverflow)
         }
       } else {
         {
-          state: {
-            ...s,
-            stagedValidatorKeys: s.stagedValidatorKeys.concat(chunk),
-            parachains: s.parachains.put(AssetHubParaId, pi.addUsed(delta))
-          },
+          state: { ...s, stagedValidatorKeys: s.stagedValidatorKeys.concat(chunk) },
           jamDesignate: false,
           designateVec: List(),
           log: None

@@ -41,12 +41,10 @@ module messages {
   // --- Accumulate-side log payloads ---------------------------------------
 
   // Why a state-balance reservation failed. `FromSolicit` carries the
-  // preimage hash and length; `FromValidatorKeys` covers a `set_validator_keys`
-  // chunk append (which has no single hash). Distinct constructor names
-  // because `Solicit`/`SetValidatorKeys` are already `UpwardMessage` labels.
+  // preimage hash and length. Distinct constructor name because `Solicit` is
+  // already an `UpwardMessage` label.
   type InsufficientBalanceReason =
   | FromSolicit({ hash: Hash, len: int })
-  | FromValidatorKeys
 
   type AccumulateLog =
   // Work-result's validation_code_hash matches neither active nor pending.
@@ -63,6 +61,10 @@ module messages {
   // not in `valcount`, i.e. not a multiple of 3 in [6, 1023]); the staging
   // buffer is cleared regardless. `len` is the rejected length. See §5.3.
   | DesignateRejected({ len: int })
+  // A `set_validator_keys` chunk would grow `staged_validator_keys` beyond its
+  // reserved capacity (`MaxStagedValidatorKeys`); the append is rejected and the
+  // buffer is left unchanged. See §5.3.
+  | StagedValidatorKeysOverflow
   // `parachain_service_upgrade(code_hash, ...)` was rejected because the
   // new code's preimage is not in the Parachain Service's preimage store
   // (§5.4).

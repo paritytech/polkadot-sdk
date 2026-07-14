@@ -246,8 +246,6 @@ enum RefineLog {
 enum InsufficientBalanceReason {
     /// A `solicit` (or code-upgrade solicit) of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: u32 },
-    /// A `set_validator_keys` chunk append.
-    SetValidatorKeys,
 }
 
 enum AccumulateLog {
@@ -269,6 +267,10 @@ enum AccumulateLog {
     /// JAM `designate` rejected the assembled validator-key set because its
     /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
     DesignateRejected { len: u32 },
+    /// A `set_validator_keys` chunk would grow `staged_validator_keys` beyond
+    /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
+    /// and the buffer left unchanged. See §5.3.
+    StagedValidatorKeysOverflow,
     /// `parachain_service_upgrade(code_hash, ...)` was rejected because
     /// `code_hash`'s preimage is not in the Parachain Service's preimage
     /// store. See §5.4.
@@ -784,22 +786,20 @@ Asset Hub signals completion via `is_last`.
 When Accumulate replays a `SetValidatorKeys { keys, is_last }` upward message
 it:
 
-1. If `is_last == false`, appends `keys` to `staged_validator_keys`,
-   increasing Asset Hub's `used_state_balance` by `336 * keys.len()` — the
-   chunk persists in the buffer until finalization. If this would exceed
-   Asset Hub's `total_state_balance`, the append is rejected with
-   `AccumulateLog::InsufficientStateBalance` and the buffer is unchanged
-   (see §6.1).
-2. If `is_last == true`, assembles the full set (prior buffer + `keys`),
-   calls JAM `designate` with it, and clears the buffer — releasing the
-   prior buffer's footprint. The final chunk goes straight to `designate`
-   and never persists in storage, so it needs no headroom check or balance
-   charge. If `designate` rejects the call (length not in `valcount`),
-   the buffer is still cleared and `AccumulateLog::DesignateRejected` is
-   recorded against the Asset Hub `ParaId`. This also gives Asset Hub the
-   abort path:
-   `set_validator_keys(vec![], true)` flushes a length-zero buffer, which
-   `designate` rejects, clearing the staging area.
+1. If `is_last == false`, appends `keys` to `staged_validator_keys`. The
+   staging buffer is reserved worst-case in Asset Hub's baseline footprint
+   (§6.1), but an append that would grow the buffer beyond its reserved capacity
+   (the `1023`-key bound on `staged_validator_keys`) is rejected as invalid with
+   `AccumulateLog::StagedValidatorKeysOverflow`, leaving the buffer unchanged.
+2. If `is_last == true`, assembles the full set (prior buffer + `keys`) and
+   clears the buffer. The service checks the assembled length against `valcount`:
+   if valid it calls JAM `designate` with the set (which goes straight to
+   `designate` and never persists in storage); otherwise `designate` is **not**
+   called — the length check rejects the set and
+   `AccumulateLog::DesignateRejected` is recorded against the Asset Hub `ParaId`.
+   This also gives Asset Hub the abort path: `set_validator_keys(vec![], true)`
+   yields a length-zero set, which the length check rejects, clearing the staging
+   area.
 
 A worst-case 1023-key rotation takes ~35 Asset Hub work packages (≈ 3.5
 minutes at 6 s timeslots). State-balance accounting for the staging
@@ -994,7 +994,8 @@ incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
                                                                         1 381 176 B
 ```
 
-**Asset Hub baseline footprint ≈ 1.33 MiB.**
+**Asset Hub baseline footprint ≈ 1.33 MiB**, added on top of the generic
+per-para baseline.
 
 ### 6.2 Registration
 
