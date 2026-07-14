@@ -313,6 +313,12 @@ module invariants {
   val recovery_memo_never_queued: bool =
     svc.incomingTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
 
+  /// A recovery transfer (memo = `AllOnesMemo`) is also never bounced: it is
+  /// dropped at ingress so its balance credits the service without producing
+  /// a JAM-level outgoing transfer. Complements `recovery_memo_never_queued`.
+  val recovery_memo_never_bounced: bool =
+    lastStepBouncedTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
+
   /// Each pending authorizer queue must fit within JAM's queue length.
   val pending_authorizer_queue_bounded: bool =
     svc.pendingAuthorizerQueues.keys().forall(c =>
@@ -396,6 +402,7 @@ module invariants {
     acc_error_logged,
     incoming_transfers_bounded,
     recovery_memo_never_queued,
+    recovery_memo_never_bounced,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
     pending_authorizer_apply_at_future,
