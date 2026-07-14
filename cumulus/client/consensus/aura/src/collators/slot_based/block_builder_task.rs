@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::CollatorMessage;
+use super::{resubmission::resolve_session, CollatorMessage};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -36,6 +36,7 @@ use cumulus_client_consensus_common::{
 	ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
+use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -731,6 +732,18 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
+	let session = resolve_session(relay_client, relay_parent_hash)
+		.await
+		.inspect_err(|err| {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?relay_parent_hash,
+				?err,
+				"Could not resolve relay-parent session; resubmission entry will be skipped.",
+			);
+		})
+		.ok();
+
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
@@ -875,6 +888,19 @@ where
 			);
 		}
 
+		let proof = Arc::new(built_block.proof);
+		if let Some(relay_parent_session) = session {
+			prepare_resubmission_aux_data::<Block>(
+				built_block.block.header().hash(),
+				proof.clone(),
+				relay_parent_header.clone(),
+				relay_parent_session,
+			)
+			.for_each(|(k, v)| {
+				import_block.auxiliary.push((k, Some(v)));
+			});
+		}
+
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");
 			return Ok(None);
@@ -884,7 +910,7 @@ where
 		collator.collator_service().announce_block(parent_hash, None);
 
 		blocks.push(built_block.block);
-		proofs.push(built_block.proof);
+		proofs.push(Arc::unwrap_or_clone(proof));
 
 		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
 		let runtime_upgrade_digest = parent_header

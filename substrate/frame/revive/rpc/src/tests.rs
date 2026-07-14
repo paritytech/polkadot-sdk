@@ -310,6 +310,29 @@ async fn verify_transactions_in_single_block(
 	Ok(())
 }
 
+/// Wait for the eth-rpc's finalized block to catch up to its best block.
+async fn wait_for_finalized_to_reach_best<C: EthRpcClient + Sync>(
+	client: &C,
+) -> anyhow::Result<()> {
+	tokio::time::timeout(tokio::time::Duration::from_secs(5), async {
+		let latest = client
+			.get_block_by_number(BlockNumberOrTag::Latest, false)
+			.await?
+			.expect("latest block should exist")
+			.number;
+		loop {
+			let finalized = client.get_block_by_number(BlockNumberOrTag::Finalized, false).await?;
+			if finalized.map(|block| block.number == latest).unwrap_or(false) {
+				break;
+			}
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+		}
+		anyhow::Ok(())
+	})
+	.await
+	.map_err(|_| anyhow::anyhow!("timed out waiting for finalized block to match best block"))?
+}
+
 #[tokio::test]
 async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 	let timeout_duration = tokio::time::Duration::from_secs(300);
@@ -360,6 +383,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_block_number_works,
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
+		test_get_logs_with_block_tags_works,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
@@ -895,22 +919,92 @@ async fn test_block_hash_for_tag_with_block_number_works() -> anyhow::Result<()>
 	Ok(())
 }
 
+/// The standard block tags every RPC entry point must accept.
+const BLOCK_TAGS: [BlockNumberOrTag; 5] = [
+	BlockNumberOrTag::Earliest,
+	BlockNumberOrTag::Safe,
+	BlockNumberOrTag::Finalized,
+	BlockNumberOrTag::Pending,
+	BlockNumberOrTag::Latest,
+];
+
 async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	let tags = vec![
-		BlockNumberOrTag::Latest,
-		BlockNumberOrTag::Finalized,
-		BlockNumberOrTag::Safe,
-		BlockNumberOrTag::Earliest,
-		BlockNumberOrTag::Pending,
-	];
-
-	for tag in tags {
+	for tag in BLOCK_TAGS {
 		let balance = client.get_balance(account.address(), tag.into()).await?;
 
 		assert!(balance >= U256::zero(), "Balance should be retrievable with tag {tag:?}");
+	}
+
+	Ok(())
+}
+
+/// `eth_getLogs` must accept every standard block tag for `fromBlock`/`toBlock`.
+async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	// Deploy a contract and trigger it to emit a log.
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
+	TransactionBuilder::new(client.clone())
+		.input(bytes.to_vec())
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	let emit_receipt = TransactionBuilder::new(client.clone())
+		.value(U256::from(1_000_000_000_000u128))
+		.to(contract_address)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	let emit_block = emit_receipt.block_number;
+
+	wait_for_finalized_to_reach_best(&*client).await?;
+
+	let logs_of = |results: FilterResults| match results {
+		FilterResults::Logs(logs) => logs,
+		FilterResults::Hashes(hashes) if hashes.is_empty() => Vec::new(),
+		other => panic!("expected Logs from eth_getLogs, got: {other:?}"),
+	};
+	let has_emitted_log = |logs: &[Log]| logs.iter().any(|log| log.block_number == emit_block);
+
+	// `<tag>..latest` range should span the emitted log.
+	for from in BLOCK_TAGS {
+		let logs = logs_of(
+			client
+				.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
+				.await
+				.map_err(|err| anyhow::anyhow!("eth_getLogs {from:?}..latest failed: {err:?}"))?,
+		);
+		assert!(has_emitted_log(&logs), "{from:?}..latest should include the emitted log");
+	}
+
+	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`.
+	for to in BLOCK_TAGS {
+		let logs = logs_of(
+			client
+				.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
+				.await
+				.map_err(|err| anyhow::anyhow!("eth_getLogs earliest..{to:?} failed: {err:?}"))?,
+		);
+		if matches!(to, BlockNumberOrTag::Earliest) {
+			assert!(
+				!has_emitted_log(&logs),
+				"earliest..earliest (genesis) must not contain the log"
+			);
+		} else {
+			assert!(has_emitted_log(&logs), "earliest..{to:?} should include the emitted log");
+		}
 	}
 
 	Ok(())
