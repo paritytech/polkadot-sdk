@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784026732085,
+  "lastUpdate": 1784052510587,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6b2c89588ba4f45f751a17dca2a3634021608cbb",
-          "message": "Introduce `ReplayProofSizeProvider`, `RecordingProofProvider` & transactional extensions (#9930)\n\nThe `ProofSizeExt` extension is used to serve the proof size to the\nruntime. It uses the proof recorder to request the current proof size.\nThe `RecordingProofProvider` extension can record the calls to the proof\nsize function. Later the `ReplayProofSizeProvider` can be used to replay\nthese recorded proof sizes. So, the proof recorder is not required\nanymore.\n\nExtensions are now also hooked into the transactional system. This means\nthey are called when a new transaction is created and informed when a\ntransaction is committed or reverted.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-17T19:33:34Z",
-          "tree_id": "48c0d15c7f01467af20f3787ff00cd2c26dccd7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6b2c89588ba4f45f751a17dca2a3634021608cbb"
-        },
-        "date": 1763412672341,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63616.03999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.487399933599999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.486538998929998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001953646,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43437507243000406,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001928845,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0055656776900000066,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001953646,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.485656107459998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7019730740711654,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.014642760539995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5433819122100005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5155175350000016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001928845,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005144390649999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "142614787+andreitrand@users.noreply.github.com",
+            "name": "Andrei Trandafir",
+            "username": "andreitrand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48cd73b7c38c13f56bab70ea819ef58b49be80cc",
+          "message": "Post AHM Cleanup: Remove Staking (and friends) from Westend Runtime (#11940)\n\n* Remove following pallets from Westend runtime:\npallet_election_provider_multi_phase, pallet_bags_list,\npallet_nomination_pools, pallet_fast_unstake, pallet_delegated_staking\n(including weights and other related code such as bag generation logic)\n* Ensure try runtime checks pass for Westend (without any [excluded\npallets](https://github.com/paritytech/polkadot-sdk/commit/463ef05cf1b5dbbcd91379a952d0ba0f0af347bb#diff-5264d812f7aadfc486efffd3322b11c8dee5e8ddf2e77e0a9e70b573f3d2afddR2829))\n*  Retain the ProxyType::Staking to allow setting session key via it.\n\nEarlier CI failure\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/19711056203/job/56471786443#step:9:534\nis also fixed by retaining now-deprecated enum variants which prevented\ncorrect serialization / deserialization. We initially suspected that\nhttps://github.com/paritytech/polkadot-sdk/issues/8717 and Westend still\nhad some staking holds, but this turned out to not be related.\n\nGiven the scope of this change, we have left out several sub-tasks which\nare being tracked in\nhttps://github.com/paritytech/polkadot-sdk/issues/12513.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/9442\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T16:23:11Z",
+          "tree_id": "c7aefad251be362a13c80f1efd848caa6e05aad6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/48cd73b7c38c13f56bab70ea819ef58b49be80cc"
+        },
+        "date": 1784052479126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63571.96999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8274136262899748,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.78337734383,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.249218643809973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3478025545500003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020890819999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002260185,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7352523709899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002260185,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004952548840000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020890819999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.79901885964,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.75140133967,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.52607039037298,
             "unit": "seconds"
           }
         ]
