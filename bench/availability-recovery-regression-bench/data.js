@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783984653755,
+  "lastUpdate": 1784017135327,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e9bbdf08e180f687a2f10bed77d5b52391446df2",
-          "message": "fix P256Verify precompile address (#10336)\n\nfix https://github.com/paritytech/contract-issues/issues/220\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-17T22:01:37Z",
-          "tree_id": "31a8f0ef32c7c531e9e240acff4f6c2494fc2486",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9bbdf08e180f687a2f10bed77d5b52391446df2"
-        },
-        "date": 1763421154567,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3704238236,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1995806138666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.092332014599997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "470d1ad2a82c95c28c825412cb636aed4f54b83e",
+          "message": "cumulus: resubmission store (#12091)\n\nCloses #12034.\n\nAdds `cumulus-client-resubmission-store` which records what a collator\nneeds to resubmit a collation for an unincluded parablock.\n\n  For each imported parablock, keyed by its block hash, it persists:\n\n  - the block's storage proof\n  - the capture time (time_ms)\n  - the relay-parent session\n  - the core it was submitted on (resolved index + selector)\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-07-14T06:33:55Z",
+          "tree_id": "885fcf7976e9d9b5868b8d69621ef15e737ce1d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/470d1ad2a82c95c28c825412cb636aed4f54b83e"
+        },
+        "date": 1784017105330,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14449114999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.016363044000002,
             "unit": "seconds"
           }
         ]
