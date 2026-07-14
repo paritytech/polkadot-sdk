@@ -234,7 +234,10 @@ module accumulate {
       | TransferOut(_) =>
       // Asset-Hub-only outbound transfer. Modeled abstractly: the
       // top-level `step` action routes the transfer into the destination
-      // service's incoming queue. Here we no-op.
+      // service's incoming queue. Here we no-op. If the JAM `transfer`
+      // call fails (destination does not exist or refused the transfer),
+      // an `AccumulateLog::TransferFailed({ memoHash })` entry is appended
+      // to the parachain's log — not exercised in this abstract branch.
       acc
       | SetAuthorizerQueue(payload) =>
       // §5.1 step 7 (replay). Schedules the authorizer QUEUE for `jam_slot`: the

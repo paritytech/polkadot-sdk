@@ -117,6 +117,7 @@ module state {
     | DesignateRejected(_) => 4
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32
+    | TransferFailed(_) => 32
   }
 
   /// SCALE size of a RefineLog variant. Nullary variants = 1 B (discriminant only).

@@ -275,6 +275,9 @@ enum AccumulateLog {
     /// `code_hash`'s preimage is not in the Parachain Service's preimage
     /// store. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
+    /// The JAM `transfer` call replaying a `TransferOut`. Only the memo
+    /// hash is recorded — the full 128-byte memo is not preserved. See §5.1 step 7.
+    TransferFailed { memo_hash: Hash },
 }
 
 struct PreimageEntry {
@@ -553,7 +556,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
-| `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
+| `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only). If the JAM `transfer` call fails during `accumulate`, an `AccumulateLog::TransferFailed { memo_hash }` entry is appended to the parachain's log. See §5.1 step 7. |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, jam_slot: Timeslot)` | `()` | Schedule the authorizer queue for a core (Coretime chain only). The queue is cached in service state and forwarded to JAM in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any queue cached for the core so it is not applied. |
 | `set_assigner(core: CoreIndex, new_assigner: Option<ServiceId>)` | `()` | Change `assigners[core]` (Coretime chain only): `Some(s)` hands it off to service `s` so it can manage that core's queue going forward; `None` resets the assigner. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |

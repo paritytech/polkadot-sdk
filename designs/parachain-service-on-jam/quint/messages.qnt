@@ -69,6 +69,11 @@ module messages {
   // new code's preimage is not in the Parachain Service's preimage store
   // (§5.4).
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
+  // The JAM `transfer` call replaying a `TransferOut` upward message
+  // returned an error (destination service does not exist or refused the
+  // transfer). Only the memo hash is recorded — the full 128-byte memo
+  // is not preserved. See §5.1 step 7.
+  | TransferFailed({ memoHash: Hash })
 
   /// A JAM `assign` host-function call recorded during a step. JAM's single
   /// `assign(core, queue, assigner)` sets both; the service uses it two distinct
