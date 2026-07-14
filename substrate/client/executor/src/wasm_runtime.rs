@@ -311,8 +311,6 @@ where
 	H: HostFunctions,
 {
 	if let Some(blob) = blob.as_polkavm_blob() {
-		// `execution_timeout` is enforced via wasmtime epoch interruption and does not apply to the
-		// PolkaVM backend.
 		return sc_executor_polkavm::create_runtime::<H>(blob);
 	}
 
