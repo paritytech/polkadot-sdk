@@ -484,6 +484,7 @@ impl StatementHandlerPrototype {
 			),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -534,6 +535,8 @@ pub struct StatementHandler<
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
+	/// Pending propagation sends, polled by the main event loop.
+	pending_sends: PendingSends,
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
@@ -620,6 +623,18 @@ enum SendChunkResult {
 	/// Send failed.
 	Failed,
 }
+
+/// Result of an asynchronous propagation send.
+struct PendingSendResult {
+	peer: PeerId,
+	statement_count: usize,
+	bytes_sent: u64,
+	result: Result<Result<(), sc_network::error::Error>, tokio::time::error::Elapsed>,
+}
+
+/// Type alias for the pending sends future collection, this is a list of in-flight sends to peers.
+type PendingSends =
+	FuturesUnordered <Pin<Box<dyn Future<Output = PendingSendResult> + Send + 'static>>>;
 
 /// Encoding overhead for V1: just the `Compact<u32>` vec length prefix (max 5 bytes).
 const V1_ENVELOPE_OVERHEAD: usize = 5;
@@ -751,6 +766,7 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -772,6 +788,9 @@ where
 	pub async fn run(mut self) {
 		loop {
 			futures::select_biased! {
+				send_result = self.pending_sends.select_next_some() => {
+					self.handle_send_result(send_result);
+				},
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
 					self.metrics.as_ref().map(|metrics| {
@@ -1333,7 +1352,7 @@ where
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
 		if let Ok(Some(statement)) = self.statement_store.statement(hash) {
-			self.do_propagate_statements(&[(*hash, statement)]).await;
+			self.do_propagate_statements(&[(*hash, statement)]);
 		}
 	}
 
@@ -1341,7 +1360,8 @@ where
 	///
 	/// Internally filters `statements` to only send unknown statements to the peer.
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
-	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+	/// Send futures are queued to `pending_sends` and polled by the main loop.
+	fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
 		let Some(peer) = self.peers.get_mut(who) else {
 			return;
 		};
@@ -1350,6 +1370,7 @@ where
 			return;
 		}
 
+		let protocol_version = peer.protocol_version;
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| {
@@ -1373,33 +1394,91 @@ where
 			return;
 		}
 
-		self.send_statements_in_chunks(who, &to_send).await;
+		self.queue_statements_in_chunks(who, &to_send, protocol_version);
 	}
 
-	/// Send statements to a peer in chunks, respecting the maximum notification size.
-	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
+	/// Queue statement chunks for asynchronous propagation from the main event loop.
+	fn queue_statements_in_chunks(
+		&mut self,
+		who: &PeerId,
+		statements: &[&Statement],
+		protocol_version: PeerProtocolVersion,
+	) {
+		let envelope_overhead = protocol_version.envelope_overhead();
 		let mut offset = 0;
 		while offset < statements.len() {
-			match self.send_statement_chunk(who, &statements[offset..]).await {
-				SendChunkResult::Sent(chunk_end) => {
+			match find_sendable_chunk(&statements[offset..], envelope_overhead) {
+				ChunkResult::Send(0) => return,
+				ChunkResult::Send(chunk_end) => {
+					let chunk = &statements[offset..offset + chunk_end];
+					let encoded = match protocol_version {
+						PeerProtocolVersion::V1 => chunk.encode(),
+						PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
+					};
+					let bytes_sent = encoded.len() as u64;
+					let Some(message_sink) = self.notification_service.message_sink(who) else {
+						log::debug!(target: LOG_TARGET, "Failed to get message sink for peer {who}");
+						return;
+					};
+					let peer = *who;
+					let sent_latency =
+						self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
+					self.pending_sends.push(Box::pin(async move {
+						let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
+						let result =
+							timeout(SEND_TIMEOUT, message_sink.send_async_notification(encoded))
+								.await;
+						drop(sent_latency_timer);
+						PendingSendResult { peer, statement_count: chunk_end, bytes_sent, result }
+					}));
 					offset += chunk_end;
 				},
-				SendChunkResult::Skipped => {
+				ChunkResult::SkipOversized => {
+					log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+					self.metrics.as_ref().map(|metrics| {
+						metrics.skipped_oversized_statements.inc();
+					});
 					offset += 1;
 				},
-				SendChunkResult::Empty | SendChunkResult::Failed => return,
 			}
 		}
 	}
 
-	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+	fn handle_send_result(&mut self, send_result: PendingSendResult) {
+		let PendingSendResult { peer, statement_count, bytes_sent, result } = send_result;
+		match result {
+			Ok(Ok(())) => {
+				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", statement_count, peer);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.propagated_statements.inc_by(statement_count as u64);
+					metrics.bytes_sent_total.inc_by(bytes_sent);
+					metrics.propagated_statements_chunks.observe(statement_count as f64);
+				});
+			},
+			Ok(Err(error)) => {
+				log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {error:?}");
+			},
+			Err(error) => {
+				log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {error:?}");
+			},
+		}
+	}
+
+	#[cfg(test)]
+	async fn flush_pending_sends(&mut self) {
+		while let Some(result) = self.pending_sends.next().await {
+			self.handle_send_result(result);
+		}
+	}
+
+	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
 		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
 		let peers: Vec<_> = self.peers.keys().copied().collect();
 		for who in peers {
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
-			self.send_statements_to_peer(&who, statements).await;
+			self.send_statements_to_peer(&who, statements);
 		}
-		log::trace!(target: LOG_TARGET, "Statements propagated to all peers");
+		log::trace!(target: LOG_TARGET, "Statements queued for propagation to all peers");
 	}
 
 	/// Call when we must propagate ready statements to peers.
@@ -1411,7 +1490,7 @@ where
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
-			self.do_propagate_statements(&statements).await;
+			self.do_propagate_statements(&statements);
 		}
 	}
 
@@ -1774,11 +1853,15 @@ mod tests {
 	#[derive(Debug, Clone)]
 	struct TestNotificationService {
 		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		block_sends: Arc<AtomicBool>,
 	}
 
 	impl TestNotificationService {
 		fn new() -> Self {
-			Self { sent_notifications: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				sent_notifications: Arc::new(Mutex::new(Vec::new())),
+				block_sends: Arc::new(AtomicBool::new(false)),
+			}
 		}
 
 		fn get_sent_notifications(&self) -> Vec<(PeerId, Vec<u8>)> {
@@ -1787,6 +1870,34 @@ mod tests {
 
 		fn clear_sent_notifications(&self) {
 			self.sent_notifications.lock().unwrap().clear();
+		}
+
+		fn block_sends(&self) {
+			self.block_sends.store(true, Ordering::Relaxed);
+		}
+	}
+
+	struct TestMessageSink {
+		peer: PeerId,
+		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		block_sends: Arc<AtomicBool>,
+	}
+
+	#[async_trait::async_trait]
+	impl sc_network::service::traits::MessageSink for TestMessageSink {
+		fn send_sync_notification(&self, notification: Vec<u8>) {
+			self.sent_notifications.lock().unwrap().push((self.peer, notification));
+		}
+
+		async fn send_async_notification(
+			&self,
+			notification: Vec<u8>,
+		) -> Result<(), sc_network::error::Error> {
+			if self.block_sends.load(Ordering::Relaxed) {
+				futures::future::pending::<()>().await;
+			}
+			self.sent_notifications.lock().unwrap().push((self.peer, notification));
+			Ok(())
 		}
 	}
 
@@ -1835,9 +1946,13 @@ mod tests {
 
 		fn message_sink(
 			&self,
-			_peer: &PeerId,
+			peer: &PeerId,
 		) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
-			unimplemented!()
+			Some(Box::new(TestMessageSink {
+				peer: *peer,
+				sent_notifications: self.sent_notifications.clone(),
+				block_sends: self.block_sends.clone(),
+			}))
 		}
 	}
 
@@ -2047,6 +2162,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2063,6 +2179,26 @@ mod tests {
 			})
 			.map(|s| s.hash())
 			.collect()
+	}
+
+	#[tokio::test]
+	async fn propagation_does_not_wait_for_pending_send() {
+		let (mut handler, statement_store, _, notification_service, _, _) = build_handler(1);
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement".to_vec());
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(statement.hash(), statement);
+
+		notification_service.block_sends();
+		let result =
+			tokio::time::timeout(std::time::Duration::from_secs(1), handler.propagate_statements())
+				.await;
+
+		assert!(result.is_ok(), "Propagation waited for a pending send");
+		assert_eq!(handler.pending_sends.len(), 1);
 	}
 
 	/// Simulate the network closing the substream for every disconnected
@@ -2154,6 +2290,7 @@ mod tests {
 		}
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let mut total_statements_sent = 0;
@@ -2232,6 +2369,7 @@ mod tests {
 			.insert(hash3, statement3.clone());
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -2282,6 +2420,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2325,6 +2464,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2565,6 +2705,7 @@ mod tests {
 		);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -3178,6 +3319,7 @@ mod tests {
 			.insert(hash_no_topic, stmt_no_topic);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let mut sent_hashes: Vec<_> = sent
@@ -3248,6 +3390,7 @@ mod tests {
 			.insert(hash_no_topic, stmt_no_topic);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let sent_hashes: Vec<_> = sent
@@ -3484,6 +3627,7 @@ mod tests {
 		// Now propagate_statements — stmt_bb should be filtered by affinity and NOT marked as
 		// known.
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		// Verify stmt_bb was NOT marked as known (the bug fix).
 		let peer = handler.peers.get(&peer_id).unwrap();
@@ -3742,6 +3886,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -3984,6 +4129,7 @@ mod tests {
 		expected_hashes.sort();
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -4033,6 +4179,7 @@ mod tests {
 		handler.peers.get_mut(&peer_b).unwrap().known_statements.insert(hashes[2]);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -4097,6 +4244,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4171,6 +4319,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4248,6 +4397,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
@@ -4348,6 +4498,7 @@ mod tests {
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
+					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
