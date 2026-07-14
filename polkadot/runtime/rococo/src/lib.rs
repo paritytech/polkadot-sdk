@@ -98,7 +98,7 @@ use frame_support::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, Contains, EitherOf,
 		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		StorageMapShim, WithdrawReasons,
+		StorageMapShim,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -423,10 +423,10 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = weights::pallet_balances_balances::WeightInfo<Runtime>;
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
+	type MaxFreezes = ConstU32<2>;
 	type DoneSlashHandler = ();
 }
 
@@ -867,17 +867,16 @@ impl pallet_society::Config for Runtime {
 
 parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }

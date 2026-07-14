@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
+use frame_support::{derive_impl, parameter_types};
 use sp_runtime::{traits::Identity, BuildStorage};
 
 use super::*;
@@ -42,21 +42,23 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type ExistentialDeposit = ExistentialDeposit;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 256 * 2;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 	pub static ExistentialDeposit: u64 = 1;
 }
 impl Config for Test {
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	const MAX_VESTING_SCHEDULES: u32 = 3;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 }
 

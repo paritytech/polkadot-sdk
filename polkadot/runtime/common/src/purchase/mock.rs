@@ -26,7 +26,7 @@ use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
 use crate::purchase;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{Currency, WithdrawReasons},
+	traits::{Currency, VariantCountOf},
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Identity, IdentityLookup},
@@ -76,21 +76,23 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 1;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type BlockNumberToBalance = Identity;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }

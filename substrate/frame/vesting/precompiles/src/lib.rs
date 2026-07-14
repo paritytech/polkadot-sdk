@@ -86,12 +86,12 @@ pub struct Vesting<T>(PhantomData<T>);
 
 /// The balance type used by `pallet-vesting`'s currency.
 type VestingBalance<T> =
-	<<T as pallet_vesting::Config>::Currency as frame_support::traits::Currency<
+	<<T as pallet_vesting::Config>::Currency as frame_support::traits::fungible::Inspect<
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
 /// Mirror of `pallet_vesting::MaxLocksOf` (which is crate-private).
-type MaxLocksOf<T> = <<T as pallet_vesting::Config>::Currency as LockableCurrency<
+type MaxLocksOf<T> = <<T as pallet_vesting::Config>::OldCurrency as LockableCurrency<
 	<T as frame_system::Config>::AccountId,
 >>::MaxLocks;
 

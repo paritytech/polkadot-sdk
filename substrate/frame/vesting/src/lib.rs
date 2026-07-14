@@ -23,15 +23,14 @@
 //! ## Overview
 //!
 //! A simple pallet providing a means of placing a linear curve on an account's locked balance. This
-//! pallet ensures that there is a lock in place preventing the balance to drop below the *unvested*
-//! amount for any reason other than the ones specified in `UnvestedFundsAllowedWithdrawReasons`
-//! configuration value.
+//! pallet ensures that there is a freeze in place preventing the balance from dropping below the
+//! *unvested* amount, by holding it under [`FreezeReason::Vesting`].
 //!
-//! As the amount vested increases over time, the amount unvested reduces. However, locks remain in
-//! place and explicit action is needed on behalf of the user to ensure that the amount locked is
-//! equivalent to the amount remaining to be vested. This is done through a dispatchable function,
-//! either `vest` (in typical case where the sender is calling on their own behalf) or `vest_other`
-//! in case the sender is calling on another account's behalf.
+//! As the amount vested increases over time, the amount unvested reduces. However, the freeze
+//! remains in place and explicit action is needed on behalf of the user to ensure that the amount
+//! frozen is equivalent to the amount remaining to be vested. This is done through a dispatchable
+//! function, either `vest` (in typical case where the sender is calling on their own behalf) or
+//! `vest_other` in case the sender is calling on another account's behalf.
 //!
 //! ## Interface
 //!
@@ -66,8 +65,9 @@ use frame_support::{
 	ensure,
 	storage::bounded_vec::BoundedVec,
 	traits::{
-		Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, VestedTransfer,
-		VestingSchedule, WithdrawReasons,
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
+		tokens::Preservation,
+		Currency, Get, LockIdentifier, LockableCurrency, VestedTransfer, VestingSchedule,
 	},
 	weights::Weight,
 };
@@ -86,9 +86,10 @@ pub use vesting_info::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type MaxLocksOf<T> =
-	<<T as Config>::Currency as LockableCurrency<<T as frame_system::Config>::AccountId>>::MaxLocks;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type MaxLocksOf<T> = <<T as Config>::OldCurrency as LockableCurrency<
+	<T as frame_system::Config>::AccountId,
+>>::MaxLocks;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 const VESTING_ID: LockIdentifier = *b"vesting ";
@@ -163,8 +164,22 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The currency trait.
-		type Currency: LockableCurrency<Self::AccountId>;
+		/// The currency trait, used to freeze the vesting balance, transfer vested funds, and query
+		/// balances.
+		type Currency: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectFreeze<Self::AccountId>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
+
+		/// The legacy lockable currency. Retained only to remove pre-existing vesting locks while
+		/// migrating accounts to freezes, and to back the legacy [`VestingSchedule`] /
+		/// [`VestedTransfer`] trait implementations consumed by other pallets. It is otherwise
+		/// unused and can be removed once all accounts have migrated.
+		type OldCurrency: LockableCurrency<Self::AccountId>
+			+ Currency<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// Convert the block number into a balance.
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self>>;
@@ -175,10 +190,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Reasons that determine under which conditions the balance may drop below
-		/// the unvested amount.
-		type UnvestedFundsAllowedWithdrawReasons: Get<WithdrawReasons>;
 
 		/// Query the current block number.
 		///
@@ -241,6 +252,14 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// A reason for the pallet placing a freeze on funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Funds are frozen for an active vesting schedule.
+		#[codec(index = 0)]
+		Vesting,
+	}
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -261,7 +280,7 @@ pub mod pallet {
 			// * length - Number of blocks from `begin` until fully vested
 			// * liquid - Number of units which can be spent before vesting begins
 			for &(ref who, begin, length, liquid) in self.vesting.iter() {
-				let balance = T::Currency::free_balance(who);
+				let balance = T::Currency::balance(who);
 				assert!(!balance.is_zero(), "Currencies must be init'd before vesting");
 				// Total genesis `balance` minus `liquid` equals funds locked for vesting
 				let locked = balance.saturating_sub(liquid);
@@ -275,10 +294,8 @@ pub mod pallet {
 				Vesting::<T>::try_append(who, vesting_info)
 					.expect("Too many vesting schedules at genesis.");
 
-				let reasons =
-					WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
-
-				T::Currency::set_lock(VESTING_ID, who, locked, reasons);
+				T::Currency::set_freeze(&FreezeReason::Vesting.into(), who, locked)
+					.expect("Failed to set vesting freeze at genesis");
 			}
 		}
 	}
@@ -488,6 +505,27 @@ pub mod pallet {
 			))
 			.into())
 		}
+
+		/// Migrate a `target` account's legacy vesting *lock* to a *freeze*.
+		///
+		/// This is a permissionless, idempotent helper for accounts created before the lock ->
+		/// freeze migration that have not interacted with the pallet since (any `vest` /
+		/// `vest_other` / `vested_transfer` / `merge_schedules` call migrates them automatically).
+		///
+		/// The dispatch origin for this call must be _Signed_ by anyone. The `target` must have an
+		/// active vesting schedule.
+		#[pallet::call_index(6)]
+		#[pallet::weight(
+			T::WeightInfo::vest_other_locked(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
+		)]
+		pub fn migrate_to_freeze(
+			origin: OriginFor<T>,
+			target: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			let who = T::Lookup::lookup(target)?;
+			Self::do_migrate_to_freeze(who)
+		}
 	}
 }
 
@@ -569,7 +607,7 @@ impl<T: Config> Pallet<T> {
 			schedule.starting_block(),
 		)?;
 
-		T::Currency::transfer(source, target, schedule.locked(), ExistenceRequirement::AllowDeath)?;
+		T::Currency::transfer(source, target, schedule.locked(), Preservation::Expendable)?;
 
 		// We can't let this fail because the currency transfer has already happened.
 		// Must be successful as it has been checked before.
@@ -617,19 +655,50 @@ impl<T: Config> Pallet<T> {
 		(filtered_schedules, total_locked_now)
 	}
 
-	/// Write an accounts updated vesting lock to storage.
+	/// The freeze reason used for the vesting balance.
+	fn freeze_reason() -> T::RuntimeFreezeReason {
+		FreezeReason::Vesting.into()
+	}
+
+	/// Write an account's updated vesting freeze to storage.
+	///
+	/// Also removes any pre-existing legacy vesting *lock* so that accounts created before the
+	/// freeze migration are migrated lazily on their first interaction (avoiding a stale lock
+	/// double-counting against the new freeze).
 	fn write_lock(who: &T::AccountId, total_locked_now: BalanceOf<T>) {
+		// Lazily migrate any legacy lock to the freeze model. No-op if absent.
+		//
+		// NOTE: the old lock is removed here and the new freeze is applied below, so for the
+		// remainder of this function neither restriction is in place on `who`'s balance. This is
+		// safe because runtime extrinsics/migrations execute to completion within a single block
+		// with no interleaving, so the gap is never observable. If this is ever reached from a
+		// context where reentrancy is possible (e.g. a runtime API that reads state mid-execution),
+		// the freeze must be set before the lock is removed instead.
+		T::OldCurrency::remove_lock(VESTING_ID, who);
+
 		if total_locked_now.is_zero() {
-			T::Currency::remove_lock(VESTING_ID, who);
+			let res = T::Currency::thaw(&Self::freeze_reason(), who);
+			debug_assert!(res.is_ok(), "thaw of an existing freeze should not fail");
 			Self::deposit_event(Event::<T>::VestingCompleted { account: who.clone() });
 		} else {
-			let reasons = WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
-			T::Currency::set_lock(VESTING_ID, who, total_locked_now, reasons);
+			let res = T::Currency::set_freeze(&Self::freeze_reason(), who, total_locked_now);
+			debug_assert!(res.is_ok(), "set_freeze should not fail");
 			Self::deposit_event(Event::<T>::VestingUpdated {
 				account: who.clone(),
 				unvested: total_locked_now,
 			});
 		};
+	}
+
+	/// Migrate `who`'s legacy vesting lock to a freeze of the currently-locked amount.
+	fn do_migrate_to_freeze(who: T::AccountId) -> DispatchResult {
+		let schedules = Vesting::<T>::get(&who).ok_or(Error::<T>::NotVesting)?;
+		let now = T::BlockNumberProvider::current_block_number();
+		let locked_now = schedules.iter().fold(Zero::zero(), |total: BalanceOf<T>, schedule| {
+			schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_add(total)
+		});
+		Self::write_lock(&who, locked_now);
+		Ok(())
 	}
 
 	/// Write an accounts updated vesting schedules to storage.
@@ -729,7 +798,7 @@ where
 
 		if duration.is_zero() {
 			// Zero duration means liquid transfer with no vesting schedule.
-			T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)
+			T::Currency::transfer(source, dest, amount, Preservation::Expendable).map(|_| ())
 		} else {
 			let starting_block =
 				start_at.unwrap_or_else(|| T::BlockNumberProvider::current_block_number());
@@ -749,7 +818,10 @@ impl<T: Config> VestingSchedule<T::AccountId> for Pallet<T>
 where
 	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
 {
-	type Currency = T::Currency;
+	// The legacy `Currency` is exposed for downstream consumers (e.g. claims, purchase, crowdloan)
+	// that are still written against the `Currency` trait. Both currencies refer to the same
+	// underlying balances.
+	type Currency = T::OldCurrency;
 	type Moment = BlockNumberFor<T>;
 
 	/// Get the amount that is currently being vested and cannot be transferred out of this account.
@@ -759,7 +831,7 @@ where
 			let total_locked_now = v.iter().fold(Zero::zero(), |total, schedule| {
 				schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_add(total)
 			});
-			Some(T::Currency::free_balance(who).min(total_locked_now))
+			Some(T::Currency::balance(who).min(total_locked_now))
 		} else {
 			None
 		}
@@ -855,7 +927,7 @@ impl<T: Config> VestedTransfer<T::AccountId> for Pallet<T>
 where
 	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
 {
-	type Currency = T::Currency;
+	type Currency = T::OldCurrency;
 	type Moment = BlockNumberFor<T>;
 
 	fn vested_transfer(

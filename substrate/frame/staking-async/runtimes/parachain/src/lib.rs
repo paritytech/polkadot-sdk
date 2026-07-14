@@ -57,7 +57,7 @@ use frame_support::{
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, Equals, InstanceFilter, TransformOrigin, WithdrawReasons,
+		ConstantStoragePrice, Equals, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
@@ -482,8 +482,6 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v5::Location>
 
 parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Runtime {
@@ -491,10 +489,11 @@ impl pallet_vesting::Config for Runtime {
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MinVestedTransfer = MinVestedTransfer;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 }
 
 parameter_types! {

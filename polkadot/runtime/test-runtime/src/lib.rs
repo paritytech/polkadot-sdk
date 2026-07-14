@@ -52,7 +52,7 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
-	traits::{KeyOwnerProofSystem, WithdrawReasons},
+	traits::KeyOwnerProofSystem,
 	PalletId,
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -280,8 +280,8 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
 }
 
@@ -529,17 +529,16 @@ impl claims::Config for Runtime {
 
 parameter_types! {
 	pub storage MinVestedTransfer: Balance = 100 * DOLLARS;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }

@@ -23,7 +23,7 @@ use secp_utils::*;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use crate::claims;
-use frame_support::{derive_impl, ord_parameter_types, parameter_types, traits::WithdrawReasons};
+use frame_support::{derive_impl, ord_parameter_types, parameter_types, traits::VariantCountOf};
 use pallet_balances;
 use sp_runtime::{traits::Identity, BuildStorage};
 
@@ -52,21 +52,23 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 1;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type BlockNumberToBalance = Identity;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }

@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, ConstU32, Contains, EnsureOriginWithArg, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		VariantCountOf,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -1151,17 +1151,16 @@ impl pallet_multisig::Config for Runtime {
 
 parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
-	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
-		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
 impl pallet_vesting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type BlockNumberToBalance = ConvertInto;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
-	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
