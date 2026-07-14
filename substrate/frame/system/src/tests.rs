@@ -1035,6 +1035,18 @@ fn set_code_version_3_schedules_and_applies_pending_code() {
 }
 
 #[test]
+fn is_pool_transaction_validation_works() {
+	new_test_ext().execute_with(|| {
+		// Not set by default nor by block initialization.
+		assert!(!System::is_pool_transaction_validation());
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		assert!(!System::is_pool_transaction_validation());
+		System::note_pool_transaction_validation();
+		assert!(System::is_pool_transaction_validation());
+	});
+}
+
+#[test]
 fn preinherent_digest_is_preserved() {
 	new_test_ext().execute_with(|| {
 		let data = vec![42u8; 100];

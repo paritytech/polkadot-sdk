@@ -1095,6 +1095,15 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	pub(super) type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
 
+	/// `true` only while the runtime is validating a transaction for the transaction pool, `false`
+	/// otherwise. See [`is_pool_transaction_validation`](Pallet::is_pool_transaction_validation).
+	///
+	/// It is set by `Executive::validate_transaction`. The state of the transaction validation is
+	/// always discarded, so this value is never committed to the chain.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub(super) type PoolTransactionValidation<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// `Some` if a code upgrade has been authorized.
 	#[pallet::storage]
 	#[pallet::getter(fn authorized_upgrade)]
@@ -1938,6 +1947,28 @@ impl<T: Config> Pallet<T> {
 	/// Returns the current active execution phase.
 	pub fn execution_phase() -> Option<Phase> {
 		ExecutionPhase::<T>::get()
+	}
+
+	/// Returns whether the runtime is currently validating a transaction for the
+	/// transaction pool, and not executing a block or running in any other context.
+	///
+	/// The runtime may trigger additional logic during the transaction validation in the pool,
+	/// ensuring that the transaction post inclusion execution succeeds. For example, a proof may be
+	/// validated during the transaction validation in the pool, but not validated during the
+	/// transaction dispatch and instead batched and validated at the end of the block execution.
+	pub fn is_pool_transaction_validation() -> bool {
+		PoolTransactionValidation::<T>::get()
+	}
+
+	/// Note that the runtime is validating a transaction for the transaction pool, and not
+	/// executing a block or running in any other context.
+	///
+	/// The runtime may trigger additional logic during the transaction validation in the pool,
+	/// ensuring that the transaction post inclusion execution succeeds. For example, a proof may be
+	/// validated during the transaction validation in the pool, but not validated during the
+	/// transaction dispatch and instead batched and validated at the end of the block execution.
+	pub fn note_pool_transaction_validation() {
+		PoolTransactionValidation::<T>::put(true);
 	}
 
 	/// Inform the system pallet of some additional weight that should be accounted for, in the

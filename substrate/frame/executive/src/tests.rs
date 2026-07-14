@@ -24,6 +24,7 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
+	storage::transactional::with_transaction,
 	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
@@ -152,6 +153,9 @@ mod custom {
 
 		// Inherent call is accepted for being dispatched
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
+			// Inlined test ensuring the context is correctly set.
+			assert!(!frame_system::Pallet::<T>::is_pool_transaction_validation());
+
 			match call {
 				Call::allowed_unsigned { .. } => Ok(()),
 				Call::inherent { .. } => Ok(()),
@@ -161,6 +165,9 @@ mod custom {
 
 		// Inherent call is not validated as unsigned
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			// Inlined test ensuring the context is correctly set.
+			assert!(frame_system::Pallet::<T>::is_pool_transaction_validation());
+
 			match call {
 				Call::allowed_unsigned { .. } => Ok(Default::default()),
 				_ => UnknownTransaction::NoUnsignedValidator.into(),
@@ -881,20 +888,25 @@ fn validate_unsigned() {
 		// check.
 		Executive::initialize_block(&Header::new_from_number(1));
 
+		// Discard the state changes of `validate_transaction` like a real node does, so that
+		// e.g. the pool transaction validation context does not leak into the `apply_extrinsic`
+		// calls below.
+		let validate = |xt: UncheckedXt| {
+			with_transaction(|| {
+				sp_runtime::TransactionOutcome::Rollback(Ok::<_, DispatchError>(
+					Executive::validate_transaction(
+						TransactionSource::InBlock,
+						xt,
+						Default::default(),
+					),
+				))
+			})
+			.expect("transactional error is only possible on nesting limit; qed")
+		};
+
+		assert_eq!(validate(valid.clone()), Ok(ValidTransaction::default()));
 		assert_eq!(
-			Executive::validate_transaction(
-				TransactionSource::InBlock,
-				valid.clone(),
-				Default::default(),
-			),
-			Ok(ValidTransaction::default()),
-		);
-		assert_eq!(
-			Executive::validate_transaction(
-				TransactionSource::InBlock,
-				invalid.clone(),
-				Default::default(),
-			),
+			validate(invalid.clone()),
 			Err(TransactionValidityError::Unknown(UnknownTransaction::NoUnsignedValidator)),
 		);
 		assert_eq!(Executive::apply_extrinsic(valid), Ok(Err(DispatchError::BadOrigin)));
@@ -902,6 +914,45 @@ fn validate_unsigned() {
 			Executive::apply_extrinsic(invalid),
 			Err(TransactionValidityError::Unknown(UnknownTransaction::NoUnsignedValidator))
 		);
+	});
+}
+
+#[test]
+fn pool_transaction_validation_is_set_during_validate_transaction() {
+	let valid = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::allowed_unsigned {}));
+	let mut t = new_test_ext(1);
+
+	t.execute_with(|| {
+		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks`
+		// check.
+		Executive::initialize_block(&Header::new_from_number(1));
+
+		// Not validating a transaction: the context is not set.
+		assert!(!frame_system::Pallet::<Runtime>::is_pool_transaction_validation());
+
+		// `custom::Pallet::validate_unsigned` asserts that the context is set while validating.
+		let res = Executive::validate_transaction(
+			TransactionSource::InBlock,
+			valid.clone(),
+			Default::default(),
+		);
+		assert_eq!(res, Ok(ValidTransaction::default()));
+	});
+}
+
+#[test]
+fn pool_transaction_validation_is_not_set_during_transaction_execution() {
+	let valid = UncheckedXt::new_bare(RuntimeCall::Custom(custom::Call::allowed_unsigned {}));
+	let mut t = new_test_ext(1);
+
+	t.execute_with(|| {
+		// Need to initialize the block before applying extrinsics for the `MockedSystemCallbacks`
+		// check.
+		Executive::initialize_block(&Header::new_from_number(1));
+
+		// `custom::Pallet::pre_dispatch` asserts that the context is not set while executing the
+		// transaction.
+		assert_eq!(Executive::apply_extrinsic(valid), Ok(Err(DispatchError::BadOrigin)));
 	});
 }
 
