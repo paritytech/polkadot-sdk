@@ -1,0 +1,31 @@
+title: 'Implement RFC-135: compressed blob prefixes'
+doc:
+- audience: Node Dev
+  description: |-
+    Implements [RFC-135](https://polkadot-fellows.github.io/RFCs/approved/0135-compressed-blob-prefixes.html):
+    compressed blobs are now typed with dedicated compression prefixes.
+crates:
+- name: sp-maybe-compressed-blob
+  bump: major
+- name: sc-executor-common
+  bump: minor
+- name: sc-executor
+  bump: none
+- name: sc-rpc-spec-v2
+  bump: none
+- name: substrate-wasm-builder
+  bump: patch
+- name: polkadot-node-primitives
+  bump: patch
+- name: polkadot-node-core-pvf
+  bump: minor
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor
+- name: polkadot-node-core-pvf-execute-worker
+  bump: minor
+- name: polkadot-node-core-candidate-validation
+  bump: none
+- name: cumulus-client-pov-recovery
+  bump: minor
+- name: cumulus-pov-validator
+  bump: minor
