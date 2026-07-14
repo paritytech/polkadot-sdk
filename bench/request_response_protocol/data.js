@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784016210896,
+  "lastUpdate": 1784025315268,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -107459,6 +107459,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2721383688,
             "range": "± 38057414",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43c4371ad4f3f3fd305e667664f0009e147a6b18",
+          "message": "SyncEvent: Add peer roles (#12598)\n\nThis adds peer roles to `SyncEvent::PeerConnected`. This allows\nprotocols that want to follow the sync peersets to directly filter by\nlight-clients/full-nodes. Not currently in use, but will be used by\nbitswap client refactoring.",
+          "timestamp": "2026-07-14T09:07:09Z",
+          "tree_id": "41a041eb8f9561261a2aa82eb12cfa82bca083ce",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/43c4371ad4f3f3fd305e667664f0009e147a6b18"
+        },
+        "date": 1784025285542,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19764652,
+            "range": "± 231107",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20265218,
+            "range": "± 229865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21696603,
+            "range": "± 177229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26391527,
+            "range": "± 212168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61764900,
+            "range": "± 819163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 405498603,
+            "range": "± 7736789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2728042425,
+            "range": "± 89616595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18113032,
+            "range": "± 317300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17883671,
+            "range": "± 124870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18470507,
+            "range": "± 258857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23773271,
+            "range": "± 228581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66095040,
+            "range": "± 1153892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 386754550,
+            "range": "± 5064491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2779702978,
+            "range": "± 53266594",
             "unit": "ns/iter"
           }
         ]
