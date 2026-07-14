@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783984807189,
+  "lastUpdate": 1784017289216,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "31f8f8d08d0d0b2eae6d9cc96f8076bd4fbe63e3",
-          "message": "Cumulus: fix pre-connect to backers for lonely collators (#10305)\n\nWhen running a single collator (most commonly on testnets), the block\nbuilder task is always able to claim a slot, so we're never triggering\nthe pre-connect mechanism which happens for slots owned by other\nauthors.\nAdditionally I fixed some tests.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-14T15:33:07Z",
-          "tree_id": "47c76b90391c799b1c863abfaa20bf50b9d35893",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/31f8f8d08d0d0b2eae6d9cc96f8076bd4fbe63e3"
-        },
-        "date": 1763138514755,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008782187399999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005109111069999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026731566499999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009483262009999978,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "470d1ad2a82c95c28c825412cb636aed4f54b83e",
+          "message": "cumulus: resubmission store (#12091)\n\nCloses #12034.\n\nAdds `cumulus-client-resubmission-store` which records what a collator\nneeds to resubmit a collation for an unincluded parablock.\n\n  For each imported parablock, keyed by its block hash, it persists:\n\n  - the block's storage proof\n  - the capture time (time_ms)\n  - the relay-parent session\n  - the core it was submitted on (resolved index + selector)\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-07-14T06:33:55Z",
+          "tree_id": "885fcf7976e9d9b5868b8d69621ef15e737ce1d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/470d1ad2a82c95c28c825412cb636aed4f54b83e"
+        },
+        "date": 1784017258919,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011714444119999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025737685200000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009606107999999986,
             "unit": "seconds"
           }
         ]
