@@ -314,7 +314,12 @@ pub fn initialize_block(
 ) -> Digest {
 	let digest = make_digest(0, slot, pair);
 	System::reset_events();
-	System::initialize(&number, &parent_hash, &digest);
+	System::initialize(
+		&number,
+		&parent_hash,
+		&digest,
+		frame_system::ExecutionContext::BlockExecution,
+	);
 	Sassafras::on_initialize(number);
 	digest
 }
@@ -332,7 +337,12 @@ pub fn go_to_block(number: u64, slot: Slot, pair: &AuthorityPair) -> Digest {
 	let digest = make_digest(0, slot, pair);
 
 	System::reset_events();
-	System::initialize(&number, &parent_hash, &digest);
+	System::initialize(
+		&number,
+		&parent_hash,
+		&digest,
+		frame_system::ExecutionContext::BlockExecution,
+	);
 	Sassafras::on_initialize(number);
 
 	digest

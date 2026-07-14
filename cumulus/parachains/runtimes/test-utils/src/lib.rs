@@ -300,6 +300,7 @@ where
 				&next_block_number,
 				&header.hash(),
 				&pre_digest,
+				frame_system::ExecutionContext::BlockExecution,
 			);
 			AllPalletsWithoutSystem::on_initialize(next_block_number);
 			last_header = Some(header);
@@ -327,6 +328,7 @@ where
 				&next_block_number,
 				&header.hash(),
 				&pre_digest,
+				frame_system::ExecutionContext::BlockExecution,
 			);
 			AllPalletsWithoutSystem::on_initialize(next_block_number);
 

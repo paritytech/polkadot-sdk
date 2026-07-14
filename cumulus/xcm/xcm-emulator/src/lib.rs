@@ -51,7 +51,7 @@ pub use frame_support::{
 };
 pub use frame_system::{
 	limits::BlockWeights as BlockWeightsLimits, pallet_prelude::BlockNumberFor,
-	Config as SystemConfig, Pallet as SystemPallet,
+	Config as SystemConfig, ExecutionContext, Pallet as SystemPallet,
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
@@ -767,7 +767,7 @@ macro_rules! decl_test_parachains {
 						// Pre-runtime digest comes from the configured `BlockProducer`
 						// (Aura by default; Nimbus and friends can plug in).
 						let digest = <<Self as Parachain>::BlockProducer as BlockProducer>::pre_runtime_digest(relay_block_number);
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest, $crate::ExecutionContext::BlockExecution);
 
 						// Process `on_initialize` for all pallets except `System`.
 					// This must run BEFORE timestamp::set because pallet_aura's OnTimestampSet implementation

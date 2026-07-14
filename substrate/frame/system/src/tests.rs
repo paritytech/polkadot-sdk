@@ -61,7 +61,12 @@ fn origin_works() {
 #[test]
 fn unique_datum_works() {
 	new_test_ext().execute_with(|| {
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		assert!(sp_io::storage::exists(well_known_keys::INTRABLOCK_ENTROPY));
 
 		let h1 = unique(b"");
@@ -233,7 +238,12 @@ fn provider_required_to_support_consumer() {
 fn deposit_event_should_work() {
 	new_test_ext().execute_with(|| {
 		System::reset_events();
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::note_finished_extrinsics();
 		System::deposit_event(SysEvent::CodeUpdated { hash: Default::default() });
 		System::finalize();
@@ -251,7 +261,12 @@ fn deposit_event_should_work() {
 			.base_extrinsic;
 
 		System::reset_events();
-		System::initialize(&2, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&2,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::deposit_event(SysEvent::NewAccount { account: 32 });
 		System::note_finished_initialize();
 		System::deposit_event(SysEvent::KilledAccount { account: 42 });
@@ -310,7 +325,12 @@ fn deposit_event_should_work() {
 fn deposit_event_uses_actual_weight_and_pays_fee() {
 	new_test_ext().execute_with(|| {
 		System::reset_events();
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::note_finished_initialize();
 
 		let normal_base = <Test as crate::Config>::BlockWeights::get()
@@ -538,7 +558,12 @@ fn deposit_event_topics() {
 		const BLOCK_NUMBER: u64 = 1;
 
 		System::reset_events();
-		System::initialize(&BLOCK_NUMBER, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&BLOCK_NUMBER,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::note_finished_extrinsics();
 
 		let topics = vec![H256::repeat_byte(1), H256::repeat_byte(2), H256::repeat_byte(3)];
@@ -597,7 +622,12 @@ fn prunes_block_hash_mappings() {
 		// simulate import of 15 blocks
 		for n in 1..=15 {
 			System::reset_events();
-			System::initialize(&n, &[n as u8 - 1; 32].into(), &Default::default());
+			System::initialize(
+				&n,
+				&[n as u8 - 1; 32].into(),
+				&Default::default(),
+				ExecutionContext::BlockExecution,
+			);
 
 			System::finalize();
 		}
@@ -798,7 +828,12 @@ fn events_not_emitted_during_genesis() {
 fn extrinsics_root_is_calculated_correctly() {
 	new_test_ext().execute_with(|| {
 		System::reset_events();
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::note_finished_initialize();
 		System::note_extrinsic(vec![1]);
 		System::note_applied_extrinsic(&Ok(().into()), Default::default());
@@ -819,7 +854,12 @@ fn extrinsics_root_is_calculated_correctly() {
 fn runtime_updated_digest_emitted_when_heap_pages_changed() {
 	new_test_ext().execute_with(|| {
 		System::reset_events();
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::set_heap_pages(RawOrigin::Root.into(), 5).unwrap();
 		assert_runtime_updated_digest(1);
 	});
@@ -973,11 +1013,21 @@ fn reclaim_works() {
 fn initialize_block_number_must_be_sequential() {
 	new_test_ext().execute_with(|| {
 		// Initialize block 1
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 		System::finalize();
 
 		// Try to initialize block 3, skipping block 2 - this should panic
-		System::initialize(&3, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&3,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 	});
 }
 
@@ -1040,7 +1090,7 @@ fn preinherent_digest_is_preserved() {
 		let data = vec![42u8; 100];
 		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
 
-		System::initialize(&1, &[0u8; 32].into(), &digest);
+		System::initialize(&1, &[0u8; 32].into(), &digest, ExecutionContext::BlockExecution);
 
 		let stored_digest = <crate::Digest<Test>>::get();
 		assert_eq!(stored_digest.logs.len(), 1);
@@ -1070,7 +1120,7 @@ fn block_size_includes_digest_and_header_overhead() {
 		let data = vec![42u8; 100];
 		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
 
-		System::initialize(&1, &[0u8; 32].into(), &digest);
+		System::initialize(&1, &[0u8; 32].into(), &digest, ExecutionContext::BlockExecution);
 
 		let block_size = System::block_size();
 
@@ -1094,7 +1144,12 @@ fn block_size_includes_digest_and_header_overhead() {
 #[test]
 fn deposit_log_updates_block_size() {
 	new_test_ext().execute_with(|| {
-		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::initialize(
+			&1,
+			&[0u8; 32].into(),
+			&Default::default(),
+			ExecutionContext::BlockExecution,
+		);
 
 		let initial_len = System::block_size();
 
@@ -1117,6 +1172,6 @@ fn inherent_digest_exceeding_max_header_size_panics() {
 		let large_data = vec![42u8; max_header_size as usize + 10];
 		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] };
 
-		System::initialize(&1, &[0u8; 32].into(), &digest);
+		System::initialize(&1, &[0u8; 32].into(), &digest, ExecutionContext::BlockExecution);
 	});
 }

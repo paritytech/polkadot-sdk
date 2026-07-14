@@ -34,7 +34,12 @@ use crate::mock::*;
 
 fn init_block(block: u64, maybe_parent_hash: Option<H256>) {
 	let parent_hash = maybe_parent_hash.unwrap_or(H256::repeat_byte(block as u8));
-	System::initialize(&block, &parent_hash, &Default::default());
+	System::initialize(
+		&block,
+		&parent_hash,
+		&Default::default(),
+		frame_system::ExecutionContext::BlockExecution,
+	);
 	Session::on_initialize(block);
 	Mmr::on_initialize(block);
 }

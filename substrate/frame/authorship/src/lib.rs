@@ -200,7 +200,12 @@ mod tests {
 
 			header.digest_mut().pop(); // pop the seal off.
 			System::reset_events();
-			System::initialize(&1, &Default::default(), header.digest());
+			System::initialize(
+				&1,
+				&Default::default(),
+				header.digest(),
+				frame_system::ExecutionContext::BlockExecution,
+			);
 
 			assert_eq!(Authorship::author(), Some(author));
 			Authorship::do_try_state().unwrap();

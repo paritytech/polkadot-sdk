@@ -396,7 +396,12 @@ impl BlockTests {
 			// begin initialization
 			let parent_hash = BlakeTwo256::hash(&parent_head_data.0);
 			System::reset_events();
-			System::initialize(n, &parent_hash, &Default::default());
+			System::initialize(
+				n,
+				&parent_hash,
+				&Default::default(),
+				frame_system::ExecutionContext::BlockExecution,
+			);
 
 			// now mess with the storage the way validate_block does
 			let mut sproof_builder = RelayStateSproofBuilder::default();

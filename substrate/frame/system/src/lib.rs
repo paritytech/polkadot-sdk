@@ -1099,11 +1099,11 @@ pub mod pallet {
 	/// executing a block or validating a transaction for the transaction pool. See
 	/// [`ExecutionContext`](crate::ExecutionContext).
 	///
-	/// It is set by the executive at the start of each entry point and is transient (killed in
+	/// It is set in [`initialize`](Pallet::initialize) and is transient (killed in
 	/// [`finalize`](Pallet::finalize)).
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(super) type ExecutionContext<T: Config> = StorageValue<_, super::ExecutionContext>;
+	pub(super) type CurrentExecutionContext<T: Config> = StorageValue<_, ExecutionContext>;
 
 	/// `Some` if a code upgrade has been authorized.
 	#[pallet::storage]
@@ -1218,19 +1218,37 @@ impl Default for Phase {
 /// tracks *why* the runtime is being executed: as part of authoring or importing a block, or as
 /// part of validating a transaction for the transaction pool.
 ///
-/// The context is only set on entry points that establish it (block execution/construction and
-/// transaction validation). When it has not been set — e.g. during an offchain worker or a runtime
-/// API that does not initialize a block — [`execution_context`](Pallet::execution_context) returns
-/// `None`. Consumers should decide explicitly how to treat an unknown context rather than assuming
-/// a particular state.
+/// The context is set in [`initialize`](Pallet::initialize) by the entry point that establishes
+/// it. When it has not been set — e.g. during an offchain worker or a runtime API that does not
+/// initialize a block — [`execution_context`](Pallet::execution_context) returns `None`. Consumers
+/// should decide explicitly how to treat an unknown context rather than assuming a particular
+/// state.
+///
+/// # Warning
+///
+/// A block is authored through the `Core_initialize_block` and `BlockBuilder_apply_extrinsic`
+/// runtime APIs, which run under [`Unspecified`](Self::Unspecified), while the resulting block is
+/// then imported under [`BlockExecution`](Self::BlockExecution). State-visible logic must
+/// therefore never behave differently between these two contexts (or `None`), otherwise authored
+/// blocks would fail to re-execute. Only
+/// [`TransactionValidation`](Self::TransactionValidation) — whose state changes are always
+/// discarded — can safely alter behavior.
 #[derive(Encode, Decode, Debug, Copy, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize))]
 pub enum ExecutionContext {
-	/// The runtime is executing a block, either while authoring it (block construction) or while
-	/// importing/re-executing it (block execution).
+	/// The runtime was entered through an entry point that does not convey why the runtime is
+	/// being executed.
 	///
-	/// Block construction is intentionally treated the same as block execution so that the state
-	/// transition function is identical in both cases.
+	/// This is e.g. the case for the `Core_initialize_block` runtime API, which the node uses
+	/// both to author a new block and to set up the state to service arbitrary runtime API
+	/// calls.
+	Unspecified,
+	/// The runtime is executing a block as a whole, e.g. while importing or re-executing an
+	/// existing block.
+	///
+	/// Note that block authoring does not run under this context: from inside the runtime it
+	/// cannot be known why a block is being initialized, see
+	/// [`Unspecified`](Self::Unspecified).
 	BlockExecution,
 	/// The runtime is validating a transaction on behalf of the transaction pool.
 	///
@@ -1982,16 +2000,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns `None` when no context has been set, e.g. outside of block execution and transaction
 	/// validation (such as during an offchain worker).
 	pub fn execution_context() -> Option<ExecutionContext> {
-		pallet::ExecutionContext::<T>::get()
-	}
-
-	/// Set the [`ExecutionContext`] the runtime is currently being executed in.
-	///
-	/// This is meant to be called by the executive at the start of each entry point to record
-	/// why the runtime is being executed. Pallets should treat the context as read-only via
-	/// [`execution_context`](Self::execution_context) and never call this.
-	pub fn set_execution_context(context: ExecutionContext) {
-		pallet::ExecutionContext::<T>::put(context);
+		CurrentExecutionContext::<T>::get()
 	}
 
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
@@ -2017,19 +2026,24 @@ impl<T: Config> Pallet<T> {
 
 	/// Start the execution of a particular block.
 	///
+	/// `context` records why the runtime is being executed (see [`ExecutionContext`]).
+	///
 	/// # Panics
 	///
 	/// Panics when the given `number` is not `Self::block_number() + 1`. If you are using this in
 	/// tests, you can use [`Self::set_block_number`] to make the check succeed.
-	pub fn initialize(number: &BlockNumberFor<T>, parent_hash: &T::Hash, digest: &generic::Digest) {
+	pub fn initialize(
+		number: &BlockNumberFor<T>,
+		parent_hash: &T::Hash,
+		digest: &generic::Digest,
+		context: ExecutionContext,
+	) {
 		let expected_block_number = Self::block_number() + One::one();
 		assert_eq!(expected_block_number, *number, "Block number must be strictly increasing.");
 
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);
-		// Mark that we are executing a block. The executive overrides this with
-		// `ExecutionContext::TransactionValidation` when validating a transaction for the pool.
-		pallet::ExecutionContext::<T>::put(ExecutionContext::BlockExecution);
+		CurrentExecutionContext::<T>::put(context);
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &0u32);
 		Self::initialize_intra_block_entropy(parent_hash);
 		<Number<T>>::put(number);
@@ -2129,7 +2143,7 @@ impl<T: Config> Pallet<T> {
 	pub fn finalize() -> HeaderFor<T> {
 		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
-		pallet::ExecutionContext::<T>::kill();
+		CurrentExecutionContext::<T>::kill();
 		BlockSize::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
 		InherentsApplied::<T>::kill();

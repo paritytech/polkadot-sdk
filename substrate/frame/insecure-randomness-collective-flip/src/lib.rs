@@ -207,7 +207,12 @@ mod tests {
 
 		for i in 1..(blocks + 1) {
 			System::reset_events();
-			System::initialize(&i, &parent_hash, &Default::default());
+			System::initialize(
+				&i,
+				&parent_hash,
+				&Default::default(),
+				frame_system::ExecutionContext::BlockExecution,
+			);
 			CollectiveFlip::on_initialize(i);
 
 			let header = System::finalize();

@@ -43,7 +43,12 @@ fn new_block() -> Weight {
 	LeafDataTestValue::mutate(|r| r.a = number);
 
 	frame_system::Pallet::<Test>::reset_events();
-	frame_system::Pallet::<Test>::initialize(&number, &hash, &Default::default());
+	frame_system::Pallet::<Test>::initialize(
+		&number,
+		&hash,
+		&Default::default(),
+		frame_system::ExecutionContext::BlockExecution,
+	);
 	MMR::on_initialize(number)
 }
 

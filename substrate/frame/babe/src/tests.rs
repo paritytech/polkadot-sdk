@@ -76,7 +76,12 @@ fn first_block_epoch_zero_start() {
 
 		assert_eq!(GenesisSlot::<Test>::get(), Slot::from(0));
 		System::reset_events();
-		System::initialize(&1, &Default::default(), &pre_digest);
+		System::initialize(
+			&1,
+			&Default::default(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		// see implementation of the function for details why: we issue an
 		// epoch-change digest but don't do it via the normal session mechanism.
@@ -121,7 +126,12 @@ fn current_slot_is_processed_on_initialization() {
 		let pre_digest = make_primary_pre_digest(0, genesis_slot, vrf_signature);
 
 		System::reset_events();
-		System::initialize(&1, &Default::default(), &pre_digest);
+		System::initialize(
+			&1,
+			&Default::default(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		assert_eq!(CurrentSlot::<Test>::get(), Slot::from(0));
 		assert!(Initialized::<Test>::get().is_none());
 
@@ -149,7 +159,12 @@ where
 		let pre_digest = make_pre_digest(0, genesis_slot, vrf_signature);
 
 		System::reset_events();
-		System::initialize(&1, &Default::default(), &pre_digest);
+		System::initialize(
+			&1,
+			&Default::default(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		// author vrf randomness is not updated on initialization
 		Babe::initialize(1);
@@ -183,7 +198,12 @@ fn no_author_vrf_output_for_secondary_plain() {
 		let secondary_plain_pre_digest = make_secondary_plain_pre_digest(0, genesis_slot);
 
 		System::reset_events();
-		System::initialize(&1, &Default::default(), &secondary_plain_pre_digest);
+		System::initialize(
+			&1,
+			&Default::default(),
+			&secondary_plain_pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		assert_eq!(AuthorVrfRandomness::<Test>::get(), None);
 
 		Babe::initialize(1);

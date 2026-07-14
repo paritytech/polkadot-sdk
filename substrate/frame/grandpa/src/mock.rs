@@ -291,7 +291,12 @@ pub fn start_session(session_index: SessionIndex) {
 		};
 
 		System::reset_events();
-		System::initialize(&(i as u64 + 1), &parent_hash, &Default::default());
+		System::initialize(
+			&(i as u64 + 1),
+			&parent_hash,
+			&Default::default(),
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		System::set_block_number((i + 1).into());
 		Timestamp::set_timestamp(System::block_number() * 6000);
 
@@ -311,7 +316,12 @@ pub fn start_era(era_index: EraIndex) {
 
 pub fn initialize_block(number: u64, parent_hash: H256) {
 	System::reset_events();
-	System::initialize(&number, &parent_hash, &Default::default());
+	System::initialize(
+		&number,
+		&parent_hash,
+		&Default::default(),
+		frame_system::ExecutionContext::BlockExecution,
+	);
 }
 
 pub fn generate_equivocation_proof(

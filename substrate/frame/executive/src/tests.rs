@@ -1127,7 +1127,12 @@ fn offchain_worker_works_as_expected() {
 		let parent_hash = sp_core::H256::from([69u8; 32]);
 
 		// Emulate block production before running the offchain worker.
-		System::initialize(&1, &parent_hash, &Digest::default());
+		System::initialize(
+			&1,
+			&parent_hash,
+			&Digest::default(),
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		System::finalize();
 
 		let mut digest = Digest::default();

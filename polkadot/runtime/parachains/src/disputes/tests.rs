@@ -103,7 +103,12 @@ pub(crate) fn run_to_block<'a>(
 		}
 
 		System::reset_events();
-		System::initialize(&(b + 1), &Default::default(), &Default::default());
+		System::initialize(
+			&(b + 1),
+			&Default::default(),
+			&Default::default(),
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		AllPalletsWithSystem::on_initialize(b + 1);
 
 		if let Some(new_session) = new_session(b + 1) {

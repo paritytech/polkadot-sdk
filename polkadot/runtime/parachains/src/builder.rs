@@ -530,7 +530,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let header = Self::header(block_number);
 
 		frame_system::Pallet::<T>::reset_events();
-		frame_system::Pallet::<T>::initialize(&header.number(), &header.hash(), header.digest());
+		frame_system::Pallet::<T>::initialize(
+			&header.number(),
+			&header.hash(),
+			header.digest(),
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		initializer::Pallet::<T>::on_initialize(*header.number());
 
 		assert_eq!(shared::CurrentSessionIndex::<T>::get(), target_session);

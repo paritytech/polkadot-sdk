@@ -50,7 +50,12 @@ fn disabled_validators_cannot_author_blocks() {
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		// let's disable the validator
 		MockDisabledValidators::disable_validator(1);
@@ -71,7 +76,12 @@ fn pallet_requires_slot_to_increase_unless_allowed() {
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		// and we should not be able to initialize the block with the same slot a second time.
 		Aura::on_initialize(1);
@@ -87,7 +97,12 @@ fn pallet_can_allow_unchanged_slot() {
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		crate::mock::AllowMultipleBlocksPerSlot::set(true);
 
@@ -106,7 +121,12 @@ fn pallet_always_rejects_decreasing_slot() {
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		crate::mock::AllowMultipleBlocksPerSlot::set(true);
 
@@ -116,7 +136,12 @@ fn pallet_always_rejects_decreasing_slot() {
 		let earlier_slot = Slot::from(1);
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, earlier_slot.encode())] };
-		System::initialize(&2, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&2,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		Aura::on_initialize(2);
 	});
 }
@@ -129,7 +154,12 @@ fn try_state_validates_timestamp_slot_consistency() {
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 
 		Aura::on_initialize(1);
 
@@ -176,7 +206,12 @@ fn increase_slot_duration() {
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		Aura::on_initialize(1);
 
 		assert_eq!(pallet::CurrentSlot::<Test>::get(), slot);
@@ -204,7 +239,12 @@ fn decrease_slot_duration() {
 		let pre_digest =
 			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
 		System::reset_events();
-		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		System::initialize(
+			&1,
+			&System::parent_hash(),
+			&pre_digest,
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		Aura::on_initialize(1);
 
 		assert_eq!(pallet::CurrentSlot::<Test>::get(), slot);

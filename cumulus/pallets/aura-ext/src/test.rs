@@ -441,6 +441,7 @@ fn block_executor_does_not_influence_proof_size_recordings() {
 			&header.number,
 			&header.parent_hash,
 			&header.digest(),
+			frame_system::ExecutionContext::BlockExecution,
 		);
 
 		// We omit `parachain-system` as it is not important here.

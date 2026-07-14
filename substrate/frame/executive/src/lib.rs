@@ -340,7 +340,10 @@ where
 			select,
 		);
 
-		let mode = Self::initialize_block(block.header());
+		let mode = Self::initialize_block_with_context(
+			block.header(),
+			frame_system::ExecutionContext::BlockExecution,
+		);
 		Self::initial_checks(block.header());
 
 		// Apply extrinsics:
@@ -593,13 +596,25 @@ where
 	}
 
 	/// Start the execution of a particular block.
+	///
+	/// This is the `Core_initialize_block` runtime API entry point. The node calls it both to
+	/// author a new block and to set up the state to service arbitrary runtime API calls, so the
+	/// execution context is set to [`frame_system::ExecutionContext::Unspecified`].
 	pub fn initialize_block(
 		header: &frame_system::pallet_prelude::HeaderFor<System>,
+	) -> ExtrinsicInclusionMode {
+		Self::initialize_block_with_context(header, frame_system::ExecutionContext::Unspecified)
+	}
+
+	/// Start the execution of a particular block within the given execution `context`.
+	fn initialize_block_with_context(
+		header: &frame_system::pallet_prelude::HeaderFor<System>,
+		context: frame_system::ExecutionContext,
 	) -> ExtrinsicInclusionMode {
 		sp_io::init_tracing();
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "init_block");
 		let digests = Self::extract_pre_digest(header);
-		Self::initialize_block_impl(header.number(), header.parent_hash(), &digests);
+		Self::initialize_block_impl(header.number(), header.parent_hash(), &digests, context);
 
 		Self::extrinsic_mode()
 	}
@@ -626,6 +641,7 @@ where
 		block_number: &BlockNumberFor<System>,
 		parent_hash: &System::Hash,
 		digest: &Digest,
+		context: frame_system::ExecutionContext,
 	) {
 		// Reset events before apply runtime upgrade hook.
 		// This is required to preserve events from runtime upgrade hook.
@@ -642,7 +658,7 @@ where
 				),
 			);
 		}
-		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest);
+		<frame_system::Pallet<System>>::initialize(block_number, parent_hash, digest, context);
 
 		weight = System::BlockWeights::get().base_block.saturating_add(weight);
 		// Register the base block weight and optional `on_runtime_upgrade` weight.
@@ -692,7 +708,10 @@ where
 		sp_tracing::within_span! {
 			sp_tracing::info_span!("execute_block", ?block);
 			// Execute `on_runtime_upgrade` and `on_initialize`.
-			let mode = Self::initialize_block(block.header());
+			let mode = Self::initialize_block_with_context(
+				block.header(),
+				frame_system::ExecutionContext::BlockExecution,
+			);
 			Self::initial_checks(block.header());
 
 			let extrinsics = block.extrinsics();
@@ -961,10 +980,6 @@ where
 			&(frame_system::Pallet::<System>::block_number() + One::one()),
 			&block_hash,
 			&Default::default(),
-		);
-		// We are validating a transaction for the transaction pool, not executing a block. Override
-		// the context that `initialize` defaulted to `BlockExecution`.
-		<frame_system::Pallet<System>>::set_execution_context(
 			frame_system::ExecutionContext::TransactionValidation,
 		);
 
