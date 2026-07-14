@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783984693249,
+  "lastUpdate": 1784017173439,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ccdbc9e0007f0c872897743334faf9317db9d9f7",
-          "message": "Skip building on blocks on relay parents in old session (#9990)\n\nFixes: #9977\n\nOn our Kusama Canary chain YAP-3392 has the log entry:\n```\nCollation wasn't advertised because it was built on a relay chain block that is now part of an old session\n``` \n[show up 400+ times (2025-10-03 --\n2025-10-10)](https://grafana.teleport.parity.io/goto/spoPcDeHR?orgId=1).\n\n# Changes\nChanged `offset_relay_parent_find_descendants` to return `None` if the\n`relay_best_hash` or any of its ancestors contains an epoch change.\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-17T15:28:31Z",
-          "tree_id": "2101283c239e9e3d4c3bcabbef6a90f9a88d4d49",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ccdbc9e0007f0c872897743334faf9317db9d9f7"
-        },
-        "date": 1763397576516,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02295651275333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007331422166666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013251902806666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16192973049333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14583281174,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "470d1ad2a82c95c28c825412cb636aed4f54b83e",
+          "message": "cumulus: resubmission store (#12091)\n\nCloses #12034.\n\nAdds `cumulus-client-resubmission-store` which records what a collator\nneeds to resubmit a collation for an unincluded parablock.\n\n  For each imported parablock, keyed by its block hash, it persists:\n\n  - the block's storage proof\n  - the capture time (time_ms)\n  - the relay-parent session\n  - the core it was submitted on (resolved index + selector)\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>",
+          "timestamp": "2026-07-14T06:33:55Z",
+          "tree_id": "885fcf7976e9d9b5868b8d69621ef15e737ce1d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/470d1ad2a82c95c28c825412cb636aed4f54b83e"
+        },
+        "date": 1784017143566,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1445104816866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009982986026666635,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02389933048666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076115921,
             "unit": "seconds"
           }
         ]
