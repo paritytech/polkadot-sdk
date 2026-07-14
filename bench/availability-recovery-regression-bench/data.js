@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784052429409,
+  "lastUpdate": 1784070196288,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "311c3c1bc6bf7546c6ea3dd7652cca504e1c28f5",
-          "message": "Fix the `CodeNotFound` issue in PolkaVM tests (#10298)\n\n# Description\n\nThis PR bumps the commit hash of the revive-differential-tests framework\nto a version that contains a fix for the `CodeNotFound` issue we've been\nseeing with PolkaVM. The framework now uploads the code of all the\ncontracts prior to running the tests.\n\nWhen CI runs for this PR we should observe that there's either no more\n`CodeNotFound` errors in PolkaVM tests or that it's greatly reduced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T12:35:07Z",
-          "tree_id": "5266370c91dda348440626ff3678fdd815ee85a0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/311c3c1bc6bf7546c6ea3dd7652cca504e1c28f5"
-        },
-        "date": 1763473242581,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.311664228100001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19771906523333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13645592343333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f0d49627d02c0d304b2525cc49842e514dfa7ab9",
+          "message": "Introduce StorageChainBlockImport (#12242)\n\nStorage chains rely on Renew extrinsics to keep indexed transaction\npayloads alive past their original retention window. A node that\ntip-syncs past a Renew without ever having executed the original store\nends up with an empty TRANSACTION column locally, and apply_index_ops\nfails. This PR adds StorageChainBlockImport, a block-import wrapper that\nintercepts this case during tip-sync, fetches the missing bytes over\nbitswap, and hands them to the backend through the\nPrefetchedIndexedTransactions carrier introduced in #12086.\n\n\nGap-sync (the same problem after warp-sync) is wired up but stays\ndisabled in production — the sync layer doesn't yet fetch bodies inside\nthe pruning window. The dispatch and its tests are already in place\nbehind the existing origin filter, so flipping the gate is a one-line\nchange once the sync-layer work lands.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-14T21:19:15Z",
+          "tree_id": "a0bd3e86a87439820bc525d1730f53eb290df6a5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f0d49627d02c0d304b2525cc49842e514dfa7ab9"
+        },
+        "date": 1784070167033,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13953375339999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.346767583933334,
             "unit": "seconds"
           }
         ]
