@@ -103,7 +103,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: paritytech
+            owner: EgorPopelyaev
             repositories: polkadot-sdk
 
       - name: Download runtimes artifacts
@@ -162,7 +162,7 @@ jobs:
             echo $(( 10#$t * 1000 + 10#$n ))
           }
           target_key=$(release_key "${REF2%-rc*}")
-          export REF1=$(gh api --paginate repos/paritytech/polkadot-sdk/releases --jq '.[].tag_name' \
+          export REF1=$(gh api --paginate repos/EgorPopelyaev/polkadot-sdk/releases --jq '.[].tag_name' \
             | { grep -E '^polkadot-stable[0-9]{4}(-[0-9]+)?$' || true; } \
             | while read -r tag; do
                 key=$(release_key "$tag")
@@ -219,7 +219,7 @@ jobs:
           fi
 
           gh release create ${{ env.REL_TAG }} \
-            --repo paritytech/polkadot-sdk \
+            --repo EgorPopelyaev/polkadot-sdk \
             --draft \
             --title "Polkadot ${{ env.REL_TAG }}" \
             --notes-file "$NOTES_FILE"
@@ -227,7 +227,7 @@ jobs:
           # Attach the complete changelog and its machine-readable form as
           # release assets; the release body only carries a condensed version.
           gh release upload ${{ env.REL_TAG }} \
-            --repo paritytech/polkadot-sdk \
+            --repo EgorPopelyaev/polkadot-sdk \
             "${{ github.workspace }}/scripts/release/CHANGELOG.md" \
             "${{ github.workspace }}/scripts/release/changelog.json"
 
@@ -253,7 +253,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: paritytech
+            owner: EgorPopelyaev
             repositories: polkadot-sdk
 
       - name: Download runtimes
@@ -285,7 +285,7 @@ jobs:
           mv "${{ env.ASSET }}" "$VERSIONED_ASSET"
 
           gh release upload "$VALIDATED_RELEASE_TAG" \
-            --repo paritytech/polkadot-sdk "$VERSIONED_ASSET"
+            --repo EgorPopelyaev/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
     if: ${{ inputs.crates_only == false }}
@@ -332,7 +332,7 @@ jobs:
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
-            owner: paritytech
+            owner: EgorPopelyaev
             repositories: polkadot-sdk
 
       - name: Upload ${{ matrix.binary }} binary to release draft
@@ -345,13 +345,13 @@ jobs:
         run: |
           if [[ "$TARGET" == "aarch64-apple-darwin" ]]; then
             gh release upload "$VALIDATED_RELEASE_TAG" \
-              --repo paritytech/polkadot-sdk \
+              --repo EgorPopelyaev/polkadot-sdk \
               "${BINARY}-aarch64-apple-darwin" \
               "${BINARY}-aarch64-apple-darwin.asc" \
               "${BINARY}-aarch64-apple-darwin.sha256"
           else
             gh release upload "$VALIDATED_RELEASE_TAG" \
-              --repo paritytech/polkadot-sdk \
+              --repo EgorPopelyaev/polkadot-sdk \
               "$BINARY" \
               "${BINARY}.asc" \
               "${BINARY}.sha256"
