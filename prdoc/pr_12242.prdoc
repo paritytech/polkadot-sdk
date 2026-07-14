@@ -16,10 +16,12 @@ doc:
     \ change once the sync-layer work lands."
 crates:
 - name: sc-storage-chain-sync
-  bump: major
+  bump: minor
 - name: polkadot-omni-node-lib
   bump: minor
 - name: sc-network
   bump: minor
 - name: sp-transaction-storage-proof
+  bump: minor
+- name: polkadot-sdk
   bump: minor
