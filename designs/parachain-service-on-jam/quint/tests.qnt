@@ -431,6 +431,60 @@ module tests {
     }
   }
 
+  // --- Insufficient state balance ----------------------------------------
+
+  /// A parachain at its state-balance cap has its next `Solicit` rejected:
+  /// - Coretime registers para 6 with `totalStateBalance = BaselineFootprint
+  ///   + preimageFootprint(FixedCodeLen)` — headroom for exactly the
+  ///   validation-code preimage and nothing else.
+  /// - Coretime sets para 6's active code, consuming that headroom.
+  /// - Para 6 emits a `Solicit` upward message for a distinct preimage —
+  ///   `addReferencer` finds no headroom, appends
+  ///   `InsufficientStateBalance(FromSolicit(...))` to the parachain log, and
+  ///   leaves the registry and `usedStateBalance` unchanged.
+  run solicitRejectedAtBalanceCapTest = {
+    val para = MkParaId(6)
+    val paraCode: ValidationCodeHash = { vchBytes: 0x66 }
+    val soliciteeHash: Hash = { hashBytes: 0xDD }
+    val soliciteeLen = 500
+    val cap = BaselineFootprint + preimageFootprint(FixedCodeLen)
+    init
+      .then(applyHappyPath(CoretimeParaId, { vchBytes: 1 }, List(
+        ParachainSetStateBalance({ paraId: para, newTotal: cap }),
+        ParachainSetValidationCode({
+          paraId: para,
+          newValidationCodeHash: paraCode,
+          newValidationCodeLen: FixedCodeLen
+        })
+      )))
+      // After registration + set validation code: usedStateBalance is exactly at the cap.
+      .then(expectThat(all {
+        svc.paraInfo(para).usedStateBalance == cap,
+        svc.paraInfo(para).totalStateBalance == cap
+      }))
+      // Para tries to solicit a new preimage — must be rejected.
+      .then(applyHappyPath(para, paraCode, List(
+        Solicit({ hash: soliciteeHash, len: soliciteeLen })
+      )))
+      .then(expectThat(all {
+        // No referencer added for the rejected preimage.
+        not(svc.preimageRegistry.keys().contains((soliciteeHash, soliciteeLen))),
+        // usedStateBalance stayed at the cap.
+        svc.paraInfo(para).usedStateBalance == cap,
+        // Accumulate log carries InsufficientStateBalance(FromSolicit(...)) for this block.
+        svc.paraLog(para).foldl(false, (found, pair) =>
+          found or (pair._1 == now and match pair._2 {
+            | AccumulateLogEntry(evs) => evs.foldl(false, (a, e) => match e {
+              | InsufficientStateBalance(reason) => match reason {
+                | FromSolicit(p) => a or (p.hash == soliciteeHash and p.len == soliciteeLen)
+              }
+              | _ => a
+            })
+            | RefineLogEntry(_) => false
+          }))
+      }))
+  }
+
   // --- Coretime para register / operate / cleanup ------------------------
 
   /// Full Coretime lifecycle for a new para:
