@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784017173439,
+  "lastUpdate": 1784026695222,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6b2c89588ba4f45f751a17dca2a3634021608cbb",
-          "message": "Introduce `ReplayProofSizeProvider`, `RecordingProofProvider` & transactional extensions (#9930)\n\nThe `ProofSizeExt` extension is used to serve the proof size to the\nruntime. It uses the proof recorder to request the current proof size.\nThe `RecordingProofProvider` extension can record the calls to the proof\nsize function. Later the `ReplayProofSizeProvider` can be used to replay\nthese recorded proof sizes. So, the proof recorder is not required\nanymore.\n\nExtensions are now also hooked into the transactional system. This means\nthey are called when a new transaction is created and informed when a\ntransaction is committed or reverted.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-17T19:33:34Z",
-          "tree_id": "48c0d15c7f01467af20f3787ff00cd2c26dccd7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6b2c89588ba4f45f751a17dca2a3634021608cbb"
-        },
-        "date": 1763412638611,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15963309704666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007508296726666681,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022925165733333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013244857339999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0076115921,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43c4371ad4f3f3fd305e667664f0009e147a6b18",
+          "message": "SyncEvent: Add peer roles (#12598)\n\nThis adds peer roles to `SyncEvent::PeerConnected`. This allows\nprotocols that want to follow the sync peersets to directly filter by\nlight-clients/full-nodes. Not currently in use, but will be used by\nbitswap client refactoring.",
+          "timestamp": "2026-07-14T09:07:09Z",
+          "tree_id": "41a041eb8f9561261a2aa82eb12cfa82bca083ce",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/43c4371ad4f3f3fd305e667664f0009e147a6b18"
+        },
+        "date": 1784026666566,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010124949446666644,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14504293972000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076117139866666685,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02374632147333333,
             "unit": "seconds"
           }
         ]
