@@ -1,0 +1,26 @@
+title: Align bitswap RPC namespace with revised JSON-RPC spec
+doc:
+- audience: Node Dev
+  description: |-
+    Updates the `bitswap_*` JSON-RPC namespace to match the revised spec at
+    https://github.com/paritytech/json-rpc-interface-spec. Highlights:
+    - Methods move under the `unstable_` prefix: `bitswap_unstable_get`,
+      `bitswap_unstable_stream`, `bitswap_unstable_unstream` (events:
+      `bitswap_unstable_streamEvent`). `bitswap_v1_get` is kept as a transitional
+      alias of `bitswap_unstable_get`; the other `bitswap_v1_*` names are not aliased.
+    - `bitswap_v1_getMany` is removed. The use case is fully covered by the streaming
+      variant.
+    - The stream's per-event payload is now a tagged object — `streamItem` /
+      `streamItemError` / `streamDone` — instead of a `(cid, BlockResult)` tuple. The
+      `streamDone` event explicitly marks end-of-stream and is not emitted on
+      client-initiated cancellation.
+    - New top-level batch-validation error codes: `-32801 TooManyCids`,
+      `-32802 EmptyCids`, `-32803 DuplicateCids`. Empty `cids` arrays are now
+      rejected (previously accepted as no-op).
+    - Bitswap error objects no longer carry a `data.variant` debug field; the wire
+      shape is bare `{ code, message }` matching the rest of the namespace.
+crates:
+- name: sc-rpc-spec-v2
+  bump: major
+- name: sc-service
+  bump: major

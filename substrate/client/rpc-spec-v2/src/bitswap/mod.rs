@@ -18,7 +18,12 @@
 
 //! Substrate bitswap RPC API.
 //!
-//! Provides the `bitswap_v1_get` method for retrieving indexed transaction data by CID.
+//! Provides methods for retrieving indexed transaction data by CID:
+//! - `bitswap_unstable_get` — single CID, returns the chunk or a top-level error. `bitswap_v1_get`
+//!   is registered as an alias during the migration to `unstable_`.
+//! - `bitswap_unstable_stream` — subscription that emits per-CID outcomes (tagged `streamItem` /
+//!   `streamItemError`) as they are looked up, followed by a `streamDone` end-of-stream marker.
+//! - `bitswap_unstable_unstream` — cancel an active `bitswap_unstable_stream` subscription.
 
 #[cfg(test)]
 mod tests;

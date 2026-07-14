@@ -21,6 +21,9 @@ zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
+sc-rpc-spec-v2 = { workspace = true, default-features = true }
+jsonrpsee = { workspace = true, features = ["ws-client"] }
+cid = { workspace = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
 sc-network-statement = { workspace = true, default-features = true }
 sc-statement-store = { workspace = true, default-features = true, features = ["test-helpers"] }
