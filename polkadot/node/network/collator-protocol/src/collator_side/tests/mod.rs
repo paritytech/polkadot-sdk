@@ -824,9 +824,8 @@ fn v3_fetch_by_output_head_is_served() {
 					.await;
 			}
 
-			for peer_id in test_state.current_group_validator_peer_ids() {
-				expect_declare_msg(&mut virtual_overseer, &test_state, &peer_id).await;
-			}
+			// V4 collators don't send a `Declare` message: the para is carried in the
+			// segment advertisement itself.
 
 			let peer = test_state.current_group_validator_peer_ids()[0];
 
@@ -1224,12 +1223,8 @@ fn advertise_and_send_segment() {
 				connect_peer(&mut virtual_overseer, peer, CollationVersion::V4, Some(val.clone()))
 					.await;
 			}
-			// We declare to the connected validators that we are a collator.
-			// We need to catch all `Declare` messages to the validators we've
-			// previously connected to.
-			for peer_id in test_state.current_group_validator_peer_ids() {
-				expect_declare_msg(&mut virtual_overseer, &test_state, &peer_id).await;
-			}
+			// V4 collators don't send a `Declare` message: the para is carried in the
+			// segment advertisement itself.
 
 			let peer = test_state.current_group_validator_peer_ids()[0];
 
@@ -1692,7 +1687,10 @@ fn validator_reconnect_readvertises_segment(
 
 			// A validator connected to us
 			connect_peer(virtual_overseer, peer, peer_version, Some(validator_id.clone())).await;
-			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+			if peer_version != CollationVersion::V4 {
+				// V4 has no `Declare` handshake.
+				expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+			}
 
 			let distributed = distribute_segment(
 				virtual_overseer,
@@ -1737,7 +1735,10 @@ fn validator_reconnect_readvertises_segment(
 
 			// Reconnect the same validator
 			connect_peer(virtual_overseer, peer, peer_version, Some(validator_id)).await;
-			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+			if peer_version != CollationVersion::V4 {
+				// V4 has no `Declare` handshake.
+				expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+			}
 
 			// Send view change - since the advertised_to bit was reset on disconnect,
 			// the collation should be re-advertised
@@ -1766,6 +1767,97 @@ fn validator_reconnect_readvertises_segment(
 				},
 				_ => panic!("unsupported version in test"),
 			}
+
+			test_harness
+		},
+	)
+}
+
+/// A collator serving a mixed-version validator group: the V2 peer gets a `Declare`
+/// handshake and a per-candidate advertisement, the V4 peer gets no `Declare` and a
+/// segment advertisement carrying the para id. This is the steady state of a rollout
+/// network where legacy validators cap negotiation at V3 while experimental ones
+/// speak V4.
+#[test]
+fn mixed_version_peers_declare_and_advertise_per_version() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|mut test_harness| async move {
+			let virtual_overseer = &mut test_harness.virtual_overseer;
+
+			let peer_v2 = test_state.current_group_validator_peer_ids()[0];
+			let peer_v4 = test_state.current_group_validator_peer_ids()[1];
+			let validator_id_v2 = test_state.current_group_validator_authority_ids()[0].clone();
+			let validator_id_v4 = test_state.current_group_validator_authority_ids()[1].clone();
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
+				.await;
+
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				virtual_overseer,
+				vec![(test_state.scheduling_parent, 10)],
+				1,
+			)
+			.await;
+
+			// The V2 peer is greeted with a `Declare`.
+			connect_peer(virtual_overseer, peer_v2, CollationVersion::V2, Some(validator_id_v2))
+				.await;
+			expect_declare_msg(virtual_overseer, &test_state, &peer_v2).await;
+
+			// The V4 peer gets no `Declare`: its first advertisement carries the para.
+			connect_peer(virtual_overseer, peer_v4, CollationVersion::V4, Some(validator_id_v4))
+				.await;
+			assert!(
+				overseer_recv_with_timeout(virtual_overseer, TIMEOUT).await.is_none(),
+				"no message should be sent when a V4 validator connects"
+			);
+
+			let distributed = distribute_segment(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.scheduling_parent,
+				test_state.scheduling_parent,
+				CoreIndex(0),
+				1,
+			)
+			.await;
+			let candidate_hashes: Vec<_> = distributed.iter().map(|d| d.candidate.hash()).collect();
+			let output_heads: Vec<_> =
+				distributed.iter().map(|d| d.candidate.descriptor.para_head()).collect();
+
+			// The same distributed segment is advertised per-candidate to the V2 peer...
+			send_peer_view_change(virtual_overseer, &peer_v2, vec![test_state.scheduling_parent])
+				.await;
+			expect_advertise_collation_msg(
+				virtual_overseer,
+				&[peer_v2],
+				test_state.scheduling_parent,
+				candidate_hashes,
+			)
+			.await;
+
+			// ...and as a segment to the V4 peer.
+			send_peer_view_change(virtual_overseer, &peer_v4, vec![test_state.scheduling_parent])
+				.await;
+			expect_advertise_segment_msg(
+				virtual_overseer,
+				&[peer_v4],
+				test_state.scheduling_parent,
+				output_heads,
+			)
+			.await;
 
 			test_harness
 		},
@@ -2754,7 +2846,10 @@ fn no_duplicate_advertisement_on_authority_id_update(
 
 			// Connect peer with matching authority ID
 			connect_peer(virtual_overseer, peer, peer_version, Some(validator_id.clone())).await;
-			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+			if peer_version != CollationVersion::V4 {
+				// V4 has no `Declare` handshake.
+				expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+			}
 
 			// Distribute a collation
 			let distributed = distribute_segment(

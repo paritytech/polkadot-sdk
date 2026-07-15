@@ -128,6 +128,7 @@ impl<B: Backend> State<B> {
 	}
 
 	/// Handle a peer's declaration message.
+	/// V4 peers do not declare anymore.
 	pub async fn handle_declare<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
@@ -235,6 +236,8 @@ impl<B: Backend> State<B> {
 		scheduling_parent: Hash,
 		entries: Vec<ProspectiveCandidate>,
 		descriptor_version: Option<CandidateDescriptorVersion>,
+		// Some for V4 self declaring ad.
+		advertised_para_id: Option<ParaId>,
 	) {
 		gum::debug!(
 			target: LOG_TARGET,
@@ -242,6 +245,17 @@ impl<B: Backend> State<B> {
 			?peer_id,
 			"Received advertisement",
 		);
+
+		// V4 has no `Declare` message: a peer's first advertisement binds it to a para.
+		//  Until that first advertisement, a V4 peer keeps connection slots
+		// on every scheduled para — there is no eviction timer; reputation-based slot
+		// competition is the only displacement mechanism.
+		if let Some(para_id) = advertised_para_id {
+			if !self.peer_manager.declared(sender, peer_id, para_id).await {
+				self.collation_manager.remove_peer(&peer_id);
+				return;
+			}
+		}
 
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
 			gum::warn!(

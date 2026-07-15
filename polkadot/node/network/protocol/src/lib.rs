@@ -650,21 +650,12 @@ pub mod v4_collation {
 	use polkadot_node_primitives::UncheckedSignedFullStatement;
 	// Re-exported so external code can name the bound on `AdvertiseSegment::candidates`.
 	pub use polkadot_node_primitives::MAX_SEGMENT_LEN;
-	use polkadot_primitives::{
-		CandidateDescriptorVersion, CollatorId, CollatorSignature, Hash, Id as ParaId,
-	};
+	use polkadot_primitives::{CandidateDescriptorVersion, Hash, Id as ParaId};
 	use sp_runtime::{traits::ConstU32, BoundedVec};
-
-	/// This part of the protocol did not change from v2, so just alias it in v4.
-	pub use super::v2::declare_signature_payload;
 
 	/// Network messages used by the collator protocol subsystem.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub enum CollatorProtocolMessage {
-		/// Declare the intent to advertise collations under a collator ID, attaching a
-		/// signature of the `PeerId` of the node using the given collator ID key.
-		#[codec(index = 0)]
-		Declare(CollatorId, ParaId, CollatorSignature),
 		/// A collation sent to a validator was seconded.
 		#[codec(index = 4)]
 		CollationSeconded(Hash, UncheckedSignedFullStatement),
@@ -675,6 +666,8 @@ pub mod v4_collation {
 		AdvertiseSegment {
 			/// Hash of the scheduling parent
 			scheduling_parent: Hash,
+			/// The para this segment collates for.
+			para_id: ParaId,
 			/// Descriptor version for the candidate.
 			candidates_descriptor_version: CandidateDescriptorVersion,
 			/// Ordered list of candidates.
@@ -737,6 +730,7 @@ pub mod v4_collation {
 					scheduling_parent: Hash::random(),
 					candidates_descriptor_version: CandidateDescriptorVersion::V3,
 					candidates,
+					para_id: ParaId::new(1001),
 				});
 			let encoded = original.encode();
 			let decoded =
@@ -759,6 +753,7 @@ pub mod v4_collation {
 			wire.push(0x00); // CollationProtocol::CollatorProtocol variant tag
 			wire.push(0x05); // CollatorProtocolMessage::AdvertiseSegment variant tag
 			Hash::repeat_byte(0xAA).encode_to(&mut wire); // scheduling_parent
+			ParaId::from(1001).encode_to(&mut wire);
 			CandidateDescriptorVersion::V3.encode_to(&mut wire); // candidates_descriptor_version
 			fingerprints.encode_to(&mut wire); // compact length + 101 × encoded fingerprint
 

@@ -447,8 +447,7 @@ async fn process_incoming_peer_message<Sender, B>(
 	match msg {
 		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
 		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) |
-		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) |
-		CollationProtocols::V4(V4::Declare(_collator_id, para_id, _signature)) => {
+		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) => {
 			state.handle_declare(sender, origin, para_id).await;
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
@@ -462,7 +461,9 @@ async fn process_incoming_peer_message<Sender, B>(
 			);
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(sender, origin, relay_parent, vec![], None).await;
+			state
+				.handle_advertisement(sender, origin, relay_parent, vec![], None, None)
+				.await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			scheduling_parent,
@@ -476,6 +477,7 @@ async fn process_incoming_peer_message<Sender, B>(
 					origin,
 					scheduling_parent,
 					vec![ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }],
+					None,
 					None,
 				)
 				.await;
@@ -494,11 +496,13 @@ async fn process_incoming_peer_message<Sender, B>(
 					scheduling_parent,
 					vec![ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }],
 					Some(candidate_descriptor_version),
+					None,
 				)
 				.await;
 		},
 		CollationProtocols::V4(V4::AdvertiseSegment {
 			scheduling_parent,
+			para_id,
 			candidates_descriptor_version,
 			candidates,
 		}) => {
@@ -534,6 +538,7 @@ async fn process_incoming_peer_message<Sender, B>(
 					scheduling_parent,
 					entries,
 					Some(candidates_descriptor_version),
+					Some(para_id),
 				)
 				.await;
 		},

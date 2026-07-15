@@ -1709,18 +1709,52 @@ fn network_protocol_versioning_subsystem_msg() {
 			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 0);
 		}
 
-		let collator_protocol_message = v4_collation::CollatorProtocolMessage::Declare(
+		// V4 has no `Declare`, so the Declare round-trip is exercised on a V3 peer.
+		// Incoming messages are decoded according to the peer's negotiated version,
+		// so sending V3-encoded bytes from the V4 peer would fail to decode.
+		let peer_v3 = PeerId::random();
+
+		network_handle
+			.connect_peer(
+				peer_v3,
+				CollationVersion::V3.into(),
+				PeerSet::Collation,
+				ObservedRole::Full,
+			)
+			.await;
+		await_peer_connections(&shared, 0, 2).await;
+
+		{
+			assert_sends_collation_event_to_all(
+				NetworkBridgeEvent::PeerConnected(
+					peer_v3,
+					ObservedRole::Full,
+					CollationVersion::V3.into(),
+					None,
+				),
+				&mut virtual_overseer,
+			)
+			.await;
+
+			assert_sends_collation_event_to_all(
+				NetworkBridgeEvent::PeerViewChange(peer_v3, View::default()),
+				&mut virtual_overseer,
+			)
+			.await;
+		}
+
+		let collator_protocol_message = v3_collation::CollatorProtocolMessage::Declare(
 			Sr25519Keyring::Alice.public().into(),
 			Default::default(),
 			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
 
 		let msg =
-			v4_collation::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
+			v3_collation::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		network_handle
 			.peer_message(
-				peer,
+				peer_v3,
 				PeerSet::Collation,
 				WireMessage::ProtocolMessage(msg.clone()).encode(),
 			)
@@ -1730,10 +1764,10 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::CollatorProtocol(
 				CollatorProtocolMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V4(m))
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V3(m))
 				)
 			) => {
-				assert_eq!(p, peer);
+				assert_eq!(p, peer_v3);
 				assert_eq!(m, collator_protocol_message);
 			}
 		);
@@ -1743,6 +1777,7 @@ fn network_protocol_versioning_subsystem_msg() {
 
 		let advertise_segment_message = v4_collation::CollatorProtocolMessage::AdvertiseSegment {
 			scheduling_parent: Hash::random(),
+			para_id: 100.into(),
 			candidates_descriptor_version: CandidateDescriptorVersion::V3,
 			candidates: BoundedVec::<_, ConstU32<{ v4_collation::MAX_SEGMENT_LEN }>>::try_from(
 				vec![v4_collation::CandidateFingerprint {

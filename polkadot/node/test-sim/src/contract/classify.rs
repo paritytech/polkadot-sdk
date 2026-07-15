@@ -322,14 +322,12 @@ fn wire_kind_from_collation_protocol(
 			},
 		},
 		CollationProtocols::V4(V4::CollatorProtocol(msg)) => match msg {
-			protocol_v4::CollatorProtocolMessage::Declare(_, para, _) => {
-				WireMsgKind::Declare { para: *para }
-			},
 			protocol_v4::CollatorProtocolMessage::CollationSeconded(rp, _) => {
 				WireMsgKind::CollationSeconded { relay_parent: *rp }
 			},
 			protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
 				scheduling_parent,
+				para_id: _,
 				candidates_descriptor_version: _,
 				candidates,
 			} => {
