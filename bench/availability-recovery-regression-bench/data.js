@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784070196288,
+  "lastUpdate": 1784120201880,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f38750fc78969ef8c3f8411178b0c9413a15e98b",
-          "message": "Don't require PR for uploading comment for DT CI (#10347)\n\n# Description\n\nSmall PR that changes the DT CI to not require a PR for uploading the\nreport to the CI job.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T13:32:56Z",
-          "tree_id": "6ee396dc955783235bd57812e1629f1beb3594fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f38750fc78969ef8c3f8411178b0c9413a15e98b"
-        },
-        "date": 1763476701352,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3003345182,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1997001243,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.346767583933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be832f623a7c666bc399f10fc370fbc15c8b56d8",
+          "message": "Bump subxt to 0.50 (#12096)\n\nBlocked by https://github.com/paritytech/subxt/pull/2236\n\nFollow-up to #11422.\n\nBumps the workspace `subxt`, `subxt-metadata`, and `subxt-signer`\ndependencies from 0.44 to 0.50.\n\nsubxt 0.50 introduces a block-anchored client API and splits\n`subxt::Error` into per-operation sub-errors. Affected crates were\nupdated to the new API; the JSON-RPC and CLI surfaces are unchanged.",
+          "timestamp": "2026-07-15T11:13:24Z",
+          "tree_id": "d8c6ade79a81826d711534bd294d381a9ae27d92",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/be832f623a7c666bc399f10fc370fbc15c8b56d8"
+        },
+        "date": 1784120172372,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13578485696666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.892740524966664,
             "unit": "seconds"
           }
         ]
