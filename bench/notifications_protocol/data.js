@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784119260586,
+  "lastUpdate": 1784129127247,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -192767,6 +192767,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2351756028,
             "range": "± 63686820",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "muhammadtalhadar@gmail.com",
+            "name": "talha",
+            "username": "talhadaar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35000d248860886d1b2fab8c79940e3356d02a36",
+          "message": "Fix out-of-bounds chunk index error in erasure coding (#12521)\n\n# Description\n\n`reconstruct` in `polkadot-erasure-coding` allocated `received_shards`\nwith\nlength `n_validators` and then indexed it directly with the\ncaller-provided\n`chunk_idx`. Any chunk index `>= n_validators` panicked with an\nindex-out-of-bounds instead of returning the already-defined\n`Error::ChunkIndexOutOfBounds` variant.\n\nThis PR adds the missing bounds check so invalid indices are reported as\nan\nerror rather than panicking.\n\nCloses #12465\n\n## Integration\n\n`reconstruct` (and `reconstruct_v1`) now\nreturn `Err(Error::ChunkIndexOutOfBounds { chunk_index, n_validators })`\nfor an\nout-of-bounds chunk index where they previously panicked. The function\nalready\nreturns `Result<_, Error>` and the variant is already public, so there\nis no API\nor signature change — callers that propagate the `Result` need no\nmodification.\n\n## Review Notes\n\nThe fix is a single guard in the chunk-consumption loop, placed\nalongside the\nexisting `UnevenLength` check and before the indexing write:\n\n```rust\nif chunk_idx >= n_validators {\n    return Err(Error::ChunkIndexOutOfBounds { chunk_index: chunk_idx, n_validators });\n}\n\nreceived_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));\n```\n\nA regression test\n(reconstruct_returns_error_on_out_of_bounds_chunk_index)\nencodes data, then calls reconstruct with one valid index and one index\nequal\nto n_validators, asserting the ChunkIndexOutOfBounds error is returned\ninstead of panicking. The PoC from the isore]\nbecause it expected a panic; once the function returns an error a direct\nassert_eq! is sufficient, matching the exle.\n\n### Checklist\n\n- [x] My PR includes a detailed description and its two subsections\nabove.\n- [x] My PR follows the labeling requirements\n- [x] I have made corresponding changes table)\n- [x] I have added tests that prove my fix is effective\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-15T13:12:00Z",
+          "tree_id": "4fa257d84f30faf3b8d064070331c2170ba7500b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35000d248860886d1b2fab8c79940e3356d02a36"
+        },
+        "date": 1784129096726,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4577407,
+            "range": "± 56149",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 284881,
+            "range": "± 2863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4567011,
+            "range": "± 25212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 367480,
+            "range": "± 3226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5433199,
+            "range": "± 38672",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 896161,
+            "range": "± 5243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10790351,
+            "range": "± 112446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4829106,
+            "range": "± 73667",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45837849,
+            "range": "± 535988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39963617,
+            "range": "± 366696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 415503116,
+            "range": "± 2937079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 328466550,
+            "range": "± 3098758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2759729093,
+            "range": "± 8418702",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2523843309,
+            "range": "± 19865093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3155843,
+            "range": "± 21148",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1658202,
+            "range": "± 5473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3220743,
+            "range": "± 20890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1723699,
+            "range": "± 8056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3809322,
+            "range": "± 41721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2082608,
+            "range": "± 14840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7971366,
+            "range": "± 81415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5291576,
+            "range": "± 66537",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36451144,
+            "range": "± 288200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38465028,
+            "range": "± 399029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 338513288,
+            "range": "± 3841826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289290312,
+            "range": "± 3013479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2716676733,
+            "range": "± 33714628",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2617637457,
+            "range": "± 76203787",
             "unit": "ns/iter"
           }
         ]
