@@ -42,8 +42,10 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
 // Maximum time to wait for PVF preparation to conclude on a validator before
 // starting throughput measurement. PVF preparation is a one-off ~20s wasm
-// compile per validator that contends for CPU.
-const PVF_PREPARE_TIMEOUT_SECS: u64 = 180;
+// compile per validator that contends for CPU. The clock starts at the session
+// change, but the first parachain candidate (which triggers PVF preparation)
+// can be delayed by several minutes of collator warm-up, which we must account for.
+const PVF_PREPARE_TIMEOUT_SECS: u64 = 300;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
 ///
@@ -210,60 +212,42 @@ where
 		"First session change detected. Waiting for backed candidates from all tracked paras before counting."
 	);
 
-	// Skip relay chain blocks until every tracked para has had at least one backed candidate.
-	// This avoids counting the initial warm-up period where the backing pipeline (PVF
-	// compilation, first collation) hasn't reached steady state yet.
 	let mut paras_seen = std::collections::HashSet::new();
-	loop {
-		let block = blocks_sub
-			.next()
-			.await
-			.ok_or_else(|| anyhow!("Block stream ended while waiting for first candidate"))??;
-
-		if is_session_change(&block).await? {
-			continue;
-		}
-
-		let events = block.events().await?;
-		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
-			&events,
-			"ParaInclusion",
-			"CandidateBacked",
-		)?;
-
-		for receipt in &receipts {
-			let para_id = receipt.descriptor.para_id();
-			if valid_para_ids.contains(&para_id) {
-				paras_seen.insert(para_id);
-			}
-		}
-
-		if paras_seen.len() == valid_para_ids.len() {
-			log::info!(
-				"All tracked paras have produced candidates by relay block {}. Counting {stop_after} blocks from the next one.",
-				block.number()
-			);
-			break;
-		}
-	}
-
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change(&block).await? {
 			continue;
 		}
 
-		current_block_count += 1;
-
+		let events = block.events().await?;
 		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 			&events,
 			"ParaInclusion",
 			"CandidateBacked",
 		)?;
+
+		// Skip relay chain blocks until every tracked para has had at least one backed candidate.
+		// This avoids counting the initial warm-up period where the backing pipeline (PVF
+		// compilation, first collation) hasn't reached steady state yet.
+		for receipt in &receipts {
+			let para_id = receipt.descriptor.para_id();
+			if valid_para_ids.contains(&para_id) {
+				paras_seen.insert(para_id);
+			}
+		}
+		if paras_seen.len() != valid_para_ids.len() {
+			log::info!(
+				"Not all tracked paras have produced candidates by relay block {}. \
+				Not counting blocks yet.",
+				block.number()
+			);
+			continue;
+		}
+
+		current_block_count += 1;
 
 		for receipt in receipts {
 			let para_id = receipt.descriptor.para_id();
@@ -997,4 +981,32 @@ pub async fn wait_for_runtime_upgrade(
 	}
 
 	Err(anyhow!("Did not find a runtime upgrade"))
+}
+
+/// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
+/// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
+///
+/// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
+/// the on-chain state until a new client is constructed against a block executed under the
+/// upgraded runtime.
+pub async fn wait_for_pallet_in_metadata(
+	ws_url: &str,
+	pallet_name: &str,
+	timeout: Duration,
+	poll_interval: Duration,
+) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
+	let deadline = std::time::Instant::now() + timeout;
+	loop {
+		if std::time::Instant::now() >= deadline {
+			return Err(anyhow!(
+				"metadata at {ws_url} never reflected pallet `{pallet_name}` within {timeout:?}",
+			));
+		}
+		sleep(poll_interval).await;
+		let candidate = OnlineClient::<PolkadotConfig>::from_url(ws_url).await?;
+		if candidate.metadata().pallet_by_name(pallet_name).is_some() {
+			return Ok(candidate);
+		}
+		log::debug!("`{pallet_name}` not in metadata yet, retrying");
+	}
 }

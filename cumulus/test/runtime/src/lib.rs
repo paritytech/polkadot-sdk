@@ -22,63 +22,19 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod wasm_spec_version_incremented {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
-}
-
-pub mod relay_parent_offset {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
-}
-
-pub mod elastic_scaling_500ms {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
-}
-pub mod elastic_scaling_mvp {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
-}
-
-pub mod elastic_scaling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
-}
-
-pub mod elastic_scaling_12s_slot {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_12s_slot.rs"));
-}
-
-pub mod block_bundling {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_block_bundling.rs"));
-}
-
-pub mod sync_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
-}
-
-pub mod async_backing {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
-
-pub mod slot_duration_18s {
-	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
-}
-
+mod features;
+mod flavors;
 mod genesis_config_presets;
 pub mod test_pallet;
 
 extern crate alloc;
 
+use features::*;
+
 use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
+pub use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
@@ -92,7 +48,9 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{ParaId, RelayProofRequest};
+use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
+
+define_flavors!(consts wasm);
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -125,84 +83,39 @@ pub use test_pallet::{Call as TestPalletCall, TestTransactionExtension};
 
 pub type SessionHandlers = ();
 
+#[cfg(not(feature = "with-authority-discovery"))]
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
 	}
 }
 
+#[cfg(feature = "with-authority-discovery")]
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub aura: Aura,
+		pub authority_discovery: AuthorityDiscovery,
+	}
+}
+
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(any(feature = "elastic-scaling-500ms", feature = "block-bundling"))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
-
-#[cfg(all(feature = "elastic-scaling-multi-block-slot", not(feature = "elastic-scaling-500ms")))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
-
-#[cfg(all(
-	any(feature = "elastic-scaling", feature = "relay-parent-offset"),
-	not(feature = "elastic-scaling-500ms"),
-	not(feature = "elastic-scaling-multi-block-slot")
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
-
-#[cfg(not(any(
-	feature = "elastic-scaling",
-	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
-	feature = "relay-parent-offset",
-	feature = "block-bundling",
-)))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-
-#[cfg(feature = "async-backing")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-
-#[cfg(all(feature = "sync-backing", not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-
-/// We need `VELOCITY * 3`, because the block flow is the following:
-///
-/// - Collator produces the block(s) on relay chain block `X`
-/// - In the mean time the relay chain is building block `X + 1`
-/// - The collator sends the collation to the relay chain and it gets backed on chain in relay block
-///   `X + 2`
-/// - The collation then gets included on chain in relay block `X + 3`
-/// - As we are building on `RELAY_PARENT_OFFSET` old relay parents, the included block from the
-///   parachain is also `RELAY_PARENT_OFFSET` relay blocks older (one relay block may contains
-///   multiple parachain blocks).
-#[cfg(all(not(feature = "sync-backing"), not(feature = "async-backing")))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (3 + RELAY_PARENT_OFFSET);
-
-#[cfg(feature = "slot-duration-18s")]
-pub const SLOT_DURATION: u64 = 18000;
-#[cfg(all(
-	any(feature = "sync-backing", feature = "elastic-scaling-12s-slot"),
-	not(feature = "slot-duration-18s")
-))]
-pub const SLOT_DURATION: u64 = 12000;
-#[cfg(not(any(
-	feature = "sync-backing",
-	feature = "elastic-scaling-12s-slot",
-	feature = "slot-duration-18s"
-)))]
-pub const SLOT_DURATION: u64 = 6000;
-
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
-// The only difference between the two declarations below is the `spec_version`. With the
-// `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
-// the `increment-spec-version` feature.
+// The only difference between the three declarations below is the `spec_version`.
+// The behavior is:
+// - by default `spec_version` should be 2
+// - with `spec-version-3` feature enabled `spec_version` should be 3
+// - with `spec-version-4` feature enabled `spec_version` should be 4
 //
 // The duplication here is unfortunate necessity.
 //
 // runtime_version macro is dumb. It accepts a const item declaration, passes it through and
 // also emits runtime version custom section. It parses the expressions to extract the version
-// details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
+// details. Since macro kicks in early, it operates on AST. Thus, you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
-
-#[cfg(all(not(feature = "increment-spec-version"), not(feature = "elastic-scaling")))]
+#[cfg(all(not(feature = "spec-version-3"), not(feature = "spec-version-4"),))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -216,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(any(feature = "increment-spec-version", feature = "elastic-scaling"))]
+#[cfg(all(feature = "spec-version-3", not(feature = "spec-version-4"),))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -230,10 +143,24 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
+#[cfg(feature = "spec-version-4")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	authoring_version: 1,
+	// Read the note above.
+	spec_version: 4,
+	impl_version: 1,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	system_version: 3,
+};
+
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (SLOT_DURATION as BlockNumber);
+pub const MINUTES: BlockNumber = 60_000 / (slot_duration() as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
@@ -255,7 +182,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
 	Runtime,
-	ConstU32<BLOCK_PROCESSING_VELOCITY>,
+	ConstU32<{ block_processing_velocity() }>,
 >;
 
 parameter_types! {
@@ -309,7 +236,7 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
 		Runtime,
-		ConstU32<BLOCK_PROCESSING_VELOCITY>,
+		ConstU32<{ block_processing_velocity() }>,
 	>;
 	type SingleBlockMigrations = SingleBlockMigrations;
 }
@@ -394,17 +321,29 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-#[cfg(feature = "relay-parent-offset")]
-const RELAY_PARENT_OFFSET: u32 = 2;
+/// Scheduling-info verifier used by `cumulus-test-runtime`.
+///
+/// Accepts any signature; `V3_SCHEDULING_ENABLED` is gated on the `v3-descriptor` cargo
+/// feature so the test runtime can flip V3 scheduling on without needing a runtime upgrade
+/// per build.
+pub struct NoVerification;
 
-#[cfg(not(feature = "relay-parent-offset"))]
-const RELAY_PARENT_OFFSET: u32 = 0;
+impl VerifySchedulingSignature for NoVerification {
+	const V3_SCHEDULING_ENABLED: bool = SCHEDULING_V3_ENABLED;
+
+	fn verify(
+		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		_relay_slot: cumulus_primitives_core::relay_chain::Slot,
+	) -> bool {
+		true
+	}
+}
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
+	{ block_processing_velocity() },
+	{ unincluded_segment_capacity() },
 >;
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
@@ -420,7 +359,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
+	type SchedulingSignatureVerifier = NoVerification;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -429,14 +369,36 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
-	#[cfg(feature = "sync-backing")]
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	#[cfg(not(feature = "sync-backing"))]
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type AllowMultipleBlocksPerSlot = ConstBool<{ !cfg!(feature = "sync-backing") }>;
+	type SlotDuration = ConstU64<{ slot_duration() }>;
 }
 
 impl test_pallet::Config for Runtime {}
+
+parameter_types! {
+	pub const Period: u32 = 10;
+}
+
+#[cfg(feature = "with-authority-discovery")]
+impl pallet_session::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = ();
+	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+#[cfg(feature = "with-authority-discovery")]
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = ConstU32<32>;
+}
 
 construct_runtime! {
 	pub enum Runtime
@@ -452,6 +414,12 @@ construct_runtime! {
 		TestPallet: test_pallet,
 		Glutton: pallet_glutton,
 		Aura: pallet_aura,
+		// Session must come BEFORE AuraExt so its on_genesis_session populates
+		// pallet_aura::Authorities before AuraExt's genesis_build snapshots it.
+		#[cfg(feature = "with-authority-discovery")]
+		Session: pallet_session,
+		#[cfg(feature = "with-authority-discovery")]
+		AuthorityDiscovery: pallet_authority_discovery,
 		AuraExt: cumulus_pallet_aura_ext,
 		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
@@ -500,7 +468,7 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 			test_pallet::TestTransactionExtension<Runtime>,
 		),
 	>,
-	ConstU32<BLOCK_PROCESSING_VELOCITY>,
+	ConstU32<{ block_processing_velocity() }>,
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -537,10 +505,216 @@ impl OnRuntimeUpgrade for VerifyRuntimeUpgrade {
 ///
 /// These migrations execute immediately and entirely at the beginning of the block following
 /// a runtime upgrade. They must be lightweight enough to complete within a single block.
-pub type SingleBlockMigrations = (
-	// Verify that runtime upgrade hooks are working correctly.
-	VerifyRuntimeUpgrade,
-);
+#[cfg(feature = "with-authority-discovery")]
+pub type SingleBlockMigrations = (VerifyRuntimeUpgrade, migrations::EnableAuthorityDiscovery);
+#[cfg(not(feature = "with-authority-discovery"))]
+pub type SingleBlockMigrations = (VerifyRuntimeUpgrade,);
+
+/// One-shot migration that seeds `pallet_session` from `pallet_aura::Authorities` when a
+/// default (no-AD) chain upgrades to the `with-authority-discovery` variant.
+///
+/// Idempotent: only runs when `pallet_session::Validators` is empty, which is the case
+/// on a chain that never had `pallet_session` in its runtime.
+#[cfg(feature = "with-authority-discovery")]
+pub mod migrations {
+	use super::*;
+	use sp_core::crypto::key_types;
+
+	pub struct EnableAuthorityDiscovery;
+
+	impl OnRuntimeUpgrade for EnableAuthorityDiscovery {
+		fn on_runtime_upgrade() -> Weight {
+			let db: frame_support::weights::RuntimeDbWeight =
+				<Runtime as frame_system::Config>::DbWeight::get();
+
+			// Idempotent guard: skip if Validators is already populated.
+			if !pallet_session::Validators::<Runtime>::get().is_empty() {
+				return db.reads(1);
+			}
+
+			let aura_authorities = pallet_aura::Authorities::<Runtime>::get();
+			let n = aura_authorities.len() as u64;
+
+			let mut validators: Vec<AccountId> = Vec::with_capacity(aura_authorities.len());
+			let mut queued_keys: Vec<(AccountId, SessionKeys)> =
+				Vec::with_capacity(aura_authorities.len());
+
+			for aura_pub in aura_authorities.iter() {
+				// `AuraId` is app-crypto over `sr25519::Public`; `.into()` gives the inner.
+				let inner: sp_core::sr25519::Public = aura_pub.clone().into();
+				let raw: [u8; 32] = inner.0;
+				let account: AccountId = sp_core::sr25519::Public::from_raw(raw).into();
+				let aura_key = AuraId::from(sp_core::sr25519::Public::from_raw(raw));
+				let audi_key = AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(raw));
+				let session_keys = SessionKeys { aura: aura_key, authority_discovery: audi_key };
+
+				// Populate NextKeys and KeyOwner (mirrors pallet_session genesis logic).
+				pallet_session::NextKeys::<Runtime>::insert(&account, &session_keys);
+				// KeyOwner maps (KeyTypeId, key_bytes: Vec<u8>) → ValidatorId.
+				// We use <[u8]>::to_vec() to get an owned Vec<u8> that EncodeLike<Vec<u8>>.
+				let aura_bytes: alloc::vec::Vec<u8> =
+					<AuraId as sp_runtime::RuntimeAppPublic>::to_raw_vec(&session_keys.aura);
+				let audi_bytes: alloc::vec::Vec<u8> =
+					<AuthorityDiscoveryId as sp_runtime::RuntimeAppPublic>::to_raw_vec(
+						&session_keys.authority_discovery,
+					);
+				pallet_session::KeyOwner::<Runtime>::insert(
+					(key_types::AURA, aura_bytes),
+					&account,
+				);
+				pallet_session::KeyOwner::<Runtime>::insert(
+					(key_types::AUTHORITY_DISCOVERY, audi_bytes),
+					&account,
+				);
+
+				// Mirror `pallet_session::do_set_keys`: increment the account's consumer
+				// count so a future `purge_keys` decrements it correctly. Zombienet-injected
+				// aura keys without endowment are skipped — they have no consumer to track.
+				if frame_system::Pallet::<Runtime>::providers(&account) > 0 {
+					let inc_ok = frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
+					debug_assert!(inc_ok, "inc_consumers failed despite providers > 0");
+				}
+
+				validators.push(account.clone());
+				queued_keys.push((account, session_keys));
+			}
+
+			// Write Validators and QueuedKeys so the session pallet has a coherent state.
+			pallet_session::Validators::<Runtime>::put(&validators);
+			pallet_session::QueuedKeys::<Runtime>::put(&queued_keys);
+
+			// YOLO so these keys are not empty until next session.
+			let ad_authorities: Vec<AuthorityDiscoveryId> = aura_authorities
+				.iter()
+				.map(|aura_pub| {
+					let inner: sp_core::sr25519::Public = aura_pub.clone().into();
+					AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(inner.0))
+				})
+				.collect();
+			let bounded = frame_support::WeakBoundedVec::<_, _>::force_from(
+				ad_authorities,
+				Some("EnableAuthorityDiscovery migration: authority count exceeds MaxAuthorities"),
+			);
+			pallet_authority_discovery::Keys::<Runtime>::put(bounded);
+
+			Self::assert_post_upgrade_invariants();
+
+			let reads = n.saturating_add(2);
+			let writes = n.saturating_mul(4).saturating_add(3);
+			db.reads(reads).saturating_add(db.writes(writes))
+		}
+	}
+
+	impl EnableAuthorityDiscovery {
+		fn assert_post_upgrade_invariants() {
+			let aura_count = pallet_aura::Authorities::<Runtime>::get().len();
+			let validators = pallet_session::Validators::<Runtime>::get();
+			let queued = pallet_session::QueuedKeys::<Runtime>::get();
+			let ad_keys = pallet_authority_discovery::Keys::<Runtime>::get();
+
+			assert!(!validators.is_empty(), "Validators empty after migration");
+			assert_eq!(validators.len(), aura_count, "Validators ≠ aura Authorities");
+			assert_eq!(queued.len(), aura_count, "QueuedKeys ≠ aura Authorities");
+			assert_eq!(ad_keys.len(), aura_count, "AuthorityDiscovery::Keys ≠ aura Authorities");
+			assert_eq!(
+				pallet_session::NextKeys::<Runtime>::iter().count(),
+				aura_count,
+				"NextKeys entry count ≠ aura Authorities",
+			);
+			assert_eq!(
+				pallet_session::KeyOwner::<Runtime>::iter().count(),
+				2 * aura_count,
+				"KeyOwner count ≠ 2× aura Authorities (aura + audi)",
+			);
+			// Each provisioned validator account had its consumer count bumped by
+			// `inc_consumers`, mirroring `pallet_session::do_set_keys` semantics.
+			// Un-provisioned aura authorities (e.g. extra zombienet-generated collator keys
+			// that aren't in the endowed-accounts list) are skipped: `inc_consumers`
+			// returned `Err` for them at migration time, and they have no consumer to bump.
+			for account in &validators {
+				if frame_system::Pallet::<Runtime>::providers(account) > 0 {
+					assert!(
+						frame_system::Pallet::<Runtime>::consumers(account) >= 1,
+						"provisioned validator {account:?} has 0 consumers; \
+						 inc_consumers didn't fire",
+					);
+				}
+			}
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use frame_support::traits::OnRuntimeUpgrade;
+		use sp_keyring::Sr25519Keyring;
+
+		fn ext_with_aura(keys: &[Sr25519Keyring]) -> sp_io::TestExternalities {
+			let mut ext = sp_io::TestExternalities::new_empty();
+			ext.execute_with(|| {
+				let aura_keys: alloc::vec::Vec<AuraId> = keys
+					.iter()
+					.map(|k| AuraId::from(sp_core::sr25519::Public::from_raw(k.public().0)))
+					.collect();
+				let bounded = frame_support::BoundedVec::<_, _>::try_from(aura_keys).expect("fits");
+				pallet_aura::Authorities::<Runtime>::put(bounded);
+				// Provision providers so the migration's `inc_consumers` call can succeed —
+				// production parachains rely on every authority account being funded.
+				for k in keys {
+					let account: AccountId = k.to_account_id();
+					frame_system::Pallet::<Runtime>::inc_providers(&account);
+				}
+			});
+			ext
+		}
+
+		fn expected_weight(n: u64) -> Weight {
+			let db: frame_support::weights::RuntimeDbWeight =
+				<Runtime as frame_system::Config>::DbWeight::get();
+			let reads = n.saturating_add(2);
+			let writes = n.saturating_mul(4).saturating_add(3);
+			db.reads(reads).saturating_add(db.writes(writes))
+		}
+
+		#[test]
+		fn populates_session_state() {
+			// Invariants are asserted in `on_runtime_upgrade`.
+			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
+			ext_with_aura(&keys).execute_with(|| {
+				let w = EnableAuthorityDiscovery::on_runtime_upgrade();
+				assert_eq!(w, expected_weight(keys.len() as u64));
+			});
+		}
+
+		#[test]
+		fn is_idempotent() {
+			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob];
+			ext_with_aura(&keys).execute_with(|| {
+				EnableAuthorityDiscovery::on_runtime_upgrade();
+				let w2 = EnableAuthorityDiscovery::on_runtime_upgrade();
+
+				let db: frame_support::weights::RuntimeDbWeight =
+					<Runtime as frame_system::Config>::DbWeight::get();
+				assert_eq!(w2, db.reads(1), "second call should be a 1-read no-op");
+			});
+		}
+
+		#[test]
+		fn noop_when_validators_already_set() {
+			let keys = [Sr25519Keyring::Alice];
+			ext_with_aura(&keys).execute_with(|| {
+				pallet_session::Validators::<Runtime>::put(alloc::vec![
+					Sr25519Keyring::Alice.to_account_id(),
+				]);
+				let w = EnableAuthorityDiscovery::on_runtime_upgrade();
+				let db: frame_support::weights::RuntimeDbWeight =
+					<Runtime as frame_system::Config>::DbWeight::get();
+				assert_eq!(w, db.reads(1));
+				assert!(pallet_authority_discovery::Keys::<Runtime>::get().is_empty());
+			});
+		}
+	}
+}
 
 decl_runtime_apis! {
 	pub trait GetLastTimestamp {
@@ -576,13 +750,23 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			RELAY_PARENT_OFFSET
+			relay_parent_offset()
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			sp_consensus_aura::SlotDuration::from_millis(slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {
@@ -691,11 +875,9 @@ impl_runtime_apis! {
 		}
 	}
 
-	// "Elastic scaling" should run with the fallback method.
-	#[cfg(any(not(feature = "elastic-scaling"), feature = "std"))]
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			BLOCK_PROCESSING_VELOCITY
+			block_processing_velocity()
 		}
 	}
 
@@ -708,6 +890,16 @@ impl_runtime_apis! {
 					RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
 				],
 			}
+		}
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		// Return the current authority set in authoring (session/validator-index) order,
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			#[cfg(feature = "with-authority-discovery")]
+			{ AuthorityDiscovery::current_authorities().to_vec() }
+			#[cfg(not(feature = "with-authority-discovery"))]
+			{ Vec::new() }
 		}
 	}
 }

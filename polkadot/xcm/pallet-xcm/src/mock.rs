@@ -31,7 +31,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{Convert, Identity, IdentityLookup, TryConvertInto},
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
@@ -44,10 +44,7 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{
-	traits::{Identity, JustTry},
-	XcmExecutor,
-};
+use xcm_executor::XcmExecutor;
 use xcm_simulator::helpers::derive_topic_id;
 
 use crate::{self as pallet_xcm, TestWeightInfo};
@@ -432,7 +429,7 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	// Excludes relay/parent chain currency
 	EverythingBut<(Equals<RelayLocation>,)>,
 	Identity,
-	JustTry,
+	TryConvertInto,
 >;
 
 pub type AssetTransactors = (
