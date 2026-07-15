@@ -761,6 +761,47 @@ fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
 }
 
 #[test]
+fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
+	use crate::{
+		EthereumBlock, OutsideFrameLogs,
+		evm::{HashesOrTransactionInfos, block_hash::LogsBloom, block_storage},
+	};
+	use sp_core::H256;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let contract = H160::from_low_u64_be(0x1234);
+		let topic = H256::repeat_byte(0x11);
+
+		// No ethereum transaction this block: a runtime component mirrors a balance change as a
+		// log, outside any ethereum call frame.
+		Pallet::<Test>::emit_contract_log_outside_frame(contract, vec![topic], vec![1, 2, 3]);
+
+		// The log is parked in the block-level buffer until finalization.
+		assert!(OutsideFrameLogs::<Test>::get().is_some());
+
+		block_storage::on_finalize_build_eth_block::<Test>(1);
+
+		// The buffer is consumed by the synthetic transaction.
+		assert!(OutsideFrameLogs::<Test>::get().is_none());
+
+		let block = EthereumBlock::<Test>::get();
+
+		// A single synthetic transaction now carries the log.
+		match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => assert_eq!(hashes.len(), 1),
+			_ => panic!("expected transaction hashes"),
+		}
+
+		// The committed block bloom equals the log's bloom — i.e. the outside-of-frame log made it
+		// into the block's `logs_bloom`, which is the whole point.
+		let mut expected = LogsBloom::new();
+		expected.accrue_log(&contract, &[topic]);
+		assert_ne!(expected.bloom, [0u8; 256]);
+		assert_eq!(block.logs_bloom.0, expected.bloom);
+	});
+}
+
+#[test]
 fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	use crate::{evm::CallTracer, tracing::Tracing};
 	use sp_core::H256;

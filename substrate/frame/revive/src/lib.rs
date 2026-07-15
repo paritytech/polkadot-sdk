@@ -805,6 +805,19 @@ pub mod pallet {
 	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
 		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
 
+	/// Logs emitted during the block outside of any ethereum transaction (e.g. by pallet-assets
+	/// balance-change callbacks on non-`eth_transact` paths).
+	///
+	/// Accumulated here across extrinsics and flushed in `on_finalize` as a single synthetic
+	/// transaction receipt, so the logs enter the block's `logs_bloom`, `receipts_root` and
+	/// transaction trie.
+	///
+	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type OutsideFrameLogs<T: Config> =
+		StorageValue<_, crate::evm::block_hash::AccumulateReceiptIR, OptionQuery>;
+
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
 	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
@@ -2642,16 +2655,17 @@ impl<T: Config> Pallet<T> {
 		Ok(maybe_value)
 	}
 
-	/// Emit an EVM log attributed to `contract`: traced, captured into the ethereum receipt
-	/// (inside an ethereum transaction), and deposited as [`Event::ContractEmitted`]. The
-	/// single emission path — used by contract execution and log-mirroring runtime components.
+	/// Emit an EVM log attributed to `contract`: traced, captured into the current ethereum
+	/// receipt (or the block's synthetic receipt when outside an ethereum transaction), and
+	/// deposited as [`Event::ContractEmitted`]. The single emission path — used by contract
+	/// execution and log-mirroring runtime components.
 	pub fn emit_contract_log_outside_frame(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<T>::event_count();
 			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 		});
 
-		evm::block_storage::capture_ethereum_log(&contract, &data, &topics);
+		evm::block_storage::capture_ethereum_log::<T>(&contract, &data, &topics);
 
 		Self::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
