@@ -1036,20 +1036,15 @@ impl Default for Forcing {
 	}
 }
 
-/// Identify a validator with their default exposure.
+/// Identify a current validator with a default [`Exposure`].
 ///
-/// This type should not be used in a fresh runtime, instead use [`UnitIdentificationOf`].
+/// Returns `Some(Exposure::default())` when the account is in the active validator set, and `None`
+/// otherwise. This keeps `FullIdentification = Exposure<..>` for runtimes that still need to decode
+/// historical session identification data of that shape, without constructing a full exposure for
+/// new identification requests.
 ///
-/// In the past, a type called `ExposureOf` used to return the full exposure of a validator to
-/// identify their exposure. That type has been removed; use [`DefaultExposureOf`] or
-/// [`UnitIdentificationOf`] instead.
-///
-/// In the new model, we don't need to identify a validator with their full exposure anymore, and
-/// therefore [`UnitIdentificationOf`] is perfectly fine. Yet, for runtimes that used to work with
-/// `ExposureOf`, we need to be able to decode old identification data, possibly stored in the
-/// historical session pallet in older blocks. Therefore, this type is a good compromise, allowing
-/// old exposure identifications to be decoded, and returning a few zero bytes
-/// (`Exposure::default`) for any new identification request.
+/// Prefer [`UnitIdentificationOf`] for fresh runtimes that do not need exposure-shaped
+/// identification.
 ///
 /// A typical usage of this type is:
 ///
