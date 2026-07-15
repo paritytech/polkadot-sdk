@@ -442,13 +442,22 @@ impl ReceiptExtractor {
 				block.block_number(), block.block_hash());
 				ClientError::ReceiptDataNotFound
 			})?;
+		let block_number = block.block_number();
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
 			.enumerate()
 			.flat_map(|(ext_idx, ext)| {
 				let ext = ext.ok()?;
-				let call = ext.decode_call_data_fields_as::<EthTransact>()?.ok()?;
-				Some((call, ext_idx))
+				match ext.decode_call_data_fields_as::<EthTransact>()? {
+					Ok(call) => Some((call, ext_idx)),
+					Err(err) => {
+						log::warn!(
+							target: LOG_TARGET,
+							"Failed to decode EthTransact call in extrinsic {ext_idx} of block #{block_number}: {err:?}, transaction dropped from receipts"
+						);
+						None
+					},
+				}
 			})
 			.collect();
 
