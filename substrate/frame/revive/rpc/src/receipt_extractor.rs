@@ -83,11 +83,13 @@ fn decode_revive_event(
 					..Default::default()
 				}));
 			},
-			_ => log::warn!(
+			Some(Err(err)) => log::warn!(
 				target: LOG_TARGET,
-				"Failed to decode ContractEmitted event {} in block {block_number} (tx {transaction_hash:?}), log dropped from receipt",
+				"Failed to decode ContractEmitted event {} in block {block_number} (tx {transaction_hash:?}): {err:?}, log dropped from receipt",
 				event.index()
 			),
+			// `is_event()` already confirmed the variant, so this is unreachable in practice.
+			None => {},
 		}
 	}
 	None
