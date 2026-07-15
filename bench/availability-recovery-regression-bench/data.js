@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784130123588,
+  "lastUpdate": 1784152865106,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38c598e335f81f05659b5a3134a0a5ddd0ff28b0",
-          "message": "`fatxpool`: added mortal transactions integration test  (#8887)\n\n# Description\n\nBased on https://github.com/michalkucharczyk/tx-test-tool/pull/43.\n\n## Integration\n\nN/A\n\n## Review Notes\n\n- added tests with future mortal txs that are dropped due to not being\nincluded in blocks within their lifetime, but also future mortal txs\nthat have a sufficient lifetime to be included in blocks\n- added test which uses priorities to delay mortal txs inclusion and\nmake them invalid\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2025-11-19T10:29:03Z",
-          "tree_id": "217c15293452ffdd7568ac5dbc4919ab6911085b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38c598e335f81f05659b5a3134a0a5ddd0ff28b0"
-        },
-        "date": 1763551994650,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.316249759400002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19876911086666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14258246830000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1f20d8961739561b229fdb9c7f3df40e37f04154",
+          "message": "Remove deprecated new_native_or_wasm_executor (#12652)\n\n## Summary\n- Remove `sc_service::new_native_or_wasm_executor`, deprecated with note\n\\\"Will be removed at end of 2024\\\".\n- Callers should use `sc_service::new_wasm_executor` instead.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-15T20:17:18Z",
+          "tree_id": "a1e4c665885563349a5054daa8e06242845d021d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f20d8961739561b229fdb9c7f3df40e37f04154"
+        },
+        "date": 1784152832705,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.12534073236667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14021305716666663,
             "unit": "seconds"
           }
         ]
