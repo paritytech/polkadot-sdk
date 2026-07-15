@@ -1540,11 +1540,14 @@ a lift: one extension proof (≤ ~64 connecting nodes ≈ 2 KB) plus one tree
 proof (≲ 2 KB), so ≤ ~4 KB per touched stream—plus one advance proof
 (≈ 2 KB) per read-context gap in the stream's interval chain, bounded by
 the bundle's block count. All quantities are STF-known (touched streams,
-gaps), so this is enforceable as ordinary accounting: block building
-keeps `block + storage proof ≤ POV limit − reservation`, with configured
-caps on touched streams and context gaps per candidate bounding the
-reservation. A candidate carrying the full worst-case lift set therefore
-always fits.
+gaps), so the reservation is charged **in the STF, as `proof_size`
+weight**: touching a stream costs its worst-case lift bytes, a
+read-context gap its advance-proof bytes—enforced by the same mechanism
+as all PoV accounting, not by collator discipline. Block building then
+keeps `block + storage proof ≤ POV limit − reservation` by construction,
+with configured caps on touched streams and context gaps per candidate
+bounding the reservation. A candidate carrying the full worst-case lift
+set therefore always fits.
 
 The number of entries in a `RequiresSet` is capped
 (`MaxCommitmentEntries`). Since entries are per source, the natural ceiling
@@ -1614,9 +1617,7 @@ enum SpecMsgKind {
     /// acts on is Signal vs. Data (window accounting, pallet-internal
     /// consumption). Demultiplexing among userspace protocols is an
     /// upper-layer convention; XCM rides here under a well-known envelope
-    /// defined by the XCM integration, not by this document. (XCM is
-    /// self-versioning via `VersionedXcm`, so the transport loses nothing
-    /// by not knowing about it.)
+    /// defined by the XCM integration, not by this document. 
     Data(Vec<u8>),
 }
 
@@ -1757,11 +1758,21 @@ enum SpecMsgSignal {
     Upgrade { version: u8 },
 }
 
-/// Receiver-granted credit (carried in the Register). Both limits apply
-/// simultaneously; message count bounds the receiver's bookkeeping, bytes
-/// bound its weight/POV budget per block. `max_message_size` additionally
-/// caps individual messages (subject to the global `MaxMsgLen`)—mirrors
-/// HRMP's `max_message_size`.
+/// Receiver-granted credit (carried in the Register)—**advice, not
+/// enforcement**. Registers are lossy and read with delay, so a sender
+/// may legitimately act on an older grant; and on an ordered stream the
+/// receiver cannot reject what arrives without stalling the channel.
+/// Honoring the grant is the sender's own interest: beyond it, the
+/// receiver may be unable or unwilling to process, and its recourses
+/// (deprioritize, stall, abandon) hurt the sender. The sender's own STF
+/// turns the advice into its local gate (see Flow Control).
+///
+/// Both limits apply simultaneously, mirroring weight's two dimensions:
+/// message count bounds per-item processing, bytes the per-block
+/// weight/POV budget.
+/// `max_message_size` mirrors HRMP's—likewise advice; the *hard* size
+/// bound is the consensus constant `MaxMsgLen`, enforced in the sender's
+/// STF, which is what guarantees any message is processable at all.
 struct WindowGrant {
     max_messages: u32,
     max_bytes: u64,
@@ -1820,15 +1831,15 @@ must keep.
 
 **Reopening.** `OpenChannel` again, at the current position; frontiers
 resume seamlessly. The one obligation this places on the *receiver*:
-**retain the consumption frontier after close**—it is the only state whose
-loss is unrecoverable by protocol means (a receiver that discarded its
-frontier can no longer verify anything against the stream's eternal MMR;
-the sender's outbound frontier is consensus state and persists by
-construction). Should that ever happen
-anyway, the fallback is a bilateral, governance-level reset to a fresh
-epoch—an exceptional action explicitly outside the protocol, in the same
-category as the ParaId-reuse residual (see Security Analysis): a stuck
-channel, never forgery.
+**retain the consumption frontier after close**—without it, nothing can
+be verified against the stream's eternal MMR (the sender's side is
+consensus state and persists by construction). Even that loss is
+recoverable unilaterally: the receiver adopts the stream's *current*
+state—claimed peaks whose bag is the stream's entry under a committed
+root are genuine, the `start_peaks` argument—at the cost of skipping
+every unconsumed message. That is exactly the
+[Stall Recovery](#stall-recovery) breach, behind the same receiver-side
+governance gate; the sender is not involved at all.
 
 Channel state (alongside `OutboundFrontier` / `SourceState`, which stay
 exactly as defined)—note the two sides keep *different* state, as befits a
@@ -1876,8 +1887,14 @@ struct InChannelState {
 
 Two needs, one register. Both flow from receiver to sender:
 
-1. **Rate limiting**: the receiver paces the sender to what it is willing to
-   consume—bounding its own backlog and the sender's archive growth.
+1. **Rate limiting**: the sender caps its unconfirmed tail anyway, by
+   local policy, to protect its own collators' archives—but bytes are the
+   one dimension it can reason about. What a backlog *means in time*
+   depends entirely on the receiver's resources (block cadence, weight
+   budget—it might run on an on-demand core), which only the receiver
+   knows. The grant supplies exactly that missing information: the
+   receiver's throughput, translated into numbers the sender's `send`
+   gate can act on. Information, not enforcement.
 2. **Pruning watermark**: the sender learns which messages are consumed and
    need no longer be retained for retransmission.
 
@@ -1996,12 +2013,16 @@ root-choice rule under [Verification](#verification)).
 **Enforcement is cooperative, and that suffices.** The sender's own STF
 refuses `send` beyond credit—this protects the sender's archive and
 surfaces backpressure to its applications, which is who rate limiting is
-*for*. The receiver needs no protection from overruns: consumption is
-voluntary, and positions make overruns detectable (messages beyond the
-granted window)—a violation the receiver may answer by abandoning the
-channel. A peer can always stall the sender by simply not publishing—
-receiver-side stalling is inherent to any credit scheme and adds no new
-threat. Nothing here needs relay-chain enforcement.
+*for*. The receiver, by contrast, enforces nothing, because it cannot:
+registers are read with delay, so it cannot even reliably distinguish an
+overrun from compliance with an older grant it itself published—and
+rejecting an arrived message on an ordered stream would stall the
+channel. It doesn't need to: consumption is voluntary, and its responses
+to a sender it dislikes are the same whether or not a grant was
+technically exceeded—consume anyway, deprioritize, or abandon. A peer can
+always stall the sender by simply not publishing—receiver-side stalling
+is inherent to any credit scheme and adds no new threat. Nothing here
+needs relay-chain enforcement.
 
 **Trust tiers.** Credit updates may act on speculatively read registers—
 the worst case of a register that never lands is wrongly generous or
@@ -2687,8 +2708,10 @@ messages to impose consumption cost.
 
 **Mitigation**: Nothing to exploit on either lane. Lifecycle signals on the
 data stream are ordinary window-counted messages—flooding them exhausts the
-flooder's own credit like any spam, bounded by the grant the receiver
-itself extended. Register publishes on the ack stream cannot force work at
+flooder's own credit like any spam; and against a runtime that ignores its
+own gate (the grant is advisory—see Flow Control), consumption being
+voluntary is the real bound: the receiver takes what it wants, excess only
+bloats the flooder's own archive and tree. Register publishes on the ack stream cannot force work at
 all: the reader takes exactly one leaf (the head) per read, so publishing
 a million registers only bloats the publisher's own accumulator and
 archive. And consumption is always voluntary: the receiver can stop at any
@@ -2893,7 +2916,7 @@ enum SpecMsgSignal {
 struct Register {
     version: u8,               // receiver's announcement, monotonic
     up_to: MessagePosition,    // cumulative watermark, monotonic
-    grant: WindowGrant,        // absolute credit beyond up_to, may shrink
+    grant: WindowGrant,        // advisory credit beyond up_to, may shrink
     closed: bool,              // receiver-side close / rejection
 }
 
