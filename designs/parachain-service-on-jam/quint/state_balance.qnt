@@ -167,4 +167,76 @@ module state_balance {
       }
     }
   }
+
+  // --- Parachain-storage KV accounting (§6.1) ----------------------------
+
+  /// Per-entry footprint for a `key_value_storage` write of a `kLen`-byte
+  /// key and `vLen`-byte value, per §6.1:
+  /// 34 (JAM overhead) + compactLen(vLen) + vLen (SCALE Vec<u8> value)
+  /// + 1 (map tag 0x07) + 4 (ParaId) + compactLen(kLen) + kLen (key)
+  /// = 39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+  pure def kvEntryFootprint(kLen: int, vLen: int): int =
+    39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+
+  type KVDelta = {
+    state: ParachainServiceState,
+    log: Option[AccumulateLog]
+  }
+
+  /// Replay a `SetKV`: upsert `keyValueStorage[(para_id, key)]`, delta-charged
+  /// per §6.1. Rejected (state unchanged, `FromSetKV` logged) when a positive
+  /// delta exceeds headroom.
+  pure def applySetKV(
+    s: ParachainServiceState, para_id: ParaId, key: List[int], value: List[int]
+  ): KVDelta = {
+    val pi = s.paraInfo(para_id)
+    val newVBytes = compactLen(value.length()) + value.length()
+    val entryExists = s.keyValueStorage.keys().contains((para_id, key))
+    val delta =
+      if (not(entryExists))
+        kvEntryFootprint(key.length(), value.length())
+      else {
+        val oldV = s.keyValueStorage.get((para_id, key))
+        newVBytes - (compactLen(oldV.length()) + oldV.length())
+      }
+    if (delta > 0 and not(pi.hasHeadroom(delta))) {
+      {
+        state: s,
+        log: Some(InsufficientStateBalance(FromSetKV({
+          keyHash: listHash(key)
+        })))
+      }
+    } else {
+      {
+        state: {
+          ...s,
+          parachains: s.parachains.put(para_id, pi.addUsed(delta)),
+          keyValueStorage: s.keyValueStorage.put((para_id, key), value)
+        },
+        log: None
+      }
+    }
+  }
+
+  /// Replay a `RemoveKV`: drop `keyValueStorage[(para_id, key)]` and refund its
+  /// `kvEntryFootprint`. No-op on absent keys.
+  pure def applyRemoveKV(
+    s: ParachainServiceState, para_id: ParaId, key: List[int]
+  ): KVDelta = {
+    if (not(s.keyValueStorage.keys().contains((para_id, key)))) {
+      { state: s, log: None }
+    } else {
+      val pi = s.paraInfo(para_id)
+      val v = s.keyValueStorage.get((para_id, key))
+      val refund = kvEntryFootprint(key.length(), v.length())
+      {
+        state: {
+          ...s,
+          parachains: s.parachains.put(para_id, pi.addUsed(-refund)),
+          keyValueStorage: s.keyValueStorage.mapRemove((para_id, key))
+        },
+        log: None
+      }
+    }
+  }
 }

@@ -45,6 +45,7 @@ module messages {
   // already an `UpwardMessage` label.
   type InsufficientBalanceReason =
   | FromSolicit({ hash: Hash, len: int })
+  | FromSetKV({ keyHash: Hash })
 
   type AccumulateLog =
   // Work-result's validation_code_hash matches neither active nor pending.
@@ -95,6 +96,10 @@ module messages {
   | Solicit({ hash: Hash, len: int })
   // forget(hash, len)
   | Forget({ hash: Hash, len: int })
+  // kv_set(key, value) — write to key_value_storage.
+  | SetKV({ key: List[int], value: List[int] })
+  // kv_remove(key) — remove from key_value_storage.
+  | RemoveKV({ key: List[int] })
   // transfer_out(dest, amount, memo) — Asset Hub only.
   | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
   // set_authorizer_queue(core, queue, jam_slot) — Coretime only. Schedules the

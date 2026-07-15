@@ -173,11 +173,12 @@ module management {
     }
   }
 
-  /// §6.4 — remove all per-parachain state. Releases every preimage the
-  /// parachain references; JAM `forget` is invoked for each preimage that
-  /// becomes referencerless. Also clears any service-level state that's
-  /// logically Asset-Hub-only (notably `stagedValidatorKeys`) when Asset Hub
-  /// (`AssetHubParaId`) itself is being cleaned up.
+   /// §6.4 — remove all per-parachain state. Releases every preimage the
+   /// parachain references; JAM `forget` is invoked for each preimage that
+   /// becomes referencerless. Wipes all `keyValueStorage` entries keyed by
+   /// `(para_id, _)`. Also clears any service-level state that's logically
+   /// Asset-Hub-only (notably `stagedValidatorKeys`) when Asset Hub
+   /// (`AssetHubParaId`) itself is being cleaned up.
   pure def parachainCleanUp(
     s: ParachainServiceState,
     para_id: ParaId
@@ -197,17 +198,18 @@ module management {
           val e = s.preimageRegistry.get(key)
           { ...e, referencers: e.referencers.exclude(Set(para_id)) }
       })
-      // Drop any Asset-Hub-specific service-level state if Asset Hub
-      // itself is being unregistered.
-      val stagedAfter =
-      if (para_id == AssetHubParaId) List() else s.stagedValidatorKeys
-      {
-        ...s,
-        preimageRegistry: regAfter,
-        parachains: s.parachains.mapRemove(para_id),
-        parachainLog: s.parachainLog.mapRemove(para_id),
-        stagedValidatorKeys: stagedAfter
-      }
+       // Drop any Asset-Hub-specific service-level state if Asset Hub
+       // itself is being unregistered.
+       val stagedAfter =
+       if (para_id == AssetHubParaId) List() else s.stagedValidatorKeys
+       {
+         ...s,
+         preimageRegistry: regAfter,
+         parachains: s.parachains.mapRemove(para_id),
+         parachainLog: s.parachainLog.mapRemove(para_id),
+         stagedValidatorKeys: stagedAfter,
+         keyValueStorage: s.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
+       }
     }
   }
 }

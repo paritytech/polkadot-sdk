@@ -115,7 +115,13 @@ module invariants {
           if (e.referencers.contains(para_id)) acc + preimageFootprint(key._2)
           else acc
       })
-      pi.usedStateBalance == baselineFor(para_id) + refSum
+      val kvSum = svc.keyValueStorage.keys().fold(0, (acc, key) => {
+          if (key._1 == para_id) {
+              val v = svc.keyValueStorage.get(key)
+              acc + kvEntryFootprint(key._2.length(), v.length())
+          } else acc
+      })
+      pi.usedStateBalance == baselineFor(para_id) + refSum + kvSum
   })
 
   /// Every referencer recorded in `preimage_registry` is a currently-live

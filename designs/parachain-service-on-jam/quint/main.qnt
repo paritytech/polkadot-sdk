@@ -358,7 +358,14 @@ module main {
       // non-privileged test paras (3, 4), never `para_id` (which is the
       // originating para, e.g. Coretime cleaning up itself).
       ParachainCleanUp(MkParaId(3)),
-      ParachainCleanUp(MkParaId(4))
+      ParachainCleanUp(MkParaId(4)),
+      // KV store operations — exercises SetKV/RemoveKV paths (§6.1).
+      // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.
+      SetKV({ key: List(0), value: List(0) }),
+      SetKV({ key: List(0), value: List(0, 1) }),
+      SetKV({ key: List(1), value: List() }),
+      RemoveKV({ key: List(0) }),
+      RemoveKV({ key: List(1) })
     )
   }
 

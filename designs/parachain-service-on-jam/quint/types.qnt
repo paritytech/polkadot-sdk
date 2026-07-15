@@ -119,10 +119,18 @@ module types {
   pure def mapRemove(m: a -> b, k: a): a -> b =
   m.keys().exclude(Set(k)).mapBy(x => m.get(x))
 
+  /// Rebuild a map keeping only the keys that satisfy `keep`.
+  pure def mapFilterKeys(m: a -> b, keep: a => bool): a -> b =
+  m.keys().filter(keep).mapBy(x => m.get(x))
+
   // --- Abstract hash function ---------------------------------------------
   //
   // We model `hash(head_data)` as an injective function — we only need
   // equality semantics for the parent-head check (§5.1, step 1).
 
   pure def headHash(h: HeadData): Hash = { hashBytes: h }
+
+  /// Abstract hash of a byte list — models blake2-256 for KV key hashing.
+  /// Injective within the model's small key space.
+  pure def listHash(key: List[int]): Hash = { hashBytes: key.foldl(0, (acc, b) => acc * 257 + b) }
 }

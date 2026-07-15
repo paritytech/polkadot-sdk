@@ -307,6 +307,26 @@ module accumulate {
         { ...acc,
           logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
         }
+      | SetKV(payload) =>
+      val d = applySetKV(acc.state, para_id, payload.key, payload.value)
+      {
+        ...acc,
+        state: d.state,
+        logs: match d.log {
+          | Some(e) => acc.logs.append(e)
+          | None => acc.logs
+        }
+      }
+      | RemoveKV(payload) =>
+      val d = applyRemoveKV(acc.state, para_id, payload.key)
+      {
+        ...acc,
+        state: d.state,
+        logs: match d.log {
+          | Some(e) => acc.logs.append(e)
+          | None => acc.logs
+        }
+      }
     }
   }
 

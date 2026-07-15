@@ -188,6 +188,11 @@ struct ParachainServiceState {
     /// Validator-key set being assembled chunk by chunk by
     /// `set_validator_keys`. See §5.3.
     staged_validator_keys: BoundedVec<ValidatorKey, 1023>,
+
+    /// Per-parachain key/value store. 
+    ///
+    /// See §6.1 for the per-entry formula.
+    key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 }
 
 enum LogEntry {
@@ -246,6 +251,10 @@ enum RefineLog {
 enum InsufficientBalanceReason {
     /// A `solicit` (or code-upgrade solicit) of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: u32 },
+    /// A `kv_set(key, value)` write to `key_value_storage`. Only the
+    /// blake2-256 hash of `key` is recorded so an arbitrarily large
+    /// user key cannot inflate `parachain_log`.
+    SetKV { key_hash: Hash },
 }
 
 enum AccumulateLog {
@@ -341,6 +350,7 @@ singletons; the tag prepended to the encoded map key for map entries).
 | `0x04` | `preimage_registry` |
 | `0x05` | `staged_validator_keys` |
 | `0x06` | `incoming_transfers` |
+| `0x07` | `key_value_storage` |
 
 ### 3.2 Work Items
 
@@ -422,6 +432,12 @@ enum UpwardMessage {
     /// `ParaInfo.used_state_balance`. For the parachain's active or pending
     /// validation code it only clears `pinned` (§5.2). See §6.1.
     Forget { hash: Hash, len: u32 },
+    /// From `kv_set` — upsert `key_value_storage[(para_id, key)] = value`.
+    /// Accumulate replays it with delta state-balance charging (see §6.1).
+    SetKV { key: Vec<u8>, value: Vec<u8> },
+    /// From `kv_remove` — remove `key_value_storage[(para_id, key)]`, refunding
+    /// its footprint (see §6.1).
+    RemoveKV { key: Vec<u8> },
     /// From `transfer_out` — transfer balance to another JAM service.
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
     /// From `set_authorizer_queue` — schedule a core's authorizer QUEUE.
@@ -573,6 +589,8 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
+| `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
+| `kv_remove(key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent — no-op if the key is absent. |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only). If the JAM `transfer` call fails during `accumulate`, an `AccumulateLog::TransferFailed { memo_hash }` entry is appended to the parachain's log. See §5.1 step 7. |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, jam_slot: Timeslot)` | `()` | Schedule the authorizer queue for a core (Coretime chain only). The queue is cached in service state and forwarded to JAM in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any queue cached for the core so it is not applied. |
 | `set_assigner(core: CoreIndex, new_assigner: Option<ServiceId>)` | `()` | Change `assigners[core]` (Coretime chain only): `Some(s)` hands it off to service `s` so it can manage that core's queue going forward; `None` resets the assigner. |
@@ -1019,6 +1037,30 @@ incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
 **Asset Hub baseline footprint ≈ 1.32 MiB**, added on top of the generic
 per-para baseline.
 
+#### Key-Value storage footprint
+
+Each `(ParaId, key) -> value` entry in `key_value_storage` pays the JAM
+sole-user cost `34 + |value| + |storage_key|`, where the JAM storage key
+composes the map tag, the parachain id, and the SCALE-encoded user key:
+
+```
+kv_entry_footprint(k, v) = 34 (JAM overhead)
+ + compactLen(v) + v (SCALE Vec<u8> value)
+ + 1 (map tag) + 4 (ParaId) (per §3.1 storage-key encoding)
+ + compactLen(k) + k (SCALE Vec<u8> user key)
+ = 39 + compactLen(k) + k + compactLen(v) + v
+```
+
+A `kv_set` computes the change in `used_state_balance` — the new entry's
+footprint, or `compactLen(new_v) + new_v − compactLen(old_v) − old_v` when
+overwriting an existing key. The old value's length is recovered without
+materializing the old value: since it is a SCALE-encoded `Vec<u8>`, reading
+just the first 4 bytes (via JAM `read`'s offset/length) is enough to decode
+the `Compact<u32>` length prefix. When the change is positive it must fit
+within `total_state_balance` before the write is applied; when it is negative
+(an overwrite with a smaller value) the freed balance is credited back. A
+`kv_remove` refunds `kv_entry_footprint(k, v)` for the removed entry.
+
 #### Write-time invariant
 
 Every mutation that would grow `used_state_balance` is guarded by a headroom
@@ -1095,8 +1137,10 @@ Coretime chain
     │  Calls parachain_clean_up(para_id)
     ▼
 Parachain Service (Accumulate)
-    │  Removes para_id from every preimage_registry entry's referencers set
-    │  (releasing each preimage; see §6.1), then drops parachains[para_id].
+	│  Removes para_id from every preimage_registry entry's referencers set
+	│  (releasing each preimage; see §6.1), wipes every key_value_storage
+	│  entry keyed by (para_id, _), then drops parachains[para_id] and
+	│  parachain_log[para_id].
 ```
 
 The Coretime chain handles deposit refund and any economic unwinding according to

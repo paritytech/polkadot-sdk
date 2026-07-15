@@ -58,7 +58,10 @@ module state {
     stagedValidatorKeys: List[ValidatorKey],
     // JAM `sa.codehash` for the Parachain Service itself. Mutated by the
     // `parachain_service_upgrade` upward message (design §5.4).
-    serviceCodeHash: Hash
+    serviceCodeHash: Hash,
+    // Per-parachain key/value store (design §3.1, §6.1). Keyed by
+    // (ParaId, user_key); each entry is billed under the sole-user rule.
+    keyValueStorage: (ParaId, List[int]) -> List[int]
   }
 
   // --- Constructors ------------------------------------------------------
@@ -71,7 +74,8 @@ module state {
     pendingAuthorizerQueues: Map(),
     pendingAuthorizerCores: Map(),
     stagedValidatorKeys: List(),
-    serviceCodeHash: { hashBytes: 0 }
+    serviceCodeHash: { hashBytes: 0 },
+    keyValueStorage: Map()
   }
 
   // --- Read helpers ------------------------------------------------------
@@ -104,14 +108,16 @@ module state {
 
   /// Exact SCALE size of one AccumulateLog event: 1 B discriminant + body.
   /// Hash/ValidationCodeHash = 32 B, Balance = 16 B, u32 = 4 B. The
-  /// InsufficientStateBalance body is its reason's 1 B discriminant plus
-  /// FromSolicit's 32 B hash. `StagedValidatorKeysOverflow` is nullary.
+  /// InsufficientStateBalance body is its reason's 1 B discriminant plus a
+  /// 32 B hash (FromSolicit's preimage hash, FromSetKV's key hash).
+  /// `StagedValidatorKeysOverflow` is nullary.
   pure def accumulateLogSize(e: AccumulateLog): int =
   1 + match e {
     | InvalidCodeHashAcc(_) => 32
     | InsufficientStateBalance(r) =>
       1 + match r {
         | FromSolicit(_) => 32
+        | FromSetKV(_) => 32
       }
     | StateBalanceUpdateRejected(_) => 48
     | DesignateRejected(_) => 4

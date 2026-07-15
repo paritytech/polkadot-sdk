@@ -477,6 +477,7 @@ module tests {
             | AccumulateLogEntry(evs) => evs.foldl(false, (a, e) => match e {
               | InsufficientStateBalance(reason) => match reason {
                 | FromSolicit(p) => a or (p.hash == soliciteeHash and p.len == soliciteeLen)
+                | FromSetKV(_) => a
               }
               | _ => a
             })
@@ -709,6 +710,88 @@ module tests {
       assert(after1.state.pendingAuthorizerCores.get(core) == 100),
       assert(after2.state.pendingAuthorizerQueues.get(core) == List(hash2)),
       assert(after2.state.pendingAuthorizerCores.get(core) == 150),
+      init
+    }
+  }
+
+  // --- KV store accounting (§6.1) ----------------------------------------
+
+  /// SetKV charges `kvEntryFootprint(kLen, vLen)` to `usedStateBalance`.
+  run kvSetChargesTest = {
+    val s = initialState
+    val para = CoretimeParaId
+    val key = List(1, 2, 3)
+    val value = List(10, 20)
+    val before = s.paraInfo(para).usedStateBalance
+    val d = applySetKV(s, para, key, value)
+    val expected = kvEntryFootprint(key.length(), value.length())
+    all {
+      assert(d.log == None),
+      assert(d.state.paraInfo(para).usedStateBalance == before + expected),
+      init
+    }
+  }
+
+  /// RemoveKV refunds the full `kvEntryFootprint`, returning `usedStateBalance`
+  /// to its pre-insert level.
+  run kvRemoveRefundsTest = {
+    val s = initialState
+    val para = CoretimeParaId
+    val key = List(1, 2, 3)
+    val value = List(10, 20)
+    val before = s.paraInfo(para).usedStateBalance
+    val d1 = applySetKV(s, para, key, value)
+    val d2 = applyRemoveKV(d1.state, para, key)
+    all {
+      assert(d1.log == None),
+      assert(d2.log == None),
+      assert(d2.state.paraInfo(para).usedStateBalance == before),
+      init
+    }
+  }
+
+  /// Overwriting an existing key charges only the value-size delta.
+  run kvOverwriteDeltaTest = {
+    val s = initialState
+    val para = CoretimeParaId
+    val key = List(5)
+    val value1 = List(1, 2)
+    val value2 = List(1, 2, 3, 4)
+    val d1 = applySetKV(s, para, key, value1)
+    val afterInsert = d1.state.paraInfo(para).usedStateBalance
+    val d2 = applySetKV(d1.state, para, key, value2)
+    // Growing overwrite: delta = (compactLen(4)+4) - (compactLen(2)+2) = 5 - 3 = 2
+    val growDelta = (1 + value2.length()) - (1 + value1.length())
+    all {
+      assert(d1.log == None),
+      assert(d2.log == None),
+      assert(d2.state.paraInfo(para).usedStateBalance == afterInsert + growDelta),
+      init
+    }
+  }
+
+  /// A SetKV whose value would exceed the para's headroom is rejected with a log entry.
+  run kvInsufficientBalanceTest = {
+    val s = initialState
+    val para = CoretimeParaId
+    val key = List(7)
+    // Build a value large enough to exceed the para's remaining headroom.
+    // InitialParaBalance = BaselineFootprint + 2*preimageFootprint(FixedCodeLen) + BaselineFootprint
+    // After registration, usedStateBalance = BaselineFootprint + 2*preimageFootprint(FixedCodeLen).
+    // Remaining headroom ≈ BaselineFootprint. A value of length BaselineFootprint+1 bytes
+    // will exceed it (kvEntryFootprint adds 39+ bytes of overhead on top).
+    // We approximate with a list of length 200000 (well above any headroom).
+    val v1 = List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    val v2 = v1.concat(v1).concat(v1).concat(v1).concat(v1)   // 50
+    val v3 = v2.concat(v2).concat(v2).concat(v2).concat(v2)   // 250
+    val v4 = v3.concat(v3).concat(v3).concat(v3).concat(v3)   // 1250
+    val v5 = v4.concat(v4).concat(v4).concat(v4).concat(v4)   // 6250
+    val v6 = v5.concat(v5).concat(v5).concat(v5).concat(v5)   // 31250
+    val hugeValue = v6.concat(v6).concat(v6).concat(v6).concat(v6) // 156250
+    val d = applySetKV(s, para, key, hugeValue)
+    all {
+      assert(d.state == s),
+      assert(d.log != None),
       init
     }
   }

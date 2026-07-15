@@ -63,6 +63,8 @@ module refine {
     | RequestCodeUpgrade(_) => 37
     | Solicit(_) => 37
     | Forget(_) => 37
+    | SetKV(p) => 2 + p.key.length() + p.value.length()
+    | RemoveKV(p) => 1 + p.key.length()
     | TransferOut(_) => 149
     | SetAuthorizerQueue(p) => 9 + p.queue.length() * 32
     | SetAssigner(_) => 9
