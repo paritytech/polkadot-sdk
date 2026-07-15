@@ -32,9 +32,6 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 
 	let images = zombienet_sdk::environment::get_images_from_env();
 
-	let col_image =
-		std::env::var("COL_IMAGE").unwrap_or("docker.io/paritypr/colander:latest".to_string());
-
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
