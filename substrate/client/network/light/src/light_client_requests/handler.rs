@@ -60,6 +60,12 @@ const LOG_TARGET: &str = "light-client-request-handler";
 /// handling in production systems, this value is chosen to match the block request limit.
 const MAX_LIGHT_REQUEST_QUEUE: usize = 20;
 
+/// TEMPORARY (bench): number of most-recent blocks probed to pick the heaviest for the
+/// `Core_execute_block` measurement. Effective reach is bounded by state pruning (each block's
+/// PARENT state must still be available — default pruning keeps ~256) and, right after warp sync,
+/// by how many forward-imported blocks have bodies. Walk-back stops early when either runs out.
+const EXEC_BLOCK_SAMPLE_BLOCKS: usize = 6000;
+
 /// Handler for incoming light client requests from a remote peer.
 pub struct LightClientRequestHandler<B, Client> {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
@@ -227,18 +233,21 @@ where
 					));
 				}
 
-				// `Core_execute_block` on the heaviest of the 10 most-recent imported blocks. After
-				// warp sync only blocks imported forward from the target have bodies, so wait until
-				// the best number has climbed by 10, then walk back from the tip collecting blocks.
-				// Re-execute each on its PARENT state (what block import does); strip the trailing,
-				// client-added `Seal` digest first or the runtime's `final_checks` digest comparison
-				// fails (mirrors sc-consensus-aura `check_header_slot_and_seal`).
+				// `Core_execute_block` on the heaviest of the last `EXEC_BLOCK_SAMPLE_BLOCKS` blocks.
+				// Wait for a few new blocks so we are settled at the tip (and, after warp sync, have
+				// some forward-imported blocks with bodies), then walk back from the tip. Re-execute
+				// each on its PARENT state (what block import does); strip the trailing, client-added
+				// `Seal` digest first or the runtime's `final_checks` digest comparison fails (mirrors
+				// sc-consensus-aura `check_header_slot_and_seal`). Walk-back stops when a body is
+				// missing (warp-sync boundary); blocks whose parent state was pruned are skipped (the
+				// probe just errors), so effective reach is the ~256-block state-pruning window unless
+				// running with `--state-pruning archive`.
 				while client.info().best_number < number + 10u32.into() {
 					std::thread::sleep(Duration::from_secs(6));
 				}
 				let mut heaviest: Option<(String, B::Hash, Vec<u8>, Duration)> = None;
 				let mut cursor = client.info().best_hash;
-				for _ in 0..10 {
+				for _ in 0..EXEC_BLOCK_SAMPLE_BLOCKS {
 					let Ok(Some(signed)) = client.block(cursor) else { break };
 					let block_number = *signed.block.header().number();
 					let (mut header, extrinsics) = signed.block.deconstruct();
