@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784120240243,
+  "lastUpdate": 1784130159217,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "311c3c1bc6bf7546c6ea3dd7652cca504e1c28f5",
-          "message": "Fix the `CodeNotFound` issue in PolkaVM tests (#10298)\n\n# Description\n\nThis PR bumps the commit hash of the revive-differential-tests framework\nto a version that contains a fix for the `CodeNotFound` issue we've been\nseeing with PolkaVM. The framework now uploads the code of all the\ncontracts prior to running the tests.\n\nWhen CI runs for this PR we should observe that there's either no more\n`CodeNotFound` errors in PolkaVM tests or that it's greatly reduced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T12:35:07Z",
-          "tree_id": "5266370c91dda348440626ff3678fdd815ee85a0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/311c3c1bc6bf7546c6ea3dd7652cca504e1c28f5"
-        },
-        "date": 1763473277146,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013191920506666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15970973413333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007361724999999979,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022730847526666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007498985633333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "muhammadtalhadar@gmail.com",
+            "name": "talha",
+            "username": "talhadaar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35000d248860886d1b2fab8c79940e3356d02a36",
+          "message": "Fix out-of-bounds chunk index error in erasure coding (#12521)\n\n# Description\n\n`reconstruct` in `polkadot-erasure-coding` allocated `received_shards`\nwith\nlength `n_validators` and then indexed it directly with the\ncaller-provided\n`chunk_idx`. Any chunk index `>= n_validators` panicked with an\nindex-out-of-bounds instead of returning the already-defined\n`Error::ChunkIndexOutOfBounds` variant.\n\nThis PR adds the missing bounds check so invalid indices are reported as\nan\nerror rather than panicking.\n\nCloses #12465\n\n## Integration\n\n`reconstruct` (and `reconstruct_v1`) now\nreturn `Err(Error::ChunkIndexOutOfBounds { chunk_index, n_validators })`\nfor an\nout-of-bounds chunk index where they previously panicked. The function\nalready\nreturns `Result<_, Error>` and the variant is already public, so there\nis no API\nor signature change — callers that propagate the `Result` need no\nmodification.\n\n## Review Notes\n\nThe fix is a single guard in the chunk-consumption loop, placed\nalongside the\nexisting `UnevenLength` check and before the indexing write:\n\n```rust\nif chunk_idx >= n_validators {\n    return Err(Error::ChunkIndexOutOfBounds { chunk_index: chunk_idx, n_validators });\n}\n\nreceived_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));\n```\n\nA regression test\n(reconstruct_returns_error_on_out_of_bounds_chunk_index)\nencodes data, then calls reconstruct with one valid index and one index\nequal\nto n_validators, asserting the ChunkIndexOutOfBounds error is returned\ninstead of panicking. The PoC from the isore]\nbecause it expected a panic; once the function returns an error a direct\nassert_eq! is sufficient, matching the exle.\n\n### Checklist\n\n- [x] My PR includes a detailed description and its two subsections\nabove.\n- [x] My PR follows the labeling requirements\n- [x] I have made corresponding changes table)\n- [x] I have added tests that prove my fix is effective\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-15T13:12:00Z",
+          "tree_id": "4fa257d84f30faf3b8d064070331c2170ba7500b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35000d248860886d1b2fab8c79940e3356d02a36"
+        },
+        "date": 1784130130231,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023774002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010064406173333304,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1431471498666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007864566946666667,
             "unit": "seconds"
           }
         ]
