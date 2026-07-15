@@ -13,9 +13,16 @@ use zombienet_sdk::{
 
 // 5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e - Send PeerId via UMP (#10145)
 // fe0113539b123b282654ddaa7c7d548a1b59a58b - last commit w/o ApprovedPeer UMP signal support
-// const PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE: &str =
-// "docker.io/paritypr/colander:master-fe011353";
+const PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE: &str = "docker.io/paritypr/colander:master-fe011353";
+// Async backing is introduced with 5174b9d2d7a. The last commit in master before it is 4f699c70a46
+// Since neither polkadot 1.0 (the last release with collator protocol v1 support only) or the
+// commit above is available as a docker image
+// a dummy PR (https://github.com/paritytech/polkadot-sdk/pull/12658) was used to build a collator
+// supporting V1 only.
 const V1_COLLATOR_IMAGE: &str = "docker.io/paritypr/colander:12658-b4d6619f";
+
+const PRE_APPROVED_UMP_SIGNAL_PARA_ID: u32 = 2000;
+const V1_PARA_ID: u32 = 2001;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
@@ -40,6 +47,7 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								"group_rotation_frequency": 4,
+								"max_validators_per_core": 2,
 							}
 						}
 					}
@@ -51,20 +59,21 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(2000)
+			p.with_id(PRE_APPROVED_UMP_SIGNAL_PARA_ID)
 				.with_default_command("undying-collator")
-				.with_default_image(col_image.as_str())
 				.cumulus_based(false)
-				// Recent collator: sends the ApprovedPeer UMPSignal.
-				// .with_collator(|n| {
-				// 	n.with_name("collator-recent").with_image(col_image.as_str()).with_args(vec![
-				// 		("-lparachain=debug").into(),
-				// 		("--experimental-send-approved-peer").into(),
-				// 	])
-				// })
-				// Old collator (v1.17.0-rc5): doesn't send the ApprovedPeer UMPSignal.
 				.with_collator(|n| {
-					n.with_name("collator-old")
+					n.with_name("collator-pre-approved-ump")
+						.with_image(PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE)
+						.with_args(vec![("-lparachain=debug").into()])
+				})
+		})
+		.with_parachain(|p| {
+			p.with_id(V1_PARA_ID)
+				.with_default_command("undying-collator")
+				.cumulus_based(false)
+				.with_collator(|n| {
+					n.with_name("collator-v1")
 						.with_image(V1_COLLATOR_IMAGE)
 						.with_args(vec![("-lparachain=debug").into()])
 				})
@@ -84,7 +93,16 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 
 	// The parachain should keep producing blocks at a healthy rate, regardless of which collator
 	// (recent or old) authored a given block.
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(2000), 10..16)], []).await?;
+	assert_para_throughput(
+		&relay_client,
+		15,
+		[
+			(ParaId::from(PRE_APPROVED_UMP_SIGNAL_PARA_ID), 10..16),
+			(ParaId::from(V1_PARA_ID), 10..16),
+		],
+		[],
+	)
+	.await?;
 
 	// Finality should not be affected by the mixed collator fleet.
 	assert_finality_lag(&relay_node.wait_client().await?, 5).await?;
