@@ -13,7 +13,9 @@ use zombienet_sdk::{
 
 // 5d5a639ea7de2b74628232427d5d8d7ce9fb5e8e - Send PeerId via UMP (#10145)
 // fe0113539b123b282654ddaa7c7d548a1b59a58b - last commit w/o ApprovedPeer UMP signal support
-const PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE: &str = "docker.io/paritypr/colander:master-fe011353";
+// const PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE: &str =
+// "docker.io/paritypr/colander:master-fe011353";
+const V1_COLLATOR_IMAGE: &str = "docker.io/paritypr/colander:12658-b4d6619f";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
@@ -54,16 +56,16 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 				.with_default_image(col_image.as_str())
 				.cumulus_based(false)
 				// Recent collator: sends the ApprovedPeer UMPSignal.
-				.with_collator(|n| {
-					n.with_name("collator-recent").with_image(col_image.as_str()).with_args(vec![
-						("-lparachain=debug").into(),
-						("--experimental-send-approved-peer").into(),
-					])
-				})
+				// .with_collator(|n| {
+				// 	n.with_name("collator-recent").with_image(col_image.as_str()).with_args(vec![
+				// 		("-lparachain=debug").into(),
+				// 		("--experimental-send-approved-peer").into(),
+				// 	])
+				// })
 				// Old collator (v1.17.0-rc5): doesn't send the ApprovedPeer UMPSignal.
 				.with_collator(|n| {
 					n.with_name("collator-old")
-						.with_image(PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE)
+						.with_image(V1_COLLATOR_IMAGE)
 						.with_args(vec![("-lparachain=debug").into()])
 				})
 		})
