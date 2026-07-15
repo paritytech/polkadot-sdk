@@ -208,8 +208,13 @@ impl ReceiptExtractor {
 			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let at_block =
-					api_inner.at_block_hash_and_number(block_hash, block_number).await.ok()?;
+				let at_block = api_inner
+					.at_block_hash_and_number(block_hash, block_number)
+					.await
+					.inspect_err(|err| {
+						log::debug!(target: LOG_TARGET, "Failed to resolve block #{block_number} ({block_hash:?}) for eth_block_hash query: {err:?}");
+					})
+					.ok()?;
 				let runtime_api = RuntimeApi::new(at_block);
 				runtime_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
 			};
