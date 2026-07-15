@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784120278274,
+  "lastUpdate": 1784130195790,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c8f5da2e895b439cf401e20faca55ad76f9e90d1",
-          "message": "Version bumps and prdocs reordering from stable2509-2 (#10339)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-11-18T09:50:51Z",
-          "tree_id": "e0a0d83ba4a3920bce9eb53c2cbc49e36eaf39fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8f5da2e895b439cf401e20faca55ad76f9e90d1"
-        },
-        "date": 1763465467225,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.259999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001859974,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.479150035709999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001784906,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001784906,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001859974,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005886908990000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.471532640949999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.526381239510002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.499414565569999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9995699816800059,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4293194967299976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.41125486914,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.718076785841034,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.348645366992877,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "muhammadtalhadar@gmail.com",
+            "name": "talha",
+            "username": "talhadaar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35000d248860886d1b2fab8c79940e3356d02a36",
+          "message": "Fix out-of-bounds chunk index error in erasure coding (#12521)\n\n# Description\n\n`reconstruct` in `polkadot-erasure-coding` allocated `received_shards`\nwith\nlength `n_validators` and then indexed it directly with the\ncaller-provided\n`chunk_idx`. Any chunk index `>= n_validators` panicked with an\nindex-out-of-bounds instead of returning the already-defined\n`Error::ChunkIndexOutOfBounds` variant.\n\nThis PR adds the missing bounds check so invalid indices are reported as\nan\nerror rather than panicking.\n\nCloses #12465\n\n## Integration\n\n`reconstruct` (and `reconstruct_v1`) now\nreturn `Err(Error::ChunkIndexOutOfBounds { chunk_index, n_validators })`\nfor an\nout-of-bounds chunk index where they previously panicked. The function\nalready\nreturns `Result<_, Error>` and the variant is already public, so there\nis no API\nor signature change — callers that propagate the `Result` need no\nmodification.\n\n## Review Notes\n\nThe fix is a single guard in the chunk-consumption loop, placed\nalongside the\nexisting `UnevenLength` check and before the indexing write:\n\n```rust\nif chunk_idx >= n_validators {\n    return Err(Error::ChunkIndexOutOfBounds { chunk_index: chunk_idx, n_validators });\n}\n\nreceived_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));\n```\n\nA regression test\n(reconstruct_returns_error_on_out_of_bounds_chunk_index)\nencodes data, then calls reconstruct with one valid index and one index\nequal\nto n_validators, asserting the ChunkIndexOutOfBounds error is returned\ninstead of panicking. The PoC from the isore]\nbecause it expected a panic; once the function returns an error a direct\nassert_eq! is sufficient, matching the exle.\n\n### Checklist\n\n- [x] My PR includes a detailed description and its two subsections\nabove.\n- [x] My PR follows the labeling requirements\n- [x] I have made corresponding changes table)\n- [x] I have added tests that prove my fix is effective\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-15T13:12:00Z",
+          "tree_id": "4fa257d84f30faf3b8d064070331c2170ba7500b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35000d248860886d1b2fab8c79940e3356d02a36"
+        },
+        "date": 1784130165534,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63560.58,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001875856,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7043527909100007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7371873448399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001875856,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.391614368532949,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3286617556000055,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002148535,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8422946202199608,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002148535,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00575765191,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.693081741569999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7401414137499995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.051477318799964,
             "unit": "seconds"
           }
         ]
