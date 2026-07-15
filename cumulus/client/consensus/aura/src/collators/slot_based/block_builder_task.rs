@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::CollatorMessage;
+use super::{resubmission::resolve_session, CollatorMessage};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -32,9 +32,11 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, get_relay_slot, ParachainBlockImportMarker,
+	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
+	ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
+use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -287,11 +289,15 @@ where
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
+			let parent_search_params = match v3_enabled {
+				false => ParentSearchParams::V2 { scheduling_parent: relay_parent_hash },
+				true => ParentSearchParams::V3 { scheduling_parent: scheduling_parent_hash },
+			};
 			let Some(parent_search_result) = crate::collators::find_parent(
-				relay_parent_hash,
-				para_id,
-				&*para_backend,
 				&relay_client,
+				&*para_backend,
+				para_id,
+				parent_search_params,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
 					// core.
@@ -305,11 +311,47 @@ where
 				continue;
 			};
 
-			let included_header = parent_search_result.included_header;
+			// For the logic that follows we need the included header at the relay parent since
+			// it will be used for checking the unincluded segment len.
+			// Corresponding checks related to the unincluded segment len are also done by the
+			// runtime in the `set_validation_data` inherent, using the relay parent context.
+			let included_header_at_execution = match v3_enabled {
+				false => parent_search_result.included_at_scheduling,
+				true => {
+					match fetch_included_from_relay_chain(
+						&relay_client,
+						&*para_backend,
+						relay_parent_hash,
+						para_id,
+					)
+					.await
+					{
+						Ok(Some((header, _))) => header,
+						Ok(None) => {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Failed to fetch the included header at execution \
+								from the relay chain."
+							);
+							continue;
+						},
+						Err(error) => {
+							tracing::error!(
+								target: LOG_TARGET,
+								?error,
+								"Failed to fetch the included header at execution \
+								from the relay chain."
+							);
+							continue;
+						},
+					}
+				},
+			};
 			let initial_parent_hash = parent_search_result.best_parent_header.hash();
 			let initial_parent_header = parent_search_result.best_parent_header;
-			let unincluded_segment_len =
-				initial_parent_header.number().saturating_sub(*included_header.number());
+			let unincluded_segment_len_at_execution = initial_parent_header
+				.number()
+				.saturating_sub(*included_header_at_execution.number());
 
 			let Ok(para_slot_duration) =
 				crate::slot_duration_at(&*para_client, initial_parent_hash)
@@ -353,7 +395,7 @@ where
 
 			let Some(relay_slot) = get_relay_slot(&relay_parent_header) else { continue };
 
-			let included_header_hash = included_header.hash();
+			let included_hash_at_execution = included_header_at_execution.hash();
 
 			{
 				let mut runtime_api = para_client.runtime_api();
@@ -375,11 +417,11 @@ where
 			else {
 				tracing::debug!(
 					target: LOG_TARGET,
-					?unincluded_segment_len,
+					?unincluded_segment_len_at_execution,
 					relay_parent = ?relay_parent_hash,
 					relay_parent_num = %relay_parent_header.number(),
-					included_hash = ?included_header_hash,
-					included_num = %included_header.number(),
+					?included_hash_at_execution,
+					included_num_at_execution = %included_header_at_execution.number(),
 					initial_parent = ?initial_parent_hash,
 					slot = ?para_slot.slot,
 					"Not eligible to claim slot."
@@ -389,12 +431,12 @@ where
 
 			tracing::debug!(
 				target: LOG_TARGET,
-				?unincluded_segment_len,
+				?unincluded_segment_len_at_execution,
 				relay_parent = ?relay_parent_hash,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
-				included_hash = ?included_header_hash,
-				included_num = %included_header.number(),
+				?included_hash_at_execution,
+				included_num_at_execution = %included_header_at_execution.number(),
 				initial_parent = ?initial_parent_hash,
 				slot = ?para_slot.slot,
 				"Claiming slot."
@@ -514,7 +556,7 @@ where
 					collator_peer_id,
 					relay_parent_data: relay_parent_data.clone(),
 					total_number_of_blocks: number_of_blocks,
-					included_header_hash,
+					included_hash_at_execution,
 					relay_slot,
 					para_slot: para_slot.slot,
 					para_client: &*para_client,
@@ -574,7 +616,7 @@ struct BuildCollationParams<
 	collator_peer_id: PeerId,
 	relay_parent_data: RelayParentData,
 	total_number_of_blocks: u32,
-	included_header_hash: Block::Hash,
+	included_hash_at_execution: Block::Hash,
 	relay_slot: cumulus_primitives_aura::Slot,
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
@@ -617,7 +659,7 @@ async fn build_collation_for_core<
 		collator_peer_id,
 		mut relay_parent_data,
 		total_number_of_blocks,
-		included_header_hash,
+		included_hash_at_execution,
 		relay_slot,
 		para_slot,
 		para_client,
@@ -690,6 +732,18 @@ where
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
 
+	let session = resolve_session(relay_client, relay_parent_hash)
+		.await
+		.inspect_err(|err| {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?relay_parent_hash,
+				?err,
+				"Could not resolve relay-parent session; resubmission entry will be skipped.",
+			);
+		})
+		.ok();
+
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
@@ -701,7 +755,7 @@ where
 		// Check if we can build the next block
 		if !crate::collators::can_build_upon::<Block, Client>(
 			parent_hash,
-			included_header_hash,
+			included_hash_at_execution,
 			relay_slot,
 			para_slot,
 			para_client,
@@ -711,7 +765,7 @@ where
 			tracing::debug!(
 				target: LOG_TARGET,
 				?parent_hash,
-				?included_header_hash,
+				?included_hash_at_execution,
 				"Cannot build next block due to unincluded segment constraints, skipping entire bundle. Will continue at the next slot."
 			);
 
@@ -834,6 +888,19 @@ where
 			);
 		}
 
+		let proof = Arc::new(built_block.proof);
+		if let Some(relay_parent_session) = session {
+			prepare_resubmission_aux_data::<Block>(
+				built_block.block.header().hash(),
+				proof.clone(),
+				relay_parent_header.clone(),
+				relay_parent_session,
+			)
+			.for_each(|(k, v)| {
+				import_block.auxiliary.push((k, Some(v)));
+			});
+		}
+
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");
 			return Ok(None);
@@ -843,7 +910,7 @@ where
 		collator.collator_service().announce_block(parent_hash, None);
 
 		blocks.push(built_block.block);
-		proofs.push(built_block.proof);
+		proofs.push(Arc::unwrap_or_clone(proof));
 
 		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
 		let runtime_upgrade_digest = parent_header

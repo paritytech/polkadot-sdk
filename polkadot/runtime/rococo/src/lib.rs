@@ -182,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_022_003,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -1129,7 +1129,9 @@ impl pallet_message_queue::Config for Runtime {
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
 }
 
-impl parachains_dmp::Config for Runtime {}
+impl parachains_dmp::Config for Runtime {
+	type WeightInfo = ();
+}
 
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
@@ -1461,7 +1463,10 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	type Migrations = (
+		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
+		parachains_dmp::migration::MigrateV0ToV1<Runtime>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1834,6 +1839,7 @@ mod benches {
 		[polkadot_runtime_common::paras_registrar, Registrar]
 		[polkadot_runtime_parachains::configuration, Configuration]
 		[polkadot_runtime_parachains::coretime, Coretime]
+		[polkadot_runtime_parachains::dmp, Dmp]
 		[polkadot_runtime_parachains::hrmp, Hrmp]
 		[polkadot_runtime_parachains::disputes, ParasDisputes]
 		[polkadot_runtime_parachains::inclusion, ParaInclusion]

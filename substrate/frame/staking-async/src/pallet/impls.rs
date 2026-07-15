@@ -24,9 +24,9 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination, RewardKind,
-	RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraRewardPoints, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	Nominations, NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination,
+	RewardKind, RewardPoint, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -439,9 +439,12 @@ impl<T: Config> Pallet<T> {
 
 		// Pay validator incentive bonus from the separate incentive pot.
 		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
-		if let Some(incentive) =
-			Self::calculate_validator_incentive_for_page(era, &stash, page_stake_part)
-		{
+		if let Some(incentive) = Self::calculate_validator_incentive_for_page(
+			era,
+			&stash,
+			page_stake_part,
+			&era_reward_points,
+		) {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
 
@@ -674,46 +677,77 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the validator incentive amount for a single page.
 	///
-	/// Share = `(validator_weight / sum_weight) × budget × page_stake_part`, where
-	/// `sum_weight` covers ALL elected validators. A validator that earns no reward
-	/// points forfeits their share (stays in the pot, handled by `UnclaimedRewardHandler`
-	/// at pruning) rather than redistributing it.
+	/// Computes the validator's slice of the era incentive budget for one payout page:
+	/// `share × budget × page_stake_part`.
+	///
+	/// The share formula is the weighted-points share
+	/// `(weight_stash · ep_stash) / Σ_v(weight_v · ep_v)`, with the denominator read from
+	/// [`ErasSumWeightedPoints`]. Pre-cutoff eras instead use the legacy stake-only share
+	/// `weight_stash / Σ weight`; see [`Eras::uses_weighted_points`] for which eras fall on
+	/// which side and why.
+	///
+	/// Returns `None` if the validator has no incentive weight, no era points, or the
+	/// computed amount rounds to zero.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
 		page_stake_part: Perbill,
+		era_reward_points: &EraRewardPoints<T>,
 	) -> Option<BalanceOf<T>> {
 		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
 		if era_incentive_budget.is_zero() {
 			return None;
 		}
 
-		let (validator_weight, total_weight) = match (
-			ErasValidatorIncentiveWeight::<T>::get(era, stash),
-			ErasSumValidatorIncentiveWeight::<T>::get(era),
-		) {
-			(Some(w), t) => (w, t),
+		let validator_weight = match ErasValidatorIncentiveWeight::<T>::get(era, stash) {
+			// No incentive weight (e.g. own-stake was zero at election) means no share.
+			Some(w) if !w.is_zero() => w,
 			_ => return None,
 		};
 
-		if total_weight.is_zero() {
-			log!(
-				warn,
-				"Total validator incentive weight is zero but budget exists for era {}",
-				era
-			);
-			Self::deposit_event(Event::<T>::Unexpected(
-				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
-			));
+		// Branch on the cutoff: legacy formula for eras whose denominator was never
+		// maintained, new weighted-points formula otherwise.
+		let share_part = if Eras::<T>::uses_weighted_points(era) {
+			// This validator has non-zero weight (checked above) and reached this point only
+			// with non-zero reward points (gated by the caller), so it must have contributed
+			// to the denominator. A zero denominator with a live budget is therefore a storage
+			// inconsistency and is surfaced rather than silently paying nothing.
+			let sum_weighted_points = ErasSumWeightedPoints::<T>::get(era);
+			if sum_weighted_points.is_zero() {
+				log!(warn, "Sum of weighted points is zero but budget exists for era {}", era);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+				));
+				return None;
+			}
+			let validator_points: RewardPoint =
+				era_reward_points.individual.get(stash).copied().unwrap_or(0);
+			let numerator = validator_weight.saturating_mul(BalanceOf::<T>::from(validator_points));
+			Perbill::from_rational(numerator, sum_weighted_points)
+		} else {
+			// Legacy stake-only share, denominated by the total incentive weight across all
+			// elected validators. A zero denominator with a non-zero budget is a storage
+			// inconsistency, so it is surfaced rather than silently paying nothing.
+			let total_weight = ErasSumValidatorIncentiveWeight::<T>::get(era);
+			if total_weight.is_zero() {
+				log!(
+					warn,
+					"Total validator incentive weight is zero but budget exists for era {}",
+					era
+				);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+				));
+				return None;
+			}
+			Perbill::from_rational(validator_weight, total_weight)
+		};
+
+		if share_part.is_zero() {
 			return None;
 		}
 
-		if validator_weight.is_zero() {
-			return None;
-		}
-
-		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
-		let validator_total_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_total_incentive = share_part.mul_floor(era_incentive_budget);
 		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
 
 		if validator_incentive_for_page.is_zero() {
@@ -1387,16 +1421,18 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
+		let validator_count = validator_points.len() as u32;
 		// note: weight for `reward_active_era` is taken care of inside `end_session`
 		Eras::<T>::reward_active_era(validator_points.into_iter());
-		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp)
+		session_rotation::Rotator::<T>::end_session(
+			end_index,
+			activation_timestamp,
+			validator_count,
+		)
 	}
 
-	fn weigh_on_relay_session_report(
-		_report: &rc_client::SessionReport<Self::AccountId>,
-	) -> Weight {
-		// worst case weight of this is always
-		T::WeightInfo::rc_on_session_report()
+	fn weigh_on_relay_session_report(report: &rc_client::SessionReport<Self::AccountId>) -> Weight {
+		T::WeightInfo::rc_on_session_report(report.validator_points.len() as u32)
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
