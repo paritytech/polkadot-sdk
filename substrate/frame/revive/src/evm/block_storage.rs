@@ -20,7 +20,6 @@ use crate::{
 	OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight,
 	dispatch_result,
 	evm::{
-		TransactionLegacyUnsigned, TransactionUnsigned,
 		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 		burn_with_dust,
 		fees::InfoT,
@@ -225,12 +224,7 @@ pub fn on_initialize<T: Config>() {
 /// real, executable transaction — it exists only to give the aggregated logs a receipt so they
 /// enter the block's bloom, `receipts_root` and transaction trie.
 fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> {
-	TransactionUnsigned::from(TransactionLegacyUnsigned {
-		nonce: block_number.into(),
-		chain_id: Some(T::ChainId::get().into()),
-		..Default::default()
-	})
-	.dummy_signed_payload()
+	crate::evm::synthetic_log_transaction(block_number.into(), T::ChainId::get().into())
 }
 
 /// Build the ethereum block and store it into the pallet storage.
