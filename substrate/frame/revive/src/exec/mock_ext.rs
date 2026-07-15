@@ -272,6 +272,13 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::peek_storage_access")
 	}
 
+	fn peek_access(
+		&self,
+		_opcode: crate::access_list::StateAccess,
+	) -> crate::access_list::StateAccessKind {
+		panic!("MockExt::peek_access")
+	}
+
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}

@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StorageAccessKind, Warmth},
+	access_list::{StateAccessKind, StorageAccessKind, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -114,10 +114,8 @@ pub enum RuntimeCosts {
 	GetStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
 	TakeStorage { len: u32, kind: StorageAccessKind },
-	/// Base weight of calling `seal_call`.
-	CallBase,
-	/// Weight of calling `seal_delegate_call` for the given input size.
-	DelegateCallBase,
+	/// Base weight of a call-family opcode.
+	CallBase(StateAccessKind),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -217,7 +215,7 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
-	/// Extra ref_time a hot storage access pays to look up the block's overlay.
+	/// Extra ref_time a hot state read pays to look up the block's overlay.
 	fn hot_storage_overlay_overhead<T: Config>() -> Weight {
 		let per_read = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
 		per_read(T::WeightInfo::overlay_probe_full)
@@ -232,23 +230,60 @@ impl RuntimeCosts {
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
-			StorageAccessKind::Persistent(Warmth::Cold { revertible }) => {
-				let cost = cold()
-					.saturating_add(T::WeightInfo::access_list_touch_cold_full())
-					.saturating_sub(T::WeightInfo::access_list_touch_cold_empty());
-				if revertible {
-					cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
-				} else {
-					cost
-				}
+			StorageAccessKind::Persistent(warmth) => {
+				warm_base::<T>(&[warmth], CostPair { cold, hot })
 			},
-			StorageAccessKind::Persistent(Warmth::Hot) => hot()
-				.saturating_add(Self::hot_storage_overlay_overhead::<T>())
-				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
-				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
 			StorageAccessKind::Transient => transient(),
 		}
 	}
+}
+
+/// Bookkeeping weight of one access-list touch, plus the prepaid rollback
+/// for a revertible cold insert.
+pub(crate) fn access_list_overhead<T: Config>(warmth: Warmth) -> Weight {
+	let touch_cost = |bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
+	match warmth {
+		Warmth::Cold { revertible } => {
+			let cost = touch_cost(
+				T::WeightInfo::access_list_touch_cold_full,
+				T::WeightInfo::access_list_touch_cold_empty,
+			);
+			if revertible {
+				cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
+			} else {
+				cost
+			}
+		},
+		Warmth::Hot => touch_cost(
+			T::WeightInfo::access_list_touch_hot_full,
+			T::WeightInfo::access_list_touch_hot_single_element,
+		),
+	}
+}
+
+/// Cold and hot benches of a warmth-priced base; named so call sites cannot swap them.
+pub(crate) struct CostPair<Cold, Hot> {
+	pub cold: Cold,
+	pub hot: Hot,
+}
+
+/// Warmth-priced base of an opcode touching `items`: the hot bench applies
+/// only when every item is hot (mixed warmth rounds up to the cold bench),
+/// plus the per-item access-list overhead.
+pub(crate) fn warm_base<T: Config>(
+	items: &[Warmth],
+	costs: CostPair<impl FnOnce() -> Weight, impl FnOnce() -> Weight>,
+) -> Weight {
+	let base = if items.iter().all(|warmth| warmth.is_hot()) {
+		// The hot benches run at an empty overlay; a single lookup is
+		// charged as an approximation.
+		(costs.hot)().saturating_add(RuntimeCosts::hot_storage_overlay_overhead::<T>())
+	} else {
+		(costs.cold)()
+	};
+	items
+		.iter()
+		.fold(base, |base, warmth| base.saturating_add(access_list_overhead::<T>(*warmth)))
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -338,8 +373,22 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
-			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
+			CallBase(warmth) => match warmth {
+				StateAccessKind::Call { account, contract_info } => warm_base::<T>(
+					&[account, contract_info],
+					CostPair {
+						cold: || T::WeightInfo::seal_call(0, 0, 0),
+						hot: T::WeightInfo::seal_call_hot,
+					},
+				),
+				StateAccessKind::DelegateCall { contract_info } => warm_base::<T>(
+					&[contract_info],
+					CostPair {
+						cold: T::WeightInfo::seal_delegate_call,
+						hot: T::WeightInfo::seal_delegate_call_hot,
+					},
+				),
+			},
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
@@ -391,7 +440,7 @@ mod tests {
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
-		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
+		let cold = StorageAccessKind::Persistent(Warmth::cold_nonrevertible());
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
 		let hot = StorageAccessKind::Persistent(Warmth::Hot);
 
@@ -431,6 +480,56 @@ mod tests {
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
 			);
 		}
+	}
+
+	#[test]
+	fn call_base_cold_hot_pricing() {
+		let hot = Warmth::Hot;
+		let cold = Warmth::cold_nonrevertible();
+		let cold_revertible = Warmth::Cold { revertible: true };
+		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		let all_hot = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+			account: hot,
+			contract_info: hot,
+		}));
+		let all_cold = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+			account: cold,
+			contract_info: cold,
+		}));
+		let mixed = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+			account: cold,
+			contract_info: hot,
+		}));
+
+		assert!(
+			all_cold.ref_time() >= all_hot.ref_time(),
+			"cold call must not be cheaper than hot: cold={all_cold:?} hot={all_hot:?}",
+		);
+		assert_eq!(all_hot.proof_size(), 0, "hot call adds nothing to the proof: {all_hot:?}");
+		assert!(all_cold.proof_size() > 0, "cold call pays proof size: {all_cold:?}");
+		assert!(mixed.proof_size() > 0, "any cold item prices the full cold base: {mixed:?}",);
+
+		let revertible = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+			account: cold_revertible,
+			contract_info: cold,
+		}));
+		assert!(
+			revertible.ref_time() > all_cold.ref_time(),
+			"a revertible cold touch prepays the rollback: rev={revertible:?} cold={all_cold:?}",
+		);
+
+		let delegate_hot =
+			weight_of(RuntimeCosts::CallBase(StateAccessKind::DelegateCall { contract_info: hot }));
+		let delegate_cold = weight_of(RuntimeCosts::CallBase(StateAccessKind::DelegateCall {
+			contract_info: cold,
+		}));
+		assert!(
+			delegate_cold.ref_time() >= delegate_hot.ref_time(),
+			"cold delegate call must not be cheaper than hot: cold={delegate_cold:?} hot={delegate_hot:?}",
+		);
+		assert_eq!(delegate_hot.proof_size(), 0, "hot delegate call: {delegate_hot:?}");
+		assert!(delegate_cold.proof_size() > 0, "cold delegate call: {delegate_cold:?}");
 	}
 
 	#[test]

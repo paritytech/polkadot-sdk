@@ -77,6 +77,8 @@ pub trait WeightInfo {
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight;
 	fn call_with_pvm_code_per_byte(c: u32, ) -> Weight;
 	fn call_with_evm_code_per_byte(c: u32, ) -> Weight;
+	fn call_with_pvm_code_per_byte_hot(c: u32, ) -> Weight;
+	fn call_with_evm_code_per_byte_hot(c: u32, ) -> Weight;
 	fn basic_block_compilation(b: u32, ) -> Weight;
 	fn instantiate_with_code(c: u32, i: u32, ) -> Weight;
 	fn eth_instantiate_with_code(c: u32, i: u32, d: u32, ) -> Weight;
@@ -158,6 +160,8 @@ pub trait WeightInfo {
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
 	fn seal_call(t: u32, d: u32, i: u32, ) -> Weight;
+	fn seal_call_hot() -> Weight;
+	fn seal_delegate_call_hot() -> Weight;
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
@@ -301,6 +305,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot load re-reads a blob already in the proof).
+	fn call_with_pvm_code_per_byte_hot(c: u32, ) -> Weight {
+		Weight::from_parts(148_471_832, 0)
+			.saturating_add(Weight::from_parts(1_601, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot load re-reads a blob already in the proof).
+	fn call_with_evm_code_per_byte_hot(c: u32, ) -> Weight {
+		Weight::from_parts(99_411_753, 0)
+			.saturating_add(Weight::from_parts(1_741, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -1324,6 +1344,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(30_587_000, 4214)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot call re-reads state already in the proof).
+	fn seal_call_hot() -> Weight {
+		Weight::from_parts(70_070_774, 0)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot call re-reads state already in the proof).
+	fn seal_delegate_call_hot() -> Weight {
+		Weight::from_parts(30_587_000, 0)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
@@ -1848,6 +1881,22 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot load re-reads a blob already in the proof).
+	fn call_with_pvm_code_per_byte_hot(c: u32, ) -> Weight {
+		Weight::from_parts(148_471_832, 0)
+			.saturating_add(Weight::from_parts(1_601, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot load re-reads a blob already in the proof).
+	fn call_with_evm_code_per_byte_hot(c: u32, ) -> Weight {
+		Weight::from_parts(99_411_753, 0)
+			.saturating_add(Weight::from_parts(1_741, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -2869,6 +2918,19 @@ impl WeightInfo for () {
 		//  Estimated: `4214`
 		// Minimum execution time: 28_151_000 picoseconds.
 		Weight::from_parts(30_587_000, 4214)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot call re-reads state already in the proof).
+	fn seal_call_hot() -> Weight {
+		Weight::from_parts(70_070_774, 0)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot call re-reads state already in the proof).
+	fn seal_delegate_call_hot() -> Weight {
+		Weight::from_parts(30_587_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)

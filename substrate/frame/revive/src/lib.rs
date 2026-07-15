@@ -1886,7 +1886,12 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				Code::Existing(code_hash) => {
-					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
+					// The code load of an instantiation is always billed cold.
+					let executable = ContractBlob::from_storage(
+						code_hash,
+						&mut transaction_meter,
+						access_list::Warmth::cold_nonrevertible(),
+					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},

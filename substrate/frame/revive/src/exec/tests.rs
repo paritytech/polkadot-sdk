@@ -23,7 +23,9 @@
 use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
-	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, Warmth},
+	access_list::{
+		MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateAccessKind, Warmth,
+	},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
 	test_utils::*,
@@ -142,6 +144,7 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
+		_warmth: Warmth,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -198,6 +201,14 @@ fn exec_success() -> ExecResult {
 
 fn exec_trapped() -> ExecResult {
 	Err(ExecError { error: <Error<Test>>::ContractTrapped.into(), origin: ErrorOrigin::Callee })
+}
+
+/// `MockExecutable::from_storage` with a cold, non-revertible warmth.
+fn from_storage_cold<S: crate::metering::State>(
+	code_hash: H256,
+	meter: &mut crate::metering::ResourceMeter<Test, S>,
+) -> Result<MockExecutable, sp_runtime::DispatchError> {
+	MockExecutable::from_storage(code_hash, meter, Warmth::cold_nonrevertible())
 }
 
 #[test]
@@ -621,7 +632,7 @@ fn input_data_to_instantiate() {
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
 
-			let executable = MockExecutable::from_storage(input_data_ch, &mut meter).unwrap();
+			let executable = from_storage_cold(input_data_ch, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 
 			let result = MockStack::run_instantiate(
@@ -1092,7 +1103,7 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 
 	ExtBuilder::default().existential_deposit(15).build().execute_with(|| {
 		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
-		let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
+		let executable = from_storage_cold(dummy_ch, &mut meter).unwrap();
 
 		assert_matches!(
 			MockStack::run_instantiate(
@@ -1124,7 +1135,7 @@ fn instantiation_work_with_success_output() {
 			set_balance(&ALICE, min_balance * 1000);
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
-			let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
+			let executable = from_storage_cold(dummy_ch, &mut meter).unwrap();
 
 			let instantiated_contract_address = assert_matches!(
 				MockStack::run_instantiate(
@@ -1173,7 +1184,7 @@ fn instantiation_fails_with_failing_output() {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
-			let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
+			let executable = from_storage_cold(dummy_ch, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 1000);
 
 			let instantiated_contract_address = assert_matches!(
@@ -1334,7 +1345,7 @@ fn termination_from_instantiate_succeeds() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let executable = MockExecutable::from_storage(terminate_ch, &mut meter).unwrap();
+			let executable = from_storage_cold(terminate_ch, &mut meter).unwrap();
 			set_balance(&ALICE, 10_000);
 
 			let result = MockStack::run_instantiate(
@@ -1520,7 +1531,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let executable = MockExecutable::from_storage(code, &mut meter).unwrap();
+			let executable = from_storage_cold(code, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 
 			let result = MockStack::run_instantiate(
@@ -1704,8 +1715,7 @@ fn minimum_balance_must_return_converted_balance() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let succ_fail_executable =
-				MockExecutable::from_storage(succ_fail_code, &mut meter).unwrap();
+			let succ_fail_executable = from_storage_cold(succ_fail_code, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 
 			assert_ok!(MockStack::run_instantiate(
@@ -1787,13 +1797,10 @@ fn nonce() {
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
-			let fail_executable = MockExecutable::from_storage(fail_code, &mut meter).unwrap();
-			let success_executable =
-				MockExecutable::from_storage(success_code, &mut meter).unwrap();
-			let succ_fail_executable =
-				MockExecutable::from_storage(succ_fail_code, &mut meter).unwrap();
-			let succ_succ_executable =
-				MockExecutable::from_storage(succ_succ_code, &mut meter).unwrap();
+			let fail_executable = from_storage_cold(fail_code, &mut meter).unwrap();
+			let success_executable = from_storage_cold(success_code, &mut meter).unwrap();
+			let succ_fail_executable = from_storage_cold(succ_fail_code, &mut meter).unwrap();
+			let succ_succ_executable = from_storage_cold(succ_succ_code, &mut meter).unwrap();
 			set_balance(&ALICE, min_balance * 10_000);
 			set_balance(&BOB, min_balance * 10_000);
 
@@ -2840,7 +2847,7 @@ fn immutable_data_set_overrides() {
 
 			let addr = MockStack::run_instantiate(
 				ALICE,
-				MockExecutable::from_storage(hash, &mut meter).unwrap(),
+				from_storage_cold(hash, &mut meter).unwrap(),
 				&mut meter,
 				U256::zero(),
 				vec![],
@@ -3212,9 +3219,10 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 #[test]
 fn cold_hot_past_cap_touch_is_not_revertible() {
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
-		// Fill the access list to its cap with distinct slots. Each is below the
-		// cap when touched, so it journals and is revertible.
-		for i in 0..MAX_ACCESS_LIST_ENTRIES as u32 {
+		// Fill the remaining access list capacity with distinct slots. Each
+		// slot is below the cap when touched, so it journals and is revertible.
+		let already_tracked = ctx.ext.access_list_metrics().size;
+		for i in 0..(MAX_ACCESS_LIST_ENTRIES - already_tracked) as u32 {
 			let mut slot = [0u8; 32];
 			slot[..4].copy_from_slice(&i.to_le_bytes());
 			assert_matches!(
@@ -3297,5 +3305,196 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 		place_contract(&BOB, a_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_call_target_warms_across_calls() {
+	// The second call to the same target prices its account state, contract
+	// metadata, and code as hot.
+	let child_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessKind::Call {
+				account: Warmth::Cold { .. },
+				contract_info: Warmth::Cold { .. }
+			},
+			"an uncalled target starts cold",
+		);
+		let before = ctx.ext.access_list_metrics();
+
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			"account state and contract metadata are hot after the first call",
+		);
+		let mid = ctx.ext.access_list_metrics();
+		assert_eq!(
+			mid.cold - before.cold,
+			3,
+			"first call: account + contract info + code touch cold",
+		);
+		assert_eq!(mid.hot, before.hot, "first call adds no hot touches");
+
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
+		let after = ctx.ext.access_list_metrics();
+		assert_eq!(after.hot - mid.hot, 3, "second call: account + contract info + code hot");
+		assert_eq!(after.cold, mid.cold, "second call adds no cold touches");
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_delegate_call_leaves_target_account_cold() {
+	// A delegate call reads only the target's contract metadata and code, so
+	// a later plain call to the same target still prices the account state
+	// cold.
+	let child_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let before = ctx.ext.access_list_metrics();
+		assert_matches!(ctx.ext.delegate_call(&CallResources::NoLimits, BOB_ADDR, vec![]), Ok(_));
+		let after = ctx.ext.access_list_metrics();
+		assert_eq!(after.cold - before.cold, 2, "delegate call: contract info + code touch cold");
+		assert_eq!(after.hot, before.hot, "delegate call adds no hot touches");
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::DelegateCall { target: BOB_ADDR }),
+			StateAccessKind::DelegateCall { contract_info: Warmth::Hot }
+		);
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessKind::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Hot },
+			"delegate call warms contract metadata but not account state",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_reverted_caller_drops_target_warmth_but_keeps_own() {
+	// B calls DJANGO and then reverts: DJANGO's warmth (touched while B ran)
+	// is dropped, while B's own warmth (touched by root before B ran)
+	// persists — the caller's touch of a target survives the target's revert.
+	let grandchild_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+
+	let b_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
+		Err("revert B".into())
+	});
+
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let _ = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
+			StateAccessKind::Call {
+				account: Warmth::Cold { .. },
+				contract_info: Warmth::Cold { .. }
+			},
+			"B's revert drops the warmth of targets B touched",
+		);
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			"the caller's touch of B persists even though B reverted",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&DJANGO, grandchild_code_hash);
+		place_contract(&BOB, b_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_call_to_plain_account_warms_target() {
+	// Calling an address without code still warms its account state and the
+	// contract-info absence proof; no code entry is added.
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let plain_account = H160::from_low_u64_be(0x777);
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: plain_account }),
+			StateAccessKind::Call {
+				account: Warmth::Cold { .. },
+				contract_info: Warmth::Cold { .. }
+			}
+		);
+		let before = ctx.ext.access_list_metrics();
+
+		assert_matches!(run_child_call(ctx.ext, &plain_account, vec![]), Ok(_));
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: plain_account }),
+			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			"a call to a plain account warms it",
+		);
+		let after = ctx.ext.access_list_metrics();
+		assert_eq!(after.cold - before.cold, 2, "account + contract info; no code entry");
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, root_code_hash);
+		run_root_call(BOB_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_shared_code_hash_is_hot_across_addresses() {
+	// Two contracts share one code hash: calling the second prices its
+	// account entries cold, but the shared code blob is already hot.
+	let shared_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
+		let mid = ctx.ext.access_list_metrics();
+
+		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
+		let after = ctx.ext.access_list_metrics();
+		assert_eq!(after.cold - mid.cold, 2, "second address: account + contract info cold");
+		assert_eq!(after.hot - mid.hot, 1, "second address: shared code blob hot");
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, shared_code_hash);
+		place_contract(&DJANGO, shared_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_first_frame_warms_entry_target() {
+	// The first frame's touches are seeded at stack creation, so a reentrant
+	// self-call prices hot.
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			"the entry target's entries are seeded by the first frame",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, root_code_hash);
+		run_root_call(BOB_ADDR, vec![]);
 	});
 }

@@ -17,6 +17,7 @@
 
 use crate::{
 	Pallet, RuntimeCosts,
+	access_list::StateAccess,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
 		Ext,
@@ -83,12 +84,13 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
 		},
 		None => {
-			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
-			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
-				RuntimeCosts::DelegateCallBase
-			} else {
-				RuntimeCosts::CallBase
-			})?;
+			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
+
+			// Charged from the current access-list state; the list is updated
+			// during frame execution.
+			let access = StateAccess::call(callee, scheme.is_delegate_call());
+			let cost = RuntimeCosts::CallBase(interpreter.ext.peek_access(access));
+			interpreter.ext.charge_or_halt(cost)?;
 
 			interpreter
 				.ext

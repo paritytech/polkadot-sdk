@@ -21,6 +21,7 @@ pub mod env;
 
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
+	access_list::StateAccess,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -278,11 +279,11 @@ enum CallType {
 }
 
 impl CallType {
-	fn cost(&self) -> RuntimeCosts {
-		match self {
-			CallType::Call { .. } => RuntimeCosts::CallBase,
-			CallType::DelegateCall => RuntimeCosts::DelegateCallBase,
-		}
+	/// Base cost of the call, charged from the current access-list state;
+	/// the list is updated during frame execution.
+	fn cost(&self, ext: &impl Ext, callee: &sp_core::H160) -> RuntimeCosts {
+		let access = StateAccess::call(*callee, matches!(self, CallType::DelegateCall));
+		RuntimeCosts::CallBase(ext.peek_access(access))
 	}
 }
 
@@ -493,8 +494,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
 		if value_len > max_size {
-			// Don't warm the slot on a failed validation as the storage was not accessed.
-			let access_kind = self.ext.peek_storage_access(transient, &key);
+			// A peek registers nothing, so no rollback is owed: strip the prepayment.
+			let access_kind = self.ext.peek_storage_access(transient, &key).non_revertible();
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
 				old_bytes: max_size,
@@ -645,7 +646,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
-			None => self.charge_gas(call_type.cost())?,
+			None => {
+				let cost = call_type.cost(&*self.ext, &callee);
+				self.charge_gas(cost)?
+			},
 		};
 
 		// we do check this in exec.rs but we want to error out early

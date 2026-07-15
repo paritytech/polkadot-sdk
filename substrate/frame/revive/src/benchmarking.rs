@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES},
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StateAccess},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -192,6 +192,80 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// A hot call re-reads state already in the proof: exempt the callee's keys.
+	fn whitelist_callee_keys<T: Config>(callee: &Contract<T>, code_hash: H256) {
+		for key in [
+			frame_system::Account::<T>::hashed_key_for(&callee.account_id),
+			OriginalAccount::<T>::hashed_key_for(&callee.address),
+			AccountInfoOf::<T>::hashed_key_for(&callee.address),
+			CodeInfoOf::<T>::hashed_key_for(&code_hash),
+			PristineCode::<T>::hashed_key_for(&code_hash),
+		] {
+			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		}
+	}
+
+	/// Shared setup of the hot call benches: deploys `$module` as the callee,
+	/// makes it hot (access list warmed, keys whitelisted), and binds
+	/// `$do_call` to a zero-value call (or, with the `delegate` prefix, a
+	/// delegate call) to it.
+	macro_rules! hot_call_setup {
+		($do_call:ident, $module:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false);
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),                                 // flags + callee_ptr
+					u64::MAX,                                         // ref_time_limit
+					u64::MAX,                                         // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_ptr
+					pack_hi_lo(0, 0),                                 // input_data_len + input_data_ptr
+					pack_hi_lo(0, SENTINEL),                          // output_len_ptr + output_ptr (skip)
+				)
+			};
+		};
+		(delegate $do_call:ident, $module:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len, $module, true);
+			let mut $do_call = || {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address_ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					callee_len,              // deposit_ptr
+					pack_hi_lo(0, 0),        // input_data_len + input_data_ptr
+					pack_hi_lo(0, SENTINEL), // output_len_ptr + output_ptr (skip)
+				)
+			};
+		};
+		(@setup $runtime:ident, $memory:ident, $callee_len:ident, $deposit_len:ident,
+			$module:expr, $delegate:expr) => {
+			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
+			let callee = callee_contract.account_id.clone();
+			let code_hash = callee_contract.info()?.code_hash;
+
+			whitelist_callee_keys::<T>(&callee_contract, code_hash);
+
+			let callee_bytes = callee.encode();
+			let $callee_len = callee_bytes.len() as u32;
+
+			let value_bytes = U256::zero().encode();
+
+			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let $deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_storage_deposit_limit(deposit);
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+
+			let (mut ext, _) = setup.ext();
+			ext.touch_call_target(StateAccess::call(callee_contract.address, $delegate), code_hash);
+			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+		};
+	}
+
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
@@ -220,6 +294,20 @@ mod benchmarks {
 			vec![],
 		);
 
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_pvm_code_per_byte_hot(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::sized(c));
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
@@ -254,6 +342,20 @@ mod benchmarks {
 			vec![],
 		);
 
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte_hot(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::evm_init_code_for_runtime_size(c));
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
@@ -1965,7 +2067,7 @@ mod benchmarks {
 	fn near_full_access_list() -> crate::access_list::AccessList {
 		let mut al = AccessList::new();
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(AccessEntry {
+			al.touch(AccessEntry::Storage {
 				slot: worst_case_slot(),
 				address: H160::from_low_u64_be(i as u64),
 			});
@@ -1977,14 +2079,16 @@ mod benchmarks {
 	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
 		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let entry = AccessEntry::Storage {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(u64::MAX),
+		};
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry);
 		}
-		assert!(outcome.is_cold());
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
@@ -1992,42 +2096,46 @@ mod benchmarks {
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
 		// Re-touch an entry that is already present (address zero is in the fill range).
-		let entry = AccessEntry { slot: worst_case_slot(), address: H160::zero() };
+		let entry = AccessEntry::Storage { slot: worst_case_slot(), address: H160::zero() };
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry);
 		}
-		assert!(!outcome.is_cold());
+		assert!(outcome.is_hot());
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let entry = AccessEntry::Storage {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(u64::MAX),
+		};
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry);
 		}
-		assert!(outcome.is_cold());
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let entry = AccessEntry::Storage {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(u64::MAX),
+		};
 		al.touch(entry.clone());
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry);
 		}
-		assert!(!outcome.is_cold());
+		assert!(outcome.is_hot());
 		Ok(())
 	}
 
@@ -2038,7 +2146,10 @@ mod benchmarks {
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
 		al.enter_frame();
-		al.touch(AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) });
+		al.touch(AccessEntry::Storage {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(u64::MAX),
+		});
 		#[block]
 		{
 			al.rollback_frame();
@@ -2406,6 +2517,22 @@ mod benchmarks {
 		);
 	}
 
+	// Call a target whose account state, contract metadata, and code are hot,
+	// as if an identical call already ran in the same transaction.
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_hot() -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::dummy());
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
@@ -2499,6 +2626,21 @@ mod benchmarks {
 				pack_hi_lo(0, 0),        // input len + data ptr
 				pack_hi_lo(0, SENTINEL), // output len + ptr
 			);
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+	// Delegate-call a target whose contract metadata and code are hot, as if
+	// an identical delegate call already ran in the same transaction.
+	#[benchmark(pov_mode = Measured)]
+	fn seal_delegate_call_hot() -> Result<(), BenchmarkError> {
+		hot_call_setup!(delegate do_call, VmBinaryModule::dummy());
+
+		let result;
+		#[block]
+		{
+			result = do_call();
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);

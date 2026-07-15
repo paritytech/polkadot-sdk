@@ -139,6 +139,14 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(2))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
 	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot load re-reads a blob already in the proof).
+	fn call_with_pvm_code_per_byte_hot(c: u32, ) -> Weight {
+		Weight::from_parts(179_867_634, 0)
+			.saturating_add(Weight::from_parts(1_579, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:2 w:0)
@@ -164,6 +172,14 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(2))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(c.into()))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot load re-reads a blob already in the proof).
+	fn call_with_evm_code_per_byte_hot(c: u32, ) -> Weight {
+		Weight::from_parts(127_674_465, 0)
+			.saturating_add(Weight::from_parts(1_780, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -1304,6 +1320,19 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 37_041_000 picoseconds.
 		Weight::from_parts(39_798_000, 0)
 			.saturating_add(Weight::from_parts(0, 4212))
+			.saturating_add(T::DbWeight::get().reads(3))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot call re-reads state already in the proof).
+	fn seal_call_hot() -> Weight {
+		Weight::from_parts(94_926_944, 0)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
+	// with the proof size zeroed (a hot call re-reads state already in the proof).
+	fn seal_delegate_call_hot() -> Weight {
+		Weight::from_parts(39_798_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3))
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
