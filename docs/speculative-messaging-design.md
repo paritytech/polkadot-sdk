@@ -6,13 +6,17 @@
 |-------|-------|
 | **Authors** | eskimor |
 | **Status** | Draft |
-| **Version** | 0.3 |
-| **Related Designs** | [Low-Latency Parachains v2](low-latency-v2-design.md) |
+| **Version** | 0.4 |
+| **Related Designs** | [Low-Latency Parachains v2](low-latency-v2-design.md), [Off-Chain Block Verification](offchain-block-verification-design.md) |
 
 ### Version History
 
 | Version | Area | Changes |
 |---------|------|---------|
+| 0.4 | | **Off-chain verification.** |
+| | Header digest | The hash of the `ProvidesRoots` set is additionally committed into a header digest, deposited from the same computation that emits the UMP signal—batches become verifiable against a header alone, no candidate required. Digest format is protocol-standard (foreign nodes check it directly, no wasm): `Consensus(SPMS_ENGINE_ID, blake2_256(set.encode()))`, well-defined via `CommitmentSet`'s canonical encoding. |
+| | Consumption tiers | Three tiers formalized: speculative (header digest + off-chain verification stack), optimistic (backed candidates via `CandidateBacked` event / `candidates_pending_availability` API), inclusion-based. Optimistic-tier failure (availability timeout) maps onto the existing enactment-dependency/resubmission machinery. |
+| | Separate design | Verification of unincluded sender blocks (header lineage, authorship, ack confidence—generic over parachains, shared with Low-Latency v2) factored out into [Off-Chain Block Verification](offchain-block-verification-design.md). |
 | 0.3 | | **Flat per-destination commitments.** |
 | | Commitments | Hierarchical top-level Merkle root replaced by a flat canonical set of `(ParaId, per-destination MMR root)` entries (`CommitmentSet`), transported as UMP signals—per the analysis on [PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449) and the implementation direction ([#12346](https://github.com/paritytech/polkadot-sdk/issues/12346), [#12347](https://github.com/paritytech/polkadot-sdk/issues/12347), [#12350](https://github.com/paritytech/polkadot-sdk/issues/12350)). Top-level inclusion proofs gone; extension proofs only needed when the *specific pair's* MMR grew. |
 | | Requires semantics | Explicit: consumed messages are a *prefix* of the required root. Two lifting mechanisms, cleanly separated: in-block catch-up proofs (new) for partial backlog consumption in normal operation, blocks self-contained per the [PR #11413](https://github.com/paritytech/polkadot-sdk/pull/11413) block/candidate split; POV-carried late block proofs (now a single MMR extension proof) for the resubmission flow only. |
@@ -1357,6 +1361,60 @@ Beyond request/response, the protocol needs:
    signatures (Low-Latency v2).
 3. **MMR state sharing**: allow peers to request proofs/peaks where node-local
    data doesn't suffice.
+
+### Off-Chain Verification
+
+Consuming messages *before* the sending block's provides commitment is on
+chain (the speculative and optimistic tiers) requires verifying the sending
+block itself: header lineage from included state, authorship by a currently
+valid collator, and acknowledgement confidence. This is a generic subsystem
+(shared with Low-Latency v2 ack verification) and specified separately:
+[Off-Chain Parachain Block
+Verification](offchain-block-verification-design.md).
+
+Interface points with this document:
+
+- The sender commits the hash of its `ProvidesRoots` set into a **header
+  digest**, deposited via `frame_system::deposit_log` at block end from the
+  same computation that emits the UMP signal. This lets a batch be verified
+  against a header alone—no candidate required.
+
+  Unlike headers and ack blobs (chain-opaque, judged by the chain's own wasm
+  via [Off-Chain Block
+  Verification](offchain-block-verification-design.md)), this check is
+  performed by the *foreign node directly*—a pure function of header and
+  set, no state involved. The digest format is therefore **protocol
+  standard**, not chain-internal:
+
+  - `DigestItem::Consensus(SPMS_ENGINE_ID, blake2_256(provides_set.encode()))`,
+    at most one per header (engine id value TBD);
+  - well-defined because `CommitmentSet`'s encoding is canonical—one logical
+    set, exactly one hash;
+  - receiver check: recompute batch root → `(receiver, root)` ∈ supplied
+    set → `blake2_256(set.encode())` == digest payload.
+
+  A chain deviating from the format self-excludes: receivers cannot verify
+  its digests and it simply gets no speculative delivery.
+
+  Freedom removed by this standardization: participating chains must use the
+  standard Substrate header layout (this is the one place a foreign node
+  parses a header itself—everywhere else headers stay chain-opaque), and
+  multiple messaging pallet instances must aggregate into one set per
+  header. Both constraints gate only the speculative/optimistic tiers;
+  inclusion-based messaging rides on UMP signals and is header-format
+  agnostic. Hash and encoding were already protocol-fixed at the messaging
+  layer, so no chain-internal choice is overridden.
+- Tiers, all served by that digest:
+
+| Tier | Provides root source | Trust |
+|---|---|---|
+| Speculative | Header digest + off-chain verification stack | Trust domain (acks + slashing) |
+| Optimistic (backed) | `CandidateBacked` event (`HeadData` incl. digest) or `candidates_pending_availability` API | Backing validity; availability may time out |
+| Inclusion-based | `CandidateIncluded` / `paras::Heads` | Relay chain |
+
+The optimistic tier's failure mode (provider availability timeout) is exactly
+the enactment-dependency / resubmission machinery already specified—a
+latency-vs-certainty knob, not a new mechanism.
 
 ---
 
