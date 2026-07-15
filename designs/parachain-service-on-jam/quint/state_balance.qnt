@@ -13,16 +13,16 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint: 4 247 B ParaInfo + 65 570 B log reserve.
+   /// Per-para baseline footprint: 4 248 B ParaInfo + 65 575 B log reserve.
    /// Derivation in §6.1.
-   pure val BaselineFootprint: int = 69817
+   pure val BaselineFootprint: int = 69823
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending authorizer queues + cores, incoming transfers),
-  /// worst-cased at 1 381 176 B in §6.1. Asset Hub reserves this in its baseline,
+  /// worst-cased at 1 381 508 B in §6.1. Asset Hub reserves this in its baseline,
   /// so those items are pre-provisioned rather than charged to
   /// `usedStateBalance` as they grow.
-  pure val AssetHubGlobalItemsFootprint: int = 1381176
+  pure val AssetHubGlobalItemsFootprint: int = 1381508
 
   /// Asset Hub's baseline footprint: the generic per-para baseline plus its
   /// reserved service-global items (§6.1).
@@ -40,11 +40,11 @@ module state_balance {
   /// Threshold Balance*):
   ///   a_requests (preimage lookup, keyed by (hash, len)): 81 + len
   ///   a_storage  (referencer-map entry): 34 + |value| + |key|
-  ///              = 34 + 5 (singleton {ParaId} set) + 36 (raw (hash,len) key)
-  /// Total = 156 + len bytes. Byte term only; JAM's per-item balance
+  ///              = 34 + 5 (singleton {ParaId} set) + 37 (storage key = 1 B map tag + 32 B hash + 4 B len)
+  /// Total = 157 + len bytes. Byte term only; JAM's per-item balance
   /// term (B_I * items) is not modelled — matching the baseline byte proxy.
   pure def preimageFootprint(len: int): int =
-  (81 + len) + (34 + 5 + 36)
+  (81 + len) + (34 + 5 + 37)
 
   // --- Update primitives --------------------------------------------------
 

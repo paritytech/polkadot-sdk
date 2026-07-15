@@ -325,6 +325,23 @@ struct ParaInfo {
 }
 ```
 
+#### Storage key encoding
+
+Each storage item — a top-level `Map` or a singleton — is assigned a distinct
+**1-byte tag** identifying it within the service's JAM storage. The full JAM
+storage key is `[tag: u8] || SCALE-encoded logical key` (the tag alone for
+singletons; the tag prepended to the encoded map key for map entries). 
+
+| Tag | Storage item |
+|--------|------------------------------|
+| `0x00` | `parachains` |
+| `0x01` | `parachain_log` |
+| `0x02` | `pending_authorizer_queues` |
+| `0x03` | `pending_authorizer_cores` |
+| `0x04` | `preimage_registry` |
+| `0x05` | `staged_validator_keys` |
+| `0x06` | `incoming_transfers` |
+
 ### 3.2 Work Items
 
 Each work package submitted to the Parachain Service contains one or more **work items**.
@@ -930,9 +947,8 @@ transitions back to empty (at which point the entry is removed).
 
 Applying §6.1's sole-user rule, a single referencer's **preimage footprint** is the
 sum of two JAM entries: the **preimage request** (`81 + len`) and its
-**`preimage_registry` entry** — `34 + |value| + |key|` = `34 + 5 + 36` (the per-item
-overhead, a singleton `{ParaId}` referencer set of 5 B, and the raw `(hash, len)` key
-of 36 B). That is **`156 + len`** bytes per referencer, even though the on-chain
+**`preimage_registry` entry** — `34 + |value| + |key|` = `34 + 5 + 37` (the per-item
+overhead, a singleton `{ParaId}` referencer set of 5 B, and the storage key of 37 B (1 B map tag + 32 B hash + 4 B len)). That is **157 + len** bytes per referencer, even though the on-chain
 entry may hold many referencers.
 
 #### Sizing the baseline footprint
@@ -948,32 +964,35 @@ entry. Taking `ParaId = u32` (4 B), `Hash = 32 B`, `Timeslot = u32` (4 B),
 
 ```
 JAM per-item overhead                                              =      34 B
+map tag                                                            =       1 B
 ParaId (key)                                                       =       4 B
 head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098 B
 validation_code: ValidationCode = 32 (hash) + 4 (len) + 1 (pinned) =      37 B
 pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42 B
 total_state_balance: Balance                                       =      16 B
 used_state_balance: Balance                                        =      16 B
-                                                                      -------
-                                                                      4 247 B
+                                                                       -------
+                                                                       4 248 B
 ```
 
 `(ParaId, parachain_log[para_id])` entry — value + key bounded by a flat 64 KiB cap,
 with JAM's per-item overhead on top:
 
 ```
-The log is bounded by exact encoded size (entries sized by actual SCALE length,
-not worst-case). The 64 KiB cap covers every log element plus the vector's own
-length prefix and the ParaId map key; JAM's 34 B per-item overhead sits on top, so
-the service reserves a flat 64 KiB + 34 B regardless of current contents.
+The log value is bounded by exact encoded size (entries sized by actual SCALE
+length, not worst-case). The 64 KiB cap covers every log element plus the
+vector's own length prefix; JAM's 34 B per-item overhead and the 5 B storage key
+(1 B map tag + 4 B ParaId) sit on top, so the service reserves a flat
+64 KiB + 34 B + 5 B regardless of current contents.
 
 JAM per-item overhead                                              =      34 B
-parachain_log entry (flat cap): 64 KiB                             =  65 536 B
+storage key (1 B map tag + 4 B ParaId)                             =       5 B
+parachain_log value (flat cap): 64 KiB                             =  65 536 B
                                                                       -------
-                                                                     65 570 B
+                                                                     65 575 B
 ```
 
-**`baseline_footprint = 4 247 + 65 570 = 69 817 B`** per parachain.
+**`baseline_footprint = 4 248 + 65 575 = 69 823 B`** per parachain.
 
 #### Asset Hub baseline footprint
 
@@ -986,18 +1005,18 @@ a single entry each. Taking `CoreCount = 341`, `AuthorizerHash = 32 B`,
 
 ```
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 entry
-  34 + 4 (key) + 2 + 1023 × 336                                         = 343 768 B
+  34 + 1 (key) + 2 + 1023 × 336                                         = 343 765 B
 pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>  — per core
-  341 × (34 + 4 (key) + 2 + 80 × 32)                                    = 886 600 B
+  341 × (34 + 5 (key) + 2 + 80 × 32)                                    = 886 941 B
 pending_authorizer_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 entry
-  34 + 4 (key) + 2 + 341 × (4 + 4)                                      =   2 768 B
+  34 + 1 (key) + 2 + 341 × (4 + 4)                                      =   2 765 B
 incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
-  34 + 4 (key) + 2 + 1000 × (4 + 16 + 128)                              = 148 040 B
-                                                                          ---------
-                                                                        1 381 176 B
+  34 + 1 (key) + 2 + 1000 × (4 + 16 + 128)                              = 148 037 B
+                                                                           ---------
+                                                                         1 381 508 B
 ```
 
-**Asset Hub baseline footprint ≈ 1.33 MiB**, added on top of the generic
+**Asset Hub baseline footprint ≈ 1.32 MiB**, added on top of the generic
 per-para baseline.
 
 #### Write-time invariant
