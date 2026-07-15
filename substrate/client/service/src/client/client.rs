@@ -1264,6 +1264,16 @@ where
 			.prove_execution(hash, method, call_data)
 	}
 
+	// TEMPORARY (bench, do not merge): force the main (uncapped, epoch-off) executor.
+	fn execution_proof_uncapped(
+		&self,
+		hash: Block::Hash,
+		method: &str,
+		call_data: &[u8],
+	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
+		self.executor.prove_execution(hash, method, call_data)
+	}
+
 	fn read_proof_collection(
 		&self,
 		hash: Block::Hash,

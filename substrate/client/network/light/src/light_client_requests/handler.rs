@@ -41,10 +41,16 @@ use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
 	traits::SpawnNamed,
 };
-use sp_runtime::traits::Block;
+use sp_runtime::{
+	traits::{Block, Header},
+	DigestItem,
+};
 use std::{
 	marker::PhantomData,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::{Duration, Instant},
 };
 
@@ -65,6 +71,9 @@ pub struct LightClientRequestHandler<B, Client> {
 	/// before measuring, so it times the tip runtime rather than an old one replayed during sync.
 	/// `None` disables the benchmark entirely (test call sites).
 	sync_oracle: Option<Arc<dyn SyncOracle + Send + Sync>>,
+	/// TEMPORARY (bench): latched the first time the benchmark starts. `prewarm` runs on every new
+	/// best block, so without this every block at the tip would spawn another full benchmark task.
+	bench_started: Arc<AtomicBool>,
 	_block: PhantomData<B>,
 }
 
@@ -106,6 +115,7 @@ where
 				request_receiver,
 				spawn_handle,
 				sync_oracle,
+				bench_started: Arc::new(AtomicBool::new(false)),
 				_block: PhantomData::default(),
 			},
 			protocol_config,
@@ -120,7 +130,7 @@ where
 	fn prewarm(&self, hash: B::Hash) {
 		let client = self.client.clone();
 		let sync_oracle = self.sync_oracle.clone();
-		let best_hash = client.info().best_hash;
+		let bench_started = self.bench_started.clone();
 		self.spawn_handle.spawn_blocking(
 			"light-client-request-prewarm",
 			Some("networking"),
@@ -132,129 +142,218 @@ where
 					);
 				}
 
-				// TEMPORARY BENCHMARK (do not merge): measure metadata generation time through the
-				// execution-proof path, to calibrate the light-request execution cap. Run with a
-				// high/disabled cap to avoid trapping, e.g. `--light-request-execution-timeout-ms
-				// 60000`. Grep logs for `light-metadata-bench`. `None` (test call sites) disables it.
+				// TEMPORARY BENCHMARK (do not merge): measure the wasmtime epoch-interruption
+				// overhead by timing a set of heavy runtime calls through BOTH the capped executor
+				// (epoch ON, `execution_proof`) and the main executor (epoch OFF,
+				// `execution_proof_uncapped`), and reporting the slowdown. Run with a high cap so
+				// nothing traps, e.g. `--light-request-execution-timeout-ms 60000`. Grep logs for
+				// `light-exec-bench`. `None` (test call sites) disables it. Only a clean comparison
+				// on wasm-only nodes (omni-node); on a native-capable node the uncapped path may run
+				// native, which is native-vs-wasm rather than epoch-off-vs-on.
 				let Some(sync_oracle) = sync_oracle else { return };
+
+				// Run the benchmark exactly once. `prewarm` is called on every new best block, so
+				// without this latch every block at the tip would spawn another full benchmark task
+				// and they would all contend for the capped executor.
+				if bench_started.swap(true, Ordering::SeqCst) {
+					return;
+				}
 
 				// IMPORTANT: must measure the CURRENT (tip) runtime, not one replayed during sync.
 				// Under full sync `best_hash` climbs from genesis and `Metadata_metadata_versions`
 				// starts succeeding on old-but-recent-enough runtimes long before the tip, so gating
-				// on "metadata exists" alone would measure the wrong runtime. Instead wait for the
-				// node's own major-sync signal to complete: it's `true` while catching up and flips
-				// to `false` once we reach the tip. Latch on having seen it `true` so we don't fire in
-				// the brief pre-peer window at startup where it is transiently `false`.
-				let mut saw_syncing = false;
+				// on "metadata exists" alone would measure the wrong runtime.
+				//
+				// Ready = at the tip WITH peers, i.e. `!is_offline() && !is_major_syncing()`. This
+				// covers both a node catching up (major-syncing `true`, flips `false` at the tip) and
+				// a node already at the tip on startup (major sync never fires, so we can't wait for a
+				// flip). Require the condition stable across two polls to skip the brief startup window
+				// where peers are connected but sync hasn't yet been flagged as major.
+				let mut ready_streak = 0;
 				loop {
-					if sync_oracle.is_major_syncing() {
-						saw_syncing = true;
-					} else if saw_syncing {
-						break;
+					if !sync_oracle.is_offline() && !sync_oracle.is_major_syncing() {
+						ready_streak += 1;
+						if ready_streak >= 2 {
+							break;
+						}
+					} else {
+						ready_streak = 0;
 					}
 					std::thread::sleep(Duration::from_secs(5));
 				}
-				info!(target: LOG_TARGET, "light-metadata-bench: major sync complete, starting measurement");
+				info!(target: LOG_TARGET, "light-exec-bench: synced at tip with peers, starting measurement");
 
-				// Measure the MAX supported metadata format (what newer clients fetch). The probe
-				// below also compiles the current runtime, so the timed iterations are warm.
-				const METADATA_BENCH_ITERS: usize = 100;
-				loop {
+				// Wait for a synced runtime and discover the supported metadata formats.
+				// `Metadata_metadata_versions` only exists from Metadata API v2, so a success means
+				// the runtime at the best block is recent (synced). Retry until then.
+				let (hash, number) = loop {
 					let hash = client.info().best_hash;
-					let number = client.info().best_number;
-
-					// Probe + warm-up: `Metadata_metadata_versions` only exists from Metadata API v2,
-					// so a success means the runtime at the best block is recent (synced), and it
-					// compiles the runtime so the timed iterations below are warm. On a
-					// genesis/pre-sync (API v1) runtime it errors → retry.
-					let versions = match client.execution_proof(hash, "Metadata_metadata_versions", &[]) {
-						Ok((result, _)) =>
-							<Vec<u32> as codec::Decode>::decode(&mut &result[..]).unwrap_or_default(),
+					match client.execution_proof(hash, "Metadata_metadata_versions", &[]) {
+						Ok(_) => break (hash, client.info().best_number),
 						Err(e) => {
 							debug!(
 								target: LOG_TARGET,
-								"light-metadata-bench: waiting for synced runtime (best {:?}): {}",
-								hash, e,
+								"light-exec-bench: waiting for synced runtime (best {:?}): {}", hash, e,
 							);
 							std::thread::sleep(Duration::from_secs(5));
-							continue;
 						},
-					};
+					}
+				};
+				let versions = client
+					.execution_proof(hash, "Metadata_metadata_versions", &[])
+					.ok()
+					.and_then(|(r, _)| <Vec<u32> as codec::Decode>::decode(&mut &r[..]).ok())
+					.unwrap_or_default();
 
-					// Measure the highest supported metadata format.
-					let Some(version) = versions.iter().copied().max() else {
-						info!(target: LOG_TARGET, "light-metadata-bench: no supported metadata versions reported, aborting");
-						break;
-					};
-					let version_arg = codec::Encode::encode(&version);
+				// Identify the chain by the runtime's `spec_name` (e.g. "polkadot", "statemint").
+				// `spec_name` is the leading SCALE string of the `Core_version` result, decodable
+				// without depending on sp-version.
+				let chain = client
+					.execution_proof(hash, "Core_version", &[])
+					.ok()
+					.and_then(|(r, _)| <String as codec::Decode>::decode(&mut &r[..]).ok())
+					.unwrap_or_else(|| "?".into());
 
-					// Identify the chain by the runtime's `spec_name` (e.g. "polkadot", "kusama",
-					// "statemint"). The handler can't see the chain spec, but `spec_name` is the first
-					// field of the `Core_version` result, decodable as a leading SCALE string without
-					// depending on sp-version.
-					let chain = client
-						.execution_proof(hash, "Core_version", &[])
-						.ok()
-						.and_then(|(result, _)| <String as codec::Decode>::decode(&mut &result[..]).ok())
-						.unwrap_or_else(|| "?".into());
+				// Build the candidate list: (label, at_hash, method, call_data).
+				// Metadata family — legacy v14 plus every supported `_at_version` format.
+				let mut candidates: Vec<(String, B::Hash, &'static str, Vec<u8>)> =
+					vec![("Metadata_metadata".into(), hash, "Metadata_metadata", Vec::new())];
+				for v in &versions {
+					candidates.push((
+						format!("Metadata_metadata_at_version(v{})", v),
+						hash,
+						"Metadata_metadata_at_version",
+						codec::Encode::encode(v),
+					));
+				}
 
-					info!(
-						target: LOG_TARGET,
-						"light-metadata-bench: measuring Metadata_metadata_at_version(v{}) for '{}' at best block #{} ({:?}); supported {:?}",
-						version, chain, number, hash, versions,
-					);
+				// `Core_execute_block` on the heaviest of the 10 most-recent imported blocks. After
+				// warp sync only blocks imported forward from the target have bodies, so wait until
+				// the best number has climbed by 10, then walk back from the tip collecting blocks.
+				// Re-execute each on its PARENT state (what block import does); strip the trailing,
+				// client-added `Seal` digest first or the runtime's `final_checks` digest comparison
+				// fails (mirrors sc-consensus-aura `check_header_slot_and_seal`).
+				while client.info().best_number < number + 10u32.into() {
+					std::thread::sleep(Duration::from_secs(6));
+				}
+				let mut heaviest: Option<(String, B::Hash, Vec<u8>, Duration)> = None;
+				let mut cursor = client.info().best_hash;
+				for _ in 0..10 {
+					let Ok(Some(signed)) = client.block(cursor) else { break };
+					let block_number = *signed.block.header().number();
+					let (mut header, extrinsics) = signed.block.deconstruct();
+					cursor = *header.parent_hash();
+					let parent = cursor;
+					while matches!(header.digest().logs().last(), Some(DigestItem::Seal(..))) {
+						header.digest_mut().pop();
+					}
+					let data = <B as Block>::new(header, extrinsics).encode();
+					let start = Instant::now();
+					match client.execution_proof_uncapped(parent, "Core_execute_block", &data) {
+						Ok(_) => {
+							let elapsed = start.elapsed();
+							if heaviest.as_ref().map_or(true, |(_, _, _, d)| elapsed > *d) {
+								heaviest = Some((
+									format!("Core_execute_block(#{:?})", block_number),
+									parent,
+									data,
+									elapsed,
+								));
+							}
+						},
+						Err(e) => debug!(
+							target: LOG_TARGET,
+							"light-exec-bench: execute_block probe at {:?} failed: {}", parent, e,
+						),
+					}
+				}
+				if let Some((label, at, data, elapsed)) = heaviest {
+					info!(target: LOG_TARGET, "light-exec-bench: heaviest recent block {} took {:?} (uncapped probe)", label, elapsed);
+					candidates.push((label, at, "Core_execute_block", data));
+				} else {
+					info!(target: LOG_TARGET, "light-exec-bench: no executable recent block found, skipping execute_block");
+				}
 
-					let mut samples = Vec::with_capacity(METADATA_BENCH_ITERS);
-					let (mut result_len, mut proof_len) = (0usize, 0usize);
-					for _ in 0..METADATA_BENCH_ITERS {
-						let start = Instant::now();
-						match client.execution_proof(hash, "Metadata_metadata_at_version", &version_arg) {
-							// An unsupported format returns `Ok(None)` (1-byte SCALE `Option`), which
-							// is not a real metadata generation — abort rather than record noise.
-							Ok((result, _)) if result.len() <= 1 => {
-								info!(target: LOG_TARGET, "light-metadata-bench: v{} returned None (unsupported?), aborting", version);
-								break;
-							},
-							Ok((result, proof)) => {
-								samples.push(start.elapsed());
-								(result_len, proof_len) = (result.len(), proof.encoded_size());
+				info!(
+					target: LOG_TARGET,
+					"light-exec-bench: chain '{}' at #{} ({:?}); metadata versions {:?}; measuring {} calls (capped = epoch ON, vanilla = epoch OFF)",
+					chain, number, hash, versions, candidates.len(),
+				);
+
+				// Interleaved measurement: alternate one capped and one vanilla call per iteration
+				// (cancels thermal/load drift) until BOTH accumulate >=10s of samples. Warm up first
+				// so each executor's own engine has compiled the runtime.
+				const WARMUP: usize = 3;
+				const MEASURE_FOR: Duration = Duration::from_secs(10);
+				let stats = |samples: &mut Vec<Duration>| -> (Duration, Duration) {
+					samples.sort_unstable();
+					let n = samples.len();
+					let sum: Duration = samples.iter().sum();
+					(sum / n as u32, samples[n / 2])
+				};
+
+				for (label, at, method, data) in &candidates {
+					for _ in 0..WARMUP {
+						let _ = client.execution_proof(*at, method, data);
+						let _ = client.execution_proof_uncapped(*at, method, data);
+					}
+
+					let (mut capped, mut vanilla) = (Vec::new(), Vec::new());
+					let (mut capped_total, mut vanilla_total) = (Duration::ZERO, Duration::ZERO);
+					let mut failed = false;
+					while capped_total < MEASURE_FOR || vanilla_total < MEASURE_FOR {
+						let t = Instant::now();
+						match client.execution_proof(*at, method, data) {
+							Ok(_) => {
+								let d = t.elapsed();
+								capped.push(d);
+								capped_total += d;
 							},
 							Err(e) => {
-								info!(target: LOG_TARGET, "light-metadata-bench: v{} call failed after {:?} (cap hit?): {}", version, start.elapsed(), e);
+								info!(target: LOG_TARGET, "light-exec-bench: {} capped call failed (cap hit?): {}", label, e);
+								failed = true;
+								break;
+							},
+						}
+						let t = Instant::now();
+						match client.execution_proof_uncapped(*at, method, data) {
+							Ok(_) => {
+								let d = t.elapsed();
+								vanilla.push(d);
+								vanilla_total += d;
+							},
+							Err(e) => {
+								info!(target: LOG_TARGET, "light-exec-bench: {} vanilla call failed: {}", label, e);
+								failed = true;
 								break;
 							},
 						}
 					}
-
-					if samples.is_empty() {
-						info!(target: LOG_TARGET, "light-metadata-bench: no valid samples");
-					} else {
-						samples.sort_unstable();
-						let n = samples.len();
-						let pct = |p: usize| samples[(n * p / 100).min(n - 1)];
-						info!(
-							target: LOG_TARGET,
-							"light-metadata-bench: N={} result {} bytes proof {} bytes (columns: chain | version | min | median | p90 | max)",
-							n, result_len, proof_len,
-						);
-						info!(
-							target: LOG_TARGET,
-							"light-metadata-bench-row | {} | v{} | {:?} | {:?} | {:?} | {:?} |",
-							chain, version, samples[0], pct(50), pct(90), samples[n - 1],
-						);
+					if failed || capped.is_empty() || vanilla.is_empty() {
+						continue;
 					}
 
-					// Terminate the node after the benchmark so the operator can move to the next
-					// chain without Ctrl-C — but only when this is NOT a relay chain. On a parachain
-					// node the in-process relay chain runs this handler too; relay chains expose the
-					// no-arg `ParachainHost::validators` API while parachains/solo chains don't, so a
-					// successful probe means "relay" and we leave that node running.
-					let is_relay =
-						client.execution_proof(hash, "ParachainHost_validators", &[]).is_ok();
-					if is_relay {
-						info!(target: LOG_TARGET, "light-metadata-bench: relay chain detected, leaving node running");
-						break;
-					}
+					let (capped_avg, capped_med) = stats(&mut capped);
+					let (vanilla_avg, vanilla_med) = stats(&mut vanilla);
+					let slowdown = capped_med.as_secs_f64() / vanilla_med.as_secs_f64();
+					info!(
+						target: LOG_TARGET,
+						"light-exec-bench-row | {} | {} | capped avg/med {:?}/{:?} (N={}) | vanilla avg/med {:?}/{:?} (N={}) | slowdown x{:.3} |",
+						chain, label,
+						capped_avg, capped_med, capped.len(),
+						vanilla_avg, vanilla_med, vanilla.len(),
+						slowdown,
+					);
+				}
+
+				// Terminate the node after the benchmark so the operator can move to the next chain
+				// without Ctrl-C — but only when this is NOT a relay chain. On a parachain node the
+				// in-process relay chain runs this handler too; relay chains expose the no-arg
+				// `ParachainHost::validators` API while parachains/solo chains don't, so a successful
+				// probe means "relay" and we leave that node running.
+				if client.execution_proof(hash, "ParachainHost_validators", &[]).is_ok() {
+					info!(target: LOG_TARGET, "light-exec-bench: relay chain detected, leaving node running");
+				} else {
 					std::process::exit(0);
 				}
 			}

@@ -55,6 +55,18 @@ pub trait ProofProvider<Block: BlockT> {
 		call_data: &[u8],
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)>;
 
+	/// TEMPORARY (bench, do not merge): like [`Self::execution_proof`] but always runs on the main
+	/// (uncapped, epoch-interruption-off) executor, so the benchmark can compare it against the
+	/// capped path. Default delegates so non-`Client` impls still compile.
+	fn execution_proof_uncapped(
+		&self,
+		hash: Block::Hash,
+		method: &str,
+		call_data: &[u8],
+	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
+		self.execution_proof(hash, method, call_data)
+	}
+
 	/// Given a `Hash` iterate over all storage values starting at `start_keys`.
 	/// Last `start_keys` element contains last accessed key value.
 	/// With multiple `start_keys`, first `start_keys` element is

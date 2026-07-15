@@ -44,7 +44,10 @@ use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 /// Runtime instances kept warm by a capped (execution-timeout) executor. Light request handling —
 /// its only user — is serial, so one is enough.
 // TODO: revisit once light request handling becomes concurrent.
-const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 1;
+// TEMPORARY (bench branch): bumped from 1 so the benchmark task does not contend with the
+// per-block `Core_version` prewarm / real light requests and trigger "Ran out of free WASM
+// instances" fallbacks that pollute timings. Revert to 1 before merging.
+const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 8;
 /// Runtime versions cached by a capped executor: the current one, plus the previous one during a
 /// runtime upgrade.
 const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
