@@ -753,11 +753,13 @@ fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>>;
 /// leaf count), the Broadcast arm the highwater map (cursor = highwater
 /// + 1)—storage keeps frontiers because verification needs peaks, the
 /// API returns positions because fetching addresses by position.
-/// Two deliberate absences: ack registers carry no resume
+/// Three deliberate absences: ack registers carry no resume
 /// state—which registers to read follows from the open channels (see
 /// `out_channels`; head-ness of a read is pinned by the required root,
-/// see Flow Control)—and private kinds cannot appear, since the standard
-/// pallet cannot consume a stream whose discipline it doesn't know.
+/// see Flow Control); private kinds cannot appear, since the standard
+/// pallet cannot consume a stream whose discipline it doesn't know; and
+/// suspended channels are omitted—the omission is how the own collators
+/// learn to stop fetching (see Flow Control: Suspension).
 ///
 /// `from` is the fetch cursor: positions >= from are wanted.
 enum ConsumedStream {
@@ -1846,6 +1848,11 @@ struct InChannelState {
     /// Sender's latest in-band version announcement (from consumed
     /// OpenChannel/Upgrade signals).
     peer_version: u8,
+    /// Upper-layer consumption switch (see Flow Control: Suspension).
+    /// While set: the STF refuses this channel's messages,
+    /// `consumed_streams()` omits the stream, and published registers
+    /// grant zero. Pause, not close—all state persists.
+    suspended: bool,
 }
 ```
 
@@ -1991,6 +1998,37 @@ technically exceeded—consume anyway, deprioritize, or abandon. A peer can
 always stall the sender by simply not publishing—receiver-side stalling
 is inherent to any credit scheme and adds no new threat. Nothing here
 needs relay-chain enforcement.
+
+**Consumption economics.** Inherent-carried messages pay no transaction
+fees, and the transport is deliberately blind to payload meaning—so it
+defines no fee scheme for consumption. Funding the processing weight is
+receiver-chain policy, the usual options being: payload-carried payment
+(the XCM `BuyExecution` pattern—parse cheaply, take the fee or drop the
+rest unexecuted), a per-channel processing budget funded at acceptance
+(the deposit), or plain chain subsidy for traffic the chain wants anyway.
+HRMP's inbound processing is unpaid in exactly the same way, so this is
+no regression—and unlike there, non-consumption is always legal and
+cheap. What the transport *does* supply is the off switch:
+
+**Suspension—the upper layers' off switch.** A channel whose traffic
+stops paying its way (by whatever economics the chain chose) must be
+stoppable *by the receiver's own machinery*, not merely signaled to the
+sender. The pallet exposes suspend/resume per inbound channel to upper
+layers; suspension does three things at once:
+
+- **Gates the STF**: a suspended channel's messages are not consumable—an
+  inherent carrying them is invalid. (The one refinement to "the receiver
+  enforces nothing": suspension binds the receiver's *own* blocks, never
+  the sender's.)
+- **Instructs the own collators**: suspended channels drop out of
+  `consumed_streams()`, so the inherent provider stops fetching—the same
+  state that drives fetching drives stopping.
+- **Informs the sender**: the next register publish carries a zero grant
+  (shrinking is always allowed); an honest sender stops at the window.
+
+Suspension is pause, not close: frontier, register and channel state all
+persist, resume is simply republishing a real grant—no reopen protocol,
+no sender involvement.
 
 **Trust tiers.** Credit updates may act on speculatively read registers—
 the worst case of a register that never lands is wrongly generous or
@@ -2454,7 +2492,8 @@ resubmission flow generally.
    accepted channel's permanent state), per-channel state
    (`OutChannels`/`InChannels`), lifecycle signal emission/consumption,
    register publishing on the ack stream and register reads via the
-   inherent, `send`-side window enforcement—see
+   inherent, `send`-side window enforcement, upper-layer suspend/resume
+   per inbound channel—see
    [Channels and Flow Control](#channels-and-flow-control)
 
 Note: this document deviates from the initial sketches in
@@ -2686,7 +2725,11 @@ bloats the flooder's own archive and tree. Register publishes on the ack stream 
 all: the reader takes exactly one leaf (the head) per read, so publishing
 a million registers only bloats the publisher's own accumulator and
 archive. And consumption is always voluntary: the receiver can stop at any
-time, keeping only its frontier.
+time, keeping only its frontier. For traffic that is well-formed but not
+worth its processing weight—garbage *data* rather than protocol
+flooding—the same lever is exposed to upper layers as per-channel
+suspension, and funding consumption at all is receiver policy (see Flow
+Control: Consumption economics and Suspension).
 
 ### Threat: Pruning on a Reverted Confirmation
 
@@ -2900,7 +2943,9 @@ struct WindowGrant { max_messages: u32, max_bytes: u64, max_message_size: u32 }
 //           closed_by_us, own announcement, latest Register read (credit
 //           + watermark + peer version; phase derives from these).
 // Receiver: InChannels: ChannelId{peer: channel's sender, domain, num} →
-//           published Register, sender's announced version.
+//           published Register, sender's announced version, suspended
+//           (upper-layer off switch: STF refuses consumption, stream
+//           omitted from consumed_streams(), registers grant zero).
 // Frontiers are eternal—channel close/reopen never touches them.
 ```
 
