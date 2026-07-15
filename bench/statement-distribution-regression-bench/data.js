@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784070311846,
+  "lastUpdate": 1784120316145,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ccdbc9e0007f0c872897743334faf9317db9d9f7",
-          "message": "Skip building on blocks on relay parents in old session (#9990)\n\nFixes: #9977\n\nOn our Kusama Canary chain YAP-3392 has the log entry:\n```\nCollation wasn't advertised because it was built on a relay chain block that is now part of an old session\n``` \n[show up 400+ times (2025-10-03 --\n2025-10-10)](https://grafana.teleport.parity.io/goto/spoPcDeHR?orgId=1).\n\n# Changes\nChanged `offset_relay_parent_find_descendants` to return `None` if the\n`relay_best_hash` or any of its ancestors contains an epoch change.\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-17T15:28:31Z",
-          "tree_id": "2101283c239e9e3d4c3bcabbef6a90f9a88d4d49",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ccdbc9e0007f0c872897743334faf9317db9d9f7"
-        },
-        "date": 1763397642197,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044076453263999935,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03398531463,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038764746818000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be832f623a7c666bc399f10fc370fbc15c8b56d8",
+          "message": "Bump subxt to 0.50 (#12096)\n\nBlocked by https://github.com/paritytech/subxt/pull/2236\n\nFollow-up to #11422.\n\nBumps the workspace `subxt`, `subxt-metadata`, and `subxt-signer`\ndependencies from 0.44 to 0.50.\n\nsubxt 0.50 introduces a block-anchored client API and splits\n`subxt::Error` into per-operation sub-errors. Affected crates were\nupdated to the new API; the JSON-RPC and CLI surfaces are unchanged.",
+          "timestamp": "2026-07-15T11:13:24Z",
+          "tree_id": "d8c6ade79a81826d711534bd294d381a9ae27d92",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/be832f623a7c666bc399f10fc370fbc15c8b56d8"
+        },
+        "date": 1784120286518,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.118,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038430303603999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08635933808399993,
             "unit": "seconds"
           }
         ]
