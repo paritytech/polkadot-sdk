@@ -230,13 +230,15 @@ Instead of routing messages through relay chain state, we:
    membership check against a small per-sender window of recent
    `StreamsRoot`s. It never sees streams, positions, or proofs.
 
-5. **Proofs, all parachain-side**: The receiver's own runtime (or the PVF)
-   verifies everything below the top hash: tree inclusion proofs connect a
-   stream's root to the sender's `StreamsRoot` (in the block body); MMR
-   extension proofs bridge an older verification point to a current
-   root—carried in the candidate's POV and regenerable by anyone from
-   public data, whether the block consumed only part of a backlog or was
-   resubmitted after the window moved on.
+5. **Proofs, all parachain-side**: Everything below the top hash is
+   verified by the receiver itself. Its runtime verifies payloads by
+   recomputation (the block body carries only payloads and per-read MMR
+   inclusion proofs—never a `StreamsRoot`); the PVF binds the block's
+   consumption to a committed `StreamsRoot` via POV-carried lifts (tree
+   inclusion proofs plus MMR extension proofs bridging any unconsumed
+   tail)—regenerable by anyone from public data, whether the block
+   consumed only part of a backlog or was resubmitted after the window
+   moved on.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -1215,11 +1217,13 @@ struct MMRExtensionProof {
 }
 
 /// One lift, carried in the POV (never in the block or commitments).
-/// Transported grouped per source (`Vec<(ParaId, Vec<RequiresLift>)>`)
-/// and matched positionally to the consumption record's streams within
-/// each source—the record supplies the key, and a mispaired lift cannot
-/// verify: the tree walk binds the record's key, so landing on a
-/// committed root means being a valid lift for exactly that stream.
+/// Transported grouped per source (`Vec<(ParaId, Vec<RequiresLift>)>`;
+/// decode rejects non-strictly-increasing ParaIds, same canonicality
+/// discipline as `RequiresSet`) and matched positionally to the
+/// consumption record's streams within each source—the record supplies
+/// the key, and a mispaired lift cannot verify: the tree walk binds the
+/// record's key, so landing on a committed root means being a valid
+/// lift for exactly that stream.
 struct RequiresLift {
     /// One proof per gap in the stream's interval chain, in gap order
     /// (see stitch); empty for prefix streams and single-context reads.
@@ -1242,15 +1246,6 @@ inherent writes a **consumption record**—which streams this block touched
 is what the inherent *did*, never state inference; untouched streams
 appear nowhere and create no dependency:
 
-```rust
-/// Written per block to a transient outbox (the same storage family that
-/// carries `UpwardMessages`) and exposed through a single runtime API,
-/// `consumption_record()`. Two callers, one definition: the node reads it
-/// via ordinary API dispatch (authoring, acknowledgement checks,
-/// diagnostics); the validate_block wrapper calls the API's
-/// implementation directly in-wasm after executing each block—the
-/// established pattern by which `ValidationResult` is already assembled
-/// from pallet storage.
 ```rust
 /// Per stream and block: consumption entered the block at `start` and
 /// left it at `end`.
@@ -1324,46 +1319,15 @@ fn stitch(
     let mut gaps = advances.iter();
     let mut current = first.end.clone();
     for next in rest {
-        if next.start != bag_peaks(&current.peaks) {
+        if next.start != MmrRoot(bag_peaks(&current.peaks)) {
             // A gap must be a proven FORWARD extension of where we
             // ended—structural, relative check; the absolute binding is
             // the lift's job below.
             let proof = gaps.next().ok_or(Error::MissingAdvance)?;
-            ensure!(verify_mmr_extension(&current, proof)? == next.start,
+            ensure!(proof.verify(&current)? == next.start,
                 Error::BrokenChain);
         }
         current = next.end.clone();
-        docs(spec-messaging): unify requires handling via POV lifts
-        
-        Blocks no longer emit Requires nor ever see a StreamsRoot—a tree proof
-        verified in the STF would bind to a provider-chosen hash, verifying
-        nothing. Instead blocks output a consumption record (per touched
-        stream, an Interval: where consumption started and ended) and the
-        validate_block wrapper synthesizes the candidate's entries: intervals
-        must chain across the bundle (equal, or advance-proven to move
-        forward—closes a fabricated-read-context hole), one lift per stream
-        binds the chain's endpoint to a committed root. One code path for
-        steady state, partial consumption, resubmission and bundles; in-block
-        catch-up proofs and separate late-block proofs are gone.
-        
-        Consequences carried through:
-        - Fetch protocol reduced to two root-keyed request pairs
-          (MessagesRequest/EventRequest); every request names the provides
-          root the requester verified at its tier, every response is
-          independently verifiable against it. No block hashes on the wire.
-        - Event-stream liftability bounded: serve extension proofs from any
-          block boundary within 25 h (mirrors availability retention);
-          windowed heads' payloads mandatory, rest QoS. Range reads above the
-          highwater via start_peaks.
-        - Structs stripped to what verification consumes: lift roots, stream
-          ids, old MMR state, block hashes all derived or positional, never
-          declared.
-        - POV reservation for worst-case lifts made a formula over STF-known
-          quantities.
-        
-        Grounded in the existing validate_block mechanics (per-block loop,
-        post-execution storage reads, signal re-assembly; lifts ride
-        ParachainBlockData like LLv2's scheduling_proof).
     }
     ensure!(gaps.next().is_none(), Error::StrayAdvance);
     Ok(current)
@@ -1382,7 +1346,7 @@ fn build_requires_entry(
         let endpoint = stitch(intervals, &lift.advances)?;
         // The endpoint is contained in the stream's current root
         // (computed, not declared)...
-        let current = verify_mmr_extension(&endpoint, &lift.extension)?;
+        let current = lift.extension.verify(&endpoint)?;
         // ...and the tree walk from it yields the StreamsRoot this
         // stream lifts to. The walk binds the RECORD's stream key, so a
         // mispaired lift cannot verify.
@@ -1619,10 +1583,12 @@ enum SpecMsgKind {
 }
 
 /// Sending API exposed by the messaging pallet (domain/num default to 0).
-/// Fails when the channel is not open or the send would exceed the granted
-/// window (see Flow Control)—no hidden queueing; backpressure surfaces to
-/// the caller.
-fn send(recipient: ParaId, domain: u8, num: u16, msg: SpecMsgKind) -> Result<(), SendError>;
+/// Takes bare userspace bytes—the pallet wraps them as `Data`; `Signal`
+/// leaves are emitted by the pallet's own lifecycle logic only and are
+/// not constructible through this API. Fails when the channel is not open
+/// or the send would exceed the granted window (see Flow Control)—no
+/// hidden queueing; backpressure surfaces to the caller.
+fn send(recipient: ParaId, domain: u8, num: u16, data: Vec<u8>) -> Result<(), SendError>;
 ```
 
 Design points:
@@ -2445,7 +2411,8 @@ Messaging adds three steps in exactly those places:
 
 1. **Per block, in the existing loop**: call the `consumption_record()`
    API implementation directly in-wasm (the same post-execution read that
-   collects `UpwardMessages`), merging records latest-wins per stream.
+   collects `UpwardMessages`), collecting each stream's intervals in
+   bundle order (the gap checks need every interval—see `stitch`).
 2. **After the loop**: synthesize the `Requires` entries per source via
    `build_requires_entry` (see
    [Requires Lifting](#requires-lifting-pov-proofs)), verifying lifts
