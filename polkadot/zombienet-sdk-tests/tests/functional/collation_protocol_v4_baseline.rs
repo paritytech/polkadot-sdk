@@ -88,7 +88,7 @@ async fn v4_collation_protocol_baseline() -> Result<(), anyhow::Error> {
 			.await?
 			.success()
 			.then_some(())
-			.ok_or_else(|| anyhow!("Received an segment advertisement not found"))?;
+			.ok_or_else(|| anyhow!("Received a segment advertisement not found"))?;
 	}
 	Ok(())
 }

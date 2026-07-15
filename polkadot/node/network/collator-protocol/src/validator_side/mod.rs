@@ -1116,8 +1116,7 @@ async fn process_incoming_peer_message<Context>(
 	match msg {
 		CollationProtocols::V1(V1::Declare(collator_id, para_id, signature)) |
 		CollationProtocols::V2(V2::Declare(collator_id, para_id, signature)) |
-		CollationProtocols::V3(V3::Declare(collator_id, para_id, signature)) |
-		CollationProtocols::V4(V4::Declare(collator_id, para_id, signature)) => {
+		CollationProtocols::V3(V3::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,

@@ -43,7 +43,7 @@ use polkadot_node_core_chain_selection::{
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, PeerSetProtocolNames},
+	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, ReqProtocolNames},
 };
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -315,8 +315,18 @@ where
 		};
 
 		// validation/collation protocols are enabled only if `Overseer` is enabled
-		let peerset_protocol_names =
-			PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
+		let main_collation_version = if is_parachain_node.is_running_alongside_parachain_node() ||
+			experimental_collator_protocol
+		{
+			CollationVersion::V4
+		} else {
+			CollationVersion::V3
+		};
+		let peerset_protocol_names = PeerSetProtocolNames::new(
+			genesis_hash,
+			config.chain_spec.fork_id(),
+			main_collation_version,
+		);
 
 		// If this is a validator or running alongside a parachain node, we need to enable the
 		// networking protocols.

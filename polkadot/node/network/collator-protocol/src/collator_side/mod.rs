@@ -656,6 +656,7 @@ async fn distribute_segment<Context>(
 			peer_version,
 			&state.peer_ids,
 			&state.metrics,
+			id,
 		)
 		.await;
 	}
@@ -741,18 +742,8 @@ fn declare_message(
 				wire_message,
 			)))
 		},
-		CollationVersion::V4 => {
-			let declare_signature_payload =
-				protocol_v4::declare_signature_payload(&state.local_peer_id);
-			let wire_message = protocol_v4::CollatorProtocolMessage::Declare(
-				state.collator_pair.public(),
-				para_id,
-				state.collator_pair.sign(&declare_signature_payload),
-			);
-			Some(CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
-				wire_message,
-			)))
-		},
+		// V4 has no Declare; the para is carried in AdvertiseSegment.
+		CollationVersion::V4 => None,
 		_ => {
 			gum::warn!(target: LOG_TARGET, ?version, "Attempting to declare with an unsupported collation version");
 			None
@@ -911,6 +902,7 @@ async fn advertise_segment<Context>(
 	peer_version: CollationVersion,
 	peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	metrics: &Metrics,
+	para_id: ParaId,
 ) {
 	let Some(stored) = per_scheduling_parent.segments.get(&core_index) else {
 		gum::debug!(
@@ -982,6 +974,7 @@ async fn advertise_segment<Context>(
 					scheduling_parent,
 					candidates_descriptor_version,
 					candidates: core_segment.clone(),
+					para_id,
 				},
 			))
 		},
@@ -1177,8 +1170,7 @@ async fn handle_incoming_peer_message<Context>(
 	match msg {
 		CollationProtocols::V1(V1::Declare(..)) |
 		CollationProtocols::V2(V2::Declare(..)) |
-		CollationProtocols::V3(V3::Declare(..)) |
-		CollationProtocols::V4(V4::Declare(..)) => {
+		CollationProtocols::V3(V3::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -1420,6 +1412,11 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 		None => return unknown_scheduling_parents,
 	};
 
+	let Some(para_id) = state.collating_on else {
+		gum::debug!(target: LOG_TARGET, "Not collating on a para, skipping advertisements.");
+		return unknown_scheduling_parents;
+	};
+
 	for scheduling_parent in scheduling_parents {
 		let block_hashes = match state.per_scheduling_parent.contains_key(&scheduling_parent) {
 			true => state
@@ -1449,6 +1446,7 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 						peer_version,
 						&state.peer_ids,
 						&state.metrics,
+						para_id,
 					)
 					.await;
 				}
@@ -1811,6 +1809,7 @@ async fn handle_our_view_change<Context>(
 						peer_version,
 						&state.peer_ids,
 						&state.metrics,
+						para_id,
 					)
 					.await;
 				}

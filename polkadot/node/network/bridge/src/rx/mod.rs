@@ -187,8 +187,10 @@ async fn handle_validation_message<AD>(
 			};
 
 			let (peer_set, version) = {
-				let (peer_set, version) =
-					(PeerSet::Validation, PeerSet::Validation.get_main_version());
+				let (peer_set, version) = (
+					PeerSet::Validation,
+					peerset_protocol_names.get_main_version(PeerSet::Validation),
+				);
 
 				if let Some(fallback) = negotiated_fallback {
 					match peerset_protocol_names.try_get_protocol(&fallback) {
@@ -292,7 +294,8 @@ async fn handle_validation_message<AD>(
 			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
-			let (peer_set, version) = (PeerSet::Validation, PeerSet::Validation.get_main_version());
+			let (peer_set, version) =
+				(PeerSet::Validation, peerset_protocol_names.get_main_version(PeerSet::Validation));
 
 			gum::debug!(
 				target: LOG_TARGET,
@@ -313,7 +316,7 @@ async fn handle_validation_message<AD>(
 
 			notification_sinks.lock().remove(&(peer_set, peer));
 
-			if was_connected && version == peer_set.get_main_version() {
+			if was_connected && version == peerset_protocol_names.get_main_version(peer_set) {
 				dispatch_validation_event_to_all(
 					NetworkBridgeEvent::PeerDisconnected(peer),
 					sender,
@@ -414,8 +417,10 @@ async fn handle_collation_message<AD>(
 			};
 
 			let (peer_set, version) = {
-				let (peer_set, version) =
-					(PeerSet::Collation, PeerSet::Collation.get_main_version());
+				let (peer_set, version) = (
+					PeerSet::Collation,
+					peerset_protocol_names.get_main_version(PeerSet::Collation),
+				);
 
 				if let Some(fallback) = negotiated_fallback {
 					match peerset_protocol_names.try_get_protocol(&fallback) {
@@ -537,7 +542,8 @@ async fn handle_collation_message<AD>(
 			}
 		},
 		NotificationEvent::NotificationStreamClosed { peer } => {
-			let (peer_set, version) = (PeerSet::Collation, PeerSet::Collation.get_main_version());
+			let (peer_set, version) =
+				(PeerSet::Collation, peerset_protocol_names.get_main_version(PeerSet::Collation));
 
 			gum::debug!(
 				target: LOG_TARGET,
@@ -559,7 +565,7 @@ async fn handle_collation_message<AD>(
 
 			notification_sinks.lock().remove(&(peer_set, peer));
 
-			if was_connected && version == peer_set.get_main_version() {
+			if was_connected && version == peerset_protocol_names.get_main_version(peer_set) {
 				dispatch_collation_event_to_all(NetworkBridgeEvent::PeerDisconnected(peer), sender)
 					.await;
 			}

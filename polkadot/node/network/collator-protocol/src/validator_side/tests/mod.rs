@@ -435,13 +435,10 @@ async fn connect_and_declare_collator(
 				collator.sign(&protocol_v3::declare_signature_payload(&peer)),
 			))
 		},
-		CollationVersion::V4 => {
-			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::Declare(
-				collator.public(),
-				para_id,
-				collator.sign(&protocol_v4::declare_signature_payload(&peer)),
-			))
-		},
+		CollationVersion::V4 => unreachable!(
+			"legacy validator_side never negotiates V4; V4 flows are covered by \
+			 validator_side_experimental tests"
+		),
 	};
 
 	overseer_send(

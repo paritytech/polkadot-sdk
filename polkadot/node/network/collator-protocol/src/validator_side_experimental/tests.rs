@@ -670,7 +670,8 @@ impl TestState {
 				adv.peer_id,
 				adv.scheduling_parent,
 				adv.prospective_candidate.into_iter().collect(),
-				adv.advertised_descriptor_version
+				adv.advertised_descriptor_version,
+				None
 			),
 			async move {
 				// Only hash-carrying claims trigger a backing pre-check; V1 (no claim) and
@@ -689,6 +690,7 @@ impl TestState {
 		peer_id: PeerId,
 		scheduling_parent: Hash,
 		fingerprints: Vec<protocol_v4::CandidateFingerprint>,
+		para_id: ParaId,
 	) {
 		let mut sender = self.sender.clone();
 		process_incoming_peer_message(
@@ -699,6 +701,7 @@ impl TestState {
 				scheduling_parent,
 				candidates_descriptor_version: CandidateDescriptorVersion::V3,
 				candidates: fingerprints.try_into().unwrap(),
+				para_id,
 			}),
 		)
 		.await;
@@ -1998,6 +2001,7 @@ async fn test_advertisement_rejections() {
 			active_leaf,
 			pc.clone().into_iter().collect(),
 			None,
+			None,
 		)
 		.await;
 	assert!(state.advertisements().is_empty());
@@ -2013,6 +2017,7 @@ async fn test_advertisement_rejections() {
 			peer_id,
 			active_leaf,
 			prospective_candidate.into_iter().collect(),
+			None,
 			None,
 		)
 		.await;
@@ -2034,6 +2039,7 @@ async fn test_advertisement_rejections() {
 			get_hash(11),
 			prospective_candidate.into_iter().collect(),
 			None,
+			None,
 		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -2049,6 +2055,7 @@ async fn test_advertisement_rejections() {
 				peer_id,
 				active_leaf,
 				prospective_candidate.into_iter().collect(),
+				None,
 				None
 			),
 			test_state.assert_can_second_request(adv, false)
@@ -2065,6 +2072,7 @@ async fn test_advertisement_rejections() {
 			peer_id,
 			active_leaf,
 			prospective_candidate.into_iter().collect(),
+			None,
 			None,
 		)
 		.await;
@@ -2093,6 +2101,7 @@ async fn test_advertisement_rejections() {
 			active_leaf,
 			prospective_candidate.into_iter().collect(),
 			None,
+			None,
 		)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
@@ -2109,6 +2118,7 @@ async fn test_advertisement_rejections() {
 			peer_id,
 			active_leaf,
 			prospective_candidate.into_iter().collect(),
+			None,
 			None,
 		)
 		.await;
@@ -2129,6 +2139,7 @@ async fn test_advertisement_rejections() {
 			active_leaf,
 			prospective_candidate.into_iter().collect(),
 			None,
+			None,
 		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -2148,6 +2159,7 @@ async fn test_advertisement_rejections() {
 			active_leaf,
 			prospective_candidate.into_iter().collect(),
 			None,
+			None,
 		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -2159,7 +2171,14 @@ async fn test_advertisement_rejections() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 	state
-		.handle_advertisement(&mut sender, peer_id, get_hash(9), pc.into_iter().collect(), None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			get_hash(9),
+			pc.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -3414,6 +3433,7 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 			scheduling_parent,
 			candidates_descriptor_version: CandidateDescriptorVersion::V3,
 			candidates,
+			para_id: 100.into(),
 		}),
 	)
 	.await;
@@ -3431,6 +3451,95 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 	test_state
 		.second_collation(&mut state, peer_id, CollationVersion::V4, ccr, active_leaf)
 		.await;
+}
+
+// V4 has no `Declare` message: a peer's first `AdvertiseSegment` binds it to the advertised
+// para. Covers the accept, para-switch and unscheduled-para outcomes of the implicit
+// declaration, plus the unconnected-peer no-op.
+#[tokio::test]
+async fn v4_first_advertisement_implicitly_declares() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let output_head_data_hash = ccr.descriptor.para_head();
+	let parent_head_data_hash = dummy_pvd().parent_head.hash();
+	let fingerprints = vec![protocol_v4::CandidateFingerprint {
+		output_head_data_hash,
+		parent_head_data_hash,
+		relay_parent,
+	}];
+
+	// An advertisement from an unconnected peer cannot declare anything and is dropped.
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fingerprints.clone(), 100.into())
+		.await;
+	test_state.assert_no_messages().await;
+	assert!(state.advertisements().is_empty());
+
+	// First advertisement from a connected peer declares it for the advertised para and the
+	// advertisement itself is accepted. No `Declare` message is ever sent.
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fingerprints.clone(), 100.into())
+		.await;
+	test_state.assert_no_messages().await;
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(ProspectiveCandidate::ByOutputHead {
+			output_head_data_hash,
+			parent_head_data_hash,
+			relay_parent,
+		}),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	assert_eq!(state.advertisements(), [adv].into());
+
+	// Advertising a different para is a para switch: the peer is disconnected and its stored
+	// advertisements are removed.
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fingerprints.clone(), 200.into())
+		.await;
+	test_state.assert_peers_disconnected([peer_id]).await;
+	assert!(state.advertisements().is_empty());
+	assert_eq!(state.connected_peers(), Default::default());
+
+	// An advertisement for an unscheduled para gets the peer disconnected, same as an explicit
+	// `Declare` for an unscheduled para would on older protocol versions.
+	let second_peer = PeerId::random();
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V4)
+		.await;
+	test_state
+		.send_v4_segment(&mut state, second_peer, scheduling_parent, fingerprints, 600.into())
+		.await;
+	test_state.assert_peers_disconnected([second_peer]).await;
+	assert!(state.advertisements().is_empty());
 }
 
 // A fetched collation must match the selected fingerprint: output head, relay parent and the
@@ -3643,7 +3752,7 @@ async fn v4_whole_segment_stored_and_byte_deduped() {
 	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
 
 	test_state
-		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone())
+		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone(), 100.into())
 		.await;
 	// No CanSecond for a V4 advertisement, and all three entries are stored.
 	test_state.assert_no_messages().await;
@@ -3651,14 +3760,14 @@ async fn v4_whole_segment_stored_and_byte_deduped() {
 
 	// Byte-identical re-advertisement while stored: Duplicate, nothing changes.
 	test_state
-		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone())
+		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone(), 100.into())
 		.await;
 	assert_eq!(state.segments(), [(scheduling_parent, peer_a, entries.clone())].into());
 
 	// A prefix shares every parablock but differs in bytes: not a duplicate.
 	let prefix = fps[..2].to_vec();
 	test_state
-		.send_v4_segment(&mut state, peer_b, scheduling_parent, prefix.clone())
+		.send_v4_segment(&mut state, peer_b, scheduling_parent, prefix.clone(), 100.into())
 		.await;
 	assert_eq!(
 		state.segments(),
@@ -3686,7 +3795,7 @@ async fn v4_one_fetch_per_segment() {
 
 	let fps: Vec<_> = (0xb1..=0xb2).map(|s| v4_fingerprint(s, get_hash(9))).collect();
 	test_state
-		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone())
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
 
 	let tip_adv = Advertisement {
@@ -3730,7 +3839,7 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 	};
 
 	test_state
-		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone())
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(tip_adv).await;
@@ -3738,7 +3847,7 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 
 	// Re-advertise the same bytes: accepted — a fresh entitlement.
 	test_state
-		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone())
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
 	assert_eq!(state.segments(), [(scheduling_parent, peer_id, entries)].into());
 
@@ -3790,7 +3899,7 @@ async fn v4_cap_counts_segments_not_entries() {
 
 	let fps: Vec<_> = (0xd1..=0xd3).map(|s| v4_fingerprint(s, get_hash(8))).collect();
 	test_state
-		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone())
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
 	let expected: BTreeSet<_> =
 		[(scheduling_parent, peer_id, fps.iter().map(v4_entry).collect::<Vec<_>>())].into();
@@ -3799,7 +3908,9 @@ async fn v4_cap_counts_segments_not_entries() {
 
 	// The second segment (byte-different) trips the cap.
 	let more: Vec<_> = (0xe1..=0xe2).map(|s| v4_fingerprint(s, get_hash(8))).collect();
-	test_state.send_v4_segment(&mut state, peer_id, scheduling_parent, more).await;
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, more, 100.into())
+		.await;
 	assert_eq!(state.segments(), expected);
 	test_state.assert_no_messages().await;
 }
@@ -3970,6 +4081,7 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 			adv.scheduling_parent,
 			adv.prospective_candidate.into_iter().collect(),
 			Some(CandidateDescriptorVersion::V3),
+			None,
 		)
 		.await;
 	assert!(state.advertisements().is_empty());
@@ -3993,6 +4105,7 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 			adv.scheduling_parent,
 			adv.prospective_candidate.into_iter().collect(),
 			Some(CandidateDescriptorVersion::V3),
+			None,
 		)
 		.await;
 	assert!(state.advertisements().is_empty());

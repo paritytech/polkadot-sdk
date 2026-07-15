@@ -300,9 +300,6 @@ pub(super) async fn expect_declare_msg(
 			match wire {
 				CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 					protocol_v2::CollatorProtocolMessage::Declare(collator_id, para_id, signature)
-				)) |
-				CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
-					protocol_v4::CollatorProtocolMessage::Declare(collator_id, para_id, signature)
 				)) => {
 					assert!(signature.verify(
 						&*protocol_v2::declare_signature_payload(&test_state.local_peer_id),
