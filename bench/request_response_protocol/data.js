@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784069528438,
+  "lastUpdate": 1784119300482,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -107675,6 +107675,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2781325074,
             "range": "± 58823827",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be832f623a7c666bc399f10fc370fbc15c8b56d8",
+          "message": "Bump subxt to 0.50 (#12096)\n\nBlocked by https://github.com/paritytech/subxt/pull/2236\n\nFollow-up to #11422.\n\nBumps the workspace `subxt`, `subxt-metadata`, and `subxt-signer`\ndependencies from 0.44 to 0.50.\n\nsubxt 0.50 introduces a block-anchored client API and splits\n`subxt::Error` into per-operation sub-errors. Affected crates were\nupdated to the new API; the JSON-RPC and CLI surfaces are unchanged.",
+          "timestamp": "2026-07-15T11:13:24Z",
+          "tree_id": "d8c6ade79a81826d711534bd294d381a9ae27d92",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/be832f623a7c666bc399f10fc370fbc15c8b56d8"
+        },
+        "date": 1784119269829,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18382002,
+            "range": "± 160194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18756779,
+            "range": "± 73382",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20326368,
+            "range": "± 351322",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25290351,
+            "range": "± 166283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58111394,
+            "range": "± 1013187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 318754449,
+            "range": "± 5749696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2367928381,
+            "range": "± 121340373",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 14971545,
+            "range": "± 98619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15013115,
+            "range": "± 144403",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 15491775,
+            "range": "± 139091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 19647862,
+            "range": "± 99840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 53786165,
+            "range": "± 384129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 308698782,
+            "range": "± 3061618",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2417010549,
+            "range": "± 56982228",
             "unit": "ns/iter"
           }
         ]
