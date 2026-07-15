@@ -103,6 +103,9 @@ new_key_type! { struct WaiterId; }
 struct CidState {
 	tried_peers: HashSet<litep2p::PeerId>,
 	in_flight_peers: HashMap<litep2p::PeerId, Instant>,
+	/// Peers that answered HAVE for this CID. Preferred on dispatch; a second HAVE from
+	/// the same peer marks it tried.
+	have_peers: SmallVec<[litep2p::PeerId; 1]>,
 	waiters: SmallVec<[WaiterId; 2]>,
 	/// Whether this CID currently has a valid entry in [`WantSet::pending`].
 	pending: bool,
@@ -113,6 +116,7 @@ impl CidState {
 		Self {
 			tried_peers: HashSet::new(),
 			in_flight_peers: HashMap::new(),
+			have_peers: SmallVec::new(),
 			waiters: SmallVec::new(),
 			pending: false,
 		}
@@ -214,11 +218,15 @@ impl WantSet {
 			return None;
 		}
 
-		let peer = connected_peers
+		let eligible = |peer: &litep2p::PeerId| {
+			!state.tried_peers.contains(peer) && !state.in_flight_peers.contains_key(peer)
+		};
+		// Peers that answered HAVE for this CID are asked first.
+		let peer = state
+			.have_peers
 			.iter()
-			.find(|peer| {
-				!state.tried_peers.contains(peer) && !state.in_flight_peers.contains_key(peer)
-			})
+			.find(|peer| connected_peers.contains(*peer) && eligible(peer))
+			.or_else(|| connected_peers.iter().find(|peer| eligible(peer)))
 			.copied()?;
 
 		let state = self.inner.get_mut(&cid).expect("checked above; qed");
@@ -237,6 +245,24 @@ impl WantSet {
 				self.live -= 1;
 			}
 			state.tried_peers.insert(peer);
+		}
+		self.remove_if_idle(cid);
+	}
+
+	/// Record a HAVE from `peer` for `cid` and release its in-flight slot.
+	///
+	/// A first HAVE keeps the peer eligible (and preferred) for a re-ask; a repeated HAVE
+	/// without the block marks the peer tried.
+	fn note_peer_have_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
+		if let Some(state) = self.inner.get_mut(&cid) {
+			if state.have_peers.contains(&peer) {
+				state.tried_peers.insert(peer);
+			} else {
+				state.have_peers.push(peer);
+			}
+			if state.in_flight_peers.remove(&peer).is_some() && state.in_flight_peers.is_empty() {
+				self.live -= 1;
+			}
 		}
 		self.remove_if_idle(cid);
 	}
@@ -529,17 +555,17 @@ impl<B: BlockT> BitswapService<B> {
 					}
 				},
 				ResponseType::Presence { cid, presence } => {
-					self.wants.mark_peer_done_for_cid(peer, cid);
 					match presence {
 						BlockPresenceType::DontHave => {
 							log::trace!(target: LOG_TARGET, "{peer:?} DONT_HAVE {cid}");
-							cids_to_top_up.insert(cid);
+							self.wants.mark_peer_done_for_cid(peer, cid);
 						},
 						BlockPresenceType::Have => {
 							log::trace!(target: LOG_TARGET, "{peer:?} HAVE {cid}");
-							cids_to_top_up.insert(cid);
+							self.wants.note_peer_have_for_cid(peer, cid);
 						},
 					}
+					cids_to_top_up.insert(cid);
 				},
 			}
 		}
@@ -875,6 +901,100 @@ mod tests {
 		rig.inbound_tx
 			.send(BitswapEvent::Response {
 				peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("item");
+		match item {
+			Ok((got_cid, bytes)) => {
+				assert_eq!(got_cid, cid);
+				assert_eq!(bytes, data);
+			},
+			other => panic!("expected Block, got {other:?}"),
+		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn have_response_reasks_same_peer_then_delivers() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+		let data = b"payload-have".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
+
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+
+		let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
+		assert_eq!(out_peer, peer);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Presence { cid, presence: BlockPresenceType::Have }],
+			})
+			.await
+			.unwrap();
+
+		// A HAVE keeps the peer eligible: it is re-asked for the block.
+		let (out_peer, out_cids) = drain_next(&mut rig.outbound_req_rx).await.expect("re-ask");
+		assert_eq!(out_peer, peer);
+		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("item");
+		match item {
+			Ok((got_cid, bytes)) => {
+				assert_eq!(got_cid, cid);
+				assert_eq!(bytes, data);
+			},
+			other => panic!("expected Block, got {other:?}"),
+		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn second_have_without_block_moves_to_other_peer() {
+		let mut rig = empty_rig();
+		let peer_a = litep2p::PeerId::random();
+		let peer_b = litep2p::PeerId::random();
+		let data = b"payload-have-2".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
+
+		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+
+		let (first, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
+		let other = if first == peer_a { peer_b } else { peer_a };
+
+		let have = |peer| BitswapEvent::Response {
+			peer,
+			responses: vec![ResponseType::Presence { cid, presence: BlockPresenceType::Have }],
+		};
+
+		// First HAVE earns the peer a re-ask.
+		rig.inbound_tx.send(have(first)).await.unwrap();
+		let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("re-ask");
+		assert_eq!(out_peer, first);
+
+		// Second HAVE without the block: the peer counts as tried, the want moves on.
+		rig.inbound_tx.send(have(first)).await.unwrap();
+		let (out_peer, out_cids) =
+			drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
+		assert_eq!(out_peer, other);
+		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer: other,
 				responses: vec![ResponseType::Block { cid, block: data.clone() }],
 			})
 			.await
