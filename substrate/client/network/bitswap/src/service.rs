@@ -25,6 +25,8 @@
 //! in-flight peer requests at a time, the rest queue and are dispatched as window slots
 //! free up. Requests carry no service-side deadline: the caller bounds the wait by
 //! dropping the receiver, which a periodic sweep detects to release the wants.
+//! Unresolved CIDs are retried in rounds: once every connected peer has been tried,
+//! all peers become eligible again after [`ROUND_RETRY_DELAY`].
 //!
 //! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`]. The
 //! sync engine replays `PeerConnected` for every currently-connected peer when a new
@@ -94,6 +96,8 @@ const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const CMD_CHANNEL_CAPACITY: usize = 256;
 const LOOKUP_CHANNEL_CAPACITY: usize = 64;
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
+/// Delay before an exhausted CID (every connected peer tried) starts a new round.
+const ROUND_RETRY_DELAY: Duration = Duration::from_secs(5);
 const PEER_FANOUT_CAP: usize = 1;
 const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -109,6 +113,9 @@ struct CidState {
 	waiters: SmallVec<[WaiterId; 2]>,
 	/// Whether this CID currently has a valid entry in [`WantSet::pending`].
 	pending: bool,
+	/// When set, every connected peer has been tried; a new round (with cleared per-round
+	/// peer state) starts once this instant passes. Cleared on dispatch.
+	next_round_at: Option<Instant>,
 }
 
 impl CidState {
@@ -119,6 +126,7 @@ impl CidState {
 			have_peers: SmallVec::new(),
 			waiters: SmallVec::new(),
 			pending: false,
+			next_round_at: None,
 		}
 	}
 
@@ -222,12 +230,27 @@ impl WantSet {
 			!state.tried_peers.contains(peer) && !state.in_flight_peers.contains_key(peer)
 		};
 		// Peers that answered HAVE for this CID are asked first.
-		let peer = state
+		let Some(peer) = state
 			.have_peers
 			.iter()
 			.find(|peer| connected_peers.contains(*peer) && eligible(peer))
 			.or_else(|| connected_peers.iter().find(|peer| eligible(peer)))
-			.copied()?;
+			.copied()
+		else {
+			// Round exhausted: every connected peer has been tried. Schedule a new round,
+			// started by the sweep once the delay passes.
+			if !connected_peers.is_empty() && state.in_flight_peers.is_empty() {
+				let state = self.inner.get_mut(&cid).expect("checked above; qed");
+				if state.next_round_at.is_none() {
+					state.next_round_at = Some(now + ROUND_RETRY_DELAY);
+					log::trace!(
+						target: LOG_TARGET,
+						"all peers tried for {cid}, scheduling new round",
+					);
+				}
+			}
+			return None;
+		};
 
 		let state = self.inner.get_mut(&cid).expect("checked above; qed");
 		if state.in_flight_peers.is_empty() {
@@ -235,6 +258,7 @@ impl WantSet {
 		}
 		state.in_flight_peers.insert(peer, now + PER_PEER_TIMEOUT);
 		state.pending = false;
+		state.next_round_at = None;
 
 		Some(peer)
 	}
@@ -307,6 +331,24 @@ impl WantSet {
 		}
 
 		self.remove_idle_and_filter_existing(cids)
+	}
+
+	/// Start a new round for CIDs whose retry delay has passed: clear per-round peer state
+	/// so every connected peer is eligible again.
+	fn restart_exhausted_rounds(&mut self, now: Instant) -> Vec<Cid> {
+		let mut cids = Vec::new();
+		for (cid, state) in self.inner.iter_mut() {
+			if state.has_waiters() &&
+				state.in_flight_peers.is_empty() &&
+				state.next_round_at.is_some_and(|at| at <= now)
+			{
+				state.tried_peers.clear();
+				state.have_peers.clear();
+				state.next_round_at = None;
+				cids.push(*cid);
+			}
+		}
+		cids
 	}
 
 	fn clear(&mut self) {
@@ -617,8 +659,8 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	/// Periodic housekeeping: drop waiters whose receiver was dropped (the caller gave up
-	/// or applied its own timeout), then expire per-peer request timeouts and retry the
-	/// affected CIDs on other peers.
+	/// or applied its own timeout), expire per-peer request timeouts, and start new rounds
+	/// for CIDs whose retry delay has passed.
 	async fn on_sweep(&mut self) {
 		let abandoned: Vec<WaiterId> = self
 			.waiters
@@ -630,7 +672,9 @@ impl<B: BlockT> BitswapService<B> {
 			self.drop_waiter(id);
 		}
 
-		let cids = self.wants.expire_peer_timeouts(Instant::now());
+		let now = Instant::now();
+		let mut cids = self.wants.expire_peer_timeouts(now);
+		cids.extend(self.wants.restart_exhausted_rounds(now));
 		self.top_up_in_flight(cids).await;
 	}
 
@@ -1008,6 +1052,147 @@ mod tests {
 			},
 			other => panic!("expected Block, got {other:?}"),
 		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn exhausted_round_reasks_peer_after_delay() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+		let data = b"payload-round".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
+
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Presence {
+					cid,
+					presence: BlockPresenceType::DontHave,
+				}],
+			})
+			.await
+			.unwrap();
+
+		// The only peer is tried: nothing is dispatched before the round delay passes.
+		let no_req =
+			timeout(ROUND_RETRY_DELAY - Duration::from_secs(1), rig.outbound_req_rx.recv()).await;
+		assert!(no_req.is_err());
+
+		// After the delay the round restarts and the same peer is asked again.
+		let (out_peer, out_cids) =
+			drain_next(&mut rig.outbound_req_rx).await.expect("new-round WANT");
+		assert_eq!(out_peer, peer);
+		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("item");
+		match item {
+			Ok((got_cid, bytes)) => {
+				assert_eq!(got_cid, cid);
+				assert_eq!(bytes, data);
+			},
+			other => panic!("expected Block, got {other:?}"),
+		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn timed_out_peer_is_reasked_next_round() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+		let data = b"payload-round-2".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
+
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
+
+		// No response: the per-peer timeout marks the peer tried, then the round restarts
+		// and the same peer is asked again.
+		let (out_peer, out_cids) =
+			timeout(PER_PEER_TIMEOUT + ROUND_RETRY_DELAY * 2, rig.outbound_req_rx.recv())
+				.await
+				.expect("re-ask after timeout and round delay")
+				.expect("transport channel open");
+		assert_eq!(out_peer, peer);
+		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("item");
+		match item {
+			Ok((got_cid, bytes)) => {
+				assert_eq!(got_cid, cid);
+				assert_eq!(bytes, data);
+			},
+			other => panic!("expected Block, got {other:?}"),
+		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn new_peer_is_asked_immediately_while_round_is_parked() {
+		let mut rig = empty_rig();
+		let peer_a = litep2p::PeerId::random();
+		let peer_b = litep2p::PeerId::random();
+		let data = b"payload-round-3".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
+
+		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer: peer_a,
+				responses: vec![ResponseType::Presence {
+					cid,
+					presence: BlockPresenceType::DontHave,
+				}],
+			})
+			.await
+			.unwrap();
+
+		// The CID is parked awaiting a new round; a fresh peer is dispatched immediately,
+		// without waiting for the round delay.
+		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("WANT to new peer");
+		assert_eq!(out_peer, peer_b);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer: peer_b,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("item");
+		match item {
+			Ok((got_cid, bytes)) => {
+				assert_eq!(got_cid, cid);
+				assert_eq!(bytes, data);
+			},
+			other => panic!("expected Block, got {other:?}"),
+		}
+
+		// The dispatch cancelled the scheduled round: no stray re-ask later.
+		tokio::time::advance(ROUND_RETRY_DELAY * 2).await;
+		assert!(rig.outbound_req_rx.try_recv().is_err());
 	}
 
 	#[tokio::test(start_paused = true)]
