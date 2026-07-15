@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784130159217,
+  "lastUpdate": 1784152906944,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f38750fc78969ef8c3f8411178b0c9413a15e98b",
-          "message": "Don't require PR for uploading comment for DT CI (#10347)\n\n# Description\n\nSmall PR that changes the DT CI to not require a PR for uploading the\nreport to the CI job.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T13:32:56Z",
-          "tree_id": "6ee396dc955783235bd57812e1629f1beb3594fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f38750fc78969ef8c3f8411178b0c9413a15e98b"
-        },
-        "date": 1763476730767,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013271034960000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15838685292000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0071775695999999846,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022380885286666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007864566946666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1f20d8961739561b229fdb9c7f3df40e37f04154",
+          "message": "Remove deprecated new_native_or_wasm_executor (#12652)\n\n## Summary\n- Remove `sc_service::new_native_or_wasm_executor`, deprecated with note\n\\\"Will be removed at end of 2024\\\".\n- Callers should use `sc_service::new_wasm_executor` instead.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-15T20:17:18Z",
+          "tree_id": "a1e4c665885563349a5054daa8e06242845d021d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f20d8961739561b229fdb9c7f3df40e37f04154"
+        },
+        "date": 1784152874519,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007505401446666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010184436886666638,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023624317886666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1441330906666667,
             "unit": "seconds"
           }
         ]
