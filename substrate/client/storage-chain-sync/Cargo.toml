@@ -32,7 +32,7 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-transaction-storage-proof = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, default-features = true, features = ["sync"] }
+tokio = { workspace = true, default-features = true, features = ["sync", "time"] }
 
 [dev-dependencies]
 rstest = { workspace = true }

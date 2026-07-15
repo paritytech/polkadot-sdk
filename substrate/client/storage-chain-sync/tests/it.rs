@@ -533,7 +533,7 @@ mod mock {
 		StorageChanges as ConsensusStorageChanges,
 	};
 	use sc_network_bitswap::{
-		BitswapError, BitswapRequest, Cid as BitswapCid, FetchItem, FetchOutcome, RAW_CODEC,
+		BitswapError, BitswapRequest, Cid as BitswapCid, FetchItem, RAW_CODEC,
 	};
 	use sp_api::{ApiError, ConstructRuntimeApi};
 	use sp_consensus::{BlockOrigin, Error as ConsensusError};
@@ -809,9 +809,9 @@ mod mock {
 	/// In-memory mock of [`BitswapRequest`] for the integration tests.
 	///
 	/// Stores a `ContentHash -> Vec<u8>` map. On `request_stream`, returns a receiver
-	/// pre-loaded with one [`FetchOutcome::Block`] per known CID and one
-	/// [`FetchOutcome::Missing`] per unknown CID. Records every observed CID and counts
-	/// every call for assertions.
+	/// pre-loaded with the bytes of every known CID; unknown CIDs produce nothing, and the
+	/// closed channel signals end-of-request (the fetcher treats absent entries as
+	/// missing). Records every observed CID and counts every call for assertions.
 	#[derive(Default)]
 	pub(super) struct MockBitswap {
 		responses: Mutex<HashMap<ContentHash, Vec<u8>>>,
@@ -846,11 +846,9 @@ mod mock {
 			for cid in cids {
 				observed.push(cid);
 				let digest: Option<ContentHash> = cid.hash().digest().try_into().ok();
-				let outcome = match digest.and_then(|d| responses.get(&d).cloned()) {
-					Some(bytes) => FetchOutcome::Block(bytes),
-					None => FetchOutcome::Missing,
-				};
-				tx.try_send(Ok((cid, outcome))).expect("channel sized for cids.len()");
+				if let Some(bytes) = digest.and_then(|d| responses.get(&d).cloned()) {
+					tx.try_send(Ok((cid, bytes))).expect("channel sized for cids.len()");
+				}
 			}
 			Ok(rx)
 		}

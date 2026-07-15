@@ -28,9 +28,7 @@ mod service;
 
 pub use cid::Cid;
 pub(crate) use handle::BitswapCommand;
-pub use handle::{
-	BitswapError, BitswapHandle, BitswapRequest, BitswapServiceConfig, FetchItem, FetchOutcome,
-};
+pub use handle::{BitswapError, BitswapHandle, BitswapRequest, FetchItem};
 pub use service::start;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";

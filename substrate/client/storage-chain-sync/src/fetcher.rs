@@ -19,20 +19,36 @@
 //! Bitswap-based fetcher for indexed-transaction blobs.
 //!
 //! Thin adapter over [`sc_network_bitswap::BitswapHandle`]: builds the per-want CIDs,
-//! submits them and collects the outcomes. Peer selection, timeouts, retries and hash
-//! verification live in the bitswap service.
+//! submits them and collects the outcomes under a size-scaled time budget. Peer
+//! selection, retries and hash verification live in the bitswap service; the fetch
+//! deadline lives here, since the service retries indefinitely and the caller owns the
+//! time budget.
 
 use crate::RenewWant;
 use cid::{multihash::Multihash, Cid};
-use sc_network_bitswap::{BitswapError, BitswapRequest, FetchOutcome};
+use sc_network_bitswap::{BitswapError, BitswapRequest};
 use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
 use std::{
 	collections::HashMap,
 	sync::{Arc, OnceLock},
+	time::Duration,
 };
 
 const LOG_TARGET: &str = "storage-chain-fetcher";
+
+/// Base time budget for a single [`IndexedTransactionFetcher::fetch_many`] call.
+const FETCH_TIMEOUT_BASE: Duration = Duration::from_secs(30);
+/// Additional budget per requested CID: large wantlists queue behind the bitswap
+/// service's dispatch window and need proportionally more time.
+const FETCH_TIMEOUT_PER_CID: Duration = Duration::from_millis(100);
+/// Hard cap so a hopeless fetch cannot stall block import for too long.
+const FETCH_TIMEOUT_MAX: Duration = Duration::from_secs(600);
+
+fn fetch_timeout(cid_count: usize) -> Duration {
+	let per_cid = FETCH_TIMEOUT_PER_CID.saturating_mul(cid_count.min(u32::MAX as usize) as u32);
+	FETCH_TIMEOUT_BASE.saturating_add(per_cid).min(FETCH_TIMEOUT_MAX)
+}
 
 /// Late-bound bitswap handle slot, populated by the node after `build_network`.
 ///
@@ -80,7 +96,8 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 
 	/// Resolve a batch of indexed-transaction hashes via bitswap. Each want carries the
 	/// runtime-declared `cid_codec` so the request CID matches what the producing runtime
-	/// announced. Returns only successfully fetched entries.
+	/// announced. Returns only successfully fetched entries; entries unresolved when the
+	/// time budget expires are simply absent.
 	pub(crate) async fn fetch_many(
 		&self,
 		wants: &[RenewWant],
@@ -102,10 +119,11 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 
 		let mut rx = handle.request_stream(cids).await?;
 
+		let deadline = tokio::time::Instant::now() + fetch_timeout(wants.len());
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
-		while let Some(item) = rx.recv().await {
-			match item {
-				Ok((cid, FetchOutcome::Block(bytes))) => {
+		loop {
+			match tokio::time::timeout_at(deadline, rx.recv()).await {
+				Ok(Some(Ok((cid, bytes)))) => {
 					if let Some(hash) = by_cid.get(&cid) {
 						log::debug!(
 							target: LOG_TARGET,
@@ -115,17 +133,26 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 						acquired.insert(*hash, bytes);
 					}
 				},
-				Ok((cid, FetchOutcome::Missing)) => {
-					log::debug!(target: LOG_TARGET, "bitswap returned Missing for {cid}");
-				},
-				Err(BitswapError::ServiceClosed) => {
+				Ok(Some(Err(BitswapError::ServiceClosed))) => {
 					log::warn!(
 						target: LOG_TARGET,
 						"bitswap service closed mid-stream; returning partial result",
 					);
 					return Ok(acquired);
 				},
-				Err(other) => return Err(FetchError::Bitswap(other)),
+				Ok(Some(Err(other))) => return Err(FetchError::Bitswap(other)),
+				// The stream closed: every CID was delivered.
+				Ok(None) => break,
+				// Time budget expired. Dropping the receiver cancels the remaining wants.
+				Err(_) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"bitswap fetch timed out with {}/{} entries resolved",
+						acquired.len(),
+						wants.len(),
+					);
+					break;
+				},
 			}
 		}
 

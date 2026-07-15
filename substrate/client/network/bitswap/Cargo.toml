@@ -22,6 +22,7 @@ futures = { workspace = true }
 litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 slotmap = { workspace = true }
@@ -31,7 +32,6 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = ["macros", "rt", "sync"], workspace = true, default-features = true }
-tokio-util = { features = ["time"], workspace = true }
 
 [dev-dependencies]
 sc-block-builder = { workspace = true, default-features = true }

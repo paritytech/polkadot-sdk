@@ -9,16 +9,21 @@ doc:
       user-facing `BitswapHandle` is returned as the last element of the
       `build_network`/`build_network_advanced` output tuple (`None` when Bitswap is
       not enabled). The handle's only method is
-      `request_stream(cids) -> Receiver<Result<(Cid, FetchOutcome), BitswapError>>`,
-      which streams per-CID outcomes as they resolve.
+      `request_stream(cids) -> Receiver<Result<(Cid, Vec<u8>), BitswapError>>`,
+      which streams hash-verified per-CID results as they resolve.
+
+      Requests of any size are accepted: at most 1024 CIDs have in-flight peer
+      requests at a time (the dispatch window), the rest queue inside the service and
+      are dispatched as slots free up. Requests carry no service-side deadline; the
+      service retries unresolved CIDs as peers connect, and the caller bounds the
+      wait by dropping the receiver, which cancels the remaining wants.
 
       The service runs an internal actor that owns peer selection (fed by
-      `sc-network-sync` peer connect/disconnect events), per-peer timeouts (5s),
-      per-waiter deadlines (default 30s), hash verification of every received block,
-      and bounded admission. Inbound serving is off-loaded to a bounded
-      `spawn_blocking` worker pool so storage reads never block outbound traffic or
-      response correlation. Inbound serving keeps running even if no consumer holds a
-      `BitswapHandle`.
+      `sc-network-sync` peer connect/disconnect events), per-peer timeouts (5s) and
+      hash verification of every received block. Inbound serving is off-loaded to a
+      bounded `spawn_blocking` worker pool so storage reads never block outbound
+      traffic or response correlation. Inbound serving keeps running even if no
+      consumer holds a `BitswapHandle`.
 
       The libp2p Bitswap implementation is removed; Bitswap now requires the litep2p
       network backend. Enabling `--ipfs-server` together with
@@ -29,11 +34,11 @@ doc:
       `sc_network_bitswap::start`.
 
       `sc-storage-chain-sync` is migrated to the new API: `IndexedTransactionFetcher`
-      no longer rotates across peers or applies its own timeouts; it builds CIDs,
-      chunks the wantlist and drains the result streams. `BitswapPeerSource`,
-      `NetworkHandle` and `SyncingHandle` are replaced by a single
-      `BitswapHandleSlot`, which the omni-node populates from the `build_network`
-      output.
+      no longer rotates across peers; it builds CIDs, submits them in one request and
+      drains the result stream under a time budget that scales with the wantlist
+      size. `BitswapPeerSource`, `NetworkHandle` and `SyncingHandle` are replaced by
+      a single `BitswapHandleSlot`, which the omni-node populates from the
+      `build_network` output.
 
       Closes https://github.com/paritytech/polkadot-sdk/issues/12052.
 

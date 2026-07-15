@@ -21,14 +21,20 @@
 //! the inbound (serve indexed-transaction blocks to peers) and outbound (fetch CIDs from
 //! peers on behalf of [`BitswapHandle`] callers) Bitswap flows.
 //!
+//! Outbound requests of any size are accepted; at most [`MAX_LIVE_CIDS`] CIDs have
+//! in-flight peer requests at a time, the rest queue and are dispatched as window slots
+//! free up. Requests carry no service-side deadline: the caller bounds the wait by
+//! dropping the receiver, which a periodic sweep detects to release the wants.
+//!
 //! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`]. The
 //! sync engine replays `PeerConnected` for every currently-connected peer when a new
-//! subscriber registers, so the actor sees the full peer set on startup.
+//! subscriber registers, so the actor sees the full peer set on startup. Light-client
+//! peers are not tracked: they do not hold the indexed-transaction data served over
+//! bitswap.
 
 use super::{
-	is_cid_supported, BitswapCommand, BitswapHandle, BitswapServiceConfig, Cid, FetchItem,
-	FetchOutcome, BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, LOG_TARGET,
-	MAX_WANTED_BLOCKS, SHA2_256_MULTIHASH_CODE,
+	is_cid_supported, BitswapCommand, BitswapHandle, Cid, FetchItem, BLAKE2B_256_MULTIHASH_CODE,
+	KECCAK_256_MULTIHASH_CODE, LOG_TARGET, MAX_WANTED_BLOCKS, SHA2_256_MULTIHASH_CODE,
 };
 use crate::handle::BitswapError;
 
@@ -39,13 +45,14 @@ use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle as LitepBitswapHandle, BlockPresenceType, ResponseType, WantType,
 };
 use sc_client_api::BlockBackend;
+use sc_network_common::role::Roles;
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use slotmap::{new_key_type, SlotMap};
 use smallvec::SmallVec;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	pin::Pin,
 	sync::Arc,
@@ -55,7 +62,6 @@ use tokio::{
 	sync::{mpsc, Semaphore},
 	time::Instant,
 };
-use tokio_util::time::{delay_queue, DelayQueue};
 
 #[async_trait]
 pub(crate) trait BitswapTransport: Send {
@@ -79,14 +85,17 @@ impl BitswapTransport for LitepBitswapHandle {
 	}
 }
 
-const MAX_OUTSTANDING_CIDS: usize = 1024;
+/// Dispatch-window size: max number of CIDs with in-flight peer requests at once. CIDs
+/// beyond the window are queued and dispatched as slots free up, so requests of any size
+/// are accepted.
+const MAX_LIVE_CIDS: usize = 1024;
 const MAX_WAITERS_PER_CID: usize = 64;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const CMD_CHANNEL_CAPACITY: usize = 256;
 const LOOKUP_CHANNEL_CAPACITY: usize = 64;
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const PEER_FANOUT_CAP: usize = 1;
-const PEER_TIMEOUT_SWEEP_INTERVAL: Duration = Duration::from_secs(1);
+const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
 
 new_key_type! { struct WaiterId; }
 
@@ -95,6 +104,8 @@ struct CidState {
 	tried_peers: HashSet<litep2p::PeerId>,
 	in_flight_peers: HashMap<litep2p::PeerId, Instant>,
 	waiters: SmallVec<[WaiterId; 2]>,
+	/// Whether this CID currently has a valid entry in [`WantSet::pending`].
+	pending: bool,
 }
 
 impl CidState {
@@ -103,6 +114,7 @@ impl CidState {
 			tried_peers: HashSet::new(),
 			in_flight_peers: HashMap::new(),
 			waiters: SmallVec::new(),
+			pending: false,
 		}
 	}
 
@@ -117,23 +129,23 @@ impl CidState {
 
 struct WantSet {
 	inner: HashMap<Cid, CidState>,
+	/// FIFO of CIDs waiting for a free dispatch-window slot. May contain stale entries
+	/// (resolved, abandoned or already-dispatched CIDs); those are skipped on pop, guarded
+	/// by [`CidState::pending`].
+	pending: VecDeque<Cid>,
+	/// Number of CIDs with at least one in-flight peer request.
+	live: usize,
+	/// Dispatch-window size.
+	max_live: usize,
 }
 
 impl WantSet {
-	fn new() -> Self {
-		Self { inner: HashMap::new() }
-	}
-
-	fn len(&self) -> usize {
-		self.inner.len()
+	fn new(max_live: usize) -> Self {
+		Self { inner: HashMap::new(), pending: VecDeque::new(), live: 0, max_live }
 	}
 
 	fn contains(&self, cid: &Cid) -> bool {
 		self.inner.contains_key(cid)
-	}
-
-	fn new_cid_count(&self, cids: &[Cid]) -> usize {
-		cids.iter().filter(|cid| !self.inner.contains_key(cid)).count()
 	}
 
 	fn waiter_count(&self, cid: &Cid) -> usize {
@@ -156,7 +168,29 @@ impl WantSet {
 	}
 
 	fn take_waiters_for_delivered_cid(&mut self, cid: Cid) -> Option<SmallVec<[WaiterId; 2]>> {
-		self.inner.remove(&cid).map(|state| state.waiters)
+		self.inner.remove(&cid).map(|state| {
+			if !state.in_flight_peers.is_empty() {
+				self.live -= 1;
+			}
+			state.waiters
+		})
+	}
+
+	fn has_window_capacity(&self) -> bool {
+		self.live < self.max_live
+	}
+
+	/// Pop the next CID waiting for a window slot, skipping stale queue entries.
+	fn pop_pending(&mut self) -> Option<Cid> {
+		while let Some(cid) = self.pending.pop_front() {
+			if let Some(state) = self.inner.get_mut(&cid) {
+				if state.pending {
+					state.pending = false;
+					return Some(cid);
+				}
+			}
+		}
+		None
 	}
 
 	fn next_peer_to_request(
@@ -170,6 +204,16 @@ impl WantSet {
 			return None;
 		}
 
+		// Dispatch window full: queue the CID for promotion when a slot frees up.
+		if state.in_flight_peers.is_empty() && !self.has_window_capacity() {
+			let state = self.inner.get_mut(&cid).expect("checked above; qed");
+			if !state.pending {
+				state.pending = true;
+				self.pending.push_back(cid);
+			}
+			return None;
+		}
+
 		let peer = connected_peers
 			.iter()
 			.find(|peer| {
@@ -178,25 +222,35 @@ impl WantSet {
 			.copied()?;
 
 		let state = self.inner.get_mut(&cid).expect("checked above; qed");
+		if state.in_flight_peers.is_empty() {
+			self.live += 1;
+		}
 		state.in_flight_peers.insert(peer, now + PER_PEER_TIMEOUT);
+		state.pending = false;
 
 		Some(peer)
 	}
 
 	fn mark_peer_done_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
 		if let Some(state) = self.inner.get_mut(&cid) {
-			state.in_flight_peers.remove(&peer);
+			if state.in_flight_peers.remove(&peer).is_some() && state.in_flight_peers.is_empty() {
+				self.live -= 1;
+			}
 			state.tried_peers.insert(peer);
 		}
 		self.remove_if_idle(cid);
 	}
 
 	fn remove_in_flight_peer(&mut self, peer: litep2p::PeerId) -> Vec<Cid> {
-		let affected: Vec<Cid> = self
-			.inner
-			.iter_mut()
-			.filter_map(|(cid, state)| state.in_flight_peers.remove(&peer).map(|_| *cid))
-			.collect();
+		let mut affected: Vec<Cid> = Vec::new();
+		for (cid, state) in self.inner.iter_mut() {
+			if state.in_flight_peers.remove(&peer).is_some() {
+				if state.in_flight_peers.is_empty() {
+					self.live -= 1;
+				}
+				affected.push(*cid);
+			}
+		}
 
 		self.remove_idle_and_filter_existing(affected)
 	}
@@ -204,6 +258,7 @@ impl WantSet {
 	fn expire_peer_timeouts(&mut self, now: Instant) -> Vec<Cid> {
 		let mut timed_out: Vec<(Cid, litep2p::PeerId)> = Vec::new();
 		for (cid, state) in self.inner.iter_mut() {
+			let had_in_flight = !state.in_flight_peers.is_empty();
 			state.in_flight_peers.retain(|peer, deadline| {
 				if *deadline <= now {
 					timed_out.push((*cid, *peer));
@@ -212,6 +267,9 @@ impl WantSet {
 					true
 				}
 			});
+			if had_in_flight && state.in_flight_peers.is_empty() {
+				self.live -= 1;
+			}
 		}
 
 		let mut cids = Vec::with_capacity(timed_out.len());
@@ -227,6 +285,8 @@ impl WantSet {
 
 	fn clear(&mut self) {
 		self.inner.clear();
+		self.pending.clear();
+		self.live = 0;
 	}
 
 	fn remove_idle_and_filter_existing(&mut self, cids: Vec<Cid>) -> Vec<Cid> {
@@ -246,7 +306,6 @@ impl WantSet {
 struct Waiter {
 	cids_remaining: HashSet<Cid>,
 	sink: mpsc::Sender<FetchItem>,
-	delay_key: delay_queue::Key,
 }
 
 type InboundLookupResult = (litep2p::PeerId, Vec<ResponseType>);
@@ -292,7 +351,6 @@ impl<B: BlockT> InboundLookupPool<B> {
 
 pub(crate) struct BitswapService<B: BlockT> {
 	handle: Box<dyn BitswapTransport>,
-	config: BitswapServiceConfig,
 
 	cmd_rx: mpsc::Receiver<BitswapCommand>,
 	/// Set once every [`BitswapHandle`] has been dropped; the actor then stops polling
@@ -302,7 +360,6 @@ pub(crate) struct BitswapService<B: BlockT> {
 	inbound_lookup_pool: InboundLookupPool<B>,
 	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
 
-	waiter_deadlines: DelayQueue<WaiterId>,
 	connected_peers: HashSet<litep2p::PeerId>,
 	wants: WantSet,
 	waiters: SlotMap<WaiterId, Waiter>,
@@ -317,7 +374,6 @@ pub fn start<B: BlockT, S>(
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	sync: &S,
 	litep2p_handle: LitepBitswapHandle,
-	config: BitswapServiceConfig,
 ) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapHandle)
 where
 	S: SyncEventStream + ?Sized,
@@ -330,15 +386,13 @@ where
 
 	let service = BitswapService {
 		handle: Box::new(litep2p_handle),
-		config,
 		cmd_rx,
 		cmd_channel_closed: false,
 		sync_event_stream,
 		inbound_lookup_pool,
 		inbound_lookup_rx,
-		waiter_deadlines: DelayQueue::new(),
 		connected_peers: HashSet::new(),
-		wants: WantSet::new(),
+		wants: WantSet::new(MAX_LIVE_CIDS),
 		waiters: SlotMap::with_key(),
 	};
 
@@ -350,9 +404,9 @@ where
 impl<B: BlockT> BitswapService<B> {
 	async fn run(mut self) {
 		log::debug!(target: LOG_TARGET, "BitswapService starting");
-		let mut peer_timeout_ticker = tokio::time::interval(PEER_TIMEOUT_SWEEP_INTERVAL);
-		peer_timeout_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-		peer_timeout_ticker.tick().await;
+		let mut sweep_ticker = tokio::time::interval(SWEEP_INTERVAL);
+		sweep_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+		sweep_ticker.tick().await;
 
 		loop {
 			tokio::select! {
@@ -384,7 +438,8 @@ impl<B: BlockT> BitswapService<B> {
 				},
 
 				sync_ev = self.sync_event_stream.next() => match sync_ev {
-					Some(SyncEvent::PeerConnected(peer)) => self.on_peer_connected(peer.into()).await,
+					Some(SyncEvent::PeerConnected { peer_id, roles }) =>
+						self.on_peer_connected(peer_id.into(), roles).await,
 					Some(SyncEvent::PeerDisconnected(peer)) => self.on_peer_disconnected(peer.into()).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "sync event stream ended; shutting down");
@@ -393,31 +448,18 @@ impl<B: BlockT> BitswapService<B> {
 					},
 				},
 
-				maybe_expired = self.waiter_deadlines.next(), if !self.waiter_deadlines.is_empty() => {
-					if let Some(expired) = maybe_expired {
-						self.on_waiter_expired(expired.into_inner());
-					}
-				},
-
 				Some((peer, responses)) = self.inbound_lookup_rx.recv() => {
 					self.handle.send_response(peer, responses).await;
 				},
 
-				_ = peer_timeout_ticker.tick() => {
-					self.sweep_per_peer_timeouts().await;
+				_ = sweep_ticker.tick() => {
+					self.on_sweep().await;
 				},
 			}
 		}
 	}
 
 	async fn on_request_stream(&mut self, cids: Vec<Cid>, sink: mpsc::Sender<FetchItem>) {
-		// Charge the outstanding-CIDs budget only for CIDs not already in `wants`.
-		let new_cid_count = self.wants.new_cid_count(&cids);
-		if self.wants.len() + new_cid_count > MAX_OUTSTANDING_CIDS {
-			let _ = sink.try_send(Err(BitswapError::Overloaded));
-			return;
-		}
-
 		for cid in &cids {
 			if self.wants.waiter_count(cid) >= MAX_WAITERS_PER_CID {
 				let _ = sink.try_send(Err(BitswapError::Overloaded));
@@ -425,14 +467,8 @@ impl<B: BlockT> BitswapService<B> {
 			}
 		}
 
-		let deadline = Instant::now() + self.config.request_timeout;
 		let cids_remaining: HashSet<Cid> = cids.iter().copied().collect();
-
-		let waiter_id = self.waiters.insert_with_key(|id| Waiter {
-			cids_remaining,
-			sink,
-			delay_key: self.waiter_deadlines.insert_at(id, deadline),
-		});
+		let waiter_id = self.waiters.insert(Waiter { cids_remaining, sink });
 
 		for cid in &cids {
 			self.wants.add_waiter(*cid, waiter_id);
@@ -441,8 +477,9 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids).await;
 	}
 
-	/// Dispatch WANT-BLOCK requests for the given CIDs, bundling CIDs assigned to the same
-	/// peer into wantlist messages of up to [`MAX_WANTED_BLOCKS`] entries.
+	/// Dispatch WANT-BLOCK requests for the given CIDs, then promote queued CIDs into any
+	/// remaining dispatch-window capacity. CIDs assigned to the same peer are bundled into
+	/// wantlist messages of up to [`MAX_WANTED_BLOCKS`] entries.
 	async fn top_up_in_flight(&mut self, cids: impl IntoIterator<Item = Cid>) {
 		let now = Instant::now();
 		let mut by_peer: HashMap<litep2p::PeerId, Vec<(Cid, WantType)>> = HashMap::new();
@@ -452,6 +489,15 @@ impl<B: BlockT> BitswapService<B> {
 				by_peer.entry(peer).or_default().push((cid, WantType::Block));
 			}
 		}
+
+		while self.wants.has_window_capacity() {
+			let Some(cid) = self.wants.pop_pending() else { break };
+			if let Some(peer) = self.wants.next_peer_to_request(cid, &self.connected_peers, now) {
+				log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?} (promoted)");
+				by_peer.entry(peer).or_default().push((cid, WantType::Block));
+			}
+		}
+
 		for (peer, wants) in by_peer {
 			for chunk in wants.chunks(MAX_WANTED_BLOCKS) {
 				self.handle.send_request(peer, chunk.to_vec()).await;
@@ -509,7 +555,7 @@ impl<B: BlockT> BitswapService<B> {
 			if !waiter.cids_remaining.remove(&cid) {
 				continue;
 			}
-			if waiter.sink.try_send(Ok((cid, FetchOutcome::Block(bytes.clone())))).is_err() {
+			if waiter.sink.try_send(Ok((cid, bytes.clone()))).is_err() {
 				log::trace!(target: LOG_TARGET, "waiter sink full/closed for {cid}");
 				self.drop_waiter(waiter_id);
 				continue;
@@ -522,27 +568,17 @@ impl<B: BlockT> BitswapService<B> {
 
 	fn drop_waiter(&mut self, id: WaiterId) {
 		let Some(waiter) = self.waiters.remove(id) else { return };
-		self.waiter_deadlines.remove(&waiter.delay_key);
 
 		for cid in &waiter.cids_remaining {
 			self.wants.remove_waiter(*cid, id);
 		}
 	}
 
-	fn on_waiter_expired(&mut self, id: WaiterId) {
-		let Some(waiter) = self.waiters.remove(id) else { return };
-		for cid in &waiter.cids_remaining {
-			let _ = waiter.sink.try_send(Ok((*cid, FetchOutcome::Missing)));
-			self.wants.remove_waiter(*cid, id);
+	async fn on_peer_connected(&mut self, peer: litep2p::PeerId, roles: Roles) {
+		// Light clients do not hold the indexed-transaction data served over bitswap.
+		if roles.is_light() {
+			return;
 		}
-		log::trace!(
-			target: LOG_TARGET,
-			"waiter {id:?} expired; emitted Missing for {} CIDs",
-			waiter.cids_remaining.len(),
-		);
-	}
-
-	async fn on_peer_connected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.insert(peer);
 		let cids = self.wants.all_cids();
 		self.top_up_in_flight(cids).await;
@@ -554,7 +590,20 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
-	async fn sweep_per_peer_timeouts(&mut self) {
+	/// Periodic housekeeping: drop waiters whose receiver was dropped (the caller gave up
+	/// or applied its own timeout), then expire per-peer request timeouts and retry the
+	/// affected CIDs on other peers.
+	async fn on_sweep(&mut self) {
+		let abandoned: Vec<WaiterId> = self
+			.waiters
+			.iter()
+			.filter_map(|(id, waiter)| waiter.sink.is_closed().then_some(id))
+			.collect();
+		for id in abandoned {
+			log::trace!(target: LOG_TARGET, "dropping abandoned waiter {id:?}");
+			self.drop_waiter(id);
+		}
+
 		let cids = self.wants.expire_peer_timeouts(Instant::now());
 		self.top_up_in_flight(cids).await;
 	}
@@ -579,7 +628,6 @@ impl<B: BlockT> BitswapService<B> {
 	fn shutdown_waiters(&mut self) {
 		for (_, waiter) in self.waiters.drain() {
 			let _ = waiter.sink.try_send(Err(BitswapError::ServiceClosed));
-			self.waiter_deadlines.remove(&waiter.delay_key);
 		}
 		self.wants.clear();
 	}
@@ -677,7 +725,7 @@ mod tests {
 
 	fn build_rig_with(
 		client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
-		config: BitswapServiceConfig,
+		max_live_cids: usize,
 	) -> TestRig {
 		let (inbound_tx, inbound_rx) = mpsc::channel(64);
 		let (outbound_req_tx, outbound_req_rx) = mpsc::channel(64);
@@ -697,15 +745,13 @@ mod tests {
 
 		let service: BitswapService<substrate_test_runtime::Block> = BitswapService {
 			handle: Box::new(transport),
-			config,
 			cmd_rx,
 			cmd_channel_closed: false,
 			sync_event_stream,
 			inbound_lookup_pool,
 			inbound_lookup_rx,
-			waiter_deadlines: DelayQueue::new(),
 			connected_peers: HashSet::new(),
-			wants: WantSet::new(),
+			wants: WantSet::new(max_live_cids),
 			waiters: SlotMap::with_key(),
 		};
 
@@ -723,12 +769,13 @@ mod tests {
 	}
 
 	fn empty_rig() -> TestRig {
-		short_deadline_rig(Duration::from_secs(30))
+		let client = Arc::new(substrate_test_runtime_client::new());
+		build_rig_with(client, MAX_LIVE_CIDS)
 	}
 
-	fn short_deadline_rig(deadline: Duration) -> TestRig {
+	fn small_window_rig(max_live_cids: usize) -> TestRig {
 		let client = Arc::new(substrate_test_runtime_client::new());
-		build_rig_with(client, BitswapServiceConfig { request_timeout: deadline })
+		build_rig_with(client, max_live_cids)
 	}
 
 	fn cid_for_data(mh_code: u64, data: &[u8]) -> Cid {
@@ -753,7 +800,11 @@ mod tests {
 	}
 
 	fn sync_connected(peer: litep2p::PeerId) -> SyncEvent {
-		SyncEvent::PeerConnected(to_types_peer(peer))
+		SyncEvent::PeerConnected { peer_id: to_types_peer(peer), roles: Roles::FULL }
+	}
+
+	fn sync_connected_light(peer: litep2p::PeerId) -> SyncEvent {
+		SyncEvent::PeerConnected { peer_id: to_types_peer(peer), roles: Roles::LIGHT }
 	}
 
 	fn sync_disconnected(peer: litep2p::PeerId) -> SyncEvent {
@@ -766,7 +817,7 @@ mod tests {
 		let peer = litep2p::PeerId::random();
 		let mut waiter_ids = SlotMap::with_key();
 		let waiter_id = waiter_ids.insert(());
-		let mut wants = WantSet::new();
+		let mut wants = WantSet::new(MAX_LIVE_CIDS);
 
 		wants.add_waiter(cid, waiter_id);
 		let selected =
@@ -778,6 +829,32 @@ mod tests {
 
 		wants.mark_peer_done_for_cid(peer, cid);
 		assert!(!wants.contains(&cid));
+	}
+
+	#[test]
+	fn want_set_window_queues_and_promotes() {
+		let cid_a = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x01; 32]);
+		let cid_b = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x02; 32]);
+		let peer = litep2p::PeerId::random();
+		let peers = HashSet::from([peer]);
+		let mut waiter_ids = SlotMap::with_key();
+		let waiter_id = waiter_ids.insert(());
+		let mut wants = WantSet::new(1);
+
+		wants.add_waiter(cid_a, waiter_id);
+		wants.add_waiter(cid_b, waiter_id);
+
+		assert_eq!(wants.next_peer_to_request(cid_a, &peers, Instant::now()), Some(peer));
+		// Window (size 1) is full: `cid_b` must queue instead of dispatching.
+		assert_eq!(wants.next_peer_to_request(cid_b, &peers, Instant::now()), None);
+		assert!(!wants.has_window_capacity());
+
+		// Delivering `cid_a` frees the slot; `cid_b` is promoted.
+		wants.take_waiters_for_delivered_cid(cid_a);
+		assert!(wants.has_window_capacity());
+		assert_eq!(wants.pop_pending(), Some(cid_b));
+		assert_eq!(wants.next_peer_to_request(cid_b, &peers, Instant::now()), Some(peer));
+		assert_eq!(wants.pop_pending(), None);
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -805,7 +882,7 @@ mod tests {
 
 		let item = drain_next(&mut rx).await.expect("item");
 		match item {
-			Ok((got_cid, FetchOutcome::Block(bytes))) => {
+			Ok((got_cid, bytes)) => {
 				assert_eq!(got_cid, cid);
 				assert_eq!(bytes, data);
 			},
@@ -814,8 +891,29 @@ mod tests {
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn dont_have_then_missing_at_deadline() {
-		let mut rig = short_deadline_rig(Duration::from_millis(50));
+	async fn light_client_peers_are_not_tracked() {
+		let mut rig = empty_rig();
+		let light_peer = litep2p::PeerId::random();
+		let full_peer = litep2p::PeerId::random();
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [9u8; 32]);
+
+		rig.sync_event_tx.send(sync_connected_light(light_peer)).await.unwrap();
+		let _rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+
+		// The only connected peer is a light client: no WANT must be dispatched.
+		assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
+
+		// Once a full peer connects, the pending want goes out to it.
+		rig.sync_event_tx.send(sync_connected(full_peer)).await.unwrap();
+		let (out_peer, out_cids) =
+			drain_next(&mut rig.outbound_req_rx).await.expect("outbound WANT");
+		assert_eq!(out_peer, full_peer);
+		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn dont_have_from_only_peer_leaves_stream_open() {
+		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [7u8; 32]);
 
@@ -835,26 +933,42 @@ mod tests {
 			.await
 			.unwrap();
 
-		tokio::time::advance(Duration::from_millis(60)).await;
-
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((_, FetchOutcome::Missing))));
+		// No other peers to try: the want stays unresolved, the stream stays open until
+		// the caller gives up.
+		tokio::time::advance(Duration::from_secs(60)).await;
+		assert!(matches!(rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn per_peer_timeout_followed_by_deadline_missing() {
-		let mut rig = short_deadline_rig(Duration::from_millis(100));
-		let peer = litep2p::PeerId::random();
-		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [42u8; 32]);
+	async fn per_peer_timeout_triggers_failover() {
+		let mut rig = empty_rig();
+		let peer_a = litep2p::PeerId::random();
+		let peer_b = litep2p::PeerId::random();
+		let data = b"after-timeout".to_vec();
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
+		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
-		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
+		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
-		tokio::time::advance(Duration::from_millis(120)).await;
+		// The unanswered request times out after `PER_PEER_TIMEOUT`; the sweep retries on
+		// the other peer.
+		tokio::time::advance(PER_PEER_TIMEOUT + Duration::from_secs(2)).await;
+
+		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
+		assert_ne!(first_peer, second_peer);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer: second_peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
 
 		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((_, FetchOutcome::Missing))));
+		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -895,7 +1009,7 @@ mod tests {
 
 		let item = drain_next(&mut rx).await.expect("item");
 		match item {
-			Ok((got, FetchOutcome::Block(bytes))) => {
+			Ok((got, bytes)) => {
 				assert_eq!(got, cid);
 				assert_eq!(bytes, data);
 			},
@@ -904,18 +1018,23 @@ mod tests {
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn zero_peers_at_admission_missing_at_deadline() {
-		let mut rig = short_deadline_rig(Duration::from_millis(50));
+	async fn receiver_drop_cancels_wants() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
 
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
+		// No peers connected: nothing is dispatched, the want just sits there.
 		assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
 
-		tokio::time::advance(Duration::from_millis(60)).await;
+		// The caller gives up; the sweep drops the abandoned waiter.
+		drop(rx);
+		tokio::time::advance(Duration::from_secs(2)).await;
 
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((_, FetchOutcome::Missing))));
+		// A peer connecting afterwards must not trigger a WANT for the cancelled request.
+		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -942,8 +1061,8 @@ mod tests {
 
 		let item_a = drain_next(&mut rx_a).await.expect("a");
 		let item_b = drain_next(&mut rx_b).await.expect("b");
-		assert!(matches!(&item_a, Ok((c, FetchOutcome::Block(b))) if *c == cid && *b == data));
-		assert!(matches!(&item_b, Ok((c, FetchOutcome::Block(b))) if *c == cid && *b == data));
+		assert!(matches!(&item_a, Ok((c, b)) if *c == cid && *b == data));
+		assert!(matches!(&item_b, Ok((c, b)) if *c == cid && *b == data));
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -972,36 +1091,46 @@ mod tests {
 			.unwrap();
 
 		let item_b = drain_next(&mut rx_b).await.expect("b");
-		assert!(matches!(item_b, Ok((c, FetchOutcome::Block(b))) if c == cid && b == data));
+		assert!(matches!(item_b, Ok((c, b)) if c == cid && b == data));
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn waiter_deadline_emits_missing_for_unresolved() {
-		let mut rig = short_deadline_rig(Duration::from_millis(40));
+	async fn dispatch_window_queues_excess_cids_and_promotes_on_delivery() {
+		let mut rig = small_window_rig(4);
 		let peer = litep2p::PeerId::random();
-		let cid_a = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
-		let cid_b = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [2u8; 32]);
-
 		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid_a, cid_b]).await.unwrap();
 
-		let (_, entries) = drain_next(&mut rig.outbound_req_rx).await.expect("bundled WANT");
-		assert_eq!(entries.len(), 2, "both CIDs go to the same peer in one message");
+		let payloads: Vec<Vec<u8>> = (0..5u8).map(|i| vec![i; 8]).collect();
+		let cids: Vec<Cid> =
+			payloads.iter().map(|p| cid_for_data(BLAKE2B_256_MULTIHASH_CODE, p)).collect();
 
-		tokio::time::advance(Duration::from_millis(60)).await;
+		let mut rx = rig.user_handle.request_stream(cids.clone()).await.unwrap();
 
-		let mut seen = HashSet::new();
-		for _ in 0..2 {
-			let item = drain_next(&mut rx).await.expect("missing item");
-			match item {
-				Ok((c, FetchOutcome::Missing)) => {
-					seen.insert(c);
-				},
-				other => panic!("expected Missing, got {other:?}"),
-			}
-		}
-		assert!(seen.contains(&cid_a));
-		assert!(seen.contains(&cid_b));
+		// Only the window (4 CIDs) is dispatched; the fifth is queued.
+		let (_, entries) = drain_next(&mut rig.outbound_req_rx).await.expect("first bundle");
+		assert_eq!(entries.len(), 4);
+		let dispatched: HashSet<Cid> = entries.iter().map(|(cid, _)| *cid).collect();
+		let queued_idx =
+			cids.iter().position(|cid| !dispatched.contains(cid)).expect("one CID queued");
+
+		// Answering one dispatched CID frees a slot and promotes the queued CID.
+		let answered_idx = cids.iter().position(|cid| dispatched.contains(cid)).unwrap();
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Block {
+					cid: cids[answered_idx],
+					block: payloads[answered_idx].clone(),
+				}],
+			})
+			.await
+			.unwrap();
+
+		let item = drain_next(&mut rx).await.expect("delivered block");
+		assert!(matches!(item, Ok((c, _)) if c == cids[answered_idx]));
+
+		let (_, promoted) = drain_next(&mut rig.outbound_req_rx).await.expect("promoted WANT");
+		assert_eq!(promoted, vec![(cids[queued_idx], WantType::Block)]);
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1022,10 +1151,7 @@ mod tests {
 		let block = block_builder.build().unwrap().block;
 		client.import(BlockOrigin::File, block).await.unwrap();
 
-		let mut rig = build_rig_with(
-			Arc::new(client),
-			BitswapServiceConfig { request_timeout: Duration::from_secs(30) },
-		);
+		let mut rig = build_rig_with(Arc::new(client), MAX_LIVE_CIDS);
 
 		let peer = litep2p::PeerId::random();
 		rig.inbound_tx
@@ -1046,8 +1172,8 @@ mod tests {
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn corrupted_block_rejected_then_missing_at_deadline() {
-		let mut rig = short_deadline_rig(Duration::from_millis(50));
+	async fn corrupted_block_from_only_peer_is_not_delivered() {
+		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
 		let real = b"the-real-payload".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &real);
@@ -1067,10 +1193,10 @@ mod tests {
 			.await
 			.unwrap();
 
-		tokio::time::advance(Duration::from_millis(60)).await;
-
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((_, FetchOutcome::Missing))));
+		// The corrupted block is rejected; no other peer can serve the CID, so the
+		// stream stays open without delivering anything.
+		tokio::time::advance(Duration::from_secs(60)).await;
+		assert!(matches!(rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1109,7 +1235,7 @@ mod tests {
 			.unwrap();
 
 		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((c, FetchOutcome::Block(b))) if c == cid && b == data));
+		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1228,23 +1354,40 @@ mod tests {
 			.unwrap();
 
 		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((c, FetchOutcome::Block(b))) if c == cid && b == data));
+		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn late_response_after_waiter_gone_is_dropped() {
-		let mut rig = short_deadline_rig(Duration::from_millis(20));
+	async fn late_response_after_receiver_drop_is_ignored_and_cid_refetchable() {
+		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
 		let data = b"too-late".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
 		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
-		tokio::time::advance(Duration::from_millis(40)).await;
-		let _missing = drain_next(&mut rx).await.expect("missing");
+		// Caller gives up; the sweep drops the waiter while the peer request is still
+		// in flight.
+		drop(rx);
+		tokio::time::advance(Duration::from_secs(2)).await;
 
+		// The late response hits no waiter and is dropped.
+		rig.inbound_tx
+			.send(BitswapEvent::Response {
+				peer,
+				responses: vec![ResponseType::Block { cid, block: data.clone() }],
+			})
+			.await
+			.unwrap();
+		// Let the actor process the late response before the fresh request goes in.
+		sleep(Duration::from_millis(1)).await;
+
+		// A fresh request for the same CID starts from a clean slate: the peer is asked
+		// again and the block is delivered.
+		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("fresh WANT");
 		rig.inbound_tx
 			.send(BitswapEvent::Response {
 				peer,
@@ -1253,7 +1396,24 @@ mod tests {
 			.await
 			.unwrap();
 
-		sleep(Duration::from_millis(1)).await;
-		assert!(rx.recv().await.is_none());
+		let item = drain_next(&mut rx).await.expect("item");
+		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn too_many_waiters_per_cid_yields_overloaded() {
+		let rig = empty_rig();
+		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x77; 32]);
+
+		let mut receivers = Vec::new();
+		for _ in 0..MAX_WAITERS_PER_CID {
+			receivers.push(rig.user_handle.request_stream(vec![cid]).await.unwrap());
+		}
+		// Give the actor a chance to admit all waiters before the one-too-many request.
+		sleep(Duration::from_millis(10)).await;
+
+		let mut rejected = rig.user_handle.request_stream(vec![cid]).await.unwrap();
+		let item = drain_next(&mut rejected).await.expect("item");
+		assert!(matches!(item, Err(BitswapError::Overloaded)));
 	}
 }

@@ -1270,7 +1270,6 @@ where
 				client.clone(),
 				&*sync_service,
 				litep2p_bitswap_handle,
-				sc_network_bitswap::BitswapServiceConfig::default(),
 			);
 
 			(Some(handler), Some(bitswap_user_handle), Some(ipfs_config))

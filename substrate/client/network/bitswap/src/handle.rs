@@ -20,32 +20,22 @@
 //! The handle is returned by [`crate::start`] when the node is configured with
 //! `--ipfs-server` and uses the litep2p network backend.
 //!
-//! Cheap to clone. Submit work via [`BitswapHandle::request_stream`], drain the receiver to
-//! get per-CID outcomes as they resolve.
+//! Cheap to clone. Submit work via [`BitswapHandle::request_stream`], drain the receiver
+//! to get per-CID results as they resolve. The service retries unresolved CIDs for as
+//! long as the request is alive; the caller owns the time budget: apply a timeout while
+//! draining and drop the receiver to give up. Dropping the receiver cancels all wants
+//! remaining in the request.
 
 use super::{is_cid_supported, Cid};
 
 use async_trait::async_trait;
-use std::time::Duration;
 use tokio::sync::mpsc;
-
-/// Outcome of a single Bitswap fetch for one CID.
-#[derive(Debug)]
-pub enum FetchOutcome {
-	/// Hash-verified bytes for the requested CID.
-	Block(Vec<u8>),
-	/// The block was not retrieved before the request deadline expired: no peers were
-	/// available, every peer replied DONT_HAVE or timed out, or every candidate block
-	/// failed CID verification.
-	Missing,
-}
 
 /// Service-level Bitswap errors.
 ///
 /// Returned synchronously from [`BitswapHandle::request_stream`] for admission-time
 /// failures, and appearing at most once inside the returned stream (`Overloaded` or
-/// `ServiceClosed`). Per-CID failure modes collapse into [`FetchOutcome::Missing`]
-/// instead of producing an error.
+/// `ServiceClosed`).
 #[derive(Debug, thiserror::Error)]
 pub enum BitswapError {
 	/// The Bitswap service task has shut down.
@@ -58,28 +48,15 @@ pub enum BitswapError {
 		/// The offending CID.
 		cid: Cid,
 	},
-	/// The service has too many in-flight wants.
+	/// The service cannot accept the request: the command channel is full, or too many
+	/// concurrent requests want the same CID.
 	#[error("Bitswap service is overloaded")]
 	Overloaded,
 }
 
-/// Configuration applied at service construction time.
-#[derive(Debug, Clone)]
-pub struct BitswapServiceConfig {
-	/// Per-waiter deadline. Each call to [`BitswapHandle::request_stream`] inherits this
-	/// value; the receiver will yield `Missing` for any CID still unresolved at the
-	/// deadline and then close.
-	pub request_timeout: Duration,
-}
-
-impl Default for BitswapServiceConfig {
-	fn default() -> Self {
-		Self { request_timeout: Duration::from_secs(30) }
-	}
-}
-
-/// Item carried on the receiver returned by [`BitswapHandle::request_stream`].
-pub type FetchItem = Result<(Cid, FetchOutcome), BitswapError>;
+/// Item carried on the receiver returned by [`BitswapHandle::request_stream`]: the
+/// hash-verified bytes for one requested CID, or a terminal service error.
+pub type FetchItem = Result<(Cid, Vec<u8>), BitswapError>;
 
 /// User-facing handle to the Bitswap service.
 ///
@@ -96,25 +73,24 @@ impl BitswapHandle {
 		Self { cmd_tx }
 	}
 
-	/// Submit a wantlist. Returns a receiver that yields one item per requested CID, in
-	/// the order they resolve.
+	/// Submit a wantlist. Returns a receiver that yields `Ok((cid, bytes))` with
+	/// hash-verified bytes for each requested CID, in the order they resolve.
 	///
-	/// Each item is:
-	/// - `Ok((cid, FetchOutcome::Block(bytes)))` when a peer delivered hash-verified bytes.
-	/// - `Ok((cid, FetchOutcome::Missing))` when the per-waiter deadline expired without a block.
-	/// - `Err(BitswapError::Overloaded)` once as the only item, if the service actor rejects the
-	///   request (too many outstanding CIDs or waiters).
-	/// - `Err(BitswapError::ServiceClosed)` once, if the service task shuts down mid-stream.
+	/// The stream closes once every CID has been delivered. A CID that no connected peer
+	/// can serve stays unresolved indefinitely; the service keeps retrying as peers
+	/// connect. To bound the wait, apply a timeout while draining and drop the receiver —
+	/// dropping it cancels all wants remaining in this request.
 	///
-	/// The stream closes when either every CID has produced an outcome, or an `Err` item
-	/// has been emitted.
+	/// There is no per-call CID cap: requests larger than the service's dispatch window
+	/// are queued internally and fetched as window slots free up.
 	///
-	/// There is no per-call CID cap; the request size is bounded by the actor's overall
-	/// outstanding-CIDs budget, exceeding which yields the in-stream `Overloaded` above.
+	/// `Err(BitswapError::ServiceClosed)` is yielded once, as the final item, if the
+	/// service shuts down mid-request. `Err(BitswapError::Overloaded)` is yielded once as
+	/// the only item if too many concurrent requests want one of the CIDs.
 	///
 	/// Returns a synchronous `BitswapError` for admission-time failures (`ServiceClosed`,
-	/// `InvalidCid`, `Overloaded`). An empty `cids` slice returns an immediately-closed
-	/// receiver, not an error.
+	/// `InvalidCid`, or `Overloaded` when the command channel is full). An empty `cids`
+	/// slice returns an immediately-closed receiver, not an error.
 	pub async fn request_stream(
 		&self,
 		cids: Vec<Cid>,
