@@ -92,10 +92,7 @@ module accumulate {
           jamSolicit: if (d.jamSolicit) acc.jamSolicit.union(Set(vchAsHash(payload.hash))) else acc.jamSolicit,
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: match d.log {
-            | Some(e) => acc.logs.append(e)
-            | None => acc.logs
-          }
+          logs: acc.logs.appendOption(d.log)
       }
       | Solicit(payload) =>
       val pi = acc.state.paraInfo(para_id)
@@ -133,10 +130,7 @@ module accumulate {
           jamSolicit: if (d.jamSolicit) acc.jamSolicit.union(Set(payload.hash)) else acc.jamSolicit,
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: match d.log {
-            | Some(e) => acc.logs.append(e)
-            | None => acc.logs
-          }
+          logs: acc.logs.appendOption(d.log)
         }
       }
       | Forget(payload) =>
@@ -190,10 +184,7 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: match o.log {
-          | Some(e) => acc.logs.append(e)
-          | None => acc.logs
-        }
+        logs: acc.logs.appendOption(o.log)
       }
       | ParachainSetStateBalance(payload) =>
       // §6.1 — only legal from Coretime chain (rights check is in §6).
@@ -205,10 +196,7 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: match o.log {
-          | Some(e) => acc.logs.append(e)
-          | None => acc.logs
-        }
+        logs: acc.logs.appendOption(o.log)
       }
       | ParachainSetHead(payload) =>
       val o = parachainSetHead(acc.state, payload.paraId, payload.newHead)
@@ -224,10 +212,7 @@ module accumulate {
         jamSolicit: acc.jamSolicit.union(o.jamSolicit),
         jamForget: acc.jamForget.union(o.jamForget),
         jamAssigns: acc.jamAssigns,
-        logs: match o.log {
-          | Some(e) => acc.logs.append(e)
-          | None => acc.logs
-        }
+        logs: acc.logs.appendOption(o.log)
       }
       | ParachainCleanUp(paraId) =>
       { ...acc, state: parachainCleanUp(acc.state, paraId) }
@@ -312,20 +297,14 @@ module accumulate {
       {
         ...acc,
         state: d.state,
-        logs: match d.log {
-          | Some(e) => acc.logs.append(e)
-          | None => acc.logs
-        }
+        logs: acc.logs.appendOption(d.log)
       }
       | RemoveKV(payload) =>
       val d = applyRemoveKV(acc.state, para_id, payload.key)
       {
         ...acc,
         state: d.state,
-        logs: match d.log {
-          | Some(e) => acc.logs.append(e)
-          | None => acc.logs
-        }
+        logs: acc.logs.appendOption(d.log)
       }
     }
   }

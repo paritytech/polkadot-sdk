@@ -123,6 +123,13 @@ module types {
   pure def mapFilterKeys(m: a -> b, keep: a => bool): a -> b =
   m.keys().filter(keep).mapBy(x => m.get(x))
 
+  /// Append `opt`'s element to `l` when present; leave `l` unchanged on `None`.
+  pure def appendOption(l: List[a], opt: Option[a]): List[a] =
+  match opt {
+    | Some(e) => l.append(e)
+    | None => l
+  }
+
   // --- Abstract hash function ---------------------------------------------
   //
   // We model `hash(head_data)` as an injective function — we only need
