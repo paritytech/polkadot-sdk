@@ -666,7 +666,14 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
-	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
+	type CallbackHandle = (
+		ForeignAssetId<Runtime, ForeignAssetsInstance>,
+		Erc20TransferLogsCallback<
+			Runtime,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Runtime, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
+	);
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]

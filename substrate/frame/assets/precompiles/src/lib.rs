@@ -71,6 +71,8 @@ pub trait AssetIdExtractor {
 	type AssetId;
 	/// Extracts the asset id from the address.
 	fn asset_id_from_address(address: &[u8; 20]) -> Result<Self::AssetId, Error>;
+	/// The `u32` index `id` maps to, encoded into its precompile address; `None` if unmapped.
+	fn asset_index(id: &Self::AssetId) -> Option<u32>;
 }
 
 /// The configuration of a pallet-assets precompile.
@@ -91,6 +93,9 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
 		Ok(index)
+	}
+	fn asset_index(id: &Self::AssetId) -> Option<u32> {
+		Some(*id)
 	}
 }
 
@@ -120,6 +125,9 @@ where
 		let index = u32::from_be_bytes(bytes);
 		pallet::Pallet::<Runtime>::asset_id_of(index)
 			.ok_or(Error::Revert(Revert { reason: "Invalid foreign asset id".into() }))
+	}
+	fn asset_index(id: &Self::AssetId) -> Option<u32> {
+		pallet::Pallet::<Runtime>::asset_index_of(id)
 	}
 }
 
@@ -220,9 +228,10 @@ impl<Runtime, PrecompileConfig, Instance>
 		<Runtime as Config<Instance>>::Balance,
 	> for Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance>
 where
-	PrecompileConfig: AssetPrecompileConfig<AssetIdExtractor = InlineAssetIdExtractor>,
+	PrecompileConfig: AssetPrecompileConfig,
 	Runtime: Config<Instance> + pallet_revive::Config,
-	<Runtime as Config<Instance>>::AssetId: Into<u32> + Clone,
+	<Runtime as Config<Instance>>::AssetId:
+		Clone + Into<<PrecompileConfig::AssetIdExtractor as AssetIdExtractor>::AssetId>,
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
 	Instance: 'static,
 {
@@ -271,20 +280,20 @@ where
 impl<Runtime, PrecompileConfig, Instance>
 	Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance>
 where
-	PrecompileConfig: AssetPrecompileConfig<AssetIdExtractor = InlineAssetIdExtractor>,
+	PrecompileConfig: AssetPrecompileConfig,
 	Runtime: Config<Instance> + pallet_revive::Config,
-	<Runtime as Config<Instance>>::AssetId: Into<u32> + Clone,
+	<Runtime as Config<Instance>>::AssetId:
+		Clone + Into<<PrecompileConfig::AssetIdExtractor as AssetIdExtractor>::AssetId>,
 	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
 	Instance: 'static,
 {
-	/// The precompile/token address of `id`: the matcher's base address with the asset id
-	/// inlined big-endian into the first four bytes (the inverse of
-	/// [`InlineAssetIdExtractor::asset_id_from_address`]).
-	fn token_address(id: &<Runtime as Config<Instance>>::AssetId) -> H160 {
+	/// The precompile/token address of `id`: the matcher's base address with the asset's index
+	/// inlined big-endian into the first four bytes (the inverse of `asset_id_from_address`).
+	fn token_address(id: &<Runtime as Config<Instance>>::AssetId) -> Option<H160> {
+		let index = PrecompileConfig::AssetIdExtractor::asset_index(&id.clone().into())?;
 		let mut address = PrecompileConfig::MATCHER.base_address();
-		let index: u32 = id.clone().into();
 		address[..4].copy_from_slice(&index.to_be_bytes());
-		H160(address)
+		Some(H160(address))
 	}
 
 	fn evm_address(
@@ -300,7 +309,15 @@ where
 		amount: <Runtime as Config<Instance>>::Balance,
 	) {
 		let Ok(value) = alloy::primitives::U256::try_from(amount) else {
-			// Unreachable for practical balance types (at most 128 bit).
+			frame_support::defensive!(
+				"asset balance exceeds U256; Transfer log dropped (unreachable for balance types up to 256 bit)"
+			);
+			return;
+		};
+		let Some(token) = Self::token_address(id) else {
+			frame_support::defensive!(
+				"asset has no precompile address mapping; Transfer log dropped (unreachable unless a foreign asset predates its mapping migration)"
+			);
 			return;
 		};
 		let (topics, data) = IERC20Events::Transfer(IERC20::Transfer { from, to, value })
@@ -308,7 +325,7 @@ where
 			.split();
 		let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
 		pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(
-			Self::token_address(id),
+			token,
 			topics,
 			data.to_vec(),
 		);

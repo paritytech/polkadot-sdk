@@ -139,7 +139,8 @@ fn asset_id_extractor_works() {
 #[test]
 fn token_address_round_trips_through_extractor() {
 	for id in [0u32, 1, 1337, 0xDEAD_BEEF, u32::MAX] {
-		let address = Erc20TransferLogsCallback::<Test, InlineIdConfig<0x0120>>::token_address(&id);
+		let address =
+			Erc20TransferLogsCallback::<Test, InlineIdConfig<0x0120>>::token_address(&id).unwrap();
 		let extracted =
 			<InlineIdConfig<0x0120> as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
 				&address.0,
@@ -147,6 +148,38 @@ fn token_address_round_trips_through_extractor() {
 			.unwrap();
 		assert_eq!(extracted, id, "round-trip failed for asset id {id}");
 	}
+}
+
+// The foreign callback derives the token address through the live id->index map (resolved at emit
+// time), exactly as the foreign ERC-20 precompile is addressed. A registered asset must round-trip
+// id -> address -> id; an unregistered asset has no address, so `token_address` yields `None`.
+#[test]
+fn foreign_token_address_resolves_through_map() {
+	use crate::foreign_assets::pallet::Pallet as ForeignAssetsPallet;
+	new_test_ext().execute_with(|| {
+		let asset_id = 1337u32;
+		// Unregistered: no mapping, no address.
+		assert!(Erc20TransferLogsCallback::<Test, ForeignIdConfig<0x0220, Test>>::token_address(
+			&asset_id
+		)
+		.is_none());
+
+		let index = ForeignAssetsPallet::<Test>::insert_asset_mapping(&asset_id).unwrap();
+		let address =
+			Erc20TransferLogsCallback::<Test, ForeignIdConfig<0x0220, Test>>::token_address(
+				&asset_id,
+			)
+			.unwrap();
+		// The address carries the allocated index, not the asset id.
+		assert_eq!(u32::from_be_bytes(address.0[..4].try_into().unwrap()), index);
+		// ... and resolves back to the asset id through the same map the precompile uses.
+		let extracted =
+			<ForeignIdConfig<0x0220, Test> as AssetPrecompileConfig>::AssetIdExtractor::asset_id_from_address(
+				&address.0,
+			)
+			.unwrap();
+		assert_eq!(extracted, asset_id);
+	});
 }
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
