@@ -4,31 +4,22 @@ doc:
 - audience: Runtime Dev
   description: |-
     `force_create` no longer requires the asset id to equal `NextAssetId`: a `ForceOrigin` may
-    create an asset with any id not currently in use. When auto-increment is active and the chosen
-    id is at or beyond `NextAssetId`, the sequence is advanced past it so it can never later
-    collide; ids below `NextAssetId` are left for deliberate assignment.
+    create an asset with any id not currently in use, and when auto-increment is active the sequence
+    is advanced past the chosen id so it can never later collide. Auto-increment is now configured
+    explicitly via the new `Config::AssetIdSequencer` (`AutoIncAssetId` to enable, `()` to disable),
+    replacing the implicit `NextAssetId`-is-`Some` plus `AutoIncAssetId` callback mechanism.
 
-    Auto-increment is handled inside the pallet, gated only by `NextAssetId` being set (via
-    genesis or the `SetNextAssetId` migration). The `AutoIncAssetId` callback type is removed; do
-    not drive auto-increment through `Config::CallbackHandle`.
-
-    Migration: `Config::AssetId` now requires `Incrementable + PartialOrd`. Integer ids already
-    satisfy this; `Location` gains an `Incrementable` impl whose `increment` returns `None`,
-    keeping auto-increment disabled for `Location`-keyed assets. Runtimes that set
-    `CallbackHandle = AutoIncAssetId<..>` must drop it and instead initialize `NextAssetId`.
+    Migration: every `pallet-assets` `Config` must set `AssetIdSequencer` — `AutoIncAssetId<Runtime, I>`
+    where `CallbackHandle` previously used it (and drop it from `CallbackHandle`), otherwise `()`.
 
 crates:
 - name: pallet-assets
   bump: major
-- name: staging-xcm
-  bump: minor
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
 - name: penpal-runtime
-  bump: patch
-- name: pallet-staking-async-parachain-runtime
   bump: patch
 - name: pallet-contracts-mock-network
   bump: patch

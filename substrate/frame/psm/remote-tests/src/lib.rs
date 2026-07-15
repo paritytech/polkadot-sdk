@@ -66,7 +66,7 @@ pub struct PsmTestConfig<AssetId> {
 	pub assets_pallet_name: String,
 	/// Optional setup callback invoked before creating the internal asset.
 	/// Use this to set `NextAssetId` so that the asset can be created with
-	/// the desired ID on chains with auto-increment enabled.
+	/// the desired ID on chains that use `AutoIncAssetId`.
 	pub pre_create_hook: Option<Box<dyn Fn()>>,
 }
 
@@ -121,7 +121,7 @@ where
 	// Create the internal asset if it doesn't exist yet.
 	if <Runtime::InternalAsset as FungibleInspect<Runtime::AccountId>>::minimum_balance().is_zero()
 	{
-		// Run pre-create hook (e.g., set NextAssetId for auto-increment chains).
+		// Run pre-create hook (e.g., set NextAssetId for AutoIncAssetId chains).
 		if let Some(hook) = &config.pre_create_hook {
 			hook();
 		}
