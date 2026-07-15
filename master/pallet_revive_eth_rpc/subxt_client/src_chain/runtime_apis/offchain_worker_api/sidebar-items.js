@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["OffchainWorkerApi"]};
+window.SIDEBAR_ITEMS = {"mod":["offchain_worker"],"struct":["OffchainWorkerApi"]};

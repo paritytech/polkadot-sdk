@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SrcChainConfig"],"mod":["src_chain"]};
+window.SIDEBAR_ITEMS = {"mod":["src_chain"],"struct":["SrcChainConfig"]};

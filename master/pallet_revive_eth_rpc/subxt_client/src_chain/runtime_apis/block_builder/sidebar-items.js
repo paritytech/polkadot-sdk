@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["BlockBuilder"]};
+window.SIDEBAR_ITEMS = {"mod":["apply_extrinsic","check_inherents","finalize_block","inherent_extrinsics"],"struct":["BlockBuilder"]};

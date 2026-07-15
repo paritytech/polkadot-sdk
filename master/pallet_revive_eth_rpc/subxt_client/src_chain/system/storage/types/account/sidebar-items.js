@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["Account","Param0"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["account","freezes","holds","inactive_issuance","locks","reserves","total_issuance"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["build_state","get_preset","preset_names"],"struct":["BuildState","GetPreset","PresetNames"]};

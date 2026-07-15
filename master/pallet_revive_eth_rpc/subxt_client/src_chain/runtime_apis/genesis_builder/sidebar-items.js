@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["GenesisBuilder"]};
+window.SIDEBAR_ITEMS = {"mod":["build_state","get_preset","preset_names"],"struct":["GenesisBuilder"]};

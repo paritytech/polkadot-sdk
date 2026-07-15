@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["StorageApi"]};
+window.SIDEBAR_ITEMS = {"mod":["did_update","now"],"struct":["StorageApi"]};

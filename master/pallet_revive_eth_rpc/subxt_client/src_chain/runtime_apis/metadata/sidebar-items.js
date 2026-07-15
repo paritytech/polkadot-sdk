@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["Metadata"]};
+window.SIDEBAR_ITEMS = {"mod":["metadata","metadata_at_version","metadata_versions"],"struct":["Metadata"]};

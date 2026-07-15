@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["AccountNonceApi"]};
+window.SIDEBAR_ITEMS = {"mod":["account_nonce"],"struct":["AccountNonceApi"]};

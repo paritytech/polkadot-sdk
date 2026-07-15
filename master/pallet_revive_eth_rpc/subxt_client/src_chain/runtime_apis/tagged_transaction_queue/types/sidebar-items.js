@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["validate_transaction"],"struct":["ValidateTransaction"]};

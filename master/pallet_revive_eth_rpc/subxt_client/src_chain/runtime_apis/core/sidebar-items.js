@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["Core"]};
+window.SIDEBAR_ITEMS = {"mod":["execute_block","initialize_block","version"],"struct":["Core"]};

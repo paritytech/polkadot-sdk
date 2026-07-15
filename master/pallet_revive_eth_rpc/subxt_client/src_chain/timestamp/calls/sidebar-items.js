@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["TransactionApi"]};
+window.SIDEBAR_ITEMS = {"mod":["api","set"],"struct":["Set"]};

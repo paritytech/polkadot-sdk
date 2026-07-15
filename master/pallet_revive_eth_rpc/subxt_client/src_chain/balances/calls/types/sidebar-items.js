@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["burn","force_adjust_total_issuance","force_set_balance","force_transfer","force_unreserve","transfer_all","transfer_allow_death","transfer_keep_alive","upgrade_accounts"],"struct":["Burn","ForceAdjustTotalIssuance","ForceSetBalance","ForceTransfer","ForceUnreserve","TransferAll","TransferAllowDeath","TransferKeepAlive","UpgradeAccounts"]};

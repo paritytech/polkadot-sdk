@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["ImmutableDataOf","Param0"]};

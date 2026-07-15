@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["types"],"struct":["TransactionApi"]};
+window.SIDEBAR_ITEMS = {"mod":["api","set_key","sudo","sudo_as","sudo_unchecked_weight"],"struct":["RemoveKey","SetKey","Sudo","SudoAs","SudoUncheckedWeight"]};

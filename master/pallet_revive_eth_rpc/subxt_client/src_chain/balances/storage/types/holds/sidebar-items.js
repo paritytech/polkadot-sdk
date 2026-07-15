@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"type":["Holds","Param0"]};

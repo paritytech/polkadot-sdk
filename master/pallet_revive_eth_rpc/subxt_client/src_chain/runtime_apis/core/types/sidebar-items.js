@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["execute_block","initialize_block","version"],"struct":["ExecuteBlock","InitializeBlock","Version"]};
