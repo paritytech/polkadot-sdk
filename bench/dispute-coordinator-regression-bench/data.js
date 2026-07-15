@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784130270668,
+  "lastUpdate": 1784153032046,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e9bbdf08e180f687a2f10bed77d5b52391446df2",
-          "message": "fix P256Verify precompile address (#10336)\n\nfix https://github.com/paritytech/contract-issues/issues/220\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-17T22:01:37Z",
-          "tree_id": "31a8f0ef32c7c531e9e240acff4f6c2494fc2486",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9bbdf08e180f687a2f10bed77d5b52391446df2"
-        },
-        "date": 1763421287806,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026669573999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.004979464959999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00875694493999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00253737265,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1f20d8961739561b229fdb9c7f3df40e37f04154",
+          "message": "Remove deprecated new_native_or_wasm_executor (#12652)\n\n## Summary\n- Remove `sc_service::new_native_or_wasm_executor`, deprecated with note\n\\\"Will be removed at end of 2024\\\".\n- Callers should use `sc_service::new_wasm_executor` instead.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-15T20:17:18Z",
+          "tree_id": "a1e4c665885563349a5054daa8e06242845d021d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f20d8961739561b229fdb9c7f3df40e37f04154"
+        },
+        "date": 1784152999127,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025480919200000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010612250550000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009340109789999988,
             "unit": "seconds"
           }
         ]
