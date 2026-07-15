@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784119300482,
+  "lastUpdate": 1784129164570,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -107783,6 +107783,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2417010549,
             "range": "± 56982228",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "muhammadtalhadar@gmail.com",
+            "name": "talha",
+            "username": "talhadaar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35000d248860886d1b2fab8c79940e3356d02a36",
+          "message": "Fix out-of-bounds chunk index error in erasure coding (#12521)\n\n# Description\n\n`reconstruct` in `polkadot-erasure-coding` allocated `received_shards`\nwith\nlength `n_validators` and then indexed it directly with the\ncaller-provided\n`chunk_idx`. Any chunk index `>= n_validators` panicked with an\nindex-out-of-bounds instead of returning the already-defined\n`Error::ChunkIndexOutOfBounds` variant.\n\nThis PR adds the missing bounds check so invalid indices are reported as\nan\nerror rather than panicking.\n\nCloses #12465\n\n## Integration\n\n`reconstruct` (and `reconstruct_v1`) now\nreturn `Err(Error::ChunkIndexOutOfBounds { chunk_index, n_validators })`\nfor an\nout-of-bounds chunk index where they previously panicked. The function\nalready\nreturns `Result<_, Error>` and the variant is already public, so there\nis no API\nor signature change — callers that propagate the `Result` need no\nmodification.\n\n## Review Notes\n\nThe fix is a single guard in the chunk-consumption loop, placed\nalongside the\nexisting `UnevenLength` check and before the indexing write:\n\n```rust\nif chunk_idx >= n_validators {\n    return Err(Error::ChunkIndexOutOfBounds { chunk_index: chunk_idx, n_validators });\n}\n\nreceived_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));\n```\n\nA regression test\n(reconstruct_returns_error_on_out_of_bounds_chunk_index)\nencodes data, then calls reconstruct with one valid index and one index\nequal\nto n_validators, asserting the ChunkIndexOutOfBounds error is returned\ninstead of panicking. The PoC from the isore]\nbecause it expected a panic; once the function returns an error a direct\nassert_eq! is sufficient, matching the exle.\n\n### Checklist\n\n- [x] My PR includes a detailed description and its two subsections\nabove.\n- [x] My PR follows the labeling requirements\n- [x] I have made corresponding changes table)\n- [x] I have added tests that prove my fix is effective\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-15T13:12:00Z",
+          "tree_id": "4fa257d84f30faf3b8d064070331c2170ba7500b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35000d248860886d1b2fab8c79940e3356d02a36"
+        },
+        "date": 1784129134471,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19158324,
+            "range": "± 119411",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19457731,
+            "range": "± 195020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20819508,
+            "range": "± 171323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25616059,
+            "range": "± 204642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60693877,
+            "range": "± 606554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 378615264,
+            "range": "± 7151556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2837426970,
+            "range": "± 75604763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16070290,
+            "range": "± 237688",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16788942,
+            "range": "± 129569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16881789,
+            "range": "± 137247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21615103,
+            "range": "± 263332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59028627,
+            "range": "± 473088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 346483223,
+            "range": "± 4639563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2550890431,
+            "range": "± 12815496",
             "unit": "ns/iter"
           }
         ]
