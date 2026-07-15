@@ -839,8 +839,7 @@ mod tests {
 	}
 
 	fn empty_rig() -> TestRig {
-		let client = Arc::new(substrate_test_runtime_client::new());
-		build_rig_with(client, MAX_LIVE_CIDS)
+		small_window_rig(MAX_LIVE_CIDS)
 	}
 
 	fn small_window_rig(max_live_cids: usize) -> TestRig {
