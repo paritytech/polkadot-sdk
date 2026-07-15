@@ -17,7 +17,7 @@ re-reading the listed sections.
 
 | Version | Changes |
 |---------|---------|
-| 0.5 | Root-hash-only commitments return (reverting 0.3's flat sets, as its own analysis [PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449) anticipated): relay state is a fixed-size ring of recent `StreamsRoot`s per sender; the structured `StreamId` replaces the plain destination `ParaId`; channels become unidirectional with flow control via a lossy per-channel register (acceptance, credit, watermark, close); lossy broadcast streams (pub-sub). **Requires handling unified into one code path for all scenarios** (steady state, partial consumption, resubmission, bundles): blocks emit no `Requires` and never see a `StreamsRoot`—they produce a consumption record, and the validate_block wrapper synthesizes the candidate's entries via one POV-carried lift per touched stream; 0.3's in-block catch-up proofs and separate late-block proofs are gone. Authoring always targets the newest root at its tier; the relay window is pipeline slack only. Fetch protocol reduced to two root-keyed request pairs, every response independently verifiable against a requester-named root. Lift-serving obligations bounded at 25 h, mirroring availability retention. **Full rewrite—re-read the Detailed Design entirely**, plus Trust Domains (the tier table). |
+| 0.5 | Root-hash-only commitments return (reverting 0.3's flat sets, as its own analysis [PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449) anticipated): relay state is a fixed-size ring of recent `StreamsRoot`s per sender; the structured `StreamId` replaces the plain destination `ParaId`; channels become unidirectional with flow control via a lossy per-channel register (acceptance, advisory credit, watermark, close); lossy broadcast streams (pub-sub). **Requires handling unified into one code path for all scenarios** (steady state, partial consumption, resubmission, bundles): blocks emit no `Requires` and never see a `StreamsRoot`—they record per touched stream an interval (consumption start/end), the validate_block wrapper stitches the intervals across the bundle (gaps advance-proven forward) and synthesizes the candidate's entries via one POV-carried lift per stream, binding the chain's endpoint; 0.3's in-block catch-up proofs and separate late-block proofs are gone. Authoring always targets the newest root at its tier; the relay window is pipeline slack only. Fetch protocol reduced to two root-keyed request pairs, every response independently verifiable against a requester-named root. Lift-serving obligations bounded at 25 h, mirroring availability retention. **Full rewrite—re-read the Detailed Design entirely**, plus Trust Domains (the tier table). |
 | 0.4 | The provides commitment is additionally deposited as a header digest, so batches verify against a header alone; consumption tiers formalized (speculative / optimistic / inclusion). Verification of unincluded sender blocks factored out into [Off-Chain Block Verification](offchain-block-verification-design.md). **Read**: Off-Chain Verification. |
 | 0.3 | Top-level Merkle commitment replaced by flat per-destination `(ParaId, root)` sets (superseded in 0.5). Requires semantics made explicit (consumed = *prefix* of the required root); in-block catch-up proofs and POV late block proofs cleanly separated; per-pair `RecentRoots` window with virtual extension and atomic enactment dependencies; frontier-only parachain state; leaf hashing with domain tags and version byte; position-addressed networking; security analysis (ParaId reuse, replay). **Largely a full rewrite of the detailed design.** |
 | 0.2 | Revisions before the changelog was introduced (resubmission logic, collator protocol notes, slot-based advertisement check). |
@@ -670,21 +670,14 @@ OutboundFrontier: StorageMap<StreamId, MmrFrontier>,
 /// block.
 OutboundMessages: StorageMap<StreamId, BoundedVec<BoundedVec<u8, MaxMsgLen>, MaxMessagesPerBlock>>,
 
-/// Receiver-side: tracking consumed streams (in parachain runtime).
-/// Keyed by the full stream key—a chain may consume streams of any sender.
-struct IncomingMessageState {
-    per_stream: BTreeMap<(ParaId, StreamId), SourceState>,
-}
-
-struct SourceState {
-    /// Frontier of the stream's MMR as far as we have processed it (channel
-    /// consumption; event-stream subscribers keep a single highwater
-    /// position instead—see Event Streams). Both the last processed position (= the
-    /// frontier's leaf count) and the root we built against (bag the peaks)
-    /// are derived from it: we append incoming message leaves and recompute
-    /// the root ourselves.
-    frontier: MmrFrontier,
-}
+/// Receiver-side: the consumption frontier per consumed channel stream,
+/// keyed by the full stream key—a chain may consume streams of any
+/// sender. Position (= leaf count) and the root built against (bag the
+/// peaks) are both derived from it: incoming leaves are appended and the
+/// root recomputed. Event-stream subscribers keep a single highwater
+/// position instead (see Event Streams); channel-protocol state lives in
+/// OutChannels/InChannels (see Channels and Flow Control).
+InboundFrontier: StorageMap<(ParaId, StreamId), MmrFrontier>,
 ```
 
 The sender additionally maintains its **stream commitment tree** (see
@@ -753,8 +746,12 @@ fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>>;
 /// always this chain (the uniform addressing rule—you consume what is
 /// addressed to you; broadcast has no addressee).
 ///
-/// This is exactly the consumption state the runtime stores, nothing
-/// derived. Two deliberate absences: ack registers carry no resume
+/// This is exactly the consumption state the runtime stores, reshaped
+/// for fetching: the Channel arm projects `InboundFrontier` (cursor =
+/// leaf count), the Broadcast arm the highwater map (cursor = highwater
+/// + 1)—storage keeps frontiers because verification needs peaks, the
+/// API returns positions because fetching addresses by position.
+/// Two deliberate absences: ack registers carry no resume
 /// state—which registers to read follows from the open channels (see
 /// `out_channels`; head-ness of a read is pinned by the required root,
 /// see Flow Control)—and private kinds cannot appear, since the standard
@@ -1841,8 +1838,8 @@ every unconsumed message. That is exactly the
 [Stall Recovery](#stall-recovery) breach, behind the same receiver-side
 governance gate; the sender is not involved at all.
 
-Channel state (alongside `OutboundFrontier` / `SourceState`, which stay
-exactly as defined)—note the two sides keep *different* state, as befits a
+Channel state (alongside `OutboundFrontier` / `InboundFrontier`, which
+stay exactly as defined)—note the two sides keep *different* state, as befits a
 unidirectional protocol:
 
 ```rust
@@ -2683,7 +2680,7 @@ id with a fresh chain, receivers' stale frontiers would never match the new
 chain's MMR—a stuck channel, not forgery (nothing wrong verifies; nothing
 verifies at all). Hygiene that covers this and plain state bloat: the relay
 prunes `RecentProvides` entries on offboarding, and receivers reset their
-`SourceState` for a source they observe being offboarded. Should stronger
+`InboundFrontier` entries for a source they observe being offboarded. Should stronger
 identity binding ever become necessary (e.g. genesis hash in the leaf
 preimage), the leaf-format version byte allows adding it.
 
