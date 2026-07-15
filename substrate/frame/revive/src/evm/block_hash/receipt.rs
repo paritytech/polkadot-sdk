@@ -19,6 +19,8 @@
 
 use alloc::vec::Vec;
 use alloy_core::rlp;
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_crypto_hashing::keccak_256;
 
@@ -62,10 +64,33 @@ pub struct AccumulateReceipt {
 	pub bloom: LogsBloom,
 }
 
+/// Storable form of an [`AccumulateReceipt`].
+///
+/// [`AccumulateReceipt`] holds a [`LogsBloom`], which is not `Encode`/`Decode`; this mirrors it
+/// with the raw bloom bytes so the in-progress receipt can be parked in pallet storage across
+/// extrinsics (used to accumulate logs emitted outside of any ethereum transaction).
+#[derive(Encode, Decode, TypeInfo)]
+pub struct AccumulateReceiptIR {
+	/// The RLP bytes where the logs are accumulated.
+	pub encoding: Vec<u8>,
+	/// The raw bloom bytes collected from the accumulated logs.
+	pub bloom: [u8; BLOOM_SIZE_BYTES],
+}
+
 impl AccumulateReceipt {
 	/// Constructs a new [`AccumulateReceipt`].
 	pub const fn new() -> Self {
 		Self { encoding: Vec::new(), bloom: LogsBloom::new() }
+	}
+
+	/// Converts into the storable intermediate representation.
+	pub fn to_ir(self) -> AccumulateReceiptIR {
+		AccumulateReceiptIR { encoding: self.encoding, bloom: self.bloom.bloom }
+	}
+
+	/// Reconstructs from the storable intermediate representation.
+	pub fn from_ir(ir: AccumulateReceiptIR) -> Self {
+		Self { encoding: ir.encoding, bloom: LogsBloom { bloom: ir.bloom } }
 	}
 
 	/// Add the log into the accumulated receipt.

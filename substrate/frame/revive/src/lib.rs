@@ -810,6 +810,19 @@ pub mod pallet {
 	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
 		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
 
+	/// Logs emitted during the block outside of any ethereum transaction (e.g. by pallet-assets
+	/// balance-change callbacks on non-`eth_transact` paths).
+	///
+	/// Accumulated here across extrinsics and flushed in `on_finalize` as a single synthetic
+	/// transaction receipt, so the logs enter the block's `logs_bloom`, `receipts_root` and
+	/// transaction trie.
+	///
+	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type OutsideFrameLogs<T: Config> =
+		StorageValue<_, crate::evm::block_hash::AccumulateReceiptIR, OptionQuery>;
+
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
 	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
@@ -2651,10 +2664,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Emit an EVM log attributed to `contract` from outside any contract call frame: traced
-	/// via the outside-frame hook, captured into the ethereum receipt when inside an ethereum
-	/// transaction, and deposited as [`Event::ContractEmitted`]. For log-mirroring runtime
-	/// components. Contract execution keeps its own in-frame path (`Ext::deposit_event`),
-	/// which differs only in the tracer hook it calls.
+	/// via the outside-frame hook, captured into the current ethereum receipt — or the block's
+	/// synthetic receipt when outside an ethereum transaction — and deposited as
+	/// [`Event::ContractEmitted`]. For log-mirroring runtime components. Contract execution keeps
+	/// its own in-frame path (`Ext::deposit_event`), which differs only in the tracer hook it
+	/// calls.
 	///
 	/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
 	/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
@@ -2668,7 +2682,7 @@ impl<T: Config> Pallet<T> {
 			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 		});
 
-		evm::block_storage::capture_ethereum_log(&contract, &data, &topics);
+		evm::block_storage::capture_ethereum_log::<T>(&contract, &data, &topics);
 
 		Self::deposit_event(Event::ContractEmitted {
 			contract,

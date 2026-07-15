@@ -17,8 +17,10 @@
 use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
-	Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight, dispatch_result,
+	OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight,
+	dispatch_result,
 	evm::{
+		TransactionLegacyUnsigned, TransactionUnsigned,
 		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 		burn_with_dust,
 		fees::InfoT,
@@ -33,6 +35,7 @@ use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
+	traits::Get,
 };
 use sp_core::U256;
 use sp_runtime::{Saturating, TransactionOutcome};
@@ -120,11 +123,22 @@ impl EthereumCallResult {
 
 /// Capture the Ethereum log for the current transaction.
 ///
-/// This method does nothing if called from outside of the ethereum context.
-pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256]) {
-	receipt::with(|receipt| {
+/// Inside an ethereum transaction the log is added to that transaction's receipt. Outside of one
+/// (e.g. a log mirrored from a plain extrinsic or XCM balance change) there is no receipt to
+/// attach it to, so it is accumulated into the block-level buffer, flushed in `on_finalize` as a
+/// synthetic transaction so the log still enters the block's bloom, receipts_root and tx trie.
+pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
+	let captured = receipt::with(|receipt| {
 		receipt.add_log(contract, data, topics);
 	});
+
+	if captured.is_none() {
+		let mut receipt = OutsideFrameLogs::<T>::take()
+			.map(AccumulateReceipt::from_ir)
+			.unwrap_or_else(AccumulateReceipt::new);
+		receipt.add_log(contract, data, topics);
+		OutsideFrameLogs::<T>::put(receipt.to_ir());
+	}
 }
 
 /// Get the receipt details of the current transaction.
@@ -203,13 +217,44 @@ pub fn on_initialize<T: Config>() {
 	EthereumBlock::<T>::kill();
 }
 
+/// The synthetic transaction that carries the block's outside-of-frame logs.
+///
+/// An unsigned legacy transaction whose only distinguishing field is the block number as `nonce`,
+/// so its hash is unique per block and deterministically reproducible offchain (the eth-rpc
+/// serving layer rebuilds the identical bytes from the block number and chain id). It is not a
+/// real, executable transaction — it exists only to give the aggregated logs a receipt so they
+/// enter the block's bloom, `receipts_root` and transaction trie.
+fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> {
+	TransactionUnsigned::from(TransactionLegacyUnsigned {
+		nonce: block_number.into(),
+		chain_id: Some(T::ChainId::get().into()),
+		..Default::default()
+	})
+	.dummy_signed_payload()
+}
+
 /// Build the ethereum block and store it into the pallet storage.
 pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
 
-	let (block, receipt_data) =
-		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(block_number);
+	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+	// Flush logs emitted outside any ethereum transaction as a single synthetic transaction, so
+	// they enter the block bloom / receipts_root / transaction trie. Must run after all real
+	// transactions have been processed, since the trie builders are order-sensitive.
+	if let Some(ir) = OutsideFrameLogs::<T>::take() {
+		let receipt = AccumulateReceipt::from_ir(ir);
+		block_builder.process_transaction(
+			synthetic_transaction::<T>(block_number),
+			true,
+			ReceiptGasInfo { gas_used: U256::zero(), effective_gas_price: U256::zero() },
+			receipt.encoding,
+			receipt.bloom,
+		);
+	}
+
+	let (block, receipt_data) = block_builder.build_block(block_number);
 
 	// Put the block hash into storage.
 	BlockHash::<T>::insert(block_number, block.hash);

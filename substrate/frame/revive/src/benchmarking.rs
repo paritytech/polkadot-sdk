@@ -3623,7 +3623,7 @@ mod benchmarks {
 
 		// Create e events with minimal data to isolate event count overhead
 		for _ in 0..e {
-			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
+			block_storage::capture_ethereum_log::<T>(&instance.address, &vec![], &vec![]);
 		}
 
 		#[block]
@@ -3709,7 +3709,7 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		block_storage::capture_ethereum_log::<T>(&instance.address, &event_data, &topics);
 
 		#[block]
 		{
