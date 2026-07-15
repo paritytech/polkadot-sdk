@@ -56,25 +56,41 @@ module refine {
   setValidatorKeysCount(msgs) <= 1 and
   setValidatorKeysChunkOk(msgs)
 
-  /// Approximate SCALE-encoded size of one upward message, used by the
-  /// 48 KiB result-blob budget check (§4.1 step 7).
+  /// Actual SCALE-encoded size of one upward message, used by the 48 KiB
+  /// result-blob budget check (§4.1 step 7). Every variant is measured from
+  /// its real payload, except `ParachainSetHead`: `HeadData` is opaque in the
+  /// model (an `int`, not a byte vector), so its `newHead` has no measurable
+  /// length and is charged its worst case (2 B compact len + 4096 B max).
+  // 1 B enum discriminant (the message tag) + the variant's payload size.
   pure def upwardMessageSize(m: UpwardMessage): int =
-  match m {
-    | RequestCodeUpgrade(_) => 37
-    | Solicit(_) => 37
-    | Forget(_) => 37
-    | SetKV(p) => 2 + p.key.length() + p.value.length()
-    | RemoveKV(p) => 1 + p.key.length()
-    | TransferOut(_) => 149
-    | SetAuthorizerQueue(p) => 9 + p.queue.length() * 32
-    | SetAssigner(_) => 9
-    | SetValidatorKeys(p) => 4 + p.keys.length() * 336
-    | ConsumeTransfersUpTo(_) => 5
-    | ParachainSetHead(_) => 4103
-    | ParachainSetValidationCode(_) => 41
-    | ParachainCleanUp(_) => 5
-    | ParachainSetStateBalance(_) => 21
-    | UpgradeService(_) => 49
+  1 + match m {
+    | RequestCodeUpgrade(_) => 36
+    | Solicit(_) => 36
+    | Forget(_) => 36
+    | SetKV(p) =>
+      compactLen(p.key.length()) + p.key.length()
+        + compactLen(p.value.length()) + p.value.length()
+    | RemoveKV(p) => compactLen(p.key.length()) + p.key.length()
+    | TransferOut(_) => 148
+    // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry) + jamSlot 4.
+    | SetAuthorizerQueue(p) =>
+      8 + compactLen(p.queue.length()) + p.queue.length() * 32
+    // core 4 + Option<ServiceId> (1 tag + 4 when Some).
+    | SetAssigner(p) =>
+      match p.newAssigner {
+        | Some(_) => 9
+        | None => 5
+      }
+    // Vec<ValidatorKey> (compact len + 336 per key) + isLast 1.
+    | SetValidatorKeys(p) =>
+      1 + compactLen(p.keys.length()) + p.keys.length() * 336
+    | ConsumeTransfersUpTo(_) => 4
+    | ParachainSetHead(_) => 4102
+    | ParachainSetValidationCode(_) => 40
+    | ParachainCleanUp(_) => 4
+    | ParachainSetStateBalance(_) => 20
+    // codeHash 32 + len 4 + minItemGas 8 + minMemoGas 8.
+    | UpgradeService(_) => 52
   }
 
   /// `true` iff the work result (`paraId` + `vch` + `parentHeadHash` +
