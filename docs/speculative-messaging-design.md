@@ -67,8 +67,8 @@ inclusion time, we achieve:
 - **Better scalability**: Off-chain message passing with on-chain commitment
   verification
 - **Unbounded channels**: As many channels and lanes per peer as chains
-  want—no deposits, no relay chain state per channel, no governance in the
-  loop
+  want—no relay-chain deposits or state per channel, no governance in the
+  loop; acceptance is priced locally by the receiving chain
 - **Native pub-sub**: Broadcast event streams any chain can subscribe to
   unilaterally—oracle feeds, notifications—a long-requested capability
   ([#606](https://github.com/paritytech/polkadot-sdk/issues/606)) that HRMP
@@ -152,8 +152,8 @@ verification, we can:
 6. **Horizontal Scaling**: Maintain Polkadot's horizontal scaling
    properties—full nodes only need to follow chains they care about.
 
-7. **Richer Primitives**: Make channels abundant (no deposits, no per-channel
-   relay state, multiple lanes per peer) and provide native pub-sub event
+7. **Richer Primitives**: Make channels abundant (no relay-chain deposits,
+   no per-channel relay state, multiple lanes per peer) and provide native pub-sub event
    streams ([#606](https://github.com/paritytech/polkadot-sdk/issues/606))—
    subscribe unilaterally, zero marginal cost per subscriber.
 
@@ -785,15 +785,15 @@ fn in_channels() -> BTreeMap<ChannelId, InChannelState>;
 fn consumption_record() -> ConsumptionRecord;
 ```
 
-One deliberate absence: unsolicited channel opens are not listed by any
-API—they are node-observed (pushed messages for streams not yet consumed),
-not runtime state, and enter as candidate opens through the inherent (see
-[Channels: Opening](#channels)).
+The API is *complete*: everything the inherent carries is for a stream
+listed by `consumed_streams()`—channel acceptance happens via extrinsic
+(see [Channels](#channels)), so no unsolicited-data path exists that the
+API would have to leave unlisted.
 
 Inputs flow back into the runtime exclusively through the messaging
 inherent ([#12531](https://github.com/paritytech/polkadot-sdk/issues/12531)):
-fetched payloads (with inclusion proofs for register/event reads),
-ack-register reads, and candidate opens—never a `StreamsRoot` (see
+fetched payloads (with inclusion proofs for register/event reads) and
+ack-register reads—never a `StreamsRoot` (see
 Verification below for why the runtime has no use for one). The runtime
 verifies by recomputation—the API and the inherent are a trust boundary,
 not a trusted channel.
@@ -1752,33 +1752,33 @@ for this channel (see Flow Control), it holds no credit and may send
 nothing further. Toward a dead or unwilling peer, the sender's total
 exposure is one tiny leaf in its own archive and tree.
 
-**Acceptance = the first register publish.** There is no `AcceptChannel`
-signal: B accepts by creating its `Ack { A, d, n }` stream and publishing a
-register (initial credit + its version announcement)—a deliberate resource
-commitment in B's own commitment tree, which is precisely what consent
-should cost. Policy (open to all, allowlist, governance, XCM-negotiated) is
-B's runtime's concern, not this document's; the analog of
-`hrmp_accept_open_channel`. Rejection is publishing a `closed` register—or
-simply never publishing, which costs B literally nothing. Crossing opens
-need no special case: two chains opening toward each other have created two
-channels, which is exactly what happened.
+**Acceptance = an extrinsic on B.** There is no `AcceptChannel` signal
+and no push path: an `accept_open_channel(sender, domain, num, ...)`
+extrinsic on B—the analog of `hrmp_accept_open_channel`, but entirely on
+B, priced by B: transaction fees plus (per B's policy) a deposit for the
+permanent state acceptance creates (the `Ack { A, d, n }` stream and its
+frontier, the `InChannels` entry). Anyone with funds on B can submit
+it—typically the party wanting the channel; whether an unprivileged
+origin suffices is B's policy. On execution, B adds the stream to its
+consumed set (it now appears in `consumed_streams()`, fetched like any
+other stream) and publishes the initial register—the *sender-visible*
+acceptance: A's collators, holding the channel in Opening phase, poll
+`Ack { A, d, n }`'s head and find it. Rejection = never executing the
+extrinsic, which costs B nothing. Crossing opens need no special case:
+two chains opening toward each other have created two channels.
 
-**How an open reaches B.** An unsolicited `OpenChannel` is, by definition,
-not in B's `consumed_streams()`—nothing resumes it. It arrives as a
-*candidate open*: A's collators push it (see
-[Networking](#networking)), and B's inherent provider forwards messages of
-`Channel { B, .. }` streams B does not yet consume into the messaging
-inherent, verified like anything else (one payload, recomputed; the lift
-binds it). B's acceptance policy then runs in the STF:
-accept → publish the register; decline → record nothing. Node-side,
-candidate opens are a bounded, low-priority queue the collator may
-rate-limit or drop freely—ignoring an open is always sound, and each
-attempt costs the opener a leaf in its own tree and archive.
+Both orders work: extrinsic first is pre-authorization (stream consumed
+but empty until A opens); open first leaves A's `OpenChannel` leaf
+sitting in A's stream until acceptance. Either way, everything entering
+B's inherent is for a stream B's runtime declared it consumes—how A's
+wish to open gets communicated is outside the transport.
 
-**Unwanted opens cost the receiver nothing.** B tracks no state for
-channels it never engages with—an ignored `OpenChannel` occupies *A's*
-archive and tree only. No spam surface anywhere, and, unlike HRMP, no
-deposits needed.
+**Unwanted opens cost the receiver nothing.** B tracks no state—consensus
+or node-side—for channels it never accepted: an ignored `OpenChannel`
+occupies *A's* archive and tree only, and no collator queue or inherent
+slot ever carries it. No spam surface anywhere, and, unlike HRMP, no
+relay-chain deposits or governance in the loop—acceptance cost is B's
+local, self-priced concern.
 
 **Closing.** From the sender: `CloseChannel` in-band—it stops sending; the
 receiver drains what it wants, publishes its final watermark, and may drop
@@ -1793,7 +1793,10 @@ the window by construction and can do the same—the frontier is all either
 must keep.
 
 **Reopening.** `OpenChannel` again, at the current position; frontiers
-resume seamlessly. The one obligation this places on the *receiver*:
+resume seamlessly. A receiver that closed or abandoned re-accepts the
+same way it accepted—the acceptance extrinsic, charging whatever its
+policy charges (a receiver that merely half-closed *its own* sending has
+nothing to redo). The one obligation reopening places on the *receiver*:
 **retain the consumption frontier after close**—without it, nothing can
 be verified against the stream's eternal MMR (the sender's side is
 consensus state and persists by construction). Even that loss is
@@ -1869,7 +1872,8 @@ the channel:
 /// The complete receiver-side state of one channel, published as a leaf on
 /// the Ack stream. Only the LATEST leaf matters (the stream is consumed
 /// lossily, latest-wins); each publish supersedes all earlier ones. Its
-/// very existence is the channel acceptance. `up_to` and `version` are
+/// very existence is the sender-visible channel acceptance (produced by
+/// the receiver's accept extrinsic—see Channels). `up_to` and `version` are
 /// monotonic—a register that regresses either is a protocol violation:
 /// the sender ignores the regressed leaf and keeps its previous read
 /// (monotonic fields make a stale read harmless), and may treat it as
@@ -1928,7 +1932,8 @@ byte sum of its messages at positions ≥ the peer's watermark; sending
 requires in-flight < grant (both limits). Shrinking a grant never
 invalidates already-sent messages—it only gates new sends.
 
-**Publishing (receiver side).** The first publish is the acceptance and
+**Publishing (receiver side).** The first publish follows the acceptance
+extrinsic (it is what the sender sees of it) and
 carries the initial credit; thereafter, republish when consumption
 progressed enough to matter: a fraction of the granted window (e.g. ¼—the
 delayed-ACK analog) or an age threshold, whichever first. Each publish is
@@ -2365,7 +2370,7 @@ for less time-sensitive communication.
 |--------|------|----------------------|
 | Latency | 12-18+ seconds | Parachain block time (speculative) or ~2-3 relay blocks (inclusion-based) |
 | Scalability | Limited (relay chain state) | High (off-chain, only commitments on-chain) |
-| Channels / streams | Scarce: deposits, per-channel relay state, governance-mediated | **Effectively unbounded**: no deposits, no budget, no relay state per stream—open channels, lanes and topic feeds at will |
+| Channels / streams | Scarce: relay-managed deposits, per-channel relay state, governance-mediated | **Effectively unbounded**: no relay-chain deposits, no budget, no relay state per stream—open channels, lanes and topic feeds at will; acceptance priced locally by the receiver |
 | Trust | Relay chain only | Relay chain + optional collator acknowledgements |
 | Message data | Flows through relay chain | Never touches relay chain |
 
@@ -2444,7 +2449,9 @@ resubmission flow generally.
 3. **Trust domain configuration**: Define trusted peers for speculative messaging
 4. **Message processing**: Consume incoming payloads via the messaging inherent,
    appending to the per-stream frontier
-5. **Channel state machine and flow control**: Per-channel state
+5. **Channel state machine and flow control**: The
+   `accept_open_channel` extrinsic (fees + optional local deposit for the
+   accepted channel's permanent state), per-channel state
    (`OutChannels`/`InChannels`), lifecycle signal emission/consumption,
    register publishing on the ack stream and register reads via the
    inherent, `send`-side window enforcement—see
@@ -2722,7 +2729,7 @@ Different layers handle different data:
 | **UMP Signals** | `Provides(StreamsRoot)` (block-emitted) / `Requires` set of `(ParaId, StreamsRoot)` (PVF-synthesized from the consumption record) | Relay chain verification |
 | **Relay Chain State** | Ring of the last W `StreamsRoot`s per sender—fixed size, nothing per stream | Matching against included blocks |
 | **Stream Commitment Tree** | Keyed trie `StreamId → stream MMR root`, maintained by the sender | One-hash commitment over all streams; inclusion proofs verified parachain-side |
-| **Messaging Inherent (block body)** | Incoming payloads (inclusion proofs for register/event reads), candidate opens—no StreamsRoots | Consume messages; verification by recomputation into the consumption record |
+| **Messaging Inherent (block body)** | Incoming payloads (inclusion proofs for register/event reads), all for declared consumed streams—no StreamsRoots | Consume messages; verification by recomputation into the consumption record |
 | **Requires Lifts (POV)** | MMR extension + tree inclusion proofs | Bind recorded states to current roots where the block could not (partial consumption, resubmission, bundles) |
 | **Parachain Runtime** | Per-stream MMR frontiers, commitment tree nodes, per-channel state, per-stream highwaters | Internal bookkeeping, flow control, event consumption |
 | **Off-Chain (Collators)** | Actual messages | Message delivery |
@@ -2875,7 +2882,8 @@ enum SpecMsgSignal {
 }
 
 // === ACK-STREAM PAYLOAD (the receiver's entire channel voice; lossy,
-// latest-wins, read by inclusion proof; first publish = acceptance) ===
+// latest-wins, read by inclusion proof; first publish = sender-visible
+// acceptance, produced by the receiver's accept extrinsic) ===
 
 struct Register {
     version: u8,               // receiver's announcement, monotonic
