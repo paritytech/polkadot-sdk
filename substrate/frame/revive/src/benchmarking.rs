@@ -3635,8 +3635,9 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
-		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+		// One real transaction, plus the synthetic transaction that carries the `e`
+		// outside-of-frame logs (only present when `e > 0`).
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1 + (e > 0) as usize);
 
 		Ok(())
 	}
@@ -3720,8 +3721,8 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
-		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+		// One real transaction, plus the synthetic transaction carrying the outside-of-frame log.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 2);
 
 		Ok(())
 	}

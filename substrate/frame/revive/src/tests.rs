@@ -767,6 +767,7 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		evm::{HashesOrTransactionInfos, block_hash::LogsBloom, block_storage},
 	};
 	use sp_core::H256;
+	use sp_crypto_hashing::keccak_256;
 
 	ExtBuilder::default().build().execute_with(|| {
 		let contract = H160::from_low_u64_be(0x1234);
@@ -787,10 +788,11 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		let block = EthereumBlock::<Test>::get();
 
 		// A single synthetic transaction now carries the log.
-		match block.transactions {
-			HashesOrTransactionInfos::Hashes(hashes) => assert_eq!(hashes.len(), 1),
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
 			_ => panic!("expected transaction hashes"),
-		}
+		};
+		assert_eq!(hashes.len(), 1);
 
 		// The committed block bloom equals the log's bloom — i.e. the outside-of-frame log made it
 		// into the block's `logs_bloom`, which is the whole point.
@@ -798,6 +800,15 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		expected.accrue_log(&contract, &[topic]);
 		assert_ne!(expected.bloom, [0u8; 256]);
 		assert_eq!(block.logs_bloom.0, expected.bloom);
+
+		// End-to-end contract with eth-rpc: the synthetic transaction hash the runtime committed
+		// must equal the hash eth-rpc reconstructs. eth-rpc rebuilds the bytes with the shared
+		// `synthetic_log_transaction(block_number, chain_id)`, so recompute it here and assert the
+		// committed `block.transactions` entry matches. Guards the emit path (nonce = block number,
+		// chain id, trie ordering) against the reconstructor.
+		let chain_id = <Test as crate::Config>::ChainId::get();
+		let reconstructed = crate::evm::synthetic_log_transaction(U256::from(1), U256::from(chain_id));
+		assert_eq!(hashes[0], H256(keccak_256(&reconstructed)));
 	});
 }
 

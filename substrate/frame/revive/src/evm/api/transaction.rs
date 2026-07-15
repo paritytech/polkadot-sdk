@@ -385,6 +385,23 @@ impl Default for TransactionUnsigned {
 	}
 }
 
+/// Build the deterministic payload of the synthetic transaction that carries a block's
+/// "outside-of-frame" logs: logs emitted with no enclosing ethereum transaction (e.g. pallet-assets
+/// balance-change mirrors on non-`eth_transact` paths).
+///
+/// Shared by the runtime — which emits this transaction into the block so its logs enter the
+/// `logs_bloom`, `receipts_root` and transaction trie — and by the eth-rpc layer, which rebuilds the
+/// identical bytes to recover its hash. It is an unsigned legacy transaction distinguished only by
+/// `nonce = block_number` (so the hash is unique per block) and is not an executable transaction.
+pub fn synthetic_log_transaction(block_number: U256, chain_id: U256) -> Vec<u8> {
+	TransactionUnsigned::from(TransactionLegacyUnsigned {
+		nonce: block_number,
+		chain_id: Some(chain_id),
+		..Default::default()
+	})
+	.dummy_signed_payload()
+}
+
 impl From<TransactionSigned> for TransactionUnsigned {
 	fn from(tx: TransactionSigned) -> Self {
 		use TransactionSigned::*;
