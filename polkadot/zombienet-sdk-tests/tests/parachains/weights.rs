@@ -307,7 +307,7 @@ async fn instantiate_params(
 
 	// Make sure we have enough gas and multiply by 4, since without it the calls fail not enough
 	// gas.
-	Ok((dry_run.gas_required.ref_time * 4, dry_run.gas_required.proof_size * 4, deposit * 4))
+	Ok((dry_run.weight_required.ref_time * 4, dry_run.weight_required.proof_size * 4, deposit * 4))
 }
 
 async fn call_params(
@@ -324,7 +324,7 @@ async fn call_params(
 		StorageDepositV1::Refund(_) => 0,
 	};
 
-	Ok((dry_run.gas_required.ref_time, dry_run.gas_required.proof_size, deposit))
+	Ok((dry_run.weight_required.ref_time, dry_run.weight_required.proof_size, deposit))
 }
 
 async fn call_contract(
