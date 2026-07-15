@@ -182,7 +182,7 @@ impl Network for TestNetwork {
 
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
 		let (peer_set, version) = self.peerset_protocol_names.try_get_protocol(&protocol).unwrap();
-		assert_eq!(version, peer_set.get_main_version());
+		assert_eq!(version, self.peerset_protocol_names.get_main_version(peer_set));
 
 		self.action_tx
 			.lock()
@@ -239,7 +239,11 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(test: impl FnOnce(TestHarne
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let fork_id = None;
 	let req_protocol_names = ReqProtocolNames::new(genesis_hash, fork_id);
-	let peerset_protocol_names = PeerSetProtocolNames::new(genesis_hash, fork_id);
+	let peerset_protocol_names = PeerSetProtocolNames::new(
+		genesis_hash,
+		fork_id,
+		polkadot_node_network_protocol::peer_set::CollationVersion::V4,
+	);
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (network, network_handle, discovery, network_notification_sinks) =

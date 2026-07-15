@@ -84,15 +84,11 @@ async fn v4_collation_protocol_baseline() -> Result<(), anyhow::Error> {
 		.ok_or_else(|| anyhow!("DistributeSegment received not found"))?;
 	for i in 0..4 {
 		let v = network.get_node(&format!("validator-{i}"))?;
-		v.wait_log_line_count_with_timeout(
-			"Received an segment advertisement",
-			false,
-			opts.clone(),
-		)
-		.await?
-		.success()
-		.then_some(())
-		.ok_or_else(|| anyhow!("Received an segment advertisement not found"))?;
+		v.wait_log_line_count_with_timeout("Received a segment advertisement", false, opts.clone())
+			.await?
+			.success()
+			.then_some(())
+			.ok_or_else(|| anyhow!("Received a segment advertisement not found"))?;
 	}
 	Ok(())
 }

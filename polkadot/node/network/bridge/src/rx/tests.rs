@@ -52,7 +52,7 @@ use polkadot_node_subsystem_test_helpers::{
 	mock::new_leaf, SingleItemSink, SingleItemStream, TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::metered;
-use polkadot_primitives::{AuthorityDiscoveryId, CandidateDescriptorVersion, CandidateHash, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, CandidateDescriptorVersion, Hash};
 
 use sp_keyring::Sr25519Keyring;
 
@@ -84,6 +84,7 @@ struct TestNetworkHandle {
 	action_rx: metered::UnboundedMeteredReceiver<NetworkAction>,
 	validation_tx: SingleItemSink<NotificationEvent>,
 	collation_tx: SingleItemSink<NotificationEvent>,
+	protocol_names: PeerSetProtocolNames,
 }
 
 fn new_test_network(
@@ -105,7 +106,7 @@ fn new_test_network(
 			action_tx: action_tx.clone(),
 			protocol_names: Arc::new(protocol_names.clone()),
 		},
-		TestNetworkHandle { action_rx, validation_tx, collation_tx },
+		TestNetworkHandle { action_rx, validation_tx, collation_tx, protocol_names },
 		TestAuthorityDiscovery,
 		Box::new(TestNotificationService::new(
 			PeerSet::Validation,
@@ -160,7 +161,7 @@ impl Network for TestNetwork {
 
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
 		let (peer_set, version) = self.protocol_names.try_get_protocol(&protocol).unwrap();
-		assert_eq!(version, peer_set.get_main_version());
+		assert_eq!(version, self.protocol_names.get_main_version(peer_set));
 
 		self.action_tx
 			.lock()
@@ -226,31 +227,29 @@ impl TestNetworkHandle {
 		// Simulate protocol negotiation: if this version is the main version for the
 		// peer set, negotiated_fallback is None. Otherwise, look up the matching
 		// fallback name, just like real negotiation would produce.
-		let negotiated_fallback = if protocol_version == peer_set.get_main_version() {
-			None
-		} else {
-			let genesis_hash = Hash::repeat_byte(0xff);
-			let fallback_names =
-				PeerSetProtocolNames::get_fallback_names(peer_set, &genesis_hash, None);
-			let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+		let negotiated_fallback =
+			if protocol_version == self.protocol_names.get_main_version(peer_set) {
+				None
+			} else {
+				let fallback_names = self.protocol_names.get_fallback_names(peer_set);
 
-			Some(
-				fallback_names
-					.into_iter()
-					.find(|name| {
-						protocol_names
-							.try_get_protocol(name)
-							.map_or(false, |(_, v)| v == protocol_version)
-					})
-					.unwrap_or_else(|| {
-						panic!(
-							"No fallback name for {:?} version {}. \
+				Some(
+					fallback_names
+						.into_iter()
+						.find(|name| {
+							self.protocol_names
+								.try_get_protocol(name)
+								.map_or(false, |(_, v)| v == protocol_version)
+						})
+						.unwrap_or_else(|| {
+							panic!(
+								"No fallback name for {:?} version {}. \
 							 Add it to get_fallback_names().",
-							peer_set, protocol_version,
-						)
-					}),
-			)
-		};
+								peer_set, protocol_version,
+							)
+						}),
+				)
+			};
 
 		match peer_set {
 			PeerSet::Validation => {
@@ -523,7 +522,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 ) {
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let fork_id = None;
-	let peerset_protocol_names = PeerSetProtocolNames::new(genesis_hash, fork_id);
+	let peerset_protocol_names =
+		PeerSetProtocolNames::new(genesis_hash, fork_id, CollationVersion::V4);
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (network, network_handle, discovery, validation_service, collation_service) =

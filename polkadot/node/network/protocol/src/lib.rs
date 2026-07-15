@@ -707,7 +707,7 @@ pub mod v4_collation {
 	#[cfg(test)]
 	mod tests {
 		use codec::{Decode, Encode};
-		use polkadot_primitives::{CandidateDescriptorVersion, CandidateHash, Hash};
+		use polkadot_primitives::{CandidateDescriptorVersion, Hash};
 		use rstest::rstest;
 
 		use super::*;
