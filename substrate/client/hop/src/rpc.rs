@@ -22,6 +22,7 @@
 //!   see [`crate::rate_limit`] and the `--hop-*-rate` / `--hop-*-burst` CLI flags.
 
 use crate::{
+	metrics::{outcome_label, rpc_methods, OUTCOME_OK},
 	pool::HopDataPool,
 	runtime_api,
 	types::{
@@ -42,7 +43,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner,
 };
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 
 /// HOP RPC methods.
 #[rpc(client, server)]
@@ -131,7 +132,7 @@ impl<C, Block> HopRpcServer<C, Block> {
 	}
 
 	/// Decode an RPC `hash` argument: 32 raw bytes (not hex).
-	fn decode_hash(bytes: Bytes) -> RpcResult<HopHash> {
+	fn decode_hash(bytes: Bytes) -> Result<HopHash, HopError> {
 		let hash_bytes: [u8; 32] = bytes
 			.0
 			.as_slice()
@@ -155,6 +156,61 @@ where
 		signer: Bytes,
 		submit_timestamp: u64,
 	) -> RpcResult<SubmitResult> {
+		let started = Instant::now();
+		let result = self.do_submit(data, recipients, signature, signer, submit_timestamp);
+		self.pool.metrics().record_rpc(
+			rpc_methods::SUBMIT,
+			outcome_label(&result),
+			started.elapsed(),
+		);
+		Ok(result?)
+	}
+
+	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
+		let started = Instant::now();
+		let result = Self::decode_hash(raw_hash)
+			.and_then(|hash| self.pool.claim(&hash, &signature.0).map(Bytes));
+		self.pool.metrics().record_rpc(
+			rpc_methods::CLAIM,
+			outcome_label(&result),
+			started.elapsed(),
+		);
+		Ok(result?)
+	}
+
+	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()> {
+		let started = Instant::now();
+		let result =
+			Self::decode_hash(raw_hash).and_then(|hash| self.pool.ack(&hash, &signature.0));
+		self.pool
+			.metrics()
+			.record_rpc(rpc_methods::ACK, outcome_label(&result), started.elapsed());
+		Ok(result?)
+	}
+
+	fn pool_status(&self) -> RpcResult<PoolStatus> {
+		let started = Instant::now();
+		let status = self.pool.status();
+		self.pool
+			.metrics()
+			.record_rpc(rpc_methods::POOL_STATUS, OUTCOME_OK, started.elapsed());
+		Ok(status)
+	}
+}
+
+impl<C, Block> HopRpcServer<C, Block>
+where
+	Block: BlockT,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
+{
+	fn do_submit(
+		&self,
+		data: Bytes,
+		recipients: Vec<Bytes>,
+		signature: Bytes,
+		signer: Bytes,
+		submit_timestamp: u64,
+	) -> Result<SubmitResult, HopError> {
 		let recipient_keys: RecipientVec = recipients
 			.into_iter()
 			.map(|r| {
@@ -185,7 +241,7 @@ where
 		let runtime_max = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
 			.map_err(HopError::from)?;
 		if data_len > runtime_max as usize {
-			return Err(HopError::DataTooLarge(data_len, runtime_max).into());
+			return Err(HopError::DataTooLarge(data_len, runtime_max));
 		}
 
 		// Check authorization before verifying the signature: a flood of unauthorized
@@ -201,7 +257,7 @@ where
 		)
 		.map_err(HopError::from)?;
 		if !authorized {
-			return Err(HopError::NotAuthorized.into());
+			return Err(HopError::NotAuthorized);
 		}
 
 		// Domain-separated payload so a submit signature cannot be replayed as claim/ack,
@@ -210,29 +266,13 @@ where
 		let hash = H256(blake2_256(&data.0));
 		let submit_payload = submit_signing_payload(&hash, submit_timestamp);
 		if !multi_sig.verify(&submit_payload[..], &account_id) {
-			return Err(HopError::InvalidSignature.into());
+			return Err(HopError::InvalidSignature);
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
 		self.pool
 			.insert(data.0, recipient_keys, sender_id, signer, multi_sig, submit_timestamp)?;
 		Ok(SubmitResult { pool_status: self.pool.status() })
-	}
-
-	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
-		let hash = Self::decode_hash(raw_hash)?;
-		let data = self.pool.claim(&hash, &signature.0)?;
-		Ok(Bytes(data))
-	}
-
-	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()> {
-		let hash = Self::decode_hash(raw_hash)?;
-		self.pool.ack(&hash, &signature.0)?;
-		Ok(())
-	}
-
-	fn pool_status(&self) -> RpcResult<PoolStatus> {
-		Ok(self.pool.status())
 	}
 }
 
@@ -352,6 +392,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				crate::rate_limit::RateLimitConfig::disabled(),
+				crate::metrics::HopMetrics::disabled(),
 			)
 			.unwrap(),
 		);
