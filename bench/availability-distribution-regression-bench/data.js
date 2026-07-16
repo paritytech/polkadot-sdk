@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784200667703,
+  "lastUpdate": 1784210693134,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38c598e335f81f05659b5a3134a0a5ddd0ff28b0",
-          "message": "`fatxpool`: added mortal transactions integration test  (#8887)\n\n# Description\n\nBased on https://github.com/michalkucharczyk/tx-test-tool/pull/43.\n\n## Integration\n\nN/A\n\n## Review Notes\n\n- added tests with future mortal txs that are dropped due to not being\nincluded in blocks within their lifetime, but also future mortal txs\nthat have a sufficient lifetime to be included in blocks\n- added test which uses priorities to delay mortal txs inclusion and\nmake them invalid\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2025-11-19T10:29:03Z",
-          "tree_id": "217c15293452ffdd7568ac5dbc4919ab6911085b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38c598e335f81f05659b5a3134a0a5ddd0ff28b0"
-        },
-        "date": 1763552028382,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007328749386666661,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013509808326666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022856735806666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16039658435333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02349130728666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68e8908c0f7a2609054a00408a219af4bdd4d3ad",
+          "message": "Remove deprecated TREASURER_INDEX constants (#12664)\n\nPart of #11561\n\nRemoves the deprecated `xcm::body::TREASURER_INDEX` constants from the\nWestend and RC runtime constants modules.\n\nThese constants were deprecated in favor of\n`xcm::latest::BodyId::Treasury` with a removal date of August 2024, and\nthere are no remaining in-repo uses.\n\n## Integration\n\nDownstream users should use `xcm::latest::BodyId::Treasury` instead of\nthe old numeric `TREASURER_INDEX` constant.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-16T11:43:05Z",
+          "tree_id": "b430afdad7be80ed17a6e361b746afcc90ef1de7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e8908c0f7a2609054a00408a219af4bdd4d3ad"
+        },
+        "date": 1784210662249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14788126756666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007702365006666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023448956013333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010028103106666636,
             "unit": "seconds"
           }
         ]
