@@ -74,12 +74,14 @@ pub use signed::{EncodeAs, Signed, UncheckedSigned};
 pub mod async_backing;
 pub mod executor_params;
 pub mod slashing;
+pub mod spec_messaging;
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{
 	ExecutorHostFunction, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
 	ExecutorParamsPrepHash,
 };
+pub use spec_messaging::{RequiresSet, RequiresSetError, StreamsRoot, MAX_COMMITMENT_ENTRIES};
 
 mod metrics;
 pub use metrics::{
