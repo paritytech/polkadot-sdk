@@ -205,7 +205,7 @@ impl ClientError {
 	pub(crate) fn recorded_unavailable_reason(&self) -> Option<RecordedUnavailable> {
 		const METHOD_NOT_FOUND: i32 = -32601;
 
-		let ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(e)) = self else {
+		let ClientError::RpcError(subxt::rpcs::Error::User(e)) = self else {
 			return None;
 		};
 		match e.code {
@@ -1063,7 +1063,7 @@ impl Client {
 		let traces: Vec<(u32, TraceV1)> = Self::recorded_or_fallback(
 			"trace_block",
 			self.state_call_recorded(block_hash, "ReviveApi_trace_block", config.encode()),
-			|| async { self.runtime_api(parent_hash).trace_block(block, config).await },
+			|| async { self.runtime_api(parent_hash).await?.trace_block(block, config).await },
 		)
 		.await?;
 
@@ -1103,6 +1103,7 @@ impl Client {
 				let block = self.tracing_block(block_hash).await?;
 				let parent_hash = block.header.parent_hash;
 				self.runtime_api(parent_hash)
+					.await?
 					.trace_tx(block, transaction_index as u32, config)
 					.await
 					.map(Some)
@@ -1308,10 +1309,10 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 mod tests {
 	use super::*;
 	use sc_rpc_api::state::error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE;
-	use subxt::ext::subxt_rpcs::UserError;
+	use subxt::rpcs::UserError;
 
 	fn rpc_user_error(code: i32) -> ClientError {
-		ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(UserError {
+		ClientError::RpcError(subxt::rpcs::Error::User(UserError {
 			code,
 			message: "..".to_string(),
 			data: None,
