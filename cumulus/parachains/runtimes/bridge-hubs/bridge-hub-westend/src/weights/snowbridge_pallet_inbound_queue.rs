@@ -18,7 +18,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2026-07-16, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `89f9dee8409e`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `e6cd95d50a89`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -72,8 +72,8 @@ impl<T: frame_system::Config> snowbridge_pallet_inbound_queue::WeightInfo for We
 		// Proof Size summary in bytes:
 		//  Measured:  `729`
 		//  Estimated: `4194`
-		// Minimum execution time: 177_197_000 picoseconds.
-		Weight::from_parts(184_198_000, 0)
+		// Minimum execution time: 177_895_000 picoseconds.
+		Weight::from_parts(187_201_000, 0)
 			.saturating_add(Weight::from_parts(0, 4194))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
