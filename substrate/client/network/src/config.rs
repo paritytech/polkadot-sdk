@@ -38,8 +38,7 @@ pub use crate::{
 pub use sc_network_types::{build_multiaddr, ed25519};
 
 /// Litep2p transport-side Bitswap handle, created together with [`IpfsConfig`] via
-/// [`IpfsConfig::new`]. Re-exported so callers wiring bitswap (typically `sc-service`)
-/// need not depend on `litep2p` directly.
+/// [`IpfsConfig::new`]. Re-exported so callers need not depend on `litep2p` directly.
 pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as LitepBitswapHandle;
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
@@ -782,10 +781,6 @@ pub struct IpfsConfig {
 
 impl IpfsConfig {
 	/// Construct an [`IpfsConfig`] together with the litep2p transport-side Bitswap handle.
-	///
-	/// The two are created by the same `litep2p::protocol::libp2p::bitswap::Config::new`
-	/// call and belong together: the handle goes to `sc_network_bitswap::start`, the config
-	/// to `sc-network` via `Params::ipfs_config`.
 	pub fn new(
 		block_provider: Box<dyn crate::IpfsBlockProvider>,
 		bootnodes: Vec<MultiaddrWithPeerId>,

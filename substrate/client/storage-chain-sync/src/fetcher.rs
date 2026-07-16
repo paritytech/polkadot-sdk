@@ -50,19 +50,19 @@ fn fetch_timeout(cid_count: usize) -> Duration {
 	FETCH_TIMEOUT_BASE.saturating_add(per_cid).min(FETCH_TIMEOUT_MAX)
 }
 
-/// Late-bound bitswap handle slot, populated by the node after `build_network`.
+/// Late-bound slot for the bitswap handle.
 ///
-/// [`crate::StorageChainBlockImport`] is constructed before `build_network` runs; the
-/// `OnceLock` carries the handle across that boundary.
+/// Allows constructing a fetcher before the handle exists; fetches fail with
+/// [`FetchError::BitswapUnavailable`] until the slot is populated.
 pub type BitswapHandleSlot = Arc<OnceLock<Arc<dyn BitswapRequest>>>;
 
 /// Infrastructure-level fetch failure surfaced to [`crate::StorageChainBlockImport`].
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
-	/// The bitswap handle has not been set, either because `build_network` has not finished
-	/// yet or because bitswap is not configured (`--ipfs-server` not enabled).
-	#[error("bitswap handle not yet set; storage-chain blocks cannot be fetched before build_network completes")]
-	BitswapHandleUnset,
+	/// No bitswap handle is available: bitswap is disabled on this node, or the network
+	/// has not been initialized yet.
+	#[error("bitswap unavailable: disabled on this node, or network not yet initialized")]
+	BitswapUnavailable,
 	/// CID construction failed for the given (hashing, hash) pair.
 	#[error("failed to construct multihash for CID: {0}")]
 	Multihash(String),
@@ -105,7 +105,7 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 		if wants.is_empty() {
 			return Ok(HashMap::new());
 		}
-		let handle = self.bitswap.get().ok_or(FetchError::BitswapHandleUnset)?;
+		let handle = self.bitswap.get().ok_or(FetchError::BitswapUnavailable)?;
 
 		let mut by_cid: HashMap<Cid, ContentHash> = HashMap::with_capacity(wants.len());
 		let mut cids: Vec<Cid> = Vec::with_capacity(wants.len());
@@ -117,7 +117,16 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 			cids.push(cid);
 		}
 
-		let mut rx = handle.request_stream(cids).await?;
+		let mut rx = match handle.request_stream(cids).await {
+			Ok(rx) => rx,
+			// Transient congestion: degrade to an empty partial result instead of failing
+			// the import.
+			Err(BitswapError::Overloaded) => {
+				log::debug!(target: LOG_TARGET, "bitswap service overloaded, deferring fetch");
+				return Ok(HashMap::new());
+			},
+			Err(other) => return Err(FetchError::Bitswap(other)),
+		};
 
 		let deadline = tokio::time::Instant::now() + fetch_timeout(wants.len());
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
@@ -137,6 +146,13 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 					log::warn!(
 						target: LOG_TARGET,
 						"bitswap service closed mid-stream; returning partial result",
+					);
+					return Ok(acquired);
+				},
+				Ok(Some(Err(BitswapError::Overloaded))) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"bitswap service overloaded; returning partial result",
 					);
 					return Ok(acquired);
 				},

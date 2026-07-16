@@ -110,6 +110,9 @@ pub trait PeerStore {
 /// Networking backend.
 #[async_trait::async_trait]
 pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
+	/// Whether this backend supports Bitswap ([`crate::config::Params::ipfs_config`]).
+	const SUPPORTS_IPFS: bool = false;
+
 	/// Type representing notification protocol-related configuration.
 	type NotificationProtocolConfig: NotificationConfig;
 

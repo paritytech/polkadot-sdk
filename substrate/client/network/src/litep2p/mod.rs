@@ -382,6 +382,8 @@ impl Litep2pNetworkBackend {
 
 #[async_trait::async_trait]
 impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBackend {
+	const SUPPORTS_IPFS: bool = true;
+
 	type NotificationProtocolConfig = NotificationProtocolConfig;
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<Litep2pNetworkService>;

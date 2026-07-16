@@ -28,11 +28,13 @@
 //! Unresolved CIDs are retried in rounds: once every connected peer has been tried,
 //! all peers become eligible again after [`ROUND_RETRY_DELAY`].
 //!
-//! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`]. The
-//! sync engine replays `PeerConnected` for every currently-connected peer when a new
-//! subscriber registers, so the actor sees the full peer set on startup. Light-client
-//! peers are not tracked: they do not hold the indexed-transaction data served over
-//! bitswap.
+//! Inbound wantlists are looked up on a bounded blocking-worker pool and always get an
+//! answer: entries the service will not serve (pool saturated, wantlist over
+//! [`MAX_WANTED_BLOCKS`] entries, unsupported CID) receive `DONT_HAVE` instead of silence.
+//!
+//! Peer connect/disconnect tracking comes from `sc-network-sync`'s [`SyncEventStream`],
+//! which reports already-connected peers on subscription. Light-client peers are not
+//! tracked: they do not hold the indexed-transaction data served over bitswap.
 
 use super::{
 	is_cid_supported, BitswapCommand, BitswapHandle, Cid, FetchItem, BLAKE2B_256_MULTIHASH_CODE,
@@ -387,22 +389,21 @@ struct InboundLookupPool<B: BlockT> {
 impl<B: BlockT> InboundLookupPool<B> {
 	fn new(
 		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+		max_lookups: usize,
 	) -> (Self, mpsc::Receiver<InboundLookupResult>) {
 		let (result_tx, result_rx) = mpsc::channel(LOOKUP_CHANNEL_CAPACITY);
-		(
-			Self {
-				client,
-				result_tx,
-				semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_INBOUND_LOOKUPS)),
-			},
-			result_rx,
-		)
+		(Self { client, result_tx, semaphore: Arc::new(Semaphore::new(max_lookups)) }, result_rx)
 	}
 
-	/// Serve the wantlist on a blocking worker. Returns `false` if the pool is saturated.
-	fn try_submit(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) -> bool {
+	/// Serve the wantlist on a blocking worker. Returns the wantlist back if the pool is
+	/// saturated.
+	fn try_submit(
+		&self,
+		peer: litep2p::PeerId,
+		cids: Vec<(Cid, WantType)>,
+	) -> Result<(), Vec<(Cid, WantType)>> {
 		let Ok(permit) = self.semaphore.clone().try_acquire_owned() else {
-			return false;
+			return Err(cids);
 		};
 
 		let client = self.client.clone();
@@ -410,10 +411,12 @@ impl<B: BlockT> InboundLookupPool<B> {
 		tokio::task::spawn_blocking(move || {
 			let _permit = permit;
 			let responses = serve_inbound(&*client, cids);
-			let _ = result_tx.try_send((peer, responses));
+			// Blocking worker: wait for a channel slot rather than discarding the computed
+			// responses when the actor is momentarily behind on draining results.
+			let _ = result_tx.blocking_send((peer, responses));
 		});
 
-		true
+		Ok(())
 	}
 }
 
@@ -447,7 +450,8 @@ where
 	S: SyncEventStream + ?Sized,
 {
 	let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
-	let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client);
+	let (inbound_lookup_pool, inbound_lookup_rx) =
+		InboundLookupPool::new(client, MAX_CONCURRENT_INBOUND_LOOKUPS);
 
 	let user_handle = BitswapHandle::new(cmd_tx);
 	let sync_event_stream = sync.event_stream("bitswap");
@@ -480,7 +484,7 @@ impl<B: BlockT> BitswapService<B> {
 			tokio::select! {
 				event = self.handle.next_event() => match event {
 					Some(BitswapEvent::Request { peer, cids }) =>
-						self.on_inbound_request(peer, cids),
+						self.on_inbound_request(peer, cids).await,
 					Some(BitswapEvent::Response { peer, responses }) =>
 						self.on_inbound_response(peer, responses).await,
 					None => {
@@ -678,20 +682,34 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids).await;
 	}
 
-	fn on_inbound_request(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
-		if cids.len() > MAX_WANTED_BLOCKS {
+	/// Serve an inbound wantlist, never silently: a `DONT_HAVE` lets the requester fail
+	/// over to another peer immediately, while silence costs it a full request timeout.
+	/// Entries beyond [`MAX_WANTED_BLOCKS`] (bounding the DB work per wantlist) and whole
+	/// wantlists refused by a saturated lookup pool are answered with `DONT_HAVE`.
+	async fn on_inbound_request(&mut self, peer: litep2p::PeerId, mut cids: Vec<(Cid, WantType)>) {
+		let mut refused = if cids.len() > MAX_WANTED_BLOCKS {
+			cids.split_off(MAX_WANTED_BLOCKS)
+		} else {
+			Vec::new()
+		};
+
+		if let Err(cids) = self.inbound_lookup_pool.try_submit(peer, cids) {
 			log::trace!(
 				target: LOG_TARGET,
-				"ignored inbound wantlist from {peer:?} with {} entries (cap {MAX_WANTED_BLOCKS})",
-				cids.len(),
+				"inbound serving pool saturated; answering DONT_HAVE to {peer:?}",
 			);
-			return;
+			refused.extend(cids);
 		}
-		if !self.inbound_lookup_pool.try_submit(peer, cids) {
-			log::trace!(
-				target: LOG_TARGET,
-				"inbound serving pool saturated; dropping wantlist from {peer:?}",
-			);
+
+		if !refused.is_empty() {
+			let responses = refused
+				.into_iter()
+				.map(|(cid, _)| ResponseType::Presence {
+					cid,
+					presence: BlockPresenceType::DontHave,
+				})
+				.collect();
+			self.handle.send_response(peer, responses).await;
 		}
 	}
 
@@ -726,8 +744,10 @@ fn serve_inbound<B: BlockT>(
 	cids: Vec<(Cid, WantType)>,
 ) -> Vec<ResponseType> {
 	cids.into_iter()
-		.filter(|(cid, _)| is_cid_supported(cid))
 		.map(|(cid, want_type)| {
+			if !is_cid_supported(&cid) {
+				return ResponseType::Presence { cid, presence: BlockPresenceType::DontHave };
+			}
 			let hash = H256::from_slice(&cid.hash().digest()[0..32]);
 			let transaction = match client.indexed_transaction(hash) {
 				Ok(t) => t,
@@ -797,12 +817,20 @@ mod tests {
 		client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
 		max_live_cids: usize,
 	) -> TestRig {
+		build_rig_with_lookup_limit(client, max_live_cids, MAX_CONCURRENT_INBOUND_LOOKUPS)
+	}
+
+	fn build_rig_with_lookup_limit(
+		client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
+		max_live_cids: usize,
+		max_lookups: usize,
+	) -> TestRig {
 		let (inbound_tx, inbound_rx) = mpsc::channel(64);
 		let (outbound_req_tx, outbound_req_rx) = mpsc::channel(64);
 		let (outbound_resp_tx, outbound_resp_rx) = mpsc::channel(64);
 		let (cmd_tx, cmd_rx) = mpsc::channel(CMD_CHANNEL_CAPACITY);
 		let (sync_event_tx, sync_event_rx) = mpsc::channel::<SyncEvent>(64);
-		let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client);
+		let (inbound_lookup_pool, inbound_lookup_rx) = InboundLookupPool::new(client, max_lookups);
 
 		let transport = MockTransport {
 			inbound: AsyncMutex::new(inbound_rx),
@@ -1473,6 +1501,166 @@ mod tests {
 			},
 			other => panic!("expected Block, got {other:?}"),
 		}
+	}
+
+	type BlockchainResult<T> = sc_client_api::blockchain::Result<T>;
+
+	/// A backend whose `indexed_transaction` parks until the paired sender fires, keeping
+	/// an inbound lookup worker occupied for as long as the test needs.
+	struct GatedBackend {
+		gate: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+	}
+
+	impl BlockBackend<substrate_test_runtime::Block> for GatedBackend {
+		fn block_body(
+			&self,
+			_hash: H256,
+		) -> BlockchainResult<Option<Vec<substrate_test_runtime::Extrinsic>>> {
+			unimplemented!()
+		}
+
+		fn block_indexed_body(&self, _hash: H256) -> BlockchainResult<Option<Vec<Vec<u8>>>> {
+			unimplemented!()
+		}
+
+		fn block_indexed_hashes(&self, _hash: H256) -> BlockchainResult<Option<Vec<H256>>> {
+			unimplemented!()
+		}
+
+		fn block(
+			&self,
+			_hash: H256,
+		) -> BlockchainResult<Option<sp_runtime::generic::SignedBlock<substrate_test_runtime::Block>>>
+		{
+			unimplemented!()
+		}
+
+		fn block_status(&self, _hash: H256) -> BlockchainResult<sp_consensus::BlockStatus> {
+			unimplemented!()
+		}
+
+		fn justifications(
+			&self,
+			_hash: H256,
+		) -> BlockchainResult<Option<sp_runtime::Justifications>> {
+			unimplemented!()
+		}
+
+		fn block_hash(&self, _number: u64) -> BlockchainResult<Option<H256>> {
+			unimplemented!()
+		}
+
+		fn indexed_transaction(&self, _hash: H256) -> BlockchainResult<Option<Vec<u8>>> {
+			let _ = self.gate.lock().unwrap().recv();
+			Ok(None)
+		}
+
+		fn requires_full_sync(&self) -> bool {
+			false
+		}
+	}
+
+	#[tokio::test]
+	async fn saturated_inbound_pool_answers_dont_have() {
+		let (gate_tx, gate_rx) = std::sync::mpsc::channel();
+		let backend = Arc::new(GatedBackend { gate: std::sync::Mutex::new(gate_rx) });
+		let mut rig = build_rig_with_lookup_limit(backend, MAX_LIVE_CIDS, 1);
+
+		let peer = litep2p::PeerId::random();
+		let gated_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0a; 32]);
+		let refused_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0b; 32]);
+
+		// The first wantlist occupies the only lookup worker (parked on the gate); the
+		// second finds the pool saturated.
+		for cid in [gated_cid, refused_cid] {
+			rig.inbound_tx
+				.send(BitswapEvent::Request { peer, cids: vec![(cid, WantType::Block)] })
+				.await
+				.unwrap();
+		}
+
+		// The refused wantlist is answered with DONT_HAVE instead of silence.
+		let (resp_peer, responses) = drain_next(&mut rig.outbound_resp_rx)
+			.await
+			.expect("DONT_HAVE for refused wantlist");
+		assert_eq!(resp_peer, peer);
+		assert!(matches!(
+			&responses[..],
+			[ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }]
+				if *cid == refused_cid
+		));
+
+		// Releasing the worker lets the parked wantlist be served normally.
+		gate_tx.send(()).unwrap();
+		let (_, responses) = drain_next(&mut rig.outbound_resp_rx)
+			.await
+			.expect("response for gated wantlist");
+		assert!(matches!(
+			&responses[..],
+			[ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }]
+				if *cid == gated_cid
+		));
+	}
+
+	#[tokio::test]
+	async fn oversized_wantlist_is_answered_for_every_entry() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+
+		let cids: Vec<(Cid, WantType)> = (0..(MAX_WANTED_BLOCKS + 2) as u8)
+			.map(|i| {
+				let mut digest = [0u8; 32];
+				digest[0] = i;
+				(cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, digest), WantType::Block)
+			})
+			.collect();
+
+		rig.inbound_tx
+			.send(BitswapEvent::Request { peer, cids: cids.clone() })
+			.await
+			.unwrap();
+
+		// Entries beyond `MAX_WANTED_BLOCKS` get an immediate DONT_HAVE; the first
+		// `MAX_WANTED_BLOCKS` are looked up and answered too (DONT_HAVE as well: the test
+		// client holds no indexed data). Every entry must receive a reply.
+		let mut answered = HashSet::new();
+		while answered.len() < cids.len() {
+			let (resp_peer, responses) =
+				drain_next(&mut rig.outbound_resp_rx).await.expect("reply for every entry");
+			assert_eq!(resp_peer, peer);
+			for response in responses {
+				match response {
+					ResponseType::Presence { cid, presence: BlockPresenceType::DontHave } => {
+						assert!(answered.insert(cid), "duplicate reply for {cid}");
+					},
+					other => panic!("expected DONT_HAVE, got {other:?}"),
+				}
+			}
+		}
+		assert_eq!(answered, cids.into_iter().map(|(cid, _)| cid).collect());
+	}
+
+	#[tokio::test]
+	async fn unsupported_cid_in_wantlist_gets_dont_have() {
+		let mut rig = empty_rig();
+		let peer = litep2p::PeerId::random();
+		let unsupported = Cid::new_v1(
+			RAW_CODEC,
+			CidMultihash::<64>::wrap(0x99 /* unsupported */, &[0u8; 32]).unwrap(),
+		);
+
+		rig.inbound_tx
+			.send(BitswapEvent::Request { peer, cids: vec![(unsupported, WantType::Block)] })
+			.await
+			.unwrap();
+
+		let (resp_peer, responses) = drain_next(&mut rig.outbound_resp_rx).await.expect("reply");
+		assert_eq!(resp_peer, peer);
+		assert!(matches!(
+			&responses[..],
+			[ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }]
+				if *cid == unsupported
+		));
 	}
 
 	#[tokio::test(start_paused = true)]

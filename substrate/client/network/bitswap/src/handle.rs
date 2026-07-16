@@ -17,9 +17,6 @@
 
 //! Public user-facing handle for the Bitswap service.
 //!
-//! The handle is returned by [`crate::start`] when the node is configured with
-//! `--ipfs-server` and uses the litep2p network backend.
-//!
 //! Cheap to clone. Submit work via [`BitswapHandle::request_stream`], drain the receiver
 //! to get per-CID results as they resolve. The service retries unresolved CIDs for as
 //! long as the request is alive; the caller owns the time budget: apply a timeout while
@@ -60,15 +57,14 @@ pub type FetchItem = Result<(Cid, Vec<u8>), BitswapError>;
 
 /// User-facing handle to the Bitswap service.
 ///
-/// Cheap to clone. Created at network construction time and returned by [`crate::start`].
+/// Cheap to clone.
 #[derive(Debug, Clone)]
 pub struct BitswapHandle {
 	cmd_tx: mpsc::Sender<BitswapCommand>,
 }
 
 impl BitswapHandle {
-	/// Construct a new handle around an existing command sender. Used internally by
-	/// [`crate::start`].
+	/// Construct a new handle around an existing command sender.
 	pub(crate) fn new(cmd_tx: mpsc::Sender<BitswapCommand>) -> Self {
 		Self { cmd_tx }
 	}
@@ -81,8 +77,7 @@ impl BitswapHandle {
 	/// connect. To bound the wait, apply a timeout while draining and drop the receiver —
 	/// dropping it cancels all wants remaining in this request.
 	///
-	/// There is no per-call CID cap: requests larger than the service's dispatch window
-	/// are queued internally and fetched as window slots free up.
+	/// There is no per-call CID cap.
 	///
 	/// `Err(BitswapError::ServiceClosed)` is yielded once, as the final item, if the
 	/// service shuts down mid-request. `Err(BitswapError::Overloaded)` is yielded once as

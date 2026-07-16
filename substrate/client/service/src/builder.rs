@@ -1178,8 +1178,8 @@ where
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
 /// version of [`build_network`] for those needing more control.
 ///
-/// The final tuple element is the Bitswap user handle; `Some` when `--ipfs-server` is
-/// enabled, `None` otherwise.
+/// The final tuple element is the Bitswap user handle; `Some` when the IPFS server is
+/// enabled in the network configuration, `None` otherwise.
 pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
@@ -1240,16 +1240,13 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	// Initialize the IPFS server. Bitswap is only supported on the litep2p backend.
+	// Initialize the IPFS server.
 	let (bitswap_handler, bitswap_user_handle, ipfs_config) =
 		if net_config.network_config.ipfs_server {
-			if matches!(
-				net_config.network_config.network_backend,
-				sc_network::config::NetworkBackendType::Libp2p
-			) {
+			if !Net::SUPPORTS_IPFS {
 				return Err(Error::Other(
-					"Bitswap requires the litep2p network backend; \
-				 set --network-backend litep2p or disable --ipfs-server"
+					"the selected network backend does not support Bitswap; \
+					 set --network-backend litep2p or disable --ipfs-server"
 						.into(),
 				));
 			}
