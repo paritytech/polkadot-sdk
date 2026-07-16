@@ -234,25 +234,35 @@ where
 				}
 
 				// `Core_execute_block` on the heaviest of the last `EXEC_BLOCK_SAMPLE_BLOCKS` blocks.
-				// Wait for a few new blocks so we are settled at the tip (and, after warp sync, have
-				// some forward-imported blocks with bodies), then walk back from the tip. Re-execute
-				// each on its PARENT state (what block import does); strip the trailing, client-added
-				// `Seal` digest first or the runtime's `final_checks` digest comparison fails (mirrors
-				// sc-consensus-aura `check_header_slot_and_seal`). Walk-back stops when a body is
-				// missing (warp-sync boundary); blocks whose parent state was pruned are skipped (the
-				// probe just errors), so effective reach is the ~256-block state-pruning window unless
-				// running with `--state-pruning archive`.
+				// Wait for a few new blocks so we are settled at the tip, then walk back from the tip.
+				// Re-execute each on its PARENT state (what block import does); strip the trailing,
+				// client-added `Seal` digest first or the runtime's `final_checks` digest comparison
+				// fails (mirrors sc-consensus-aura `check_header_slot_and_seal`).
+				//
+				// Walk back via the HEADER so a single un-loadable block does not end the search: only
+				// a missing header stops us (genesis, or the warp-sync boundary where ancestors are
+				// absent). Blocks whose body is not stored, or whose parent state was pruned (the probe
+				// errors), are skipped, not fatal. So the effective reach is limited by available block
+				// history AND the state-pruning window (~256 by default) — use `--sync full
+				// --blocks-pruning archive --state-pruning archive` to actually sample far back.
 				while client.info().best_number < number + 10u32.into() {
 					std::thread::sleep(Duration::from_secs(6));
 				}
 				let mut heaviest: Option<(String, B::Hash, Vec<u8>, Duration)> = None;
 				let mut cursor = client.info().best_hash;
+				let (mut walked, mut probed) = (0usize, 0usize);
+				info!(target: LOG_TARGET, "light-exec-bench: scanning up to {EXEC_BLOCK_SAMPLE_BLOCKS} blocks for the heaviest");
 				for _ in 0..EXEC_BLOCK_SAMPLE_BLOCKS {
-					let Ok(Some(signed)) = client.block(cursor) else { break };
-					let block_number = *signed.block.header().number();
-					let (mut header, extrinsics) = signed.block.deconstruct();
+					let Ok(Some(header)) = client.header(cursor) else { break };
+					let this = cursor;
 					cursor = *header.parent_hash();
 					let parent = cursor;
+					walked += 1;
+
+					// Need the body to re-execute; skip (do not stop) blocks whose body isn't stored.
+					let Ok(Some(signed)) = client.block(this) else { continue };
+					let block_number = *signed.block.header().number();
+					let (mut header, extrinsics) = signed.block.deconstruct();
 					while matches!(header.digest().logs().last(), Some(DigestItem::Seal(..))) {
 						header.digest_mut().pop();
 					}
@@ -260,6 +270,7 @@ where
 					let start = Instant::now();
 					match client.execution_proof_uncapped(parent, "Core_execute_block", &data) {
 						Ok(_) => {
+							probed += 1;
 							let elapsed = start.elapsed();
 							if heaviest.as_ref().map_or(true, |(_, _, _, d)| elapsed > *d) {
 								heaviest = Some((
@@ -276,6 +287,7 @@ where
 						),
 					}
 				}
+				info!(target: LOG_TARGET, "light-exec-bench: walked {walked} headers, {probed} blocks executable (parent state present)");
 				if let Some((label, at, data, elapsed)) = heaviest {
 					info!(target: LOG_TARGET, "light-exec-bench: heaviest recent block {} took {:?} (uncapped probe)", label, elapsed);
 					candidates.push((label, at, "Core_execute_block", data));
