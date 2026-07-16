@@ -1253,6 +1253,10 @@ pub use sc_state_db;
 #[cfg(feature = "sc-statement-store")]
 pub use sc_statement_store;
 
+/// Substrate storage-chain bitswap peer rotation and indexed transaction fetching service.
+#[cfg(feature = "sc-storage-chain-sync")]
+pub use sc_storage_chain_sync;
+
 /// Storage monitor service for substrate.
 #[cfg(feature = "sc-storage-monitor")]
 pub use sc_storage_monitor;

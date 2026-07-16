@@ -65,10 +65,13 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
 	OnlineClient,
-	backend::rpc::RpcClient,
-	ext::subxt_rpcs::rpc_params,
-	tx::{SubmittableTransaction, TxStatus},
+	client::OnlineClientAtBlockImpl,
+	rpcs::{RpcClient, rpc_params},
+	tx::{SubmittableTransaction, TransactionStatus as TxStatus},
 };
+
+type NodeSubmittableTransaction =
+	SubmittableTransaction<SrcChainConfig, OnlineClientAtBlockImpl<SrcChainConfig>>;
 use subxt_signer::eth::Keypair;
 use tokio::sync::mpsc;
 
@@ -197,8 +200,9 @@ async fn prepare_substrate_transactions(
 	node_client: &OnlineClient<SrcChainConfig>,
 	signer: &subxt_signer::sr25519::Keypair,
 	count: usize,
-) -> anyhow::Result<Vec<SubmittableTransaction<SrcChainConfig, OnlineClient<SrcChainConfig>>>> {
-	let mut nonce = node_client.tx().account_nonce(&signer.public_key().into()).await?;
+) -> anyhow::Result<Vec<NodeSubmittableTransaction>> {
+	let mut tx_client = node_client.tx().await?;
+	let mut nonce = tx_client.account_nonce(&signer.public_key().into()).await?;
 	let mut substrate_txs = Vec::new();
 	for i in 0..count {
 		let remark_data = format!("Hello from test {}", i);
@@ -212,10 +216,10 @@ async fn prepare_substrate_transactions(
 			.nonce(nonce)
 			.build();
 
-		let tx = node_client.tx().create_signed(&call, signer, params).await?;
+		let tx = tx_client.create_signed(&call, signer, params).await?;
 		substrate_txs.push(tx);
 		log::trace!(target: LOG_TARGET, "Prepared substrate transaction {i}/{count} with nonce: {nonce}");
-		nonce += 1 as u64;
+		nonce += 1;
 	}
 	Ok(substrate_txs)
 }
@@ -244,7 +248,7 @@ async fn submit_evm_transactions<Client: EthRpcClient + Sync + Send>(
 
 /// Submit substrate transactions and return futures for waiting
 async fn submit_substrate_transactions(
-	substrate_txs: Vec<SubmittableTransaction<SrcChainConfig, OnlineClient<SrcChainConfig>>>,
+	substrate_txs: Vec<NodeSubmittableTransaction>,
 ) -> Vec<impl std::future::Future<Output = Result<(), anyhow::Error>>> {
 	let mut futures = Vec::new();
 
@@ -686,7 +690,7 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	let value = 5_000_000_000_000u128;
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 
-	let payload = subxt_client::apis().revive_api().instantiate(
+	let payload = subxt_client::runtime_apis().revive_api().instantiate(
 		subxt::utils::AccountId32(origin),
 		value,
 		None,
@@ -703,9 +707,9 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
 	let res = node_client
-		.runtime_api()
-		.at_latest()
+		.at_current_block()
 		.await?
+		.runtime_apis()
 		.call(payload)
 		.await?
 		.result
@@ -750,9 +754,11 @@ async fn get_evm_block_from_storage(
 		.unwrap();
 
 	let query = subxt_client::storage().revive().ethereum_block();
-	let Some(block) = node_client.storage().at(block_hash).fetch(&query).await.unwrap() else {
+	let at_block = node_client.at_block(block_hash).await?;
+	let Some(value) = at_block.storage().try_fetch(query, ()).await? else {
 		return Err(anyhow!("EVM block {block_hash:?} not found"));
 	};
+	let block = value.decode()?;
 	Ok(block.0)
 }
 
@@ -1197,7 +1203,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 			subxt::dynamic::Value::u128(u128::max_value()), // storage_deposit_limit
 		],
 	);
-	let encoded_call = node_client.tx().call_data(&upload_call)?;
+	let encoded_call = node_client.tx().await?.call_data(&upload_call)?;
 
 	// Step 2: Send the encoded call to RUNTIME_PALLETS_ADDR
 	let tx = TransactionBuilder::new(client.clone())
@@ -1219,9 +1225,11 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 
 	// Step 5: Verify the code was actually uploaded
 	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
-	let query = subxt_client::storage().revive().pristine_code(code_hash);
+	let query = subxt_client::storage().revive().pristine_code();
 	let block_hash: sp_core::H256 = get_substrate_block_hash(receipt.block_number).await?;
-	let stored_code = node_client.storage().at(block_hash).fetch(&query).await?;
+	let at_block = node_client.at_block(block_hash).await?;
+	let stored_code = at_block.storage().try_fetch(query, (code_hash,)).await?;
+	let stored_code = stored_code.map(|v| v.decode()).transpose()?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
 
@@ -1843,10 +1851,10 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	// Deploy the Fibonacci contract via Substrate API
 	log::trace!(target: LOG_TARGET, "Deploying Fibonacci contract via Substrate API");
 	let dry_run_result = node_client
-		.runtime_api()
-		.at_latest()
+		.at_current_block()
 		.await?
-		.call(subxt_client::apis().revive_api().instantiate(
+		.runtime_apis()
+		.call(subxt_client::runtime_apis().revive_api().instantiate(
 			subxt::utils::AccountId32(origin),
 			0u128, // value
 			None,  // gas_limit
@@ -1874,6 +1882,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	// Now submit the actual instantiate extrinsic
 	let events = node_client
 		.tx()
+		.await?
 		.sign_and_submit_then_watch_default(
 			&subxt_client::tx().revive().instantiate_with_code(
 				0u128,                   // value
@@ -1891,8 +1900,8 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	// Extract the contract address from the Instantiated event
 	let instantiated_event = events
-		.find_first::<subxt_client::revive::events::Instantiated>()?
-		.expect("Instantiated event should be present");
+		.find_first::<subxt_client::revive::events::Instantiated>()
+		.expect("Instantiated event should be present")?;
 
 	let contract_address = instantiated_event.contract;
 	log::trace!(target: LOG_TARGET, "Contract deployed via Substrate at: {contract_address:?}");
@@ -1905,7 +1914,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	// Call the deployed contract using runtime API
 	let call_data = Fibonacci::fibCall { n: 3u64 }.abi_encode();
-	let call_payload = subxt_client::apis().revive_api().call(
+	let call_payload = subxt_client::runtime_apis().revive_api().call(
 		subxt::utils::AccountId32(origin),
 		contract_address,
 		0u128, // value
@@ -1914,7 +1923,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 		call_data,
 	);
 
-	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	let result = node_client.at_current_block().await?.runtime_apis().call(call_payload).await;
 
 	assert!(result.is_ok(), "Contract call failed: {result:?}");
 	let call_result = result.unwrap();
@@ -1926,7 +1935,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	// Verify that large Fibonacci values run out of gas
 	let call_data = Fibonacci::fibCall { n: 100u64 }.abi_encode();
-	let call_payload = subxt_client::apis().revive_api().call(
+	let call_payload = subxt_client::runtime_apis().revive_api().call(
 		subxt::utils::AccountId32(origin),
 		contract_address,
 		0u128, // value
@@ -1935,7 +1944,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 		call_data,
 	);
 
-	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	let result = node_client.at_current_block().await?.runtime_apis().call(call_payload).await;
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
@@ -1982,16 +1991,21 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 
 	let receipt_block_number = u32::try_from(receipt.block_number)
 		.map_err(|_| anyhow!("receipt block number should fit in u32"))?;
-	let subxt_block = node_client.blocks().at_latest().await?;
-	assert_eq!(subxt_block.number(), receipt_block_number);
+	let subxt_block = node_client.at_block(receipt_block_number).await?;
+	assert_eq!(subxt_block.block_number(), u64::from(receipt_block_number));
 
-	let parent_hash = subxt_block.header().parent_hash;
-	let header = codec::Decode::decode(&mut &codec::Encode::encode(subxt_block.header())[..])?;
+	let subxt_header = subxt_block.block_header().await?;
+	let parent_hash = subxt_header.parent_hash;
+	let header = codec::Decode::decode(&mut &codec::Encode::encode(&subxt_header)[..])?;
 	let extrinsics = subxt_block
 		.extrinsics()
+		.fetch()
 		.await?
 		.iter()
-		.map(|extrinsic| sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic.bytes()))
+		.map(|extrinsic| {
+			sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic?.bytes())
+				.map_err(anyhow::Error::from)
+		})
 		.collect::<Result<Vec<_>, _>>()?;
 	let block = SubstrateTracingBlock { header, extrinsics };
 	let config = TracerTypeV1::CallTracer(Some(CallTracerConfigV1 {
@@ -2003,11 +2017,17 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 		block: subxt::utils::Static(block.clone()),
 		config: config.clone(),
 	});
-	let v1_payload = subxt_client::apis()
+	let v1_payload = subxt_client::runtime_apis()
 		.revive_api()
 		.trace_block_versioned(subxt::utils::Static(v1_input))
 		.unvalidated();
-	let v1_output = node_client.runtime_api().at(parent_hash).call(v1_payload).await?.0;
+	let v1_output = node_client
+		.at_block(parent_hash)
+		.await?
+		.runtime_apis()
+		.call(v1_payload)
+		.await?
+		.0;
 	let TraceBlockVersionedOutputPayload::V1(v1_output) = v1_output else {
 		return Err(anyhow!("V1 trace_block input should return V1 output"));
 	};
@@ -2026,11 +2046,17 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 		block: subxt::utils::Static(block),
 		config,
 	});
-	let v2_payload = subxt_client::apis()
+	let v2_payload = subxt_client::runtime_apis()
 		.revive_api()
 		.trace_block_versioned(subxt::utils::Static(v2_input))
 		.unvalidated();
-	let v2_output = node_client.runtime_api().at(parent_hash).call(v2_payload).await?.0;
+	let v2_output = node_client
+		.at_block(parent_hash)
+		.await?
+		.runtime_apis()
+		.call(v2_payload)
+		.await?
+		.0;
 	let TraceBlockVersionedOutputPayload::V2(v2_output) = v2_output else {
 		return Err(anyhow!("V2 trace_block input should return V2 output"));
 	};
@@ -2177,7 +2203,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	}
 
 	// Capture finalized before sync — Head will be set to this snapshot.
-	let finalized_before_sync = client.latest_finalized_block().await.number();
+	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
 	client.sync_backward().await?;
@@ -2220,12 +2246,12 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 
 	// Block hash mappings should be queryable after sync.
 	let finalized = client.latest_finalized_block().await;
-	let substrate_hash = finalized.hash();
+	let substrate_hash = finalized.block_hash();
 	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
 	assert!(
 		ethereum_hash.is_some(),
 		"Finalized block #{} should have an ethereum hash mapping after sync",
-		finalized.number(),
+		finalized.block_number(),
 	);
 	assert_eq!(
 		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
@@ -2305,7 +2331,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	client.sync_backward().await?;
 
 	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
-	let chain_len = client.latest_finalized_block().await.number();
+	let chain_len = client.latest_finalized_block().await.block_number();
 
 	let tail_num = chain_len / 3;
 	let tail_block = client
@@ -2322,8 +2348,8 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.expect("Head block should exist");
 
 	// Overwrite both labels to simulate an interrupted sync with a partial range.
-	let interrupted_tail = SyncCheckpoint::new(tail_block.number(), tail_block.hash());
-	let interrupted_head = SyncCheckpoint::new(head_block.number(), head_block.hash());
+	let interrupted_tail = SyncCheckpoint::new(tail_block.block_number(), tail_block.block_hash());
+	let interrupted_head = SyncCheckpoint::new(head_block.block_number(), head_block.block_hash());
 
 	client
 		.receipt_provider()
@@ -2335,7 +2361,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.await?;
 
 	// Capture finalized before resume — Head will be set to this snapshot.
-	let finalized_before_resume = client.latest_finalized_block().await.number();
+	let finalized_before_resume = client.latest_finalized_block().await.block_number();
 
 	// Resume sync — fills top gap and bottom gap.
 	client.sync_backward().await?;
@@ -2408,7 +2434,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.await?;
 
 	// --- SyncBoundaryMismatch: corrupted Head hash ---
-	let chain_len = client.latest_finalized_block().await.number();
+	let chain_len = client.latest_finalized_block().await.block_number();
 	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
 		.receipt_provider()
@@ -2429,7 +2455,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	// First sync: snapshot the current chain state.
 	let client1 = create_sync_test_client().await?;
-	let finalized1 = client1.latest_finalized_block().await.number();
+	let finalized1 = client1.latest_finalized_block().await.block_number();
 
 	client1.sync_backward().await?;
 
@@ -2442,22 +2468,26 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 
 	client2.sync_backward().await?;
 	assert!(
-		finalized2.number() > finalized1,
+		finalized2.block_number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",
-		finalized2.number(),
+		finalized2.block_number(),
 	);
 
 	// The new block should have an ethereum hash mapping in client2's DB.
 	assert!(
-		client2.receipt_provider().get_ethereum_hash(&finalized2.hash()).await.is_some(),
+		client2
+			.receipt_provider()
+			.get_ethereum_hash(&finalized2.block_hash())
+			.await
+			.is_some(),
 		"New finalized block #{} should be synced in client2",
-		finalized2.number(),
+		finalized2.block_number(),
 	);
 
 	log::debug!(
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
-		finalized2.number(),
+		finalized2.block_number(),
 		client2.receipt_provider().first_evm_block().unwrap_or(0),
 	);
 
@@ -3497,7 +3527,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// Query the chain directly; the sync_client's cached finalized block is stale
 	// because this client doesn't run subscriptions.
-	let new_finalized_number = sync_client.api().blocks().at_latest().await?.number();
+	let new_finalized_number = sync_client.api().at_current_block().await?.block_number();
 	assert!(
 		new_finalized_number > head_after_sync,
 		"New finalized #{new_finalized_number} should be higher than synced head #{head_after_sync}"
@@ -3514,7 +3544,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(
 		sync_client
 			.receipt_provider()
-			.get_ethereum_hash(&unsynced_block.hash())
+			.get_ethereum_hash(&unsynced_block.block_hash())
 			.await
 			.is_none(),
 		"Block #{gap_block} should not be in DB before gap fill"
@@ -3545,7 +3575,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(
 		sync_client
 			.receipt_provider()
-			.get_ethereum_hash(&unsynced_block.hash())
+			.get_ethereum_hash(&unsynced_block.block_hash())
 			.await
 			.is_some(),
 		"Block #{gap_block} should be in DB after gap fill"
