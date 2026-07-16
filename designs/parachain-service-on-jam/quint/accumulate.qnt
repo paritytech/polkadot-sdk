@@ -499,10 +499,7 @@ module accumulate {
           solicited: out.solicited,
           jamDesignate: out.jamDesignate,
           jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
-          logPruned: match out.logPruned {
-            | Some(pair) => acc.logPruned.append(pair)
-            | None => acc.logPruned
-          }
+          logPruned: acc.logPruned.appendOption(out.logPruned)
         }
       })
   }
