@@ -1,0 +1,13 @@
+title: 'sc-executor-wasmtime: timed runtimes with execution timeouts via epoch interruption'
+doc:
+- audience: Node Dev
+  description: |-
+    Adds `create_timed_runtime` / `WasmtimeTimedRuntime` / `WasmtimeTimedInstance` (behind new
+    `TimedWasmModule` / `TimedWasmInstance` traits) — wasm runtimes compiled with wasmtime
+    epoch interruption whose calls take a mandatory execution timeout, failing with the new
+    `Error::ExecutionTimeout`.
+crates:
+- name: sc-executor-common
+  bump: major
+- name: sc-executor-wasmtime
+  bump: minor
