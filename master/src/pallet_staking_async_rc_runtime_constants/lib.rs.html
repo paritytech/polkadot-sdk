@@ -291,41 +291,38 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#141 id=141 data-nosnippet>141</a>		</span><span class="kw">const </span>ROOT_INDEX: u32 = <span class="number">0</span>;
 <a href=#142 id=142 data-nosnippet>142</a>		<span class="comment">// The bodies corresponding to the Polkadot OpenGov Origins.
 <a href=#143 id=143 data-nosnippet>143</a>		</span><span class="kw">pub const </span>FELLOWSHIP_ADMIN_INDEX: u32 = <span class="number">1</span>;
-<a href=#144 id=144 data-nosnippet>144</a>		<span class="attr">#[deprecated = <span class="string">"Will be removed after August 2024; Use `xcm::latest::BodyId::Treasury` \
-<a href=#145 id=145 data-nosnippet>145</a>			instead"</span>]
-<a href=#146 id=146 data-nosnippet>146</a>		</span><span class="kw">pub const </span>TREASURER_INDEX: u32 = <span class="number">2</span>;
-<a href=#147 id=147 data-nosnippet>147</a>	}
-<a href=#148 id=148 data-nosnippet>148</a>}
-<a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a><span class="attr">#[cfg(test)]
-<a href=#151 id=151 data-nosnippet>151</a></span><span class="kw">mod </span>tests {
-<a href=#152 id=152 data-nosnippet>152</a>	<span class="kw">use super</span>::{
-<a href=#153 id=153 data-nosnippet>153</a>		currency::{CENTS, MILLICENTS, UNITS},
-<a href=#154 id=154 data-nosnippet>154</a>		fee::WeightToFee,
-<a href=#155 id=155 data-nosnippet>155</a>	};
-<a href=#156 id=156 data-nosnippet>156</a>	<span class="kw">use </span><span class="kw">crate</span>::weights::ExtrinsicBaseWeight;
-<a href=#157 id=157 data-nosnippet>157</a>	<span class="kw">use </span>frame_support::weights::WeightToFee <span class="kw">as </span>WeightToFeeT;
-<a href=#158 id=158 data-nosnippet>158</a>	<span class="kw">use </span>polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
-<a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a>	<span class="attr">#[test]
-<a href=#161 id=161 data-nosnippet>161</a>	</span><span class="comment">// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
-<a href=#162 id=162 data-nosnippet>162</a>	</span><span class="kw">fn </span>full_block_fee_is_correct() {
-<a href=#163 id=163 data-nosnippet>163</a>		<span class="comment">// A full block should cost between 10 and 100 UNITS.
-<a href=#164 id=164 data-nosnippet>164</a>		</span><span class="kw">let </span>full_block = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>MAXIMUM_BLOCK_WEIGHT);
-<a href=#165 id=165 data-nosnippet>165</a>		<span class="macro">assert!</span>(full_block &gt;= <span class="number">10 </span>* UNITS);
-<a href=#166 id=166 data-nosnippet>166</a>		<span class="macro">assert!</span>(full_block &lt;= <span class="number">100 </span>* UNITS);
-<a href=#167 id=167 data-nosnippet>167</a>	}
-<a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>	<span class="attr">#[test]
-<a href=#170 id=170 data-nosnippet>170</a>	</span><span class="comment">// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
-<a href=#171 id=171 data-nosnippet>171</a>	</span><span class="kw">fn </span>extrinsic_base_fee_is_correct() {
-<a href=#172 id=172 data-nosnippet>172</a>		<span class="comment">// `ExtrinsicBaseWeight` should cost 1/10 of a CENT
-<a href=#173 id=173 data-nosnippet>173</a>		</span><span class="macro">println!</span>(<span class="string">"Base: {}"</span>, ExtrinsicBaseWeight::get());
-<a href=#174 id=174 data-nosnippet>174</a>		<span class="kw">let </span>x = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>ExtrinsicBaseWeight::get());
-<a href=#175 id=175 data-nosnippet>175</a>		<span class="kw">let </span>y = CENTS / <span class="number">10</span>;
-<a href=#176 id=176 data-nosnippet>176</a>		<span class="macro">assert!</span>(x.max(y) - x.min(y) &lt; MILLICENTS);
-<a href=#177 id=177 data-nosnippet>177</a>	}
-<a href=#178 id=178 data-nosnippet>178</a>}
+<a href=#144 id=144 data-nosnippet>144</a>	}
+<a href=#145 id=145 data-nosnippet>145</a>}
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a><span class="attr">#[cfg(test)]
+<a href=#148 id=148 data-nosnippet>148</a></span><span class="kw">mod </span>tests {
+<a href=#149 id=149 data-nosnippet>149</a>	<span class="kw">use super</span>::{
+<a href=#150 id=150 data-nosnippet>150</a>		currency::{CENTS, MILLICENTS, UNITS},
+<a href=#151 id=151 data-nosnippet>151</a>		fee::WeightToFee,
+<a href=#152 id=152 data-nosnippet>152</a>	};
+<a href=#153 id=153 data-nosnippet>153</a>	<span class="kw">use </span><span class="kw">crate</span>::weights::ExtrinsicBaseWeight;
+<a href=#154 id=154 data-nosnippet>154</a>	<span class="kw">use </span>frame_support::weights::WeightToFee <span class="kw">as </span>WeightToFeeT;
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="kw">use </span>polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="attr">#[test]
+<a href=#158 id=158 data-nosnippet>158</a>	</span><span class="comment">// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
+<a href=#159 id=159 data-nosnippet>159</a>	</span><span class="kw">fn </span>full_block_fee_is_correct() {
+<a href=#160 id=160 data-nosnippet>160</a>		<span class="comment">// A full block should cost between 10 and 100 UNITS.
+<a href=#161 id=161 data-nosnippet>161</a>		</span><span class="kw">let </span>full_block = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>MAXIMUM_BLOCK_WEIGHT);
+<a href=#162 id=162 data-nosnippet>162</a>		<span class="macro">assert!</span>(full_block &gt;= <span class="number">10 </span>* UNITS);
+<a href=#163 id=163 data-nosnippet>163</a>		<span class="macro">assert!</span>(full_block &lt;= <span class="number">100 </span>* UNITS);
+<a href=#164 id=164 data-nosnippet>164</a>	}
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a>	<span class="attr">#[test]
+<a href=#167 id=167 data-nosnippet>167</a>	</span><span class="comment">// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
+<a href=#168 id=168 data-nosnippet>168</a>	</span><span class="kw">fn </span>extrinsic_base_fee_is_correct() {
+<a href=#169 id=169 data-nosnippet>169</a>		<span class="comment">// `ExtrinsicBaseWeight` should cost 1/10 of a CENT
+<a href=#170 id=170 data-nosnippet>170</a>		</span><span class="macro">println!</span>(<span class="string">"Base: {}"</span>, ExtrinsicBaseWeight::get());
+<a href=#171 id=171 data-nosnippet>171</a>		<span class="kw">let </span>x = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>ExtrinsicBaseWeight::get());
+<a href=#172 id=172 data-nosnippet>172</a>		<span class="kw">let </span>y = CENTS / <span class="number">10</span>;
+<a href=#173 id=173 data-nosnippet>173</a>		<span class="macro">assert!</span>(x.max(y) - x.min(y) &lt; MILLICENTS);
+<a href=#174 id=174 data-nosnippet>174</a>	}
+<a href=#175 id=175 data-nosnippet>175</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
