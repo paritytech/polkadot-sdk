@@ -15,6 +15,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod account_id;
+mod address;
+mod balance;
+mod block_author;
+mod block_gas_limit;
+mod block_hash;
+mod code;
+mod eth_pre_dispatch_weight;
+mod gas_price;
+mod get_storage;
+mod max_extrinsic_weight_in_gas;
+mod new_balance_with_dust;
+mod nonce;
+mod receipt_data;
+mod runtime_pallets_address;
 mod trace_block;
+mod trace_tx;
+mod upload_code;
 
+pub use account_id::*;
+pub use address::*;
+pub use balance::*;
+pub use block_author::*;
+pub use block_gas_limit::*;
+pub use block_hash::*;
+pub use code::*;
+pub use eth_pre_dispatch_weight::*;
+pub use gas_price::*;
+pub use get_storage::*;
+pub use max_extrinsic_weight_in_gas::*;
+pub use new_balance_with_dust::*;
+pub use nonce::*;
+pub use receipt_data::*;
+pub use runtime_pallets_address::*;
 pub use trace_block::*;
+pub use trace_tx::*;
+pub use upload_code::*;

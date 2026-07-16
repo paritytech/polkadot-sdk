@@ -167,7 +167,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_006,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -361,6 +361,7 @@ impl pallet_assets_holder::Config<AssetsHolderInstance> for Runtime {
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
+	pub MaxSwapFee: Permill = Permill::from_percent(2);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -502,6 +503,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = LpFee;
+	type AdminOrigin = AssetsForceOrigin;
+	type MaxSwapFee = MaxSwapFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -2027,6 +2030,10 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	// Records the cutoff era from which the weighted-points validator self-stake
+	// incentive formula applies; pending pre-cutoff eras keep the legacy
+	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
+	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

@@ -60,6 +60,8 @@ impl pallet_whitelist::Config for Test {
 	// Accepts `Authorized`: opted into the permissionless flow.
 	type DispatchWhitelistedOrigin =
 		EitherOf<EnsureRoot<Self::AccountId>, frame_system::EnsureAuthorized<Self::AccountId>>;
+	type DeferredDispatchExpiration = ConstU64<15>;
+	type BlockNumberProvider = System;
 	type Preimages = Preimage;
 	type WeightInfo = ();
 }
