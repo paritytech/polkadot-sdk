@@ -197,9 +197,10 @@ module state {
     { ...s, parachainLog: s.parachainLog.put(para_id, pushLogEntry(log, entry)) }
   }
 
-  /// Append one batched `AccumulateLogEntry` (up to AccumulateLogCapacity
-  /// events) at timeslot `now` for a live para (design §5.1). No-op for an
-  /// unregistered para and for an empty `entries` list.
+  /// Append one batched `AccumulateLogEntry` at timeslot `now` for a live para
+  /// (design §5.1). The batch's total size is bounded only by the 64 KiB
+  /// `parachain_log` byte cap enforced in `pushLogEntry`. No-op for an unregistered
+  /// para and for an empty `entries` list.
   pure def appendAccumulateLogs(
     s: ParachainServiceState,
     para_id: ParaId,

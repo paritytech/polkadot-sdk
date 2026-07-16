@@ -359,15 +359,15 @@ module invariants {
   val staged_validator_keys_bounded: bool =
     svc.stagedValidatorKeys.length() <= MaxStagedValidatorKeys
 
-  /// Every batched `AccumulateLogEntry` in a parachain's log is non-empty and
-  /// within `AccumulateLogCapacity`. `appendAccumulateLogs` never stores an
-  /// empty batch (it short-circuits `entries == List()`); this pins that.
-  val accumulate_log_batch_bounded: bool =
+  /// Every batched `AccumulateLogEntry` in a parachain's log is non-empty.
+  /// `appendAccumulateLogs` short-circuits an empty `entries` list; this pins
+  /// that. The batch's total size is bounded by the 64 KiB byte cap
+  /// (`parachain_log_within_capacity`), not a separate event count.
+  val accumulate_log_batch_nonempty: bool =
     svc.parachainLog.keys().forall(p =>
       svc.paraLog(p).foldl(true, (acc, pair) =>
         acc and match pair._2 {
-          | AccumulateLogEntry(evs) =>
-            evs != List() and evs.length() <= AccumulateLogCapacity
+          | AccumulateLogEntry(evs) => evs != List()
           | RefineLogEntry(_) => true
         }))
 
@@ -414,7 +414,7 @@ module invariants {
     pending_authorizer_apply_at_future,
     assign_calls_well_formed,
     staged_validator_keys_bounded,
-    accumulate_log_batch_bounded,
+    accumulate_log_batch_nonempty,
     parachain_log_within_capacity,
     parachain_log_above_lookup
   }

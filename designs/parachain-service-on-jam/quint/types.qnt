@@ -94,9 +94,6 @@ module types {
   /// block; distinct from the recent-history *anchor* window (8 blocks).
   pure val MaxLookupAge: int = 24 * 3600 / 6
 
-  /// §3.1: at most 30 AccumulateLog events batched in one log entry.
-  pure val AccumulateLogCapacity: int = 30
-
   /// §3.1: report_error opaque payload cap.
   pure val ReportErrorPayloadCap: int = 1024
 

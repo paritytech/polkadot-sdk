@@ -210,9 +210,9 @@ struct RefineLogEntry {
 
 struct AccumulateLogEntry {
     /// Events recorded while Accumulating a work digest for this parachain.
-    /// Capped at 30 — further events in the same Accumulate invocation
-    /// are dropped.
-    entries: BoundedVec<AccumulateLog, 30>,
+    /// Not separately count-bounded; the whole `parachain_log` is held within
+    /// its 64 KiB byte cap by eviction during Accumulate (see §5.1).
+    entries: Vec<AccumulateLog>,
 }
 
 enum RefineLog {
