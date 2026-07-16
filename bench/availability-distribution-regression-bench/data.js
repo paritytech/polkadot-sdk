@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784210693134,
+  "lastUpdate": 1784222975623,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bennethxyz@proton.me",
-            "name": "Bennethxyz",
-            "username": "Bennethxyz"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ed00ea3a2c686f54516338c7972ef45f6a9f6ddb",
-          "message": "docs(omni-bencher): document weight template rendering (#7038) (#10256)\n\nDocuments how to render weight files with frame-omni-bencher using:\\n\\n-\n--output (directory or file)\\n- --header for a custom header\\n-\n--template for a custom Handlebars template\\n\\nThis leverages existing\nframe_benchmarking_cli functionality exposed via omni-bencher.\\n\\n\n\nCo-authored-by: lone <lone@lones-MacBook-Air.local>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2025-11-19T11:37:11Z",
-          "tree_id": "2b44174ba1321005b736add97c7c45d2fb224b0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ed00ea3a2c686f54516338c7972ef45f6a9f6ddb"
-        },
-        "date": 1763556155971,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16013755892000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02292244736,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007327019519999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013181550533333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010028103106666636,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec1052d449719097742090b25f297de693587b67",
+          "message": "CI: check workspace dependency inheritance (#11422)\n\n## Summary\n\n- Add `cargo-workspace-inheritance-check` to `checks-quick.yml` CI\nworkflow to enforce workspace dependency inheritance\n- Fix all existing violations (inline versions → `workspace = true`,\npromote missing workspace deps)\n\nRecently, I found the need to have a tool for checking/fixing dependency\ninheritance in cargo workspaces. I think it can also be useful for\npolkadot-sdk.\n\nFor details about how it works, have a look at\nhttps://github.com/RomarQ/cargo-workspace-inheritance-check\n\n## Follow-up\n\nBumping the workspace pin to `0.50` is a separate change. It requires\nporting the two crates still written against the `0.44` API:\n\n- `frame-benchmarking-cli` — uses `OfflineClient::new(…)`,\n`subxt::client::RuntimeVersion`, and `.tx()` directly on the offline\nclient, all redesigned in `0.50`.\n- `pallet-revive-eth-rpc` — uses `subxt::Error::Metadata`,\n`subxt::error::MetadataError`, `subxt::ext::subxt_rpcs`,\n`subxt::backend::{legacy::rpc_methods, rpc}`, `subxt::storage::Storage`,\n`subxt::events::StaticEvent`, `subxt::runtime_api`, and `subxt::blocks`\n— all gone or restructured in `0.50`.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-16T15:40:14Z",
+          "tree_id": "39a927004a4a22f0b13ea1fbe2de515ce9877261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec1052d449719097742090b25f297de693587b67"
+        },
+        "date": 1784222943751,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0074709839133333365,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009665559906666631,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14778641930000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02341038756666666,
             "unit": "seconds"
           }
         ]
