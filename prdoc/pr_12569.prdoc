@@ -16,5 +16,9 @@ crates:
   - name: snowbridge-pallet-inbound-queue
     bump: patch
     validate: false
+    note: |
+      `Pallet::burn_fees` was changed from public to private and gained a `who` parameter. The
+      semver check flags this as a major change, but the function is an internal helper with no
+      external callers, so the crate is only bumped by a patch and semver validation is skipped.
   - name: bridge-hub-westend-runtime
     bump: patch
