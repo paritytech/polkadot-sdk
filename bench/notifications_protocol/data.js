@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784209707562,
+  "lastUpdate": 1784221788816,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -193535,6 +193535,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2472691609,
             "range": "± 38689249",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec1052d449719097742090b25f297de693587b67",
+          "message": "CI: check workspace dependency inheritance (#11422)\n\n## Summary\n\n- Add `cargo-workspace-inheritance-check` to `checks-quick.yml` CI\nworkflow to enforce workspace dependency inheritance\n- Fix all existing violations (inline versions → `workspace = true`,\npromote missing workspace deps)\n\nRecently, I found the need to have a tool for checking/fixing dependency\ninheritance in cargo workspaces. I think it can also be useful for\npolkadot-sdk.\n\nFor details about how it works, have a look at\nhttps://github.com/RomarQ/cargo-workspace-inheritance-check\n\n## Follow-up\n\nBumping the workspace pin to `0.50` is a separate change. It requires\nporting the two crates still written against the `0.44` API:\n\n- `frame-benchmarking-cli` — uses `OfflineClient::new(…)`,\n`subxt::client::RuntimeVersion`, and `.tx()` directly on the offline\nclient, all redesigned in `0.50`.\n- `pallet-revive-eth-rpc` — uses `subxt::Error::Metadata`,\n`subxt::error::MetadataError`, `subxt::ext::subxt_rpcs`,\n`subxt::backend::{legacy::rpc_methods, rpc}`, `subxt::storage::Storage`,\n`subxt::events::StaticEvent`, `subxt::runtime_api`, and `subxt::blocks`\n— all gone or restructured in `0.50`.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-16T15:40:14Z",
+          "tree_id": "39a927004a4a22f0b13ea1fbe2de515ce9877261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec1052d449719097742090b25f297de693587b67"
+        },
+        "date": 1784221756423,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4163898,
+            "range": "± 33798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 278555,
+            "range": "± 4204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4059084,
+            "range": "± 45034",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 347851,
+            "range": "± 3595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4880463,
+            "range": "± 26269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 841274,
+            "range": "± 9199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10418567,
+            "range": "± 70781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4562667,
+            "range": "± 24273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41219878,
+            "range": "± 317197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 35986622,
+            "range": "± 313547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 352308367,
+            "range": "± 2761070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 292170341,
+            "range": "± 2147439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2534855838,
+            "range": "± 13307901",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2294463659,
+            "range": "± 22133828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 2971152,
+            "range": "± 16291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1599491,
+            "range": "± 7976",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3001417,
+            "range": "± 19341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1652917,
+            "range": "± 6962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3567738,
+            "range": "± 17983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 1978415,
+            "range": "± 7758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7362685,
+            "range": "± 52563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 4829820,
+            "range": "± 32777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 35822125,
+            "range": "± 437306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 33153829,
+            "range": "± 168424",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 296232822,
+            "range": "± 2026512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 258305956,
+            "range": "± 1359398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2321896713,
+            "range": "± 14559049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2206358604,
+            "range": "± 62262395",
             "unit": "ns/iter"
           }
         ]
