@@ -16,12 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Disk-backed statement store.
+#![doc = include_str!("../docs/overview.md")]
+#![doc = include_str!("../docs/usage.md")]
+//! # Implementation notes
 //!
-//! This module contains an implementation of `sp_statement_store::StatementStore` which is backed
-//! by a database.
+//! This crate contains a disk-backed implementation of `sp_statement_store::StatementStore`.
 //!
-//! Constraint management.
+//! ## Constraint management
 //!
 //! The statement store validates statements using node-side signature verification and
 //! static runtime allowance limits.
@@ -34,10 +35,10 @@
 //!   `global_priority` until a constraint is satisfied.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
-//! statements are deleted and `Ignored` result is returned.
+//! statements are deleted and a `Rejected` result is returned.
 //! The order in which statements with the same priority are deleted is unspecified.
 //!
-//! Statement expiration.
+//! ## Statement expiration
 //!
 //! Each time a statement is removed from the store (Either evicted by higher priority statement or
 //! explicitly with the `remove` function) the statement is marked as expired. Expired statements
@@ -74,10 +75,15 @@ use sp_statement_store::{
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-	sync::Arc,
+	sync::{Arc, Weak},
 	time::{Duration, Instant},
 };
-pub use subscription::StatementStoreSubscriptionApi;
+use subscription::ReplaySnapshotProvider;
+pub use subscription::{
+	AddFilterError, MultiFilterEventStream, MultiFilterSubscriptionApi,
+	MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi, SubscriptionHandle,
+	MAX_FILTERS_PER_SUBSCRIPTION,
+};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 1;
@@ -287,20 +293,31 @@ impl EvictedIndex {
 /// Index for query operations (topic/key-based filtering).
 #[derive(Default)]
 struct QueryIndex {
+	/// Topic → hashes of statements carrying that topic.
 	by_topic: HashMap<Topic, HashSet<Hash>>,
+	/// Decryption key (`None` for broadcasts) → hashes of matching statements.
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
+	/// Statement hash → its topics and decryption key; used to unindex on removal.
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
+	/// Hashes added since the last propagation round, drained by the gossip loop.
 	recent: HashSet<Hash>,
 }
 
 /// Index for submit operations (constraint checking, entries, accounts).
 #[derive(Default)]
 struct SubmitIndex {
+	/// Statement hash → (account, expiry/priority, data size); the authoritative set of stored
+	/// statements.
 	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
+	/// Removed or expired statements, retained for the purge period to block re-acceptance.
 	evicted: EvictedIndex,
+	/// Per-account tracking (priority-ordered hashes, channels, size) for quota enforcement.
 	accounts: HashMap<AccountId, StatementsForAccount>,
+	/// Accounts still pending an expiry/limit check by `enforce_limits`.
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
+	/// Store configuration (global limits, purge period).
 	config: Config,
+	/// Running total of data size across all stored statements.
 	total_size: usize,
 }
 
@@ -353,6 +370,26 @@ pub struct Store {
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
+}
+
+impl ReplaySnapshotProvider for Weak<Store> {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.with_snapshot_hashes(filter, enqueue)
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.statement_by_hash(hash)
+	}
 }
 
 enum IndexQuery {
@@ -585,7 +622,8 @@ impl SubmitIndex {
 		if statement_len > validation.max_size as usize {
 			log::debug!(
 				target: LOG_TARGET,
-				"Ignored oversize message: {:?} ({} bytes)",
+				"Ignored oversize message from account {}: {:?} ({} bytes)",
+				HexDisplay::from(account),
 				HexDisplay::from(&hash),
 				statement_len,
 			);
@@ -609,7 +647,8 @@ impl SubmitIndex {
 						// Trying to replace channel message with lower expiry.
 						log::debug!(
 							target: LOG_TARGET,
-							"Ignored lower priority channel message: {:?} {:?} <= {:?}",
+							"Ignored lower priority channel message from account {}: {:?} {:?} <= {:?}",
+							HexDisplay::from(account),
 							HexDisplay::from(&hash),
 							expiry,
 							channel_record.expiry,
@@ -623,7 +662,8 @@ impl SubmitIndex {
 						// below.
 						log::debug!(
 							target: LOG_TARGET,
-							"Replacing higher priority channel message: {:?} ({:?}) > {:?} ({:?})",
+							"Replacing higher priority channel message from account {}: {:?} ({:?}) > {:?} ({:?})",
+							HexDisplay::from(account),
 							HexDisplay::from(&hash),
 							expiry,
 							HexDisplay::from(&channel_record.hash),
@@ -655,7 +695,8 @@ impl SubmitIndex {
 				if entry.expiry >= expiry {
 					log::debug!(
 						target: LOG_TARGET,
-						"Ignored message due to constraints {:?} {:?} < {:?}",
+						"Ignored message from account {} due to constraints {:?} {:?} < {:?}",
+						HexDisplay::from(account),
 						HexDisplay::from(&hash),
 						expiry,
 						entry.expiry,
@@ -675,8 +716,9 @@ impl SubmitIndex {
 		{
 			log::debug!(
 				target: LOG_TARGET,
-				"Ignored statement {} because the store is full (size={}, count={})",
+				"Ignored statement {} from account {} because the store is full (size={}, count={})",
 				HexDisplay::from(&hash),
+				HexDisplay::from(account),
 				self.total_size,
 				self.entries.len(),
 			);
@@ -1069,7 +1111,18 @@ impl Store {
 		});
 	}
 
-	/// Perform periodic store maintenance
+	/// Perform periodic store maintenance: permanently delete statements whose purge period has
+	/// elapsed and refresh store metrics.
+	///
+	/// Expired and evicted statements are not removed from the database immediately; they are kept
+	/// in the `EXPIRED` column for [`DEFAULT_PURGE_AFTER_SEC`] (default 48h) to prevent
+	/// re-acceptance while they may still be propagating over gossip. This method removes those
+	/// whose purge period has passed.
+	///
+	/// Runs in a background task on a fixed interval (`MAINTENANCE_PERIOD`, 29s). Enforcing
+	/// per-account and global limits — expiring over-quota statements — is handled separately by
+	/// `enforce_limits` on its own interval (`ENFORCE_LIMITS_PERIOD`, 31s), kept distinct to avoid
+	/// holding the index lock for too long during maintenance.
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
 		let (
@@ -1195,7 +1248,11 @@ impl Store {
 }
 
 impl StatementStore for Store {
-	/// Return all statements.
+	/// Return every statement currently in the store.
+	///
+	/// Takes a read lock on the query index, iterates all indexed hashes, reads and SCALE-decodes
+	/// each statement from the `STATEMENTS` database column, and skips any entry that fails to
+	/// decode.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
 		let query_index = self.query_index.read();
 		let mut result = Vec::with_capacity(query_index.topics_and_keys.len());
@@ -1229,7 +1286,8 @@ impl StatementStore for Store {
 		Ok(result)
 	}
 
-	/// Returns a statement by hash.
+	/// Read a single statement directly from the `STATEMENTS` database column by hash and decode
+	/// it. Returns `Ok(None)` if no statement with that hash is stored.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>> {
 		Ok(
 			match self
@@ -1299,8 +1357,12 @@ impl StatementStore for Store {
 		Ok((result, processed))
 	}
 
-	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
-	/// field.
+	/// Return the `data` of all statements matching all of `match_all_topics` that have no
+	/// decryption key (i.e. public broadcasts).
+	///
+	/// Filters the query index by topic (intersection; an empty list matches every broadcast),
+	/// reads and decodes each match from the `STATEMENTS` column, and returns the plaintext data,
+	/// skipping any inconsistent entries.
 	fn broadcasts(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			None,
@@ -1309,9 +1371,11 @@ impl StatementStore for Store {
 		)
 	}
 
-	/// Return the data of all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
+	/// Return the (encrypted) `data` of all statements matching all of `match_all_topics` whose
+	/// decryption key equals `dest`.
+	///
+	/// Same filtering and DB read as [`broadcasts`](Self::broadcasts), but keyed on `dest` rather
+	/// than the absence of a decryption key.
 	fn posted(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			Some(dest),
@@ -1320,14 +1384,22 @@ impl StatementStore for Store {
 		)
 	}
 
-	/// Return the decrypted data of all known statements whose decryption key is identified as
-	/// `dest`. The key must be available to the client.
+	/// Like [`posted`](Self::posted) but returns the decrypted data.
+	///
+	/// For each match, looks up the ed25519 key identified by `dest` in the keystore and decrypts
+	/// the statement data; statements are skipped when the key is unavailable or decryption fails.
 	fn posted_clear(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
 		self.posted_clear_inner(match_all_topics, dest, |_statement, data| data)
 	}
 
-	/// Return all known statements which include all topics and have no `DecryptionKey`
-	/// field.
+	/// Return the full SCALE-encoded statements matching all of `match_all_topics` that have no
+	/// decryption key (i.e. public broadcasts).
+	///
+	/// Takes a read lock on the query index and filters by the absence of a decryption key and
+	/// topics (intersection / AND — an empty topic list matches every broadcast), then reads,
+	/// decodes and re-encodes each match from the `STATEMENTS` column, skipping inconsistent
+	/// entries. Unlike [`broadcasts`](Self::broadcasts), which returns only the data, this returns
+	/// the whole statement.
 	fn broadcasts_stmt(&self, match_all_topics: &[Topic]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			None,
@@ -1336,9 +1408,14 @@ impl StatementStore for Store {
 		)
 	}
 
-	/// Return all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
+	/// Return the full SCALE-encoded statements matching all of `match_all_topics` whose decryption
+	/// key equals `dest`.
+	///
+	/// Takes a read lock on the query index and filters by decryption key (`dest`) and topics
+	/// (intersection / AND — an empty topic list matches every statement keyed to `dest`), then
+	/// reads, decodes and re-encodes each match from the `STATEMENTS` column, skipping inconsistent
+	/// entries. Unlike [`posted`](Self::posted), which returns only the (still-encrypted) data,
+	/// this returns the whole statement.
 	fn posted_stmt(&self, match_all_topics: &[Topic], dest: [u8; 32]) -> Result<Vec<Vec<u8>>> {
 		self.collect_statements(
 			Some(dest),
@@ -1347,8 +1424,13 @@ impl StatementStore for Store {
 		)
 	}
 
-	/// Return the statement and the decrypted data of all known statements whose decryption key is
-	/// identified as `dest`. The key must be available to the client.
+	/// Return, for each statement matching all of `match_all_topics` whose decryption key equals
+	/// `dest`, the SCALE-encoded statement concatenated with its decrypted data.
+	///
+	/// Filters as [`posted_stmt`](Self::posted_stmt), then for each match looks up the ed25519 key
+	/// identified by `dest` in the keystore and decrypts the statement data, appending the
+	/// plaintext to the encoded statement. Statements are skipped when the key is unavailable or
+	/// decryption fails.
 	fn posted_clear_stmt(
 		&self,
 		match_all_topics: &[Topic],
@@ -1362,7 +1444,31 @@ impl StatementStore for Store {
 		})
 	}
 
-	/// Submit a statement to the store. Validates the statement and returns validation result.
+	/// Submit a statement to the store, validating it and enforcing constraints.
+	///
+	/// Runs the following pipeline, short-circuiting on the first failure:
+	/// 1. **Expiry check** — reject if the statement's expiration timestamp is already in the past
+	///    (`SubmitResult::Invalid(InvalidReason::AlreadyExpired)`).
+	/// 2. **Encoding size check** — reject if the encoded statement exceeds [`MAX_STATEMENT_SIZE`]
+	///    (`InvalidReason::EncodingTooLarge`).
+	/// 3. **Duplicate check** — look the hash up in the index. Whether a known or known-expired
+	///    statement may be resubmitted depends on the [`StatementSource`]: `Chain` and `Local` can
+	///    renew an expired statement, `Network` cannot (`SubmitResult::Known` / `KnownExpired`).
+	/// 4. **Proof & signature** — extract the account from the proof and verify the signature
+	///    (`InvalidReason::NoProof` / `InvalidReason::BadProof`).
+	/// 5. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
+	///    directly from chain state at the best block (via the `statement_allowance_key` storage
+	///    key — not a runtime call); reject with `SubmitResult::Rejected(NoAllowance)` if none is
+	///    set. The best block is used for responsiveness; a statement accepted here may later be
+	///    evicted when limits are enforced against the finalized block.
+	/// 6. **Constraint check & eviction** — insert into the submit index, enforcing per-account
+	///    limits (count, size, one statement per channel, higher priority replaces lower) and
+	///    global limits ([`DEFAULT_MAX_TOTAL_STATEMENTS`], [`DEFAULT_MAX_TOTAL_SIZE`]), evicting
+	///    lower-priority statements as needed (`SubmitResult::Rejected` if it still does not fit).
+	/// 7. **Persist** — write the new statement and any evictions to the database, then update the
+	///    in-memory query index.
+	///
+	/// Returns `SubmitResult::New` on success.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
@@ -1544,7 +1650,9 @@ impl StatementStore for Store {
 		SubmitResult::New
 	}
 
-	/// Remove a statement by hash.
+	/// Soft-delete a statement by hash: mark it expired in the index, drop it from the `STATEMENTS`
+	/// column, and record it in the `EXPIRED` column so it cannot be re-accepted until its purge
+	/// period elapses (see [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
 		let current_time = self.timestamp();
 		let was_expired = {
@@ -1575,7 +1683,8 @@ impl StatementStore for Store {
 		Ok(())
 	}
 
-	/// Remove all statements by an account.
+	/// Remove every statement authored by `who`, applying the same soft-delete as
+	/// [`remove`](Self::remove) to each.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
 		let evicted = {
 			let mut submit_index = self.submit_index.write();
@@ -1643,6 +1752,47 @@ impl StatementStoreSubscriptionApi for Store {
 				.ok();
 		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
+	}
+}
+
+impl Store {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
+		let mut snapshot_hashes = Vec::new();
+		let mut seen = HashSet::new();
+		let query_index = self.query_index.read();
+		query_index.iterate_with(None, filter, |hash| {
+			if seen.insert(*hash) {
+				snapshot_hashes.push(*hash);
+			}
+			Ok(())
+		})?;
+		enqueue(snapshot_hashes);
+		Ok(())
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))
+	}
+}
+
+impl MultiFilterSubscriptionApi for Arc<Store> {
+	fn create_subscription(&self) -> (SubscriptionHandle, MultiFilterEventStream) {
+		let inner =
+			Arc::new(parking_lot::Mutex::new(crate::subscription::SubscriptionHandleInner::new()));
+		let snapshot_provider: Arc<dyn ReplaySnapshotProvider> = Arc::new(Arc::downgrade(self));
+		let (sub_id, stream) = self.subscription_manager.subscribe_empty(snapshot_provider.clone());
+
+		let handle = SubscriptionHandle {
+			sub_id,
+			inner,
+			matchers: self.subscription_manager.matchers(),
+			snapshot_provider,
+		};
+		(handle, stream)
 	}
 }
 
@@ -3345,5 +3495,86 @@ mod tests {
 		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
 		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
+	}
+
+	// Tests for the multi-filter subscription API (`MultiFilterSubscriptionApi` /
+	// `create_subscription`), as opposed to the single-filter `subscribe_statement` tests above.
+	mod multi_filter {
+		use super::*;
+		use crate::{
+			MultiFilterEventStream, MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent,
+		};
+		use futures::StreamExt;
+		use sp_statement_store::OptimizedTopicFilter;
+		use std::{collections::HashSet, sync::Arc, time::Duration};
+
+		fn arc_test_store() -> (Arc<Store>, tempfile::TempDir) {
+			let (store, dir) = test_store();
+			(Arc::new(store), dir)
+		}
+
+		async fn drain_all(
+			stream: &mut MultiFilterEventStream,
+			idle: Duration,
+		) -> Vec<MultiFilterSubscriptionEvent> {
+			let mut events = Vec::new();
+			while let Ok(Some(event)) = tokio::time::timeout(idle, stream.next()).await {
+				events.push(event);
+			}
+			events
+		}
+
+		#[tokio::test]
+		async fn add_filter_replays_snapshot_and_delivers_later_submissions_live() {
+			let (store, _dir) = arc_test_store();
+			let (handle, mut stream) = store.create_subscription();
+
+			const NUM_STATEMENTS: u8 = 50;
+			const NUM_PRE_FILTER: u8 = 20;
+
+			// Statements stored before the filter is attached; the replay snapshot must cover
+			// exactly these.
+			for i in 0..NUM_PRE_FILTER {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
+
+			let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
+
+			// The snapshot is collected atomically with the filter registration, so statements
+			// submitted after `add_filter` returns must arrive as live events only.
+			for i in NUM_PRE_FILTER..NUM_STATEMENTS {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
+
+			let mut snapshot_hashes: HashSet<[u8; 32]> = HashSet::new();
+			let mut live_with_filter: HashSet<[u8; 32]> = HashSet::new();
+			for event in drain_all(&mut stream, Duration::from_millis(300)).await {
+				match event {
+					MultiFilterSubscriptionEvent::ReplayStatements { statements, .. } => {
+						snapshot_hashes.extend(
+							statements
+								.iter()
+								.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap().hash()),
+						);
+					},
+					MultiFilterSubscriptionEvent::NewStatement(event)
+						if event.matched_filter_ids.contains(&filter_id) =>
+					{
+						live_with_filter.insert(event.hash);
+					},
+					_ => {},
+				}
+			}
+
+			let expected_replayed: HashSet<[u8; 32]> =
+				(0..NUM_PRE_FILTER).map(|i| signed_statement(i).hash()).collect();
+			let expected_live: HashSet<[u8; 32]> =
+				(NUM_PRE_FILTER..NUM_STATEMENTS).map(|i| signed_statement(i).hash()).collect();
+
+			assert_eq!(snapshot_hashes, expected_replayed);
+			assert_eq!(live_with_filter, expected_live);
+		}
 	}
 }
