@@ -296,7 +296,19 @@ pub mod pallet {
 			)
 			.min(owed);
 			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+				// Best-effort: a failed reimbursement (e.g. the transfer would dust either account
+				// below the existential deposit) must never revert message processing, otherwise
+				// the nonce would roll back and stall the channel. The relayer simply goes
+				// unrewarded for this message.
+				if let Err(error) =
+					T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)
+				{
+					tracing::error!(
+						target: LOG_TARGET,
+						?error,
+						"Failed to reimburse relayer from sovereign account"
+					);
+				}
 			}
 
 			// Attempt to send XCM to a dest parachain
