@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, storage::with_storage_layer};
 use hex_literal::hex;
 use snowbridge_core::ChannelId;
 use snowbridge_inbound_queue_primitives::Proof;
 use sp_keyring::Sr25519Keyring as Keyring;
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, TokenError};
 use sp_std::convert::From;
 
 use crate::Error;
@@ -194,6 +194,93 @@ fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 			1,
 			"message nonce advanced"
 		);
+		assert!(
+			frame_system::Pallet::<Test>::events().iter().any(|event| matches!(
+				event.event,
+				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, fee_burned, .. })
+					if nonce == 1 && fee_burned == fee
+			)),
+			"message was not received"
+		);
+	});
+}
+
+// If the relayer cannot front the teleported fee, the whole extrinsic must revert, including the
+// nonce increment, so that a funded relayer can resubmit the same message and the channel is not
+// stalled.
+#[test]
+fn test_submit_fails_and_nonce_reverts_when_relayer_cannot_front_fee() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer.clone());
+		let channel_id = ChannelId::from(hex!(
+			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
+		));
+
+		// Fund the sovereign so only the relayer's shortfall can cause a failure.
+		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
+		Balances::set_balance(&sovereign_account, InitialFund::get());
+
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+
+		// Relayer is deliberately left unfunded, so it cannot front the teleported fee.
+		assert_eq!(Balances::balance(&relayer), 0);
+
+		// Dispatch inside a storage layer to mimic the on-chain transactional revert.
+		assert_noop!(
+			with_storage_layer(|| InboundQueue::submit(origin.clone(), event.clone())),
+			TokenError::FundsUnavailable
+		);
+
+		assert_eq!(<Nonce<Test>>::get(channel_id), 0, "nonce must not advance on failure");
+	});
+}
+
+// A reimbursement that would leave the relayer below the existential deposit fails, but that must
+// never revert message processing (best-effort). The relayer simply goes unrewarded.
+#[test]
+fn test_submit_ignores_reimbursement_below_existential_deposit() {
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer.clone());
+		let channel_id = ChannelId::from(hex!(
+			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
+		));
+
+		// Sovereign holds only dust above its ED, so its reducible balance is below the ED. The
+		// relayer is reaped to zero by fronting the fee, so reimbursing this dust would try to
+		// create the relayer account below the ED and fail.
+		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
+		let dust = ExistentialDeposit::get() / 2;
+		let sovereign_balance = ExistentialDeposit::get() + dust;
+		Balances::set_balance(&sovereign_account, sovereign_balance);
+
+		let event = EventProof {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		let fee = fee_for(&event);
+		Balances::mint_into(&relayer, fee).unwrap();
+
+		// Message still processes even though the reimbursement transfer fails.
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
+
+		assert_eq!(Balances::balance(&relayer), 0, "relayer was not reimbursed");
+		assert_eq!(
+			Balances::balance(&sovereign_account),
+			sovereign_balance,
+			"failed reimbursement left the sovereign untouched"
+		);
+		assert_eq!(<Nonce<Test>>::get(channel_id), 1, "message nonce advanced");
 		assert!(
 			frame_system::Pallet::<Test>::events().iter().any(|event| matches!(
 				event.event,

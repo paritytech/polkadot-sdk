@@ -63,7 +63,7 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 1;
+	pub const ExistentialDeposit: u128 = 1_000_000;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
