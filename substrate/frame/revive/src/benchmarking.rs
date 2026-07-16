@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StateAccess},
+	access_list::{AccessEntry, AccessList, CodeWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -192,17 +192,24 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// A hot call re-reads state already in the proof: exempt the callee's keys.
-	fn whitelist_callee_keys<T: Config>(callee: &Contract<T>, code_hash: H256) {
+	fn whitelist_code<T: Config>(code_hash: H256) {
 		for key in [
-			frame_system::Account::<T>::hashed_key_for(&callee.account_id),
-			OriginalAccount::<T>::hashed_key_for(&callee.address),
-			AccountInfoOf::<T>::hashed_key_for(&callee.address),
 			CodeInfoOf::<T>::hashed_key_for(&code_hash),
 			PristineCode::<T>::hashed_key_for(&code_hash),
 		] {
 			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
 		}
+	}
+
+	fn whitelist_contract_and_code<T: Config>(contract: &Contract<T>, code_hash: H256) {
+		for key in [
+			frame_system::Account::<T>::hashed_key_for(&contract.account_id),
+			OriginalAccount::<T>::hashed_key_for(&contract.address),
+			AccountInfoOf::<T>::hashed_key_for(&contract.address),
+		] {
+			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		}
+		whitelist_code::<T>(code_hash);
 	}
 
 	/// Shared setup of the hot call benches: deploys `$module` as the callee,
@@ -244,7 +251,7 @@ mod benchmarks {
 			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
 
-			whitelist_callee_keys::<T>(&callee_contract, code_hash);
+			whitelist_contract_and_code::<T>(&callee_contract, code_hash);
 
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
@@ -2467,8 +2474,12 @@ mod benchmarks {
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, address: callee_addr, .. } =
+		let callee_contract =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
+
+		// The code read is priced by `code_load`, not this benchmark.
+		whitelist_code::<T>(callee_contract.info().unwrap().code_hash);
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2597,8 +2608,12 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let Contract { account_id: address, .. } =
+		let callee_contract =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		let Contract { account_id: address, .. } = callee_contract.clone();
+
+		// The code read is priced by `code_load`, not this benchmark.
+		whitelist_code::<T>(callee_contract.info().unwrap().code_hash);
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
@@ -2644,6 +2659,26 @@ mod benchmarks {
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn code_load() -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let code_hash = contract.info()?.code_hash;
+		let mut meter =
+			TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+				.map_err(|_| BenchmarkError::Stop("could not create meter"))?;
+		let blob;
+		#[block]
+		{
+			blob = ContractBlob::<T>::from_storage(
+				code_hash,
+				&mut meter,
+				CodeWarmth::cold_nonrevertible(),
+			);
+		}
+		assert!(blob.is_ok(), "loading the code of an existing contract must succeed");
 		Ok(())
 	}
 

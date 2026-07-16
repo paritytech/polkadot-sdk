@@ -1322,6 +1322,12 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 4212))
 			.saturating_add(T::DbWeight::get().reads(3))
 	}
+	// Placeholder until `/cmd bench` runs the `code_load` benchmark: proof-only
+	// over-approximation reusing seal_delegate_call's {AccountInfoOf, CodeInfoOf,
+	// PristineCode} proof, which is a superset of the {CodeInfoOf, PristineCode} read.
+	fn code_load() -> Weight {
+		Weight::from_parts(0, Self::seal_delegate_call().proof_size())
+	}
 	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
 	// with the proof size zeroed (a hot call re-reads state already in the proof).
 	fn seal_call_hot() -> Weight {

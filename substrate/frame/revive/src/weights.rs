@@ -164,6 +164,7 @@ pub trait WeightInfo {
 	fn seal_delegate_call_hot() -> Weight;
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
+	fn code_load() -> Weight;
 	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn evm_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn sha2_256(n: u32, ) -> Weight;
@@ -1343,6 +1344,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 28_151_000 picoseconds.
 		Weight::from_parts(30_587_000, 4214)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
+	// Placeholder until `/cmd bench` runs the `code_load` benchmark: proof-only
+	// over-approximation reusing seal_delegate_call's {AccountInfoOf, CodeInfoOf,
+	// PristineCode} proof, which is a superset of the {CodeInfoOf, PristineCode} read.
+	fn code_load() -> Weight {
+		Weight::from_parts(0, Self::seal_delegate_call().proof_size())
 	}
 	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
 	// with the proof size zeroed (a hot call re-reads state already in the proof).
@@ -2919,6 +2926,12 @@ impl WeightInfo for () {
 		// Minimum execution time: 28_151_000 picoseconds.
 		Weight::from_parts(30_587_000, 4214)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
+	}
+	// Placeholder until `/cmd bench` runs the `code_load` benchmark: proof-only
+	// over-approximation reusing seal_delegate_call's {AccountInfoOf, CodeInfoOf,
+	// PristineCode} proof, which is a superset of the {CodeInfoOf, PristineCode} read.
+	fn code_load() -> Weight {
+		Weight::from_parts(0, Self::seal_delegate_call().proof_size())
 	}
 	// Placeholder until `/cmd bench` runs the hot benchmarks: cold ref_time
 	// with the proof size zeroed (a hot call re-reads state already in the proof).

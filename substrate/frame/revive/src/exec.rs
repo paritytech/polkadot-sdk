@@ -20,7 +20,7 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
 	access_list::{
-		AccessEntry, AccessList, StateAccess, StateAccessKind, StorageAccessKind, Warmth,
+		AccessEntry, AccessList, CodeWarmth, StateAccess, StateAccessKind, StorageAccessKind,
 	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -556,8 +556,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Non-mutating sibling of `touch_storage_access`.
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
-	/// Warmth of the state items `opcode` reads.
-	fn peek_access(&self, opcode: StateAccess) -> StateAccessKind;
+	/// Warmth of the state items `access` reads.
+	fn peek_access(&self, access: StateAccess) -> StateAccessKind;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -595,7 +595,7 @@ pub trait Executable<T: Config>: Sized {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: Warmth,
+		warmth: CodeWarmth,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1064,15 +1064,6 @@ where
 		Ok(Some((stack, executable)))
 	}
 
-	/// Registers the state items `opcode` reads, so later accesses bill hot.
-	fn touch_access(access_list: &mut AccessList, opcode: StateAccess) {
-		// Precompile targets are priced without warmth: not registered.
-		if is_precompile::<T, E>(&opcode.target()) {
-			return;
-		}
-		opcode.expand(|entry| access_list.touch(entry));
-	}
-
 	/// Construct a new frame.
 	///
 	/// This does not take `self` because when constructing the first frame `self` is
@@ -1093,16 +1084,17 @@ where
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
-				// Placed after the depth and reentrancy gates, which abort
-				// before any state is read, and before the contract-info load
-				// below. That load reads storage even when it finds no contract
-				// (a plain account): the read is in the PoV, so warming the
-				// target is correct even when no frame is built.
+				// Denied calls (depth, reentrancy) abort before reaching this
+				// touch. The contract-info load below hits storage even for a
+				// plain account, so warming is correct when no frame is built.
 				let access = match &delegated_call {
 					None => StateAccess::Call { target: address },
 					Some(delegated) => StateAccess::DelegateCall { target: delegated.callee },
 				};
-				Self::touch_access(access_list, access);
+				// Warmth does not apply to precompile calls.
+				if !is_precompile::<T, E>(&access.target()) {
+					access_list.touch_access(access);
+				}
 
 				// which contract info to load is unaffected by the fact if this
 				// is a delegate call or not
@@ -1146,8 +1138,7 @@ where
 						else {
 							return Ok(None);
 						};
-						let code_warmth =
-							access_list.touch(AccessEntry::Code { hash: info.code_hash });
+						let code_warmth = access_list.touch_code(info.code_hash);
 						let executable = E::from_storage(info.code_hash, meter, code_warmth)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1162,7 +1153,7 @@ where
 							.as_contract()
 							.expect("When not a precompile the contract was loaded above; qed")
 							.code_hash;
-						let code_warmth = access_list.touch(AccessEntry::Code { hash: code_hash });
+						let code_warmth = access_list.touch_code(code_hash);
 						let executable = E::from_storage(code_hash, meter, code_warmth)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1934,11 +1925,11 @@ where
 		self.block_number = block_number;
 	}
 
-	/// Touches the access-list entries `opcode` reads, plus the code, as if the call already ran.
+	/// Touches the access-list entries `access` reads, plus the code, as if the call already ran.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn touch_call_target(&mut self, opcode: StateAccess, code_hash: H256) {
-		Self::touch_access(&mut self.access_list, opcode);
-		self.access_list.touch(AccessEntry::Code { hash: code_hash });
+	pub(crate) fn touch_call_target(&mut self, access: StateAccess, code_hash: H256) {
+		self.access_list.touch_access(access);
+		self.access_list.touch_code(code_hash);
 	}
 
 	/// Per-transaction access list metrics (testing).
@@ -2155,7 +2146,7 @@ where
 					let executable = E::from_storage(
 						*hash,
 						self.frame_meter_mut(),
-						Warmth::cold_nonrevertible(),
+						CodeWarmth::cold_nonrevertible(),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
@@ -2679,8 +2670,8 @@ where
 		)
 	}
 
-	fn peek_access(&self, opcode: StateAccess) -> StateAccessKind {
-		opcode.expand(|entry| self.access_list.peek(&entry))
+	fn peek_access(&self, access: StateAccess) -> StateAccessKind {
+		self.access_list.peek_access(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

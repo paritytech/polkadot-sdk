@@ -24,7 +24,8 @@ use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
-		MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateAccessKind, Warmth,
+		CodeWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateAccessKind,
+		Warmth,
 	},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
@@ -144,7 +145,7 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
-		_warmth: Warmth,
+		_warmth: CodeWarmth,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -208,7 +209,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(code_hash, meter, Warmth::cold_nonrevertible())
+	MockExecutable::from_storage(code_hash, meter, CodeWarmth::cold_nonrevertible())
 }
 
 #[test]
@@ -3334,14 +3335,14 @@ fn cold_hot_call_target_warms_across_calls() {
 		let mid = ctx.ext.access_list_metrics();
 		assert_eq!(
 			mid.cold - before.cold,
-			3,
-			"first call: account + contract info + code touch cold",
+			4,
+			"first call: account + contract info + code metadata + code blob touch cold",
 		);
 		assert_eq!(mid.hot, before.hot, "first call adds no hot touches");
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.hot - mid.hot, 3, "second call: account + contract info + code hot");
+		assert_eq!(after.hot - mid.hot, 4, "second call: account + contract info + code hot");
 		assert_eq!(after.cold, mid.cold, "second call adds no cold touches");
 		exec_success()
 	});
@@ -3364,7 +3365,11 @@ fn cold_hot_delegate_call_leaves_target_account_cold() {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(ctx.ext.delegate_call(&CallResources::NoLimits, BOB_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.cold - before.cold, 2, "delegate call: contract info + code touch cold");
+		assert_eq!(
+			after.cold - before.cold,
+			3,
+			"delegate call: contract info + code metadata + code blob touch cold",
+		);
 		assert_eq!(after.hot, before.hot, "delegate call adds no hot touches");
 		assert_matches!(
 			ctx.ext.peek_access(StateAccess::DelegateCall { target: BOB_ADDR }),
@@ -3468,7 +3473,7 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
 		assert_eq!(after.cold - mid.cold, 2, "second address: account + contract info cold");
-		assert_eq!(after.hot - mid.hot, 1, "second address: shared code blob hot");
+		assert_eq!(after.hot - mid.hot, 2, "second address: shared code metadata + blob hot");
 		exec_success()
 	});
 
@@ -3496,5 +3501,39 @@ fn cold_hot_first_frame_warms_entry_target() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, root_code_hash);
 		run_root_call(BOB_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_code_loads_cold_after_target_warmed_as_plain_account() {
+	// Warm an address as a plain account (no code loaded), then place code there,
+	// so the next call sees account and contract info hot but the code cold.
+	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+
+	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
+		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
+			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			"the plain-account call warmed account and contract info",
+		);
+
+		place_contract(&DJANGO, django_code_hash);
+
+		let before = ctx.ext.access_list_metrics();
+		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
+		let after = ctx.ext.access_list_metrics();
+		assert_eq!(after.hot - before.hot, 2, "account + contract info are already hot");
+		assert_eq!(
+			after.cold - before.cold,
+			2,
+			"code metadata + blob load",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }

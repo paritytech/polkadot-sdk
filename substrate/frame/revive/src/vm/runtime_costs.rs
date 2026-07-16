@@ -231,7 +231,7 @@ impl RuntimeCosts {
 	) -> Weight {
 		match kind {
 			StorageAccessKind::Persistent(warmth) => {
-				warm_base::<T>(&[warmth], CostPair { cold, hot })
+				warm_base::<T>(&[warmth], 1, CostPair { cold, hot }) // probe: the slot
 			},
 			StorageAccessKind::Transient => transient(),
 		}
@@ -270,14 +270,18 @@ pub(crate) struct CostPair<Cold, Hot> {
 /// Warmth-priced base of an opcode touching `items`: the hot bench applies
 /// only when every item is hot (mixed warmth rounds up to the cold bench),
 /// plus the per-item access-list overhead.
+///
+/// `hot_probes` is the number of storage reads the hot path serves from the
+/// overlay.
 pub(crate) fn warm_base<T: Config>(
 	items: &[Warmth],
+	hot_probes: u64,
 	costs: CostPair<impl FnOnce() -> Weight, impl FnOnce() -> Weight>,
 ) -> Weight {
 	let base = if items.iter().all(|warmth| warmth.is_hot()) {
-		// The hot benches run at an empty overlay; a single lookup is
-		// charged as an approximation.
-		(costs.hot)().saturating_add(RuntimeCosts::hot_storage_overlay_overhead::<T>())
+		(costs.hot)().saturating_add(
+			RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(hot_probes),
+		)
 	} else {
 		(costs.cold)()
 	};
@@ -376,6 +380,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallBase(warmth) => match warmth {
 				StateAccessKind::Call { account, contract_info } => warm_base::<T>(
 					&[account, contract_info],
+					3, // probes: address mapping, system account, contract info
 					CostPair {
 						cold: || T::WeightInfo::seal_call(0, 0, 0),
 						hot: T::WeightInfo::seal_call_hot,
@@ -383,6 +388,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				),
 				StateAccessKind::DelegateCall { contract_info } => warm_base::<T>(
 					&[contract_info],
+					1, // probe: the callee's contract info
 					CostPair {
 						cold: T::WeightInfo::seal_delegate_call,
 						hot: T::WeightInfo::seal_delegate_call_hot,

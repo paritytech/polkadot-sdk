@@ -133,6 +133,21 @@ impl Warmth {
 	}
 }
 
+/// Warmth of the two state items a code load reads.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CodeWarmth {
+	/// The `CodeInfoOf` entry.
+	pub info: Warmth,
+	/// The `PristineCode` entry.
+	pub blob: Warmth,
+}
+
+impl CodeWarmth {
+	pub fn cold_nonrevertible() -> Self {
+		Self { info: Warmth::cold_nonrevertible(), blob: Warmth::cold_nonrevertible() }
+	}
+}
+
 /// Classification of a storage access for pricing.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
@@ -221,10 +236,11 @@ pub enum AccessEntry {
 	Storage { slot: Slot, address: H160 },
 	/// Contract metadata of `address`.
 	ContractInfo { address: H160 },
-	/// Code blob and code metadata (`PristineCode` + `CodeInfoOf`). Keyed by
-	/// code hash, not address: code is deduplicated, so two contracts sharing
-	/// a blob genuinely share its load cost within a transaction.
-	Code { hash: H256 },
+	/// Code metadata (`CodeInfoOf`). Keyed by code hash: code is
+	/// deduplicated, so contracts sharing a blob share its metadata warmth.
+	CodeInfo { hash: H256 },
+	/// Code blob (`PristineCode`). Keyed by code hash for the same reason.
+	CodeBlob { hash: H256 },
 }
 
 /// Per-transaction access list with per-frame rollback support. Layout
@@ -350,6 +366,24 @@ impl AccessList {
 		kind
 	}
 
+	/// Touches each state item read by `access` and returns its warmth.
+	pub fn touch_access(&mut self, access: StateAccess) -> StateAccessKind {
+		access.expand(|entry| self.touch(entry))
+	}
+
+	/// Non-mutating sibling of [`touch_access`](Self::touch_access).
+	pub fn peek_access(&self, access: StateAccess) -> StateAccessKind {
+		access.expand(|entry| self.peek(&entry))
+	}
+
+	/// Registers the two state items a code load reads, returning their warmth.
+	pub fn touch_code(&mut self, hash: H256) -> CodeWarmth {
+		CodeWarmth {
+			info: self.touch(AccessEntry::CodeInfo { hash }),
+			blob: self.touch(AccessEntry::CodeBlob { hash }),
+		}
+	}
+
 	/// Per-transaction metrics snapshot.
 	pub fn metrics(&self) -> AccessListMetrics {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
@@ -373,7 +407,7 @@ mod tests {
 			AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([0xA; 32]) },
 			AccessEntry::Account { address: H160::zero() },
 			AccessEntry::ContractInfo { address: H160::zero() },
-			AccessEntry::Code { hash: H256::repeat_byte(0xD) },
+			AccessEntry::CodeBlob { hash: H256::repeat_byte(0xD) },
 		);
 
 		// Root frame: cold, but no checkpoint covers it, so it is not revertible.
