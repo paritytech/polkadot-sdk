@@ -1875,7 +1875,6 @@ mod tests {
 		) -> sp_statement_store::Result<
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
-
 			let mut recent = self.recent_statements.lock().unwrap();
 			let mut taken = Vec::with_capacity(max.min(recent.len()));
 			recent.retain(|hash, statement| {
