@@ -348,8 +348,13 @@ impl CollationManager {
 				entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }))
 		);
 
-		let segment =
-			StoredSegment { descriptor_version, entries, received_at: self.clock.now(), para_id };
+		let segment = StoredSegment {
+			descriptor_version,
+			entries,
+			received_at: self.clock.now(),
+			para_id,
+			consumed: false,
+		};
 
 		// V1 advertisements (empty entries) are only allowed on active leaves.
 		if segment.entries.is_empty() && !self.implicit_view.contains_leaf(&scheduling_parent) {
@@ -413,8 +418,9 @@ impl CollationManager {
 		}
 		// Byte-dedup against currently stored segments only (consumed segments are gone, so
 		// a re-advertisement after launch is accepted as a fresh entitlement).
-		if peer_ads.segments.iter().any(|s| {
-			s.descriptor_version == segment.descriptor_version && s.entries == segment.entries
+		if peer_ads.live_segments().any(|(_segment_index, stored_segment)| {
+			segment.descriptor_version == stored_segment.descriptor_version &&
+				segment.entries == stored_segment.entries
 		}) {
 			return Err(AdvertisementError::Duplicate);
 		}
@@ -547,7 +553,7 @@ impl CollationManager {
 					.and_then(|per_sp| per_sp.peer_advertisements.get_mut(&advertisement.peer_id))
 				{
 					if segment_index < peer_ads.segments.len() {
-						peer_ads.segments.swap_remove(segment_index);
+						peer_ads.segments[segment_index].consumed = true;
 					} else {
 						gum::error!(
 							target: LOG_TARGET,
@@ -674,6 +680,19 @@ impl CollationManager {
 		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
 
 		self.fetching.note_completed(&advertisement);
+
+		// A fetch concluded: reclaim consumed segments everywhere. The flag is the
+		// logical removal (consumed segments are already invisible via `live_segments`);
+		// this sweep is memory reclamation only. It must run before the early returns
+		// below so every conclusion path sweeps — success, failure, cancellation, and
+		// SP-out-of-view alike. Segments flagged by a deletion-only planner pass wait
+		// here until the next conclusion, which is fine: they are invisible and
+		// cap-bounded meanwhile.
+		for per_sp in self.per_scheduling_parent.values_mut() {
+			for peer_ads in per_sp.peer_advertisements.values_mut() {
+				peer_ads.sweep_consumed();
+			}
+		}
 
 		let Some(per_sp) = self.per_scheduling_parent.get_mut(&advertisement.scheduling_parent)
 		else {
@@ -868,7 +887,7 @@ impl CollationManager {
 	}
 
 	/// Segments at `sp` for `para_id` that are launchable right now.
-	fn eligible_advertisements<'a>(
+	fn eligible_segments<'a>(
 		&'a self,
 		scheduling_parent: Hash,
 		para_id: ParaId,
@@ -896,10 +915,8 @@ impl CollationManager {
 		let fetching = &self.fetching;
 		Either::Right(per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
 			peer_ads
-				.segments
-				.iter()
-				.enumerate()
-				.filter(move |(_, segment)| segment.para_id == para_id)
+				.live_segments()
+				.filter(move |(_segment_index, segment)| segment.para_id == para_id)
 				.filter_map(move |(idx, segment)| {
 					// Single-claim shapes synthesize their ticket; a multi-entry V4
 					// segment gets the TIP as its interim resolution — replaced by the
@@ -946,7 +963,7 @@ impl CollationManager {
 		let advertisements: BTreeSet<AcceptedAdvertisement> = candidate_sps
 			.filter_map(|sp| {
 				let activated_at = self.per_scheduling_parent.get(&sp)?.activated_at;
-				Some(self.eligible_advertisements(sp, para_id).filter_map(
+				Some(self.eligible_segments(sp, para_id).filter_map(
 					move |(adv, timestamp, segment_idx)| {
 						Some(AcceptedAdvertisement {
 							adv,
@@ -1142,7 +1159,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.segments.iter().filter_map(move |s| s.as_advertisement(*peer_id, *sp))
+					peer_ads.live_segments().filter_map(move |(_segment_index, segment)| {
+						segment.as_advertisement(*peer_id, *sp)
+					})
 				})
 			})
 			.collect()
@@ -1156,7 +1175,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.segments.iter().map(move |s| (*sp, *peer_id, s.entries.clone()))
+					peer_ads.live_segments().map(move |(_segment_index, segment)| {
+						(*sp, *peer_id, segment.entries.clone())
+					})
 				})
 			})
 			.collect()
@@ -1381,6 +1402,7 @@ impl PerSchedulingParent {
 				entries: advertisement.prospective_candidate.into_iter().collect(),
 				received_at,
 				para_id: advertisement.para_id,
+				consumed: false,
 			});
 	}
 }
@@ -1393,12 +1415,24 @@ struct PeerAdvertisements {
 	total: usize,
 }
 
+impl PeerAdvertisements {
+	fn live_segments(&self) -> impl Iterator<Item = (usize, &StoredSegment)> {
+		self.segments.iter().enumerate().filter(|(_, segment)| !segment.consumed)
+	}
+
+	fn sweep_consumed(&mut self) {
+		self.segments.retain(|segment| !segment.consumed);
+	}
+}
+
 struct StoredSegment {
 	descriptor_version: Option<CandidateDescriptorVersion>,
 	entries: Vec<ProspectiveCandidate>,
 	received_at: Instant,
 	/// Id of the parachain this segment is for
 	para_id: ParaId,
+	/// Was this segment's fetch entitlement spent?
+	consumed: bool,
 }
 
 impl StoredSegment {
