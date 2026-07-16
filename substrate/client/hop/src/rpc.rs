@@ -43,7 +43,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner,
 };
-use std::{marker::PhantomData, sync::Arc, time::Instant};
+use std::{marker::PhantomData, sync::Arc};
 
 /// HOP RPC methods.
 #[rpc(client, server)]
@@ -156,45 +156,28 @@ where
 		signer: Bytes,
 		submit_timestamp: u64,
 	) -> RpcResult<SubmitResult> {
-		let started = Instant::now();
 		let result = self.do_submit(data, recipients, signature, signer, submit_timestamp);
-		self.pool.metrics().record_rpc(
-			rpc_methods::SUBMIT,
-			outcome_label(&result),
-			started.elapsed(),
-		);
+		self.pool.metrics().record_rpc(rpc_methods::SUBMIT, outcome_label(&result));
 		Ok(result?)
 	}
 
 	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
-		let started = Instant::now();
 		let result = Self::decode_hash(raw_hash)
 			.and_then(|hash| self.pool.claim(&hash, &signature.0).map(Bytes));
-		self.pool.metrics().record_rpc(
-			rpc_methods::CLAIM,
-			outcome_label(&result),
-			started.elapsed(),
-		);
+		self.pool.metrics().record_rpc(rpc_methods::CLAIM, outcome_label(&result));
 		Ok(result?)
 	}
 
 	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()> {
-		let started = Instant::now();
 		let result =
 			Self::decode_hash(raw_hash).and_then(|hash| self.pool.ack(&hash, &signature.0));
-		self.pool
-			.metrics()
-			.record_rpc(rpc_methods::ACK, outcome_label(&result), started.elapsed());
+		self.pool.metrics().record_rpc(rpc_methods::ACK, outcome_label(&result));
 		Ok(result?)
 	}
 
 	fn pool_status(&self) -> RpcResult<PoolStatus> {
-		let started = Instant::now();
-		let status = self.pool.status();
-		self.pool
-			.metrics()
-			.record_rpc(rpc_methods::POOL_STATUS, OUTCOME_OK, started.elapsed());
-		Ok(status)
+		self.pool.metrics().record_rpc(rpc_methods::POOL_STATUS, OUTCOME_OK);
+		Ok(self.pool.status())
 	}
 }
 

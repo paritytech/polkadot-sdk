@@ -270,6 +270,14 @@ impl HopDataPool {
 		&self.metrics
 	}
 
+	/// Snapshot the pool size gauges from the authoritative index and size
+	/// counter. Called after every mutation; must not be called with the index
+	/// lock held.
+	fn update_size_metrics(&self) {
+		let entries = self.index.lock().len() as u64;
+		self.metrics.set_pool_size(entries, self.current_size.load(Ordering::Relaxed));
+	}
+
 	/// Charge `accounted` bytes against `sender_id`'s per-user quota, creating
 	/// a zero-initialized counter if absent. The read guard held across the
 	/// `fetch_add` excludes the reclamation pass in `cleanup_expired` (which
@@ -363,6 +371,9 @@ impl HopDataPool {
 		let result =
 			self.insert_inner(data, recipients, sender_id, signer, signature, submit_timestamp);
 		self.metrics.record_insert(&result, accounted);
+		if result.is_ok() {
+			self.update_size_metrics();
+		}
 		result
 	}
 
@@ -534,7 +545,8 @@ impl HopDataPool {
 			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 			self.release_user_quota(&meta.sender_id, accounted);
-			self.metrics.record_removed(removal_reasons::CORRUPT, 1, accounted);
+			self.metrics.record_removed(removal_reasons::CORRUPT, 1);
+			self.update_size_metrics();
 		}
 		let _ = fs::remove_file(self.blob_path(hash));
 		let _ = fs::remove_file(self.meta_path(hash));
@@ -671,7 +683,8 @@ impl HopDataPool {
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 			self.release_user_quota(&sender, accounted);
 			drop(index);
-			self.metrics.record_removed(removal_reasons::ACKED, 1, accounted);
+			self.metrics.record_removed(removal_reasons::ACKED, 1);
+			self.update_size_metrics();
 
 			// Delete files from disk (best-effort; orphans cleaned on restart).
 			let _ = fs::remove_file(self.blob_path(hash));
@@ -786,31 +799,21 @@ impl HopDataPool {
 			// Phase 2: Update counters and batch user-quota release. Entries
 			// expiring unpromoted are the data-loss case; count them separately.
 			let mut freed = 0u64;
-			let (mut promoted, mut promoted_bytes) = (0u64, 0u64);
-			let (mut unpromoted, mut unpromoted_bytes) = (0u64, 0u64);
+			let mut promoted = 0u64;
+			let mut unpromoted = 0u64;
 			for (_, meta) in &expired {
-				let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-				freed = freed.saturating_add(accounted);
+				freed =
+					freed.saturating_add(entry_accounted_size(meta.size, meta.recipients.len()));
 				if meta.promoted {
 					promoted += 1;
-					promoted_bytes += accounted;
 				} else {
 					unpromoted += 1;
-					unpromoted_bytes += accounted;
 				}
 			}
 			self.current_size.fetch_sub(freed, Ordering::Relaxed);
 			total_freed = total_freed.saturating_add(freed);
-			self.metrics.record_removed(
-				removal_reasons::EXPIRED_PROMOTED,
-				promoted,
-				promoted_bytes,
-			);
-			self.metrics.record_removed(
-				removal_reasons::EXPIRED_UNPROMOTED,
-				unpromoted,
-				unpromoted_bytes,
-			);
+			self.metrics.record_removed(removal_reasons::EXPIRED_PROMOTED, promoted);
+			self.metrics.record_removed(removal_reasons::EXPIRED_UNPROMOTED, unpromoted);
 
 			{
 				let usage = self.user_usage.read();
@@ -847,6 +850,8 @@ impl HopDataPool {
 
 		// Let the rate limiter shed stale per-sender state on the same cadence.
 		self.rate_limiter.evict_stale();
+
+		self.update_size_metrics();
 
 		total_freed
 	}

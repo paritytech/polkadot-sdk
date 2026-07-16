@@ -18,8 +18,8 @@
 
 use crate::types::HopError;
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts,
-	HistogramVec, Opts, PrometheusError, Registry, U64,
+	exponential_buckets, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts, Opts,
+	PrometheusError, Registry, U64,
 };
 use std::time::Duration;
 
@@ -88,7 +88,6 @@ struct Inner {
 	pool_inserted_bytes_total: Counter<U64>,
 	pool_removed_total: CounterVec<U64>,
 	rpc_requests_total: CounterVec<U64>,
-	rpc_request_duration_seconds: HistogramVec,
 	promotion_submissions_total: CounterVec<U64>,
 	promotions_confirmed_total: Counter<U64>,
 	promotions_abandoned_total: Counter<U64>,
@@ -145,6 +144,10 @@ impl Inner {
 				)?,
 				registry,
 			)?,
+			// Method-level call counts and durations are already covered for
+			// every RPC method by the server middleware
+			// (`substrate_rpc_calls_started/finished/time`); this counter only
+			// adds the error-variant granularity the middleware cannot see.
 			rpc_requests_total: register(
 				CounterVec::new(
 					Opts::new(
@@ -152,20 +155,6 @@ impl Inner {
 						"Total number of HOP RPC requests, by method and outcome",
 					),
 					&["method", "outcome"],
-				)?,
-				registry,
-			)?,
-			rpc_request_duration_seconds: register(
-				HistogramVec::new(
-					HistogramOpts {
-						common_opts: Opts::new(
-							"substrate_hop_rpc_request_duration_seconds",
-							"Duration of handling a HOP RPC request, in seconds",
-						),
-						buckets: exponential_buckets(0.001, 2.0, 16)
-							.expect("parameters are always valid values; qed"),
-					},
-					&["method"],
 				)?,
 				registry,
 			)?,
@@ -249,40 +238,41 @@ impl HopMetrics {
 		}
 	}
 
-	/// Record an insert attempt; on success also grow the pool gauges by
-	/// `accounted` bytes and one entry.
+	/// Snapshot the pool size gauges. Gauges are set from the authoritative
+	/// counts rather than inc/dec'd: a `Gauge<U64>` wraps on underflow, so any
+	/// missed or double-counted delta would poison the gauge forever, while a
+	/// snapshot self-corrects on the next update.
+	pub(crate) fn set_pool_size(&self, entries: u64, bytes: u64) {
+		if let Some(inner) = &self.inner {
+			inner.pool_entries.set(entries);
+			inner.pool_bytes.set(bytes);
+		}
+	}
+
+	/// Record an insert attempt; on success also count `accounted` inserted bytes.
 	pub(crate) fn record_insert<T>(&self, result: &Result<T, HopError>, accounted: u64) {
 		if let Some(inner) = &self.inner {
 			inner.pool_inserts_total.with_label_values(&[outcome_label(result)]).inc();
 			if result.is_ok() {
-				inner.pool_entries.inc();
-				inner.pool_bytes.add(accounted);
 				inner.pool_inserted_bytes_total.inc_by(accounted);
 			}
 		}
 	}
 
-	/// Record `entries` removals totalling `bytes` under `reason` and shrink the
-	/// pool gauges accordingly.
-	pub(crate) fn record_removed(&self, reason: &str, entries: u64, bytes: u64) {
+	/// Record `entries` removals under `reason`.
+	pub(crate) fn record_removed(&self, reason: &str, entries: u64) {
 		if entries == 0 {
 			return;
 		}
 		if let Some(inner) = &self.inner {
 			inner.pool_removed_total.with_label_values(&[reason]).inc_by(entries);
-			inner.pool_entries.sub(entries);
-			inner.pool_bytes.sub(bytes);
 		}
 	}
 
-	/// Record one RPC request with its outcome and duration.
-	pub(crate) fn record_rpc(&self, method: &str, outcome: &str, elapsed: Duration) {
+	/// Record one RPC request with its outcome.
+	pub(crate) fn record_rpc(&self, method: &str, outcome: &str) {
 		if let Some(inner) = &self.inner {
 			inner.rpc_requests_total.with_label_values(&[method, outcome]).inc();
-			inner
-				.rpc_request_duration_seconds
-				.with_label_values(&[method])
-				.observe(elapsed.as_secs_f64());
 		}
 	}
 
@@ -358,9 +348,10 @@ mod tests {
 	fn disabled_metrics_are_no_ops() {
 		let metrics = HopMetrics::disabled();
 		metrics.set_pool_status(1, 2, 3);
+		metrics.set_pool_size(1, 2);
 		metrics.record_insert::<()>(&Ok(()), 42);
-		metrics.record_removed(removal_reasons::ACKED, 1, 42);
-		metrics.record_rpc(rpc_methods::SUBMIT, OUTCOME_OK, Duration::from_millis(1));
+		metrics.record_removed(removal_reasons::ACKED, 1);
+		metrics.record_rpc(rpc_methods::SUBMIT, OUTCOME_OK);
 		metrics.record_promotion_submission(true);
 		metrics.record_promotion_confirmed();
 		metrics.record_promotion_abandoned();
@@ -379,9 +370,11 @@ mod tests {
 
 		metrics.record_insert::<()>(&Ok(()), 100);
 		metrics.record_insert::<()>(&Err(HopError::PoolFull(300, 1000)), 100);
+		metrics.set_pool_size(3, 300);
 		assert_eq!(metrics.pool_gauges(), (3, 300));
 
-		metrics.record_removed(removal_reasons::EXPIRED_UNPROMOTED, 2, 250);
+		metrics.record_removed(removal_reasons::EXPIRED_UNPROMOTED, 2);
+		metrics.set_pool_size(1, 50);
 		assert_eq!(metrics.pool_gauges(), (1, 50));
 		assert_eq!(metrics.removed_count(removal_reasons::EXPIRED_UNPROMOTED), 2);
 		assert_eq!(metrics.removed_count(removal_reasons::ACKED), 0);
@@ -397,12 +390,8 @@ mod tests {
 		let registry = Registry::new();
 		let metrics = HopMetrics::new(Some(&registry)).unwrap();
 
-		metrics.record_rpc(rpc_methods::SUBMIT, OUTCOME_OK, Duration::from_millis(3));
-		metrics.record_rpc(
-			rpc_methods::CLAIM,
-			error_label(&HopError::NotFound),
-			Duration::from_millis(1),
-		);
+		metrics.record_rpc(rpc_methods::SUBMIT, OUTCOME_OK);
+		metrics.record_rpc(rpc_methods::CLAIM, error_label(&HopError::NotFound));
 		metrics.record_promotion_submission(true);
 		metrics.record_promotion_submission(false);
 		metrics.record_promotion_confirmed();
@@ -424,13 +413,6 @@ mod tests {
 				.rpc_requests_total
 				.with_label_values(&[rpc_methods::CLAIM, "not_found"])
 				.get(),
-			1
-		);
-		assert_eq!(
-			inner
-				.rpc_request_duration_seconds
-				.with_label_values(&[rpc_methods::SUBMIT])
-				.get_sample_count(),
 			1
 		);
 		assert_eq!(inner.promotion_submissions_total.with_label_values(&["submitted"]).get(), 1);
