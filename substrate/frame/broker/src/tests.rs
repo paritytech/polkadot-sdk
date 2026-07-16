@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-use crate::{core_mask::*, mock::*, *};
+use crate::{mock::*, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
@@ -402,6 +402,126 @@ fn migration_works() {
 				(18, AssignCore { core: 1, begin: 20, assignment: just_pool(), end_hint: None }),
 			]
 		);
+	});
+}
+
+#[test]
+fn migration_v5_reconstructs_sale_index_from_region_begin() {
+	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+	struct FirstRegion;
+	impl FirstSaleRegion for FirstRegion {
+		fn region_begin() -> Timeslice {
+			100
+		}
+	}
+
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		let region_length = Configuration::<Test>::get().unwrap().region_length;
+		let template = SaleInfo::<Test>::get().unwrap();
+
+		let migrate_with_region_begin = |region_begin: Timeslice| {
+			// Write the pre-v5 record (old layout, no `sale_index`) that the migration reads.
+			old::SaleInfo::<Test>::put(old::SaleInfoRecord {
+				sale_start: template.sale_start,
+				leadin_length: template.leadin_length,
+				end_price: template.end_price,
+				region_begin,
+				region_end: region_begin + region_length,
+				ideal_cores_sold: template.ideal_cores_sold,
+				cores_offered: template.cores_offered,
+				first_core: template.first_core,
+				sellout_price: template.sellout_price,
+				cores_sold: template.cores_sold,
+			});
+
+			let _ = <MigrateToV5Impl<Test, FirstRegion> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+			SaleInfo::<Test>::get().unwrap().sale_index
+		};
+
+		// First sale (region_begin == anchor) is index 1; bootstrap sale is index 0.
+		assert_eq!(migrate_with_region_begin(100), 1);
+
+		// Five regions later the current sale is index 6.
+		assert_eq!(migrate_with_region_begin(100 + 5 * region_length), 6);
+	});
+}
+
+#[test]
+fn migration_v5_defaults_sale_index_when_configuration_missing() {
+	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	struct FirstRegion;
+	impl FirstSaleRegion for FirstRegion {
+		fn region_begin() -> Timeslice {
+			100
+		}
+	}
+
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		let region_length = Configuration::<Test>::get().unwrap().region_length;
+		let template = SaleInfo::<Test>::get().unwrap();
+
+		// Pre-v5 record present, Configuration gone: migration must not panic, still rewrites it.
+		old::SaleInfo::<Test>::put(old::SaleInfoRecord {
+			sale_start: template.sale_start,
+			leadin_length: template.leadin_length,
+			end_price: template.end_price,
+			region_begin: 100 + 5 * region_length,
+			region_end: 100 + 6 * region_length,
+			ideal_cores_sold: template.ideal_cores_sold,
+			cores_offered: template.cores_offered,
+			first_core: template.first_core,
+			sellout_price: template.sellout_price,
+			cores_sold: template.cores_sold,
+		});
+		Configuration::<Test>::kill();
+
+		// `log` to `tracing` bridge, needed for capture.
+		sp_tracing::init_for_tests();
+		let (log_capture, subscriber) = init_log_capture(Level::ERROR, false);
+		subscriber::with_default(subscriber, || {
+			let _ = <MigrateToV5Impl<Test, FirstRegion> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+		});
+
+		// Record still rewritten, with the fallback index, and the fallback is logged.
+		let migrated = SaleInfo::<Test>::get().expect("record rewritten in new layout");
+		assert_eq!(migrated.sale_index, 1);
+		assert!(log_capture.contains("Configuration missing while SaleInfo exists"));
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migration_v5_post_upgrade_accepts_missing_sale_info() {
+	use crate::migration::v5::{FirstSaleRegion, MigrateToV5Impl};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+	struct FirstRegion;
+	impl FirstSaleRegion for FirstRegion {
+		fn region_begin() -> Timeslice {
+			100
+		}
+	}
+
+	type Migration = MigrateToV5Impl<Test, FirstRegion>;
+
+	TestExt::new().execute_with(|| {
+		// No SaleInfo: on_runtime_upgrade skips, so pre/post_upgrade must agree it is valid.
+		assert!(SaleInfo::<Test>::get().is_none());
+
+		let state = <Migration as UncheckedOnRuntimeUpgrade>::pre_upgrade().unwrap();
+		let _ = <Migration as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+		assert!(SaleInfo::<Test>::get().is_none());
+		assert_ok!(<Migration as UncheckedOnRuntimeUpgrade>::post_upgrade(state));
 	});
 }
 
@@ -1706,6 +1826,7 @@ fn purchase_requires_valid_status_and_sale_info() {
 			ideal_cores_sold: 0,
 			cores_offered: 1,
 			cores_sold: 2,
+			sale_index: 0,
 		};
 		SaleInfo::<Test>::put(&dummy_sale);
 		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Unavailable);
@@ -1748,6 +1869,7 @@ fn renewal_requires_valid_status_and_sale_info() {
 			ideal_cores_sold: 0,
 			cores_offered: 1,
 			cores_sold: 2,
+			sale_index: 0,
 		};
 		SaleInfo::<Test>::put(&dummy_sale);
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);

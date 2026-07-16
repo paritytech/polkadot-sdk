@@ -11,7 +11,6 @@ resolver = "2"
 members = [
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-cumulus",
-	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/modules/beefy",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -77,6 +76,7 @@ members = [
 	"cumulus/client/relay-chain-minimal-node",
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
+	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
@@ -134,6 +134,8 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/yet-another-parachain",
+	"cumulus/parachains/utils/generate-bags",
+	"cumulus/parachains/utils/remote-ext-tests/bags-list",
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-omni-node/lib",
 	"cumulus/polkadot-parachain",
@@ -232,8 +234,6 @@ members = [
 	"polkadot/runtime/westend/bridge-primitives",
 	"polkadot/runtime/westend/constants",
 	"polkadot/statement-table",
-	"polkadot/utils/generate-bags",
-	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/utils/remote-ext-tests/psm",
 	"polkadot/xcm",
 	"polkadot/xcm/docs",
@@ -310,6 +310,7 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
+	"substrate/client/storage-chain-sync",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
@@ -422,6 +423,7 @@ members = [
 	"substrate/frame/parameters",
 	"substrate/frame/people",
 	"substrate/frame/preimage",
+	"substrate/frame/primitives/coretime",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
 	"substrate/frame/psm/remote-tests",
@@ -721,7 +723,6 @@ bp-bridge-hub-westend = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
-bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
 bp-rococo = { path = "polkadot/runtime/rococo/bridge-primitives", default-features = false }
@@ -777,6 +778,7 @@ cumulus-client-network = { path = "cumulus/client/network", default-features = f
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
+cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
@@ -839,6 +841,7 @@ fnv = { version = "1.0.6" }
 foldhash = { version = "0.1.5", default-features = false }
 fork-tree = { path = "substrate/utils/fork-tree", default-features = false }
 forwarded-header-value = { version = "0.1.1" }
+fp-coretime = { path = "substrate/frame/primitives/coretime", default-features = false }
 fraction = { version = "0.13.1" }
 frame = { path = "substrate/frame", default-features = false, package = "polkadot-sdk-frame" }
 frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false }
@@ -1284,6 +1287,7 @@ sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
 sc-statement-store = { default-features = false, path = "substrate/client/statement-store" }
+sc-storage-chain-sync = { default-features = false, path = "substrate/client/storage-chain-sync" }
 sc-storage-monitor = { path = "substrate/client/storage-monitor", default-features = false }
 sc-sync-state-rpc = { path = "substrate/client/sync-state-rpc", default-features = false }
 sc-sysinfo = { path = "substrate/client/sysinfo", default-features = false }
@@ -1424,9 +1428,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.44", default-features = false }
-subxt-metadata = { version = "0.44", default-features = false }
-subxt-signer = { version = "0.44" }
+subxt = { version = "0.50", default-features = false }
+subxt-metadata = { version = "0.50", default-features = false }
+subxt-signer = { version = "0.50" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1500,9 +1504,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.9" }
-zombienet-orchestrator = { version = "0.4.9" }
-zombienet-sdk = { version = "0.4.9" }
+zombienet-configuration = { version = "0.4.13" }
+zombienet-orchestrator = { version = "0.4.13" }
+zombienet-sdk = { version = "0.4.13" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
