@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784200792127,
+  "lastUpdate": 1784210811671,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c8f5da2e895b439cf401e20faca55ad76f9e90d1",
-          "message": "Version bumps and prdocs reordering from stable2509-2 (#10339)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-11-18T09:50:51Z",
-          "tree_id": "e0a0d83ba4a3920bce9eb53c2cbc49e36eaf39fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8f5da2e895b439cf401e20faca55ad76f9e90d1"
-        },
-        "date": 1763465532929,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005174358519999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002686656520000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008795321459999983,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009583447479999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68e8908c0f7a2609054a00408a219af4bdd4d3ad",
+          "message": "Remove deprecated TREASURER_INDEX constants (#12664)\n\nPart of #11561\n\nRemoves the deprecated `xcm::body::TREASURER_INDEX` constants from the\nWestend and RC runtime constants modules.\n\nThese constants were deprecated in favor of\n`xcm::latest::BodyId::Treasury` with a removal date of August 2024, and\nthere are no remaining in-repo uses.\n\n## Integration\n\nDownstream users should use `xcm::latest::BodyId::Treasury` instead of\nthe old numeric `TREASURER_INDEX` constant.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-16T11:43:05Z",
+          "tree_id": "b430afdad7be80ed17a6e361b746afcc90ef1de7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e8908c0f7a2609054a00408a219af4bdd4d3ad"
+        },
+        "date": 1784210781018,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025199290999999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.008949975939999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009295276769999989,
             "unit": "seconds"
           }
         ]
