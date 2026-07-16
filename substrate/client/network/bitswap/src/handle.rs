@@ -15,17 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-//! Public user-facing handle for the Bitswap service.
-//!
-//! Cheap to clone. Submit work via [`BitswapHandle::request_stream`], drain the receiver
-//! to get per-CID results as they resolve. The service retries unresolved CIDs for as
-//! long as the request is alive; the caller owns the time budget: apply a timeout while
-//! draining and drop the receiver to give up. Dropping the receiver cancels all wants
-//! remaining in the request.
+//! User-facing API for submitting Bitswap requests.
 
 use super::{is_cid_supported, Cid};
 
-use async_trait::async_trait;
 use tokio::sync::mpsc;
 
 /// Service-level Bitswap errors.
@@ -72,10 +65,8 @@ impl BitswapHandle {
 	/// Submit a wantlist. Returns a receiver that yields `Ok((cid, bytes))` with
 	/// hash-verified bytes for each requested CID, in the order they resolve.
 	///
-	/// The stream closes once every CID has been delivered. A CID that no connected peer
-	/// can serve stays unresolved indefinitely; the service keeps retrying as peers
-	/// connect. To bound the wait, apply a timeout while draining and drop the receiver —
-	/// dropping it cancels all wants remaining in this request.
+	/// The stream closes once every CID has been delivered. Unresolved CIDs are retried
+	/// until the receiver is dropped.
 	///
 	/// There is no per-call CID cap.
 	///
@@ -86,7 +77,7 @@ impl BitswapHandle {
 	/// Returns a synchronous `BitswapError` for admission-time failures (`ServiceClosed`,
 	/// `InvalidCid`, or `Overloaded` when the command channel is full). An empty `cids`
 	/// slice returns an immediately-closed receiver, not an error.
-	pub async fn request_stream(
+	pub fn request_stream(
 		&self,
 		cids: Vec<Cid>,
 	) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
@@ -119,22 +110,14 @@ impl BitswapHandle {
 
 /// Object-safe surface over [`BitswapHandle::request_stream`], allowing consumers to mock
 /// the bitswap client in tests.
-#[async_trait]
 pub trait BitswapRequest: Send + Sync {
 	/// Submit a wantlist. See [`BitswapHandle::request_stream`] for full semantics.
-	async fn request_stream(
-		&self,
-		cids: Vec<Cid>,
-	) -> Result<mpsc::Receiver<FetchItem>, BitswapError>;
+	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError>;
 }
 
-#[async_trait]
 impl BitswapRequest for BitswapHandle {
-	async fn request_stream(
-		&self,
-		cids: Vec<Cid>,
-	) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
-		BitswapHandle::request_stream(self, cids).await
+	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
+		BitswapHandle::request_stream(self, cids)
 	}
 }
 

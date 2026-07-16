@@ -118,7 +118,7 @@ pub(crate) struct RenewWant {
 pub struct StorageChainBlockImport<Block: BlockT, Inner, Client> {
 	inner: Inner,
 	client: Arc<Client>,
-	fetcher: IndexedTransactionFetcher<Block>,
+	fetcher: IndexedTransactionFetcher,
 	_phantom: PhantomData<Block>,
 }
 
@@ -134,11 +134,7 @@ impl<Block: BlockT, Inner: Clone, Client> Clone for StorageChainBlockImport<Bloc
 }
 
 impl<Block: BlockT, Inner, Client> StorageChainBlockImport<Block, Inner, Client> {
-	pub fn new(
-		inner: Inner,
-		client: Arc<Client>,
-		fetcher: IndexedTransactionFetcher<Block>,
-	) -> Self {
+	pub fn new(inner: Inner, client: Arc<Client>, fetcher: IndexedTransactionFetcher) -> Self {
 		Self { inner, client, fetcher, _phantom: PhantomData }
 	}
 }

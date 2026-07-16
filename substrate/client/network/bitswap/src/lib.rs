@@ -24,6 +24,7 @@
 use cid::Version as CidVersion;
 
 mod handle;
+mod metrics;
 mod service;
 
 pub use cid::Cid;

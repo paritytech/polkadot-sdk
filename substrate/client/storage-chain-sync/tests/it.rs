@@ -833,9 +833,8 @@ mod mock {
 		}
 	}
 
-	#[async_trait]
 	impl BitswapRequest for MockBitswap {
-		async fn request_stream(
+		fn request_stream(
 			&self,
 			cids: Vec<BitswapCid>,
 		) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
@@ -1133,8 +1132,7 @@ mod mock {
 		let inner = TestInner::recording();
 		let captured = inner.captured.clone();
 
-		let fetcher =
-			IndexedTransactionFetcher::<TestBlock>::new(populated_bitswap_slot(network.clone()));
+		let fetcher = IndexedTransactionFetcher::new(populated_bitswap_slot(network.clone()));
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
 		Harness { wrapper, api, captured, network }
@@ -1155,7 +1153,7 @@ mod mock {
 		let inner = TestInner::recording();
 		let captured = inner.captured.clone();
 
-		let fetcher = IndexedTransactionFetcher::<TestBlock>::new(populated_bitswap_slot(network));
+		let fetcher = IndexedTransactionFetcher::new(populated_bitswap_slot(network));
 		let wrapper = StorageChainBlockImport::new(inner, api.clone(), fetcher);
 
 		BlockExecutionHarness { wrapper, api, captured, content_hash }

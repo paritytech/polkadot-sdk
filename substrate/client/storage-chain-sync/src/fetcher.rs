@@ -16,18 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Bitswap-based fetcher for indexed-transaction blobs.
-//!
-//! Thin adapter over [`sc_network_bitswap::BitswapHandle`]: builds the per-want CIDs,
-//! submits them and collects the outcomes under a size-scaled time budget. Peer
-//! selection, retries and hash verification live in the bitswap service; the fetch
-//! deadline lives here, since the service retries indefinitely and the caller owns the
-//! time budget.
+//! Fetches indexed-transaction blobs through the shared Bitswap service.
 
 use crate::RenewWant;
 use cid::{multihash::Multihash, Cid};
 use sc_network_bitswap::{BitswapError, BitswapRequest};
-use sp_runtime::traits::Block as BlockT;
 use sp_transaction_storage_proof::ContentHash;
 use std::{
 	collections::HashMap,
@@ -72,26 +65,15 @@ pub enum FetchError {
 }
 
 /// Fetcher that resolves indexed-transaction hashes via bitswap.
-///
-/// Holds the late-bound [`BitswapRequest`] slot. The block-import path holds one
-/// of these and calls [`Self::fetch_many`] for each batch of missing renew hashes.
-///
-/// Cloning is cheap: the only field is an `Arc`.
-pub struct IndexedTransactionFetcher<Block: BlockT> {
+#[derive(Clone)]
+pub struct IndexedTransactionFetcher {
 	bitswap: BitswapHandleSlot,
-	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<Block: BlockT> Clone for IndexedTransactionFetcher<Block> {
-	fn clone(&self) -> Self {
-		Self { bitswap: self.bitswap.clone(), _phantom: std::marker::PhantomData }
-	}
-}
-
-impl<Block: BlockT> IndexedTransactionFetcher<Block> {
+impl IndexedTransactionFetcher {
 	/// Build a new fetcher backed by the given late-bound bitswap handle slot.
 	pub fn new(bitswap: BitswapHandleSlot) -> Self {
-		Self { bitswap, _phantom: std::marker::PhantomData }
+		Self { bitswap }
 	}
 
 	/// Resolve a batch of indexed-transaction hashes via bitswap. Each want carries the
@@ -117,7 +99,7 @@ impl<Block: BlockT> IndexedTransactionFetcher<Block> {
 			cids.push(cid);
 		}
 
-		let mut rx = match handle.request_stream(cids).await {
+		let mut rx = match handle.request_stream(cids) {
 			Ok(rx) => rx,
 			// Transient congestion: degrade to an empty partial result instead of failing
 			// the import.

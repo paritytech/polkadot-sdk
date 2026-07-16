@@ -95,6 +95,8 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
+	future::Future,
+	pin::Pin,
 	str::FromStr,
 	sync::Arc,
 	time::{Duration, SystemTime},
@@ -1175,6 +1177,12 @@ where
 	pub blocks_pruning: BlocksPruning,
 }
 
+struct BitswapInitialization {
+	handler: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
+	handle: Option<sc_network_bitswap::BitswapHandle>,
+	config: Option<IpfsConfig>,
+}
+
 /// Build the network service, the network status sinks and an RPC sender, this is a lower-level
 /// version of [`build_network`] for those needing more control.
 ///
@@ -1241,38 +1249,42 @@ where
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
 	// Initialize the IPFS server.
-	let (bitswap_handler, bitswap_user_handle, ipfs_config) =
-		if net_config.network_config.ipfs_server {
-			if !Net::SUPPORTS_IPFS {
-				return Err(Error::Other(
-					"the selected network backend does not support Bitswap; \
+	let bitswap = if net_config.network_config.ipfs_server {
+		if !Net::SUPPORTS_IPFS {
+			return Err(Error::Other(
+				"the selected network backend does not support Bitswap; \
 					 set --network-backend litep2p or disable --ipfs-server"
-						.into(),
-				));
-			}
+					.into(),
+			));
+		}
 
-			let ipfs_num_blocks = match blocks_pruning {
-				BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
-				BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
-			};
-
-			// The bitswap service owns the transport handle; the config is installed by
-			// the litep2p backend during `Net::new`.
-			let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
-				Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
-				net_config.network_config.ipfs_bootnodes.clone(),
-			);
-
-			let (handler, bitswap_user_handle) = sc_network_bitswap::start::<Block, _>(
-				client.clone(),
-				&*sync_service,
-				litep2p_bitswap_handle,
-			);
-
-			(Some(handler), Some(bitswap_user_handle), Some(ipfs_config))
-		} else {
-			(None, None, None)
+		let ipfs_num_blocks = match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
+			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
 		};
+
+		// The bitswap service owns the transport handle; the config is installed by
+		// the litep2p backend during `Net::new`.
+		let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
+			Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			net_config.network_config.ipfs_bootnodes.clone(),
+		);
+
+		let (handler, bitswap_user_handle) = sc_network_bitswap::start::<Block, _>(
+			client.clone(),
+			&*sync_service,
+			litep2p_bitswap_handle,
+			metrics_registry,
+		);
+
+		BitswapInitialization {
+			handler: Some(handler),
+			handle: Some(bitswap_user_handle),
+			config: Some(ipfs_config),
+		}
+	} else {
+		BitswapInitialization { handler: None, handle: None, config: None }
+	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
 	let (transactions_handler_proto, transactions_config) =
@@ -1303,7 +1315,7 @@ where
 		fork_id: fork_id.map(ToOwned::to_owned),
 		metrics_registry: metrics_registry.cloned(),
 		block_announce_config,
-		ipfs_config,
+		ipfs_config: bitswap.config,
 		notification_metrics: metrics,
 	};
 
@@ -1312,9 +1324,11 @@ where
 	let network = network_mut.network_service().clone();
 
 	// Spawn the bitswap actor only after `Net::new` succeeded so a network construction
-	// failure does not leave an orphan task running.
-	if let Some(handler) = bitswap_handler {
-		spawn_handle.spawn("bitswap-service", Some("networking"), handler);
+	// failure does not leave an orphan task running. Essential: on storage chains block
+	// import depends on the actor for indexed-transaction fetches, so if it dies the node
+	// must shut down instead of stalling sync silently.
+	if let Some(handler) = bitswap.handler {
+		spawn_essential_handle.spawn("bitswap-service", Some("networking"), handler);
 	}
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
@@ -1373,7 +1387,7 @@ where
 	// the service will shut down.
 	spawn_essential_handle.spawn_blocking("network-worker", Some("networking"), future);
 
-	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone(), bitswap_user_handle))
+	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone(), bitswap.handle))
 }
 
 /// Configuration for [`build_default_syncing_engine`].
