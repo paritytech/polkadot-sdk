@@ -95,7 +95,9 @@ pub mod pallet {
 		/// `frame_system::AuthorizeCall` converting the `None` origin into `Authorized`.
 		///
 		/// When only `Authorized` is accepted, the dispatch calls have no privileged entrypoint
-		/// and are reachable solely through this permissionless flow.
+		/// and are reachable solely through this permissionless flow. Deferred dispatch is then
+		/// unreachable: the authorize callbacks admit only hashes already in `WhitelistedCall`,
+		/// so [`Config::DeferredDispatchExpiration`] is never consulted.
 		type DispatchWhitelistedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The handler of pre-images.
@@ -368,7 +370,7 @@ impl<T: Config> Pallet<T> {
 	) -> TransactionValidityWithRefund {
 		let call_hash = T::Hashing::hash_of(call).into();
 		Self::authorize_whitelisted_dispatch(call_hash)
-  }
+	}
 	/// Defer the dispatch of a whitelisted call to a future block.
 	///
 	/// This function stores the call hash for later execution by any signed origin

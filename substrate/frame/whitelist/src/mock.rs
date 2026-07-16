@@ -117,6 +117,8 @@ pub mod no_auth {
 		type WhitelistOrigin = EnsureRoot<Self::AccountId>;
 		// Privileged-only: `Authorized` is rejected.
 		type DispatchWhitelistedOrigin = EnsureRoot<Self::AccountId>;
+		type DeferredDispatchExpiration = ConstU64<15>;
+		type BlockNumberProvider = System;
 		type Preimages = Preimage;
 		type WeightInfo = ();
 	}

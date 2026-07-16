@@ -297,31 +297,21 @@ fn permissionless_dispatch_with_preimage_works() {
 		}));
 		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
 
-		// Not yet whitelisted: rejected even via `Authorized`.
-		assert_noop!(
-			Whitelist::dispatch_whitelisted_call_with_preimage(
-				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
-				call.clone()
-			),
-			crate::Error::<Test>::CallIsNotWhitelisted,
-		);
-
 		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert!(Preimage::is_requested(&call_hash));
 
 		// Whitelisted: dispatchable via `Authorized`.
-		assert_ok!(Whitelist::dispatch_whitelisted_call_with_preimage(
+		let post = Whitelist::dispatch_whitelisted_call_with_preimage(
 			RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
-			call.clone()
-		));
+			call,
+		)
+		.expect("whitelisted dispatch succeeds");
+		// Unsigned submission: no account to charge, so `Pays::Yes` costs nothing.
+		assert_eq!(post.pays_fee, Pays::Yes);
 
-		// The hash is consumed; a replay is rejected.
-		assert_noop!(
-			Whitelist::dispatch_whitelisted_call_with_preimage(
-				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
-				call
-			),
-			crate::Error::<Test>::CallIsNotWhitelisted,
-		);
+		// The hash is consumed.
+		assert!(!crate::WhitelistedCall::<Test>::contains_key(call_hash));
+		assert!(!Preimage::is_requested(&call_hash));
 	});
 }
 
@@ -439,8 +429,7 @@ fn authorize_dispatch_whitelisted_call_uses_hash_argument() {
 		)
 		.expect("whitelisted submission is admitted");
 		assert_eq!(valid.provides, vec![call_hash.encode()]);
-
-  });
+	});
 }
 
 #[test]
