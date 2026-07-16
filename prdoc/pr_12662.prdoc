@@ -1,0 +1,25 @@
+title: 'sc-hop: add Prometheus metrics'
+doc:
+  - audience: Node Operator
+    description: |
+      Adds Prometheus metrics to sc-hop covering the pool, the RPC surface, and the promotion task:
+
+      - `substrate_hop_pool_entries` / `substrate_hop_pool_bytes` / `substrate_hop_pool_max_bytes` — gauges.
+      - `substrate_hop_pool_inserts_total` — counter, label `outcome` (`ok` or the HopError variant).
+      - `substrate_hop_pool_inserted_bytes_total` — counter.
+      - `substrate_hop_pool_removed_total` — counter, label `reason` one of: `acked`, `expired_promoted`, `expired_unpromoted`, `corrupt`.
+      - `substrate_hop_rpc_requests_total` — counter, labels `method`, `outcome`.
+      - `substrate_hop_rpc_request_duration_seconds` — histogram, label `method`.
+      - `substrate_hop_promotion_submissions_total` — counter, label `outcome` one of: `submitted`, `failed`.
+      - `substrate_hop_promotions_confirmed_total` / `substrate_hop_promotions_abandoned_total` — counters.
+      - `substrate_hop_promotion_backlog` / `substrate_hop_promotion_enabled` — gauges.
+      - `substrate_hop_maintenance_tick_duration_seconds` — histogram.
+
+      `removed_total{reason="expired_unpromoted"}` and `promotions_abandoned_total` count entries that left the pool without ever landing on-chain.
+
+      `HopParams::build_pool` gains an `Option<&Registry>` parameter and `HopDataPool::new` a `HopMetrics` one; a metrics registration failure only disables metrics. The omni-node passes its existing registry.
+crates:
+  - name: sc-hop
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: patch
