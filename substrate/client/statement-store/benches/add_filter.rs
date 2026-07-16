@@ -34,6 +34,7 @@
 //!
 //! Reuses the fixture at `$STMT_FIXTURE_DIR/db` (see `benches/full_store/common.rs`).
 
+#[allow(dead_code, unused_imports)]
 #[path = "full_store/common.rs"]
 mod common;
 

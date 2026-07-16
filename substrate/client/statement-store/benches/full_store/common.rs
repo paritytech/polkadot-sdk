@@ -75,7 +75,10 @@ pub fn n_statements() -> usize {
 		.ok()
 		.and_then(|s| s.parse().ok())
 		.unwrap_or(N_STATEMENTS);
-	assert!(n >= 4096 && n % ACCOUNTS == 0, "STMT_FIXTURE_N must be a multiple of 64, >= 4096");
+	assert!(
+		n >= 4096 && n.is_multiple_of(ACCOUNTS),
+		"STMT_FIXTURE_N must be a multiple of 64, >= 4096"
+	);
 	n
 }
 
@@ -335,7 +338,7 @@ pub fn create_statement(
 /// The deterministic fixture statement `i` (see the module docs for the shape).
 pub fn fixture_statement(i: u64, keypairs: &[sp_core::ed25519::Pair]) -> Statement {
 	let mut topics: Vec<Topic> = Vec::with_capacity(3);
-	if i < 1000 && i % 10 == 0 {
+	if i < 1000 && i.is_multiple_of(10) {
 		topics.push(topic(0));
 		topics.push(topic(1));
 	}
@@ -348,7 +351,7 @@ pub fn fixture_statement(i: u64, keypairs: &[sp_core::ed25519::Pair]) -> Stateme
 	}
 	let key = if i < 1000 && i % 10 == 5 {
 		Some(dec_key(42))
-	} else if i >= 1000 && i % 4 == 0 {
+	} else if i >= 1000 && i.is_multiple_of(4) {
 		Some(dec_key(100_000 + i / 16))
 	} else {
 		None
@@ -431,7 +434,7 @@ pub fn populate_fixture(store: &Store) -> f64 {
 						result
 					);
 					let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
-					if done % 524_288 == 0 {
+					if done.is_multiple_of(524_288) {
 						eprintln!(
 							"fixture: {}/{} statements ({:.0}s)",
 							done,
