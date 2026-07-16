@@ -532,6 +532,55 @@ fn send_eth_asset_from_ethereum_with_empty_asset_hub_sovereign_preserves_livenes
 	});
 }
 
+// If the relayer cannot front the teleported Asset Hub execution fee, the inbound message must be
+// rejected and the channel nonce must not advance, so that a funded relayer can resubmit the same
+// message and the channel is not stalled.
+#[test]
+fn send_eth_asset_from_ethereum_fails_when_relayer_cannot_front_fee() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	// Fund the Asset Hub sovereign so the only possible cause of failure is the relayer's
+	// shortfall.
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign, INITIAL_FUND)]);
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+		type Runtime = <BridgeHubWestend as Chain>::Runtime;
+
+		// Set the Ethereum gateway so the envelope passes the gateway check.
+		assert_ok!(<BridgeHubWestend as Chain>::System::set_storage(
+			RuntimeOrigin::root(),
+			vec![(
+				EthereumGatewayAddress::key().to_vec(),
+				sp_core::H160(hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d")).encode(),
+			)],
+		));
+
+		// Drain the relayer so it cannot front the teleported fee.
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			sp_runtime::MultiAddress::Id(BridgeHubWestendSender::get()),
+			0,
+		));
+
+		let channel_id = snowbridge_core::ChannelId::from(hex!(
+			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
+		));
+		assert_eq!(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id), 0);
+
+		let fixture = make_send_native_eth_message();
+
+		// Dispatch inside a storage layer to mimic the on-chain transactional revert.
+		let result = frame_support::storage::with_storage_layer(|| send_inbound_message(fixture));
+		assert_err!(result, sp_runtime::TokenError::FundsUnavailable);
+
+		// The nonce did not advance, so the channel is not stalled and a funded relayer can
+		// resubmit the same message.
+		assert_eq!(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id), 0);
+	});
+}
+
 #[test]
 fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
