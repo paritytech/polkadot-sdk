@@ -13,16 +13,17 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint: 4 248 B ParaInfo + 65 575 B log reserve.
-   /// Derivation in §6.1.
-   pure val BaselineFootprint: int = 69823
+   /// Per-para baseline footprint: 4 250 B ParaInfo + 65 575 B log reserve.
+   /// Derivation in §6.1. Balances are `Compact<u128>` sized at their 17 B
+   /// worst case for this reservation.
+   pure val BaselineFootprint: int = 69825
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending authorizer queues + cores, incoming transfers),
-  /// worst-cased at 1 381 508 B in §6.1. Asset Hub reserves this in its baseline,
+  /// worst-cased at 1 382 508 B in §6.1. Asset Hub reserves this in its baseline,
   /// so those items are pre-provisioned rather than charged to
   /// `usedStateBalance` as they grow.
-  pure val AssetHubGlobalItemsFootprint: int = 1381508
+  pure val AssetHubGlobalItemsFootprint: int = 1382508
 
   /// Asset Hub's baseline footprint: the generic per-para baseline plus its
   /// reserved service-global items (§6.1).

@@ -107,10 +107,10 @@ module state {
   else 5
 
   /// Exact SCALE size of one AccumulateLog event: 1 B discriminant + body.
-  /// Hash/ValidationCodeHash = 32 B, Balance = 16 B, u32 = 4 B. The
-  /// InsufficientStateBalance body is its reason's 1 B discriminant plus a
-  /// 32 B hash (FromSolicit's preimage hash, FromSetKV's key hash).
-  /// `StagedValidatorKeysOverflow` is nullary.
+  /// Hash/ValidationCodeHash = 32 B, u32 = 4 B; balances are `Compact<u128>`,
+  /// charged at their actual `compactLen`. The InsufficientStateBalance body is
+  /// its reason's 1 B discriminant plus a 32 B hash (FromSolicit's preimage
+  /// hash, FromSetKV's key hash). `StagedValidatorKeysOverflow` is nullary.
   pure def accumulateLogSize(e: AccumulateLog): int =
   1 + match e {
     | InvalidCodeHashAcc(_) => 32
@@ -119,7 +119,8 @@ module state {
         | FromSolicit(_) => 32
         | FromSetKV(_) => 32
       }
-    | StateBalanceUpdateRejected(_) => 48
+    | StateBalanceUpdateRejected(p) =>
+      compactLen(p.attempted) + compactLen(p.currentTotal) + compactLen(p.currentUsed)
     | DesignateRejected(_) => 4
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32

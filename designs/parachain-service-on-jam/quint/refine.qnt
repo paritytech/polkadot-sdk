@@ -71,7 +71,8 @@ module refine {
       compactLen(p.key.length()) + p.key.length()
         + compactLen(p.value.length()) + p.value.length()
     | RemoveKV(p) => compactLen(p.key.length()) + p.key.length()
-    | TransferOut(_) => 148
+    // dest 4 + amount Compact<u128> + memo 128.
+    | TransferOut(p) => 132 + compactLen(p.amount)
     // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry) + jamSlot 4.
     | SetAuthorizerQueue(p) =>
       8 + compactLen(p.queue.length()) + p.queue.length() * 32
@@ -88,7 +89,8 @@ module refine {
     | ParachainSetHead(_) => 4102
     | ParachainSetValidationCode(_) => 40
     | ParachainCleanUp(_) => 4
-    | ParachainSetStateBalance(_) => 20
+    // paraId 4 + newTotal Compact<u128>.
+    | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
     // codeHash 32 + len 4 + minItemGas 8 + minMemoGas 8.
     | UpgradeService(_) => 52
   }

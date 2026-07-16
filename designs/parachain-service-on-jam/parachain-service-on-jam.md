@@ -269,9 +269,9 @@ enum AccumulateLog {
     /// `parachain_set_state_balance(para_id, attempted)` was rejected
     /// because `attempted < current_used`. See §6.1.
     StateBalanceUpdateRejected {
-        attempted: Balance,
-        current_total: Balance,
-        current_used: Balance,
+        attempted: Compact<Balance>,
+        current_total: Compact<Balance>,
+        current_used: Compact<Balance>,
     },
     /// JAM `designate` rejected the assembled validator-key set because its
     /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
@@ -326,11 +326,11 @@ struct ParaInfo {
     pending_upgrade: Option<(ValidationCode, Timeslot)>,
     /// Total state balance allocated to this parachain. Set exclusively by
     /// the Coretime chain via `parachain_set_state_balance`. See §6.1.
-    total_state_balance: Balance,
+    total_state_balance: Compact<Balance>,
     /// State balance currently consumed by this parachain's solicited PVF
     /// preimages (active validation code + pending upgrade, if any).
     /// Increased on `solicit()`, decreased on `forget()`. See §6.1.
-    used_state_balance: Balance,
+    used_state_balance: Compact<Balance>,
 }
 ```
 
@@ -439,7 +439,7 @@ enum UpwardMessage {
     /// its footprint (see §6.1).
     RemoveKV { key: Vec<u8> },
     /// From `transfer_out` — transfer balance to another JAM service.
-    TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
+    TransferOut { dest: ServiceId, amount: Compact<Amount>, memo: Memo },
     /// From `set_authorizer_queue` — schedule a core's authorizer QUEUE.
     ///
     /// - `jam_slot`: the JAM timeslot at which the queue is applied. The queue is
@@ -481,7 +481,7 @@ enum UpwardMessage {
     /// From `parachain_clean_up` — remove all per-parachain state.
     ParachainCleanUp(ParaId),
     /// From `parachain_set_state_balance`. See §6.1.
-    ParachainSetStateBalance { para_id: ParaId, new_total: Balance },
+    ParachainSetStateBalance { para_id: ParaId, new_total: Compact<Balance> },
 }
 ```
 
@@ -975,8 +975,8 @@ entry may hold many referencers.
 `(ParaId, ParaInfo)` entry plus the `(ParaId, parachain_log[para_id])` entry, with
 every bounded field SCALE-encoded at its maximum so the value is static across the
 parachain's lifetime. JAM charges `34 + |value| + |key|` bytes per general-storage
-entry. Taking `ParaId = u32` (4 B), `Hash = 32 B`, `Timeslot = u32` (4 B),
-`Balance = u128` (16 B):
+entry. Taking `ParaId = u32` (4 B), `Hash = 32 B`, `Timeslot = u32` (4 B), and
+`Balance = Compact<u128>` sized at its worst case of 17 B:
 
 `(ParaId, ParaInfo)` entry:
 
@@ -987,10 +987,10 @@ ParaId (key)                                                       =       4 B
 head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098 B
 validation_code: ValidationCode = 32 (hash) + 4 (len) + 1 (pinned) =      37 B
 pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42 B
-total_state_balance: Balance                                       =      16 B
-used_state_balance: Balance                                        =      16 B
+total_state_balance: Compact<Balance>                              =      17 B
+used_state_balance: Compact<Balance>                               =      17 B
                                                                        -------
-                                                                       4 248 B
+                                                                       4 250 B
 ```
 
 `(ParaId, parachain_log[para_id])` entry — value + key bounded by a flat 64 KiB cap,
@@ -1010,7 +1010,7 @@ parachain_log value (flat cap): 64 KiB                             =  65 536 B
                                                                      65 575 B
 ```
 
-**`baseline_footprint = 4 248 + 65 575 = 69 823 B`** per parachain.
+**`baseline_footprint = 4 250 + 65 575 = 69 825 B`** per parachain.
 
 #### Asset Hub baseline footprint
 
@@ -1019,7 +1019,8 @@ caller; its `total_state_balance` must cover them, provisioned at genesis. Each
 item follows the same JAM `34 + |value| + |key|` per-entry rule (§6.1): the two
 `CoreIndex`-keyed maps are billed one storage entry per core, the `BoundedVec`s as
 a single entry each. Taking `CoreCount = 341`, `AuthorizerHash = 32 B`,
-`ServiceId = 4 B`, `Memo = 128 B`, `CoreIndex = 4 B`, authorizer-queue length = 80:
+`ServiceId = 4 B`, `Memo = 128 B`, `CoreIndex = 4 B`, authorizer-queue length = 80,
+and `Amount = Compact<u128>` sized at its worst case of 17 B:
 
 ```
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 entry
@@ -1029,9 +1030,9 @@ pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>  — p
 pending_authorizer_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 entry
   34 + 1 (key) + 2 + 341 × (4 + 4)                                      =   2 765 B
 incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
-  34 + 1 (key) + 2 + 1000 × (4 + 16 + 128)                              = 148 037 B
+  34 + 1 (key) + 2 + 1000 × (4 + 17 + 128)                              = 149 037 B
                                                                            ---------
-                                                                         1 381 508 B
+                                                                         1 382 508 B
 ```
 
 **Asset Hub baseline footprint ≈ 1.32 MiB**, added on top of the generic
