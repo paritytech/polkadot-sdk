@@ -93,8 +93,7 @@ where
 		.storage(&key)
 		.map_err(|_| HydrateError::ValidationDataMissing)?
 		.ok_or(HydrateError::ValidationDataMissing)?;
-	PersistedValidationData::decode(&mut &raw[..])
-		.map_err(|_| HydrateError::ValidationDataMissing)
+	PersistedValidationData::decode(&mut &raw[..]).map_err(|_| HydrateError::ValidationDataMissing)
 }
 
 /// Hydrate a list of unincluded-segment headers (oldest first) into [`CollatorSegmentEntry`]s.

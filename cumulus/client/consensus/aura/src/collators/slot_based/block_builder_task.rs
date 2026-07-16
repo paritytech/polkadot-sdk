@@ -16,26 +16,27 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
 	resubmission::{build_v3_scheduling_proof, resolve_session},
+	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
 };
 use crate::{
-	LOG_TARGET,
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
-		BackingGroupConnectionHelper, RelayHash, RelayParentData, check_validation_code_or_log,
+		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
 			scheduling::SchedulingInfo,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
+		BackingGroupConnectionHelper, RelayHash, RelayParentData,
 	},
+	LOG_TARGET,
 };
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
-	fetch_included_from_relay_chain, get_relay_slot,
+	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
+	ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
@@ -49,7 +50,7 @@ use futures::prelude::*;
 use polkadot_primitives::{
 	ApprovedPeerId, Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
 };
-use sc_client_api::{BlockBackend, BlockOf, UsageProvider, backend::AuxStore};
+use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
@@ -64,8 +65,8 @@ use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
-	Saturating,
 	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member},
+	Saturating,
 };
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
@@ -188,7 +189,10 @@ fn select_build_parent_and_segment<Block: BlockT>(
 	} else {
 		(
 			build_parent.clone(),
-			parent_search_result.unincluded_segment().map(|s| s.to_vec()).unwrap_or_default(),
+			parent_search_result
+				.unincluded_segment()
+				.map(|s| s.to_vec())
+				.unwrap_or_default(),
 		)
 	}
 }
