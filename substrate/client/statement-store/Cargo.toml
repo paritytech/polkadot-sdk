@@ -23,6 +23,7 @@ anyhow = { workspace = true, optional = true }
 async-channel = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
+linked_hash_set = { workspace = true }
 log = { workspace = true, default-features = true }
 parity-db = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
