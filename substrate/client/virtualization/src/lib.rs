@@ -24,12 +24,8 @@
 //! and [`ExtensionsFactory`] convenience types defined below.
 
 use polkavm::{
-	CacheModel, CompileError, Config, CorePinning, CostModelKind, Engine, GasMeteringKind,
-	InterruptKind, MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
-};
-use polkavm_common::{
-	program::{asm, InstructionSetKind},
-	writer::ProgramBlobBuilder,
+	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
+	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg, SandboxKind,
 };
 use sp_externalities::Extensions;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
@@ -50,10 +46,6 @@ const LOG_TARGET: &str = "virtualization";
 /// Use this where you would otherwise hand-roll
 /// `VirtManagerExt::new(VirtManager::default())` — e.g. when registering the
 /// extension directly on a `TestExternalities` or an `Extensions` set.
-///
-/// Constructing the [`VirtManager`] builds and warms the engine (see
-/// [`VirtManager::default`]), so the returned extension is always backed by a warm
-/// sandbox pool.
 pub fn default_extension() -> VirtManagerExt {
 	VirtManagerExt::new(VirtManager::default())
 }
@@ -81,151 +73,44 @@ impl<Block: BlockT> sc_client_api::execution_extensions::ExtensionsFactory<Block
 
 /// Maximum number of virtualization instances alive at once.
 ///
-/// Each live instance pins a sandbox worker process and its memory, so the number alive at once
+/// Each live instance reserves its guest address space and memory, so the number alive at once
 /// must be bounded. One instance is live per nested contract frame, so the bound is the maximum
 /// contract call-stack depth and must stay `>=` the consumer's maximum call depth (for
-/// pallet-revive, `CALL_STACK_DEPTH + 1`, currently 26).
-///
-/// It serves two roles:
-/// - [`ENGINE`]'s constructor uses it as the *per-core* sandbox-cache size (`set_worker_count`), so
-///   a recycled worker is retained rather than evicted and any single core can keep a fully-nested
-///   call warm. [`warm_up_sandbox_pool`] pre-warms only [`WARM_WORKERS_PER_CORE`] workers per core;
-///   the workload itself tops each core's cache up to its working set under load.
-/// - [`VirtManager::instantiate`] enforces it as a hard cap, returning
-///   `InstantiateError::TooManyInstances` once that many instances are live.
+/// pallet-revive, `CALL_STACK_DEPTH + 1`, currently 26). [`VirtManager::instantiate`] enforces it
+/// as a hard cap, returning `InstantiateError::TooManyInstances` once that many instances are
+/// live.
 const MAX_LIVE_INSTANCES: usize = 30;
-
-/// How many sandbox workers to pre-warm *per core* at start-up.
-///
-/// PolkaVM caches idle workers per core and a thread only reuses workers cached on the core it
-/// currently runs on, so pre-warming seeds every core (via [`warm_up_sandbox_pool`]) to keep the
-/// first burst of authoring off the cold `spawn` path. It only needs to cover the steady-state
-/// working set of live instances on one core (a handful in practice); the per-core cache cap of
-/// [`MAX_LIVE_INSTANCES`] backstops any shortfall by retaining workers the workload spawns itself.
-/// Kept well below that cap so the resident worker footprint stays modest.
-const WARM_WORKERS_PER_CORE: usize = 8;
 
 /// The single, process-global PolkaVM engine used for everything.
 ///
-/// A common engine lets PolkaVM keep a warm pool of sandbox workers and amortise startup
-/// costs across instances, even when those instances run different code. The engine is built
-/// *and* its sandbox pool warmed in one step on first access, so it is never observable
-/// un-warmed; `LazyLock` guarantees that happens exactly once per process. Warm-up panics on
-/// failure (see [`warm_up_sandbox_pool`]) — a node that cannot build its pool should die at
-/// startup rather than time out every validation.
+/// A common engine lets PolkaVM amortise startup costs across instances, even when those
+/// instances run different code. `LazyLock` guarantees it is built exactly once per process.
 static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
-	let pid = std::process::id();
 	let start = Instant::now();
 
 	let mut config = Config::from_env().expect("Invalid config.");
-	// `set_worker_count` caps the idle-sandbox cache *per core*, and a thread only ever reuses a
-	// worker cached on the core it currently runs on. Size each core's cache to the full
-	// live-instance bound so a recycled worker is never evicted; every core then self-warms to its
-	// working set under load. (A per-core cap of `div_ceil(_, cores)` ≈ 2 killed recycled workers,
-	// forcing cold multi-ms `spawn`s on the hot path whenever the unpinned authoring thread
-	// migrated to a core whose tiny cache was empty.)
-	config.set_worker_count(MAX_LIVE_INSTANCES);
 	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
-	// during benchmarking we run multiple nodes on the same machine - this leads
-	// to multiple engines which breaks core pinning's assumptions to be alone
-	// on the machine - this will be removed eventually
-	config.set_core_pinning(CorePinning::Disabled);
+	// Hardcode the generic sandbox, which executes guest code inline in-process: no worker
+	// processes to spawn, warm or nest namespaces for, so the host process model (in particular
+	// the PVF's fork-per-job execute path and its CPU-time timeout) stays untouched. This trades
+	// away the isolation of the Linux sandbox — acceptable while the JIT backend is an
+	// experimental opt-in — and is exactly what `set_allow_experimental` acknowledges.
+	config.set_sandbox(Some(SandboxKind::Generic));
+	config.set_allow_experimental(true);
 	let engine = Engine::new(&config).expect("Failed to initialize PolkaVM.");
-
-	let warmup_start = Instant::now();
-	let warmed = warm_up_sandbox_pool(&engine);
-	let warmup = warmup_start.elapsed();
 
 	log::info!(
 		target: LOG_TARGET,
-		"pid={pid}: PolkaVM engine initialized in {:?} (warm-up of {warmed} sandbox workers: {:?})",
+		"pid={}: PolkaVM engine initialized in {:?}",
+		std::process::id(),
 		start.elapsed(),
-		warmup,
 	);
 	engine
 });
 
-/// Build and warm the engine now, rather than on first use.
-///
-/// A no-op after the first call — `LazyLock` builds and warms at most once.
-/// [`VirtManager::default`] calls this on every construction, so a warm pool is guaranteed however
-/// a manager is built and no consumer has to remember to opt in. Call it explicitly at process
-/// startup — in particular at PVF execute-worker startup — to move the one-time build+warm off the
-/// first validation's timing, where the extension is otherwise first constructed inside the timed
-/// section. The collator needs no such explicit call: it builds its first extension through an
-/// untimed startup/sync runtime call, so the warm-up already lands off the authoring deadline.
-pub fn init() {
-	LazyLock::force(&ENGINE);
-}
-
-/// The process-global engine.
-///
-/// Forcing the `LazyLock` builds the engine and warms its sandbox pool on first access, so a
-/// ready, warm engine is returned regardless of whether anything initialised it beforehand.
+/// The process-global engine, built on first access.
 fn engine() -> &'static Engine {
 	LazyLock::force(&ENGINE)
-}
-
-/// Pre-warm ~[`WARM_WORKERS_PER_CORE`] sandbox workers on *every* core so the first burst of
-/// contract execution reuses warm sandboxes instead of spawning them on the hot path.
-///
-/// PolkaVM caches idle sandbox workers *per core*, and `instantiate` only reuses a worker cached
-/// on the core the calling thread currently runs on; a miss spawns a fresh worker process
-/// (`clone3` + namespaces), costing milliseconds. `instantiate` acquires a sandbox and holds it
-/// for the instance's lifetime; dropping the instance recycles it into that core's cache.
-///
-/// To seed every core we hold `WARM_WORKERS_PER_CORE * cores` instances live *simultaneously*:
-/// each forces a *distinct* worker to spawn (a sequential loop would just reuse one), and
-/// PolkaVM's least-loaded placement spreads them across all cores. One thread per core does the
-/// spawning in parallel (so wall-time stays ~one `clone3` batch, not the serial product); each
-/// thread *returns* its batch, and [`std::thread::scope`] keeps every returned batch alive until
-/// all are joined — so all instances are live at once without a barrier, then drop and recycle
-/// into the per-core caches. The instances are never run; a one-instruction module is enough to
-/// make `instantiate` spawn a sandbox. Panics on any failure — a node that cannot build its
-/// sandbox pool cannot run JIT contracts, so it should fail at startup rather than limp on and
-/// time out every validation. (Returning the error rather than panicking inside the worker
-/// threads keeps a spawn failure a clean startup panic instead of a barrier deadlock.)
-///
-/// Returns the number of workers warmed (`WARM_WORKERS_PER_CORE * cores`).
-fn warm_up_sandbox_pool(engine: &Engine) -> usize {
-	// A single `ret` with no exports is enough: the module is only ever instantiated (which
-	// spawns and loads a sandbox), never run.
-	let mut builder = ProgramBlobBuilder::new(InstructionSetKind::ReviveV1);
-	builder.set_code(&[asm::ret()], &[]);
-	let blob = builder.into_vec().expect("warm-up blob is a constant valid program; qed");
-
-	let mut module_config = ModuleConfig::new();
-	module_config.set_gas_metering(Some(GasMeteringKind::Sync));
-	let module = Module::new(engine, &module_config, blob.into())
-		.expect("warm-up program is a constant the engine must be able to compile; qed");
-
-	let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
-	// One thread per core, each spawning `WARM_WORKERS_PER_CORE` instances and *returning* them.
-	// `thread::scope` holds every returned batch alive until all are joined, so all instances are
-	// live at once — each `instantiate` therefore spawns a *distinct* worker and PolkaVM spreads
-	// them across cores. The joined batches drop below, recycling into the per-core caches.
-	// `Module` is `Arc`-backed (`Send + Sync`), so it is shared by reference.
-	let batches: Vec<Result<Vec<RawInstance>, _>> = std::thread::scope(|scope| {
-		let handles: Vec<_> = (0..cores)
-			.map(|_| {
-				let module = &module;
-				scope.spawn(move || {
-					(0..WARM_WORKERS_PER_CORE).map(|_| module.instantiate()).collect()
-				})
-			})
-			.collect();
-		handles
-			.into_iter()
-			.map(|handle| handle.join().expect("warm-up thread panicked"))
-			.collect()
-	});
-
-	// All batches were held live simultaneously above; now surface any spawn failure as a startup
-	// panic and count the workers warmed. Dropping the batches here recycles them into the caches.
-	batches
-		.into_iter()
-		.map(|batch| batch.expect("failed to spawn a PolkaVM sandbox worker").len())
-		.sum()
 }
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
@@ -299,28 +184,13 @@ struct ManagedInstance {
 /// NOTE: The per-instance `cache` deduplicates modules within the lifetime of one
 /// `VirtManager` (i.e. one externalities extension, i.e. one block). Cross-block
 /// reuse is deferred to PolkaVM's built-in on-disk persistent cache.
+#[derive(Default)]
 pub struct VirtManager {
 	instances: HashMap<InstanceId, ManagedInstance>,
 	modules: HashMap<ModuleId, Arc<CompiledModule>>,
 	cache: HashMap<Vec<u8>, Arc<CompiledModule>>,
 	instance_counter: u32,
 	module_counter: u32,
-}
-
-impl Default for VirtManager {
-	fn default() -> Self {
-		// Warm the sandbox pool on construction so no manager — however it was built, including
-		// through this public constructor — can run contracts against a cold pool. Idempotent:
-		// the actual warm-up happens once per process, later constructions are a cheap no-op.
-		init();
-		Self {
-			instances: HashMap::new(),
-			modules: HashMap::new(),
-			cache: HashMap::new(),
-			instance_counter: 0,
-			module_counter: 0,
-		}
-	}
 }
 
 impl VirtManager {
@@ -592,14 +462,6 @@ mod tests {
 		let mut m = VirtManager::default();
 		m.compile(program, None).unwrap();
 		assert!(matches!(m.lookup(key), Err(ModuleError::NotCached)));
-	}
-
-	/// The warm-up must build, compile and spawn its sandboxes without panicking — it fails the
-	/// node otherwise. It spawns real sandboxes, so on Linux it relies on the `--privileged`
-	/// workspace CI container (`clone3`/`unshare`); off Linux it falls back to the interpreter.
-	#[test]
-	fn warm_up_runs() {
-		warm_up_sandbox_pool(engine());
 	}
 
 	/// `instantiate` refuses once [`MAX_LIVE_INSTANCES`] instances are live, and accepts again
