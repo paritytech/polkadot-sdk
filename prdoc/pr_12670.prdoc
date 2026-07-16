@@ -2,11 +2,7 @@ title: Remove deprecated Utility::derivative_account_id method.
 doc:
 - audience: Runtime Dev
   description: |-
-    Part of #11561
-
     Remove the deprecated `pallet_utility::Pallet::derivative_account_id` method.
-
-    It was deprecated with a removal date of August 2025 in favor of the freestanding `pallet_utility::derivative_account_id` function. In-repo callers already use the freestanding helper.
 
     ## Integration
 
