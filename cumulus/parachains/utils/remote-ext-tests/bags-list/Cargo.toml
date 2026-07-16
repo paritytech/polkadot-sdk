@@ -10,8 +10,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-westend-runtime = { workspace = true, default-features = true }
-westend-runtime-constants = { workspace = true, default-features = true }
+asset-hub-westend-runtime = { workspace = true, default-features = true }
+testnet-parachains-constants = { workspace = true, default-features = true }
 
 frame-system = { workspace = true, default-features = true }
 pallet-bags-list-remote-tests = { workspace = true }
