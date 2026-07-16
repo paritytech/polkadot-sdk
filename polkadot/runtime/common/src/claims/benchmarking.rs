@@ -34,10 +34,10 @@ const MAX_CLAIMS: u32 = 10_000;
 const MIN_VALUE: u32 = 1_000_000;
 
 /// Claim amount used by the benchmarks. Floored to the runtime's existential deposit, since these
-/// claims carry a vesting schedule: both [`Pallet::mint_claim`] and [`Pallet::process_claim`]
-/// reject vesting claims below the ED ([`Error::ClaimBelowExistentialDeposit`]), because the dest
-/// account must stay alive to hold the vesting lock. Without the floor this trips on chains where
-/// ED exceeds [`MIN_VALUE`] (1M).
+/// claims carry a vesting schedule: [`Pallet::process_claim`] rejects a vesting claim whose
+/// resulting balance would be below the ED ([`Error::ClaimBelowExistentialDeposit`]), because the
+/// dest account must stay alive to hold the vesting lock. The benchmark deposits into fresh
+/// accounts, so without the floor this trips on chains where ED exceeds [`MIN_VALUE`] (1M).
 fn bench_claim_value<T: Config>() -> BalanceOf<T> {
 	CurrencyOf::<T>::minimum_balance().max(MIN_VALUE.into())
 }

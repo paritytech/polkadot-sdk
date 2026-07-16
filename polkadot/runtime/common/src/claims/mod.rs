@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		AsSystemOriginSigner, AsTransactionAuthorizedOrigin, CheckedSub, DispatchInfoOf,
-		Dispatchable, TransactionExtension, Zero,
+		Dispatchable, Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -380,17 +380,6 @@ pub mod pallet {
 			statement: Option<StatementKind>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-
-			// A vesting claim installs a balance lock on claim, which requires the destination
-			// account to remain alive. Reject vesting claims below ED here so the defect is
-			// caught at mint time rather than surfacing at claim time.
-			if vesting_schedule.is_some() {
-				ensure!(
-					value >= CurrencyOf::<T>::minimum_balance(),
-					Error::<T>::ClaimBelowExistentialDeposit,
-				);
-			}
-
 			Total::<T>::mutate(|t| *t += value);
 			Claims::<T>::insert(who, value);
 			if let Some(vs) = vesting_schedule {
@@ -608,15 +597,20 @@ impl<T: Config> Pallet<T> {
 			Total::<T>::get().checked_sub(&balance_due).ok_or(Error::<T>::PotUnderflow)?;
 
 		let vesting = Vesting::<T>::get(&signer);
-		if vesting.is_some() && T::VestingSchedule::vesting_balance(&dest).is_some() {
-			return Err(Error::<T>::VestedBalanceExists.into());
-		}
+		if let Some(_) = vesting {
+			if T::VestingSchedule::vesting_balance(&dest).is_some() {
+				return Err(Error::<T>::VestedBalanceExists.into());
+			}
 
-		// A vesting schedule installs a balance lock, which requires the account to stay alive. If
-		// the claimed amount is below the existential deposit, the account would be dusted and
-		// the lock placed on a non-existent account, so reject such claims up front.
-		if vesting.is_some() && balance_due < CurrencyOf::<T>::minimum_balance() {
-			return Err(Error::<T>::ClaimBelowExistentialDeposit.into());
+			// A vesting schedule installs a balance lock, which requires the account to stay alive,
+			// otherwise it is dusted and the lock placed on a non-existent account. The `dest` may
+			// already hold funds, so a small claim that tops an existing account over the ED is
+			// valid.
+			let free_after = CurrencyOf::<T>::free_balance(&dest).saturating_add(balance_due);
+			ensure!(
+				free_after >= CurrencyOf::<T>::minimum_balance(),
+				Error::<T>::ClaimBelowExistentialDeposit,
+			);
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
