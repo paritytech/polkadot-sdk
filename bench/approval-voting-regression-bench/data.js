@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784210732835,
+  "lastUpdate": 1784223016324,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38c598e335f81f05659b5a3134a0a5ddd0ff28b0",
-          "message": "`fatxpool`: added mortal transactions integration test  (#8887)\n\n# Description\n\nBased on https://github.com/michalkucharczyk/tx-test-tool/pull/43.\n\n## Integration\n\nN/A\n\n## Review Notes\n\n- added tests with future mortal txs that are dropped due to not being\nincluded in blocks within their lifetime, but also future mortal txs\nthat have a sufficient lifetime to be included in blocks\n- added test which uses priorities to delay mortal txs inclusion and\nmake them invalid\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2025-11-19T10:29:03Z",
-          "tree_id": "217c15293452ffdd7568ac5dbc4919ab6911085b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38c598e335f81f05659b5a3134a0a5ddd0ff28b0"
-        },
-        "date": 1763552061895,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63641.45,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000195397,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.0226936063800034,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001879183,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001879183,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.564281773880001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0058687606200000025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5185010347700008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5174203915500004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4297636953499975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.770873897421079,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000195397,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5078604729500005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5621738122599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.7292925157899997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec1052d449719097742090b25f297de693587b67",
+          "message": "CI: check workspace dependency inheritance (#11422)\n\n## Summary\n\n- Add `cargo-workspace-inheritance-check` to `checks-quick.yml` CI\nworkflow to enforce workspace dependency inheritance\n- Fix all existing violations (inline versions → `workspace = true`,\npromote missing workspace deps)\n\nRecently, I found the need to have a tool for checking/fixing dependency\ninheritance in cargo workspaces. I think it can also be useful for\npolkadot-sdk.\n\nFor details about how it works, have a look at\nhttps://github.com/RomarQ/cargo-workspace-inheritance-check\n\n## Follow-up\n\nBumping the workspace pin to `0.50` is a separate change. It requires\nporting the two crates still written against the `0.44` API:\n\n- `frame-benchmarking-cli` — uses `OfflineClient::new(…)`,\n`subxt::client::RuntimeVersion`, and `.tx()` directly on the offline\nclient, all redesigned in `0.50`.\n- `pallet-revive-eth-rpc` — uses `subxt::Error::Metadata`,\n`subxt::error::MetadataError`, `subxt::ext::subxt_rpcs`,\n`subxt::backend::{legacy::rpc_methods, rpc}`, `subxt::storage::Storage`,\n`subxt::events::StaticEvent`, `subxt::runtime_api`, and `subxt::blocks`\n— all gone or restructured in `0.50`.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-16T15:40:14Z",
+          "tree_id": "39a927004a4a22f0b13ea1fbe2de515ce9877261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec1052d449719097742090b25f297de693587b67"
+        },
+        "date": 1784222984502,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63564.590000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002049775,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005421098750000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3497032721199993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.701004704809999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002034984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.046897808949959,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002034984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.750958115299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7940257880499657,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.711717134820001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.535343216592844,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.734067695099997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002049775,
             "unit": "seconds"
           }
         ]
