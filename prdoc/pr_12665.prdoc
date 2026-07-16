@@ -1,0 +1,18 @@
+title: Remove deprecated schedule::v2 traits
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of #11561
+
+    Removes the deprecated `frame_support::traits::schedule::v2` traits and the corresponding compatibility impls in `pallet-scheduler`.
+
+    The deprecation note says `v2` would be removed after September 2024. In-repo usage is already limited to the old scheduler compatibility impls, so this PR removes the deprecated API surface and keeps the `v3` scheduler traits as the supported path.
+
+    ## Integration
+
+    Downstream users should migrate from `frame_support::traits::schedule::v2::{Anon, Named}` to `frame_support::traits::schedule::v3::{Anon, Named}`.
+crates:
+- name: pallet-scheduler
+  bump: major
+- name: frame-support
+  bump: major
