@@ -16,3 +16,5 @@ crates:
   - name: snowbridge-pallet-inbound-queue
     bump: patch
     validate: false
+  - name: bridge-hub-westend-runtime
+    bump: patch
