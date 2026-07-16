@@ -356,7 +356,7 @@ pub mod pallet {
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
 			let dest = Location::new(1, [Parachain(para_id.into())]);
 			let relayer_id: [u8; 32] =
-				who.encode().try_into().map_err(|_| TokenError::FundsUnavailable)?;
+				who.encode().try_into().map_err(|_| Error::<T>::InvalidAccountConversion)?;
 			let relayer = Location::new(0, [AccountId32 { network: None, id: relayer_id }]);
 			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
