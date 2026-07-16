@@ -32,6 +32,7 @@
 //!
 //! Uses only the public `StatementStore` API, so the same file runs against any revision.
 
+#[allow(dead_code, unused_imports)]
 #[path = "../benches/full_store/common.rs"]
 mod common;
 
