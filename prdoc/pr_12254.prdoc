@@ -18,4 +18,4 @@ doc:
     There is no storage migration and no change to dispatchable signatures or weights.
 crates:
 - name: polkadot-runtime-common
-  bump: minor
+  bump: major
