@@ -86,9 +86,9 @@ pub fn charge_call_gas<'a, E: Ext>(
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
 
-			// Charged from the current access-list state; the list is updated
-			// during frame execution.
-			let access = StateAccess::call(callee, scheme.is_delegate_call());
+			// Peek the warmth to price the charge; the entries are touched when
+			// the frame is built, so peek and touch see the same state.
+			let access = StateAccess::new(callee, scheme.is_delegate_call());
 			let cost = RuntimeCosts::CallBase(interpreter.ext.peek_access(access));
 			interpreter.ext.charge_or_halt(cost)?;
 

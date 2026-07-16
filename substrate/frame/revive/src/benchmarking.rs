@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, CodeWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess},
+	access_list::{AccessEntry, AccessList, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -267,7 +267,7 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 			let (mut ext, _) = setup.ext();
-			ext.touch_call_target(StateAccess::call(callee_contract.address, $delegate), code_hash);
+			ext.touch_call_target(StateAccess::new(callee_contract.address, $delegate), code_hash);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};
@@ -2646,8 +2646,7 @@ mod benchmarks {
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
-	// Delegate-call a target whose contract metadata and code are hot, as if
-	// an identical delegate call already ran in the same transaction.
+
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call_hot() -> Result<(), BenchmarkError> {
 		hot_call_setup!(delegate do_call, VmBinaryModule::dummy());
@@ -2675,7 +2674,7 @@ mod benchmarks {
 			blob = ContractBlob::<T>::from_storage(
 				code_hash,
 				&mut meter,
-				CodeWarmth::cold_nonrevertible(),
+				CodeLoadWarmth::cold_nonrevertible(),
 			);
 		}
 		assert!(blob.is_ok(), "loading the code of an existing contract must succeed");

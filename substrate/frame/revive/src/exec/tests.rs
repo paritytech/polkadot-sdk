@@ -24,7 +24,7 @@ use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
-		CodeWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateAccessKind,
+		CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateAccessKind,
 		Warmth,
 	},
 	exec::ExportedFunction::*,
@@ -145,7 +145,7 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
-		_warmth: CodeWarmth,
+		_warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -209,7 +209,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(code_hash, meter, CodeWarmth::cold_nonrevertible())
+	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_nonrevertible())
 }
 
 #[test]
@@ -3524,11 +3524,7 @@ fn cold_hot_code_loads_cold_after_target_warmed_as_plain_account() {
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
 		assert_eq!(after.hot - before.hot, 2, "account + contract info are already hot");
-		assert_eq!(
-			after.cold - before.cold,
-			2,
-			"code metadata + blob load",
-		);
+		assert_eq!(after.cold - before.cold, 2, "code metadata + blob load",);
 		exec_success()
 	});
 

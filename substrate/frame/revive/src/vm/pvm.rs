@@ -279,10 +279,11 @@ enum CallType {
 }
 
 impl CallType {
-	/// Base cost of the call, charged from the current access-list state;
-	/// the list is updated during frame execution.
+	/// Base cost of the call. Peeks the warmth to price the charge; the
+	/// entries are touched when the frame is built, so peek and touch see the
+	/// same state.
 	fn cost(&self, ext: &impl Ext, callee: &sp_core::H160) -> RuntimeCosts {
-		let access = StateAccess::call(*callee, matches!(self, CallType::DelegateCall));
+		let access = StateAccess::new(*callee, matches!(self, CallType::DelegateCall));
 		RuntimeCosts::CallBase(ext.peek_access(access))
 	}
 }

@@ -20,7 +20,7 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
 	access_list::{
-		AccessEntry, AccessList, CodeWarmth, StateAccess, StateAccessKind, StorageAccessKind,
+		AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateAccessKind, StorageAccessKind,
 	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -595,7 +595,7 @@ pub trait Executable<T: Config>: Sized {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: CodeWarmth,
+		warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1087,12 +1087,18 @@ where
 				// Denied calls (depth, reentrancy) abort before reaching this
 				// touch. The contract-info load below hits storage even for a
 				// plain account, so warming is correct when no frame is built.
-				let access = match &delegated_call {
-					None => StateAccess::Call { target: address },
-					Some(delegated) => StateAccess::DelegateCall { target: delegated.callee },
+				//
+				// Precompiles are not warmed. Reuse the `precompile` lookup for
+				// a plain call; a delegate call looks up its own callee.
+				let (access, target_is_precompile) = match &delegated_call {
+					None =>
+						(StateAccess::Call { target: address }, precompile.is_some()),
+					Some(delegated) => (
+						StateAccess::DelegateCall { target: delegated.callee },
+						is_precompile::<T, E>(&delegated.callee),
+					),
 				};
-				// Warmth does not apply to precompile calls.
-				if !is_precompile::<T, E>(&access.target()) {
+				if !target_is_precompile {
 					access_list.touch_access(access);
 				}
 
@@ -2146,7 +2152,7 @@ where
 					let executable = E::from_storage(
 						*hash,
 						self.frame_meter_mut(),
-						CodeWarmth::cold_nonrevertible(),
+						CodeLoadWarmth::cold_nonrevertible(),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

@@ -1890,7 +1890,7 @@ impl<T: Config> Pallet<T> {
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
-						access_list::CodeWarmth::cold_nonrevertible(),
+						access_list::CodeLoadWarmth::cold_nonrevertible(),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

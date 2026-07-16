@@ -27,7 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::CodeWarmth,
+	access_list::CodeLoadWarmth,
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -125,35 +125,41 @@ impl ExportedFunction {
 struct CodeLoadToken {
 	code_len: u32,
 	code_type: BytecodeType,
-	warmth: CodeWarmth,
+	warmth: CodeLoadWarmth,
 }
 
 impl CodeLoadToken {
-	fn from_code_info<T: Config>(code_info: &CodeInfo<T>, warmth: CodeWarmth) -> Self {
+	fn from_code_info<T: Config>(code_info: &CodeInfo<T>, warmth: CodeLoadWarmth) -> Self {
 		Self { code_len: code_info.code_len, code_type: code_info.code_type, warmth }
 	}
 }
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		let size_cost = |bench: fn(u32) -> Weight| bench(self.code_len).saturating_sub(bench(0));
-		// Reading the code records adds proof only on a cold load; a hot load has
-		// them in the proof already. The read's time is part of the caller's base
-		// weight.
-		let read_proof = Weight::from_parts(0, T::WeightInfo::code_load().proof_size());
-		let base = runtime_costs::warm_base::<T>(
+		let length_cost = |bench: fn(u32) -> Weight| bench(self.code_len).saturating_sub(bench(0));
+		let base_weight = runtime_costs::cold_hot_base::<T>(
 			&[self.warmth.info, self.warmth.blob],
 			2, // overlay probes: `CodeInfoOf` and `PristineCode`
 			runtime_costs::CostPair {
 				cold: || {
-					read_proof.saturating_add(match self.code_type {
-						BytecodeType::Pvm => size_cost(T::WeightInfo::call_with_pvm_code_per_byte),
-						BytecodeType::Evm => size_cost(T::WeightInfo::call_with_evm_code_per_byte),
+					// The code_load ref_time is tracked by the base weight.
+					let code_load_proof = T::WeightInfo::code_load().set_ref_time(0);
+					code_load_proof.saturating_add(match self.code_type {
+						BytecodeType::Pvm => {
+							length_cost(T::WeightInfo::call_with_pvm_code_per_byte)
+						},
+						BytecodeType::Evm => {
+							length_cost(T::WeightInfo::call_with_evm_code_per_byte)
+						},
 					})
 				},
 				hot: || match self.code_type {
-					BytecodeType::Pvm => size_cost(T::WeightInfo::call_with_pvm_code_per_byte_hot),
-					BytecodeType::Evm => size_cost(T::WeightInfo::call_with_evm_code_per_byte_hot),
+					BytecodeType::Pvm => {
+						length_cost(T::WeightInfo::call_with_pvm_code_per_byte_hot)
+					},
+					BytecodeType::Evm => {
+						length_cost(T::WeightInfo::call_with_evm_code_per_byte_hot)
+					},
 				},
 			},
 		);
@@ -161,12 +167,12 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
 			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
 			// instructions here. Let's consider this as a safety margin.
-			BytecodeType::Pvm => base.saturating_add(
+			BytecodeType::Pvm => base_weight.saturating_add(
 				T::WeightInfo::basic_block_compilation(1)
 					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
 					.set_proof_size(0),
 			),
-			BytecodeType::Evm => base,
+			BytecodeType::Evm => base_weight,
 		}
 	}
 }
@@ -176,7 +182,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken {
 		code_len,
 		code_type: BytecodeType::Pvm,
-		warmth: CodeWarmth::cold_nonrevertible(),
+		warmth: CodeLoadWarmth::cold_nonrevertible(),
 	})
 }
 
@@ -351,7 +357,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: CodeWarmth,
+		warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info, warmth))?;
@@ -435,11 +441,11 @@ mod tests {
 		};
 
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
-			let cold = weight_of(code_type, CodeWarmth::cold_nonrevertible());
-			let hot = weight_of(code_type, CodeWarmth { info: Warmth::Hot, blob: Warmth::Hot });
+			let cold = weight_of(code_type, CodeLoadWarmth::cold_nonrevertible());
+			let hot = weight_of(code_type, CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::Hot });
 			let cold_revertible = weight_of(
 				code_type,
-				CodeWarmth {
+				CodeLoadWarmth {
 					info: Warmth::Cold { revertible: true },
 					blob: Warmth::Cold { revertible: true },
 				},
@@ -451,10 +457,10 @@ mod tests {
 			assert!(cold.proof_size() > 0, "cold proof_size {code_type:?}: {cold:?}");
 			assert_eq!(hot.proof_size(), 0, "hot proof_size {code_type:?}: {hot:?}");
 
-			let read_proof = <Test as Config>::WeightInfo::code_load().proof_size();
+			let code_load_proof = <Test as Config>::WeightInfo::code_load().proof_size();
 			assert!(
-				cold.proof_size() >= read_proof + u64::from(code_len),
-				"cold load must include the {read_proof}-byte code read proof plus \
+				cold.proof_size() >= code_load_proof + u64::from(code_len),
+				"cold load must include the {code_load_proof}-byte code read proof plus \
 				 {code_len} per-byte proof: {cold:?}",
 			);
 			assert!(
@@ -467,7 +473,7 @@ mod tests {
 			// load must still bill the full cold base.
 			let info_only = weight_of(
 				code_type,
-				CodeWarmth { info: Warmth::Hot, blob: Warmth::cold_nonrevertible() },
+				CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::cold_nonrevertible() },
 			);
 			assert!(
 				info_only.proof_size() > hot.proof_size(),

@@ -135,14 +135,14 @@ impl Warmth {
 
 /// Warmth of the two state items a code load reads.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CodeWarmth {
+pub struct CodeLoadWarmth {
 	/// The `CodeInfoOf` entry.
 	pub info: Warmth,
 	/// The `PristineCode` entry.
 	pub blob: Warmth,
 }
 
-impl CodeWarmth {
+impl CodeLoadWarmth {
 	pub fn cold_nonrevertible() -> Self {
 		Self { info: Warmth::cold_nonrevertible(), blob: Warmth::cold_nonrevertible() }
 	}
@@ -177,7 +177,7 @@ pub enum StateAccess {
 
 impl StateAccess {
 	/// The state access of a call or delegate call.
-	pub fn call(target: H160, delegate: bool) -> Self {
+	pub fn new(target: H160, delegate: bool) -> Self {
 		if delegate { Self::DelegateCall { target } } else { Self::Call { target } }
 	}
 
@@ -188,8 +188,8 @@ impl StateAccess {
 		}
 	}
 
-	/// Expands into the state items the opcode reads; `warmth_of` supplies
-	/// each item's warmth.
+	/// Maps `warmth_of` over each state item this access reads and collects
+	/// the results into a [`StateAccessKind`].
 	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateAccessKind {
 		match self {
 			Self::Call { target } => StateAccessKind::Call {
@@ -377,8 +377,8 @@ impl AccessList {
 	}
 
 	/// Registers the two state items a code load reads, returning their warmth.
-	pub fn touch_code(&mut self, hash: H256) -> CodeWarmth {
-		CodeWarmth {
+	pub fn touch_code(&mut self, hash: H256) -> CodeLoadWarmth {
+		CodeLoadWarmth {
 			info: self.touch(AccessEntry::CodeInfo { hash }),
 			blob: self.touch(AccessEntry::CodeBlob { hash }),
 		}

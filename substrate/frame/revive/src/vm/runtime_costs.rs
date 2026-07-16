@@ -231,7 +231,7 @@ impl RuntimeCosts {
 	) -> Weight {
 		match kind {
 			StorageAccessKind::Persistent(warmth) => {
-				warm_base::<T>(&[warmth], 1, CostPair { cold, hot }) // probe: the slot
+				cold_hot_base::<T>(&[warmth], 1, CostPair { cold, hot }) // probe: the slot
 			},
 			StorageAccessKind::Transient => transient(),
 		}
@@ -267,27 +267,25 @@ pub(crate) struct CostPair<Cold, Hot> {
 	pub hot: Hot,
 }
 
-/// Warmth-priced base of an opcode touching `items`: the hot bench applies
-/// only when every item is hot (mixed warmth rounds up to the cold bench),
-/// plus the per-item access-list overhead.
-///
-/// `hot_probes` is the number of storage reads the hot path serves from the
-/// overlay.
-pub(crate) fn warm_base<T: Config>(
-	items: &[Warmth],
-	hot_probes: u64,
+/// Base weight for an opcode reading one state item per entry in
+/// `item_warmths`, priced by each item's warmth. `overlay_probes` is the
+/// count of overlay traversals the hot path performs in place of a trie read.
+pub(crate) fn cold_hot_base<T: Config>(
+	item_warmths: &[Warmth],
+	overlay_probes: u64,
 	costs: CostPair<impl FnOnce() -> Weight, impl FnOnce() -> Weight>,
 ) -> Weight {
-	let base = if items.iter().all(|warmth| warmth.is_hot()) {
+	let opcode_weight = if item_warmths.iter().all(|warmth| warmth.is_hot()) {
 		(costs.hot)().saturating_add(
-			RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(hot_probes),
+			RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(overlay_probes),
 		)
 	} else {
 		(costs.cold)()
 	};
-	items
-		.iter()
-		.fold(base, |base, warmth| base.saturating_add(access_list_overhead::<T>(*warmth)))
+	// Add each touched item's access-list overhead on top of the opcode cost.
+	item_warmths.iter().fold(opcode_weight, |weight, warmth| {
+		weight.saturating_add(access_list_overhead::<T>(*warmth))
+	})
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -377,8 +375,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase(warmth) => match warmth {
-				StateAccessKind::Call { account, contract_info } => warm_base::<T>(
+			CallBase(access_kind) => match access_kind {
+				StateAccessKind::Call { account, contract_info } => cold_hot_base::<T>(
 					&[account, contract_info],
 					3, // probes: address mapping, system account, contract info
 					CostPair {
@@ -386,7 +384,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 						hot: T::WeightInfo::seal_call_hot,
 					},
 				),
-				StateAccessKind::DelegateCall { contract_info } => warm_base::<T>(
+				StateAccessKind::DelegateCall { contract_info } => cold_hot_base::<T>(
 					&[contract_info],
 					1, // probe: the callee's contract info
 					CostPair {
