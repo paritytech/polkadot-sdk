@@ -771,6 +771,7 @@ fn serve_inbound<B: BlockT>(
 mod tests {
 	use super::*;
 	use crate::RAW_CODEC;
+	use rstest::rstest;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_network_sync::SyncEvent;
 	use sc_network_types::PeerId as TypesPeerId;
@@ -908,6 +909,53 @@ mod tests {
 		SyncEvent::PeerDisconnected(to_types_peer(peer))
 	}
 
+	impl TestRig {
+		async fn connect(&self, peer: litep2p::PeerId) {
+			self.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		}
+
+		async fn send_response(&self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
+			self.inbound_tx.send(BitswapEvent::Response { peer, responses }).await.unwrap();
+		}
+
+		async fn send_block(&self, peer: litep2p::PeerId, cid: Cid, data: &[u8]) {
+			self.send_response(peer, vec![ResponseType::Block { cid, block: data.to_vec() }])
+				.await;
+		}
+
+		async fn send_presence(
+			&self,
+			peer: litep2p::PeerId,
+			cid: Cid,
+			presence: BlockPresenceType,
+		) {
+			self.send_response(peer, vec![ResponseType::Presence { cid, presence }]).await;
+		}
+
+		async fn send_wantlist(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
+			self.inbound_tx.send(BitswapEvent::Request { peer, cids }).await.unwrap();
+		}
+	}
+
+	/// Expect the next stream item to deliver the block for `cid` with payload `data`.
+	async fn expect_block(rx: &mut mpsc::Receiver<FetchItem>, cid: Cid, data: &[u8]) {
+		match drain_next(rx).await.expect("stream item") {
+			Ok((got_cid, bytes)) => {
+				assert_eq!(got_cid, cid);
+				assert_eq!(bytes, data);
+			},
+			other => panic!("expected block, got {other:?}"),
+		}
+	}
+
+	fn assert_single_dont_have(responses: &[ResponseType], cid: Cid) {
+		assert!(matches!(
+			responses,
+			[ResponseType::Presence { cid: got, presence: BlockPresenceType::DontHave }]
+				if *got == cid
+		));
+	}
+
 	#[test]
 	fn want_set_removes_cid_after_last_waiter_and_peer_complete() {
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xaa; 32]);
@@ -961,7 +1009,7 @@ mod tests {
 		let data = b"payload-a".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let (out_peer, out_cids) =
@@ -969,22 +1017,8 @@ mod tests {
 		assert_eq!(out_peer, peer);
 		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got_cid, bytes)) => {
-				assert_eq!(got_cid, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
-		}
+		rig.send_block(peer, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -994,41 +1028,21 @@ mod tests {
 		let data = b"payload-have".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 		assert_eq!(out_peer, peer);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Presence { cid, presence: BlockPresenceType::Have }],
-			})
-			.await
-			.unwrap();
+		rig.send_presence(peer, cid, BlockPresenceType::Have).await;
 
 		// A HAVE keeps the peer eligible: it is re-asked for the block.
 		let (out_peer, out_cids) = drain_next(&mut rig.outbound_req_rx).await.expect("re-ask");
 		assert_eq!(out_peer, peer);
 		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got_cid, bytes)) => {
-				assert_eq!(got_cid, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
-		}
+		rig.send_block(peer, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1039,136 +1053,65 @@ mod tests {
 		let data = b"payload-have-2".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
-		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		rig.connect(peer_a).await;
+		rig.connect(peer_b).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let (first, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 		let other = if first == peer_a { peer_b } else { peer_a };
 
-		let have = |peer| BitswapEvent::Response {
-			peer,
-			responses: vec![ResponseType::Presence { cid, presence: BlockPresenceType::Have }],
-		};
-
 		// First HAVE earns the peer a re-ask.
-		rig.inbound_tx.send(have(first)).await.unwrap();
+		rig.send_presence(first, cid, BlockPresenceType::Have).await;
 		let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("re-ask");
 		assert_eq!(out_peer, first);
 
 		// Second HAVE without the block: the peer counts as tried, the want moves on.
-		rig.inbound_tx.send(have(first)).await.unwrap();
+		rig.send_presence(first, cid, BlockPresenceType::Have).await;
 		let (out_peer, out_cids) =
 			drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
 		assert_eq!(out_peer, other);
 		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: other,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got_cid, bytes)) => {
-				assert_eq!(got_cid, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
-		}
+		rig.send_block(other, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 	}
 
+	/// The only peer counts as tried (via DONT_HAVE, or an unanswered request hitting the
+	/// per-peer timeout); after [`ROUND_RETRY_DELAY`] the round restarts and the same peer
+	/// is asked again.
+	#[rstest]
+	#[case::after_dont_have(true)]
+	#[case::after_timeout(false)]
 	#[tokio::test(start_paused = true)]
-	async fn exhausted_round_reasks_peer_after_delay() {
+	async fn exhausted_round_reasks_peer_after_delay(#[case] answer_dont_have: bool) {
 		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
 		let data = b"payload-round".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Presence {
-					cid,
-					presence: BlockPresenceType::DontHave,
-				}],
-			})
-			.await
-			.unwrap();
-
-		// The only peer is tried: nothing is dispatched before the round delay passes.
-		let no_req =
-			timeout(ROUND_RETRY_DELAY - Duration::from_secs(1), rig.outbound_req_rx.recv()).await;
-		assert!(no_req.is_err());
-
-		// After the delay the round restarts and the same peer is asked again.
-		let (out_peer, out_cids) =
-			drain_next(&mut rig.outbound_req_rx).await.expect("new-round WANT");
-		assert_eq!(out_peer, peer);
-		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got_cid, bytes)) => {
-				assert_eq!(got_cid, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
+		if answer_dont_have {
+			rig.send_presence(peer, cid, BlockPresenceType::DontHave).await;
+			// The only peer is tried: nothing is dispatched before the round delay passes.
+			let no_req =
+				timeout(ROUND_RETRY_DELAY - Duration::from_secs(1), rig.outbound_req_rx.recv())
+					.await;
+			assert!(no_req.is_err());
 		}
-	}
 
-	#[tokio::test(start_paused = true)]
-	async fn timed_out_peer_is_reasked_next_round() {
-		let mut rig = empty_rig();
-		let peer = litep2p::PeerId::random();
-		let data = b"payload-round-2".to_vec();
-		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
-
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
-		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
-
-		// No response: the per-peer timeout marks the peer tried, then the round restarts
-		// and the same peer is asked again.
 		let (out_peer, out_cids) =
 			timeout(PER_PEER_TIMEOUT + ROUND_RETRY_DELAY * 2, rig.outbound_req_rx.recv())
 				.await
-				.expect("re-ask after timeout and round delay")
+				.expect("new-round WANT")
 				.expect("transport channel open");
 		assert_eq!(out_peer, peer);
 		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got_cid, bytes)) => {
-				assert_eq!(got_cid, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
-		}
+		rig.send_block(peer, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1179,43 +1122,20 @@ mod tests {
 		let data = b"payload-round-3".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
+		rig.connect(peer_a).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: peer_a,
-				responses: vec![ResponseType::Presence {
-					cid,
-					presence: BlockPresenceType::DontHave,
-				}],
-			})
-			.await
-			.unwrap();
+		rig.send_presence(peer_a, cid, BlockPresenceType::DontHave).await;
 
 		// The CID is parked awaiting a new round; a fresh peer is dispatched immediately,
 		// without waiting for the round delay.
-		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		rig.connect(peer_b).await;
 		let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("WANT to new peer");
 		assert_eq!(out_peer, peer_b);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: peer_b,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got_cid, bytes)) => {
-				assert_eq!(got_cid, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
-		}
+		rig.send_block(peer_b, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 
 		// The dispatch cancelled the scheduled round: no stray re-ask later.
 		tokio::time::advance(ROUND_RETRY_DELAY * 2).await;
@@ -1236,117 +1156,84 @@ mod tests {
 		assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
 
 		// Once a full peer connects, the pending want goes out to it.
-		rig.sync_event_tx.send(sync_connected(full_peer)).await.unwrap();
+		rig.connect(full_peer).await;
 		let (out_peer, out_cids) =
 			drain_next(&mut rig.outbound_req_rx).await.expect("outbound WANT");
 		assert_eq!(out_peer, full_peer);
 		assert_eq!(out_cids, vec![(cid, WantType::Block)]);
 	}
 
+	/// The only peer fails the request (DONT_HAVE, or a block failing CID verification):
+	/// nothing is delivered and the stream stays open until the caller gives up.
+	#[rstest]
+	#[case::dont_have(None)]
+	#[case::corrupted_block(Some(b"NOT-the-real-payload".as_slice()))]
 	#[tokio::test(start_paused = true)]
-	async fn dont_have_from_only_peer_leaves_stream_open() {
+	async fn failure_from_only_peer_leaves_stream_open(#[case] block: Option<&[u8]>) {
 		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
-		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [7u8; 32]);
+		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"the-real-payload");
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound WANT");
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Presence {
-					cid,
-					presence: BlockPresenceType::DontHave,
-				}],
-			})
-			.await
-			.unwrap();
+		match block {
+			Some(corrupted) => rig.send_block(peer, cid, corrupted).await,
+			None => rig.send_presence(peer, cid, BlockPresenceType::DontHave).await,
+		}
 
-		// No other peers to try: the want stays unresolved, the stream stays open until
-		// the caller gives up.
 		tokio::time::advance(Duration::from_secs(60)).await;
 		assert!(matches!(rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
 	}
 
+	enum FailoverTrigger {
+		DontHave,
+		Timeout,
+		CorruptedBlock,
+		Disconnect,
+	}
+
+	/// However the first peer fails the request — DONT_HAVE, an unanswered request timing
+	/// out, a block failing CID verification, or disconnecting — the want fails over to
+	/// the other connected peer.
+	#[rstest]
+	#[case::dont_have(FailoverTrigger::DontHave)]
+	#[case::timeout(FailoverTrigger::Timeout)]
+	#[case::corrupted_block(FailoverTrigger::CorruptedBlock)]
+	#[case::disconnect(FailoverTrigger::Disconnect)]
 	#[tokio::test(start_paused = true)]
-	async fn per_peer_timeout_triggers_failover() {
+	async fn first_peer_failure_triggers_failover(#[case] trigger: FailoverTrigger) {
 		let mut rig = empty_rig();
 		let peer_a = litep2p::PeerId::random();
 		let peer_b = litep2p::PeerId::random();
-		let data = b"after-timeout".to_vec();
+		let data = b"failover-payload".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
-		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
+		rig.connect(peer_a).await;
+		rig.connect(peer_b).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
-		// The unanswered request times out after `PER_PEER_TIMEOUT`; the sweep retries on
-		// the other peer.
-		tokio::time::advance(PER_PEER_TIMEOUT + Duration::from_secs(2)).await;
+		match trigger {
+			FailoverTrigger::DontHave => {
+				rig.send_presence(first_peer, cid, BlockPresenceType::DontHave).await
+			},
+			FailoverTrigger::Timeout => {
+				tokio::time::advance(PER_PEER_TIMEOUT + Duration::from_secs(2)).await
+			},
+			FailoverTrigger::CorruptedBlock => rig.send_block(first_peer, cid, b"corrupted").await,
+			FailoverTrigger::Disconnect => {
+				rig.sync_event_tx.send(sync_disconnected(first_peer)).await.unwrap()
+			},
+		}
 
 		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
 		assert_ne!(first_peer, second_peer);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: second_peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
-	}
-
-	#[tokio::test(start_paused = true)]
-	async fn two_peers_first_dont_have_second_block() {
-		let mut rig = empty_rig();
-		let peer_a = litep2p::PeerId::random();
-		let peer_b = litep2p::PeerId::random();
-		let data = b"after-failover".to_vec();
-		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
-
-		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
-		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
-
-		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: first_peer,
-				responses: vec![ResponseType::Presence {
-					cid,
-					presence: BlockPresenceType::DontHave,
-				}],
-			})
-			.await
-			.unwrap();
-
-		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("second WANT");
-		assert_ne!(first_peer, second_peer);
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: second_peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		match item {
-			Ok((got, bytes)) => {
-				assert_eq!(got, cid);
-				assert_eq!(bytes, data);
-			},
-			other => panic!("expected Block, got {other:?}"),
-		}
+		rig.send_block(second_peer, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1365,7 +1252,7 @@ mod tests {
 		tokio::time::advance(Duration::from_secs(2)).await;
 
 		// A peer connecting afterwards must not trigger a WANT for the cancelled request.
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
 	}
 
@@ -1376,25 +1263,16 @@ mod tests {
 		let data = b"shared".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 
 		let mut rx_a = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let mut rx_b = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item_a = drain_next(&mut rx_a).await.expect("a");
-		let item_b = drain_next(&mut rx_b).await.expect("b");
-		assert!(matches!(&item_a, Ok((c, b)) if *c == cid && *b == data));
-		assert!(matches!(&item_b, Ok((c, b)) if *c == cid && *b == data));
+		rig.send_block(peer, cid, &data).await;
+		expect_block(&mut rx_a, cid, &data).await;
+		expect_block(&mut rx_b, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1404,7 +1282,7 @@ mod tests {
 		let data = b"survivor".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 
 		let rx_a = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let mut rx_b = rig.user_handle.request_stream(vec![cid]).await.unwrap();
@@ -1414,23 +1292,15 @@ mod tests {
 
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item_b = drain_next(&mut rx_b).await.expect("b");
-		assert!(matches!(item_b, Ok((c, b)) if c == cid && b == data));
+		rig.send_block(peer, cid, &data).await;
+		expect_block(&mut rx_b, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
 	async fn dispatch_window_queues_excess_cids_and_promotes_on_delivery() {
 		let mut rig = small_window_rig(4);
 		let peer = litep2p::PeerId::random();
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 
 		let payloads: Vec<Vec<u8>> = (0..5u8).map(|i| vec![i; 8]).collect();
 		let cids: Vec<Cid> =
@@ -1447,19 +1317,8 @@ mod tests {
 
 		// Answering one dispatched CID frees a slot and promotes the queued CID.
 		let answered_idx = cids.iter().position(|cid| dispatched.contains(cid)).unwrap();
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block {
-					cid: cids[answered_idx],
-					block: payloads[answered_idx].clone(),
-				}],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("delivered block");
-		assert!(matches!(item, Ok((c, _)) if c == cids[answered_idx]));
+		rig.send_block(peer, cids[answered_idx], &payloads[answered_idx]).await;
+		expect_block(&mut rx, cids[answered_idx], &payloads[answered_idx]).await;
 
 		let (_, promoted) = drain_next(&mut rig.outbound_req_rx).await.expect("promoted WANT");
 		assert_eq!(promoted, vec![(cids[queued_idx], WantType::Block)]);
@@ -1486,10 +1345,7 @@ mod tests {
 		let mut rig = build_rig_with(Arc::new(client), MAX_LIVE_CIDS);
 
 		let peer = litep2p::PeerId::random();
-		rig.inbound_tx
-			.send(BitswapEvent::Request { peer, cids: vec![(cid, WantType::Block)] })
-			.await
-			.unwrap();
+		rig.send_wantlist(peer, vec![(cid, WantType::Block)]).await;
 
 		let (resp_peer, responses) = drain_next(&mut rig.outbound_resp_rx).await.expect("response");
 		assert_eq!(resp_peer, peer);
@@ -1573,10 +1429,7 @@ mod tests {
 		// The first wantlist occupies the only lookup worker (parked on the gate); the
 		// second finds the pool saturated.
 		for cid in [gated_cid, refused_cid] {
-			rig.inbound_tx
-				.send(BitswapEvent::Request { peer, cids: vec![(cid, WantType::Block)] })
-				.await
-				.unwrap();
+			rig.send_wantlist(peer, vec![(cid, WantType::Block)]).await;
 		}
 
 		// The refused wantlist is answered with DONT_HAVE instead of silence.
@@ -1584,22 +1437,14 @@ mod tests {
 			.await
 			.expect("DONT_HAVE for refused wantlist");
 		assert_eq!(resp_peer, peer);
-		assert!(matches!(
-			&responses[..],
-			[ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }]
-				if *cid == refused_cid
-		));
+		assert_single_dont_have(&responses, refused_cid);
 
 		// Releasing the worker lets the parked wantlist be served normally.
 		gate_tx.send(()).unwrap();
 		let (_, responses) = drain_next(&mut rig.outbound_resp_rx)
 			.await
 			.expect("response for gated wantlist");
-		assert!(matches!(
-			&responses[..],
-			[ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }]
-				if *cid == gated_cid
-		));
+		assert_single_dont_have(&responses, gated_cid);
 	}
 
 	#[tokio::test]
@@ -1615,10 +1460,7 @@ mod tests {
 			})
 			.collect();
 
-		rig.inbound_tx
-			.send(BitswapEvent::Request { peer, cids: cids.clone() })
-			.await
-			.unwrap();
+		rig.send_wantlist(peer, cids.clone()).await;
 
 		// Entries beyond `MAX_WANTED_BLOCKS` get an immediate DONT_HAVE; the first
 		// `MAX_WANTED_BLOCKS` are looked up and answered too (DONT_HAVE as well: the test
@@ -1649,85 +1491,11 @@ mod tests {
 			CidMultihash::<64>::wrap(0x99 /* unsupported */, &[0u8; 32]).unwrap(),
 		);
 
-		rig.inbound_tx
-			.send(BitswapEvent::Request { peer, cids: vec![(unsupported, WantType::Block)] })
-			.await
-			.unwrap();
+		rig.send_wantlist(peer, vec![(unsupported, WantType::Block)]).await;
 
 		let (resp_peer, responses) = drain_next(&mut rig.outbound_resp_rx).await.expect("reply");
 		assert_eq!(resp_peer, peer);
-		assert!(matches!(
-			&responses[..],
-			[ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }]
-				if *cid == unsupported
-		));
-	}
-
-	#[tokio::test(start_paused = true)]
-	async fn corrupted_block_from_only_peer_is_not_delivered() {
-		let mut rig = empty_rig();
-		let peer = litep2p::PeerId::random();
-		let real = b"the-real-payload".to_vec();
-		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &real);
-
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
-		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block {
-					cid,
-					block: b"NOT-the-real-payload".to_vec(),
-				}],
-			})
-			.await
-			.unwrap();
-
-		// The corrupted block is rejected; no other peer can serve the CID, so the
-		// stream stays open without delivering anything.
-		tokio::time::advance(Duration::from_secs(60)).await;
-		assert!(matches!(rx.try_recv(), Err(mpsc::error::TryRecvError::Empty)));
-	}
-
-	#[tokio::test(start_paused = true)]
-	async fn corrupted_block_triggers_failover_to_next_peer() {
-		let mut rig = empty_rig();
-		let peer_a = litep2p::PeerId::random();
-		let peer_b = litep2p::PeerId::random();
-		let data = b"genuine-payload".to_vec();
-		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
-
-		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
-		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
-
-		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: first_peer,
-				responses: vec![ResponseType::Block { cid, block: b"corrupted".to_vec() }],
-			})
-			.await
-			.unwrap();
-
-		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx)
-			.await
-			.expect("failover WANT after corrupted block");
-		assert_ne!(first_peer, second_peer);
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: second_peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
+		assert_single_dont_have(&responses, unsupported);
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1739,6 +1507,7 @@ mod tests {
 		drop(rig.user_handle);
 		sleep(Duration::from_millis(1)).await;
 
+		// `rig.user_handle` is moved out, so the `&self` helper is unusable here.
 		rig.inbound_tx
 			.send(BitswapEvent::Request { peer, cids: vec![(cid, WantType::Block)] })
 			.await
@@ -1748,17 +1517,14 @@ mod tests {
 			.await
 			.expect("service must keep serving inbound after all handles are dropped");
 		assert_eq!(resp_peer, peer);
-		assert!(matches!(
-			responses[0],
-			ResponseType::Presence { presence: BlockPresenceType::DontHave, .. }
-		));
+		assert_single_dont_have(&responses, cid);
 	}
 
 	#[tokio::test(start_paused = true)]
 	async fn outbound_wants_bundled_and_split_at_message_cap() {
 		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 
 		let cids: Vec<Cid> = (0..=MAX_WANTED_BLOCKS as u8)
 			.map(|i| {
@@ -1808,7 +1574,7 @@ mod tests {
 		let peer = litep2p::PeerId::random();
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xee; 32]);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await;
 
@@ -1819,44 +1585,13 @@ mod tests {
 	}
 
 	#[tokio::test(start_paused = true)]
-	async fn peer_disconnect_triggers_failover() {
-		let mut rig = empty_rig();
-		let peer_a = litep2p::PeerId::random();
-		let peer_b = litep2p::PeerId::random();
-		let data = b"after-disconnect".to_vec();
-		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
-
-		rig.sync_event_tx.send(sync_connected(peer_a)).await.unwrap();
-		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
-		let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
-		assert_eq!(first_peer, peer_a);
-
-		rig.sync_event_tx.send(sync_connected(peer_b)).await.unwrap();
-		rig.sync_event_tx.send(sync_disconnected(peer_a)).await.unwrap();
-
-		let (second_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
-		assert_eq!(second_peer, peer_b);
-
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer: peer_b,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
-	}
-
-	#[tokio::test(start_paused = true)]
 	async fn late_response_after_receiver_drop_is_ignored_and_cid_refetchable() {
 		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
 		let data = b"too-late".to_vec();
 		let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
-		rig.sync_event_tx.send(sync_connected(peer)).await.unwrap();
+		rig.connect(peer).await;
 		let rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
@@ -1866,13 +1601,7 @@ mod tests {
 		tokio::time::advance(Duration::from_secs(2)).await;
 
 		// The late response hits no waiter and is dropped.
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
+		rig.send_block(peer, cid, &data).await;
 		// Let the actor process the late response before the fresh request goes in.
 		sleep(Duration::from_millis(1)).await;
 
@@ -1880,16 +1609,8 @@ mod tests {
 		// again and the block is delivered.
 		let mut rx = rig.user_handle.request_stream(vec![cid]).await.unwrap();
 		let _ = drain_next(&mut rig.outbound_req_rx).await.expect("fresh WANT");
-		rig.inbound_tx
-			.send(BitswapEvent::Response {
-				peer,
-				responses: vec![ResponseType::Block { cid, block: data.clone() }],
-			})
-			.await
-			.unwrap();
-
-		let item = drain_next(&mut rx).await.expect("item");
-		assert!(matches!(item, Ok((c, b)) if c == cid && b == data));
+		rig.send_block(peer, cid, &data).await;
+		expect_block(&mut rx, cid, &data).await;
 	}
 
 	#[tokio::test(start_paused = true)]
