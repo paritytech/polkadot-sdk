@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784199721886,
+  "lastUpdate": 1784209749322,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -108107,6 +108107,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2387519297,
             "range": "± 12429269",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68e8908c0f7a2609054a00408a219af4bdd4d3ad",
+          "message": "Remove deprecated TREASURER_INDEX constants (#12664)\n\nPart of #11561\n\nRemoves the deprecated `xcm::body::TREASURER_INDEX` constants from the\nWestend and RC runtime constants modules.\n\nThese constants were deprecated in favor of\n`xcm::latest::BodyId::Treasury` with a removal date of August 2024, and\nthere are no remaining in-repo uses.\n\n## Integration\n\nDownstream users should use `xcm::latest::BodyId::Treasury` instead of\nthe old numeric `TREASURER_INDEX` constant.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-16T11:43:05Z",
+          "tree_id": "b430afdad7be80ed17a6e361b746afcc90ef1de7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e8908c0f7a2609054a00408a219af4bdd4d3ad"
+        },
+        "date": 1784209716657,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18773263,
+            "range": "± 112216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18979658,
+            "range": "± 213490",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20244669,
+            "range": "± 120402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25030091,
+            "range": "± 185449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58875328,
+            "range": "± 516551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 351995826,
+            "range": "± 4102031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2602445797,
+            "range": "± 171832781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 15490061,
+            "range": "± 311480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15717100,
+            "range": "± 125229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16327722,
+            "range": "± 288049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20630179,
+            "range": "± 217604",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59513759,
+            "range": "± 917343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367554934,
+            "range": "± 5291269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2566734037,
+            "range": "± 28953787",
             "unit": "ns/iter"
           }
         ]
