@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784200750857,
+  "lastUpdate": 1784210772442,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c8f5da2e895b439cf401e20faca55ad76f9e90d1",
-          "message": "Version bumps and prdocs reordering from stable2509-2 (#10339)\n\nThis PR backports regular version bumps and prdoc reordering from the\nrelease branch back to master",
-          "timestamp": "2025-11-18T09:50:51Z",
-          "tree_id": "e0a0d83ba4a3920bce9eb53c2cbc49e36eaf39fa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8f5da2e895b439cf401e20faca55ad76f9e90d1"
-        },
-        "date": 1763465500257,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04419966888999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03398222664999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08444296385199991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68e8908c0f7a2609054a00408a219af4bdd4d3ad",
+          "message": "Remove deprecated TREASURER_INDEX constants (#12664)\n\nPart of #11561\n\nRemoves the deprecated `xcm::body::TREASURER_INDEX` constants from the\nWestend and RC runtime constants modules.\n\nThese constants were deprecated in favor of\n`xcm::latest::BodyId::Treasury` with a removal date of August 2024, and\nthere are no remaining in-repo uses.\n\n## Integration\n\nDownstream users should use `xcm::latest::BodyId::Treasury` instead of\nthe old numeric `TREASURER_INDEX` constant.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-16T11:43:05Z",
+          "tree_id": "b430afdad7be80ed17a6e361b746afcc90ef1de7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e8908c0f7a2609054a00408a219af4bdd4d3ad"
+        },
+        "date": 1784210741763,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.15999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038429217390000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08436429379199994,
             "unit": "seconds"
           }
         ]
