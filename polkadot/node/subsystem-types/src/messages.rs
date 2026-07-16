@@ -39,8 +39,8 @@ use polkadot_node_primitives::{
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
 	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
-	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitCollationParams,
-	SubmitSegmentParams, ValidationResult, MAX_SEGMENT_LEN,
+	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitSegmentParams,
+	ValidationResult, MAX_SEGMENT_LEN,
 };
 use polkadot_primitives::{
 	self,
@@ -997,13 +997,6 @@ pub enum CollationGenerationMessage {
 	Initialize(CollationGenerationConfig),
 	/// Reinitialize the collation generation subsystem, overriding the existing config.
 	Reinitialize(CollationGenerationConfig),
-	/// Submit a collation to the subsystem. This will package it into a signed
-	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
-	///
-	/// If sent before `Initialize`, this will be ignored.
-	/// We will delete this later, but keep it for now so
-	/// we don't break the build.
-	SubmitCollation(SubmitCollationParams),
 	/// Submit a segment of collations that share a scheduling parent and target core. Each
 	/// collation is packaged into a signed [`CommittedCandidateReceipt`] and distributed to
 	/// validators, in the order they appear in [`SubmitSegmentParams::collations`].

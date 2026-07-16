@@ -170,24 +170,28 @@ fn test_config_no_collator<Id: Into<ParaId>>(para_id: Id) -> CollationGeneration
 }
 
 #[test]
-fn submit_collation_is_no_op_before_initialization() {
+fn submit_segment_is_no_op_before_initialization() {
 	test_harness(|mut virtual_overseer| async move {
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent: Hash::repeat_byte(0),
-					scheduling_parent: Some(Hash::repeat_byte(0)),
-					collation: test_collation(),
-					validation_code_hash: Hash::repeat_byte(1).into(),
-					result_sender: None,
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: Hash::repeat_byte(0),
 					core_index: CoreIndex(0),
-					session_index: 1,
-					validation_data: PersistedValidationData {
-						parent_head: vec![1, 2, 3].into(),
-						relay_parent_number: 10,
-						relay_parent_storage_root: Hash::repeat_byte(1),
-						max_pov_size: 1024,
-					},
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
+					collations: BoundedVec::try_from(vec![SegmentCollation {
+						relay_parent: Hash::repeat_byte(0),
+						collation: test_collation(),
+						validation_code_hash: Hash::repeat_byte(1).into(),
+						result_sender: None,
+						session_index: 1,
+						validation_data: PersistedValidationData {
+							parent_head: vec![1, 2, 3].into(),
+							relay_parent_number: 10,
+							relay_parent_storage_root: Hash::repeat_byte(1),
+							max_pov_size: 1024,
+						},
+					}])
+					.expect("One element segment should fit;qed!"),
 				}),
 			})
 			.await;
@@ -197,7 +201,7 @@ fn submit_collation_is_no_op_before_initialization() {
 }
 
 #[test]
-fn submit_collation_leads_to_distribution() {
+fn submit_segment_leads_to_distribution() {
 	let relay_parent = Hash::repeat_byte(0);
 	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
 	let parent_head = dummy_head_data();
@@ -225,20 +229,24 @@ fn submit_collation_leads_to_distribution() {
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent,
-					scheduling_parent: Some(relay_parent),
-					collation,
-					validation_code_hash,
-					result_sender: None,
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: relay_parent,
 					core_index: CoreIndex(0),
-					session_index: 1,
-					validation_data: expected_pvd.clone(),
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
+					collations: BoundedVec::try_from(vec![SegmentCollation {
+						relay_parent,
+						collation,
+						validation_code_hash,
+						result_sender: None,
+						session_index: 1,
+						validation_data: expected_pvd.clone(),
+					}])
+					.expect("One element segment should fit;qed!"),
 				}),
 			})
 			.await;
 
-		helpers::handle_runtime_calls_on_submit_collation(
+		helpers::handle_runtime_calls_on_submit_segment(
 			&mut virtual_overseer,
 			relay_parent,
 			[(CoreIndex(0), VecDeque::from([para_id]))].into(),
@@ -265,7 +273,7 @@ fn submit_collation_leads_to_distribution() {
 }
 
 #[test]
-fn submit_collation_v3_runtime_calls_use_scheduling_parent() {
+fn submit_segment_v3_runtime_calls_use_scheduling_parent() {
 	let relay_parent = Hash::repeat_byte(0xAA);
 	let scheduling_parent = Hash::repeat_byte(0xBB);
 	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
@@ -293,21 +301,25 @@ fn submit_collation_v3_runtime_calls_use_scheduling_parent() {
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent,
-					scheduling_parent: Some(scheduling_parent),
-					collation,
-					validation_code_hash,
-					result_sender: None,
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent,
 					core_index: CoreIndex(0),
-					session_index: 1,
-					validation_data: expected_pvd.clone(),
+					candidates_descriptor_version: CandidateDescriptorVersion::V3,
+					collations: BoundedVec::try_from(vec![SegmentCollation {
+						relay_parent,
+						collation,
+						validation_code_hash,
+						result_sender: None,
+						session_index: 1,
+						validation_data: expected_pvd.clone(),
+					}])
+					.expect("One element segment should fit;qed!"),
 				}),
 			})
 			.await;
 
 		// All runtime API calls must be against the scheduling_parent, not relay_parent.
-		helpers::handle_runtime_calls_on_submit_collation(
+		helpers::handle_runtime_calls_on_submit_segment(
 			&mut virtual_overseer,
 			scheduling_parent,
 			[(CoreIndex(0), VecDeque::from([para_id]))].into(),
@@ -539,20 +551,24 @@ fn v2_receipts_failed_core_index_check() {
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent,
-					scheduling_parent: Some(relay_parent),
-					collation: test_collation(),
-					validation_code_hash,
-					result_sender: None,
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: relay_parent,
 					core_index: CoreIndex(0),
-					session_index: 1,
-					validation_data: expected_pvd.clone(),
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
+					collations: BoundedVec::try_from(vec![SegmentCollation {
+						relay_parent,
+						collation: test_collation(),
+						validation_code_hash,
+						result_sender: None,
+						session_index: 1,
+						validation_data: expected_pvd.clone(),
+					}])
+					.expect("One element segment should fit;qed!"),
 				}),
 			})
 			.await;
 
-		helpers::handle_runtime_calls_on_submit_collation(
+		helpers::handle_runtime_calls_on_submit_segment(
 			&mut virtual_overseer,
 			relay_parent,
 			// Core index commitment is on core 0 but don't add any assignment for core 0.
@@ -596,20 +612,24 @@ fn approved_peer_signal() {
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-					relay_parent,
-					scheduling_parent: Some(relay_parent),
-					collation,
-					validation_code_hash,
-					result_sender: None,
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: relay_parent,
 					core_index: CoreIndex(0),
-					session_index: 1,
-					validation_data: expected_pvd.clone(),
+					candidates_descriptor_version: CandidateDescriptorVersion::V3,
+					collations: BoundedVec::try_from(vec![SegmentCollation {
+						relay_parent,
+						collation,
+						validation_code_hash,
+						result_sender: None,
+						session_index: 1,
+						validation_data: expected_pvd.clone(),
+					}])
+					.expect("One element segment should fit;qed!"),
 				}),
 			})
 			.await;
 
-		helpers::handle_runtime_calls_on_submit_collation(
+		helpers::handle_runtime_calls_on_submit_segment(
 			&mut virtual_overseer,
 			relay_parent,
 			[(CoreIndex(0), [para_id].into_iter().collect())].into_iter().collect(),
@@ -771,9 +791,9 @@ mod helpers {
 		}
 	}
 
-	// Handles all runtime requests performed in `handle_submit_collation`.
+	// Handles all runtime requests performed in `handle_submit_segment`.
 	// All requests are made against the scheduling parent (or relay_parent for V2).
-	pub async fn handle_runtime_calls_on_submit_collation(
+	pub async fn handle_runtime_calls_on_submit_segment(
 		virtual_overseer: &mut VirtualOverseer,
 		scheduling_parent: Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
