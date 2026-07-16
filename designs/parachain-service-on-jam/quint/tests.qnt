@@ -963,4 +963,27 @@ module tests {
       init
     }
   }
+
+  /// A Refine invocation emitting more than `MaxUpwardMessages` (1024) upward
+  /// messages is rejected with `TooManyUpwardMessages`. Exactly 1024 is accepted.
+  /// Uses `Solicit` (unrestricted, 37 B each) so 1025 stay under the 48 KiB
+  /// result-blob budget — the count cap, not the byte budget, must be the reason.
+  run tooManyUpwardMessagesTest = {
+    val pkg: WorkPackage = {
+      authorizedParas: List(CoretimeParaId),
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+    }
+    val msg = Solicit({ hash: { hashBytes: 7 }, len: 1024 })
+    val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
+    val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
+    val overOut = refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), over, 0)[0]
+    val atCapOut = refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), atCap, 0)[0]
+    all {
+      assert(over.length() == 1025),
+      assert(overOut == Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages })),
+      // Exactly at the cap is not a TooManyUpwardMessages error.
+      assert(atCapOut != Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages })),
+      init
+    }
+  }
 }

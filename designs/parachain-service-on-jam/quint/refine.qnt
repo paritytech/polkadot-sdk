@@ -170,6 +170,8 @@ module refine {
     refineErr(para_id, InvalidCodeHash)
     else if (pvfPanic)
     refineErr(para_id, Opaque(0))
+    else if (msgs.length() > MaxUpwardMessages)
+    refineErr(para_id, TooManyUpwardMessages)
     else if (not(wellFormedUpwardMessages(msgs)))
     refineErr(para_id, SetValidatorKeysTooManyKeys)
     else if (violatesParachainRestrictions(msgs, para_id))

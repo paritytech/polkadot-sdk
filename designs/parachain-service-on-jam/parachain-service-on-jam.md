@@ -227,6 +227,9 @@ enum RefineLog {
     /// `set_validator_keys` was called more than once in a single Refine
     /// invocation. See §4.3, §5.3.
     SetValidatorKeysTooManyKeys,
+    /// The PVF emitted more than 1024 upward messages in a single Refine
+    /// invocation. See §4.3.
+    TooManyUpwardMessages,
     /// The PVF invoked a host function restricted to another parachain
     /// (Asset Hub or the Coretime chain). See §4.3.
     RestrictedHostFunction,
@@ -605,6 +608,11 @@ These produce effects carried in the work digest and applied by Accumulate:
 
 Host functions that are restricted to specific parachains (e.g. Coretime chain, Asset Hub)
 will abort with an error when called by any other parachain.
+
+A single Refine invocation may emit at most **1024 upward messages**. If the PVF
+exceeds this, the invocation fails with `Err(RefineLog::TooManyUpwardMessages)`.
+This bounds the number of side effects Accumulate must replay per work item,
+independently of the 48 KiB combined-result-blob budget.
 
 ---
 

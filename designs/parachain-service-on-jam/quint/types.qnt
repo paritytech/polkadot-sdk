@@ -79,6 +79,9 @@ module types {
   /// Per-call cap on `set_validator_keys` chunks (design §4.3).
   pure val SetValidatorKeysMaxKeys: int = 30
 
+  /// Max upward messages a PVF may emit in one Refine invocation (design §4.3).
+  pure val MaxUpwardMessages: int = 1024
+
   /// Worst-case staging footprint when an Asset Hub rotation is in flight.
   pure val MaxStagedValidatorKeysFootprint: int =
   CoreCount * 3 * ValidatorKeySize // 1023 * 336 = 343 728 B

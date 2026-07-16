@@ -20,6 +20,9 @@ module messages {
   // `set_validator_keys` was called more than once in a single
   // Refine invocation.
   | SetValidatorKeysTooManyKeys
+  // The PVF emitted more than `MaxUpwardMessages` (1024) upward messages
+  // in a single Refine invocation (§4.3).
+  | TooManyUpwardMessages
   // The PVF invoked a host function restricted to another parachain
   // (Asset Hub or the Coretime chain).
   | RestrictedHostFunction
