@@ -2,12 +2,7 @@ title: Remove deprecated NativeElseWasmExecutor.
 doc:
 - audience: Node Dev
   description: |-
-    Part of #11561
-
     Remove the deprecated `NativeElseWasmExecutor` and `NativeExecutionDispatch` from `sc-executor`.
-
-    These were deprecated with a removal date of end of 2024. Native execution is no longer supported; callers should use `WasmExecutor` instead.
-
     ## Integration
 
     Downstream users should:
