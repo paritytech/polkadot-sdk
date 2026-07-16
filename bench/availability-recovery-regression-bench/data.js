@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784210653468,
+  "lastUpdate": 1784222934791,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77c01251ebf91e1d2a55cbf6945c7711f9cfa263",
-          "message": "aura/slot_based: Reduce authoring duration of the last produced block  (#10154)\n\nThis PR adjusts the block authoring to stop producing blocks 1 second\nbefore the scheduled slot change.\nThis introduces a safety buffer to prevent blocks from being authored\ntoo late for inclusion.\n\n- 2s blocks / 3 cores: The authoring duration of the last block is\nreduced from 2s to 1s.\n- 500ms blocks / 12 cores: The authoring duration cannot be reduced past\n500ms, therefore the last two blocks are no longer authored\n\n### Testing Done\n\nTested on top of:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n### 3 cores 2s blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.987s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=5.987s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.987s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.991s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=3.991s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.991s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.99s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723041) next_duration_change=1.99s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(990ms)\n```\n\n### 12 cores 500ms blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=1.494s next_slot_change=Slot(293724135) deadline=494ms\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(494ms)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=493ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=993ms next_slot_change=Slot(293724135) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=993ms next_slot_change=Slot(293724135)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724136)) next_slot=Slot(293724137) next_duration_change=494ms next_slot_change=Slot(293724137) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=494ms next_slot_change=Slot(293724137)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n```\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/9848\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eduardspa <eduard@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:46:16Z",
-          "tree_id": "14ce62d93d9b5295823e962a1145111f87e60acc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77c01251ebf91e1d2a55cbf6945c7711f9cfa263"
-        },
-        "date": 1763567667391,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2019660146333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.435748876266663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.601920742666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec1052d449719097742090b25f297de693587b67",
+          "message": "CI: check workspace dependency inheritance (#11422)\n\n## Summary\n\n- Add `cargo-workspace-inheritance-check` to `checks-quick.yml` CI\nworkflow to enforce workspace dependency inheritance\n- Fix all existing violations (inline versions → `workspace = true`,\npromote missing workspace deps)\n\nRecently, I found the need to have a tool for checking/fixing dependency\ninheritance in cargo workspaces. I think it can also be useful for\npolkadot-sdk.\n\nFor details about how it works, have a look at\nhttps://github.com/RomarQ/cargo-workspace-inheritance-check\n\n## Follow-up\n\nBumping the workspace pin to `0.50` is a separate change. It requires\nporting the two crates still written against the `0.44` API:\n\n- `frame-benchmarking-cli` — uses `OfflineClient::new(…)`,\n`subxt::client::RuntimeVersion`, and `.tx()` directly on the offline\nclient, all redesigned in `0.50`.\n- `pallet-revive-eth-rpc` — uses `subxt::Error::Metadata`,\n`subxt::error::MetadataError`, `subxt::ext::subxt_rpcs`,\n`subxt::backend::{legacy::rpc_methods, rpc}`, `subxt::storage::Storage`,\n`subxt::events::StaticEvent`, `subxt::runtime_api`, and `subxt::blocks`\n— all gone or restructured in `0.50`.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-16T15:40:14Z",
+          "tree_id": "39a927004a4a22f0b13ea1fbe2de515ce9877261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec1052d449719097742090b25f297de693587b67"
+        },
+        "date": 1784222902901,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13453335316666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.181586062633333,
             "unit": "seconds"
           }
         ]
