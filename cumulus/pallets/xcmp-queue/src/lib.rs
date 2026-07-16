@@ -892,11 +892,17 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Handle XCMP page containing signals.
+	///
+	/// If `can_retry_page` is true, and we are out of weight, the method will return an error,
+	/// rolling back all the storage operations and informing the caller to retry the page in the
+	/// next block.
 	#[transactional]
 	fn handle_signals_page<'a>(
 		sender: ParaId,
 		data: &mut &'a [u8],
 		meter: &mut WeightMeter,
+		can_retry_page: bool,
 	) -> Result<(), DispatchError> {
 		let mut signal_count = 0;
 		while !data.is_empty() {
@@ -913,14 +919,20 @@ impl<T: Config> Pallet<T> {
 				Ok(ChannelSignal::Suspend) => {
 					if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
 						tracing::error!("Not enough weight to process suspend signal");
-						return Err(Error::<T>::RetryPage.into());
+						if can_retry_page {
+							return Err(Error::<T>::RetryPage.into());
+						}
+						break;
 					}
 					Self::suspend_channel(sender)
 				},
 				Ok(ChannelSignal::Resume) => {
 					if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
 						tracing::error!("Not enough weight to process resume signal - dropping");
-						return Err(Error::<T>::RetryPage.into());
+						if can_retry_page {
+							return Err(Error::<T>::RetryPage.into());
+						}
+						break;
 					}
 					Self::resume_channel(sender)
 				},
@@ -934,6 +946,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Handle XCMP page containing XCM messages.
+	///
+	/// If `can_retry_page` is true, and we are out of weight, the method will return an error,
+	/// rolling back all the storage operations and informing the caller to retry the page in the
+	/// next block.
 	#[transactional]
 	fn handle_xcms_page<'a>(
 		sender: ParaId,
@@ -941,14 +958,12 @@ impl<T: Config> Pallet<T> {
 		data: &mut &'a [u8],
 		known_xcm_senders: &mut BTreeSet<ParaId>,
 		meter: &mut WeightMeter,
+		can_retry_page: bool,
 	) -> Result<(), DispatchError> {
-		// We want to retry only pages containing double encoded XCMs.
-		let can_retry_page = encoding == XcmEncoding::Double;
-
 		let mut is_first_sender_batch = !known_xcm_senders.contains(&sender);
 		if is_first_sender_batch {
 			if meter.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages()).is_err() {
-				defensive!(
+				tracing::error!(
 					"Out of weight: cannot enqueue XCMP messages; dropping page; \
                                     Used weight: {:?}",
 					meter.consumed_ratio()
@@ -968,7 +983,7 @@ impl<T: Config> Pallet<T> {
 				match Self::take_first_concatenated_xcms(data, encoding, XCM_BATCH_SIZE, meter) {
 					Ok(batch) => batch,
 					Err((e, batch)) => {
-						if can_retry_page && e == TakeXcmError::OutOfWeight {
+						if e == TakeXcmError::OutOfWeight && can_retry_page {
 							return Err(Error::<T>::RetryPage.into());
 						}
 
@@ -1111,6 +1126,11 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 
 		let mut known_xcm_senders = BTreeSet::new();
 		for (sender, _sent_at, mut data) in iter {
+			// We can retry a page only if it's not the first one. If it was the first one,
+			// and it failed it means that even with the max allocated weight we couldn't process
+			// it completely. So we leave it partially processed.
+			let can_retry_page = num_processed_pages > 0;
+
 			let format = match XcmpMessageFormat::decode(&mut data) {
 				Ok(f) => f,
 				Err(_) => {
@@ -1122,7 +1142,9 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 
 			match format {
 				XcmpMessageFormat::Signals => {
-					if let Err(_) = Self::handle_signals_page(sender, &mut data, &mut meter) {
+					if let Err(_) =
+						Self::handle_signals_page(sender, &mut data, &mut meter, can_retry_page)
+					{
 						break;
 					}
 					num_processed_pages += 1;
@@ -1157,6 +1179,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						&mut data,
 						&mut known_xcm_senders,
 						&mut meter,
+						can_retry_page,
 					) {
 						break;
 					}
