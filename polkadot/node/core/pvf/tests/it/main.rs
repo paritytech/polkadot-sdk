@@ -217,12 +217,7 @@ async fn execute_job_terminates_on_timeout() {
 
 	let duration = std::time::Instant::now().duration_since(start);
 	assert!(duration >= TEST_EXECUTION_TIMEOUT);
-	// The inline `revive_jit` execute path has no per-job CPU-time monitor; the timeout is
-	// enforced coarsely by the host at the wall-clock bound, so this tighter upper bound only
-	// holds for the forked path.
-	if !cfg!(revive_jit) {
-		assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
-	}
+	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
 }
 
 #[cfg(feature = "ci-only-tests")]
@@ -265,16 +260,12 @@ async fn ensure_parallel_execution() {
 	// Total time should be < 2 x TEST_EXECUTION_TIMEOUT (two workers run in parallel).
 	let duration = std::time::Instant::now().duration_since(start);
 	let max_duration = 2 * TEST_EXECUTION_TIMEOUT;
-	// The inline `revive_jit` execute path enforces the timeout coarsely at the host wall-clock
-	// bound (no per-job CPU-time monitor), so each job runs longer than this upper bound.
-	if !cfg!(revive_jit) {
-		assert!(
-			duration < max_duration,
-			"Expected duration {}ms to be less than {}ms",
-			duration.as_millis(),
-			max_duration.as_millis()
-		);
-	}
+	assert!(
+		duration < max_duration,
+		"Expected duration {}ms to be less than {}ms",
+		duration.as_millis(),
+		max_duration.as_millis()
+	);
 }
 
 #[tokio::test]
@@ -365,16 +356,12 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 		duration.as_millis(),
 		min_duration.as_millis()
 	);
-	// The inline `revive_jit` execute path enforces the timeout coarsely at the host wall-clock
-	// bound (no per-job CPU-time monitor), so the batches run longer than this upper bound.
-	if !cfg!(revive_jit) {
-		assert!(
-			duration <= max_duration,
-			"Expected duration {}ms to be less than or equal to {}ms",
-			duration.as_millis(),
-			max_duration.as_millis()
-		);
-	}
+	assert!(
+		duration <= max_duration,
+		"Expected duration {}ms to be less than or equal to {}ms",
+		duration.as_millis(),
+		max_duration.as_millis()
+	);
 }
 
 // Test that deleting a prepared artifact does not lead to a dispute when we try to execute it.

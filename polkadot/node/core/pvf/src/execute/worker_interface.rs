@@ -212,14 +212,7 @@ async fn handle_result(
 	execution_timeout: Duration,
 ) -> Result<WorkerResponse, WorkerError> {
 	if let Ok(WorkerResponse { duration, .. }) = worker_result {
-		// Under `revive_jit` the execute job runs inline (no forked child), so `duration` is
-		// wall-clock, not the child's CPU time — there is no child to measure. Comparing wall-clock
-		// against the CPU-calibrated execution timeout produces false timeouts under load, which
-		// would needlessly retire the worker and tear down its warm PolkaVM engine. Skip the check
-		// on that path; a genuinely stuck job is still bounded by the host's lenient wall-clock
-		// watchdog (`execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR`). The runtime `cfg!` keeps
-		// the branch compiled so `duration`/`worker_pid` stay used under `-Dwarnings`.
-		if !cfg!(revive_jit) && duration > execution_timeout {
+		if duration > execution_timeout {
 			// The job didn't complete within the timeout.
 			gum::warn!(
 				target: LOG_TARGET,

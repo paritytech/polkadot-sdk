@@ -26,8 +26,6 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
-      # needed for tests that use unshare syscall (PolkaVM Linux sandbox)
-      options: --privileged
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -73,8 +71,8 @@ jobs:
           git config --global --add safe.directory '*'
           # The integration suite rebuilds the prepare/execute worker binaries at
           # test runtime; that nested `cargo build` inherits RUSTFLAGS, so the
-          # execute worker picks up `--cfg revive_jit` and runs validation
-          # unsandboxed and inline. This exercises that path end-to-end.
+          # workers pick up `--cfg revive_jit` and register the virtualization
+          # host functions. This exercises that wiring end-to-end.
           forklift cargo nextest run \
             -p polkadot-node-core-pvf \
             --features ci-only-tests \

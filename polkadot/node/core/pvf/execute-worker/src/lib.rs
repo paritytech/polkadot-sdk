@@ -44,7 +44,7 @@ use polkadot_node_core_pvf_common::{
 	execute::{
 		ExecuteRequest, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse,
 	},
-	executor_interface::{init_virtualization, params_to_wasmtime_semantics},
+	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, get_total_cpu_usage, pipe2_cloexec, recv_child_response, run_worker,
@@ -68,7 +68,7 @@ use std::{
 	path::PathBuf,
 	process,
 	sync::{mpsc::channel, Arc},
-	time::{Duration, Instant},
+	time::Duration,
 };
 
 /// The number of threads for the child process:
@@ -154,11 +154,6 @@ pub fn worker_entrypoint(
 
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
 			let execute_thread_stack_size = max_stack_size(&executor_params);
-
-			// Build the host-side PolkaVM engine and warm its sandbox pool now, once, so the
-			// first validation doesn't pay for engine construction or sandbox spawning. No-op
-			// unless this is a `revive_jit` build.
-			init_virtualization();
 
 			loop {
 				let request = recv_request(&mut stream).map_err(|e| {
@@ -281,41 +276,41 @@ pub fn worker_entrypoint(
 
 				let params = Arc::new(encoded_params);
 
-				let result = if cfg!(revive_jit) {
-					// revive_jit experimental build: the PVF sandbox is disabled, so run validation
-					// inline (no fork) to keep PolkaVM's engine + worker pool warm across requests.
-					// The fork pipe is unused on this path; close it so we don't leak fds in the
-					// long-lived worker. See `project_revive_jit_pvf_bench_unlock`.
-					let _ = nix::unistd::close(pipe_read_fd);
-					let _ = nix::unistd::close(pipe_write_fd);
-					handle_inline(
-						&compiled_artifact_blob,
-						&executor_params,
-						&params,
-						execute_thread_stack_size,
-						pov_size,
-						worker_info,
-					)?
-				} else {
-					#[cfg(target_os = "linux")]
-					let r = if security_status.can_do_secure_clone {
-						handle_clone(
-							pipe_write_fd,
-							pipe_read_fd,
-							stream_fd,
-							&compiled_artifact_blob,
-							&executor_params,
-							&params,
-							execution_timeout,
-							execute_thread_stack_size,
-							worker_info,
-							security_status.can_unshare_user_namespace_and_change_root,
-							usage_before,
-							pov_size,
-						)?
+				cfg_if::cfg_if! {
+					if #[cfg(target_os = "linux")] {
+						let result = if security_status.can_do_secure_clone {
+							handle_clone(
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								&compiled_artifact_blob,
+								&executor_params,
+								&params,
+								execution_timeout,
+								execute_thread_stack_size,
+								worker_info,
+								security_status.can_unshare_user_namespace_and_change_root,
+								usage_before,
+								pov_size,
+							)?
+						} else {
+							// Fall back to using fork.
+							handle_fork(
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								&compiled_artifact_blob,
+								&executor_params,
+								&params,
+								execution_timeout,
+								execute_thread_stack_size,
+								worker_info,
+								usage_before,
+								pov_size,
+							)?
+						};
 					} else {
-						// Fall back to using fork.
-						handle_fork(
+						let result = handle_fork(
 							pipe_write_fd,
 							pipe_read_fd,
 							stream_fd,
@@ -327,24 +322,9 @@ pub fn worker_entrypoint(
 							worker_info,
 							usage_before,
 							pov_size,
-						)?
-					};
-					#[cfg(not(target_os = "linux"))]
-					let r = handle_fork(
-						pipe_write_fd,
-						pipe_read_fd,
-						stream_fd,
-						&compiled_artifact_blob,
-						&executor_params,
-						&params,
-						execution_timeout,
-						execute_thread_stack_size,
-						worker_info,
-						usage_before,
-						pov_size,
-					)?;
-					r
-				};
+						)?;
+					}
+				}
 
 				gum::trace!(
 					target: LOG_TARGET,
@@ -477,58 +457,6 @@ fn handle_fork(
 			execution_timeout,
 		),
 		Err(errno) => Ok(Err(internal_error_from_errno("fork", errno))),
-	}
-}
-
-/// Runs validation inline in the execute worker process instead of a forked job.
-///
-/// Used only on `revive_jit` experimental builds (selected via `cfg!(revive_jit)` at the call
-/// site, where the PVF sandbox is also disabled). Keeping the work in the long-lived worker lets
-/// the process-global PolkaVM engine and its worker pool stay warm across requests instead of being
-/// rebuilt for every forked job. `validate_using_artifact` runs on a dedicated "execute thread"
-/// sized like the forked path so deep wasm stacks don't overflow.
-///
-/// The execution timeout is not enforced here — there is no child to kill, so a runaway validation
-/// is bounded by the PVF host's own timeout (which terminates the worker). `duration` is wall-clock
-/// time, since the contract executes in PolkaVM's own worker processes, not this one.
-fn handle_inline(
-	compiled_artifact_blob: &Arc<Vec<u8>>,
-	executor_params: &Arc<ExecutorParams>,
-	params: &Arc<Vec<u8>>,
-	execute_thread_stack_size: usize,
-	pov_size: u32,
-	worker_info: &WorkerInfo,
-) -> io::Result<Result<WorkerResponse, WorkerError>> {
-	let compiled_artifact_blob = Arc::clone(compiled_artifact_blob);
-	let executor_params = Arc::clone(executor_params);
-	let params = Arc::clone(params);
-
-	let started = Instant::now();
-	let execute_thread = match std::thread::Builder::new()
-		.name("execute thread".into())
-		.stack_size(execute_thread_stack_size)
-		.spawn(move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params))
-	{
-		Ok(handle) => handle,
-		// Report to the host and keep serving (mirrors the forked path), rather than tearing the
-		// whole worker down on a thread-spawn failure.
-		Err(e) => {
-			return Ok(Err(WorkerError::JobError(JobError::CouldNotSpawnThread(e.to_string()))))
-		},
-	};
-
-	match execute_thread.join() {
-		Ok(job_response) => {
-			Ok(Ok(WorkerResponse { job_response, pov_size, duration: started.elapsed() }))
-		},
-		Err(panic_payload) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?worker_info,
-				"execute thread panicked during inline (revive_jit) validation",
-			);
-			Ok(Err(WorkerError::JobError(JobError::Panic(stringify_panic_payload(panic_payload)))))
-		},
 	}
 }
 

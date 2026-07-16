@@ -16664,6 +16664,7 @@ dependencies = [
 name = "polkadot-node-core-pvf-execute-worker"
 version = "7.0.0"
 dependencies = [
+ "cfg-if",
  "cpu-time",
  "libc",
  "nix 0.29.0",

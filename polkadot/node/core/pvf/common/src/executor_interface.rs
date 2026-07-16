@@ -135,16 +135,6 @@ pub unsafe fn execute_artifact(
 	}
 }
 
-/// Initialize the host-side PolkaVM engine and pre-warm its sandbox pool.
-///
-/// Call once at execute-worker startup so the first JIT validation pays for neither engine
-/// construction nor sandbox spawning (both would otherwise happen lazily on that first
-/// validation). A no-op on non-`revive_jit` builds, which have no host-side PolkaVM engine.
-pub fn init_virtualization() {
-	#[cfg(revive_jit)]
-	sc_virtualization::init();
-}
-
 /// Constructs the runtime for the given PVF, given the artifact bytes.
 ///
 /// # Safety

@@ -379,19 +379,6 @@ pub fn run_worker<F>(
 	{
 		gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
 
-		// `revive_jit` is an experimental build that brings the PolkaVM JIT engine up inside the
-		// execute worker, which needs an un-sandboxed process; for that worker we skip the lockdown
-		// below (and run validations inline, see the execute worker). This is NOT safe for a
-		// production validator. Other worker kinds keep their full sandbox.
-		let skip_lockdown = cfg!(revive_jit) && matches!(worker_info.kind, WorkerKind::Execute);
-		if skip_lockdown {
-			gum::warn!(
-				target: LOG_TARGET,
-				?worker_info,
-				"revive_jit experimental build: PVF execute-worker sandbox (change_root/landlock/seccomp) is DISABLED; do NOT run this as a production validator",
-			);
-		}
-
 		// First, make sure env vars were cleared, to match the environment we perform the checks
 		// within. (In theory, running checks with different env vars could result in different
 		// outcomes of the checks.)
@@ -415,7 +402,7 @@ pub fn run_worker<F>(
 		//
 		//       > CLONE_NEWUSER requires that the calling process is not threaded.
 		#[cfg(target_os = "linux")]
-		if !skip_lockdown && security_status.can_unshare_user_namespace_and_change_root {
+		if security_status.can_unshare_user_namespace_and_change_root {
 			if let Err(err) = security::change_root::enable_for_worker(&worker_info) {
 				// The filesystem may be in an inconsistent state, always bail out.
 				let err = format!("Could not change root to be the worker cache path: {}", err);
@@ -425,7 +412,7 @@ pub fn run_worker<F>(
 		}
 
 		#[cfg(target_os = "linux")]
-		if !skip_lockdown && security_status.can_enable_landlock {
+		if security_status.can_enable_landlock {
 			if let Err(err) = security::landlock::enable_for_worker(&worker_info) {
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
@@ -445,7 +432,7 @@ pub fn run_worker<F>(
 		// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
 		//       job to catch regressions. See issue ci_cd/issues/609.
 		#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-		if !skip_lockdown && security_status.can_enable_seccomp {
+		if security_status.can_enable_seccomp {
 			if let Err(err) = security::seccomp::enable_for_worker(&worker_info) {
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
