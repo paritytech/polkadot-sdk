@@ -130,7 +130,6 @@ impl InstanceWrapper {
 		instance_pre: &InstancePre<StoreData>,
 		instance_counter: Arc<InstanceCounter>,
 		heap_alloc_strategy: HeapAllocStrategy,
-		epoch_deadline_ticks: Option<u64>,
 	) -> Result<Self> {
 		let _release_instance_handle = instance_counter.acquire_instance();
 
@@ -139,12 +138,6 @@ impl InstanceWrapper {
 		let store_data = StoreData { limits: store_limits, memory_max_pages, ..Default::default() };
 		let mut store = Store::new(engine, store_data);
 		store.limiter(|data| &mut data.limits);
-
-		// Trap the call once it exceeds the configured wall-clock limit. Relies on epoch
-		// interruption being enabled on the engine (see `common_config`).
-		if let Some(ticks) = epoch_deadline_ticks {
-			store.set_epoch_deadline(ticks);
-		}
 
 		let instance = instance_pre.instantiate(&mut store).map_err(|error| {
 			WasmError::Other(format!(

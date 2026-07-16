@@ -227,8 +227,6 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		let client = client::Client::new(
 			self.backend.clone(),
 			executor,
-			// Test client does not serve light-client requests, so no capped executor.
-			None,
 			spawn_handle,
 			genesis_block_builder,
 			self.fork_blocks,

@@ -24,21 +24,19 @@
 
 use crate::schema;
 use codec::{self, Decode, Encode};
-use futures::{prelude::*, select};
+use futures::prelude::*;
 use log::{debug, trace};
 use prost::Message;
-use sc_client_api::{BlockBackend, BlockchainEvents, ProofProvider};
+use sc_client_api::{BlockBackend, ProofProvider};
 use sc_network::{
 	config::ProtocolId,
 	request_responses::{IncomingRequest, OutgoingResponse},
 	NetworkBackend, ReputationChange,
 };
 use sc_network_types::PeerId;
-use sp_blockchain::HeaderBackend;
 use sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
-	traits::SpawnNamed,
 };
 use sp_runtime::traits::Block;
 use std::{marker::PhantomData, sync::Arc};
@@ -54,28 +52,19 @@ pub struct LightClientRequestHandler<B, Client> {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	/// Blockchain client.
 	client: Arc<Client>,
-	/// Task spawner, used to pre-warm the capped runtime off the async reactor.
-	spawn_handle: Box<dyn SpawnNamed>,
 	_block: PhantomData<B>,
 }
 
 impl<B, Client> LightClientRequestHandler<B, Client>
 where
 	B: Block,
-	Client: BlockBackend<B>
-		+ HeaderBackend<B>
-		+ ProofProvider<B>
-		+ BlockchainEvents<B>
-		+ Send
-		+ Sync
-		+ 'static,
+	Client: BlockBackend<B> + ProofProvider<B> + Send + Sync + 'static,
 {
 	/// Create a new [`LightClientRequestHandler`].
 	pub fn new<N: NetworkBackend<B, <B as Block>::Hash>>(
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
-		spawn_handle: Box<dyn SpawnNamed>,
 	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
@@ -90,113 +79,65 @@ where
 			tx,
 		);
 
-		(
-			Self { client, request_receiver, spawn_handle, _block: PhantomData::default() },
-			protocol_config,
-		)
-	}
-
-	/// Pre-warm the dedicated capped executor by compiling the runtime at `hash` on the blocking
-	/// pool: otherwise the first `RemoteCallRequest` after node start or a runtime upgrade pays a
-	/// multi-second compile in the serial request loop and likely times out. Cheap to call
-	/// repeatedly: compiled runtimes are cached by `:code` hash (reorg-proof; concurrent compiles
-	/// are serialized), so only a call observing a new runtime does real work.
-	fn prewarm(&self, hash: B::Hash) {
-		let client = self.client.clone();
-		self.spawn_handle.spawn_blocking(
-			"light-client-request-prewarm",
-			Some("networking"),
-			async move {
-				if let Err(e) = client.execution_proof(hash, "Core_version", &[]) {
-					debug!(
-						target: LOG_TARGET,
-						"Light client capped-runtime pre-warm failed: {}", e,
-					);
-				}
-			}
-			.boxed(),
-		);
+		(Self { client, request_receiver, _block: PhantomData::default() }, protocol_config)
 	}
 
 	/// Run [`LightClientRequestHandler`].
 	pub async fn run(mut self) {
-		let mut import_notifications = self.client.import_notification_stream().fuse();
-		let mut request_receiver = self.request_receiver.clone().fuse();
+		while let Some(request) = self.request_receiver.next().await {
+			let IncomingRequest { peer, payload, pending_response } = request;
 
-		// Skip on a fresh node: best is genesis and its runtime is not worth compiling. Import
-		// notifications only start once (nearly) synced; the first one prewarms the real runtime.
-		let info = self.client.info();
-		if info.best_hash != info.genesis_hash {
-			self.prewarm(info.best_hash);
-		}
+			match self.handle_request(peer, payload) {
+				Ok(response_data) => {
+					let response = OutgoingResponse {
+						result: Ok(response_data),
+						reputation_changes: Vec::new(),
+						sent_feedback: None,
+					};
 
-		loop {
-			select! {
-				notification = import_notifications.select_next_some() => {
-					// Almost always a cache hit; after a runtime upgrade or once sync reaches the
-					// tip, this compiles the new runtime before the first request needs it.
-					if notification.is_new_best {
-						self.prewarm(notification.hash);
-					}
+					match pending_response.send(response) {
+						Ok(()) => trace!(
+							target: LOG_TARGET,
+							"Handled light client request from {}.",
+							peer,
+						),
+						Err(_) => debug!(
+							target: LOG_TARGET,
+							"Failed to handle light client request from {}: {}",
+							peer,
+							HandleRequestError::SendResponse,
+						),
+					};
 				},
-				request = request_receiver.next() => match request {
-					Some(request) => self.handle_incoming_request(request),
-					None => break,
-				},
-			}
-		}
-	}
-
-	fn handle_incoming_request(&mut self, request: IncomingRequest) {
-		let IncomingRequest { peer, payload, pending_response } = request;
-
-		match self.handle_request(peer, payload) {
-			Ok(response_data) => {
-				let response = OutgoingResponse {
-					result: Ok(response_data),
-					reputation_changes: Vec::new(),
-					sent_feedback: None,
-				};
-
-				match pending_response.send(response) {
-					Ok(()) => trace!(
-						target: LOG_TARGET,
-						"Handled light client request from {}.",
-						peer,
-					),
-					Err(_) => debug!(
-						target: LOG_TARGET,
-						"Failed to handle light client request from {}: {}",
-						peer,
-						HandleRequestError::SendResponse,
-					),
-				};
-			},
-			Err(e) => {
-				debug!(
-					target: LOG_TARGET,
-					"Failed to handle light client request from {}: {}", peer, e,
-				);
-
-				let reputation_changes = match e {
-					HandleRequestError::BadRequest(_) => {
-						vec![ReputationChange::new(-(1 << 12), "bad request")]
-					},
-					_ => Vec::new(),
-				};
-
-				let response =
-					OutgoingResponse { result: Err(()), reputation_changes, sent_feedback: None };
-
-				if pending_response.send(response).is_err() {
+				Err(e) => {
 					debug!(
 						target: LOG_TARGET,
-						"Failed to handle light client request from {}: {}",
-						peer,
-						HandleRequestError::SendResponse,
+						"Failed to handle light client request from {}: {}", peer, e,
 					);
-				};
-			},
+
+					let reputation_changes = match e {
+						HandleRequestError::BadRequest(_) => {
+							vec![ReputationChange::new(-(1 << 12), "bad request")]
+						},
+						_ => Vec::new(),
+					};
+
+					let response = OutgoingResponse {
+						result: Err(()),
+						reputation_changes,
+						sent_feedback: None,
+					};
+
+					if pending_response.send(response).is_err() {
+						debug!(
+							target: LOG_TARGET,
+							"Failed to handle light client request from {}: {}",
+							peer,
+							HandleRequestError::SendResponse,
+						);
+					};
+				},
+			}
 		}
 	}
 
@@ -237,13 +178,11 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
-		// Runs on the capped executor: a call exceeding the wall-clock limit traps into `Err`,
-		// yielding an empty proof.
 		let response = match self.client.execution_proof(block, &request.method, &request.data) {
 			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
 			Err(e) => {
 				trace!(
-					"remote call request from {} ({} at {:?}) failed (possibly timed out) with: {}",
+					"remote call request from {} ({} at {:?}) failed with: {}",
 					peer,
 					request.method,
 					request.block,

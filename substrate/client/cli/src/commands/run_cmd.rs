@@ -342,13 +342,6 @@ impl CliConfiguration for RunCmd {
 		Ok(self.runtime_params.runtime_cache_size)
 	}
 
-	fn light_request_execution_timeout(&self) -> Result<Option<std::time::Duration>> {
-		Ok(match self.runtime_params.light_request_execution_timeout_ms {
-			0 => None,
-			ms => Some(std::time::Duration::from_millis(ms)),
-		})
-	}
-
 	fn base_path(&self) -> Result<Option<BasePath>> {
 		Ok(if self.tmp {
 			Some(BasePath::new_temp_dir()?)

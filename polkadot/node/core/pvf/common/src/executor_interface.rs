@@ -93,8 +93,6 @@ pub const DEFAULT_CONFIG: Config = Config {
 		wasm_simd: false,
 		wasm_bulk_memory: false,
 		wasm_multi_value: false,
-		// PVF execution uses the host-side timeout mechanism, not wasmtime epoch interruption.
-		execution_timeout: None,
 	},
 };
 

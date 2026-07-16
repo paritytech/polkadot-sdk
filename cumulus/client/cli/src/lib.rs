@@ -424,10 +424,6 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.force_authoring()
 	}
 
-	fn light_request_execution_timeout(&self) -> sc_cli::Result<Option<std::time::Duration>> {
-		self.base.light_request_execution_timeout()
-	}
-
 	fn prometheus_config(
 		&self,
 		default_listen_port: u16,

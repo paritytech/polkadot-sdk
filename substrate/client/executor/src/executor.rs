@@ -27,7 +27,6 @@ use std::{
 	panic::{AssertUnwindSafe, UnwindSafe},
 	path::PathBuf,
 	sync::Arc,
-	time::Duration,
 };
 
 use codec::Encode;
@@ -40,14 +39,6 @@ use sc_executor_common::{
 use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
 use sp_version::{GetNativeVersion, NativeVersion, RuntimeVersion};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
-
-/// Runtime instances kept warm by a capped (execution-timeout) executor. Light request handling —
-/// its only user — is serial, so one is enough.
-// TODO: revisit once light request handling becomes concurrent.
-const CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES: usize = 1;
-/// Runtime versions cached by a capped executor: the current one, plus the previous one during a
-/// runtime upgrade.
-const CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE: u8 = 2;
 
 /// Set up the externalities and safe calling environment to execute runtime calls.
 ///
@@ -220,9 +211,6 @@ impl<H> WasmExecutorBuilder<H> {
 			)),
 			cache_path: self.cache_path,
 			allow_missing_host_functions: self.allow_missing_host_functions,
-			// A capped executor is derived from a built one via [`WithExecutionTimeout`], never
-			// configured through the builder.
-			execution_timeout: None,
 			phantom: PhantomData,
 		}
 	}
@@ -246,8 +234,6 @@ pub struct WasmExecutor<H = sp_io::SubstrateHostFunctions> {
 	cache_path: Option<PathBuf>,
 	/// Ignore missing function imports.
 	allow_missing_host_functions: bool,
-	/// Optional wall-clock limit for a single runtime call. `None` means execution is unbounded.
-	execution_timeout: Option<Duration>,
 	phantom: PhantomData<H>,
 }
 
@@ -261,7 +247,6 @@ impl<H> Clone for WasmExecutor<H> {
 			cache: self.cache.clone(),
 			cache_path: self.cache_path.clone(),
 			allow_missing_host_functions: self.allow_missing_host_functions,
-			execution_timeout: self.execution_timeout,
 			phantom: self.phantom,
 		}
 	}
@@ -316,7 +301,6 @@ impl<H> WasmExecutor<H> {
 			)),
 			cache_path,
 			allow_missing_host_functions: false,
-			execution_timeout: None,
 			phantom: PhantomData,
 		}
 	}
@@ -330,31 +314,6 @@ impl<H> WasmExecutor<H> {
 	#[deprecated(note = "use `Self::builder` method instead of it")]
 	pub fn allow_missing_host_functions(&mut self, allow_missing_host_functions: bool) {
 		self.allow_missing_host_functions = allow_missing_host_functions
-	}
-}
-
-/// Derive an executor variant that enforces a wall-clock limit on each runtime call (e.g. to
-/// serve light-client requests), leaving the original executor untouched.
-pub trait WithExecutionTimeout {
-	/// Return a new executor that traps any single call exceeding `timeout`.
-	fn with_execution_timeout(&self, timeout: Duration) -> Self;
-}
-
-impl<H> WithExecutionTimeout for WasmExecutor<H> {
-	fn with_execution_timeout(&self, timeout: Duration) -> Self {
-		Self {
-			// The capped executor compiles into its own engine and serves only light-client
-			// requests, so a small dedicated cache suffices.
-			cache: Arc::new(RuntimeCache::new(
-				CAPPED_EXECUTOR_MAX_RUNTIME_INSTANCES,
-				// Safe to share with the main executor: wasmtime keys on-disk artifacts on
-				// `epoch_interruption`, so capped and uncapped engines never collide.
-				self.cache_path.clone(),
-				CAPPED_EXECUTOR_RUNTIME_CACHE_SIZE,
-			)),
-			execution_timeout: Some(timeout),
-			..self.clone()
-		}
 	}
 }
 
@@ -396,7 +355,6 @@ where
 			self.method,
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
-			self.execution_timeout,
 			|module, instance, version, ext| {
 				let module = AssertUnwindSafe(module);
 				let instance = AssertUnwindSafe(instance);
@@ -472,7 +430,6 @@ where
 			runtime_blob,
 			allow_missing_host_functions,
 			self.cache_path.as_deref(),
-			self.execution_timeout,
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 
@@ -785,18 +742,6 @@ impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 			native_version: D::native_version(),
 			wasm: self.wasm.clone(),
 			use_native: self.use_native,
-		}
-	}
-}
-
-#[allow(deprecated)]
-impl<D: NativeExecutionDispatch> WithExecutionTimeout for NativeElseWasmExecutor<D> {
-	fn with_execution_timeout(&self, timeout: Duration) -> Self {
-		NativeElseWasmExecutor {
-			wasm: self.wasm.with_execution_timeout(timeout),
-			// Force wasm execution: native calls bypass epoch interruption and escape the timeout.
-			use_native: false,
-			..self.clone()
 		}
 	}
 }

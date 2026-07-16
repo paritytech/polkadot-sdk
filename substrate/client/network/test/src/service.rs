@@ -188,12 +188,7 @@ impl TestNetworkBuilder {
 					substrate_test_runtime_client::runtime::Block,
 					substrate_test_runtime_client::runtime::Hash,
 				>,
-			>(
-				&protocol_id,
-				None,
-				client.clone(),
-				Box::new(sp_core::testing::TaskExecutor::new()),
-			);
+			>(&protocol_id, None, client.clone());
 			tokio::spawn(handler.run().boxed());
 			protocol_config
 		};

@@ -39,7 +39,7 @@ use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
 use sc_executor::{
 	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
-	WasmExecutor, WithExecutionTimeout, DEFAULT_HEAP_ALLOC_STRATEGY,
+	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
@@ -153,7 +153,7 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + WithExecutionTimeout + Clone,
+	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
 	new_full_parts(config, telemetry, executor, pruning_filters).map(|parts| parts.0)
 }
@@ -171,7 +171,7 @@ pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + WithExecutionTimeout + Clone,
+	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
 	let mut db_config = config.db_config();
 	db_config.pruning_filters = pruning_filters;
@@ -206,7 +206,7 @@ pub fn new_full_parts<TBl, TRtApi, TExec>(
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + WithExecutionTimeout + Clone,
+	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
 	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters)
 }
@@ -222,7 +222,7 @@ pub fn new_full_parts_with_genesis_builder<TBl, TRtApi, TExec, TBuildGenesisBloc
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + WithExecutionTimeout + Clone,
+	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 	TBuildGenesisBlock: BuildGenesisBlock<
 		TBl,
 		BlockImportOperation = <Backend<TBl> as sc_client_api::backend::Backend<TBl>>::BlockImportOperation
@@ -281,7 +281,6 @@ where
 				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
 				enable_import_proof_recording,
-				execution_timeout: config.executor.execution_timeout,
 			},
 		)?;
 
@@ -431,29 +430,12 @@ pub fn new_client<E, Block, RA, G>(
 >
 where
 	Block: BlockT,
-	E: CodeExecutor + RuntimeVersionOf + WithExecutionTimeout,
+	E: CodeExecutor + RuntimeVersionOf,
 	G: BuildGenesisBlock<
 		Block,
 		BlockImportOperation = <Backend<Block> as sc_client_api::backend::Backend<Block>>::BlockImportOperation
 	>,
 {
-	// When an execution timeout is configured, derive a dedicated capped call executor (its own
-	// epoch-enabled engine) used only to serve untrusted light-client execution-proof requests.
-	let capped_call_executor = match config.execution_timeout {
-		Some(timeout) => {
-			let capped_executor = executor.with_execution_timeout(timeout);
-			let capped_extensions =
-				ExecutionExtensions::new(None, Arc::new(capped_executor.clone()));
-			Some(crate::client::LocalCallExecutor::new(
-				backend.clone(),
-				capped_executor,
-				config.clone(),
-				capped_extensions,
-			)?)
-		},
-		None => None,
-	};
-
 	let executor = crate::client::LocalCallExecutor::new(
 		backend.clone(),
 		executor,
@@ -464,7 +446,6 @@ where
 	Client::new(
 		backend,
 		executor,
-		capped_call_executor,
 		spawn_handle,
 		genesis_block_builder,
 		fork_blocks,
@@ -1255,12 +1236,8 @@ where
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
-			&protocol_id,
-			fork_id,
-			client.clone(),
-			Box::new(spawn_handle.clone()),
-		);
+		let (handler, protocol_config) =
+			LightClientRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone());
 		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
 		protocol_config
 	};

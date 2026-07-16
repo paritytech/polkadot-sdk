@@ -933,16 +933,14 @@ pub trait TestNetFactory: Default + Sized + Send {
 			protocol_config
 		};
 
-		let light_client_request_protocol_config = {
-			let (handler, protocol_config) = LightClientRequestHandler::new::<NetworkWorker<_, _>>(
-				&protocol_id,
-				None,
-				client.clone(),
-				Box::new(sp_core::testing::TaskExecutor::new()),
-			);
-			self.spawn_task(handler.run().boxed());
-			protocol_config
-		};
+		let light_client_request_protocol_config =
+			{
+				let (handler, protocol_config) = LightClientRequestHandler::new::<
+					NetworkWorker<_, _>,
+				>(&protocol_id, None, client.clone());
+				self.spawn_task(handler.run().boxed());
+				protocol_config
+			};
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 

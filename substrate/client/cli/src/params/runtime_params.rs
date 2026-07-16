@@ -31,14 +31,6 @@ pub struct RuntimeParams {
 	/// Maximum number of different runtimes that can be cached.
 	#[arg(long, default_value_t = 2)]
 	pub runtime_cache_size: u8,
-
-	/// Wall-clock limit, in milliseconds, for a single runtime call serving an (untrusted)
-	/// light-client request. `0` disables the limit.
-	///
-	/// Requests exceeding it are interrupted and answered with an empty proof. Bounds the CPU a
-	/// malicious light client can force the node to spend per request. Defaults to 3 seconds.
-	#[arg(long, default_value_t = 3000)]
-	pub light_request_execution_timeout_ms: u64,
 }
 
 fn parse_max_runtime_instances(s: &str) -> Result<usize, String> {
