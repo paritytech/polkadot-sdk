@@ -227,10 +227,10 @@ pub fn check_scheduling(
 /// [`polkadot_primitives::vstaging::CandidateUMPSignals`].
 ///
 /// The relay decoder (`CandidateCommitments::ump_signals`) is the contract we build for: it
-/// rejects a second occurrence of either variant (`DuplicateUMPSignal`) and any third signal
-/// (`TooManyUMPSignals`), and parses only the run after the *first* `UMP_SEPARATOR`. We panic
-/// rather than emit a tail it would reject — a violation here is our own runtime's bug, not
-/// adversarial input.
+/// rejects a second occurrence of any variant (`DuplicateUMPSignal`) and any signal beyond
+/// one-of-each-variant (`TooManyUMPSignals`), and parses only the run after the *first*
+/// `UMP_SEPARATOR`. We panic rather than emit a tail it would reject — a violation here is
+/// our own runtime's bug, not adversarial input.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct SchedulingSignals {
 	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
@@ -253,11 +253,12 @@ impl SchedulingSignals {
 		for bytes in raw {
 			// NOTE: this match is intentionally exhaustive (no `_` arm). Adding a new
 			// `UMPSignal` variant must fail to compile here, forcing a deliberate decision:
-			// new non-scheduling signal classes (e.g. the speculative-messaging
-			// `Requires`/`Provides` commitments) must be handled explicitly — either passed
+			// non-scheduling signal classes must be handled explicitly — either passed
 			// through untouched or routed to their own override path — and must NOT be
 			// silently dropped. Such classes may also have different cardinality rules; the
 			// per-variant singleton check below applies only to the scheduling signals.
+			// The speculative-messaging `Provides`/`Requires` commitments are rejected
+			// below until their routing lands.
 			match UMPSignal::decode(&mut &bytes[..]).expect("Failed to decode `UMPSignal`") {
 				UMPSignal::SelectCore(selector, offset) => {
 					if signals.select_core.replace((selector, offset)).is_some() {
@@ -268,6 +269,20 @@ impl SchedulingSignals {
 					if signals.approved_peer.replace(peer_id).is_some() {
 						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
 					}
+				},
+				// Speculative Messaging signals are not routed by this wrapper yet: the
+				// rollout ordering forbids parachain runtimes from emitting them until
+				// the relay side accepts them, so a block-emitted one is our own bug.
+				// The pass-through (`Provides`) and consumption-record synthesis
+				// (`Requires`) land with the spec-messaging validate_block wiring.
+				UMPSignal::Provides(_) => {
+					panic!("`Provides` UMP signal support is not wired in validate_block yet");
+				},
+				// Unlike `Provides`, this stays a panic permanently: `Requires` is
+				// synthesized by the validate_block wrapper and must NEVER be
+				// block-emitted.
+				UMPSignal::Requires(_) => {
+					panic!("Parachain block emitted a `Requires` UMP signal");
 				},
 			}
 		}

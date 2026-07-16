@@ -32,8 +32,8 @@ use frame_support::{
 	weights::Weight,
 };
 use polkadot_primitives::{
-	well_known_keys, ClaimQueueOffset, CoreSelector, Id as ParaId, UMPSignal, UpwardMessage,
-	UMP_SEPARATOR,
+	well_known_keys, ClaimQueueOffset, CoreSelector, Hash, Id as ParaId, RequiresSet, StreamsRoot,
+	UMPSignal, UpwardMessage, UMP_SEPARATOR,
 };
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;
@@ -661,10 +661,21 @@ fn enqueue_ump_signals() {
 			.collect::<Vec<_>>();
 		let expected_messages = messages.iter().cloned().map(|msg| (para, msg)).collect::<Vec<_>>();
 
-		// `UMPSignals` and separator do not count as XCM messages. The below check must pass.
+		// `UMPSignals` and separator do not count as XCM messages. The below check must pass
+		// even with one signal of every variant.
 		messages.append(&mut vec![
 			UMP_SEPARATOR,
 			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
+			UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode(),
+			UMPSignal::Provides(StreamsRoot(Hash::repeat_byte(1))).encode(),
+			UMPSignal::Requires(
+				RequiresSet::try_from_iter([(
+					ParaId::from(2000),
+					StreamsRoot(Hash::repeat_byte(2)),
+				)])
+				.unwrap(),
+			)
+			.encode(),
 		]);
 
 		ParaInclusion::check_upward_messages(
