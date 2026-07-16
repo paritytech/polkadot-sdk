@@ -23,7 +23,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
-	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
+	dmp, hrmp, inclusion, paras, scheduler, session_info, shared, spec_msg,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -125,6 +125,7 @@ pub mod pallet {
 		+ disputes::Config
 		+ dmp::Config
 		+ hrmp::Config
+		+ spec_msg::Config
 	{
 		/// A randomness beacon.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -173,6 +174,7 @@ pub mod pallet {
 			// - DMP
 			// - UMP
 			// - HRMP
+			// - SpecMsg
 			let total_weight = configuration::Pallet::<T>::initializer_initialize(now) +
 				shared::Pallet::<T>::initializer_initialize(now) +
 				paras::Pallet::<T>::initializer_initialize(now) +
@@ -182,7 +184,8 @@ pub mod pallet {
 				T::DisputesHandler::initializer_initialize(now) +
 				T::SlashingHandler::initializer_initialize(now) +
 				dmp::Pallet::<T>::initializer_initialize(now) +
-				hrmp::Pallet::<T>::initializer_initialize(now);
+				hrmp::Pallet::<T>::initializer_initialize(now) +
+				spec_msg::Pallet::<T>::initializer_initialize(now);
 
 			HasInitialized::<T>::set(Some(()));
 
@@ -191,6 +194,7 @@ pub mod pallet {
 
 		fn on_finalize(now: BlockNumberFor<T>) {
 			// reverse initialization order.
+			spec_msg::Pallet::<T>::initializer_finalize();
 			hrmp::Pallet::<T>::initializer_finalize();
 			dmp::Pallet::<T>::initializer_finalize();
 			T::SlashingHandler::initializer_finalize();
@@ -282,6 +286,7 @@ impl<T: Config> Pallet<T> {
 		T::SlashingHandler::initializer_on_new_session(session_index);
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
+		spec_msg::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		T::CoretimeOnNewSession::on_new_session(&notification);
 	}
 

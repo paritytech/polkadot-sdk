@@ -41,7 +41,7 @@ use polkadot_runtime_parachains::{
 	paras_inherent as parachains_paras_inherent,
 	runtime_api_impl::{v13 as runtime_impl, vstaging as staging_runtime_impl},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
-	shared as parachains_shared,
+	shared as parachains_shared, spec_msg as parachains_spec_msg,
 };
 
 use frame_election_provider_support::{
@@ -645,6 +645,8 @@ impl parachains_dmp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl parachains_spec_msg::Config for Runtime {}
+
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
 }
@@ -839,6 +841,7 @@ construct_runtime! {
 		ParaSessionInfo: parachains_session_info,
 		Hrmp: parachains_hrmp,
 		Dmp: parachains_dmp,
+		SpecMsg: parachains_spec_msg,
 		Xcm: pallet_xcm,
 		ParasDisputes: parachains_disputes,
 		ParasSlashing: parachains_slashing,

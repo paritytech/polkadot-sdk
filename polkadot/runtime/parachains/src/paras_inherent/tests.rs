@@ -60,7 +60,8 @@ mod enter {
 	use polkadot_primitives::{
 		vstaging::RelayParentInfo, ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2,
 		CandidateDescriptorVersion, ClaimQueueOffset, CollatorId, CollatorSignature,
-		CommittedCandidateReceiptV2, CoreSelector, MutateDescriptorV2, UMPSignal, UncheckedSigned,
+		CommittedCandidateReceiptV2, CoreSelector, MutateDescriptorV2, RequiresSet, StreamsRoot,
+		UMPSignal, UncheckedSigned, UMP_SEPARATOR,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use pretty_assertions::assert_eq;
@@ -2378,6 +2379,225 @@ mod enter {
 			// We expect `enter` to fail because the inherent data contains backed candidates with
 			// v2 descriptors.
 			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
+	/// A stream commitment root for Speculative Messaging tests.
+	fn streams_root(byte: u8) -> StreamsRoot {
+		StreamsRoot(polkadot_primitives::Hash::repeat_byte(byte))
+	}
+
+	/// Append a `Provides` UMP signal to para 0's pending availability candidate, which
+	/// becomes available (and is thus enacted) in the next block.
+	fn add_provides_to_pending_candidate_of_para_0(root: StreamsRoot) {
+		inclusion::PendingAvailability::<Test>::mutate(ParaId::from(0), |maybe_candidates| {
+			let commitments = maybe_candidates
+				.as_mut()
+				.and_then(|candidates| candidates.front_mut())
+				.expect("test scenario put a candidate of para 0 into pending availability; qed")
+				.candidate_commitments_mut();
+			commitments.upward_messages.force_push(UMP_SEPARATOR);
+			commitments.upward_messages.force_push(UMPSignal::Provides(root).encode());
+		});
+	}
+
+	#[test]
+	// A `Requires` entry matching a root provided by a candidate enacted in the SAME relay
+	// chain block succeeds: availability processing enacts (and pushes provides) before the
+	// backed candidates are sanitized.
+	fn spec_msg_requires_matches_provides_enacted_in_same_block() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					if candidate.descriptor.para_id() == 1.into() {
+						// Para 1's new candidate requires the root that para 0's concluding
+						// candidate provides within this very relay chain block.
+						candidate.commitments.upward_messages.force_push(
+							UMPSignal::Requires(
+								RequiresSet::try_from_iter([(
+									ParaId::from(0),
+									StreamsRoot(polkadot_primitives::Hash::repeat_byte(42)),
+								)])
+								.unwrap(),
+							)
+							.encode(),
+						);
+					}
+					candidate
+				}),
+			});
+
+			add_provides_to_pending_candidate_of_para_0(streams_root(42));
+
+			let expected_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (1 validator per core, 2 backed candidates)
+			assert_eq!(expected_para_inherent_data.bitfields.len(), 2);
+			// * 2 v2 candidate descriptors.
+			assert_eq!(expected_para_inherent_data.backed_candidates.len(), 2);
+
+			// Nothing is filtered: para 1's requires entry matched.
+			assert_ok!(Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				expected_para_inherent_data
+			));
+
+			// The provides push went through the real enactment path and is matchable now.
+			assert!(spec_msg::Pallet::<Test>::check_requires(
+				&RequiresSet::try_from_iter([(ParaId::from(0), streams_root(42))]).unwrap()
+			)
+			.is_ok());
+			// Para 1's concluding candidate was idle (no `Provides`): nothing was pushed.
+			assert!(!spec_msg::RecentProvides::<Test>::contains_key(ParaId::from(1)));
+		});
+	}
+
+	#[test]
+	// A candidate with a `Requires` entry naming a root that is not among the source's
+	// recent provides (here: a source that never provided anything at all) is dropped from
+	// the inherent, without affecting the other candidates and without a dispute.
+	fn spec_msg_unmatched_requires_drops_candidate() {
+		let candidate_modifier: CandidateModifier<<Test as frame_system::Config>::Hash> =
+			|mut candidate: CommittedCandidateReceiptV2| {
+				if candidate.descriptor.para_id() == 1.into() {
+					// Nobody ever provided this root; the source is not even registered.
+					candidate.commitments.upward_messages.force_push(
+						UMPSignal::Requires(
+							RequiresSet::try_from_iter([(
+								ParaId::from(5000),
+								StreamsRoot(polkadot_primitives::Hash::repeat_byte(42)),
+							)])
+							.unwrap(),
+						)
+						.encode(),
+					);
+				}
+				candidate
+			};
+
+		let make_scenario = || {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+
+			make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: Some(candidate_modifier),
+			})
+		};
+
+		// `create_inherent` drops exactly para 1's candidate.
+		new_test_ext(default_config()).execute_with(|| {
+			let scenario = make_scenario();
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &scenario.data.clone())
+				.unwrap();
+
+			let filtered_data = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+
+			assert_eq!(filtered_data.backed_candidates.len(), 1);
+			assert_eq!(filtered_data.backed_candidates[0].descriptor().para_id(), 0.into());
+		});
+
+		// Unfiltered data doesn't make it through `enter`.
+		new_test_ext(default_config()).execute_with(|| {
+			let scenario = make_scenario();
+
+			let dispatch_error =
+				Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), scenario.data.clone())
+					.unwrap_err()
+					.error;
+
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
+	#[test]
+	// A dispute concluding against an included candidate freezes the chain and signals a
+	// revert; the recent provides pushed in the reverted blocks must be evicted, across all
+	// senders.
+	fn spec_msg_dispute_revert_evicts_recent_provides() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				// One dispute in the current session: 5 validators vote, 2 of them against,
+				// which is over the byzantine threshold (1 of 5).
+				dispute_sessions: vec![2],
+				backed_and_concluding: BTreeMap::new(),
+				num_validators_per_core: 5,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
+				approved_peer_signal: None,
+				candidate_modifier: None,
+			});
+
+			let mut data = scenario.data.clone();
+			// Only the dispute is of interest; the bitfields would be dropped anyway when
+			// the chain freezes mid-processing.
+			data.bitfields.clear();
+			assert_eq!(data.disputes.len(), 1);
+			let candidate_hash = data.disputes[0].candidate_hash;
+			let session = data.disputes[0].session;
+
+			let now = frame_system::Pallet::<Test>::block_number();
+			let revert_to = now - 2;
+
+			// The disputed candidate was included at `now - 1`, so a dispute concluding
+			// against it reverts the chain back to `now - 2`.
+			disputes::Pallet::<Test>::note_included(session, candidate_hash, now - 1);
+
+			// Recent provides pushed before and inside the to-be-reverted range.
+			let sender_a = ParaId::from(3000);
+			let sender_b = ParaId::from(4000);
+			frame_system::Pallet::<Test>::set_block_number(revert_to - 1);
+			spec_msg::Pallet::<Test>::note_provides(sender_a, streams_root(1));
+			frame_system::Pallet::<Test>::set_block_number(revert_to);
+			spec_msg::Pallet::<Test>::note_provides(sender_a, streams_root(2));
+			frame_system::Pallet::<Test>::set_block_number(revert_to + 1);
+			spec_msg::Pallet::<Test>::note_provides(sender_a, streams_root(3));
+			spec_msg::Pallet::<Test>::note_provides(sender_b, streams_root(4));
+			frame_system::Pallet::<Test>::set_block_number(now);
+
+			assert_ok!(Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data));
+
+			// The dispute import froze the chain at the revert point...
+			assert_eq!(disputes::Frozen::<Test>::get(), Some(revert_to));
+
+			// ...and evicted every entry pushed after it: `sender_a` keeps its first two
+			// roots, `sender_b`'s ring was emptied and removed.
+			assert_eq!(
+				spec_msg::RecentProvides::<Test>::get(sender_a).entries(),
+				&[(streams_root(1), revert_to - 1), (streams_root(2), revert_to)]
+			);
+			assert!(!spec_msg::RecentProvides::<Test>::contains_key(sender_b));
 		});
 	}
 

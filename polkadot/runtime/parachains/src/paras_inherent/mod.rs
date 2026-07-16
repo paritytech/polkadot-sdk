@@ -23,13 +23,13 @@
 
 use crate::{
 	configuration,
-	disputes::DisputesHandler,
+	disputes::{self, DisputesHandler},
 	inclusion::{self, CandidateCheckContext},
 	initializer,
 	metrics::METRICS,
 	paras, scheduler,
 	shared::{self, AllowedSchedulingParentsTracker},
-	ParaId,
+	spec_msg, ParaId,
 };
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -421,6 +421,10 @@ impl<T: Config> Pallet<T> {
 			all_weight_after
 		};
 
+		// Take note of the freeze state before importing the disputes, in order to detect a
+		// freshly signalled revert below.
+		let frozen_before_disputes = disputes::Frozen::<T>::get();
+
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
 		// dispute; so the input here must be reasonably bounded,
 		// which is guaranteed by the checks and weight limitation above.
@@ -433,6 +437,18 @@ impl<T: Config> Pallet<T> {
 			log::warn!(target: LOG_TARGET, "MultiDisputesData failed to update: {:?}", e);
 		};
 		METRICS.on_disputes_imported(checked_disputes_sets.len() as u64);
+
+		// If this import concluded a dispute against an included candidate, it froze the
+		// chain and signalled a revert back to the frozen block number. Evict the stream
+		// commitment roots pushed by candidates enacted in the reverted blocks: they must
+		// no longer be matchable by `Requires` entries, even if this (frozen) chain is
+		// later resumed by governance instead of being abandoned.
+		let frozen_after_disputes = disputes::Frozen::<T>::get();
+		if frozen_before_disputes != frozen_after_disputes {
+			if let Some(revert_to) = frozen_after_disputes {
+				spec_msg::Pallet::<T>::evict_after_revert(revert_to);
+			}
+		}
 
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
 
@@ -1011,15 +1027,35 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	// UMP signals check uses scheduling parent's claim queue.
 	// For V1/V2: scheduling_parent == relay_parent, so uses same claim queue as before.
 	// For V3: uses the claim queue from the scheduling_parent.
-	if let Err(err) = candidate.candidate().parse_ump_signals(&sp_info.claim_queue) {
-		log::debug!(
-			target: LOG_TARGET,
-			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
-			err,
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false;
+	let signals = match candidate.candidate().parse_ump_signals(&sp_info.claim_queue) {
+		Ok(signals) => signals,
+		Err(err) => {
+			log::debug!(
+				target: LOG_TARGET,
+				"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
+				err,
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id()
+			);
+			return false;
+		},
+	};
+
+	// Speculative Messaging: every root named by a `Requires` signal must be among the
+	// recent provides of its source. A miss is not a validity fault — the candidate is
+	// dropped from the inherent, never disputed: the submitter regenerates its POV lifts
+	// against the then-current provides and resubmits.
+	if let Some(requires) = signals.requires() {
+		if let Err(err) = spec_msg::Pallet::<T>::check_requires(requires) {
+			log::debug!(
+				target: LOG_TARGET,
+				"Requires check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
+				err,
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id()
+			);
+			return false;
+		}
 	}
 
 	if descriptor_version == CandidateDescriptorVersion::V1 {
