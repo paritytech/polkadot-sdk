@@ -1630,3 +1630,183 @@ mod tests {
 		assert!(matches!(item, Err(BitswapError::Overloaded)));
 	}
 }
+
+#[cfg(test)]
+mod proptests {
+	use super::*;
+	use crate::RAW_CODEC;
+	use proptest::prelude::*;
+
+	const NUM_CIDS: u8 = 8;
+	const NUM_PEERS: usize = 4;
+	/// Small dispatch window so op sequences regularly hit the queueing path.
+	const SMALL_WINDOW: usize = 3;
+
+	/// One step of the actor's observable behavior against [`WantSet`].
+	#[derive(Debug, Clone)]
+	enum Op {
+		/// `on_request_stream`: admit a waiter for a CID.
+		AddWaiter(u8),
+		/// Sweep of an abandoned waiter: remove one active waiter.
+		RemoveWaiter(usize),
+		/// `deliver_block`: a verified block arrived.
+		Deliver(u8),
+		/// Block/DONT_HAVE outcome (possibly unsolicited) from a peer.
+		MarkPeerDone(usize, u8),
+		/// HAVE outcome from a peer.
+		NoteHave(usize, u8),
+		Connect(usize),
+		Disconnect(usize),
+		/// Advance time and run the sweep (per-peer timeouts + round restarts).
+		Sweep(u64),
+	}
+
+	fn op_strategy() -> impl Strategy<Value = Op> {
+		prop_oneof![
+			(0..NUM_CIDS).prop_map(Op::AddWaiter),
+			any::<usize>().prop_map(Op::RemoveWaiter),
+			(0..NUM_CIDS).prop_map(Op::Deliver),
+			(0..NUM_PEERS, 0..NUM_CIDS).prop_map(|(p, c)| Op::MarkPeerDone(p, c)),
+			(0..NUM_PEERS, 0..NUM_CIDS).prop_map(|(p, c)| Op::NoteHave(p, c)),
+			(0..NUM_PEERS).prop_map(Op::Connect),
+			(0..NUM_PEERS).prop_map(Op::Disconnect),
+			(1u64..8).prop_map(Op::Sweep),
+		]
+	}
+
+	struct Harness {
+		wants: WantSet,
+		/// Active waiters and the CID each waits on. One CID per waiter: multi-CID
+		/// requests add nothing at the `WantSet` level.
+		waiters: SlotMap<WaiterId, Cid>,
+		peers: Vec<litep2p::PeerId>,
+		cids: Vec<Cid>,
+		connected: HashSet<litep2p::PeerId>,
+		now: Instant,
+	}
+
+	impl Harness {
+		fn new() -> Self {
+			let cids = (0..NUM_CIDS)
+				.map(|i| {
+					let mh =
+						CidMultihash::<64>::wrap(BLAKE2B_256_MULTIHASH_CODE, &[i; 32]).unwrap();
+					Cid::new_v1(RAW_CODEC, mh)
+				})
+				.collect();
+			Self {
+				wants: WantSet::new(SMALL_WINDOW),
+				waiters: SlotMap::with_key(),
+				peers: (0..NUM_PEERS).map(|_| litep2p::PeerId::random()).collect(),
+				cids,
+				connected: HashSet::new(),
+				now: Instant::now(),
+			}
+		}
+
+		fn apply(&mut self, op: Op) {
+			match op {
+				Op::AddWaiter(c) => {
+					let cid = self.cids[c as usize];
+					let id = self.waiters.insert(cid);
+					self.wants.add_waiter(cid, id);
+				},
+				Op::RemoveWaiter(seed) => {
+					let Some(id) = self.waiters.keys().nth(seed % self.waiters.len().max(1)) else {
+						return;
+					};
+					let cid = self.waiters.remove(id).expect("key just listed; qed");
+					self.wants.remove_waiter(cid, id);
+				},
+				Op::Deliver(c) => {
+					let waiter_ids = self
+						.wants
+						.take_waiters_for_delivered_cid(self.cids[c as usize])
+						.unwrap_or_default();
+					for id in waiter_ids {
+						self.waiters.remove(id);
+					}
+				},
+				Op::MarkPeerDone(p, c) => {
+					self.wants.mark_peer_done_for_cid(self.peers[p], self.cids[c as usize])
+				},
+				Op::NoteHave(p, c) => {
+					self.wants.note_peer_have_for_cid(self.peers[p], self.cids[c as usize])
+				},
+				Op::Connect(p) => {
+					self.connected.insert(self.peers[p]);
+				},
+				Op::Disconnect(p) => {
+					self.connected.remove(&self.peers[p]);
+					let _ = self.wants.remove_in_flight_peer(self.peers[p]);
+				},
+				Op::Sweep(secs) => {
+					self.now += Duration::from_secs(secs);
+					let _ = self.wants.expire_peer_timeouts(self.now);
+					let _ = self.wants.restart_exhausted_rounds(self.now);
+				},
+			}
+		}
+
+		/// Mirror `BitswapService::top_up_in_flight`: after every event the service
+		/// re-dispatches everything dispatchable.
+		fn top_up(&mut self) {
+			for cid in self.wants.all_cids() {
+				let _ = self.wants.next_peer_to_request(cid, &self.connected, self.now);
+			}
+			while self.wants.has_window_capacity() {
+				let Some(cid) = self.wants.pop_pending() else { break };
+				let _ = self.wants.next_peer_to_request(cid, &self.connected, self.now);
+			}
+		}
+
+		fn check_invariants(&self) {
+			let live = self.wants.inner.values().filter(|s| !s.in_flight_peers.is_empty()).count();
+			assert_eq!(self.wants.live, live, "live counter drifted");
+			assert!(self.wants.live <= self.wants.max_live, "dispatch window overrun");
+
+			for (cid, state) in &self.wants.inner {
+				assert!(state.in_flight_peers.len() <= PEER_FANOUT_CAP, "fanout cap exceeded");
+				assert!(!state.is_idle(), "idle entry retained for {cid}");
+				assert!(
+					state.in_flight_peers.keys().all(|p| !state.tried_peers.contains(p)),
+					"peer both tried and in flight for {cid}",
+				);
+				if state.pending {
+					assert!(
+						self.wants.pending.contains(cid),
+						"pending flag without queue entry for {cid}",
+					);
+				}
+				// A parked round is never overdue: the sweep restarts due rounds, and a
+				// dispatch re-parks strictly into the future. An overdue round that
+				// stays parked is the "peer blacklisted forever" bug.
+				if let Some(at) = state.next_round_at {
+					assert!(at > self.now, "overdue round never restarted for {cid}");
+				}
+				// Liveness after a top-up pass: a waited-on CID must be somewhere on the
+				// path to resolution — in flight, queued for a window slot, or parked
+				// awaiting a new round. Anything else is the stranded-forever bug.
+				if state.has_waiters() && !self.connected.is_empty() {
+					assert!(
+						!state.in_flight_peers.is_empty() ||
+							state.pending || state.next_round_at.is_some(),
+						"stranded CID {cid}",
+					);
+				}
+			}
+		}
+	}
+
+	proptest! {
+		#[test]
+		fn want_set_invariants_hold(ops in prop::collection::vec(op_strategy(), 1..256)) {
+			let mut harness = Harness::new();
+			for op in ops {
+				harness.apply(op);
+				harness.top_up();
+				harness.check_invariants();
+			}
+		}
+	}
+}
