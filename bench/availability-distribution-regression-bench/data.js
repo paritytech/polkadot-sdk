@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784152906944,
+  "lastUpdate": 1784200667703,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "80ab459c3ec346dd52add01406a8fc7ab28db07f",
-          "message": "[Release|CI/CD] Add flow to create a release tag in format polkadot-vX.XX.X (#10351)\n\nThe PR adds a flow that will create a tag in the format polkadot-vX.XX.X\nautomatically when `polkadot` release is published. (This action was\ndone manually before)\n\ncloses: https://github.com/paritytech/release-engineering/issues/266",
-          "timestamp": "2025-11-18T16:30:31Z",
-          "tree_id": "6ac6e00b41e5b28d0192f4efb34e4fd2fc3ff529",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80ab459c3ec346dd52add01406a8fc7ab28db07f"
-        },
-        "date": 1763487577670,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013350072333333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022918083826666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007340496999999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15948120058000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1441330906666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a088ad113eed4aa3dcc1581a7a5d1bd922d4cb69",
+          "message": "Bump serde_with from 3.12.0 to 3.21.0 (#12660)\n\nBumps [serde_with](https://github.com/jonasbb/serde_with) from 3.12.0 to\n3.21.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/jonasbb/serde_with/releases\">serde_with's\nreleases</a>.</em></p>\n<blockquote>\n<h2>serde_with v3.21.0</h2>\n<h3>Security</h3>\n<ul>\n<li>\n<p><a\nhref=\"https://github.com/jonasbb/serde_with/security/advisories/GHSA-7gcf-g7xr-8hxj\">GHSA-7gcf-g7xr-8hxj</a>:\nKeyValueMap serialization panics on empty sequence or map entries\nBad or attacker controlled values could cause a panic while allocating\ntoo large values.\nFixed in <a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/966\">#966</a>\nby setting a maximum allocation size during the creation of collections\nlike <code>Vec</code> or sets.</p>\n<p>Thanks to <a\nhref=\"https://github.com/7thParkk\"><code>@​7thParkk</code></a> for\nreporting the issue.</p>\n</li>\n</ul>\n<h3>Added</h3>\n<ul>\n<li>Add <code>NoneAsZero</code> adapter that maps\n<code>Option&lt;NonZero*&gt;</code> to a plain integer, encoding\n<code>None</code> as <code>0</code> by <a\nhref=\"https://github.com/SAY-5\"><code>@​SAY-5</code></a> (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/486\">#486</a>)</li>\n</ul>\n<h3>Changed</h3>\n<ul>\n<li>Re-enable link-to-definition on docs.rs (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/964\">#964</a>)</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li>Fix some doc links to point to the correct types (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/963\">#963</a>)</li>\n<li>Re-enable <code>unused_qualifications</code> and fix the resulting\nfindings by <a\nhref=\"https://github.com/lms0806\"><code>@​lms0806</code></a> (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/962\">#962</a>)</li>\n</ul>\n<h2>serde_with v3.20.0</h2>\n<h3>Added</h3>\n<ul>\n<li>Add support for <code>base58</code> encoding, similar to the\nexisting <code>base64</code> setup by <a\nhref=\"https://github.com/mitinarseny\"><code>@​mitinarseny</code></a> (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/943\">#943</a>)</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li>Extend <code>base64</code> with <code>schemars</code> support by <a\nhref=\"https://github.com/mitinarseny\"><code>@​mitinarseny</code></a> (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/9949\">#9949</a>)</li>\n</ul>\n<h2>serde_with v3.19.0</h2>\n<h3>Added</h3>\n<ul>\n<li>\n<p>Add support for <code>hashbrown</code> v0.17 (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/940\">#940</a>)</p>\n<p>This extends the existing support for <code>hashbrown</code> to the\nnewly released version.</p>\n</li>\n</ul>\n<h2>serde_with v3.18.0</h2>\n<h3>Added</h3>\n<ul>\n<li>Support <code>OneOrMany</code> with more sequence and set types (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/929\">#929</a>)</li>\n</ul>\n<h3>Changed</h3>\n<ul>\n<li>Bump MSRV to 1.88 due to the <code>darling</code> dependency</li>\n</ul>\n<h2>serde_with v3.17.0</h2>\n<h3>Added</h3>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/0f4ca67e1f8fc4679e850f3a566d454fb30953c1\"><code>0f4ca67</code></a>\nUpdate changelog for 3.21.0 (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/967\">#967</a>)</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/7654841be1d1702a65afc0f839c67c36563c8188\"><code>7654841</code></a>\nUpdate changelog for 3.21.0</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/c8a1d820ea25df01692b367058d587343e199389\"><code>c8a1d82</code></a>\nProtect all collection creations against capacity overflow by using\n`size_hin...</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/6ad5fa5b474270f50016b4cc983e37f25f097ba4\"><code>6ad5fa5</code></a>\nProperly feature gate the <code>vec_with_capacity_cautious</code>\nfunction</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/ef7d1417e3eacd0077f029763109368ee05c1c22\"><code>ef7d141</code></a>\nProtect all collection creations against capacity overflow by using\n`size_hin...</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/a348da35fe808852a1b7e6fa890b425ad001d3f1\"><code>a348da3</code></a>\nAdd serde_as deserialize_as explain (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/958\">#958</a>)</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/2e5bc20e29e1d42eb9c85ab503964130eb1ea62e\"><code>2e5bc20</code></a>\nBump the github-actions group with 3 updates (<a\nhref=\"https://redirect.github.com/jonasbb/serde_with/issues/965\">#965</a>)</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/927a3d69c3cecdf415f7d7662a0521894d313261\"><code>927a3d6</code></a>\nBump the github-actions group with 3 updates</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/62d14ec637834259e0fab59ea84b87ca329e81c1\"><code>62d14ec</code></a>\nEnable link-to-definition on docs.rs again, after the upstream issue was\nreso...</li>\n<li><a\nhref=\"https://github.com/jonasbb/serde_with/commit/4584d94f685b66b96bdcf07bffe76e5df0819ea2\"><code>4584d94</code></a>\nEnable link-to-definition on docs.rs again, after the upstream issue was\nreso...</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/jonasbb/serde_with/compare/v3.12.0...v3.21.0\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=serde_with&package-manager=cargo&previous-version=3.12.0&new-version=3.21.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the\n[Security Alerts\npage](https://github.com/paritytech/polkadot-sdk/network/alerts).\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-16T09:33:53Z",
+          "tree_id": "da73784ac1c264039ff45bd82f82b931f45bdc95",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a088ad113eed4aa3dcc1581a7a5d1bd922d4cb69"
+        },
+        "date": 1784200635511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010066756199999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14762233239333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0074603531533333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02349130728666666,
             "unit": "seconds"
           }
         ]
