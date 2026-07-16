@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784209749322,
+  "lastUpdate": 1784221828001,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -108215,6 +108215,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2566734037,
             "range": "± 28953787",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec1052d449719097742090b25f297de693587b67",
+          "message": "CI: check workspace dependency inheritance (#11422)\n\n## Summary\n\n- Add `cargo-workspace-inheritance-check` to `checks-quick.yml` CI\nworkflow to enforce workspace dependency inheritance\n- Fix all existing violations (inline versions → `workspace = true`,\npromote missing workspace deps)\n\nRecently, I found the need to have a tool for checking/fixing dependency\ninheritance in cargo workspaces. I think it can also be useful for\npolkadot-sdk.\n\nFor details about how it works, have a look at\nhttps://github.com/RomarQ/cargo-workspace-inheritance-check\n\n## Follow-up\n\nBumping the workspace pin to `0.50` is a separate change. It requires\nporting the two crates still written against the `0.44` API:\n\n- `frame-benchmarking-cli` — uses `OfflineClient::new(…)`,\n`subxt::client::RuntimeVersion`, and `.tx()` directly on the offline\nclient, all redesigned in `0.50`.\n- `pallet-revive-eth-rpc` — uses `subxt::Error::Metadata`,\n`subxt::error::MetadataError`, `subxt::ext::subxt_rpcs`,\n`subxt::backend::{legacy::rpc_methods, rpc}`, `subxt::storage::Storage`,\n`subxt::events::StaticEvent`, `subxt::runtime_api`, and `subxt::blocks`\n— all gone or restructured in `0.50`.\n\n---------\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-16T15:40:14Z",
+          "tree_id": "39a927004a4a22f0b13ea1fbe2de515ce9877261",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec1052d449719097742090b25f297de693587b67"
+        },
+        "date": 1784221795420,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19258188,
+            "range": "± 129044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19617007,
+            "range": "± 115142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21102921,
+            "range": "± 111515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25852089,
+            "range": "± 212007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60530897,
+            "range": "± 1025993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 384944137,
+            "range": "± 6837659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2574767787,
+            "range": "± 107854899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16120503,
+            "range": "± 168640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16385548,
+            "range": "± 108215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16992978,
+            "range": "± 209571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20958206,
+            "range": "± 307919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61016975,
+            "range": "± 764766",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360416873,
+            "range": "± 5098283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2617697039,
+            "range": "± 25901255",
             "unit": "ns/iter"
           }
         ]
