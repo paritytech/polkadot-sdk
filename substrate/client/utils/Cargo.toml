@@ -19,7 +19,7 @@ futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 prometheus = { workspace = true }
-sp-arithmetic = { workspace = true }
+sp-arithmetic.workspace = true
 
 [dev-dependencies]
 tokio-test = { workspace = true }
