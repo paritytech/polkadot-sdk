@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod declaration;
 mod payloads;
 mod types;
 
+pub use declaration::*;
 pub use payloads::*;
 pub use types::*;
