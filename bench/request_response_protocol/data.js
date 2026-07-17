@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784318598980,
+  "lastUpdate": 1784323176832,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -108971,6 +108971,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2634372737,
             "range": "± 34598021",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f7ecbc466872c43259a6d2b707fbe28a4e058bd",
+          "message": "Remove deprecated Utility::derivative_account_id method. (#12670)\n\nPart of #11561\n\nRemove the deprecated `pallet_utility::Pallet::derivative_account_id`\nmethod.\n\nIt was deprecated with a removal date of August 2025 in favor of the\nfreestanding `pallet_utility::derivative_account_id` function. In-repo\ncallers already use the freestanding helper.\n\n## Integration\n\nReplace:\n\n```rust\npallet_utility::Pallet::<T>::derivative_account_id(who, index)\n```\nwith:\n```rust\npallet_utility::derivative_account_id(who, index)\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-17T19:49:35Z",
+          "tree_id": "eec42823215959d680fabe2ea6047f849238febf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f7ecbc466872c43259a6d2b707fbe28a4e058bd"
+        },
+        "date": 1784323146216,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18459842,
+            "range": "± 149495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18495938,
+            "range": "± 128904",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 19812208,
+            "range": "± 80696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24416865,
+            "range": "± 90953",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56501995,
+            "range": "± 824119",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 339890269,
+            "range": "± 4214127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2521341151,
+            "range": "± 105822460",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 15120802,
+            "range": "± 187343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15437181,
+            "range": "± 172627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 15883475,
+            "range": "± 100571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20263314,
+            "range": "± 204994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57936836,
+            "range": "± 781602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 349562521,
+            "range": "± 4916392",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2513228056,
+            "range": "± 35856557",
             "unit": "ns/iter"
           }
         ]
