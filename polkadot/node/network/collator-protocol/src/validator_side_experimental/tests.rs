@@ -509,14 +509,15 @@ impl TestState {
 		});
 	}
 
-	async fn handle_finalized_block(&mut self, finalized: BlockNumber) {
-		let old_finalized = self.finalized_block;
+	async fn handle_finalized_block_lookback(
+		&mut self,
+		processed: BlockNumber,
+		finalized: BlockNumber,
+	) {
 		self.finalized_block = finalized;
 
-		let diff = std::cmp::min(
-			finalized.checked_sub(old_finalized).unwrap(),
-			MAX_STARTUP_ANCESTRY_LOOKBACK,
-		);
+		let diff =
+			std::cmp::min(finalized.checked_sub(processed).unwrap(), MAX_STARTUP_ANCESTRY_LOOKBACK);
 		if diff == 0 {
 			return;
 		}
@@ -545,7 +546,7 @@ impl TestState {
 			}
 		);
 
-		let mut extra_msg = loop {
+		let extra_msg = loop {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
@@ -607,7 +608,15 @@ impl TestState {
 			};
 		};
 
-		let msg = match extra_msg.take() {
+		self.buffered_msg = extra_msg;
+	}
+
+	async fn handle_finalized_block(&mut self, processed: BlockNumber, finalized: BlockNumber) {
+		self.handle_finalized_block_lookback(processed, finalized).await;
+
+		// Finality notifications additionally check for changes in the registered paras
+		// (once per session).
+		let msg = match self.buffered_msg.take() {
 			Some(msg) => msg,
 			None => self.timeout_recv().await,
 		};
@@ -980,6 +989,8 @@ async fn make_state<B: Backend>(
 
 	let keystore = test_state.keystore.clone();
 
+	let processed_block_number = db.processed_finalized_block_number().await.unwrap_or_default();
+
 	let mut sender = test_state.sender.clone();
 
 	let responder = async move {
@@ -1008,8 +1019,12 @@ async fn make_state<B: Backend>(
 			}
 		);
 
-		if finalized_block_number > 0 {
-			test_state.handle_finalized_block(finalized_block_number).await;
+		// Startup only extracts reputation bumps from the finalized chain, it doesn't prune the
+		// registered paras.
+		if finalized_block_number > processed_block_number {
+			test_state
+				.handle_finalized_block_lookback(processed_block_number, finalized_block_number)
+				.await;
 		}
 
 		// No more messages are expected
@@ -1049,6 +1064,7 @@ struct MockDb {
 	// Use BTreeMaps to ensure ordering when asserting.
 	witnessed_bumps: Arc<Mutex<BTreeMap<ParaId, BTreeMap<PeerId, Score>>>>,
 	witnessed_slash: Arc<Mutex<Option<(PeerId, ParaId, Score)>>>,
+	witnessed_prunes: Arc<Mutex<Vec<BTreeSet<ParaId>>>>,
 	query_fn: Arc<Mutex<dyn Fn(PeerId, ParaId) -> Option<Score> + Send>>,
 }
 
@@ -1066,6 +1082,7 @@ impl MockDb {
 			finalized: Default::default(),
 			witnessed_bumps: Default::default(),
 			witnessed_slash: Default::default(),
+			witnessed_prunes: Default::default(),
 			query_fn,
 		}
 	}
@@ -1076,6 +1093,14 @@ impl MockDb {
 
 	fn witnessed_slash(&self) -> Option<(PeerId, ParaId, Score)> {
 		std::mem::take(self.witnessed_slash.lock().unwrap().deref_mut())
+	}
+
+	fn witnessed_prunes(&self) -> Vec<BTreeSet<ParaId>> {
+		std::mem::take(self.witnessed_prunes.lock().unwrap().deref_mut())
+	}
+
+	fn set_processed_finalized_block_number(&self, number: BlockNumber) {
+		*self.finalized.lock().unwrap() = number;
 	}
 }
 
@@ -1100,7 +1125,9 @@ impl Backend for MockDb {
 		assert!(old_slash.is_none());
 	}
 
-	async fn prune_paras(&mut self, _registered_paras: BTreeSet<ParaId>) {}
+	async fn prune_paras(&mut self, registered_paras: BTreeSet<ParaId>) {
+		self.witnessed_prunes.lock().unwrap().push(registered_paras);
+	}
 
 	async fn process_bumps(
 		&mut self,
@@ -1109,6 +1136,11 @@ impl Backend for MockDb {
 		_decay_value: Option<Score>,
 		_now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
+		// Mirror the real backend: never move the processed finalized block backwards.
+		if *(self.finalized.lock().unwrap()) >= leaf_number {
+			return vec![];
+		}
+
 		let old_bumps = std::mem::replace(
 			self.witnessed_bumps.lock().unwrap().deref_mut(),
 			bumps.into_iter().map(|(k, v)| (k, v.into_iter().collect())).collect(),
@@ -1130,6 +1162,7 @@ impl Drop for MockDb {
 	fn drop(&mut self) {
 		assert!(self.witnessed_bumps().is_empty());
 		assert!(self.witnessed_slash().is_none());
+		assert!(self.witnessed_prunes().is_empty());
 	}
 }
 
@@ -1192,7 +1225,8 @@ async fn test_connection_flow() {
 	);
 
 	// Reputations are bumped on finalized block notifications.
-	futures::join!(test_state.handle_finalized_block(2), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 2), async {
 		state.handle_finalized_block(&mut sender, get_hash(2), 2).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
@@ -1815,10 +1849,16 @@ async fn finalized_block_notification() {
 	assert_eq!(state.connected_peers(), peers.clone().into_iter().collect());
 
 	// Finalize block 5, no expected bumps, because there are no included candidates.
-	futures::join!(test_state.handle_finalized_block(5), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 5), async {
 		state.handle_finalized_block(&mut sender, get_hash(5), 5).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
+	// The first finalized block notification queries and prunes the registered paras.
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 200.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
 
 	// Add one included candidate at block 6 for first peer and para 100.
 	test_state.set_candidates_pending_availability(
@@ -1831,7 +1871,8 @@ async fn finalized_block_notification() {
 		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP))].into_iter().collect(),
 	);
 
-	futures::join!(test_state.handle_finalized_block(6), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 6), async {
 		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
@@ -1882,7 +1923,8 @@ async fn finalized_block_notification() {
 
 	// Add multiple included candidates at different block heights and check that they are processed
 	// accordingly.
-	futures::join!(test_state.handle_finalized_block(10), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 10), async {
 		state.handle_finalized_block(&mut sender, get_hash(10), 10).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
@@ -4300,6 +4342,217 @@ async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
 	assert_eq!(state.advertisements(), [adv].into());
 }
 
-// TODO:
-// - Test subsystem startup: make sure we are properly populating the db.
-// - Test a change in the registered paras on finalized block notification.
+#[tokio::test]
+async fn startup_populates_db_from_finalized_chain() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+	let third_peer = peer_id(3);
+
+	// The node starts with finalized block 6 and a DB which hasn't processed any blocks yet.
+	test_state.finalized_block = 6;
+	test_state.set_candidates_pending_availability(
+		[
+			(get_hash(2), vec![(ParaId::from(100), first_peer)]),
+			(
+				get_hash(5),
+				vec![
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), second_peer),
+				],
+			),
+			(get_hash(6), vec![(ParaId::from(100), third_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let db = MockDb::default();
+	let state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(third_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	expected_bumps.insert(
+		ParaId::new(200),
+		[
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP)),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
+	// The DB has caught up with the finalized chain.
+	assert_eq!(db.processed_finalized_block_number().await, Some(6));
+	// Startup doesn't prune the registered paras.
+	assert!(db.witnessed_prunes().is_empty());
+
+	drop(state);
+
+	// Simulate a restart with the same DB: the already processed blocks are not re-processed,
+	// so the candidates of the ancestry don't produce bumps again.
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	assert!(db.witnessed_bumps().is_empty());
+	// assert!(db.witnessed_decay_values().is_empty());
+	assert_eq!(db.processed_finalized_block_number().await, Some(6));
+}
+
+#[tokio::test]
+async fn startup_lookback_is_capped() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	let outside_peer = peer_id(1);
+	let oldest_peer = peer_id(2);
+	let newest_peer = peer_id(3);
+
+	let finalized = MAX_STARTUP_ANCESTRY_LOOKBACK + 10;
+	// The oldest block whose included candidates are within the lookback window.
+	let window_start = finalized - MAX_STARTUP_ANCESTRY_LOOKBACK + 1;
+
+	test_state.finalized_block = finalized;
+	test_state.set_candidates_pending_availability(
+		[
+			// Right outside of the lookback window.
+			(get_hash(window_start - 1), vec![(ParaId::from(100), outside_peer)]),
+			(get_hash(window_start), vec![(ParaId::from(100), oldest_peer)]),
+			(get_hash(finalized), vec![(ParaId::from(100), newest_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let db = MockDb::default();
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(oldest_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(newest_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
+	assert_eq!(db.processed_finalized_block_number().await, Some(finalized));
+}
+
+// Should never happen but verify that the case is handled gracefully.
+#[tokio::test]
+async fn startup_with_db_ahead_of_finalized_chain() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	test_state.finalized_block = 8;
+	let db = MockDb::default();
+	db.set_processed_finalized_block_number(15);
+	// A candidate on the finalized chain which must not be processed.
+	test_state.set_candidates_pending_availability(
+		[(get_hash(5), vec![(ParaId::from(100), peer_id(1))])].into_iter().collect(),
+	);
+
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	assert!(db.witnessed_bumps().is_empty());
+	assert_eq!(db.processed_finalized_block_number().await, Some(15));
+}
+
+// Test the registered paras processing on finalized block notifications: the registered paras
+// are queried once per session and the DB is told to prune the paras that are no longer
+// registered.
+#[tokio::test]
+async fn registered_paras_pruned_on_new_session() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// The first finalized block notification always queries the registered paras.
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 2), async {
+		state.handle_finalized_block(&mut sender, get_hash(2), 2).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 200.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
+
+	// A subsequent finalized block in the same session doesn't re-query the registered paras
+	// (the harness panics on an unexpected `ParaIds` request).
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 3), async {
+		state.handle_finalized_block(&mut sender, get_hash(3), 3).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+
+	// Start session 2, where para 200 is deregistered.
+	let mut session_2_info = test_state.session_info.get(&1).unwrap().clone();
+	session_2_info.paras = vec![100.into(), 600.into()];
+	test_state.session_info.insert(2, session_2_info);
+	test_state.rp_info.insert(
+		get_hash(4),
+		RelayParentInfo {
+			number: 4,
+			parent: get_parent_hash(4),
+			session_index: 2,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 4), async {
+		state.handle_finalized_block(&mut sender, get_hash(4), 4).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
+
+	// A finalized block with an older session index doesn't trigger a query.
+	// (block 5 is not in `rp_info`, so the harness reports session 1 for it)
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 5), async {
+		state.handle_finalized_block(&mut sender, get_hash(5), 5).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+
+	// Same for an equal session index.
+	test_state.rp_info.insert(
+		get_hash(6),
+		RelayParentInfo {
+			number: 6,
+			parent: get_parent_hash(6),
+			session_index: 2,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 6), async {
+		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+}
