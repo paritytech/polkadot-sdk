@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784301424657,
+  "lastUpdate": 1784307679818,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "04f79fb22ac3b5f4ee6efda2f223dea797ba6299",
-          "message": "[pallet-revive] update evm create benchmark (#10366)\n\nAdd a benchmark for the EVM CREATE instruction.\n\nWe are currently reusing the `seal_instantiate` benchmark from PVM\ninstantiation, which is incorrect because instantiating an EVM contract\ntakes different arguments and follows a different code path than\ncreating a PVM contract.\n\nThis benchmark performs the following steps:\n\n- Generates init bytecode of size i, optionally including a balance with\ndust.\n- Executes the init code that triggers a single benchmark opcode\nreturning a runtime code of the maximum allowed size\n(qrevm::primitives::eip170::MAX_CODE_SIZE`).\n\n\nAlso fix the order of the weight function arguments, they were wrong\ncausing the weight to be much bigger that what it should be\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-20T17:56:56Z",
-          "tree_id": "4b3256e9544cca66d3ebcc141cd56ab1f9d5824a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/04f79fb22ac3b5f4ee6efda2f223dea797ba6299"
-        },
-        "date": 1763666410861,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20013241543333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.457190184633331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1333247433,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "baaa6023e46abc763a863cf19678e3ae944dec44",
+          "message": "Statement store index optimization, stage 2a (#12304)\n\nThis PR implements stage 2a of the optimizations proposed in #10910\n(Move Read Index to Disk with LRU Cache).\n\nAs a notable difference from the original issue, the `evicted` index has\nalso been moved to disk (AFAIR, it used to consume ~150 MiB of RAM with\n4M statements).\n\n---------\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-17T15:17:39Z",
+          "tree_id": "7f6e81152072ac6ba17a212616fc87cc4e259fda",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaa6023e46abc763a863cf19678e3ae944dec44"
+        },
+        "date": 1784307646869,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13404781959999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.867484501966668,
             "unit": "seconds"
           }
         ]
