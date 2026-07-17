@@ -188,6 +188,22 @@ const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 /// into the relay chain.
 const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
 
+/// Enables V3 scheduling while accepting any scheduling signature, like the
+/// `cumulus-test-runtime` `v3-descriptor` flavor does. Glutton is a testing-only
+/// runtime, so signature verification adds nothing here.
+pub struct SchedulingV3AcceptAll;
+
+impl VerifySchedulingSignature for SchedulingV3AcceptAll {
+	const V3_SCHEDULING_ENABLED: bool = true;
+
+	fn verify(
+		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
+	) -> bool {
+		true
+	}
+}
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -208,7 +224,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingSignatureVerifier = ();
+	type SchedulingSignatureVerifier = SchedulingV3AcceptAll;
 }
 
 parameter_types! {

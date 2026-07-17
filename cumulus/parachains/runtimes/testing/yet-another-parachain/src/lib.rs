@@ -153,6 +153,22 @@ const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
+/// Enables V3 scheduling while accepting any scheduling signature, like the
+/// `cumulus-test-runtime` `v3-descriptor` flavor does. YAP is a testing-only
+/// runtime, so signature verification adds nothing here.
+pub struct SchedulingV3AcceptAll;
+
+impl VerifySchedulingSignature for SchedulingV3AcceptAll {
+	const V3_SCHEDULING_ENABLED: bool = true;
+
+	fn verify(
+		_signed_info: &cumulus_primitives_core::SignedSchedulingInfo,
+		_internal_scheduling_parent_header: &cumulus_primitives_core::relay_chain::Header,
+	) -> bool {
+		true
+	}
+}
+
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
@@ -373,7 +389,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingSignatureVerifier = ();
+	type SchedulingSignatureVerifier = SchedulingV3AcceptAll;
 }
 
 impl pallet_message_queue::Config for Runtime {
