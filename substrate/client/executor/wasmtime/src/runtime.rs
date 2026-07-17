@@ -565,8 +565,10 @@ where
 	H: HostFunctions,
 {
 	// SAFETY: this is safe because it doesn't use `CodeSupplyMode::Precompiled`.
-	unsafe { do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, false) }
-		.map(WasmtimeRuntime)
+	unsafe {
+		do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, EpochInterruptions::Disabled)
+	}
+	.map(WasmtimeRuntime)
 }
 
 /// The same as [`create_runtime`], but the module is compiled with wasmtime epoch interruption
@@ -580,7 +582,9 @@ where
 	H: HostFunctions,
 {
 	// SAFETY: this is safe because it doesn't use `CodeSupplyMode::Precompiled`.
-	let core = unsafe { do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, true) }?;
+	let core = unsafe {
+		do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, EpochInterruptions::Enabled)
+	}?;
 	let epoch_ticker = EpochTicker::new(core.engine.clone())?;
 
 	Ok(WasmtimeTimedRuntime { core, _epoch_ticker: epoch_ticker })
@@ -609,8 +613,12 @@ pub unsafe fn create_runtime_from_artifact<H>(
 where
 	H: HostFunctions,
 {
-	do_create_runtime::<H>(CodeSupplyMode::Precompiled(compiled_artifact_path), config, false)
-		.map(WasmtimeRuntime)
+	do_create_runtime::<H>(
+		CodeSupplyMode::Precompiled(compiled_artifact_path),
+		config,
+		EpochInterruptions::Disabled,
+	)
+	.map(WasmtimeRuntime)
 }
 
 /// The same as [`create_runtime`] but takes the bytes of a precompiled artifact,
@@ -635,8 +643,19 @@ pub unsafe fn create_runtime_from_artifact_bytes<H>(
 where
 	H: HostFunctions,
 {
-	do_create_runtime::<H>(CodeSupplyMode::PrecompiledBytes(compiled_artifact_bytes), config, false)
-		.map(WasmtimeRuntime)
+	do_create_runtime::<H>(
+		CodeSupplyMode::PrecompiledBytes(compiled_artifact_bytes),
+		config,
+		EpochInterruptions::Disabled,
+	)
+	.map(WasmtimeRuntime)
+}
+
+/// Whether we enable epoch interuptions on the compiled WASM.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EpochInterruptions {
+	Disabled,
+	Enabled,
 }
 
 /// # Safety
@@ -646,7 +665,7 @@ where
 unsafe fn do_create_runtime<H>(
 	code_supply_mode: CodeSupplyMode<'_>,
 	mut config: Config,
-	epoch_interruption: bool,
+	epoch_interruption: EpochInterruptions,
 ) -> std::result::Result<RuntimeCore, WasmError>
 where
 	H: HostFunctions,
@@ -654,9 +673,11 @@ where
 	replace_strategy_if_broken(&mut config.semantics.instantiation_strategy);
 
 	let mut wasmtime_config = common_config(&config.semantics)?;
-	if epoch_interruption {
+
+	if epoch_interruption == EpochInterruptions::Enabled {
 		wasmtime_config.epoch_interruption(true);
 	}
+
 	if let Some(ref cache_path) = config.cache_path {
 		if let Err(reason) = setup_wasmtime_caching(cache_path, &mut wasmtime_config) {
 			log::warn!(
