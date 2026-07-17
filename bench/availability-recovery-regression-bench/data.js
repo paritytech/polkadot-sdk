@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784222934791,
+  "lastUpdate": 1784294264143,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d6cb9dcad19882669721ee1489ed256fc392b22c",
-          "message": "[Release|CI/CD] Post crates release action (#10232)\n\nhttps://github.com/paritytech/release-engineering/issues/265\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2025-11-20T12:54:41Z",
-          "tree_id": "c501d9e06a02a50f2af4994d3b697c17f71946b4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d6cb9dcad19882669721ee1489ed256fc392b22c"
-        },
-        "date": 1763647841629,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.428023819333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20169542533333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.181586062633333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d56ed88f344ed854b89d7b9221003da2f5006df5",
+          "message": "Remove deprecated pallet_staking::ExposureOf. (#12654)\n\n## Summary\n- Remove deprecated `pallet_staking::ExposureOf` (use\n`DefaultExposureOf` / `UnitIdentificationOf`).\n- No remaining in-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-07-17T06:39:16Z",
+          "tree_id": "2ee17a8441ca654a5ba5853206083bc278244e90",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d56ed88f344ed854b89d7b9221003da2f5006df5"
+        },
+        "date": 1784294231661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.44178808886667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14076163013333332,
             "unit": "seconds"
           }
         ]
