@@ -14,15 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Speculative Messaging pallet — sender side
+//! # Speculative Messaging pallet
 //!
-//! Accumulates this parachain's outbound message streams (design v0.5):
+//! Both halves of the parachain-side transport (design v0.5).
+//!
+//! **Sender side**: accumulates this parachain's outbound message streams —
 //! every sent payload becomes a leaf in its stream's append-only MMR, and a
 //! block that touches at least one stream commits to *all* streams with a
 //! single hash — the [`StreamsRoot`], root of the stream commitment tree (a
 //! binary compact trie keyed by the canonical [`StreamId`] encoding, leaves
 //! = the streams' MMR roots). Payloads themselves travel off-chain between
 //! collators; the chain only ever commits to hashes.
+//!
+//! **Receiver side**: consumes other chains' streams via the messaging
+//! inherent ([`Pallet::enact_messages`]) — fetched payloads in, no roots of
+//! any kind and no relay state reads: the runtime verifies by
+//! *recomputation* only, and binding the results to committed sender roots
+//! is the PVF's job (consumption record + POV lifts).
 //!
 //! ## Sender lifecycle
 //!
@@ -64,6 +72,46 @@
 //! machinery lands, channel phase is a placeholder flag
 //! ([`OpenOutboundChannels`]) and the advisory credit window is not yet
 //! enforced — the per-block caps are the only backpressure.
+//!
+//! ## Receiver lifecycle
+//!
+//! The messaging inherent (identifier `specmsg0`) carries at most one item
+//! per consumed stream: ordered channel payloads, and register head reads
+//! (latest ack-stream leaf + MMR inclusion proof). Per channel item the
+//! payloads are hashed (`hash_leaf`, current [`LEAF_VERSION`]) and appended
+//! to the stream's [`InboundFrontier`]; order and count need no explicit
+//! check — any deviation yields a different endpoint, which no lift can
+//! bind (PVF-enforced). Per register read the inclusion proof pins position
+//! and peaks; the yielded root is *derived, never declared*. Every touched
+//! stream writes one [`Interval`] to the transient [`ConsumptionOutbox`] —
+//! the block's consumption record, which the `validate_block` wrapper
+//! stitches across the bundle and lifts to committed sender roots. The
+//! consumption boundary is free: a block may stop anywhere (weight/POV
+//! budget), the lift's extension proof covers the unconsumed tail; an
+//! absent inherent is a valid block that consumes nothing.
+//!
+//! No-skip is an STF rule: the runtime offers no payload-free path to
+//! advance a frontier, and an unparseable payload on an ordered stream is
+//! consumed and dropped ([`Event::PayloadDropped`]) — skipping is illegal,
+//! stalling would brick the channel. Invalid inherent items (unknown or
+//! duplicate stream, oversized payload, structural proof defects, exceeded
+//! caps) are rejected wholesale ([`Event::ItemRejected`]): nothing of the
+//! item is consumed, the block stays valid — an honest collator's
+//! pre-verification never produces them.
+//!
+//! Lifts are attached by the submitter *outside* block execution, so the
+//! STF charges the worst case up front as `proof_size` weight: per touched
+//! stream the lift reservation ([`LIFT_RESERVATION_BYTES`]), per read
+//! context the advance-proof bytes ([`ADVANCE_PROOF_RESERVATION_BYTES`]) —
+//! bounded by the hard per-block caps [`Config::MaxTouchedStreams`] and
+//! [`Config::MaxContextGaps`] (which also keep the record's sources within
+//! the relay's `MAX_COMMITMENT_ENTRIES`).
+//!
+//! Like the outbound side, inbound channel state is placeholder-grade until
+//! the lifecycle machinery lands: [`ConsumedStreams`] is the manually armed
+//! consumed-stream set, lifecycle signals and register contents are
+//! verified, then dropped. Consumed [`SpecMsgKind::Data`] payloads go to
+//! [`Config::DataHandler`] — the seam where the XCM-queue forwarding sits.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -75,14 +123,18 @@ mod mock;
 mod tests;
 pub mod xcm_router;
 
-use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_primitives_core::{relay_chain::UMPSignal, ParaId};
+use alloc::{collections::BTreeSet, vec::Vec};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use cumulus_primitives_core::{
+	relay_chain::{UMPSignal, MAX_COMMITMENT_ENTRIES},
+	ParaId,
+};
 use cumulus_primitives_spec_messaging::{
 	hash_leaf,
 	tree::{bit_at, first_diff_bit, tree_inner_hash, tree_leaf_hash, KEY_BITS},
-	ChannelId, ConsumptionRecord, Interval, MessagePosition, MmrFrontier, ProvideUmpSignals,
-	SpecHasher, SpecMsgKind, StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID, STREAM_ID_LEN,
+	ChannelId, ConsumptionRecord, Interval, MessagePosition, MmrFrontier, MmrInclusionProof,
+	ProvideUmpSignals, Register, SpecHasher, SpecMsgInherentData, SpecMsgKind, SpecMsgSignal,
+	StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID, STREAM_ID_LEN,
 };
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -90,6 +142,70 @@ use sp_runtime::generic::DigestItem;
 
 pub use pallet::*;
 pub use xcm_router::SpecMsgRouter;
+
+/// Worst-case POV bytes of one stream's requires lift, charged as
+/// `proof_size` weight per stream the messaging inherent touches (v0.5 §PoV
+/// Weight Reservation). The steady-state lift is a bare tree proof (~300 B);
+/// the reservation covers the worst case — a full tree path plus a maximal
+/// extension proof — because the lift is attached by the submitter outside
+/// block execution and the block must fit at authoring time.
+pub const LIFT_RESERVATION_BYTES: u64 = 4 * 1024;
+
+/// Worst-case POV bytes of one advance proof, charged as `proof_size`
+/// weight per read-context gap: a register/event read pins its context
+/// freely, so each read can open one gap in the bundle's interval chain
+/// that a POV-carried advance proof must cover. (Channel streams never gap
+/// — consumption is a stored frontier every block continues from.)
+pub const ADVANCE_PROOF_RESERVATION_BYTES: u64 = 2 * 1024;
+
+/// Sink for in-order consumed [`SpecMsgKind::Data`] payloads of inbound
+/// channel streams.
+///
+/// EXTENSION POINT for the XCM-queue forwarding: the runtime wires its
+/// message queue here (enqueue under `SpecMsg(source)`). The `()`
+/// implementation drops the payloads — transport-only consumption: the
+/// frontier and the consumption record advance regardless, because
+/// consuming a message and acting on it are separate layers.
+pub trait OnSpecMsgData {
+	/// One `Data` payload, consumed in order at `position` of the stream
+	/// `(source, stream)`.
+	fn on_data(source: ParaId, stream: StreamId, position: MessagePosition, data: Vec<u8>);
+}
+
+impl OnSpecMsgData for () {
+	fn on_data(_: ParaId, _: StreamId, _: MessagePosition, _: Vec<u8>) {}
+}
+
+/// Why a messaging-inherent item was rejected (see
+/// [`Event::ItemRejected`]). Rejection is per item and total: nothing of a
+/// rejected item is consumed, no interval is recorded for it.
+#[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, Eq, PartialEq)]
+pub enum RejectReason {
+	/// The stream is not one this runtime consumes: not listed in
+	/// [`ConsumedStreams`] (unknown, unaccepted or suspended channel), or
+	/// the wrong stream kind for the item (ordered consumption is defined
+	/// on `Channel` streams, head reads on `Ack` streams).
+	UnknownStream,
+	/// A second item for the same stream — the inherent carries at most
+	/// one item per stream.
+	DuplicateStream,
+	/// A channel item without payloads: an empty interval would waste a
+	/// touched-stream slot and a lift on advancing nothing.
+	EmptyItem,
+	/// A payload exceeds [`Config::MaxMsgLen`], the consensus hard
+	/// per-message size bound.
+	OversizedPayload,
+	/// The [`Config::MaxTouchedStreams`] cap is exhausted.
+	TooManyStreams,
+	/// The [`Config::MaxContextGaps`] cap is exhausted.
+	TooManyGaps,
+	/// The head read's inclusion proof is structurally invalid. (A proof
+	/// with merely wrong hashes is not detectable here — it yields a
+	/// frontier no lift can bind, failing the candidate in the PVF.)
+	InvalidProof,
+	/// The head read's leaf does not decode as a [`Register`].
+	BadRegister,
+}
 
 /// Storage key of one commitment-tree node: the key prefix it governs.
 ///
@@ -233,7 +349,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event>> {
 		/// Hard per-message payload size bound, in bytes — a consensus
 		/// constant of this chain's streams (the advisory
 		/// `WindowGrant::max_message_size` rides on top of it).
@@ -245,6 +361,25 @@ pub mod pallet {
 		/// the transport.
 		#[pallet::constant]
 		type MaxMessagesPerBlock: Get<u32>;
+
+		/// Per-block cap on streams the messaging inherent may touch.
+		/// Bounds both the `proof_size` lift reservation and — since every
+		/// record source carries at least one stream — the consumption
+		/// record's sources to at most `MAX_COMMITMENT_ENTRIES` (enforced
+		/// by [`Hooks::integrity_test`]).
+		#[pallet::constant]
+		type MaxTouchedStreams: Get<u32>;
+
+		/// Per-block cap on read-context gaps (register/event reads, which
+		/// pick their read context freely and can each open one gap in the
+		/// bundle's interval chain). Bounds the `proof_size` advance-proof
+		/// reservation.
+		#[pallet::constant]
+		type MaxContextGaps: Get<u32>;
+
+		/// Where consumed [`SpecMsgKind::Data`] payloads are handed for
+		/// execution — the XCM-queue forwarding seam. `()` drops them.
+		type DataHandler: OnSpecMsgData;
 	}
 
 	/// Per-stream MMR frontiers (peaks + leaf count) — the only long-lived
@@ -301,6 +436,30 @@ pub mod pallet {
 	pub type OpenOutboundChannels<T: Config> =
 		StorageMap<_, Twox64Concat, ChannelId, (), OptionQuery>;
 
+	/// Consumption frontier per consumed channel stream, keyed by the full
+	/// stream key `(sender, stream id)` — a chain may consume several
+	/// streams of one sender. Position (= leaf count) and the root built
+	/// against (bag the peaks) are both derived — never stored.
+	#[pallet::storage]
+	pub type InboundFrontier<T: Config> =
+		StorageMap<_, Twox64Concat, (ParaId, StreamId), MmrFrontier, ValueQuery>;
+
+	/// The full stream keys this runtime currently consumes: channel data
+	/// streams of open, non-suspended inbound channels and the ack
+	/// registers of its own outbound channels. The messaging inherent
+	/// rejects items for streams absent here (the API contract: everything
+	/// the inherent carries is for a stream listed by
+	/// [`Pallet::consumed_streams`]).
+	///
+	/// PLACEHOLDER for the channel lifecycle machinery (channels & flow
+	/// control), which will derive this set from the `InChannels` /
+	/// `OutChannels` phases instead of storing it. Until then, inserting a
+	/// key here is the manual arming step, mirroring
+	/// [`OpenOutboundChannels`] on the sender side.
+	#[pallet::storage]
+	pub type ConsumedStreams<T: Config> =
+		StorageMap<_, Twox64Concat, (ParaId, StreamId), (), OptionQuery>;
+
 	/// Transient outbox of this block's consumption intervals — one item
 	/// per stream the messaging inherent touched, in processing order (the
 	/// same storage family as parachain-system's `UpwardMessages`: written
@@ -308,14 +467,9 @@ pub mod pallet {
 	/// [`Pallet::consumption_record`], cleared at the next
 	/// `on_initialize`).
 	///
-	/// SKELETON (receiver part): the write side — the messaging inherent's
-	/// recomputation appending one [`Interval`] per touched stream — is not
-	/// implemented yet, so the outbox stays empty; the read side and the
-	/// `validate_block` plumbing consuming it are final.
-	///
 	/// Unbounded like parachain-system's `UpwardMessages`: transient, and
-	/// the receiver part's per-block caps on touched streams (which also
-	/// bound record sources to `MaxCommitmentEntries`) are the real bound.
+	/// [`Config::MaxTouchedStreams`] (which also bounds record sources to
+	/// `MAX_COMMITMENT_ENTRIES`) is the real bound.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type ConsumptionOutbox<T: Config> =
@@ -332,6 +486,36 @@ pub mod pallet {
 		TooManyMessages,
 		/// The outbound channel is not in phase `Open`.
 		ChannelNotOpen,
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event {
+		/// An unparseable payload on an ordered stream was consumed and
+		/// dropped: skipping is illegal (the frontier admits no gaps) and
+		/// stalling would brick the channel — the version machinery of the
+		/// channel lifecycle exists to make this near-impossible.
+		PayloadDropped {
+			/// The stream's sender.
+			source: ParaId,
+			/// The stream the payload was consumed from.
+			stream: StreamId,
+			/// The dropped payload's position in the stream.
+			position: MessagePosition,
+		},
+		/// A messaging-inherent item was rejected; nothing of it was
+		/// consumed. An honest collator's pre-verification never produces
+		/// a rejectable item, so this signals a buggy or malicious block
+		/// author — the block itself stays valid (a rejected item consumes
+		/// nothing and needs no lift).
+		ItemRejected {
+			/// The item's named source chain.
+			source: ParaId,
+			/// The item's named stream.
+			stream: StreamId,
+			/// Why the item was rejected.
+			reason: RejectReason,
+		},
 	}
 
 	#[pallet::hooks]
@@ -365,6 +549,112 @@ pub mod pallet {
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			Self::commit_streams_root();
+		}
+
+		fn integrity_test() {
+			// Every record source carries at least one touched stream, so
+			// this cap is what keeps the PVF-synthesized `RequiresSet`
+			// constructible for every valid block.
+			assert!(
+				T::MaxTouchedStreams::get() <= MAX_COMMITMENT_ENTRIES,
+				"`MaxTouchedStreams` must not exceed `MAX_COMMITMENT_ENTRIES`: the consumption \
+				 record's sources could not fit the synthesized `RequiresSet`",
+			);
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// The messaging inherent: consume fetched payloads by
+		/// recomputation and write the block's consumption record.
+		///
+		/// Carries no roots of any kind and reads no relay state. Items are
+		/// validated and consumed independently; an invalid item is
+		/// rejected wholesale with [`Event::ItemRejected`] and the dispatch
+		/// still succeeds (the inherent is `Mandatory` — it must never
+		/// fail). The weight charges each stream's worst-case lift bytes
+		/// and each read's advance-proof bytes as `proof_size` up front;
+		/// see the module docs.
+		#[pallet::call_index(0)]
+		#[pallet::weight((enact_messages_weight::<T>(data), DispatchClass::Mandatory))]
+		pub fn enact_messages(origin: OriginFor<T>, data: SpecMsgInherentData) -> DispatchResult {
+			ensure_none(origin)?;
+
+			// Streams already touched by this inherent — at most one item
+			// per stream, checked across channel items and register reads.
+			let mut touched = BTreeSet::new();
+			let mut gaps = 0u32;
+
+			for (source, stream, payloads) in data.messages {
+				if let Err(reason) =
+					Self::consume_channel_item(&mut touched, source, stream, &payloads)
+				{
+					Self::deposit_event(Event::ItemRejected { source, stream, reason });
+				}
+			}
+			for (source, stream, payload, proof) in data.register_reads {
+				if let Err(reason) = Self::consume_register_read(
+					&mut touched,
+					&mut gaps,
+					source,
+					stream,
+					&payload,
+					&proof,
+				) {
+					Self::deposit_event(Event::ItemRejected { source, stream, reason });
+				}
+			}
+
+			Ok(())
+		}
+	}
+
+	/// Weight of [`Pallet::enact_messages`].
+	///
+	/// `ref_time`: DbWeight-based estimate (TODO: benchmark, together with
+	/// the pallet's other weights). `proof_size`: the PoV reservation the
+	/// design mandates — lifts and advance proofs are attached by the
+	/// submitter outside block execution, so the STF charges the worst case
+	/// at authoring time: [`LIFT_RESERVATION_BYTES`] per named stream,
+	/// [`ADVANCE_PROOF_RESERVATION_BYTES`] per read context. Charged for
+	/// rejected items too (pre-dispatch weight is the worst case).
+	fn enact_messages_weight<T: Config>(data: &SpecMsgInherentData) -> Weight {
+		let streams = (data.messages.len() + data.register_reads.len()) as u64;
+		let payloads: u64 = data.messages.iter().map(|(_, _, p)| p.len() as u64).sum();
+
+		// Per stream: consumed-set read, frontier read + write, outbox
+		// append; per payload: leaf hashing and the handler, estimated as
+		// one read until benchmarks land.
+		T::DbWeight::get()
+			.reads_writes(2 * streams + payloads, 2 * streams)
+			.saturating_add(Weight::from_parts(
+				0,
+				streams.saturating_mul(LIFT_RESERVATION_BYTES).saturating_add(
+					(data.register_reads.len() as u64)
+						.saturating_mul(ADVANCE_PROOF_RESERVATION_BYTES),
+				),
+			))
+	}
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+		type Error = MakeFatalError<()>;
+		const INHERENT_IDENTIFIER: InherentIdentifier =
+			cumulus_primitives_spec_messaging::INHERENT_IDENTIFIER;
+
+		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+			let data = data
+				.get_data::<SpecMsgInherentData>(&Self::INHERENT_IDENTIFIER)
+				.ok()
+				.flatten()?;
+			// An absent inherent is a valid block that consumes nothing —
+			// nothing to fetch must not cost an extrinsic.
+			(!data.is_empty()).then(|| Call::enact_messages { data })
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::enact_messages { .. })
 		}
 	}
 
@@ -511,9 +801,6 @@ pub mod pallet {
 		/// source, per source sorted by [`StreamId`] (canonical encoding
 		/// order) — the shape the `validate_block` wrapper stitches and the
 		/// `consumption_record()` runtime API serves.
-		///
-		/// Empty until the receiver part's messaging inherent (which fills
-		/// [`ConsumptionOutbox`]) lands.
 		pub fn consumption_record() -> ConsumptionRecord {
 			let mut record = ConsumptionRecord::default();
 			for (source, stream, interval) in ConsumptionOutbox::<T>::get() {
@@ -523,6 +810,141 @@ pub mod pallet {
 				streams.sort_by(|a, b| a.0.cmp(&b.0));
 			}
 			record
+		}
+
+		/// The full stream keys this runtime currently consumes — what the
+		/// `consumed_streams()` runtime API serves and the node fetches.
+		/// Placeholder derivation until the channel lifecycle machinery
+		/// lands: reads the manually armed [`ConsumedStreams`] set.
+		pub fn consumed_streams() -> Vec<(ParaId, StreamId)> {
+			ConsumedStreams::<T>::iter_keys().collect()
+		}
+
+		/// Consumes one channel item of the messaging inherent: hashes the
+		/// payloads into the stream's [`InboundFrontier`] in order and
+		/// records the stream's [`Interval`]. On `Err` nothing was
+		/// consumed.
+		///
+		/// Order and count of the payloads need no explicit check — any
+		/// deviation yields a different frontier endpoint, which no lift
+		/// can bind (PVF-enforced).
+		fn consume_channel_item(
+			touched: &mut BTreeSet<(ParaId, StreamId)>,
+			source: ParaId,
+			stream: StreamId,
+			payloads: &[Vec<u8>],
+		) -> Result<(), RejectReason> {
+			// Ordered consumption is defined on channel data streams only.
+			ensure!(matches!(stream, StreamId::Channel { .. }), RejectReason::UnknownStream);
+			ensure!(
+				ConsumedStreams::<T>::contains_key((source, stream)),
+				RejectReason::UnknownStream
+			);
+			ensure!(!touched.contains(&(source, stream)), RejectReason::DuplicateStream);
+			ensure!(!payloads.is_empty(), RejectReason::EmptyItem);
+			ensure!(
+				payloads.iter().all(|p| p.len() <= T::MaxMsgLen::get() as usize),
+				RejectReason::OversizedPayload
+			);
+			// The caps count accepted items only: a rejected item consumes
+			// neither a slot nor state.
+			ensure!(
+				(touched.len() as u32) < T::MaxTouchedStreams::get(),
+				RejectReason::TooManyStreams
+			);
+			touched.insert((source, stream));
+
+			let mut frontier = InboundFrontier::<T>::get((source, stream));
+			let start = frontier.root();
+			for payload in payloads {
+				let position = MessagePosition(frontier.leaf_count);
+				frontier.append_leaf(hash_leaf::<SpecHasher>(LEAF_VERSION, payload));
+
+				match SpecMsgKind::decode_all(&mut &payload[..]) {
+					Ok(SpecMsgKind::Data(data)) => {
+						T::DataHandler::on_data(source, stream, position, data)
+					},
+					Ok(SpecMsgKind::Signal(signal)) => Self::apply_signal(source, stream, signal),
+					// Consume-and-drop: skipping is illegal, stalling
+					// would brick the channel.
+					Err(_) => {
+						Self::deposit_event(Event::PayloadDropped { source, stream, position })
+					},
+				}
+			}
+			InboundFrontier::<T>::insert((source, stream), &frontier);
+			ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
+			Ok(())
+		}
+
+		/// Consumes one register head read of the messaging inherent: the
+		/// inclusion proof pins the read's position and peaks (the yielded
+		/// root is derived, never declared), and the read context is
+		/// recorded as `Interval { start: root(end), end }` — nothing
+		/// advances. On `Err` nothing was consumed.
+		fn consume_register_read(
+			touched: &mut BTreeSet<(ParaId, StreamId)>,
+			gaps: &mut u32,
+			source: ParaId,
+			stream: StreamId,
+			payload: &[u8],
+			proof: &MmrInclusionProof,
+		) -> Result<(), RejectReason> {
+			// Head reads are defined on ack streams (broadcast event
+			// streams share the discipline but are post-MVP).
+			ensure!(matches!(stream, StreamId::Ack { .. }), RejectReason::UnknownStream);
+			ensure!(
+				ConsumedStreams::<T>::contains_key((source, stream)),
+				RejectReason::UnknownStream
+			);
+			ensure!(!touched.contains(&(source, stream)), RejectReason::DuplicateStream);
+
+			let leaf = hash_leaf::<SpecHasher>(LEAF_VERSION, payload);
+			let (position, frontier) =
+				proof.verify_head(leaf).map_err(|_| RejectReason::InvalidProof)?;
+			let register =
+				Register::decode_all(&mut &payload[..]).map_err(|_| RejectReason::BadRegister)?;
+
+			ensure!(
+				(touched.len() as u32) < T::MaxTouchedStreams::get(),
+				RejectReason::TooManyStreams
+			);
+			ensure!(*gaps < T::MaxContextGaps::get(), RejectReason::TooManyGaps);
+			touched.insert((source, stream));
+			*gaps += 1;
+
+			Self::apply_register_read(source, stream, position, register);
+			ConsumptionOutbox::<T>::append((
+				source,
+				stream,
+				Interval { start: frontier.root(), end: frontier },
+			));
+			Ok(())
+		}
+
+		/// Applies an in-band lifecycle signal consumed from `source`'s
+		/// channel stream.
+		///
+		/// TODO(channels & flow control): the inbound lifecycle machinery
+		/// lands here — `OpenChannel` into the inbound channel state,
+		/// half-close, version upgrades. Until then signals are consumed
+		/// (the frontier advances; skipping is illegal) and dropped.
+		fn apply_signal(_source: ParaId, _stream: StreamId, _signal: SpecMsgSignal) {}
+
+		/// Applies a verified register head read to the outbound channel's
+		/// state.
+		///
+		/// TODO(channels & flow control): update the outbound channel state
+		/// monotonic-safely (a register regressing `up_to` or `version` is
+		/// ignored, `position` orders competing reads), unlock the credit
+		/// window and the pruning watermark. Until then the read only
+		/// records its context interval.
+		fn apply_register_read(
+			_source: ParaId,
+			_stream: StreamId,
+			_position: MessagePosition,
+			_register: Register,
+		) {
 		}
 
 		/// Upserts one stream's leaf hash into the stored commitment tree

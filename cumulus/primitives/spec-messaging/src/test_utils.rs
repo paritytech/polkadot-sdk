@@ -37,7 +37,7 @@ use polkadot_primitives::StreamsRoot;
 use crate::{
 	hash_leaf,
 	lift::RequiresLift,
-	mmr::{MMRExtensionProof, MmrFrontier, MmrRoot, SpecHasher, SpecMerge},
+	mmr::{MMRExtensionProof, MmrFrontier, MmrInclusionProof, MmrRoot, SpecHasher, SpecMerge},
 	record::{ConsumptionRecord, Interval},
 	stream_id::StreamId,
 	tree::{compute_streams_root, prove_stream, TreeInclusionProof},
@@ -59,6 +59,17 @@ impl StreamFixture {
 	pub fn new(id: StreamId, count: u64) -> Self {
 		let leaves = (0..count)
 			.map(|i| hash_leaf::<SpecHasher>(LEAF_VERSION, &i.to_le_bytes()))
+			.collect();
+		Self { id, leaves }
+	}
+
+	/// A stream carrying exactly the given payloads — for tests that need
+	/// the leaves to decode meaningfully (`SpecMsgKind` payloads, register
+	/// leaves) or to mirror payloads fed elsewhere.
+	pub fn from_payloads(id: StreamId, payloads: &[Vec<u8>]) -> Self {
+		let leaves = payloads
+			.iter()
+			.map(|payload| hash_leaf::<SpecHasher>(LEAF_VERSION, payload))
 			.collect();
 		Self { id, leaves }
 	}
@@ -97,6 +108,31 @@ impl StreamFixture {
 	/// advances (`start == end.root()`).
 	pub fn read_context(&self, at: u64) -> Interval {
 		Interval { start: self.root_at(at), end: self.frontier_at(at) }
+	}
+
+	/// The head read after the first `leaf_count` messages: the inclusion
+	/// proof of the then-last leaf, as a register/event read carries it.
+	/// This is the node-side generation path (`gen_proof` over the full
+	/// MMR), matching what issue 11's inherent provider produces.
+	pub fn head_proof(&self, leaf_count: u64) -> MmrInclusionProof {
+		assert!(
+			leaf_count > 0 && leaf_count <= self.leaf_count(),
+			"a head read needs a non-empty prefix of this stream"
+		);
+		let store = MemStore::default();
+		{
+			let mut mmr = MemMMR::<Hash, Merge>::new(0, &store);
+			for leaf in &self.leaves[..leaf_count as usize] {
+				mmr.push(*leaf).expect("push into in-memory MMR never fails; qed");
+			}
+			mmr.commit().expect("commit into in-memory store never fails; qed");
+		}
+		let mmr_size = leaf_index_to_mmr_size(leaf_count - 1);
+		let mmr = MemMMR::<Hash, Merge>::new(mmr_size, &store);
+		let proof = mmr
+			.gen_proof(alloc::vec![mmr_lib::leaf_index_to_pos(leaf_count - 1)])
+			.expect("the head leaf exists in the committed MMR; qed");
+		MmrInclusionProof { mmr_size, items: proof.proof_items().to_vec() }
 	}
 
 	/// Extension proof from the state after `from` messages to the state

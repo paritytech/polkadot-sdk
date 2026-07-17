@@ -16,6 +16,7 @@
 
 use crate as spec_messaging;
 use cumulus_primitives_core::{ChannelInfo, ChannelStatus, GetChannelInfo, ParaId};
+use cumulus_primitives_spec_messaging::{MessagePosition, StreamId};
 use frame_support::{derive_impl, parameter_types};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_runtime::BuildStorage;
@@ -38,11 +39,31 @@ impl frame_system::Config for Test {
 parameter_types! {
 	pub const MaxMsgLen: u32 = 64;
 	pub const MaxMessagesPerBlock: u32 = 8;
+	pub const MaxTouchedStreams: u32 = 4;
+	pub const MaxContextGaps: u32 = 2;
+}
+
+parameter_types! {
+	/// Every `Data` payload the receiver part handed over, in consumption
+	/// order.
+	pub static ConsumedData: Vec<(ParaId, StreamId, MessagePosition, Vec<u8>)> = Vec::new();
+}
+
+/// Records consumed `Data` payloads — the seam where the XCM-queue
+/// forwarding will sit.
+pub struct RecordingDataHandler;
+impl spec_messaging::OnSpecMsgData for RecordingDataHandler {
+	fn on_data(source: ParaId, stream: StreamId, position: MessagePosition, data: Vec<u8>) {
+		ConsumedData::mutate(|consumed| consumed.push((source, stream, position, data)));
+	}
 }
 
 impl spec_messaging::Config for Test {
 	type MaxMsgLen = MaxMsgLen;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxTouchedStreams = MaxTouchedStreams;
+	type MaxContextGaps = MaxContextGaps;
+	type DataHandler = RecordingDataHandler;
 }
 
 parameter_types! {

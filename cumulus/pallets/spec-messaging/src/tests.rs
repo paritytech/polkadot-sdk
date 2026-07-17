@@ -15,16 +15,24 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, BlockStreamsRoot, ConsumptionOutbox, Error, OutboundFrontier, OutboundMessages,
-	TreeRoot,
+	mock::*, BlockStreamsRoot, Call, ConsumedStreams, ConsumptionOutbox, Error, Event,
+	InboundFrontier, OutboundFrontier, OutboundMessages, RejectReason, TreeRoot,
+	ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
 };
 use codec::Encode;
-use cumulus_primitives_core::relay_chain::UMPSignal;
+use cumulus_primitives_core::{relay_chain::UMPSignal, ParaId};
 use cumulus_primitives_spec_messaging::{
-	compute_streams_root, hash_leaf, prove_stream, MessagePosition, MmrFrontier, MmrRoot,
-	ProvideUmpSignals, SpecHasher, StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID,
+	build_requires, compute_streams_root, hash_leaf, prove_stream,
+	test_utils::{SourceFixture, StreamFixture},
+	Interval, LiftsBySource, MessagePosition, MmrFrontier, MmrRoot, ProvideUmpSignals, Register,
+	SpecHasher, SpecMsgInherentData, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot,
+	LEAF_VERSION, SPMS_ENGINE_ID,
 };
-use frame_support::traits::{OnFinalize, OnInitialize};
+use frame_support::{
+	dispatch::{DispatchClass, GetDispatchInfo},
+	inherent::{InherentData, ProvideInherent},
+	traits::{OnFinalize, OnInitialize},
+};
 use sp_runtime::{generic::DigestItem, Digest};
 use std::collections::BTreeMap;
 
@@ -42,6 +50,54 @@ fn broadcast(num: u32) -> StreamId {
 
 fn append(stream: StreamId, payload: &[u8]) -> Result<MessagePosition, Error<Test>> {
 	SpecMessaging::append_to_stream(stream, payload.to_vec())
+}
+
+/// Arms consumption of the full stream key — the manual placeholder for
+/// the channel lifecycle's derived consumed-stream set.
+fn arm(source: ParaId, stream: StreamId) {
+	ConsumedStreams::<Test>::insert((source, stream), ());
+}
+
+/// A messaging inherent carrying only channel items.
+fn messages_inherent(messages: Vec<(ParaId, StreamId, Vec<Vec<u8>>)>) -> SpecMsgInherentData {
+	SpecMsgInherentData { messages, register_reads: Vec::new() }
+}
+
+/// Dispatches the messaging inherent as block execution would.
+fn enact(data: SpecMsgInherentData) {
+	SpecMessaging::enact_messages(RuntimeOrigin::none(), data)
+		.expect("the messaging inherent never fails; qed");
+}
+
+/// A payload as the sender's channel layer wraps it.
+fn data_payload(data: &[u8]) -> Vec<u8> {
+	SpecMsgKind::Data(data.to_vec()).encode()
+}
+
+/// The `ItemRejected` events deposited so far.
+fn reject_events() -> Vec<(ParaId, StreamId, RejectReason)> {
+	System::events()
+		.into_iter()
+		.filter_map(|record| match record.event {
+			RuntimeEvent::SpecMessaging(Event::ItemRejected { source, stream, reason }) => {
+				Some((source, stream, reason))
+			},
+			_ => None,
+		})
+		.collect()
+}
+
+/// The `PayloadDropped` events deposited so far.
+fn dropped_events() -> Vec<(ParaId, StreamId, MessagePosition)> {
+	System::events()
+		.into_iter()
+		.filter_map(|record| match record.event {
+			RuntimeEvent::SpecMessaging(Event::PayloadDropped { source, stream, position }) => {
+				Some((source, stream, position))
+			},
+			_ => None,
+		})
+		.collect()
 }
 
 /// Executes one full block — init hooks, `f` as the block's payload,
@@ -364,6 +420,443 @@ fn consumption_record_groups_and_sorts_the_outbox() {
 			);
 		});
 	});
+}
+
+#[test]
+fn inherent_consumes_payloads_and_records_interval() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		// `two` (num 1) sorts after `one` (num 0) in canonical order.
+		let one = channel(100);
+		let two = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
+		arm(source, one);
+		arm(source, two);
+
+		let payloads: Vec<Vec<u8>> = (0..13u8).map(|i| data_payload(&[i, i])).collect();
+		let fixture = StreamFixture::from_payloads(one, &payloads);
+
+		// Block 1 brings `one`'s frontier to leaf count 10.
+		run_block(|| enact(messages_inherent(vec![(source, one, payloads[..10].to_vec())])));
+		assert_eq!(InboundFrontier::<Test>::get((source, one)), fixture.frontier_at(10));
+
+		// Block 2: three more payloads on `one`, plus `two` — fed in
+		// reverse canonical order.
+		ConsumedData::take();
+		run_block(|| {
+			enact(messages_inherent(vec![
+				(source, two, payloads[..1].to_vec()),
+				(source, one, payloads[10..13].to_vec()),
+			]));
+
+			// One interval per touched stream, per source sorted by
+			// `StreamId`: `one` entered the block at root@10 and left it
+			// at frontier@13; `two` covers its first payload.
+			let record = <SpecMessaging as ProvideUmpSignals>::consumption_record();
+			let fixture_two = StreamFixture::from_payloads(two, &payloads[..1]);
+			assert_eq!(
+				record.entries[&source],
+				vec![
+					(one, Interval { start: fixture.root_at(10), end: fixture.frontier_at(13) }),
+					(
+						two,
+						Interval { start: fixture_two.root_at(0), end: fixture_two.frontier_at(1) }
+					),
+				]
+			);
+		});
+		assert_eq!(InboundFrontier::<Test>::get((source, one)), fixture.frontier_at(13));
+
+		// The `Data` payloads were handed over in consumption order, with
+		// their stream positions.
+		assert_eq!(
+			ConsumedData::get(),
+			vec![
+				(source, two, MessagePosition(0), vec![0, 0]),
+				(source, one, MessagePosition(10), vec![10, 10]),
+				(source, one, MessagePosition(11), vec![11, 11]),
+				(source, one, MessagePosition(12), vec![12, 12]),
+			]
+		);
+	});
+}
+
+#[test]
+fn unparseable_payload_is_consumed_and_dropped_signals_are_consumed() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		arm(source, stream);
+
+		// A data payload, raw junk (no `SpecMsgKind` framing) and a
+		// lifecycle signal: ALL of them advance the frontier — no-skip is
+		// an STF rule — but only the data payload reaches the handler.
+		let payloads = vec![
+			data_payload(b"payload"),
+			b"junk".to_vec(),
+			SpecMsgKind::Signal(SpecMsgSignal::OpenChannel { version: 0 }).encode(),
+		];
+		let fixture = StreamFixture::from_payloads(stream, &payloads);
+
+		run_block(|| {
+			enact(messages_inherent(vec![(source, stream, payloads.clone())]));
+
+			assert_eq!(InboundFrontier::<Test>::get((source, stream)), fixture.frontier_at(3));
+			assert_eq!(
+				ConsumptionOutbox::<Test>::get(),
+				vec![(
+					source,
+					stream,
+					Interval { start: fixture.root_at(0), end: fixture.frontier_at(3) }
+				)]
+			);
+			assert_eq!(
+				ConsumedData::take(),
+				vec![(source, stream, MessagePosition(0), b"payload".to_vec())]
+			);
+			assert_eq!(dropped_events(), vec![(source, stream, MessagePosition(1))]);
+			assert_eq!(reject_events(), vec![]);
+		});
+	});
+}
+
+#[test]
+fn invalid_items_are_rejected_without_state_changes() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let armed = channel(100);
+		let oversized_stream = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
+		let empty_stream = StreamId::Channel { recipient: 100.into(), domain: 0, num: 2 };
+		let unarmed = channel(101);
+		let wrong_kind = ack(100);
+		for stream in [armed, oversized_stream, empty_stream, wrong_kind] {
+			arm(source, stream);
+		}
+
+		let payload = data_payload(&[7]);
+		run_block(|| {
+			enact(messages_inherent(vec![
+				// Consumed.
+				(source, armed, vec![payload.clone()]),
+				// A second item for the same stream: at most one per
+				// inherent.
+				(source, armed, vec![payload.clone()]),
+				// Not a consumed stream.
+				(source, unarmed, vec![payload.clone()]),
+				// Armed, but ordered consumption is not defined on ack
+				// streams.
+				(source, wrong_kind, vec![payload.clone()]),
+				// One oversized payload rejects the WHOLE item — no
+				// partial frontier advance.
+				(source, oversized_stream, vec![payload.clone(), vec![0u8; 65]]),
+				// No payloads, nothing to consume.
+				(source, empty_stream, vec![]),
+			]));
+
+			assert_eq!(
+				reject_events(),
+				vec![
+					(source, armed, RejectReason::DuplicateStream),
+					(source, unarmed, RejectReason::UnknownStream),
+					(source, wrong_kind, RejectReason::UnknownStream),
+					(source, oversized_stream, RejectReason::OversizedPayload),
+					(source, empty_stream, RejectReason::EmptyItem),
+				]
+			);
+			// Only the accepted item consumed anything.
+			assert_eq!(ConsumptionOutbox::<Test>::get().len(), 1);
+			assert_eq!(InboundFrontier::<Test>::get((source, armed)).leaf_count, 1);
+			assert_eq!(InboundFrontier::<Test>::get((source, oversized_stream)).leaf_count, 0);
+			assert_eq!(ConsumedData::take().len(), 1);
+		});
+	});
+}
+
+#[test]
+fn register_read_records_context_and_rejects_invalid_proof() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = ack(100);
+		arm(source, stream);
+
+		let registers: Vec<Vec<u8>> = (0..5u64)
+			.map(|i| {
+				Register {
+					version: 1,
+					up_to: MessagePosition(i),
+					grant: Default::default(),
+					closed: false,
+				}
+				.encode()
+			})
+			.collect();
+		let fixture = StreamFixture::from_payloads(stream, &registers);
+		let read = (source, stream, registers[4].clone(), fixture.head_proof(5));
+
+		run_block(|| {
+			enact(SpecMsgInherentData { messages: vec![], register_reads: vec![read.clone()] });
+
+			// The read context is recorded, nothing advances: `start ==
+			// root(end)`, and no frontier is stored (lossy, latest-wins).
+			assert_eq!(
+				ConsumptionOutbox::<Test>::get(),
+				vec![(
+					source,
+					stream,
+					Interval { start: fixture.root_at(5), end: fixture.frontier_at(5) }
+				)]
+			);
+			assert_eq!(InboundFrontier::<Test>::get((source, stream)), Default::default());
+			assert_eq!(reject_events(), vec![]);
+		});
+
+		// A structurally invalid proof rejects the item.
+		run_block(|| {
+			System::reset_events();
+			let mut truncated = read.clone();
+			truncated.3.items.pop();
+			enact(SpecMsgInherentData { messages: vec![], register_reads: vec![truncated] });
+			assert!(ConsumptionOutbox::<Test>::get().is_empty());
+			assert_eq!(reject_events(), vec![(source, stream, RejectReason::InvalidProof)]);
+		});
+
+		// A leaf that does not decode as a `Register` rejects the item.
+		run_block(|| {
+			System::reset_events();
+			let junk = b"not a register".to_vec();
+			let junk_fixture = StreamFixture::from_payloads(stream, &[junk.clone()]);
+			enact(SpecMsgInherentData {
+				messages: vec![],
+				register_reads: vec![(source, stream, junk, junk_fixture.head_proof(1))],
+			});
+			assert!(ConsumptionOutbox::<Test>::get().is_empty());
+			assert_eq!(reject_events(), vec![(source, stream, RejectReason::BadRegister)]);
+		});
+
+		// At most one item per stream — also across register reads.
+		run_block(|| {
+			System::reset_events();
+			enact(SpecMsgInherentData {
+				messages: vec![],
+				register_reads: vec![read.clone(), read.clone()],
+			});
+			assert_eq!(ConsumptionOutbox::<Test>::get().len(), 1);
+			assert_eq!(reject_events(), vec![(source, stream, RejectReason::DuplicateStream)]);
+		});
+	});
+}
+
+#[test]
+fn touched_stream_and_gap_caps_enforced_and_proof_size_reserved() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		// Five armed channel streams against MaxTouchedStreams = 4.
+		let streams: Vec<StreamId> = (0..5u16)
+			.map(|num| StreamId::Channel { recipient: 100.into(), domain: 0, num })
+			.collect();
+		for stream in &streams {
+			arm(source, *stream);
+		}
+		let messages: Vec<_> = streams
+			.iter()
+			.map(|stream| (source, *stream, vec![data_payload(&[1])]))
+			.collect();
+
+		run_block(|| {
+			enact(messages_inherent(messages.clone()));
+			assert_eq!(ConsumptionOutbox::<Test>::get().len(), 4);
+			assert_eq!(InboundFrontier::<Test>::get((source, streams[4])).leaf_count, 0);
+			assert_eq!(reject_events(), vec![(source, streams[4], RejectReason::TooManyStreams)]);
+		});
+
+		// Three register reads against MaxContextGaps = 2.
+		let register = Register::default().encode();
+		let reads: Vec<_> = (0..3u16)
+			.map(|num| {
+				let stream = StreamId::Ack { recipient: 100.into(), domain: 0, num };
+				arm(source, stream);
+				let fixture = StreamFixture::from_payloads(stream, &[register.clone()]);
+				(source, stream, register.clone(), fixture.head_proof(1))
+			})
+			.collect();
+
+		run_block(|| {
+			System::reset_events();
+			enact(SpecMsgInherentData { messages: vec![], register_reads: reads.clone() });
+			assert_eq!(ConsumptionOutbox::<Test>::get().len(), 2);
+			assert_eq!(reject_events(), vec![(source, reads[2].1, RejectReason::TooManyGaps)]);
+		});
+
+		// The `proof_size` charge is exactly the configured reservation:
+		// every named stream is charged its worst-case lift bytes, every
+		// read context its advance-proof bytes. (DbWeight only contributes
+		// `ref_time`.)
+		let data = SpecMsgInherentData { messages, register_reads: reads };
+		let info = Call::<Test>::enact_messages { data }.get_dispatch_info();
+		assert_eq!(info.class, DispatchClass::Mandatory);
+		assert_eq!(
+			info.call_weight.proof_size(),
+			8 * LIFT_RESERVATION_BYTES + 3 * ADVANCE_PROOF_RESERVATION_BYTES
+		);
+	});
+}
+
+#[test]
+fn receiver_recomputation_matches_sender_streams() {
+	// THE sender/receiver consistency property test: drive the sender half
+	// with arbitrary payload sequences, feed the same payloads through the
+	// receiver path — the receiver's frontier must equal the sender's
+	// stream state bit for bit (root AND peaks AND leaf count). A one-byte
+	// divergence in leaf format or bagging bricks the lane permanently;
+	// this is the test that pins it.
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let streams = [channel(2001), channel(2002), channel(3000)];
+		let mut histories: BTreeMap<StreamId, Vec<Vec<u8>>> = BTreeMap::new();
+		let mut lcg = 0xC0FF_EE11_2233u64;
+		let mut rand = move || {
+			lcg = lcg.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+			lcg >> 33
+		};
+
+		// Drive the SENDER over several blocks.
+		for _ in 0..10 {
+			run_block(|| {
+				for (index, stream) in streams.iter().enumerate() {
+					for _ in 0..rand() % 3 {
+						let mut data = vec![index as u8];
+						data.extend(std::iter::repeat(0x5A).take((rand() % 24) as usize));
+						data.push(rand() as u8);
+						let payload = data_payload(&data);
+						append(*stream, &payload).unwrap();
+						histories.entry(*stream).or_default().push(payload);
+					}
+				}
+			});
+		}
+		// One idle block so the last sends reach the stored frontiers.
+		run_block(|| {});
+
+		// Feed the SAME payloads through the receiver, split across two
+		// blocks at an arbitrary per-stream boundary (the consumption
+		// boundary is free).
+		for stream in &streams {
+			arm(source, *stream);
+		}
+		let mut first = Vec::new();
+		let mut second = Vec::new();
+		for stream in &streams {
+			let history = histories.get(stream).cloned().unwrap_or_default();
+			if history.is_empty() {
+				continue;
+			}
+			let cut = (rand() as usize) % (history.len() + 1);
+			if cut > 0 {
+				first.push((source, *stream, history[..cut].to_vec()));
+			}
+			if cut < history.len() {
+				second.push((source, *stream, history[cut..].to_vec()));
+			}
+		}
+		for messages in [first, second] {
+			if !messages.is_empty() {
+				run_block(|| enact(messages_inherent(messages)));
+			}
+		}
+
+		for stream in &streams {
+			let sender = OutboundFrontier::<Test>::get(*stream);
+			let receiver = InboundFrontier::<Test>::get((source, *stream));
+			assert_eq!(sender, receiver, "frontier divergence on {stream:?}");
+			assert_eq!(
+				receiver.leaf_count,
+				histories.get(stream).map_or(0, |history| history.len() as u64)
+			);
+		}
+	});
+}
+
+#[test]
+fn recorded_consumption_binds_to_the_senders_committed_root() {
+	// End-to-end binding through issue 05's lift machinery: the interval
+	// the inherent records, lifted by the proofs a node assembles from the
+	// sender's public data, must land exactly on the sender's committed
+	// StreamsRoot — and a tampered payload must not.
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		arm(source, stream);
+		let payloads: Vec<Vec<u8>> = (0..10u8).map(|i| data_payload(&[i])).collect();
+		let sender =
+			SourceFixture::new(source, vec![StreamFixture::from_payloads(stream, &payloads)]);
+
+		run_block(|| {
+			// The block stops mid-backlog: 6 of 10 consumed; the lift's
+			// extension proof covers the unconsumed tail.
+			enact(messages_inherent(vec![(source, stream, payloads[..6].to_vec())]));
+
+			let records = [<SpecMessaging as ProvideUmpSignals>::consumption_record()];
+			let lifts =
+				LiftsBySource::try_from_iter([(source, vec![sender.lift(&stream, 6, &[])])])
+					.unwrap();
+			let set = build_requires(&records, &lifts).unwrap().unwrap();
+			assert_eq!(set.get(source), Some(&sender.streams_root()));
+		});
+
+		// Tampered payload: recomputation cannot tell (and must not — no
+		// roots in the runtime), but the honest lift then yields a root
+		// that is NOT the committed one: no valid lift exists, the
+		// candidate dies at the PVF/window match.
+		let stream_tampered = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
+		arm(source, stream_tampered);
+		let mut tampered = payloads.clone();
+		tampered[3][2] ^= 0x01;
+		let sender_tampered = SourceFixture::new(
+			source,
+			vec![StreamFixture::from_payloads(stream_tampered, &payloads)],
+		);
+		run_block(|| {
+			enact(messages_inherent(vec![(source, stream_tampered, tampered[..6].to_vec())]));
+
+			let records = [<SpecMessaging as ProvideUmpSignals>::consumption_record()];
+			let lifts = LiftsBySource::try_from_iter([(
+				source,
+				vec![sender_tampered.lift(&stream_tampered, 6, &[])],
+			)])
+			.unwrap();
+			match build_requires(&records, &lifts) {
+				Ok(Some(set)) => assert_ne!(set.get(source), Some(&sender_tampered.streams_root())),
+				Ok(None) => panic!("the record was not empty"),
+				// The extension may also fail structurally — either way no
+				// lift binds the tampered endpoint to the committed root.
+				Err(_) => (),
+			}
+		});
+	});
+}
+
+#[test]
+fn create_inherent_skips_empty_data() {
+	// An absent or empty inherent data set produces no extrinsic — a valid
+	// block that consumes nothing.
+	assert_eq!(SpecMessaging::create_inherent(&InherentData::new()), None);
+
+	let mut inherent_data = InherentData::new();
+	inherent_data
+		.put_data(
+			cumulus_primitives_spec_messaging::INHERENT_IDENTIFIER,
+			&SpecMsgInherentData::default(),
+		)
+		.unwrap();
+	assert_eq!(SpecMessaging::create_inherent(&inherent_data), None);
+
+	let data = messages_inherent(vec![(2000.into(), channel(100), vec![data_payload(&[1])])]);
+	let mut inherent_data = InherentData::new();
+	inherent_data
+		.put_data(cumulus_primitives_spec_messaging::INHERENT_IDENTIFIER, &data)
+		.unwrap();
+	let call = SpecMessaging::create_inherent(&inherent_data).expect("data is not empty");
+	assert!(SpecMessaging::is_inherent(&call));
+	assert_eq!(call, Call::<Test>::enact_messages { data });
 }
 
 #[test]

@@ -275,6 +275,58 @@ impl MmrInclusionProof {
 		get_peak_map(self.mmr_size)
 	}
 
+	/// Verifies `leaf` (already hashed via [`hash_leaf`]) as the **head** —
+	/// the last leaf — of the proven MMR and yields the read's full pinned
+	/// placement: the head position and the frontier (peaks + leaf count)
+	/// of exactly that MMR.
+	///
+	/// This is the register/event *head read* verification: lossy consumers
+	/// need the peaks, not just the root, because the read context enters
+	/// the consumption record as an interval whose `end` frontier the next
+	/// gap check — or the lift's extension proof — extends from. As
+	/// everywhere, the root (`frontier.root()`) is *derived*: a tampered
+	/// item yields a frontier no lift can bind; only structural defects
+	/// fail here.
+	///
+	/// The expected proof shape is what [`gen_proof`] for the last leaf
+	/// produces: the other peaks left to right, then the head's sibling
+	/// path bottom-up. The head leaf is the rightmost leaf of the last
+	/// (smallest) peak's subtree, so the path is exactly
+	/// `leaf_count.trailing_zeros()` LEFT siblings — the item count is
+	/// checked exactly; the proof bytes have one valid form.
+	///
+	/// [`gen_proof`]: mmr_lib::MMR::gen_proof
+	pub fn verify_head(&self, leaf: Hash) -> Result<(MessagePosition, MmrFrontier), MmrError> {
+		if !is_valid_mmr_size(self.mmr_size) {
+			return Err(MmrError::InvalidProof);
+		}
+		let leaf_count = self.leaf_count();
+		if leaf_count == 0 {
+			return Err(MmrError::PositionOutOfRange);
+		}
+		let path_len = leaf_count.trailing_zeros() as usize;
+		let other_peaks = leaf_count.count_ones() as usize - 1;
+		if self.items.len() != other_peaks + path_len {
+			return Err(MmrError::InvalidProof);
+		}
+
+		let (peak_items, path) = self.items.split_at(other_peaks);
+		let mut last_peak = leaf;
+		for sibling in path {
+			last_peak = <Merge as mmr_lib::Merge>::merge(sibling, &last_peak)
+				.expect("SpecMerge::merge is infallible; qed");
+		}
+		let peaks = peak_items
+			.iter()
+			.copied()
+			.chain(core::iter::once(last_peak))
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("a u64 leaf count has at most 64 peaks; qed");
+
+		Ok((MessagePosition(leaf_count - 1), MmrFrontier { leaf_count, peaks }))
+	}
+
 	/// Verifies `leaf` (already hashed via [`hash_leaf`]) at `position` and
 	/// returns the implied stream root.
 	pub fn verify_leaf(&self, position: MessagePosition, leaf: Hash) -> Result<MmrRoot, MmrError> {
@@ -590,6 +642,62 @@ mod tests {
 				Err(MmrError::PositionOutOfRange)
 			);
 		}
+	}
+
+	#[test]
+	fn head_proof_yields_position_and_frontier() {
+		// Crosses every peak shape: single leaf, perfect trees, the head
+		// being its own peak, multi-peak with a deep path.
+		for n in [1u64, 2, 3, 4, 7, 8, 13, 64, 130] {
+			let (store, frontier) = build(n);
+			let mmr_size = leaf_index_to_mmr_size(n - 1);
+			let mmr = MemMMR::<Hash, TestMerge>::new(mmr_size, &store);
+			let proof = mmr.gen_proof(alloc::vec![mmr_lib::leaf_index_to_pos(n - 1)]).unwrap();
+			let proof = MmrInclusionProof { mmr_size, items: proof.proof_items().to_vec() };
+			let head_leaf = leaves(n)[n as usize - 1];
+
+			let (position, yielded) = proof.verify_head(head_leaf).unwrap();
+			assert_eq!(position, MessagePosition(n - 1), "n={n}");
+			// Bit-identical to the frontier built by appending — root AND
+			// peaks, so extension proofs can pick up from it.
+			assert_eq!(yielded, frontier, "n={n}");
+			assert_eq!(yielded.root().0, full_root(&store, n), "n={n}");
+			// Agrees with the generic single-leaf verification.
+			assert_eq!(proof.verify_leaf(position, head_leaf).unwrap(), yielded.root());
+		}
+	}
+
+	#[test]
+	fn head_proof_structural_defects_rejected_tampering_yields_other_root() {
+		let n = 13u64;
+		let (store, _) = build(n);
+		let mmr_size = leaf_index_to_mmr_size(n - 1);
+		let mmr = MemMMR::<Hash, TestMerge>::new(mmr_size, &store);
+		let proof = mmr.gen_proof(alloc::vec![mmr_lib::leaf_index_to_pos(n - 1)]).unwrap();
+		let proof = MmrInclusionProof { mmr_size, items: proof.proof_items().to_vec() };
+		let head_leaf = leaves(n)[n as usize - 1];
+
+		// Wrong item count (truncated or padded) is structurally invalid.
+		let mut truncated = proof.clone();
+		truncated.items.pop();
+		assert_eq!(truncated.verify_head(head_leaf), Err(MmrError::InvalidProof));
+		let mut padded = proof.clone();
+		padded.items.push(Hash::repeat_byte(0xAA));
+		assert_eq!(padded.verify_head(head_leaf), Err(MmrError::InvalidProof));
+
+		// Invalid MMR size / empty MMR rejected outright.
+		let mut bad_size = proof.clone();
+		bad_size.mmr_size = 2;
+		assert_eq!(bad_size.verify_head(head_leaf), Err(MmrError::InvalidProof));
+		let empty = MmrInclusionProof { mmr_size: 0, items: alloc::vec![] };
+		assert_eq!(empty.verify_head(head_leaf), Err(MmrError::PositionOutOfRange));
+
+		// A tampered item never "fails": it yields a DIFFERENT frontier —
+		// binding to a committed root is the lift's job, not this one's.
+		let mut tampered = proof.clone();
+		tampered.items[0] = Hash::repeat_byte(0xBB);
+		let (_, yielded) = tampered.verify_head(head_leaf).unwrap();
+		assert_ne!(yielded.root().0, full_root(&store, n));
 	}
 
 	#[test]

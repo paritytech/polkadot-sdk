@@ -43,6 +43,8 @@
 //!   requester-named root.
 //! - Channel-layer payloads ([`channel`]): [`SpecMsgKind`], [`SpecMsgSignal`], [`Register`],
 //!   [`WindowGrant`], [`ChannelId`].
+//! - The messaging inherent's data ([`inherent`]): [`SpecMsgInherentData`] and its
+//!   [`INHERENT_IDENTIFIER`] — fetched payloads in, no roots of any kind.
 //!
 //! The relay-side commitment types ([`StreamsRoot`], `RequiresSet`) live in
 //! `polkadot-primitives` (they are embedded in `UMPSignal`s) and are
@@ -54,6 +56,7 @@
 extern crate alloc;
 
 pub mod channel;
+pub mod inherent;
 pub mod lift;
 pub mod mmr;
 pub mod record;
@@ -64,6 +67,7 @@ pub mod tree;
 pub mod wire;
 
 pub use channel::{ChannelId, Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
+pub use inherent::{SpecMsgInherentData, INHERENT_IDENTIFIER};
 pub use lift::{
 	build_requires, build_requires_entry, stitch, LiftError, LiftsBySource, RequiresLift,
 };
