@@ -1290,3 +1290,45 @@ fn page_not_modified_when_fragment_does_not_fit() {
 		}
 	});
 }
+
+fn actual_queued_bytes(para: ParaId, status: &OutboundChannelDetails) -> u32 {
+	(status.first_index..status.last_index)
+		.map(|i| OutboundXcmpMessages::<Test>::get(para, i).len() as u32)
+		.sum()
+}
+
+fn status_for(para: ParaId) -> OutboundChannelDetails {
+	OutboundXcmpStatus::<Test>::get()
+		.into_iter()
+		.find(|s| s.recipient == para)
+		.expect("channel exists")
+}
+
+#[test]
+fn queued_bytes_tracks_send_and_take() {
+	new_test_ext().execute_with(|| {
+		let sibling = ParaId::from(2001);
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling);
+		let destination: Location = (Parent, Parachain(sibling.into())).into();
+		let message = Xcm(vec![ClearOrigin]);
+
+		for _ in 0..5 {
+			assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), message.clone()));
+			let status = status_for(sibling);
+			assert_eq!(status.queued_bytes, actual_queued_bytes(sibling, &status));
+		}
+
+		while !XcmpQueue::take_outbound_messages(1, &[]).is_empty() {
+			if let Some(status) =
+				OutboundXcmpStatus::<Test>::get().into_iter().find(|s| s.recipient == sibling)
+			{
+				assert_eq!(status.queued_bytes, actual_queued_bytes(sibling, &status));
+			}
+		}
+
+		let drained = status_for(sibling);
+		assert_eq!(drained.first_index, 0);
+		assert_eq!(drained.last_index, 0);
+		assert_eq!(drained.queued_bytes, 0);
+	});
+}

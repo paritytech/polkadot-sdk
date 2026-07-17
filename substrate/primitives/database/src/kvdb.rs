@@ -142,7 +142,7 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 				},
 				RefCountedOp::Reference => {
 					if let Some(c) = counter {
-						counter = Some(incr(c)?);
+						counter = Some(c + 1);
 					}
 				},
 				RefCountedOp::Release => match counter {

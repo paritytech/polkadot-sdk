@@ -44,7 +44,8 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use parking_lot::{Mutex, RwLock};
-use sp_core::{hashing::blake2_256, H256};
+use sp_core::H256;
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	MultiSignature, MultiSigner,
