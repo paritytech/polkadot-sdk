@@ -1133,9 +1133,9 @@ impl Drop for MockDb {
 	}
 }
 
-#[tokio::test]
 // Test scenarios concerning connects/disconnects and declares.
 // More fine grained tests are in the `ConnectedPeers` unit tests.
+#[tokio::test]
 async fn test_connection_flow() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1256,8 +1256,8 @@ async fn test_connection_flow() {
 	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().skip(1).collect());
 }
 
-#[tokio::test]
 // Test peer disconnects before the collation is successfully fetched.
+#[tokio::test]
 async fn test_peer_disconnects_before_fetch() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1304,7 +1304,8 @@ async fn test_peer_disconnects_before_fetch() {
 		Hash::from_low_u64_be(2),
 	);
 
-	// Advertise a collation from the first peer, it will be launched, leaving only one free slot.
+	// Advertise a collation from the first peer, it will be launched, leaving only one free
+	// slot.
 	test_state.handle_advertisement(&mut state, first_adv).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1349,7 +1350,8 @@ async fn test_peer_disconnects_before_fetch() {
 		assert_eq!(state.advertisements(), [first_adv, second_adv, third_adv].into());
 		test_state.assert_no_messages().await;
 
-		// Second advertisement is not launched since the third one already occupied the other slot.
+		// Second advertisement is not launched since the third one already occupied the other
+		// slot.
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_no_messages().await;
 
@@ -1377,8 +1379,8 @@ async fn test_peer_disconnects_before_fetch() {
 	}
 }
 
-#[tokio::test]
 // Test peer disconnects after the collation is successfully fetched.
+#[tokio::test]
 async fn test_peer_disconnects_after_fetch() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1425,15 +1427,16 @@ async fn test_peer_disconnects_after_fetch() {
 		dummy_pvd().hash(),
 	);
 
-	// Advertise a collation from the first peer, it will be launched, leaving only one free slot.
+	// Advertise a collation from the first peer, it will be launched, leaving only one free
+	// slot.
 	test_state.handle_advertisement(&mut state, first_adv).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(first_adv).await;
 	test_state.assert_no_messages().await;
 
-	// Test a peer disconnect after the collation was successfully fetched. In this case, we won't
-	// free up the slot.
+	// Test a peer disconnect after the collation was successfully fetched. In this case, we
+	// won't free up the slot.
 
 	state
 		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
@@ -1466,8 +1469,8 @@ async fn test_peer_disconnects_after_fetch() {
 		)
 		.await;
 
-	// Second peer disconnects, which will not free up the claim queue slot since the collation was
-	// already fetched.
+	// Second peer disconnects, which will not free up the claim queue slot since the collation
+	// was already fetched.
 	state.handle_peer_disconnected(second_peer).await;
 
 	assert_eq!(state.advertisements(), [first_adv, second_adv].into());
@@ -1475,8 +1478,8 @@ async fn test_peer_disconnects_after_fetch() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// The collation was seconded, the claim will still not be freed but we won't be able to send
-	// back a notification to the collator.
+	// The collation was seconded, the claim will still not be freed but we won't be able to
+	// send back a notification to the collator.
 
 	let parent = third_ccr.descriptor.scheduling_parent();
 	let statement = make_seconded_statement(&test_state.keystore, third_ccr);
@@ -1490,8 +1493,8 @@ async fn test_peer_disconnects_after_fetch() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that peer connections are rejected if we have no assignments.
+#[tokio::test]
 async fn test_no_assignments() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1789,8 +1792,8 @@ async fn test_peer_connections_across_group_rotations() {
 	assert_eq!(state.connected_peers(), (&peer_ids[5..]).into_iter().cloned().collect());
 }
 
-#[tokio::test]
 // Test reputation bumps on finalized block notification.
+#[tokio::test]
 async fn finalized_block_notification() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1888,8 +1891,8 @@ async fn finalized_block_notification() {
 	assert_eq!(db.witnessed_bumps(), expected_bumps);
 }
 
-#[tokio::test]
 // Test various scenarios for rejecting advertisements.
+#[tokio::test]
 async fn test_advertisement_rejections() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2410,8 +2413,8 @@ async fn test_collation_fetch_failure() {
 	}
 }
 
-#[tokio::test]
 // Test a successful collation fetch that went out of the view in the meantime.
+#[tokio::test]
 async fn test_collation_response_out_of_view() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2493,9 +2496,9 @@ async fn test_collation_response_out_of_view() {
 // removed because V2 is now always enabled. The v3_enabled parameter has been removed from
 // descriptor methods.
 
+// Test that we accept v1 candidates.
 #[rstest]
 #[tokio::test]
-// Test that we accept v1 candidates.
 async fn v1_descriptor_compatibility() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2545,9 +2548,9 @@ async fn v1_descriptor_compatibility() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test a collation that is deemed invalid by candidate-backing. It will lead to a slash and the
 // slot will be freed.
+#[tokio::test]
 async fn test_invalid_collation() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2631,12 +2634,12 @@ async fn test_invalid_collation() {
 	test_state.assert_no_messages().await;
 }
 
+// Test that we can block the seconding of a candidate on its parent being seconded. If the parent
+// is later seconded, the child is unblocked as well. If it's invalid, it will be dropped.
 #[rstest]
 #[case(true)]
 #[case(false)]
 #[tokio::test]
-// Test that we can block the seconding of a candidate on its parent being seconded. If the parent
-// is later seconded, the child is unblocked as well. If it's invalid, it will be dropped.
 async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -3081,8 +3084,8 @@ async fn test_outdated_fetching_collations_are_pruned() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that a v1 advertisement cannot claim a future slot.
+#[tokio::test]
 async fn test_single_collation_per_rp_for_v1_advertisement() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -3173,9 +3176,9 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 	test_state.assert_collation_request(third_adv).await;
 }
 
-#[tokio::test]
 // Test that activating a new leaf on top of an existing one doesn't overwrite the `PerRelayParent`
 // state.
+#[tokio::test]
 async fn test_view_update_preserves_relay_parent_state() {
 	let mut test_state = TestState::default();
 	let leaf_a = get_hash(10);
@@ -3221,9 +3224,9 @@ async fn test_view_update_preserves_relay_parent_state() {
 	assert_eq!(state.advertisements(), [adv_a].into());
 }
 
-#[tokio::test]
 // Test that a V3 candidate descriptor is correctly accepted and
 // seconded when the CandidateReceiptV3 node feature is enabled.
+#[tokio::test]
 async fn v3_descriptor_accepted_when_v3_enabled() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3280,9 +3283,9 @@ async fn v3_descriptor_accepted_when_v3_enabled() {
 		.await;
 }
 
-#[tokio::test]
 // V3 advertisement is accepted when the scheduling parent is a leaf
 // whose slot has already finished (current_slot == leaf_slot + 1).
+#[tokio::test]
 async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3334,10 +3337,10 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 		.await;
 }
 
-#[tokio::test]
 // V3 advertisements require the scheduling parent to be a RC block from
 // the last finished slot. Check that the leaf of an active slot and its
 // grand parent are rejected
+#[tokio::test]
 async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3440,8 +3443,8 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 		.await;
 }
 
-#[tokio::test]
 // V3 descriptor via V2 protocol → rejected (wrong protocol).
+#[tokio::test]
 async fn v3_descriptor_rejected_via_v2_protocol() {
 	let mut test_state = TestState::default();
 
@@ -3488,9 +3491,9 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that a collator advertising a V3 descriptor but fetching a V2 candidate
 // is rejected due to descriptor version mismatch and the peer is slashed.
+#[tokio::test]
 async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3556,9 +3559,9 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that a crafted descriptor is rejected as Unknown version when
 // CandidateReceiptV3 feature is disabled.
+#[tokio::test]
 async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 	let mut test_state = TestState::default();
 
@@ -3611,9 +3614,9 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Regression test for checking that the core is computed correctly
 // for ancestors.
+#[tokio::test]
 async fn core_assignment_uses_ancestor_not_leaf() {
 	let mut test_state = TestState::default();
 	// Rotate groups every block so block 9 and block 10 have different
