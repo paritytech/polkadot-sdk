@@ -25,6 +25,7 @@ sp-runtime = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
+xcm-builder = { workspace = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true }
@@ -47,6 +48,7 @@ std = [
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"xcm-builder/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -55,6 +57,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [

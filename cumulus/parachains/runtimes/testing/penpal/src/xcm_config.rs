@@ -41,6 +41,8 @@ use super::{
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 use core::marker::PhantomData;
+use cumulus_pallet_spec_messaging::SpecMsgRouter;
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -56,7 +58,10 @@ use parachains_common::{
 	impls::NonZeroIssuance, xcm_config::ConcreteAssetFromSystem, TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
+use polkadot_runtime_common::{
+	impls::ToAuthor,
+	xcm_sender::{ExponentialPrice, NoPriceForMessageDelivery},
+};
 use sp_runtime::traits::{AccountIdConversion, Identity, TryConvertInto};
 use testnet_parachains_constants::westend::currency::deposit;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
@@ -444,8 +449,13 @@ pub type PriceForParentDelivery =
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
-	// Two routers - use UMP to communicate with the relay chain:
+	// Three routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
+	// ..Speculative Messaging for siblings whose HRMP channel is gone. Must sit BEFORE
+	// `XcmpQueue` (both match the same sibling pattern and `XcmpQueue::validate` accepts any
+	// sibling unconditionally); the HRMP-wins rule lives inside the router. Delivery is free:
+	// penpal is a test chain.
+	SpecMsgRouter<Runtime, ParachainSystem, PolkadotXcm, NoPriceForMessageDelivery<ParaId>>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

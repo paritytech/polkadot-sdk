@@ -36,14 +36,15 @@
 //! Demultiplexing among userspace protocols is by channel (distinct
 //! `domain`/`num`), not in-band.
 
-use crate::{Config, Pallet};
+use crate::{Config, OutboundMessages, Pallet};
 use alloc::vec::Vec;
-use codec::Encode;
+use codec::{DecodeAll, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use cumulus_primitives_core::{ChannelStatus, GetChannelInfo, ParaId};
-use cumulus_primitives_spec_messaging::ChannelId;
+use cumulus_primitives_spec_messaging::{ChannelId, SpecMsgKind, StreamId};
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
-use xcm::{latest::prelude::*, WrapVersion};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
+use xcm_builder::InspectMessageQueues;
 
 /// The designated XCM channel to `peer`: `domain = 0`, `num = 0`.
 pub fn xcm_channel(peer: ParaId) -> ChannelId {
@@ -133,6 +134,47 @@ where
 		Pallet::<T>::send(channel, encoded_xcm)
 			.map_err(|_| SendError::Transport("Spec-msg send failed"))?;
 		Ok(hash)
+	}
+}
+
+/// The dry-run APIs' view of this block's not-yet-committed sends, mirroring
+/// `XcmpQueue`: channel data streams decoded back to the `VersionedXcm`s the
+/// router delivered, keyed by the destination sibling. Payloads that are not
+/// the router's `Data`-wrapped XCM envelope (in MVP none exist) are skipped.
+impl<T, ChannelInfo, VersionWrapper, Price> InspectMessageQueues
+	for SpecMsgRouter<T, ChannelInfo, VersionWrapper, Price>
+where
+	T: Config,
+{
+	fn clear_messages() {
+		// Best effort — `OutboundMessages` only ever holds THIS block's
+		// sends, so clearing isolates exactly what a dry run produces.
+		let _ = OutboundMessages::<T>::clear(u32::MAX, None);
+	}
+
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		OutboundMessages::<T>::iter()
+			.filter_map(|(stream, leaves)| {
+				let StreamId::Channel { recipient, .. } = stream else { return None };
+				let messages: Vec<_> = leaves
+					.iter()
+					.filter_map(|leaf| match SpecMsgKind::decode_all(&mut &leaf[..]).ok()? {
+						SpecMsgKind::Data(data) => VersionedXcm::<()>::decode_all_with_depth_limit(
+							MAX_XCM_DECODE_DEPTH,
+							&mut &data[..],
+						)
+						.ok(),
+						SpecMsgKind::Signal(_) => None,
+					})
+					.collect();
+				(!messages.is_empty()).then(|| {
+					(
+						VersionedLocation::from(Location::new(1, Parachain(recipient.into()))),
+						messages,
+					)
+				})
+			})
+			.collect()
 	}
 }
 
@@ -291,6 +333,29 @@ mod tests {
 	// TODO(channels & flow control): once the advisory credit window is
 	// enforced in `can_send`, add the "credit window exhausted →
 	// `SendError::Transport`" case here.
+
+	#[test]
+	fn dry_run_inspection_sees_and_clears_this_blocks_sends() {
+		new_test_ext().execute_with(|| {
+			open_spec_msg_channel(SPEC_SIBLING);
+			assert_ok!(send_xcm::<Router>(sibling(SPEC_SIBLING), test_xcm()));
+
+			// `get_messages` decodes the pending sends back to exactly what
+			// was routed, keyed by the destination sibling.
+			assert_eq!(
+				Router::get_messages(),
+				alloc::vec![(
+					VersionedLocation::from(sibling(SPEC_SIBLING)),
+					alloc::vec![VersionedXcm::from(test_xcm())],
+				)],
+			);
+
+			// `clear_messages` drops them — the dry-run APIs' isolation.
+			Router::clear_messages();
+			assert!(Router::get_messages().is_empty());
+			assert!(OutboundMessages::<Test>::get(stream(SPEC_SIBLING)).is_empty());
+		});
+	}
 
 	/// `(1, Here)` stand-in for `ParentAsUmp`, delivering `[1; 32]`.
 	pub struct MockParentAsUmp;
