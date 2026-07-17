@@ -19,7 +19,7 @@
 //! Defines the compiled Wasm runtime that uses Wasmtime internally.
 
 use crate::{
-	epoch,
+	epoch::{self, EpochTicker},
 	host::HostState,
 	instance_wrapper::{EntryPoint, InstanceWrapper, MemoryWrapper},
 	util::{self, replace_strategy_if_broken},
@@ -180,7 +180,10 @@ impl WasmModule for WasmtimeRuntime {
 
 /// A `TimedWasmModule` implementation whose module is compiled with wasmtime epoch interruption,
 /// making instances only callable with an execution timeout.
-pub struct WasmtimeTimedRuntime(RuntimeCore);
+pub struct WasmtimeTimedRuntime {
+	core: RuntimeCore,
+	_epoch_ticker: EpochTicker,
+}
 
 impl TimedWasmModule for WasmtimeTimedRuntime {
 	fn new_instance(
@@ -188,7 +191,7 @@ impl TimedWasmModule for WasmtimeTimedRuntime {
 		heap_alloc_strategy: HeapAllocStrategy,
 	) -> Result<Box<dyn TimedWasmInstance>> {
 		Ok(Box::new(WasmtimeTimedInstance {
-			strategy: self.0.instance_strategy(heap_alloc_strategy),
+			strategy: self.core.instance_strategy(heap_alloc_strategy),
 		}))
 	}
 }
@@ -577,8 +580,10 @@ where
 	H: HostFunctions,
 {
 	// SAFETY: this is safe because it doesn't use `CodeSupplyMode::Precompiled`.
-	unsafe { do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, true) }
-		.map(WasmtimeTimedRuntime)
+	let core = unsafe { do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, true) }?;
+	let epoch_ticker = EpochTicker::new(core.engine.clone())?;
+
+	Ok(WasmtimeTimedRuntime { core, _epoch_ticker: epoch_ticker })
 }
 
 /// The same as [`create_runtime`] but takes a path to a precompiled artifact,
@@ -663,10 +668,6 @@ where
 
 	let engine = Engine::new(&wasmtime_config)
 		.map_err(|e| WasmError::Other(format!("cannot create the wasmtime engine: {:#}", e)))?;
-
-	if epoch_interruption {
-		epoch::register_engine(&engine);
-	}
 
 	let (module, instantiation_strategy) = match code_supply_mode {
 		CodeSupplyMode::Fresh(blob) => {

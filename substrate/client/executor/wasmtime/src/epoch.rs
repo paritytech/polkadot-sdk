@@ -16,35 +16,43 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Global epoch ticker driving wasmtime engines compiled with epoch interruption.
+//! Epoch ticker driving a wasmtime engine compiled with epoch interruption.
 
-use parking_lot::Mutex;
-use std::{sync::LazyLock, time::Duration};
-use wasmtime::{Engine, EngineWeak};
+use sc_executor_common::error::WasmError;
+use std::{
+	sync::mpsc::{self, RecvTimeoutError},
+	time::Duration,
+};
+use wasmtime::Engine;
 
-/// Interval at which the ticker increments the epoch of registered engines.
+/// Interval at which an [`EpochTicker`] increments the epoch of its engine.
 const EPOCH_TICK: Duration = Duration::from_millis(100);
 
-/// Engines ticked by the global ticker thread; dead weaks are pruned each tick.
+/// Increments the epoch of a single engine every [`EPOCH_TICK`] from a dedicated thread.
 ///
-/// First dereference spawns the (sole, never-terminating) ticker thread.
-static TICKED_ENGINES: LazyLock<Mutex<Vec<EngineWeak>>> = LazyLock::new(|| {
-	std::thread::Builder::new()
-		.name("wasm-epoch-ticker".into())
-		.spawn(|| loop {
-			std::thread::sleep(EPOCH_TICK);
-			TICKED_ENGINES
-				.lock()
-				.retain(|engine| engine.upgrade().map(|engine| engine.increment_epoch()).is_some());
-		})
-		.expect("thread spawning doesn't normally fail; qed");
-	Mutex::new(Vec::new())
-});
+/// The thread terminates when the ticker is dropped.
+pub(crate) struct EpochTicker {
+	_stop: mpsc::Sender<()>,
+}
 
-/// Register an engine to have its epoch incremented every [`EPOCH_TICK`], lazily spawning the
-/// global ticker thread on first use.
-pub(crate) fn register_engine(engine: &Engine) {
-	TICKED_ENGINES.lock().push(engine.weak());
+impl EpochTicker {
+	/// Spawn a ticker thread for `engine`.
+	pub(crate) fn new(engine: Engine) -> std::result::Result<Self, WasmError> {
+		let (stop, stopped) = mpsc::channel::<()>();
+
+		std::thread::Builder::new()
+			.name("wasm-epoch-ticker".into())
+			.spawn(move || {
+				while let Err(RecvTimeoutError::Timeout) = stopped.recv_timeout(EPOCH_TICK) {
+					engine.increment_epoch();
+				}
+			})
+			.map_err(|e| {
+				WasmError::Other(format!("cannot spawn the wasm-epoch-ticker thread: {e}"))
+			})?;
+
+		Ok(Self { _stop: stop })
+	}
 }
 
 /// Number of epoch ticks after which a call started now is guaranteed to have run for at least
