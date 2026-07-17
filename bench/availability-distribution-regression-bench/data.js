@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784307722257,
+  "lastUpdate": 1784310523016,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "04f79fb22ac3b5f4ee6efda2f223dea797ba6299",
-          "message": "[pallet-revive] update evm create benchmark (#10366)\n\nAdd a benchmark for the EVM CREATE instruction.\n\nWe are currently reusing the `seal_instantiate` benchmark from PVM\ninstantiation, which is incorrect because instantiating an EVM contract\ntakes different arguments and follows a different code path than\ncreating a PVM contract.\n\nThis benchmark performs the following steps:\n\n- Generates init bytecode of size i, optionally including a balance with\ndust.\n- Executes the init code that triggers a single benchmark opcode\nreturning a runtime code of the maximum allowed size\n(qrevm::primitives::eip170::MAX_CODE_SIZE`).\n\n\nAlso fix the order of the weight function arguments, they were wrong\ncausing the weight to be much bigger that what it should be\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-20T17:56:56Z",
-          "tree_id": "4b3256e9544cca66d3ebcc141cd56ab1f9d5824a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/04f79fb22ac3b5f4ee6efda2f223dea797ba6299"
-        },
-        "date": 1763666444109,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007344553826666645,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022792758973333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013076713726666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15905542255333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007414125233333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karol@parity.io",
+            "name": "Karol Kokoszka",
+            "username": "karolk91"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91d93d4ebc6d441d8e93f4a5d5fc368a494d8f78",
+          "message": "sp-database: aggregate same-key refcount ops within a transaction (#12106)\n\nFix a kvdb refcount-leak: multiple `Store`/`Reference`/`Release` ops on\nthe same key in one `sp_database::Transaction` each read a stale on-disk\ncounter and write back to the same counter key — the underlying\n`DBTransaction` keeps only the last `put`, collapsing N ops to a single\n±1. `commit_impl` now aggregates per-`(col, key)` deltas first and\nperforms one read-modify-write per unique key.\n\nSurfaces when multiple displaced fork branches at the same height carry\nthe same indexed extrinsics. `prune_displaced_branches` then issues\n`release(col11, hash) × N` per fork **in one finalization commit** —\npre-fix only one decrement landed, leaving indexed transaction data\nreachable past its retention period.\n\nAdds parametrized tests across `KvdbMemdb` / `ParityDb` / `RocksDb`\ncovering same-commit `Store + 2× Release`, `Store + 2× Reference`, and\n`Store + Release` net-zero patterns. All three failed on the kvdb\nbackends pre-fix; all pass post-fix.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-17T15:58:39Z",
+          "tree_id": "e3a5cca7efc31fd9d3d4bcc6332dcf2596074af1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91d93d4ebc6d441d8e93f4a5d5fc368a494d8f78"
+        },
+        "date": 1784310492644,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14866772222666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009859697933333354,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022991504013333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007501387873333334,
             "unit": "seconds"
           }
         ]
