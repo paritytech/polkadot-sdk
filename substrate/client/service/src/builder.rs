@@ -95,8 +95,6 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
-	future::Future,
-	pin::Pin,
 	str::FromStr,
 	sync::Arc,
 	time::{Duration, SystemTime},
@@ -1177,12 +1175,6 @@ where
 	pub blocks_pruning: BlocksPruning,
 }
 
-struct BitswapInitialization {
-	handler: Pin<Box<dyn Future<Output = ()> + Send>>,
-	handle: sc_network_bitswap::BitswapHandle,
-	config: IpfsConfig,
-}
-
 /// Builds the lower-level network service.
 ///
 /// The final tuple element contains the Bitswap handle when IPFS is enabled.
@@ -1246,7 +1238,7 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	let bitswap = if net_config.network_config.ipfs_server {
+	let (ipfs_config, bitswap) = if net_config.network_config.ipfs_server {
 		if !Net::SUPPORTS_IPFS {
 			return Err(Error::Other(
 				"the selected network backend does not support Bitswap; \
@@ -1272,15 +1264,9 @@ where
 			metrics_registry,
 		);
 
-		Some(BitswapInitialization { handler, handle, config: ipfs_config })
+		(Some(ipfs_config), Some((handler, handle)))
 	} else {
-		None
-	};
-	let (bitswap_handler, bitswap_handle, ipfs_config) = match bitswap {
-		Some(BitswapInitialization { handler, handle, config }) => {
-			(Some(handler), Some(handle), Some(config))
-		},
-		None => (None, None, None),
+		(None, None)
 	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
@@ -1320,9 +1306,12 @@ where
 	let network_mut = Net::new(network_params)?;
 	let network = network_mut.network_service().clone();
 
-	if let Some(handler) = bitswap_handler {
+	// Essential: on storage chains block import depends on the bitswap actor, so its
+	// death must shut the node down instead of stalling sync silently.
+	let bitswap_handle = bitswap.map(|(handler, handle)| {
 		spawn_essential_handle.spawn("bitswap-service", Some("networking"), handler);
-	}
+		handle
+	});
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
 		network.clone(),

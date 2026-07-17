@@ -66,8 +66,17 @@ enum TransportEvent {
 }
 
 enum TransportResponse {
-	VerifiedBlock { cid: Cid, bytes: Vec<u8> },
-	Presence { cid: Cid, presence: BlockPresenceType },
+	/// A block whose CID is guaranteed by the transport to match `bytes`. litep2p derives
+	/// the CID from the received bytes (the wire format only carries a CID prefix), so
+	/// the pairing needs no further verification; any other transport must uphold this.
+	VerifiedBlock {
+		cid: Cid,
+		bytes: Vec<u8>,
+	},
+	Presence {
+		cid: Cid,
+		presence: BlockPresenceType,
+	},
 }
 
 #[async_trait]
