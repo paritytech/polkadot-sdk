@@ -387,6 +387,18 @@ mod tests {
 		gen_stream_proof(entries, target).expect("target stream is present; qed").1
 	}
 
+	/// An extension proof of a given connecting-node count, for sizing the design's *day-scale*
+	/// worst case (≈10⁹ leaves → ~30 nodes) without building a 10⁹-leaf MMR: PoV cost is the
+	/// *encoded* size, which is a pure function of the node count, so synthetic nodes size
+	/// identically to real ones. Each node is `(u64 position, Hash)` = 40 B — 8 B more than the
+	/// design's hash-only (32 B) count.
+	fn synthetic_extension(nodes: usize) -> MMRExtensionProof {
+		MMRExtensionProof {
+			new_mmr_size: u64::MAX / 2, // a day-scale size; placement is irrelevant to encoded size
+			connecting_nodes: (0..nodes as u64).map(|i| (i, H256::repeat_byte(i as u8))).collect(),
+		}
+	}
+
 	#[test]
 	fn extension_computes_root_and_rejects_tampering() {
 		let all = leaves(5);
@@ -563,8 +575,10 @@ mod tests {
 		for i in 0..N as u64 {
 			mmr.push(H256::from_low_u64_be(i)).unwrap();
 		}
+		// NB: each connecting node is `(u64 position, Hash)` = 40 B, vs the design's hash-only 32 B
+		// count — so measured `encoded` runs ~25% above a "N hashes × 32 B" estimate.
 		println!("\n[extension]  MMRExtensionProof to tip N={N}, endpoint `behind` leaves back");
-		println!("     behind | nodes | encoded");
+		println!("     behind | nodes | encoded (40 B/node)");
 		let mut sample_ext = MMRExtensionProof::identity();
 		for behind in [1usize, 16, 256, 4_096, N / 2] {
 			let k = N - behind;
@@ -606,35 +620,68 @@ mod tests {
 			let candidate = sources * streams_per_source * per_lift;
 			println!("   {sources:>3} sources × {streams_per_source} stream(s) = {candidate} B");
 		}
-
-		// headroom guard: `RequiresSet` caps a candidate at MAX_SOURCES_PER_BLOCK sources; take a
-		// generous streams/source and a conservative per-lift (the deepest extension above + a
-		// 1024-stream tree_proof). The requires-lift overhead must stay a negligible slice of the
-		// PoV.
-		const STREAMS_PER_SOURCE: usize = 4;
-		let worst_lift = RequiresLift {
-			advances: Vec::new(),
-			extension: sample_ext, // endpoint N/2 behind — deepest extension above
-			tree_proof: tree_proof(1024), // a source with 1024 active streams
-		};
-		let worst_per_lift = worst_lift.encoded_size();
-		let bounded_worst_case =
-			MAX_SOURCES_PER_BLOCK as usize * STREAMS_PER_SOURCE * worst_per_lift;
 		let budget = MAX_POV_SIZE as usize;
+
+		// --- Angle 1: empirical PoV share (real proofs, ≤100k messages, no gaps) ---
+		// A full-source candidate (MAX_SOURCES_PER_BLOCK sources) with a conservative *measured*
+		// lift (deepest 100k-message extension + a 1024-stream tree_proof): what fraction of the
+		// budget do real proofs at representative scale consume? Guards the typical footprint at
+		// <10%.
+		const STREAMS_PER_SOURCE: usize = 4;
+		let empirical_lift = RequiresLift {
+			advances: Vec::new(),
+			extension: sample_ext, // deepest 100k-message extension measured above
+			tree_proof: tree_proof(1024),
+		};
+		let empirical_per_lift = empirical_lift.encoded_size();
+		let full_candidate =
+			MAX_SOURCES_PER_BLOCK as usize * STREAMS_PER_SOURCE * empirical_per_lift;
 		println!(
-			"\n[headroom]  bounded worst case = {} sources × {STREAMS_PER_SOURCE} streams × {worst_per_lift} B \
-			 = {bounded_worst_case} B ({:.2}% of MAX_POV_SIZE = {} MiB)",
+			"\n[empirical share]  {} sources × {STREAMS_PER_SOURCE} streams × {empirical_per_lift} B \
+			 = {full_candidate} B ({:.2}% of MAX_POV_SIZE = {} MiB)",
 			MAX_SOURCES_PER_BLOCK,
-			100.0 * bounded_worst_case as f64 / budget as f64,
+			100.0 * full_candidate as f64 / budget as f64,
 			budget / (1024 * 1024),
 		);
-		// Guard at <10% of the PoV budget: a regression that bloats a proof (e.g. an O(n)
-		// extension, or a tree walk that stops being Patricia-compressed) trips this rather than
-		// silently eating the block's PoV. The measured figure sits far below — this is
-		// deliberate slack, not a tight bound.
 		assert!(
-			bounded_worst_case < budget / 10,
-			"requires-lift bounded worst case {bounded_worst_case} B exceeds 10% of MAX_POV_SIZE {budget} B",
+			full_candidate < budget / 10,
+			"empirical full-source candidate {full_candidate} B exceeds 10% of MAX_POV_SIZE",
+		);
+
+		// --- Angle 2: day-scale worst-case lift (the design's "Proof Size Considerations" sizing)
+		// --- The measurements above top out at N=100k messages; the design sizes against ~24 h
+		// of lag (≈10⁹ leaves → ~30 connecting nodes) *plus* one read-context gap (an advance
+		// proof). We can't build a 10⁹-leaf MMR, but PoV cost is the encoded size, so synthesize
+		// proofs of the worst-case shape. Ceiling per the design: ~4 KB/stream + ~2 KB/gap.
+		const DAY_SCALE_EXT_NODES: usize = 30; // log₂(10⁹) ≈ 30 (design's "~30 hashes")
+		let worst_lift = RequiresLift {
+			advances: vec![synthetic_extension(DAY_SCALE_EXT_NODES)], // one read-context gap
+			extension: synthetic_extension(DAY_SCALE_EXT_NODES),      // day-scale unconsumed tail
+			tree_proof: tree_proof(1024),                             // 1024 active streams
+		};
+		let worst_per_lift = worst_lift.encoded_size();
+		println!(
+			"\n[worst-case lift]  day-scale (~10⁹ leaves, {DAY_SCALE_EXT_NODES}-node ext + 1 gap + tree@S=1024): {worst_per_lift} B"
+		);
+		// Regression guard: one worst-case lift stays bounded. The design ceilings a touched stream
+		// at ~4 KB + ~2 KB/gap ≈ 6 KB; guard at 8 KB so an O(n) extension (non-logarithmic) or an
+		// uncompressed tree walk trips this instead of silently eating the PoV.
+		assert!(worst_per_lift < 8 * 1024, "worst-case lift {worst_per_lift} B exceeds ~8 KB");
+
+		// Authoring-time budget (design: "the block must guarantee at authoring time that the worst
+		// case still fits"): the bound is *how many touched streams fit*, not a fixed per-candidate
+		// total. Even at the day-scale worst case the PoV must comfortably hold the source cap.
+		let max_streams = budget / worst_per_lift;
+		println!(
+			"[headroom]  MAX_POV_SIZE {} MiB / {worst_per_lift} B ≈ {max_streams} day-scale touched streams \
+			 (source cap = {MAX_SOURCES_PER_BLOCK})",
+			budget / (1024 * 1024),
+		);
+		// A candidate names ≤ MAX_SOURCES_PER_BLOCK sources; even at day-scale the PoV must hold at
+		// least that many touched streams, or authoring couldn't fill a block. (Ample margin here.)
+		assert!(
+			max_streams >= MAX_SOURCES_PER_BLOCK as usize,
+			"day-scale worst case leaves room for only {max_streams} streams (< {MAX_SOURCES_PER_BLOCK})",
 		);
 		println!("===== end =====\n");
 	}
