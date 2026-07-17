@@ -77,11 +77,12 @@ pub mod xcm_router;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use cumulus_primitives_core::{relay_chain::UMPSignal, ParaId};
 use cumulus_primitives_spec_messaging::{
 	hash_leaf,
 	tree::{bit_at, first_diff_bit, tree_inner_hash, tree_leaf_hash, KEY_BITS},
-	ChannelId, MessagePosition, MmrFrontier, SpecHasher, SpecMsgKind, StreamId, StreamsRoot,
-	LEAF_VERSION, SPMS_ENGINE_ID, STREAM_ID_LEN,
+	ChannelId, ConsumptionRecord, Interval, MessagePosition, MmrFrontier, ProvideUmpSignals,
+	SpecHasher, SpecMsgKind, StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID, STREAM_ID_LEN,
 };
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -300,6 +301,26 @@ pub mod pallet {
 	pub type OpenOutboundChannels<T: Config> =
 		StorageMap<_, Twox64Concat, ChannelId, (), OptionQuery>;
 
+	/// Transient outbox of this block's consumption intervals — one item
+	/// per stream the messaging inherent touched, in processing order (the
+	/// same storage family as parachain-system's `UpwardMessages`: written
+	/// this block, grouped/sorted at read time by
+	/// [`Pallet::consumption_record`], cleared at the next
+	/// `on_initialize`).
+	///
+	/// SKELETON (receiver part): the write side — the messaging inherent's
+	/// recomputation appending one [`Interval`] per touched stream — is not
+	/// implemented yet, so the outbox stays empty; the read side and the
+	/// `validate_block` plumbing consuming it are final.
+	///
+	/// Unbounded like parachain-system's `UpwardMessages`: transient, and
+	/// the receiver part's per-block caps on touched streams (which also
+	/// bound record sources to `MaxCommitmentEntries`) are the real bound.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type ConsumptionOutbox<T: Config> =
+		StorageValue<_, Vec<(ParaId, StreamId, Interval)>, ValueQuery>;
+
 	#[pallet::error]
 	#[derive(PartialEq)]
 	pub enum Error<T> {
@@ -321,8 +342,10 @@ pub mod pallet {
 			// to be charged here once weights land.
 			let mut weight = T::DbWeight::get().reads_writes(1, 1);
 
-			// The previous block's fold memo dies with its block.
+			// The previous block's fold memo and consumption outbox die
+			// with their block.
 			BlockStreamsRoot::<T>::kill();
+			ConsumptionOutbox::<T>::kill();
 
 			// Bump the frontiers with the previous block's sends and clear
 			// the per-block vecs — one atomic step. From here on the stored
@@ -484,6 +507,24 @@ pub mod pallet {
 			BlockStreamsRoot::<T>::get()
 		}
 
+		/// The block's consumption record: the transient outbox grouped by
+		/// source, per source sorted by [`StreamId`] (canonical encoding
+		/// order) — the shape the `validate_block` wrapper stitches and the
+		/// `consumption_record()` runtime API serves.
+		///
+		/// Empty until the receiver part's messaging inherent (which fills
+		/// [`ConsumptionOutbox`]) lands.
+		pub fn consumption_record() -> ConsumptionRecord {
+			let mut record = ConsumptionRecord::default();
+			for (source, stream, interval) in ConsumptionOutbox::<T>::get() {
+				record.entries.entry(source).or_default().push((stream, interval));
+			}
+			for streams in record.entries.values_mut() {
+				streams.sort_by(|a, b| a.0.cmp(&b.0));
+			}
+			record
+		}
+
 		/// Upserts one stream's leaf hash into the stored commitment tree
 		/// and recomputes the hashes along its path — O(log S) node
 		/// reads/writes, everything off the path untouched.
@@ -540,5 +581,25 @@ pub mod pallet {
 			}
 			TreeRoot::<T>::put(updated);
 		}
+	}
+}
+
+/// Hook for `cumulus-pallet-parachain-system` (`Config::UmpSignalSource`):
+/// sources the `Provides` UMP signal from the end-of-block fold and the
+/// consumption record for the `validate_block` wrapper's `Requires`
+/// synthesis.
+///
+/// `provides_root` runs the fold if this block's `on_finalize` ordering has
+/// not yet (idempotent via the `BlockStreamsRoot` memo) — but a payload
+/// appended *after* the first fold of a block still misses it; the "append
+/// before `on_finalize`" ordering rule (see the pallet doc) now covers
+/// parachain-system's `on_finalize` as well.
+impl<T: Config> ProvideUmpSignals for Pallet<T> {
+	fn provides_root() -> Option<UMPSignal> {
+		Self::commit_streams_root().map(UMPSignal::Provides)
+	}
+
+	fn consumption_record() -> ConsumptionRecord {
+		Pallet::<T>::consumption_record()
 	}
 }

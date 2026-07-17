@@ -36,7 +36,8 @@
 //! - The consumption record ([`record`]): [`Interval`], [`ConsumptionRecord`] — what a block's
 //!   consumption did, stitched and lifted by the `validate_block` wrapper.
 //! - Requires lifts ([`lift`]): [`RequiresLift`] and its canonical per-source transport
-//!   [`LiftsBySource`], carried in the POV.
+//!   [`LiftsBySource`], carried in the POV — plus the verification the `validate_block` wrapper
+//!   runs over them ([`stitch`] / [`build_requires_entry`] / [`build_requires`]).
 //! - The fetch protocol wire types ([`wire`]): [`MessagesRequest`] / [`MessagesResponse`],
 //!   [`EventRequest`] / [`EventResponse`] — every response independently verifiable against a
 //!   requester-named root.
@@ -57,11 +58,15 @@ pub mod lift;
 pub mod mmr;
 pub mod record;
 pub mod stream_id;
+#[cfg(feature = "std")]
+pub mod test_utils;
 pub mod tree;
 pub mod wire;
 
 pub use channel::{ChannelId, Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
-pub use lift::{LiftsBySource, RequiresLift};
+pub use lift::{
+	build_requires, build_requires_entry, stitch, LiftError, LiftsBySource, RequiresLift,
+};
 pub use mmr::{
 	hash_leaf, MMRExtensionProof, MessagePosition, MmrError, MmrFrontier, MmrInclusionProof,
 	MmrRoot, SpecHasher, SpecMerge,
@@ -77,6 +82,44 @@ pub use wire::{EventRequest, EventResponse, MessagesRequest, MessagesResponse};
 // Relay-side commitment types (UMPSignal-embedded), re-exported for
 // convenience.
 pub use polkadot_primitives::{RequiresSet, RequiresSetError, StreamsRoot};
+
+/// Hooks `cumulus-pallet-parachain-system` uses to source the Speculative
+/// Messaging ingredients of a candidate's UMP signal tail, without
+/// depending on the messaging pallet.
+///
+/// Implemented by `cumulus-pallet-spec-messaging`; the `()` implementation
+/// emits nothing (a chain that does not participate in Speculative
+/// Messaging).
+///
+/// There is deliberately no requires-side *emission* hook: blocks never
+/// emit `Requires` and never see a [`StreamsRoot`] on the consumption side
+/// — the `validate_block` wrapper synthesizes the candidate's `Requires`
+/// entries from [`ConsumptionRecord`]s via POV-carried lifts.
+pub trait ProvideUmpSignals {
+	/// The block's [`StreamsRoot`] from the end-of-block tree fold, as the
+	/// `Provides` UMP signal. `None` if no stream was touched — an
+	/// unchanged root must NOT be re-emitted (it would push a duplicate
+	/// entry into the relay chain's window).
+	///
+	/// The same computation deposits the [`SPMS_ENGINE_ID`] header digest.
+	fn provides_root() -> Option<polkadot_primitives::UMPSignal>;
+
+	/// The block's consumption record — what the messaging inherent *did*,
+	/// never state inference. Dual-called: by the `consumption_record()`
+	/// runtime API node-side and by the `validate_block` wrapper directly
+	/// in-wasm after executing each block of a bundle.
+	fn consumption_record() -> ConsumptionRecord;
+}
+
+impl ProvideUmpSignals for () {
+	fn provides_root() -> Option<polkadot_primitives::UMPSignal> {
+		None
+	}
+
+	fn consumption_record() -> ConsumptionRecord {
+		ConsumptionRecord::default()
+	}
+}
 
 // Domain tags: the same message structure used in different contexts (leaf
 // vs inner node, message MMR vs commitment tree) must never collide on the

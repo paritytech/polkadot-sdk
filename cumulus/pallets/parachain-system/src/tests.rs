@@ -1829,3 +1829,58 @@ fn ump_signals_are_sent_correctly() {
 			);
 	}
 }
+
+#[test]
+fn provides_ump_signal_is_sent_after_scheduling_signals() {
+	let core_info = CoreInfo {
+		selector: CoreSelector(1),
+		claim_queue_offset: ClaimQueueOffset(1),
+		number_of_cores: codec::Compact(1),
+	};
+	let core_info_digest = CumulusDigestItem::CoreInfo(core_info.clone()).encode();
+	let root = relay_chain::StreamsRoot(H256::repeat_byte(0xAB));
+
+	// A block whose `UmpSignalSource` yields a root emits `Provides` last in
+	// the signal tail — the order the `validate_block` wrapper re-assembles.
+	PROVIDES_ROOT.with(|provides| *provides.borrow_mut() = Some(root));
+	BlockTests::new().add_with_post_test(
+		1,
+		move || {
+			System::deposit_log(DigestItem::PreRuntime(
+				CUMULUS_CONSENSUS_ID,
+				core_info_digest.clone(),
+			));
+		},
+		move || {
+			assert_eq!(
+				UpwardMessages::<Test>::get(),
+				vec![
+					UMP_SEPARATOR,
+					UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+						.encode(),
+					UMPSignal::Provides(root).encode(),
+				]
+			);
+		},
+	);
+
+	// Without scheduling signals the tail is just the `Provides`.
+	BlockTests::new().add_with_post_test(
+		1,
+		|| {},
+		move || {
+			assert_eq!(
+				UpwardMessages::<Test>::get(),
+				vec![UMP_SEPARATOR, UMPSignal::Provides(root).encode()]
+			);
+		},
+	);
+
+	// An idle source (no stream touched) emits nothing.
+	PROVIDES_ROOT.with(|provides| *provides.borrow_mut() = None);
+	BlockTests::new().add_with_post_test(
+		1,
+		|| {},
+		|| assert_eq!(UpwardMessages::<Test>::get(), Vec::<Vec<u8>>::new()),
+	);
+}

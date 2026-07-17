@@ -53,6 +53,7 @@ cumulus-pallet-parachain-system-proc-macro = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
+cumulus-primitives-spec-messaging = { workspace = true }
 
 # For building docs
 docify = { workspace = true }
@@ -88,6 +89,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
 	"cumulus-primitives-proof-size-hostfunction/std",
+	"cumulus-primitives-spec-messaging/std",
 	"environmental/std",
 	"frame-benchmarking/std",
 	"frame-executive/std",

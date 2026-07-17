@@ -100,11 +100,27 @@ impl Config for Test {
 	type WeightInfo = ();
 	type RelayParentOffset = ConstU32<0>;
 	type SchedulingSignatureVerifier = ();
+	type UmpSignalSource = TestUmpSignalSource;
 }
 
 std::thread_local! {
 	pub static CONSENSUS_HOOK: RefCell<Box<dyn Fn(&RelayChainStateProof) -> (Weight, UnincludedSegmentCapacity)>>
 		= RefCell::new(Box::new(|_| (Weight::zero(), NonZeroU32::new(1).unwrap().into())));
+	/// The `StreamsRoot` [`TestUmpSignalSource`] yields as `Provides`, if any.
+	pub static PROVIDES_ROOT: RefCell<Option<relay_chain::StreamsRoot>> = RefCell::new(None);
+}
+
+/// Speculative Messaging UMP signal source driven by [`PROVIDES_ROOT`].
+pub struct TestUmpSignalSource;
+
+impl cumulus_primitives_spec_messaging::ProvideUmpSignals for TestUmpSignalSource {
+	fn provides_root() -> Option<UMPSignal> {
+		PROVIDES_ROOT.with(|root| root.borrow().map(UMPSignal::Provides))
+	}
+
+	fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
+		Default::default()
+	}
 }
 
 pub struct TestConsensusHook;

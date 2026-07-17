@@ -40,6 +40,7 @@ use cumulus_primitives_core::{
 	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_spec_messaging::ProvideUmpSignals;
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -311,6 +312,18 @@ pub mod pallet {
 		///
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
+
+		/// Source of the Speculative Messaging ingredients of the UMP signal
+		/// tail.
+		///
+		/// The `Provides(StreamsRoot)` signal is emitted in `on_finalize`
+		/// (per block — the `validate_block` wrapper folds a bundle's
+		/// signals, last emitter wins), and the wrapper reads the per-block
+		/// consumption record through this hook to synthesize the
+		/// candidate's `Requires` entries from POV-carried lifts. Wire this
+		/// to `cumulus-pallet-spec-messaging`; use `()` while the chain does
+		/// not participate in Speculative Messaging.
+		type UmpSignalSource: ProvideUmpSignals;
 	}
 
 	#[pallet::hooks]
@@ -446,10 +459,22 @@ pub mod pallet {
 					core_info.as_ref().map_or(Compact(1u16), |ci| ci.number_of_cores),
 				);
 
+				// The block's Speculative Messaging `Provides` — `None` on
+				// blocks that touched no stream (an unchanged root must not
+				// be re-emitted).
+				let provides_signal = T::UmpSignalSource::provides_root();
+
 				// Only send UMP signals on the last block of a PoV.
 				// For single-block PoVs (no BlockBundleInfo), always send signals.
 				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
-					Self::send_ump_signals(core_info);
+					Self::send_ump_signals(core_info, provides_signal);
+				} else if let Some(signal) = provides_signal {
+					// Intermediate bundle blocks still emit their `Provides`:
+					// the `validate_block` wrapper folds the bundle's signals
+					// (the last emitting block's root supersedes) and only
+					// the folded tail reaches the relay chain.
+					UpwardMessages::<T>::append(UMP_SEPARATOR);
+					UpwardMessages::<T>::append(signal.encode());
 				}
 
 				// If the total size of the pending messages is less than the threshold,
@@ -1723,7 +1748,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send the pending ump signals
-	fn send_ump_signals(core_info: Option<CoreInfo>) {
+	///
+	/// Signal order (`SelectCore`, `ApprovedPeer`, `Provides`) must match
+	/// the `validate_block` wrapper's re-assembly
+	/// (`validate_block::scheduling::SchedulingSignals::emit`) — the
+	/// node-side commitments and the wrapper's output must be
+	/// byte-identical for the same block.
+	fn send_ump_signals(core_info: Option<CoreInfo>, provides: Option<UMPSignal>) {
 		let mut ump_signals = PendingUpwardSignals::<T>::take();
 
 		if let Some(core_info) = core_info {
@@ -1734,6 +1765,10 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(approved_peer) = PendingApprovedPeer::<T>::take() {
 			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
+		}
+
+		if let Some(provides) = provides {
+			ump_signals.push(provides.encode());
 		}
 
 		if !ump_signals.is_empty() {

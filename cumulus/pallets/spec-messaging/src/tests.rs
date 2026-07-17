@@ -14,11 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, BlockStreamsRoot, Error, OutboundFrontier, OutboundMessages, TreeRoot};
+use crate::{
+	mock::*, BlockStreamsRoot, ConsumptionOutbox, Error, OutboundFrontier, OutboundMessages,
+	TreeRoot,
+};
 use codec::Encode;
+use cumulus_primitives_core::relay_chain::UMPSignal;
 use cumulus_primitives_spec_messaging::{
 	compute_streams_root, hash_leaf, prove_stream, MessagePosition, MmrFrontier, MmrRoot,
-	SpecHasher, StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID,
+	ProvideUmpSignals, SpecHasher, StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID,
 };
 use frame_support::traits::{OnFinalize, OnInitialize};
 use sp_runtime::{generic::DigestItem, Digest};
@@ -291,6 +295,74 @@ fn commit_streams_root_is_idempotent() {
 		assert_eq!(roots.0, roots.1);
 		assert_eq!(roots.0, SpecMessaging::current_streams_root());
 		assert_eq!(spms_digests(&digest), vec![roots.0.unwrap().encode()]);
+	});
+}
+
+#[test]
+fn provides_root_hook_emits_iff_a_stream_was_touched() {
+	new_test_ext().execute_with(|| {
+		// The `ProvideUmpSignals` hook (what parachain-system's
+		// `on_finalize` calls) wraps the fold's root as `Provides` — and
+		// runs the fold itself if it gets there first.
+		let (signal, digest) = run_block(|| {
+			append(channel(2001), b"hello").unwrap();
+			<SpecMessaging as ProvideUmpSignals>::provides_root()
+		});
+		let root = SpecMessaging::current_streams_root().unwrap();
+		assert_eq!(signal, Some(UMPSignal::Provides(root)));
+		// The signal and the header digest agree on the root.
+		assert_eq!(spms_digests(&digest), vec![root.encode()]);
+
+		// Idle block: no signal, nothing deposited — an unchanged root is
+		// never re-emitted.
+		let (signal, digest) = run_block(|| <SpecMessaging as ProvideUmpSignals>::provides_root());
+		assert_eq!(signal, None);
+		assert!(spms_digests(&digest).is_empty());
+	});
+}
+
+#[test]
+fn consumption_record_groups_and_sorts_the_outbox() {
+	new_test_ext().execute_with(|| {
+		// The hook serves an empty record while the outbox is empty (the
+		// receiver part's inherent is what will fill it).
+		assert_eq!(<SpecMessaging as ProvideUmpSignals>::consumption_record(), Default::default());
+
+		// Raw outbox items in processing order: grouped by source, per
+		// source sorted by `StreamId`'s canonical order.
+		let interval = |byte: u8, count: u64| cumulus_primitives_spec_messaging::Interval {
+			start: MmrRoot(polkadot_core_primitives::Hash::repeat_byte(byte)),
+			end: MmrFrontier { leaf_count: count, peaks: Default::default() },
+		};
+		let para = |id: u32| cumulus_primitives_core::ParaId::from(id);
+		run_block(|| {
+			ConsumptionOutbox::<Test>::put(vec![
+				(para(2002), channel(1000), interval(1, 1)),
+				(para(2001), ack(1000), interval(2, 2)),
+				(para(2001), channel(1000), interval(3, 3)),
+			]);
+
+			let record = <SpecMessaging as ProvideUmpSignals>::consumption_record();
+			assert_eq!(
+				record.entries.keys().copied().collect::<Vec<_>>(),
+				vec![para(2001), para(2002)]
+			);
+			// Channel (kind 0x00) sorts before Ack (kind 0x01).
+			assert_eq!(
+				record.entries[&para(2001)],
+				vec![(channel(1000), interval(3, 3)), (ack(1000), interval(2, 2))]
+			);
+			assert_eq!(record.entries[&para(2002)], vec![(channel(1000), interval(1, 1))]);
+		});
+
+		// Transient: the outbox dies with its block.
+		run_block(|| {
+			assert!(ConsumptionOutbox::<Test>::get().is_empty());
+			assert_eq!(
+				<SpecMessaging as ProvideUmpSignals>::consumption_record(),
+				Default::default()
+			);
+		});
 	});
 }
 

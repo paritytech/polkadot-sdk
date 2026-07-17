@@ -16,7 +16,9 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{
+	scheduling, spec_messaging, trie_cache, trie_recorder, MemoryOptimizedValidationParams,
+};
 use alloc::vec::Vec;
 use codec::Encode;
 use cumulus_primitives_core::{
@@ -27,6 +29,7 @@ use cumulus_primitives_core::{
 	CumulusDigestItem, ParachainBlockData, PersistedValidationData, SignedSchedulingInfo,
 	VerifySchedulingSignature,
 };
+use cumulus_primitives_spec_messaging::ProvideUmpSignals;
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
@@ -167,6 +170,10 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
+	// The Speculative Messaging lifts ride in the (collator-supplied)
+	// `ParachainBlockData`, never in the blocks or the host-filled params.
+	let lifts = block_data.lifts().cloned();
+
 	let (blocks, proof) = block_data.into_inner();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
@@ -174,6 +181,7 @@ where
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
 	let mut upward_message_signals = Vec::<Vec<_>>::new();
+	let mut consumption_records = Vec::new();
 	let mut horizontal_messages = BoundedVec::default();
 	let mut hrmp_watermark = Default::default();
 	let mut head_data = None;
@@ -323,6 +331,12 @@ where
 						)
 					});
 
+				// The block's Speculative Messaging consumption record, in
+				// bundle order — the same read the `consumption_record()`
+				// runtime API serves node-side, executed directly in-wasm.
+				consumption_records
+					.push(<PSC as crate::Config>::UmpSignalSource::consumption_record());
+
 				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
 				horizontal_messages
 					.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter())
@@ -363,17 +377,26 @@ where
 		}
 	}
 
-	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
-	// are ignored, not merged.
-	match scheduling_override_inputs.as_ref() {
-		Some((signed_info, _)) => {
-			scheduling::SchedulingSignals::from_scheduling_info(signed_info, &mut upward_messages)
-		},
-		None => scheduling::SchedulingSignals::from_block_signals(
-			&upward_message_signals,
-			&mut upward_messages,
-		),
-	}
+	// A `signed_scheduling_info` overrides the block's emitted *scheduling* signals
+	// wholesale — they are ignored, not merged.
+	let scheduling_signals = match scheduling_override_inputs.as_ref() {
+		Some((signed_info, _)) => scheduling::SchedulingSignals::from_scheduling_info(signed_info),
+		None => scheduling::SchedulingSignals::from_block_signals(&upward_message_signals),
+	};
+
+	// The Speculative Messaging pass runs on both paths (the override
+	// replaces only the scheduling signals): fold the bundle's
+	// block-emitted `Provides` (last emitter wins) and synthesize the
+	// `Requires` entries from the stitched consumption records and the
+	// POV-carried lifts. Any lift verification failure panics, invalidating
+	// the candidate.
+	let spec_msg_signals = spec_messaging::SpecMessagingSignals::build(
+		&upward_message_signals,
+		&consumption_records,
+		lifts.as_ref(),
+	);
+
+	scheduling_signals.emit(spec_msg_signals, &mut upward_messages);
 
 	horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
