@@ -1,4 +1,4 @@
-title: 'sc-executor-wasmtime: timed runtimes with execution timeouts via epoch interruption'
+title: 'sc-executor: timed runtime calls with execution timeouts via wasmtime epoch interruption'
 doc:
 - audience: Node Dev
   description: |-
@@ -6,8 +6,18 @@ doc:
     `TimedWasmModule` / `TimedWasmInstance` traits) — wasm runtimes compiled with wasmtime
     epoch interruption whose calls take a mandatory execution timeout, failing with the new
     `Error::ExecutionTimeout`.
+
+    New `WasmExecutor::call_with_execution_timeout` makes a timed runtime call through the
+    normal executor machinery. For wasmtime, the timed counterpart of a cached runtime is
+    compiled in a background thread; timed calls block until it is ready and always run on a
+    fresh, non-pooled instance. PolkaVM has no execution-interruption mechanism: timed calls
+    share the untimed module and run uncapped, with a one-time startup warning.
 crates:
+- name: sc-executor
+  bump: minor
 - name: sc-executor-common
   bump: major
 - name: sc-executor-wasmtime
   bump: minor
+- name: sc-executor-polkavm
+  bump: major

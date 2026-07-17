@@ -27,6 +27,7 @@ use std::{
 	panic::{AssertUnwindSafe, UnwindSafe},
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use codec::Encode;
@@ -360,6 +361,66 @@ where
 				let instance = AssertUnwindSafe(instance);
 				let ext = AssertUnwindSafe(ext);
 				f(module, instance, version, ext)
+			},
+		)? {
+			Ok(r) => r,
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Same as [`CodeExecutor::call`], but interrupts execution once `timeout` has elapsed,
+	/// failing with [`Error::ExecutionTimeout`].
+	///
+	/// Runs on a fresh, non-pooled instance of the runtime's timed counterpart; may block until
+	/// that counterpart finishes compiling in the background.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped.
+	pub fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		tracing::trace!(
+			target: "executor",
+			%method,
+			"Executing timed function",
+		);
+
+		let on_chain_heap_alloc_strategy = if self.ignore_onchain_heap_pages {
+			self.default_onchain_heap_alloc_strategy
+		} else {
+			runtime_code
+				.heap_pages
+				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
+				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
+		};
+
+		let heap_alloc_strategy = match context {
+			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
+		};
+
+		match self.cache.with_timed_instance::<H, _, _>(
+			runtime_code,
+			ext,
+			self.method,
+			heap_alloc_strategy,
+			self.allow_missing_host_functions,
+			|instance, _on_chain_version, ext| {
+				// The instance is dropped after the call, so a `panic!` cannot poison any state.
+				// `ext` is already implicitly handled as unwind safe, as we store it in a global
+				// variable while executing the runtime.
+				let mut instance = AssertUnwindSafe(instance);
+				let mut ext = AssertUnwindSafe(ext);
+				with_externalities_safe(&mut **ext, move || {
+					instance.call_with_timeout(method, data, timeout)
+				})
 			},
 		)? {
 			Ok(r) => r,

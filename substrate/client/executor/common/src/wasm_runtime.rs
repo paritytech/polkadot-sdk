@@ -107,6 +107,9 @@ pub trait TimedWasmInstance: Send {
 	/// Before execution, instance is reset.
 	///
 	/// Returns the encoded result on success. Fails with [`Error::ExecutionTimeout`] on timeout.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped, never producing [`Error::ExecutionTimeout`].
 	fn call_with_timeout(
 		&mut self,
 		method: &str,
