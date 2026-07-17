@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784310638593,
+  "lastUpdate": 1784319526027,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d38ac656a243d576da7d8da0cbcdca10500e1022",
-          "message": "Upgrade litep2p to v0.12.0 and handle Kademlia publish success events (#9685)\n\nlitep2p v0.12.0 adds ability to track whether publishing a DHT record or\nprovider was successful. This PR brings this functionality to substrate.\nParticularly, this fixes authority-discovery unnecessarily republishing\nDHT records due to litep2p not emitting\n`KademliaEvent::PutRecordSuccess` before v0.12.0.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:00:26Z",
-          "tree_id": "403a909fa0de016a09c52706aec96c3a200fb2ba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d38ac656a243d576da7d8da0cbcdca10500e1022"
-        },
-        "date": 1763565363180,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00266700612,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00861374819999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0049325608099999915,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010648898579999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tim.n@parity.io",
+            "name": "Tim Nieradzik",
+            "username": "tindzk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12e585fffc0a12c5b48635fd3301d510a34af912",
+          "message": "claims: Reject vesting claims below the existential deposit (#12254)\n\n## Description\n\nA vesting claim attaches a balance lock to the destination account,\nwhich requires the account to stay alive (balance >= existential\ndeposit). This is currently not enforced: If a claim's value was below\nED, `process_claim`'s `deposit_creating` left the account below ED, and\nthe subsequent `add_vesting_schedule` -> `update_locks` ->\n`try_mutate_account` saw `free < ED`. This dusted the account and\ntripped `pallet_balances`' \"caused unexpected dusting/balance update\"\ndefensive failure. `defensive!` panics in tests and benchmarks but only\nlogs in release, so in production this produced silently inconsistent\nstate (a vesting lock written onto a dusted account). `process_claim`\nalso relied on an `.expect()` over `add_vesting_schedule` that assumed\nthe failure was impossible.\n\nGuard the invariant in `process_claim`, and add a\n`ClaimBelowExistentialDeposit` error. The benchmark was updated to floor\nits claim amount at `max(ED, 1_000_000)`, which satisfies the invariant.\n\n## Integration\n\nNo action required for downstream users. The changes are additive:\n\n- An error variant `ClaimBelowExistentialDeposit` was appended to\n`claims::Error`, so the indices of existing variants remain unchanged.\n- `process_claim` now rejects a vesting claim whose destination account\nwould end up below the ED after the deposit; it fails with\n`ClaimBelowExistentialDeposit` and is reverted by the dispatch's storage\nlayer. The check is on the resulting free balance, so a small claim into\nan account that already holds funds is still accepted. `mint_claim` is\nunchanged: the destination account is not known until claim time, so the\ninvariant can only be enforced there.\n\nThere is no storage migration and no change to dispatchable signatures\nor weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-07-17T18:33:12Z",
+          "tree_id": "8e964c5e976e79bf6f941dc727219cae29f35597",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12e585fffc0a12c5b48635fd3301d510a34af912"
+        },
+        "date": 1784319496410,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025117983600000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009845976880000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009622714709999982,
             "unit": "seconds"
           }
         ]
