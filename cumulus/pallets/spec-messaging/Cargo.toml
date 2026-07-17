@@ -1,0 +1,52 @@
+[package]
+name = "cumulus-pallet-spec-messaging"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Pallet accumulating outbound Speculative Messaging streams and their commitment tree"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+# Substrate
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-runtime = { workspace = true }
+
+# Polkadot
+polkadot-core-primitives = { workspace = true }
+
+# Cumulus
+cumulus-primitives-spec-messaging = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-spec-messaging/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-core-primitives/std",
+	"scale-info/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

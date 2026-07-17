@@ -5286,6 +5286,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-spec-messaging"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-spec-messaging",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "cumulus-pallet-weight-reclaim"
 version = "1.0.0"
 dependencies = [
@@ -17473,6 +17487,7 @@ dependencies = [
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-solo-to-para",
+ "cumulus-pallet-spec-messaging",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",

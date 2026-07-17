@@ -68,7 +68,10 @@ pub use mmr::{
 };
 pub use record::{ConsumptionRecord, Interval};
 pub use stream_id::{StreamId, StreamIdError, STREAM_ID_LEN};
-pub use tree::{compute_streams_root, prove_stream, tree_leaf_hash, TreeError, TreeInclusionProof};
+pub use tree::{
+	compute_streams_root, prove_stream, tree_inner_hash, tree_leaf_hash, TreeError,
+	TreeInclusionProof,
+};
 pub use wire::{EventRequest, EventResponse, MessagesRequest, MessagesResponse};
 
 // Relay-side commitment types (UMPSignal-embedded), re-exported for

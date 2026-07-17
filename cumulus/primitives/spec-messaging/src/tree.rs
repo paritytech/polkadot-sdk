@@ -57,8 +57,8 @@ use crate::{
 	TREE_INNER_TAG, TREE_LEAF_TAG,
 };
 
-/// Total number of key bits.
-const KEY_BITS: u8 = (STREAM_ID_LEN * 8) as u8;
+/// Total number of key bits; bit indices are `0..KEY_BITS`, MSB-first.
+pub const KEY_BITS: u8 = (STREAM_ID_LEN * 8) as u8;
 
 /// Errors verifying a [`TreeInclusionProof`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -81,7 +81,11 @@ pub fn tree_leaf_hash(id: &StreamId, root: &MmrRoot) -> Hash {
 }
 
 /// Hashes one inner node branching at `bit`.
-fn tree_inner_hash(bit: u8, left: &Hash, right: &Hash) -> Hash {
+///
+/// Public alongside [`tree_leaf_hash`] so the sender pallet's incremental
+/// tree store reproduces the exact node format — no second implementation
+/// of a consensus-critical preimage.
+pub fn tree_inner_hash(bit: u8, left: &Hash, right: &Hash) -> Hash {
 	let mut preimage = [0u8; 2 + 32 + 32];
 	preimage[0] = TREE_INNER_TAG;
 	preimage[1] = bit;
@@ -91,12 +95,12 @@ fn tree_inner_hash(bit: u8, left: &Hash, right: &Hash) -> Hash {
 }
 
 /// Bit `bit` (MSB-first) of an 8-byte key.
-fn bit_at(key: &[u8; STREAM_ID_LEN], bit: u8) -> u8 {
+pub fn bit_at(key: &[u8; STREAM_ID_LEN], bit: u8) -> u8 {
 	(key[(bit / 8) as usize] >> (7 - bit % 8)) & 1
 }
 
 /// First bit at which two keys differ (`None` if equal).
-fn first_diff_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> Option<u8> {
+pub fn first_diff_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> Option<u8> {
 	for i in 0..STREAM_ID_LEN {
 		let x = a[i] ^ b[i];
 		if x != 0 {

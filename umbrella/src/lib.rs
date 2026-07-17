@@ -146,6 +146,10 @@ pub use cumulus_pallet_session_benchmarking;
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
 
+/// Pallet accumulating outbound Speculative Messaging streams and their commitment tree.
+#[cfg(feature = "cumulus-pallet-spec-messaging")]
+pub use cumulus_pallet_spec_messaging;
+
 /// pallet and transaction extensions for accurate proof size reclaim.
 #[cfg(feature = "cumulus-pallet-weight-reclaim")]
 pub use cumulus_pallet_weight_reclaim;
