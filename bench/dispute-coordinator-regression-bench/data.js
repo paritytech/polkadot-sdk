@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784223097688,
+  "lastUpdate": 1784294430636,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f38750fc78969ef8c3f8411178b0c9413a15e98b",
-          "message": "Don't require PR for uploading comment for DT CI (#10347)\n\n# Description\n\nSmall PR that changes the DT CI to not require a PR for uploading the\nreport to the CI job.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-18T13:32:56Z",
-          "tree_id": "6ee396dc955783235bd57812e1629f1beb3594fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f38750fc78969ef8c3f8411178b0c9413a15e98b"
-        },
-        "date": 1763476817295,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008770979619999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005241351659999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026767736299999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011235836589999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d56ed88f344ed854b89d7b9221003da2f5006df5",
+          "message": "Remove deprecated pallet_staking::ExposureOf. (#12654)\n\n## Summary\n- Remove deprecated `pallet_staking::ExposureOf` (use\n`DefaultExposureOf` / `UnitIdentificationOf`).\n- No remaining in-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-07-17T06:39:16Z",
+          "tree_id": "2ee17a8441ca654a5ba5853206083bc278244e90",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d56ed88f344ed854b89d7b9221003da2f5006df5"
+        },
+        "date": 1784294397773,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025268393999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009869740589999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009356093019999987,
             "unit": "seconds"
           }
         ]
