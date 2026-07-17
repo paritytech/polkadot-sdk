@@ -3355,6 +3355,97 @@ fn cold_hot_call_target_warms_across_calls() {
 }
 
 #[test]
+fn cold_hot_depth_denied_call_leaves_target_cold() {
+	// A call denied by the depth limit never builds a frame, so it never warms
+	// the target: a retry still prices it cold. This diverges from EIP-2929
+	// (which warms the address even on a failed call) in the overcharge-safe
+	// direction, and is the intended behavior.
+	parameter_types! {
+		static ReachedBottom: bool = false;
+	}
+	let target_ch = MockLoader::insert(Call, |_, _| exec_success());
+	let recurse_ch = MockLoader::insert(Call, |ctx, _| {
+		// Recurse into self until the depth limit denies the call.
+		let r = ctx.ext.call(
+			&Default::default(),
+			&BOB_ADDR,
+			U256::zero(),
+			vec![],
+			ReentrancyProtection::AllowReentry,
+			false,
+		);
+
+		ReachedBottom::mutate(|reached_bottom| {
+			if *reached_bottom {
+				// Unwinding the stack: the self-call succeeds here.
+				assert_matches!(r, Ok(_));
+				return;
+			}
+			// First time at the bottom: the self-call hit the depth limit.
+			assert_eq!(r, Err(Error::<Test>::MaxCallDepthReached.into()));
+			*reached_bottom = true;
+
+			let before = ctx.ext.access_list_metrics();
+			assert_matches!(
+				ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
+				StateAccessKind::Call {
+					account: Warmth::Cold { .. },
+					contract_info: Warmth::Cold { .. }
+				},
+				"a fresh target starts cold",
+			);
+
+			// Calling a fresh target at max depth is denied before a frame is built.
+			assert_eq!(
+				ctx.ext.call(
+					&Default::default(),
+					&DJANGO_ADDR,
+					U256::zero(),
+					vec![],
+					ReentrancyProtection::AllowReentry,
+					false,
+				),
+				Err(Error::<Test>::MaxCallDepthReached.into()),
+				"call at max depth is denied",
+			);
+
+			assert_eq!(
+				ctx.ext.access_list_metrics().size,
+				before.size,
+				"the denied call warms nothing",
+			);
+			assert_matches!(
+				ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
+				StateAccessKind::Call {
+					account: Warmth::Cold { .. },
+					contract_info: Warmth::Cold { .. }
+				},
+				"the denied call leaves the target cold",
+			);
+		});
+
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		set_balance(&BOB, 1);
+		place_contract(&BOB, recurse_ch);
+		place_contract(&DJANGO, target_ch);
+		let origin = Origin::from_account_id(ALICE);
+		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
+		let result = MockStack::run_call(
+			origin,
+			BOB_ADDR,
+			&mut meter,
+			0.into(),
+			vec![],
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert_matches!(result, Ok(_));
+	});
+}
+
+#[test]
 fn cold_hot_delegate_call_leaves_target_account_cold() {
 	// A delegate call reads only the target's contract metadata and code, so
 	// a later plain call to the same target still prices the account state

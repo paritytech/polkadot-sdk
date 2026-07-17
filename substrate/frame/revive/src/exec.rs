@@ -559,6 +559,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Warmth of the state items `access` reads.
 	fn peek_access(&self, access: StateAccess) -> StateAccessKind;
 
+	/// Base cost of a call opcode. Peeks the warmth; the entries are touched
+	/// when the frame is built, so peek and touch see the same state.
+	fn call_base_cost(&self, callee: H160, delegate: bool) -> RuntimeCosts {
+		RuntimeCosts::CallBase(self.peek_access(StateAccess::new(callee, delegate)))
+	}
+
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
@@ -1084,18 +1090,22 @@ where
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
+				let originally_delegated = delegated_call.is_some();
+				let delegate_precompile = delegated_call
+					.as_ref()
+					.and_then(|d| <AllPrecompiles<T>>::get(d.callee.as_fixed_bytes()));
+
 				// Denied calls (depth, reentrancy) abort before reaching this
 				// touch. The contract-info load below hits storage even for a
 				// plain account, so warming is correct when no frame is built.
 				//
 				// Precompiles are not warmed. Reuse the `precompile` lookup for
-				// a plain call; a delegate call looks up its own callee.
+				// a plain call; a delegate call reuses its own.
 				let (access, target_is_precompile) = match &delegated_call {
-					None =>
-						(StateAccess::Call { target: address }, precompile.is_some()),
+					None => (StateAccess::Call { target: address }, precompile.is_some()),
 					Some(delegated) => (
 						StateAccess::DelegateCall { target: delegated.callee },
-						is_precompile::<T, E>(&delegated.callee),
+						delegate_precompile.is_some(),
 					),
 				};
 				if !target_is_precompile {
@@ -1132,9 +1142,14 @@ where
 				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
-					if let Some(precompile) =
+					// Reuse the lookup from above for a real delegate; a
+					// mock-injected callee is resolved fresh.
+					let callee_precompile = if originally_delegated {
+						delegate_precompile
+					} else {
 						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
-					{
+					};
+					if let Some(precompile) = callee_precompile {
 						ExecutableOrPrecompile::Precompile {
 							instance: precompile,
 							_phantom: Default::default(),
@@ -1144,8 +1159,11 @@ where
 						else {
 							return Ok(None);
 						};
-						let code_warmth = access_list.touch_code(info.code_hash);
+						// Touch only after the charge succeeds, so a failed load
+						// leaves nothing warm.
+						let code_warmth = access_list.peek_code(info.code_hash);
 						let executable = E::from_storage(info.code_hash, meter, code_warmth)?;
+						access_list.touch_code(info.code_hash);
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1159,8 +1177,11 @@ where
 							.as_contract()
 							.expect("When not a precompile the contract was loaded above; qed")
 							.code_hash;
-						let code_warmth = access_list.touch_code(code_hash);
+						// Touch only after the charge succeeds, so a failed load
+						// leaves nothing warm.
+						let code_warmth = access_list.peek_code(code_hash);
 						let executable = E::from_storage(code_hash, meter, code_warmth)?;
+						access_list.touch_code(code_hash);
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};
@@ -2148,12 +2169,11 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					// The code load of an instantiation is always billed cold.
-					let executable = E::from_storage(
-						*hash,
-						self.frame_meter_mut(),
-						CodeLoadWarmth::cold_nonrevertible(),
-					)?;
+					// Touch only after the charge succeeds, so a failed load
+					// leaves nothing warm.
+					let code_warmth = self.access_list.peek_code(*hash);
+					let executable = E::from_storage(*hash, self.frame_meter_mut(), code_warmth)?;
+					self.access_list.touch_code(*hash);
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},

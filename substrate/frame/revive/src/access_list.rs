@@ -181,13 +181,6 @@ impl StateAccess {
 		if delegate { Self::DelegateCall { target } } else { Self::Call { target } }
 	}
 
-	/// The accessed address.
-	pub fn target(&self) -> H160 {
-		match self {
-			Self::Call { target } | Self::DelegateCall { target } => *target,
-		}
-	}
-
 	/// Maps `warmth_of` over each state item this access reads and collects
 	/// the results into a [`StateAccessKind`].
 	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateAccessKind {
@@ -384,6 +377,14 @@ impl AccessList {
 		}
 	}
 
+	/// Non-mutating sibling of [`touch_code`](Self::touch_code).
+	pub fn peek_code(&self, hash: H256) -> CodeLoadWarmth {
+		CodeLoadWarmth {
+			info: self.peek(&AccessEntry::CodeInfo { hash }),
+			blob: self.peek(&AccessEntry::CodeBlob { hash }),
+		}
+	}
+
 	/// Per-transaction metrics snapshot.
 	pub fn metrics(&self) -> AccessListMetrics {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
@@ -480,6 +481,45 @@ mod tests {
 
 		let existing = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([0; 32]) };
 		assert!(al.touch(existing).is_hot(), "existing entry still hot at cap");
+	}
+
+	#[test]
+	fn call_peek_and_touch_diverge_at_cap_boundary() {
+		let mut al = AccessList::new();
+		// Fill to one below the cap.
+		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
+			al.touch(AccessEntry::Storage {
+				address: H160::from_low_u64_be(i as u64),
+				slot: Slot::Fix([0; 32]),
+			});
+		}
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES - 1);
+
+		let target = H160::from_low_u64_be(0xdead_beef);
+		// Nested frame, so a journaled cold touch would be revertible.
+		al.enter_frame();
+
+		// The set is below the cap, so peek prices both call entries revertible
+		// cold: it cannot see that touching the first entry fills the cap.
+		assert_eq!(
+			al.peek_access(StateAccess::Call { target }),
+			StateAccessKind::Call {
+				account: Warmth::Cold { revertible: true },
+				contract_info: Warmth::Cold { revertible: true },
+			},
+			"peek sees the not-full set for both entries",
+		);
+
+		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
+		assert_eq!(
+			al.touch_access(StateAccess::Call { target }),
+			StateAccessKind::Call {
+				account: Warmth::Cold { revertible: true },
+				contract_info: Warmth::cold_nonrevertible(),
+			},
+			"touch journals only the first entry before the cap fills",
+		);
+		al.commit_frame();
 	}
 
 	#[test]

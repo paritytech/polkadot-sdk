@@ -275,13 +275,15 @@ pub(crate) fn cold_hot_base<T: Config>(
 	overlay_probes: u64,
 	costs: CostPair<impl FnOnce() -> Weight, impl FnOnce() -> Weight>,
 ) -> Weight {
-	let opcode_weight = if item_warmths.iter().all(|warmth| warmth.is_hot()) {
-		(costs.hot)().saturating_add(
-			RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(overlay_probes),
-		)
-	} else {
-		(costs.cold)()
-	};
+	// An empty slice prices cold.
+	let opcode_weight =
+		if !item_warmths.is_empty() && item_warmths.iter().all(|warmth| warmth.is_hot()) {
+			(costs.hot)().saturating_add(
+				RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(overlay_probes),
+			)
+		} else {
+			(costs.cold)()
+		};
 	// Add each touched item's access-list overhead on top of the opcode cost.
 	item_warmths.iter().fold(opcode_weight, |weight, warmth| {
 		weight.saturating_add(access_list_overhead::<T>(*warmth))
