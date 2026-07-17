@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784294305568,
+  "lastUpdate": 1784301466093,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77c01251ebf91e1d2a55cbf6945c7711f9cfa263",
-          "message": "aura/slot_based: Reduce authoring duration of the last produced block  (#10154)\n\nThis PR adjusts the block authoring to stop producing blocks 1 second\nbefore the scheduled slot change.\nThis introduces a safety buffer to prevent blocks from being authored\ntoo late for inclusion.\n\n- 2s blocks / 3 cores: The authoring duration of the last block is\nreduced from 2s to 1s.\n- 500ms blocks / 12 cores: The authoring duration cannot be reduced past\n500ms, therefore the last two blocks are no longer authored\n\n### Testing Done\n\nTested on top of:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n### 3 cores 2s blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.987s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=5.987s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.987s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.991s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=3.991s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.991s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.99s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723041) next_duration_change=1.99s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(990ms)\n```\n\n### 12 cores 500ms blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=1.494s next_slot_change=Slot(293724135) deadline=494ms\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(494ms)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=493ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=993ms next_slot_change=Slot(293724135) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=993ms next_slot_change=Slot(293724135)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724136)) next_slot=Slot(293724137) next_duration_change=494ms next_slot_change=Slot(293724137) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=494ms next_slot_change=Slot(293724137)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n```\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/9848\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eduardspa <eduard@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:46:16Z",
-          "tree_id": "14ce62d93d9b5295823e962a1145111f87e60acc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77c01251ebf91e1d2a55cbf6945c7711f9cfa263"
-        },
-        "date": 1763567700809,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022885783466666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013303494613333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15993964756,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007402431519999974,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010261636386666637,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08f58c40ea9c3a722db06407368d5b5e9a5ce212",
+          "message": "binary-merkle-tree: preallocate proof vector to avoid reallocations (#12288)\n\nresolves #9106",
+          "timestamp": "2026-07-17T10:30:47Z",
+          "tree_id": "434576ef5994ca92b29f9e57ab11e0b111e79c28",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/08f58c40ea9c3a722db06407368d5b5e9a5ce212"
+        },
+        "date": 1784301433743,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01002778335999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1474795397333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007737398719999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023526147566666662,
             "unit": "seconds"
           }
         ]
