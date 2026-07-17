@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784301507129,
+  "lastUpdate": 1784307764349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77c01251ebf91e1d2a55cbf6945c7711f9cfa263",
-          "message": "aura/slot_based: Reduce authoring duration of the last produced block  (#10154)\n\nThis PR adjusts the block authoring to stop producing blocks 1 second\nbefore the scheduled slot change.\nThis introduces a safety buffer to prevent blocks from being authored\ntoo late for inclusion.\n\n- 2s blocks / 3 cores: The authoring duration of the last block is\nreduced from 2s to 1s.\n- 500ms blocks / 12 cores: The authoring duration cannot be reduced past\n500ms, therefore the last two blocks are no longer authored\n\n### Testing Done\n\nTested on top of:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n### 3 cores 2s blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.987s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=5.987s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.987s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.991s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=3.991s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.991s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.99s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723041) next_duration_change=1.99s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(990ms)\n```\n\n### 12 cores 500ms blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=1.494s next_slot_change=Slot(293724135) deadline=494ms\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(494ms)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=493ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=993ms next_slot_change=Slot(293724135) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=993ms next_slot_change=Slot(293724135)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724136)) next_slot=Slot(293724137) next_duration_change=494ms next_slot_change=Slot(293724137) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=494ms next_slot_change=Slot(293724137)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n```\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/9848\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eduardspa <eduard@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:46:16Z",
-          "tree_id": "14ce62d93d9b5295823e962a1145111f87e60acc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77c01251ebf91e1d2a55cbf6945c7711f9cfa263"
-        },
-        "date": 1763567734530,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63630.87999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.40489966903999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018584219999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000201513,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005729424190000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.50382056544,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.529662731269999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9384440554100035,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018584219999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6790540367809124,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.378707999000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000201513,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.500615562160001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.495535991489999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.714815228419999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "baaa6023e46abc763a863cf19678e3ae944dec44",
+          "message": "Statement store index optimization, stage 2a (#12304)\n\nThis PR implements stage 2a of the optimizations proposed in #10910\n(Move Read Index to Disk with LRU Cache).\n\nAs a notable difference from the original issue, the `evicted` index has\nalso been moved to disk (AFAIR, it used to consume ~150 MiB of RAM with\n4M statements).\n\n---------\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-17T15:17:39Z",
+          "tree_id": "7f6e81152072ac6ba17a212616fc87cc4e259fda",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaa6023e46abc763a863cf19678e3ae944dec44"
+        },
+        "date": 1784307731040,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.090000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.444288137509975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019769430000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.782687822770001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021655000000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019769430000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8285041949699994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.39210090929999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7985694111799828,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.804891444140001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005051360849999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021655000000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8324829943,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.353803427432848,
             "unit": "seconds"
           }
         ]
