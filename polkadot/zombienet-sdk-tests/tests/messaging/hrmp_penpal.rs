@@ -32,7 +32,10 @@ use xcm::latest::{
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeTerminus, HashedDescription};
 use xcm_executor::traits::ConvertLocation;
 use zombienet_sdk::{
-	subxt::{utils::AccountId32, utils::MultiAddress, OnlineClient, PolkadotConfig},
+	subxt::{
+		utils::{AccountId32, MultiAddress},
+		OnlineClient, PolkadotConfig,
+	},
 	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
@@ -54,6 +57,7 @@ use penpal::runtime_types::{
 	cumulus_primitives_core::AggregateMessageOrigin,
 	pallet_balances::pallet::Call as BalancesCall,
 	penpal_runtime::RuntimeCall as PenpalRuntimeCall,
+	polkadot_parachain_primitives::primitives::Id as PenpalId,
 	staging_xcm::v5::{
 		asset::{Asset, AssetFilter, AssetId, Assets, Fungibility, WildAsset},
 		junction::Junction,
@@ -127,6 +131,78 @@ async fn wait_for_hrmp_channel(
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
 	Err(anyhow!("HRMP channel {sender} -> {recipient} did not open in time"))
+}
+
+/// Waits until the HRMP pipe `sender -> recipient` is fully drained — the scripted
+/// drain verification of the HRMP→spec-msg cutover runbook (drain-before-close):
+/// a closure enacting on a non-empty pipe LOSES messages (the sender's
+/// `take_outbound_messages` swallows every page buffered for a `Closed` destination;
+/// the relay's `close_hrmp_channel` drops all undelivered contents), so this must
+/// report success before `hrmp.close_channel`'s session boundary.
+///
+/// Drained means, at once:
+/// - the sender's `xcmpQueue.outboundXcmpStatus` entry for `recipient` (if any) holds no queued
+///   pages (`first_index == last_index`) and no pending signals, and no
+///   `xcmpQueue.outboundXcmpMessages` page for `recipient` remains, and
+/// - the relay's `hrmp.hrmpChannelContents` of the pair is empty — the recipient's watermark caught
+///   up and `prune_hrmp` ran.
+///
+/// Polls, since draining takes as long as the recipient needs to consume the backlog.
+pub(crate) async fn wait_for_hrmp_drain(
+	sender_client: &OnlineClient<PolkadotConfig>,
+	relay_client: &OnlineClient<PolkadotConfig>,
+	sender: u32,
+	recipient: u32,
+) -> anyhow::Result<()> {
+	for _ in 0..50 {
+		if hrmp_drained(sender_client, relay_client, sender, recipient).await? {
+			return Ok(());
+		}
+		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+	Err(anyhow!("HRMP pipe {sender} -> {recipient} did not drain in time"))
+}
+
+/// One-shot drain check underneath [`wait_for_hrmp_drain`].
+async fn hrmp_drained(
+	sender_client: &OnlineClient<PolkadotConfig>,
+	relay_client: &OnlineClient<PolkadotConfig>,
+	sender: u32,
+	recipient: u32,
+) -> anyhow::Result<bool> {
+	// Sender side: no buffered pages or signals for the recipient.
+	let sender_storage = sender_client.storage().at_latest().await?;
+	let statuses = sender_storage
+		.fetch(&penpal::storage().xcmp_queue().outbound_xcmp_status())
+		.await?
+		.map(|statuses| statuses.0)
+		.unwrap_or_default();
+	if statuses.iter().any(|channel| {
+		channel.recipient.0 == recipient &&
+			(channel.first_index != channel.last_index || channel.signals_exist)
+	}) {
+		return Ok(false);
+	}
+	let mut pages = sender_storage
+		.iter(penpal::storage().xcmp_queue().outbound_xcmp_messages_iter1(PenpalId(recipient)))
+		.await?;
+	if pages.next().await.is_some() {
+		return Ok(false);
+	}
+
+	// Relay side: no undelivered channel contents.
+	let contents =
+		relay_client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&rococo::storage().hrmp().hrmp_channel_contents(HrmpChannelId {
+				sender: Id(sender),
+				recipient: Id(recipient),
+			}))
+			.await?
+			.unwrap_or_default();
+	Ok(contents.is_empty())
 }
 
 /// Waits (on finalized blocks) for a `MessageQueue.Processed` event for a message coming
@@ -203,10 +279,7 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		20,
-		HashMap::from([
-			(ParaId::from(PARA_A), 2..40),
-			(ParaId::from(PARA_B), 2..40),
-		]),
+		HashMap::from([(ParaId::from(PARA_A), 2..40), (ParaId::from(PARA_B), 2..40)]),
 		[],
 	)
 	.await?;
@@ -224,11 +297,10 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 			max_message_size: HRMP_MAX_MESSAGE_SIZE,
 		})
 	};
-	let open_channels_tx = rococo::tx().sudo().sudo(RococoRuntimeCall::Utility(
-		UtilityCall::batch_all {
+	let open_channels_tx =
+		rococo::tx().sudo().sudo(RococoRuntimeCall::Utility(UtilityCall::batch_all {
 			calls: vec![force_open(PARA_A, PARA_B), force_open(PARA_B, PARA_A)],
-		},
-	));
+		}));
 	relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(&open_channels_tx, &alice)
@@ -245,12 +317,13 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	let sender_on_b = AccountId32(*sender_on_b.as_ref());
 	log::info!("Funding the sender's derived account on penpal B: {sender_on_b}");
 
-	let fund_tx = penpal::tx().sudo().sudo(PenpalRuntimeCall::Balances(
-		BalancesCall::force_set_balance {
-			who: MultiAddress::Id(sender_on_b.clone()),
-			new_free: SENDER_FUNDS_ON_B,
-		},
-	));
+	let fund_tx =
+		penpal::tx()
+			.sudo()
+			.sudo(PenpalRuntimeCall::Balances(BalancesCall::force_set_balance {
+				who: MultiAddress::Id(sender_on_b.clone()),
+				new_free: SENDER_FUNDS_ON_B,
+			}));
 	para_b_client
 		.tx()
 		.sign_and_submit_then_watch_default(&fund_tx, &alice)
@@ -287,20 +360,14 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 			fun: Fungibility::Fungible(TRANSFER_AMOUNT),
 		}])),
 		Instruction::BuyExecution {
-			fees: Asset {
-				id: AssetId(native_on_b()),
-				fun: Fungibility::Fungible(TRANSFER_AMOUNT),
-			},
+			fees: Asset { id: AssetId(native_on_b()), fun: Fungibility::Fungible(TRANSFER_AMOUNT) },
 			weight_limit: WeightLimit::Unlimited,
 		},
 		Instruction::DepositAsset {
 			assets: AssetFilter::Wild(WildAsset::All),
 			beneficiary: Location {
 				parents: 0,
-				interior: Junctions::X1([Junction::AccountId32 {
-					network: None,
-					id: RECEIVER,
-				}]),
+				interior: Junctions::X1([Junction::AccountId32 { network: None, id: RECEIVER }]),
 			},
 		},
 	]));
@@ -326,9 +393,10 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	log::info!("Message sent from penpal A via XcmpQueue (HRMP)");
 
 	// The message must be processed successfully on B...
-	let success = tokio::time::timeout(Duration::from_secs(300), processed)
-		.await
-		.map_err(|_| anyhow!("timed out waiting for the message to be processed on penpal B"))???;
+	let success =
+		tokio::time::timeout(Duration::from_secs(300), processed).await.map_err(|_| {
+			anyhow!("timed out waiting for the message to be processed on penpal B")
+		})???;
 	assert!(success, "message from penpal A was processed on penpal B but failed");
 	log::info!("Message processed on penpal B");
 
@@ -339,9 +407,11 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 		.storage()
 		.at_latest()
 		.await?
-		.fetch(&rococo::storage()
-			.hrmp()
-			.hrmp_channels(HrmpChannelId { sender: Id(PARA_A), recipient: Id(PARA_B) }))
+		.fetch(
+			&rococo::storage()
+				.hrmp()
+				.hrmp_channels(HrmpChannelId { sender: Id(PARA_A), recipient: Id(PARA_B) }),
+		)
 		.await?
 		.ok_or_else(|| anyhow!("HRMP channel {PARA_A} -> {PARA_B} disappeared"))?;
 	assert!(
@@ -364,6 +434,16 @@ async fn hrmp_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 		"receiver should hold the deposit minus fees, got {receiver_balance}"
 	);
 	log::info!("Receiver got {receiver_balance} on penpal B; HRMP delivery verified");
+
+	// Finally, exercise the cutover runbook's drain verification: with the message
+	// delivered and processed, the A→B pipe must drain (B's watermark catches up, the
+	// relay's `prune_hrmp` clears the contents) — the exact pre-close condition of the
+	// HRMP→spec-msg cutover. The reverse direction, having carried nothing, reports
+	// drained trivially.
+	log::info!("Verifying both HRMP pipes report drained");
+	wait_for_hrmp_drain(&para_a_client, &relay_client, PARA_A, PARA_B).await?;
+	wait_for_hrmp_drain(&para_b_client, &relay_client, PARA_B, PARA_A).await?;
+	log::info!("HRMP pipes drained; the pair would be safe to close");
 
 	Ok(())
 }

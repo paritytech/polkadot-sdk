@@ -15,9 +15,9 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, BlockStreamsRoot, Call, ConsumedStreams, ConsumptionOutbox, Error, Event,
-	InboundFrontier, OpenOutboundChannels, OutboundFrontier, OutboundMessages, RejectReason,
-	TreeRoot, ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
+	mock::*, xcm_router::xcm_channel, BlockStreamsRoot, Call, ConsumedStreams, ConsumptionOutbox,
+	Error, Event, InboundFrontier, OpenOutboundChannels, OutboundFrontier, OutboundMessages,
+	RejectReason, TreeRoot, ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
 };
 use codec::Encode;
 use cumulus_primitives_core::{relay_chain::UMPSignal, AggregateMessageOrigin, ParaId};
@@ -30,13 +30,14 @@ use cumulus_primitives_spec_messaging::{
 	SPMS_ENGINE_ID,
 };
 use frame_support::{
+	assert_noop, assert_ok,
 	dispatch::{DispatchClass, GetDispatchInfo},
 	inherent::{InherentData, ProvideInherent},
 	traits::{EnqueueMessage, OnFinalize, OnInitialize, QueueFootprintQuery, ServiceQueues},
 	weights::Weight,
 	BoundedSlice,
 };
-use sp_runtime::{generic::DigestItem, Digest};
+use sp_runtime::{generic::DigestItem, Digest, DispatchError};
 use std::collections::BTreeMap;
 use xcm::{
 	latest::prelude::{ClearOrigin, Location, Parachain, Xcm},
@@ -1112,6 +1113,56 @@ fn per_block_caps_error_and_leave_state_unchanged() {
 			// Only the appended messages made it into the frontiers.
 			assert_eq!(OutboundFrontier::<Test>::get(full).leaf_count, 8);
 			assert_eq!(OutboundFrontier::<Test>::get(untouched).leaf_count, 1);
+		});
+	});
+}
+
+#[test]
+fn hrmp_closing_is_gated_by_the_management_origin() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		OpenOutboundChannels::<Test>::insert(xcm_channel(peer), ());
+
+		assert_noop!(
+			SpecMessaging::set_hrmp_closing(RuntimeOrigin::signed(1), peer),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			SpecMessaging::clear_hrmp_closing(RuntimeOrigin::signed(1), peer),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn hrmp_closing_set_requires_an_open_channel_and_clear_rolls_back() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+
+		run_block(|| {
+			// The sender-side half of the cutover gate: flagging a pair
+			// whose outbound XCM channel is not open would divert new
+			// traffic onto a transport that refuses it.
+			assert_noop!(
+				SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), peer),
+				Error::<Test>::ChannelNotOpen
+			);
+			assert!(!SpecMessaging::is_hrmp_closing(peer));
+
+			OpenOutboundChannels::<Test>::insert(xcm_channel(peer), ());
+			assert_ok!(SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), peer));
+			assert!(SpecMessaging::is_hrmp_closing(peer));
+			System::assert_last_event(RuntimeEvent::SpecMessaging(Event::HrmpClosingSet { peer }));
+			// Idempotent: a retried governance batch is harmless.
+			assert_ok!(SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), peer));
+
+			// Rollback: clearing is unconditional and idempotent.
+			assert_ok!(SpecMessaging::clear_hrmp_closing(RuntimeOrigin::root(), peer));
+			assert!(!SpecMessaging::is_hrmp_closing(peer));
+			System::assert_last_event(RuntimeEvent::SpecMessaging(Event::HrmpClosingCleared {
+				peer,
+			}));
+			assert_ok!(SpecMessaging::clear_hrmp_closing(RuntimeOrigin::root(), peer));
 		});
 	});
 }

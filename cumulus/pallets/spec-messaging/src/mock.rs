@@ -88,6 +88,7 @@ impl spec_messaging::Config for Test {
 	type MaxTouchedStreams = MaxTouchedStreams;
 	type MaxContextGaps = MaxContextGaps;
 	type DataHandler = RecordingDataHandler;
+	type ChannelManagementOrigin = frame_system::EnsureRoot<u64>;
 }
 
 parameter_types! {

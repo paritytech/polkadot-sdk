@@ -176,6 +176,29 @@ fn hrmp_closed_sibling_routes_via_spec_msg_only_over_an_open_channel() {
 }
 
 #[test]
+fn hrmp_closing_flag_diverts_new_traffic_while_the_channel_drains() {
+	new_test_ext().execute_with(|| {
+		open_hrmp_channel();
+		open_spec_msg_channel();
+
+		// Mid-cutover: the flag is set (root = the channel-management
+		// origin) in the same governance batch as the relay-side
+		// `hrmp.close_channel` — the still-open HRMP channel keeps
+		// draining its queued messages while every new send diverts to
+		// spec-msg, before the closure is observable in the relay state.
+		assert_ok!(SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), SIBLING.into()));
+		assert_ok!(send_xcm::<XcmRouter>(sibling(), test_xcm()));
+		assert_eq!(OutboundMessages::<Runtime>::get(sibling_stream()).len(), 1);
+
+		// Rollback: clearing the flag restores HRMP-wins while the channel
+		// exists — nothing new lands on the stream.
+		assert_ok!(SpecMessaging::clear_hrmp_closing(RuntimeOrigin::root(), SIBLING.into()));
+		assert_ok!(send_xcm::<XcmRouter>(sibling(), test_xcm()));
+		assert_eq!(OutboundMessages::<Runtime>::get(sibling_stream()).len(), 1);
+	});
+}
+
+#[test]
 fn consumed_payloads_fit_the_message_queue() {
 	// `EnqueueToXcmQueue` requires the queue's `MaxMessageLen` (derived from
 	// its `HeapSize`) to cover everything the receiver part can consume.

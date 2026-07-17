@@ -1127,6 +1127,8 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type DataHandler = cumulus_pallet_spec_messaging::EnqueueToXcmQueue<
 		TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSpecMsg>,
 	>;
+	// Sets/clears the `HrmpClosing` cutover flag (drain-before-close).
+	type ChannelManagementOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {

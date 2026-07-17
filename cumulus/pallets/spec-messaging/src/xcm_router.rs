@@ -26,9 +26,11 @@
 //!
 //! Transport rule: **HRMP wins while a channel exists.** `Ready` or `Full`
 //! falls through to `XcmpQueue` (`Full` is backpressure, not absence); only
-//! `Closed` diverts here, and only if the outbound spec-msg channel to the
-//! destination is open. Exhausted capacity is a hard
-//! [`SendError::Transport`], never `NotApplicable` — see `validate`.
+//! `Closed` diverts here — a set [`HrmpClosing`] cutover flag counts as
+//! `Closed` (drain-before-close; see the pallet docs) — and only if the
+//! outbound spec-msg channel to the destination is open. Exhausted capacity
+//! is a hard [`SendError::Transport`], never `NotApplicable` — see
+//! `validate`.
 //!
 //! Envelope: on the designated XCM channel (`domain = 0`, `num = 0`) a
 //! [`SpecMsgKind::Data`](cumulus_primitives_spec_messaging::SpecMsgKind)
@@ -36,7 +38,7 @@
 //! Demultiplexing among userspace protocols is by channel (distinct
 //! `domain`/`num`), not in-band.
 
-use crate::{Config, OutboundMessages, Pallet};
+use crate::{Config, HrmpClosing, OutboundMessages, Pallet};
 use alloc::vec::Vec;
 use codec::{DecodeAll, DecodeLimit, Encode};
 use core::marker::PhantomData;
@@ -93,16 +95,19 @@ where
 
 		// HRMP wins while a channel exists: `Full` counts as open — it is
 		// backpressure, not absence — so it too falls through to
-		// `XcmpQueue`, which buffers against it. Only `Closed` continues.
-		// TODO(cutover, issue 13): also treat a set `HrmpClosing(id)` flag
-		// as `Closed`, so the pre-flip drain diverts new traffic before the
-		// relay-side closure is observable.
-		match ChannelInfo::get_channel_status(id) {
-			ChannelStatus::Ready(..) | ChannelStatus::Full => {
-				*dest = Some(d);
-				return Err(SendError::NotApplicable);
-			},
-			ChannelStatus::Closed => {},
+		// `XcmpQueue`, which buffers against it. Only `Closed` continues —
+		// and a set `HrmpClosing(id)` cutover flag counts as `Closed`:
+		// during a drain-before-close the still-open channel keeps draining
+		// its queued messages via `XcmpQueue` while every NEW message
+		// diverts here, ahead of the relay-side closure being observable.
+		if !HrmpClosing::<T>::contains_key(id) {
+			match ChannelInfo::get_channel_status(id) {
+				ChannelStatus::Ready(..) | ChannelStatus::Full => {
+					*dest = Some(d);
+					return Err(SendError::NotApplicable);
+				},
+				ChannelStatus::Closed => {},
+			}
 		}
 
 		// ... and spec-msg carries the XCM only over an open channel.
@@ -240,6 +245,54 @@ mod tests {
 				assert_eq!(dest, Some(sibling(SPEC_SIBLING)));
 				assert_eq!(msg, Some(test_xcm()));
 			}
+		});
+	}
+
+	#[test]
+	fn hrmp_closing_flag_counts_as_closed() {
+		new_test_ext().execute_with(|| {
+			// Mid-cutover: the pair's HRMP channel still reports `Ready`,
+			// but the `HrmpClosing` flag alone diverts every new send onto
+			// the spec-msg stream while the queued HRMP messages drain.
+			open_spec_msg_channel(SPEC_SIBLING);
+			HrmpReady::set(alloc::vec![SPEC_SIBLING]);
+			assert_ok!(SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), SPEC_SIBLING.into()));
+
+			assert!(matches!(
+				MockChannelInfo::get_channel_status(SPEC_SIBLING.into()),
+				ChannelStatus::Ready(..)
+			));
+			assert_ok!(send_xcm::<Router>(sibling(SPEC_SIBLING), test_xcm()));
+			assert_eq!(OutboundMessages::<Test>::get(stream(SPEC_SIBLING)).len(), 1);
+
+			// `Full` diverts just the same — the flag overrides both open
+			// states, not only `Ready`.
+			HrmpReady::set(Vec::new());
+			HrmpFull::set(alloc::vec![SPEC_SIBLING]);
+			assert_ok!(send_xcm::<Router>(sibling(SPEC_SIBLING), test_xcm()));
+			assert_eq!(OutboundMessages::<Test>::get(stream(SPEC_SIBLING)).len(), 2);
+
+			// The flag means "treat as `Closed`", nothing more: without the
+			// open spec-msg channel the router falls through exactly as for
+			// a genuinely closed pair.
+			OpenOutboundChannels::<Test>::remove(xcm_channel(SPEC_SIBLING.into()));
+			let (dest, msg, result) = validate(sibling(SPEC_SIBLING), test_xcm());
+			assert_eq!(result.unwrap_err(), SendError::NotApplicable);
+			assert_eq!(dest, Some(sibling(SPEC_SIBLING)));
+			assert_eq!(msg, Some(test_xcm()));
+
+			// Rollback: clearing the flag restores the HRMP-wins rule.
+			open_spec_msg_channel(SPEC_SIBLING);
+			HrmpReady::set(alloc::vec![SPEC_SIBLING]);
+			HrmpFull::set(Vec::new());
+			assert_ok!(SpecMessaging::clear_hrmp_closing(
+				RuntimeOrigin::root(),
+				SPEC_SIBLING.into()
+			));
+			let (dest, msg, result) = validate(sibling(SPEC_SIBLING), test_xcm());
+			assert_eq!(result.unwrap_err(), SendError::NotApplicable);
+			assert_eq!(dest, Some(sibling(SPEC_SIBLING)));
+			assert_eq!(msg, Some(test_xcm()));
 		});
 	}
 

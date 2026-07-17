@@ -73,6 +73,14 @@
 //! ([`OpenOutboundChannels`]) and the advisory credit window is not yet
 //! enforced — the per-block caps are the only backpressure.
 //!
+//! For the HRMP→spec-msg cutover the pallet carries the [`HrmpClosing`]
+//! flag (set/cleared by [`Config::ChannelManagementOrigin`]): while a peer
+//! is flagged, [`SpecMsgRouter`] treats the pair's still-open HRMP channel
+//! as `Closed`, so new traffic diverts to spec-msg immediately while the
+//! already-queued HRMP messages drain ahead of the relay-side closure —
+//! drain-before-close without a traffic pause. The full per-pair cutover
+//! sequence is on [`Pallet::set_hrmp_closing`].
+//!
 //! ## Receiver lifecycle
 //!
 //! The messaging inherent (identifier `specmsg0`) carries at most one item
@@ -445,6 +453,12 @@ pub mod pallet {
 		/// Where consumed [`SpecMsgKind::Data`] payloads are handed for
 		/// execution — the XCM-queue forwarding seam. `()` drops them.
 		type DataHandler: OnSpecMsgData;
+
+		/// Origin allowed to manage channel state — for now the
+		/// [`HrmpClosing`] cutover flag; the channel lifecycle machinery
+		/// (channels & flow control) will add its open/accept origins
+		/// separately. Usually root or a governance body.
+		type ChannelManagementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// Per-stream MMR frontiers (peaks + leaf count) — the only long-lived
@@ -500,6 +514,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type OpenOutboundChannels<T: Config> =
 		StorageMap<_, Twox64Concat, ChannelId, (), OptionQuery>;
+
+	/// Sibling peers whose HRMP channel pair is mid HRMP→spec-msg cutover
+	/// (drain-before-close): while a peer is flagged here the XCM router
+	/// ([`SpecMsgRouter`]) treats the pair's HRMP channel as `Closed` even
+	/// though `get_channel_status` still reports it open — new traffic
+	/// diverts to spec-msg immediately while the already-queued HRMP
+	/// messages keep draining through `XcmpQueue` for the remainder of the
+	/// session, so the pipe is empty when the relay-side closure enacts.
+	///
+	/// Set via [`Pallet::set_hrmp_closing`] in the same governance batch as
+	/// the relay's `hrmp.close_channel`; cleared on rollback
+	/// ([`Pallet::clear_hrmp_closing`]). Once the HRMP channel is actually
+	/// gone the flag is inert — the channel status reports `Closed` by
+	/// itself — but it MUST be cleared before an HRMP re-open may take
+	/// routing precedence again.
+	#[pallet::storage]
+	pub type HrmpClosing<T: Config> = StorageMap<_, Twox64Concat, ParaId, (), OptionQuery>;
 
 	/// Consumption frontier per consumed channel stream, keyed by the full
 	/// stream key `(sender, stream id)` — a chain may consume several
@@ -581,6 +612,19 @@ pub mod pallet {
 			stream: StreamId,
 			/// Why the item was rejected.
 			reason: RejectReason,
+		},
+		/// The HRMP→spec-msg cutover flag was set: the XCM router now
+		/// treats the pair's HRMP channel as `Closed`, diverting new
+		/// traffic to spec-msg while the queued HRMP messages drain.
+		HrmpClosingSet {
+			/// The sibling whose HRMP channel pair is closing.
+			peer: ParaId,
+		},
+		/// The cutover flag was cleared (rollback): the router prefers the
+		/// HRMP channel again while one exists.
+		HrmpClosingCleared {
+			/// The sibling whose cutover was rolled back.
+			peer: ParaId,
 		},
 	}
 
@@ -671,6 +715,64 @@ pub mod pallet {
 				}
 			}
 
+			Ok(())
+		}
+
+		/// Flags the HRMP channel pair to `peer` as closing — the
+		/// parachain-side flip of the per-pair HRMP→spec-msg cutover
+		/// sequence (drain-before-close):
+		///
+		/// 1. Open the spec-msg channels in both directions (`open_channel` on each sender,
+		///    `accept_open_channel` on each receiver).
+		/// 2. Wait for phase `Open` in both directions — a full round-trip over the real transport,
+		///    observable on-chain: the peer accepted, published its initial register, and the
+		///    sender read it (credit granted).
+		/// 3. Submit this call in the same governance batch as the relay's `hrmp.close_channel`:
+		///    from this block on the XCM router treats the still-open HRMP channel as `Closed`, so
+		///    new traffic diverts to spec-msg while the already-queued HRMP messages drain for the
+		///    remainder of the session — the pipe is empty when the closure enacts. (A closure with
+		///    a non-empty pipe LOSES messages: the sender's `take_outbound_messages` swallows every
+		///    page buffered for a `Closed` destination, and the relay's `close_hrmp_channel` drops
+		///    all undelivered contents.)
+		/// 4. Verify the drain before the session boundary — scripted, not eyeballed: the sender's
+		///    `OutboundXcmpMessages` / `OutboundXcmpStatus` entries for `peer` and the relay's
+		///    `HrmpChannelContents` of the pair must be empty.
+		///
+		/// Requires the designated outbound XCM channel to `peer` to be
+		/// open — the sender-side, on-chain half of step 2's gate (the full
+		/// both-directions condition is operational; one side cannot prove
+		/// the reverse direction). Idempotent. Cost of the drain window:
+		/// the receiver services residual HRMP (`Sibling` book) and new
+		/// spec-msg (`SpecMsg` book) round-robin — bounded cross-transport
+		/// reordering for at most one session.
+		#[pallet::call_index(1)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		pub fn set_hrmp_closing(origin: OriginFor<T>, peer: ParaId) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			ensure!(
+				Self::is_outbound_channel_open(&xcm_router::xcm_channel(peer)),
+				Error::<T>::ChannelNotOpen
+			);
+			HrmpClosing::<T>::insert(peer, ());
+			Self::deposit_event(Event::HrmpClosingSet { peer });
+			Ok(())
+		}
+
+		/// Clears the [`HrmpClosing`] flag for `peer` — the rollback path:
+		/// re-open the HRMP channel (handshake or relay-governance
+		/// `force_open_hrmp_channel`; enacts at a session boundary, so
+		/// rollback is distinctly slower than the flip) and clear the flag,
+		/// and the router prefers HRMP again the moment the channel reports
+		/// open. Messages already appended to the spec-msg channel keep
+		/// being consumed by the peer — retrievable until its register
+		/// confirms them (the watermark pruning rule), so a rollback
+		/// re-interleaves the transports once but never loses. Idempotent.
+		#[pallet::call_index(2)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(0, 1), DispatchClass::Operational))]
+		pub fn clear_hrmp_closing(origin: OriginFor<T>, peer: ParaId) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			HrmpClosing::<T>::remove(peer);
+			Self::deposit_event(Event::HrmpClosingCleared { peer });
 			Ok(())
 		}
 	}
@@ -764,6 +866,13 @@ pub mod pallet {
 		/// deriving the phase from the handshake and the peer's register.
 		pub fn is_outbound_channel_open(channel: &ChannelId) -> bool {
 			OpenOutboundChannels::<T>::contains_key(channel)
+		}
+
+		/// Whether the HRMP channel pair to `peer` is flagged mid-cutover —
+		/// what makes the XCM router treat the pair's HRMP channel as
+		/// `Closed` while `get_channel_status` still reports it open.
+		pub fn is_hrmp_closing(peer: ParaId) -> bool {
+			HrmpClosing::<T>::contains_key(peer)
 		}
 
 		/// Whether the channel layer would currently accept a
