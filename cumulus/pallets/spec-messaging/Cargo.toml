@@ -18,35 +18,44 @@ scale-info = { features = ["derive"], workspace = true }
 # Substrate
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
+xcm = { workspace = true }
 
 # Cumulus
+cumulus-primitives-core = { workspace = true }
 cumulus-primitives-spec-messaging = { workspace = true }
-
-[dev-dependencies]
-sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-primitives-core/std",
 	"cumulus-primitives-spec-messaging/std",
 	"frame-support/std",
 	"frame-system/std",
 	"polkadot-core-primitives/std",
+	"polkadot-runtime-common/std",
 	"scale-info/std",
+	"sp-io/std",
 	"sp-runtime/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]

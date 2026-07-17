@@ -5289,14 +5289,17 @@ dependencies = [
 name = "cumulus-pallet-spec-messaging"
 version = "0.1.0"
 dependencies = [
+ "cumulus-primitives-core",
  "cumulus-primitives-spec-messaging",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "polkadot-core-primitives",
+ "polkadot-runtime-common",
  "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "staging-xcm",
 ]
 
 [[package]]

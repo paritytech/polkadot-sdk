@@ -56,6 +56,14 @@
 //! call, and its per-block caps ([`Config::MaxMessagesPerBlock`],
 //! [`Config::MaxMsgLen`]) are the hard, consensus-side backpressure
 //! underneath the advisory window grants.
+//!
+//! The channel layer's outbound entry points already live here in skeletal
+//! form: [`Pallet::send`]/[`Pallet::can_send`] wrap payloads as
+//! [`SpecMsgKind::Data`] leaves on the channel's data stream (this is what
+//! the XCM router, [`SpecMsgRouter`], calls). Until the full lifecycle
+//! machinery lands, channel phase is a placeholder flag
+//! ([`OpenOutboundChannels`]) and the advisory credit window is not yet
+//! enforced — the per-block caps are the only backpressure.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -65,20 +73,22 @@ extern crate alloc;
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod xcm_router;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_primitives_spec_messaging::{
 	hash_leaf,
 	tree::{bit_at, first_diff_bit, tree_inner_hash, tree_leaf_hash, KEY_BITS},
-	MessagePosition, MmrFrontier, SpecHasher, StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID,
-	STREAM_ID_LEN,
+	ChannelId, MessagePosition, MmrFrontier, SpecHasher, SpecMsgKind, StreamId, StreamsRoot,
+	LEAF_VERSION, SPMS_ENGINE_ID, STREAM_ID_LEN,
 };
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use sp_runtime::generic::DigestItem;
 
 pub use pallet::*;
+pub use xcm_router::SpecMsgRouter;
 
 /// Storage key of one commitment-tree node: the key prefix it governs.
 ///
@@ -279,6 +289,17 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BlockStreamsRoot<T: Config> = StorageValue<_, StreamsRoot, OptionQuery>;
 
+	/// Outbound channels currently considered in phase `Open`.
+	///
+	/// PLACEHOLDER for the channel lifecycle machinery (channels & flow
+	/// control), which will replace this bare flag with phases derived from
+	/// the `OpenChannel` handshake and the peer's register. Until then,
+	/// inserting a key here is the manual arming step; a channel absent
+	/// here refuses [`Pallet::send`] and makes the XCM router fall through.
+	#[pallet::storage]
+	pub type OpenOutboundChannels<T: Config> =
+		StorageMap<_, Twox64Concat, ChannelId, (), OptionQuery>;
+
 	#[pallet::error]
 	#[derive(PartialEq)]
 	pub enum Error<T> {
@@ -288,6 +309,8 @@ pub mod pallet {
 		/// The stream already carries [`Config::MaxMessagesPerBlock`]
 		/// messages in this block.
 		TooManyMessages,
+		/// The outbound channel is not in phase `Open`.
+		ChannelNotOpen,
 	}
 
 	#[pallet::hooks]
@@ -346,6 +369,71 @@ pub mod pallet {
 				.map_err(|()| Error::<T>::TooManyMessages)?;
 
 			Ok(MessagePosition(OutboundFrontier::<T>::get(stream).leaf_count + index))
+		}
+
+		/// The data stream carrying an OUTBOUND channel's messages: same
+		/// discriminators, `Channel` kind, addressed to the peer. (Inbound
+		/// channels live in the peer's key space and have no stream here.)
+		pub fn outbound_stream(channel: &ChannelId) -> StreamId {
+			StreamId::Channel { recipient: channel.peer, domain: channel.domain, num: channel.num }
+		}
+
+		/// Whether the outbound channel is in phase `Open`.
+		///
+		/// PLACEHOLDER semantics until the channel lifecycle machinery
+		/// lands: reads the bare [`OpenOutboundChannels`] flag instead of
+		/// deriving the phase from the handshake and the peer's register.
+		pub fn is_outbound_channel_open(channel: &ChannelId) -> bool {
+			OpenOutboundChannels::<T>::contains_key(channel)
+		}
+
+		/// Whether the channel layer would currently accept a
+		/// [`Pallet::send`] of `data_len` payload bytes: the encoded
+		/// [`SpecMsgKind::Data`] leaf must fit [`Config::MaxMsgLen`] and the
+		/// channel stream's per-block vec must have room. Side-effect free —
+		/// this is the fail-fast check the XCM router runs at `validate`.
+		///
+		/// TODO(channels & flow control): also gate on the peer's advisory
+		/// credit window (`WindowGrant` beyond its watermark) here.
+		pub fn can_send(channel: &ChannelId, data_len: usize) -> Result<(), Error<T>> {
+			// The leaf payload is the SCALE-encoded `SpecMsgKind::Data`:
+			// 1-byte variant tag + compact length prefix + the data bytes.
+			let data_len32 = u32::try_from(data_len).unwrap_or(u32::MAX);
+			let payload_len = (data_len as u64)
+				.saturating_add(1)
+				.saturating_add(codec::Compact(data_len32).encoded_size() as u64);
+			frame_support::ensure!(
+				payload_len <= u64::from(T::MaxMsgLen::get()),
+				Error::<T>::MessageTooBig
+			);
+
+			let stream = Self::outbound_stream(channel);
+			let queued = OutboundMessages::<T>::decode_len(stream).unwrap_or(0);
+			frame_support::ensure!(
+				queued < T::MaxMessagesPerBlock::get() as usize,
+				Error::<T>::TooManyMessages
+			);
+			Ok(())
+		}
+
+		/// The channel layer's outbound `send`: wraps `data` as a
+		/// [`SpecMsgKind::Data`] leaf — on the designated XCM channel the
+		/// data is exactly a SCALE-encoded `VersionedXcm`, no extra framing
+		/// — and appends it to the channel's data stream, returning the
+		/// message's position. On error, state is untouched.
+		///
+		/// TODO(channels & flow control): debit the advisory credit window
+		/// here; today only the placeholder open flag and the consensus
+		/// hard caps of [`Pallet::append_to_stream`] gate the send.
+		pub fn send(channel: ChannelId, data: Vec<u8>) -> Result<MessagePosition, Error<T>> {
+			frame_support::ensure!(
+				Self::is_outbound_channel_open(&channel),
+				Error::<T>::ChannelNotOpen
+			);
+			Self::append_to_stream(
+				Self::outbound_stream(&channel),
+				SpecMsgKind::Data(data).encode(),
+			)
 		}
 
 		/// Runs the end-of-block commitment fold — idempotent, at most once
