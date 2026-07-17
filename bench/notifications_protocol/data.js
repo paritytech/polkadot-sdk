@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784317274552,
+  "lastUpdate": 1784318559485,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -194687,6 +194687,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2350825736,
             "range": "± 61146702",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tim.n@parity.io",
+            "name": "Tim Nieradzik",
+            "username": "tindzk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12e585fffc0a12c5b48635fd3301d510a34af912",
+          "message": "claims: Reject vesting claims below the existential deposit (#12254)\n\n## Description\n\nA vesting claim attaches a balance lock to the destination account,\nwhich requires the account to stay alive (balance >= existential\ndeposit). This is currently not enforced: If a claim's value was below\nED, `process_claim`'s `deposit_creating` left the account below ED, and\nthe subsequent `add_vesting_schedule` -> `update_locks` ->\n`try_mutate_account` saw `free < ED`. This dusted the account and\ntripped `pallet_balances`' \"caused unexpected dusting/balance update\"\ndefensive failure. `defensive!` panics in tests and benchmarks but only\nlogs in release, so in production this produced silently inconsistent\nstate (a vesting lock written onto a dusted account). `process_claim`\nalso relied on an `.expect()` over `add_vesting_schedule` that assumed\nthe failure was impossible.\n\nGuard the invariant in `process_claim`, and add a\n`ClaimBelowExistentialDeposit` error. The benchmark was updated to floor\nits claim amount at `max(ED, 1_000_000)`, which satisfies the invariant.\n\n## Integration\n\nNo action required for downstream users. The changes are additive:\n\n- An error variant `ClaimBelowExistentialDeposit` was appended to\n`claims::Error`, so the indices of existing variants remain unchanged.\n- `process_claim` now rejects a vesting claim whose destination account\nwould end up below the ED after the deposit; it fails with\n`ClaimBelowExistentialDeposit` and is reverted by the dispatch's storage\nlayer. The check is on the resulting free balance, so a small claim into\nan account that already holds funds is still accepted. `mint_claim` is\nunchanged: the destination account is not known until claim time, so the\ninvariant can only be enforced there.\n\nThere is no storage migration and no change to dispatchable signatures\nor weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-07-17T18:33:12Z",
+          "tree_id": "8e964c5e976e79bf6f941dc727219cae29f35597",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12e585fffc0a12c5b48635fd3301d510a34af912"
+        },
+        "date": 1784318526551,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4710967,
+            "range": "± 33463",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 298447,
+            "range": "± 5226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4771808,
+            "range": "± 35921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 374057,
+            "range": "± 4181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5655846,
+            "range": "± 97126",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 895868,
+            "range": "± 7736",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10841117,
+            "range": "± 99655",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4868476,
+            "range": "± 29924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45108956,
+            "range": "± 446835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39065147,
+            "range": "± 376385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 389414443,
+            "range": "± 3102621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 316553790,
+            "range": "± 3165217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2921752128,
+            "range": "± 40973934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2910312855,
+            "range": "± 66379763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3176954,
+            "range": "± 38596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1686002,
+            "range": "± 8250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3180956,
+            "range": "± 22084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1739056,
+            "range": "± 6484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3741354,
+            "range": "± 22338",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2053389,
+            "range": "± 21970",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7724278,
+            "range": "± 90191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5121068,
+            "range": "± 70584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36621817,
+            "range": "± 337272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36679878,
+            "range": "± 376942",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 327562272,
+            "range": "± 3175492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 277676458,
+            "range": "± 2458145",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2587557461,
+            "range": "± 36447783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2540990710,
+            "range": "± 41505017",
             "unit": "ns/iter"
           }
         ]
