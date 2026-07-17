@@ -165,8 +165,16 @@ pub struct OverheadParams {
 	///
 	/// This flag controls whether the generated weight expression in the template includes
 	/// explicit `Weight::saturating_sub(...)` terms for `--signature-weight` and
-	/// `--extension-weight`.
-	#[arg(long, default_value_t = true, alias = "subtract-extensions")]
+	/// `--extension-weight`. Defaults to `true`; pass `--extrinsic-subtract-weight=false` to
+	/// disable.
+	#[arg(
+		long,
+		alias = "subtract-extensions",
+		num_args = 0..=1,
+		default_value_t = true,
+		default_missing_value = "true",
+		action = clap::ArgAction::Set,
+	)]
 	pub extrinsic_subtract_weight: bool,
 
 	/// `ref_time` of signature verification for the remark extrinsic used by the benchmark.

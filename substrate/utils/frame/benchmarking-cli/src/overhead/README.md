@@ -139,8 +139,8 @@ a large transaction throughput.
 - [`--weight-path`](../shared/README.md#arguments)
 - [`--header`](../shared/README.md#arguments)
 - `--extrinsic-subtract-weight`: Enable subtraction of signature and extension weights from the
-  generated extrinsic base weight expression (default: true). (`--subtract-extensions` is kept as
-  an alias.)
+  generated extrinsic base weight expression (default: true). Pass
+  `--extrinsic-subtract-weight=false` to disable. (`--subtract-extensions` is kept as an alias.)
 - `--signature-weight`: Manual `ref_time` of the signature verification to subtract
   (proof size is assumed to be zero).
 - `--extension-weight`: Manual `ref_time` of the transaction extensions to subtract
