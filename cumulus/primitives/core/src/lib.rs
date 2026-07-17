@@ -35,6 +35,15 @@ pub mod parachain_block_data;
 pub mod scheduling;
 
 pub use parachain_block_data::ParachainBlockData;
+// Parachain-side speculative-messaging off-chain types, surfaced here as the
+// parachain primitives hub (the relay-visible commitments stay in
+// `polkadot-primitives::v9`).
+pub use cumulus_primitives_spec_messaging::{
+	build_requires, leaf_hash, verify_messages_response, ConsumptionRecord, Interval,
+	MMRExtensionProof, MaxSpeculativeMessageLen, MessagePosition, MessagesRequest,
+	MessagesResponse, MmrFrontier, MmrRoot, RequiresLift, SpecHasher, StreamId, StreamProof,
+	TreeInclusionProof,
+};
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
@@ -736,5 +745,29 @@ sp_api::decl_runtime_apis! {
 		///
 		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
+	}
+
+	/// API for the speculative-messaging outbox (sender side): serves the off-chain fetch protocol.
+	pub trait SpeculativeOutboxApi {
+		/// The sender's current `StreamsRoot` — the `Provides` commitment over all active streams
+		/// (`None` when no stream is active).
+		fn streams_root() -> Option<polkadot_primitives::v9::StreamsRoot>;
+
+		/// Serve a range of a stream's messages with the proofs binding them to the request's `under`
+		/// `StreamsRoot` (payloads + `extension` + `tree_proof`), authenticated by
+		/// [`verify_messages_response`]. A payload-free request (`max_bytes == 0`) yields lift
+		/// material. `None` when the stream/root cannot be served.
+		fn messages_response(request: MessagesRequest) -> Option<MessagesResponse>;
+	}
+
+	/// API for the speculative-messaging inbox (receiver side).
+	pub trait SpeculativeInboxApi {
+		/// This block's consumption record: per touched stream, the MMR interval it consumed. The
+		/// `validate_block` wrapper synthesizes the `Requires` set from it via POV-carried lifts (a
+		/// block never emits `Requires` directly); the node reads it for a block's dependencies.
+		///
+		/// The receiver's per-stream frontier (where the collator resumes fetching) is ordinary
+		/// receiver state, read directly off the parent — not exposed here.
+		fn consumption_record() -> ConsumptionRecord;
 	}
 }
