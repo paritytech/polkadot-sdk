@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784310561782,
+  "lastUpdate": 1784319453652,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "04f79fb22ac3b5f4ee6efda2f223dea797ba6299",
-          "message": "[pallet-revive] update evm create benchmark (#10366)\n\nAdd a benchmark for the EVM CREATE instruction.\n\nWe are currently reusing the `seal_instantiate` benchmark from PVM\ninstantiation, which is incorrect because instantiating an EVM contract\ntakes different arguments and follows a different code path than\ncreating a PVM contract.\n\nThis benchmark performs the following steps:\n\n- Generates init bytecode of size i, optionally including a balance with\ndust.\n- Executes the init code that triggers a single benchmark opcode\nreturning a runtime code of the maximum allowed size\n(qrevm::primitives::eip170::MAX_CODE_SIZE`).\n\n\nAlso fix the order of the weight function arguments, they were wrong\ncausing the weight to be much bigger that what it should be\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-20T17:56:56Z",
-          "tree_id": "4b3256e9544cca66d3ebcc141cd56ab1f9d5824a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/04f79fb22ac3b5f4ee6efda2f223dea797ba6299"
-        },
-        "date": 1763666483541,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63636.76000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0057697222500000065,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5276392282800013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018307999999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.53782777211999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4395757242699984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.513320861420001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5690671944099988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9737661587399926,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001878521,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001878521,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018307999999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5086888827499996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.649167452930956,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.65687868057,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tim.n@parity.io",
+            "name": "Tim Nieradzik",
+            "username": "tindzk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12e585fffc0a12c5b48635fd3301d510a34af912",
+          "message": "claims: Reject vesting claims below the existential deposit (#12254)\n\n## Description\n\nA vesting claim attaches a balance lock to the destination account,\nwhich requires the account to stay alive (balance >= existential\ndeposit). This is currently not enforced: If a claim's value was below\nED, `process_claim`'s `deposit_creating` left the account below ED, and\nthe subsequent `add_vesting_schedule` -> `update_locks` ->\n`try_mutate_account` saw `free < ED`. This dusted the account and\ntripped `pallet_balances`' \"caused unexpected dusting/balance update\"\ndefensive failure. `defensive!` panics in tests and benchmarks but only\nlogs in release, so in production this produced silently inconsistent\nstate (a vesting lock written onto a dusted account). `process_claim`\nalso relied on an `.expect()` over `add_vesting_schedule` that assumed\nthe failure was impossible.\n\nGuard the invariant in `process_claim`, and add a\n`ClaimBelowExistentialDeposit` error. The benchmark was updated to floor\nits claim amount at `max(ED, 1_000_000)`, which satisfies the invariant.\n\n## Integration\n\nNo action required for downstream users. The changes are additive:\n\n- An error variant `ClaimBelowExistentialDeposit` was appended to\n`claims::Error`, so the indices of existing variants remain unchanged.\n- `process_claim` now rejects a vesting claim whose destination account\nwould end up below the ED after the deposit; it fails with\n`ClaimBelowExistentialDeposit` and is reverted by the dispatch's storage\nlayer. The check is on the resulting free balance, so a small claim into\nan account that already holds funds is still accepted. `mint_claim` is\nunchanged: the destination account is not known until claim time, so the\ninvariant can only be enforced there.\n\nThere is no storage migration and no change to dispatchable signatures\nor weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-07-17T18:33:12Z",
+          "tree_id": "8e964c5e976e79bf6f941dc727219cae29f35597",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12e585fffc0a12c5b48635fd3301d510a34af912"
+        },
+        "date": 1784319423530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.969999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001948403,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7908614219999606,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.310950427182729,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6219830691499992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6402897309799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6010403662,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020513919999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005069660990000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020513919999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001948403,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.59361005642997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6194956612799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.314870145830011,
             "unit": "seconds"
           }
         ]
