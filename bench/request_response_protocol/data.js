@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784317315301,
+  "lastUpdate": 1784318598980,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -108863,6 +108863,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2410040367,
             "range": "± 12223422",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tim.n@parity.io",
+            "name": "Tim Nieradzik",
+            "username": "tindzk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12e585fffc0a12c5b48635fd3301d510a34af912",
+          "message": "claims: Reject vesting claims below the existential deposit (#12254)\n\n## Description\n\nA vesting claim attaches a balance lock to the destination account,\nwhich requires the account to stay alive (balance >= existential\ndeposit). This is currently not enforced: If a claim's value was below\nED, `process_claim`'s `deposit_creating` left the account below ED, and\nthe subsequent `add_vesting_schedule` -> `update_locks` ->\n`try_mutate_account` saw `free < ED`. This dusted the account and\ntripped `pallet_balances`' \"caused unexpected dusting/balance update\"\ndefensive failure. `defensive!` panics in tests and benchmarks but only\nlogs in release, so in production this produced silently inconsistent\nstate (a vesting lock written onto a dusted account). `process_claim`\nalso relied on an `.expect()` over `add_vesting_schedule` that assumed\nthe failure was impossible.\n\nGuard the invariant in `process_claim`, and add a\n`ClaimBelowExistentialDeposit` error. The benchmark was updated to floor\nits claim amount at `max(ED, 1_000_000)`, which satisfies the invariant.\n\n## Integration\n\nNo action required for downstream users. The changes are additive:\n\n- An error variant `ClaimBelowExistentialDeposit` was appended to\n`claims::Error`, so the indices of existing variants remain unchanged.\n- `process_claim` now rejects a vesting claim whose destination account\nwould end up below the ED after the deposit; it fails with\n`ClaimBelowExistentialDeposit` and is reverted by the dispatch's storage\nlayer. The check is on the resulting free balance, so a small claim into\nan account that already holds funds is still accepted. `mint_claim` is\nunchanged: the destination account is not known until claim time, so the\ninvariant can only be enforced there.\n\nThere is no storage migration and no change to dispatchable signatures\nor weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-07-17T18:33:12Z",
+          "tree_id": "8e964c5e976e79bf6f941dc727219cae29f35597",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12e585fffc0a12c5b48635fd3301d510a34af912"
+        },
+        "date": 1784318566482,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19992009,
+            "range": "± 284934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19566006,
+            "range": "± 303461",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21135682,
+            "range": "± 660560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25315491,
+            "range": "± 527774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58307030,
+            "range": "± 995860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 354784231,
+            "range": "± 6950969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2669252567,
+            "range": "± 103652955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16663498,
+            "range": "± 155447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16210729,
+            "range": "± 212733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16785704,
+            "range": "± 223957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20742570,
+            "range": "± 162871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58670460,
+            "range": "± 1774716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 352818144,
+            "range": "± 5471503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2634372737,
+            "range": "± 34598021",
             "unit": "ns/iter"
           }
         ]
