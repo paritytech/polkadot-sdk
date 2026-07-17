@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784222975623,
+  "lastUpdate": 1784294305568,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d38ac656a243d576da7d8da0cbcdca10500e1022",
-          "message": "Upgrade litep2p to v0.12.0 and handle Kademlia publish success events (#9685)\n\nlitep2p v0.12.0 adds ability to track whether publishing a DHT record or\nprovider was successful. This PR brings this functionality to substrate.\nParticularly, this fixes authority-discovery unnecessarily republishing\nDHT records due to litep2p not emitting\n`KademliaEvent::PutRecordSuccess` before v0.12.0.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:00:26Z",
-          "tree_id": "403a909fa0de016a09c52706aec96c3a200fb2ba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d38ac656a243d576da7d8da0cbcdca10500e1022"
-        },
-        "date": 1763565264375,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022915191939999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0076013245466666525,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013260383186666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15970522251333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02341038756666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d56ed88f344ed854b89d7b9221003da2f5006df5",
+          "message": "Remove deprecated pallet_staking::ExposureOf. (#12654)\n\n## Summary\n- Remove deprecated `pallet_staking::ExposureOf` (use\n`DefaultExposureOf` / `UnitIdentificationOf`).\n- No remaining in-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-07-17T06:39:16Z",
+          "tree_id": "2ee17a8441ca654a5ba5853206083bc278244e90",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d56ed88f344ed854b89d7b9221003da2f5006df5"
+        },
+        "date": 1784294273301,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1493017718266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007650562133333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02363855510666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010261636386666637,
             "unit": "seconds"
           }
         ]
