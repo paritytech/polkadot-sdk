@@ -85,19 +85,11 @@ pub mod pallet {
 		/// Required origin for whitelisting a call.
 		type WhitelistOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to dispatch an already-whitelisted call (the inner call runs with
-		/// `Root`).
-		///
-		/// Conventionally a privileged origin. Accepting the `Authorized` system origin (e.g.
-		/// via `frame_system::EnsureAuthorized`) additionally enables permissionless dispatch:
-		/// the `#[pallet::authorize]` callbacks probe `try_origin(Authorized)` at pool admission
-		/// and admit unsigned, fee-free submissions of whitelisted calls, with
-		/// `frame_system::AuthorizeCall` converting the `None` origin into `Authorized`.
-		///
-		/// When only `Authorized` is accepted, the dispatch calls have no privileged entrypoint
-		/// and are reachable solely through this permissionless flow. Deferred dispatch is then
-		/// unreachable: the authorize callbacks admit only hashes already in `WhitelistedCall`,
-		/// so [`Config::DeferredDispatchExpiration`] is never consulted.
+		/// Required origin for dispatching whitelisted call with root origin.
+        ///
+        /// If this origin accepts `Authorized` (e.g. via [`frame_system::EnsureAuthorized`]),
+        /// whitelisted calls can additionally be dispatched permissionlessly as unsigned
+        /// transactions.
 		type DispatchWhitelistedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The handler of pre-images.
