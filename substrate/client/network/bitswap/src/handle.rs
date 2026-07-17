@@ -15,49 +15,39 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-//! User-facing API for submitting Bitswap requests.
+//! Bitswap request API.
 
 use super::{is_cid_supported, Cid};
 
 use tokio::sync::mpsc;
 
-/// Service-level Bitswap errors.
-///
-/// Returned synchronously from [`BitswapHandle::request_stream`] for admission-time
-/// failures, and appearing at most once inside the returned stream (`Overloaded` or
-/// `ServiceClosed`).
+/// Bitswap request errors.
 #[derive(Debug, thiserror::Error)]
 pub enum BitswapError {
-	/// The Bitswap service task has shut down.
+	/// The service is unavailable.
 	#[error("Bitswap service is closed")]
 	ServiceClosed,
-	/// A CID in the wantlist is unsupported (bad version, bad multihash code, or bad digest
-	/// size).
+	/// A CID is unsupported.
 	#[error("invalid CID for Bitswap: {cid}")]
 	InvalidCid {
-		/// The offending CID.
+		/// Unsupported CID.
 		cid: Cid,
 	},
-	/// The service cannot accept the request: the command channel is full, or too many
-	/// concurrent requests want the same CID.
+	/// The service is at capacity.
 	#[error("Bitswap service is overloaded")]
 	Overloaded,
 }
 
-/// Item carried on the receiver returned by [`BitswapHandle::request_stream`]: the
-/// hash-verified bytes for one requested CID, or a terminal service error.
+/// A fetched block or request error.
 pub type FetchItem = Result<(Cid, Vec<u8>), BitswapError>;
 
-/// User-facing handle to the Bitswap service.
-///
-/// Cheap to clone.
+/// Handle for submitting Bitswap requests.
 #[derive(Debug, Clone)]
 pub struct BitswapHandle {
 	cmd_tx: mpsc::Sender<BitswapCommand>,
 }
 
 impl BitswapHandle {
-	/// Construct a new handle around an existing command sender.
 	pub(crate) fn new(cmd_tx: mpsc::Sender<BitswapCommand>) -> Self {
 		Self { cmd_tx }
 	}
@@ -68,15 +58,9 @@ impl BitswapHandle {
 	/// The stream closes once every CID has been delivered. Unresolved CIDs are retried
 	/// until the receiver is dropped.
 	///
-	/// There is no per-call CID cap.
-	///
 	/// `Err(BitswapError::ServiceClosed)` is yielded once, as the final item, if the
 	/// service shuts down mid-request. `Err(BitswapError::Overloaded)` is yielded once as
 	/// the only item if too many concurrent requests want one of the CIDs.
-	///
-	/// Returns a synchronous `BitswapError` for admission-time failures (`ServiceClosed`,
-	/// `InvalidCid`, or `Overloaded` when the command channel is full). An empty `cids`
-	/// slice returns an immediately-closed receiver, not an error.
 	pub fn request_stream(
 		&self,
 		cids: Vec<Cid>,
@@ -92,9 +76,6 @@ impl BitswapHandle {
 			}
 		}
 
-		// `cids.len() + 1` reserves one slot for a possible terminal `Err` item
-		// (`Overloaded` or `ServiceClosed`), so the actor's `try_send` for outcomes never
-		// fails for well-behaved callers.
 		let (sink, rx) = mpsc::channel(cids.len() + 1);
 
 		self.cmd_tx.try_send(BitswapCommand::RequestStream { cids, sink }).map_err(
@@ -108,22 +89,7 @@ impl BitswapHandle {
 	}
 }
 
-/// Object-safe surface over [`BitswapHandle::request_stream`], allowing consumers to mock
-/// the bitswap client in tests.
-pub trait BitswapRequest: Send + Sync {
-	/// Submit a wantlist. See [`BitswapHandle::request_stream`] for full semantics.
-	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError>;
-}
-
-impl BitswapRequest for BitswapHandle {
-	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
-		BitswapHandle::request_stream(self, cids)
-	}
-}
-
-/// Internal command sent from a [`BitswapHandle`] to the service actor.
 #[derive(Debug)]
 pub(crate) enum BitswapCommand {
-	/// Submit a streaming request: fetch `cids` and write per-CID outcomes into `sink`.
 	RequestStream { cids: Vec<Cid>, sink: mpsc::Sender<FetchItem> },
 }

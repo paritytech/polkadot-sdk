@@ -525,16 +525,14 @@ mod mock {
 	use async_trait::async_trait;
 	use codec::{Decode, Encode};
 	use sc_storage_chain_sync::{
-		BitswapHandleSlot, IndexedTransactionFetcher, StorageChainBlockImport,
+		BitswapHandleSlot, BitswapRequest, IndexedTransactionFetcher, StorageChainBlockImport,
 	};
 
 	use sc_consensus::{
 		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux, StateAction,
 		StorageChanges as ConsensusStorageChanges,
 	};
-	use sc_network_bitswap::{
-		BitswapError, BitswapRequest, Cid as BitswapCid, FetchItem, RAW_CODEC,
-	};
+	use sc_network_bitswap::{BitswapError, Cid as BitswapCid, FetchItem, RAW_CODEC};
 	use sp_api::{ApiError, ConstructRuntimeApi};
 	use sp_consensus::{BlockOrigin, Error as ConsensusError};
 	use sp_core::H256;
@@ -806,12 +804,6 @@ mod mock {
 		}
 	}
 
-	/// In-memory mock of [`BitswapRequest`] for the integration tests.
-	///
-	/// Stores a `ContentHash -> Vec<u8>` map. On `request_stream`, returns a receiver
-	/// pre-loaded with the bytes of every known CID; unknown CIDs produce nothing, and the
-	/// closed channel signals end-of-request (the fetcher treats absent entries as
-	/// missing). Records every observed CID and counts every call for assertions.
 	#[derive(Default)]
 	pub(super) struct MockBitswap {
 		responses: Mutex<HashMap<ContentHash, Vec<u8>>>,
@@ -855,7 +847,7 @@ mod mock {
 
 	fn populated_bitswap_slot(mock: Arc<MockBitswap>) -> BitswapHandleSlot {
 		let slot: BitswapHandleSlot = Arc::new(OnceLock::new());
-		let _ = slot.set(mock as Arc<dyn BitswapRequest>);
+		let _ = slot.set(mock);
 		slot
 	}
 

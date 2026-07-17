@@ -42,7 +42,6 @@ pub(crate) mod outbound_events {
 	pub(crate) const ROUND_RESTARTED: &str = "round_restarted";
 	pub(crate) const ABANDONED: &str = "abandoned";
 	pub(crate) const OVERLOADED: &str = "overloaded";
-	pub(crate) const VERIFICATION_FAILED: &str = "verification_failed";
 }
 
 struct Inner {
@@ -86,7 +85,7 @@ impl Inner {
 						"Duration of handling an inbound bitswap wantlist, in seconds",
 					),
 					buckets: exponential_buckets(0.001, 2.0, 16)
-						.expect("parameters are valid; qed"),
+						.expect("valid histogram parameters"),
 				})?,
 				registry,
 			)?,

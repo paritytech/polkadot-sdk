@@ -49,7 +49,6 @@ use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
 	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
 };
-use sc_network_bitswap::BitswapRequest;
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_storage_chain_sync::{
@@ -462,7 +461,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.await?;
 
 			if let Some(handle) = bitswap_handle {
-				let _ = bitswap_slot.set(Arc::new(handle) as Arc<dyn BitswapRequest>);
+				let _ = bitswap_slot.set(Arc::new(handle));
 			}
 
 			let peer_id = relay_chain_network.local_peer_id();

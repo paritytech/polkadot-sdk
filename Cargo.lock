@@ -16939,7 +16939,6 @@ dependencies = [
  "sc-hop",
  "sc-keystore",
  "sc-network 0.34.0",
- "sc-network-bitswap",
  "sc-network-statement",
  "sc-network-sync",
  "sc-offchain",

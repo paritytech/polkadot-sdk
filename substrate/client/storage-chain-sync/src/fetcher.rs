@@ -16,26 +16,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Fetches indexed-transaction blobs through the shared Bitswap service.
+//! Indexed-transaction fetching over Bitswap.
 
 use crate::RenewWant;
 use cid::{multihash::Multihash, Cid};
-use sc_network_bitswap::{BitswapError, BitswapRequest};
+use sc_network_bitswap::{BitswapError, BitswapHandle, FetchItem};
 use sp_transaction_storage_proof::ContentHash;
 use std::{
 	collections::HashMap,
 	sync::{Arc, OnceLock},
 	time::Duration,
 };
+use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "storage-chain-fetcher";
 
-/// Base time budget for a single [`IndexedTransactionFetcher::fetch_many`] call.
 const FETCH_TIMEOUT_BASE: Duration = Duration::from_secs(30);
-/// Additional budget per requested CID: large wantlists queue behind the bitswap
-/// service's dispatch window and need proportionally more time.
 const FETCH_TIMEOUT_PER_CID: Duration = Duration::from_millis(100);
-/// Hard cap so a hopeless fetch cannot stall block import for too long.
 const FETCH_TIMEOUT_MAX: Duration = Duration::from_secs(600);
 
 fn fetch_timeout(cid_count: usize) -> Duration {
@@ -43,43 +40,48 @@ fn fetch_timeout(cid_count: usize) -> Duration {
 	FETCH_TIMEOUT_BASE.saturating_add(per_cid).min(FETCH_TIMEOUT_MAX)
 }
 
-/// Late-bound slot for the bitswap handle.
-///
-/// Allows constructing a fetcher before the handle exists; fetches fail with
-/// [`FetchError::BitswapUnavailable`] until the slot is populated.
+/// Source of Bitswap response streams.
+pub trait BitswapRequest: Send + Sync {
+	/// Requests blocks by CID.
+	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError>;
+}
+
+impl BitswapRequest for BitswapHandle {
+	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
+		BitswapHandle::request_stream(self, cids)
+	}
+}
+
+/// Late-bound Bitswap request source.
 pub type BitswapHandleSlot = Arc<OnceLock<Arc<dyn BitswapRequest>>>;
 
-/// Infrastructure-level fetch failure surfaced to [`crate::StorageChainBlockImport`].
+/// Indexed-transaction fetch errors.
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
-	/// No bitswap handle is available: bitswap is disabled on this node, or the network
-	/// has not been initialized yet.
+	/// Bitswap is unavailable.
 	#[error("bitswap unavailable: disabled on this node, or network not yet initialized")]
 	BitswapUnavailable,
-	/// CID construction failed for the given (hashing, hash) pair.
+	/// CID construction failed.
 	#[error("failed to construct multihash for CID: {0}")]
 	Multihash(String),
-	/// The bitswap service rejected the request at admission, or shut down mid-stream.
+	/// The Bitswap request failed.
 	#[error("bitswap service error: {0}")]
 	Bitswap(#[from] BitswapError),
 }
 
-/// Fetcher that resolves indexed-transaction hashes via bitswap.
+/// Fetches indexed transactions through Bitswap.
 #[derive(Clone)]
 pub struct IndexedTransactionFetcher {
 	bitswap: BitswapHandleSlot,
 }
 
 impl IndexedTransactionFetcher {
-	/// Build a new fetcher backed by the given late-bound bitswap handle slot.
+	/// Creates a fetcher.
 	pub fn new(bitswap: BitswapHandleSlot) -> Self {
 		Self { bitswap }
 	}
 
-	/// Resolve a batch of indexed-transaction hashes via bitswap. Each want carries the
-	/// runtime-declared `cid_codec` so the request CID matches what the producing runtime
-	/// announced. Returns only successfully fetched entries; entries unresolved when the
-	/// time budget expires are simply absent.
+	/// Fetches a batch of indexed transactions.
 	pub(crate) async fn fetch_many(
 		&self,
 		wants: &[RenewWant],
@@ -101,8 +103,6 @@ impl IndexedTransactionFetcher {
 
 		let mut rx = match handle.request_stream(cids) {
 			Ok(rx) => rx,
-			// Transient congestion: degrade to an empty partial result instead of failing
-			// the import.
 			Err(BitswapError::Overloaded) => {
 				log::debug!(target: LOG_TARGET, "bitswap service overloaded, deferring fetch");
 				return Ok(HashMap::new());
@@ -139,9 +139,7 @@ impl IndexedTransactionFetcher {
 					return Ok(acquired);
 				},
 				Ok(Some(Err(other))) => return Err(FetchError::Bitswap(other)),
-				// The stream closed: every CID was delivered.
 				Ok(None) => break,
-				// Time budget expired. Dropping the receiver cancels the remaining wants.
 				Err(_) => {
 					log::debug!(
 						target: LOG_TARGET,

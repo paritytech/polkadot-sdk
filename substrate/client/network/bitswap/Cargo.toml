@@ -29,7 +29,6 @@ sc-network-sync = { workspace = true, default-features = true }
 slotmap = { workspace = true }
 smallvec = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = ["macros", "rt", "sync", "time"], workspace = true, default-features = true }
@@ -40,6 +39,7 @@ rstest = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread", "test-util"], workspace = true, default-features = true }

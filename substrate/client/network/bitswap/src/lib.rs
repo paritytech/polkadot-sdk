@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-//! Bitswap support for Substrate.
-//!
-//! Implements both the server side (serving indexed-transaction blocks to peers that send
-//! Bitswap v1.2.0 wantlists) and the client side (a long-lived service plus user-facing
-//! [`BitswapHandle`] for fetching CIDs from the network).
+//! Bitswap client and server.
 
 use cid::Version as CidVersion;
 
@@ -29,13 +25,12 @@ mod service;
 
 pub use cid::Cid;
 pub(crate) use handle::BitswapCommand;
-pub use handle::{BitswapError, BitswapHandle, BitswapRequest, FetchItem};
+pub use handle::{BitswapError, BitswapHandle, FetchItem};
 pub use service::start;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
-/// Bitswap batch size: inbound wantlists are looked up and answered in batches of this
-/// many entries, and outbound WANT bundles are split at this size.
+/// Maximum entries per Bitswap message.
 pub const MAX_WANTED_BLOCKS: usize = 16;
 
 /// IPFS raw multicodec used for indexed transaction payload bytes.
@@ -50,8 +45,7 @@ pub const SHA2_256_MULTIHASH_CODE: u64 = 0x12;
 /// Multihash code for Keccak-256, per the multicodec table.
 pub const KECCAK_256_MULTIHASH_CODE: u64 = 0x1b;
 
-/// Check if a CID is supported by the Bitswap protocol: CIDv1, 32-byte digest, with a
-/// supported multihash code (Blake2b-256, SHA2-256, or Keccak-256).
+/// Returns whether Bitswap supports a CID.
 pub fn is_cid_supported(cid: &Cid) -> bool {
 	cid.version() != CidVersion::V0 &&
 		cid.hash().size() == 32 &&
