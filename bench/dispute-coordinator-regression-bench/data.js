@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784294430636,
+  "lastUpdate": 1784301589557,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "80ab459c3ec346dd52add01406a8fc7ab28db07f",
-          "message": "[Release|CI/CD] Add flow to create a release tag in format polkadot-vX.XX.X (#10351)\n\nThe PR adds a flow that will create a tag in the format polkadot-vX.XX.X\nautomatically when `polkadot` release is published. (This action was\ndone manually before)\n\ncloses: https://github.com/paritytech/release-engineering/issues/266",
-          "timestamp": "2025-11-18T16:30:31Z",
-          "tree_id": "6ac6e00b41e5b28d0192f4efb34e4fd2fc3ff529",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80ab459c3ec346dd52add01406a8fc7ab28db07f"
-        },
-        "date": 1763487675560,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005144178149999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026349924500000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008749527269999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009356093019999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08f58c40ea9c3a722db06407368d5b5e9a5ce212",
+          "message": "binary-merkle-tree: preallocate proof vector to avoid reallocations (#12288)\n\nresolves #9106",
+          "timestamp": "2026-07-17T10:30:47Z",
+          "tree_id": "434576ef5994ca92b29f9e57ab11e0b111e79c28",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/08f58c40ea9c3a722db06407368d5b5e9a5ce212"
+        },
+        "date": 1784301557618,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009090637799999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00955752726000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024916139899999997,
             "unit": "seconds"
           }
         ]
