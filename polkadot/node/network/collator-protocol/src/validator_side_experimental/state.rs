@@ -239,17 +239,21 @@ impl<B: Backend> State<B> {
 		// Some for V4 self declaring ad.
 		advertised_para_id: Option<ParaId>,
 	) {
+		let advertisement_log = if advertised_para_id.is_some() {
+			"Received a segment advertisement"
+		} else {
+			"Received advertisement"
+		};
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
 			?peer_id,
-			"Received advertisement",
+			advertisement_log,
 		);
 
-		// V4 has no `Declare` message: a peer's first advertisement binds it to a para.
-		//  Until that first advertisement, a V4 peer keeps connection slots
-		// on every scheduled para — there is no eviction timer; reputation-based slot
-		// competition is the only displacement mechanism.
+		// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
+		// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
+		// releases the slots it held on all the other paras.
 		if let Some(para_id) = advertised_para_id {
 			if !self.peer_manager.declared(sender, peer_id, para_id).await {
 				self.collation_manager.remove_peer(&peer_id);

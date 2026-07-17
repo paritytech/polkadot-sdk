@@ -1301,6 +1301,8 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
+		// Unreachable: the classic validator side only negotiates collation protocol V3,
+		// so a V4 `AdvertiseSegment` is never delivered here.
 		CollationProtocols::V4(V4::AdvertiseSegment { .. }) => {
 			gum::error!("We don't handle V4 on classic validator_side");
 		},

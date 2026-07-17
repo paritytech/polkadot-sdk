@@ -23,7 +23,10 @@ mod state;
 mod tests;
 
 use crate::{
-	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
+	validator_side_experimental::{
+		common::MIN_FETCH_TIMER_DELAY,
+		peer_manager::{Backend, PeerManager, PersistentDb},
+	},
 	LOG_TARGET,
 };
 use collation_manager::CollationManager;
@@ -48,13 +51,10 @@ use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 #[cfg(test)]
 use peer_manager::Db;
-use peer_manager::PeerManager;
 
 use state::State;
 
 pub use crate::validator_side_metrics::Metrics;
-
-use self::peer_manager::Backend;
 
 /// Default interval for persisting the reputation database to disk (in seconds).
 const DEFAULT_PERSIST_INTERVAL_SECS: u64 = 600;
@@ -507,22 +507,14 @@ async fn process_incoming_peer_message<Sender, B>(
 			candidates,
 		}) => {
 			if candidates.is_empty() {
-				gum::warn!(
+				gum::info!(
 					target: LOG_TARGET,
 					?scheduling_parent,
 					?origin,
 					"Received an empty segment advertisement",
 				);
-				// Maybe reputation penalty?
 				return;
 			}
-			gum::trace!(
-				target: LOG_TARGET,
-				?scheduling_parent,
-				?origin,
-				"Received a segment advertisement",
-			);
-
 			let entries = candidates
 				.iter()
 				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {

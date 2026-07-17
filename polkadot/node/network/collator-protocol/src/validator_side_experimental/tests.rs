@@ -674,8 +674,8 @@ impl TestState {
 				None
 			),
 			async move {
-				// Only hash-carrying claims trigger a backing pre-check; V1 (no claim) and
-				// V4 (hashless claim) advertisements are accepted without one.
+				// Only a candidate-hash claim triggers a backing pre-check; V1 (no claim) and
+				// V4 (no candidate hash) advertisements are accepted without one.
 				if adv.candidate_hash().is_some() {
 					self.assert_can_second_request(adv, true).await
 				}
@@ -3851,7 +3851,7 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 		.await;
 	assert_eq!(state.segments(), [(scheduling_parent, peer_id, entries)].into());
 
-	// But its synthesized ticket equals the in-flight one, so it cannot double-launch.
+	// But its synthesized advertisement equals the in-flight one, so it cannot double-launch.
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
