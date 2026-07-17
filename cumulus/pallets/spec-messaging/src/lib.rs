@@ -111,7 +111,9 @@
 //! the lifecycle machinery lands: [`ConsumedStreams`] is the manually armed
 //! consumed-stream set, lifecycle signals and register contents are
 //! verified, then dropped. Consumed [`SpecMsgKind::Data`] payloads go to
-//! [`Config::DataHandler`] — the seam where the XCM-queue forwarding sits.
+//! [`Config::DataHandler`] — runtimes wire [`EnqueueToXcmQueue`] there to
+//! forward them into the message queue for XCM execution, under an origin
+//! (`SpecMsg(source)`) indistinguishable from the HRMP one.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -161,8 +163,8 @@ pub const ADVANCE_PROOF_RESERVATION_BYTES: u64 = 2 * 1024;
 /// Sink for in-order consumed [`SpecMsgKind::Data`] payloads of inbound
 /// channel streams.
 ///
-/// EXTENSION POINT for the XCM-queue forwarding: the runtime wires its
-/// message queue here (enqueue under `SpecMsg(source)`). The `()`
+/// The XCM-queue forwarding wires in here: [`EnqueueToXcmQueue`] is the
+/// canonical implementation (enqueue under `SpecMsg(source)`). The `()`
 /// implementation drops the payloads — transport-only consumption: the
 /// frontier and the consumption record advance regardless, because
 /// consuming a message and acting on it are separate layers.
@@ -174,6 +176,55 @@ pub trait OnSpecMsgData {
 
 impl OnSpecMsgData for () {
 	fn on_data(_: ParaId, _: StreamId, _: MessagePosition, _: Vec<u8>) {}
+}
+
+/// [`OnSpecMsgData`] implementation forwarding every consumed payload into
+/// the runtime's message queue for XCM execution — the receiving end of the
+/// [`SpecMsgRouter`]'s envelope: on an XCM channel the `Data` payload is
+/// exactly the SCALE-encoded `VersionedXcm`, which is what the queue's
+/// `ProcessXcmMessage` processor expects, so the bytes are enqueued
+/// verbatim, mirroring the XCMP enqueue path.
+///
+/// The queue book is keyed by the SOURCE para alone — all of one source's
+/// XCM channels feed one book — under
+/// `AggregateMessageOrigin::SpecMsg(source)`, which the runtime supplies by
+/// wiring `Queue` as (see `ParaIdToSpecMsg` next to `ParaIdToSibling`):
+///
+/// ```ignore
+/// type DataHandler = EnqueueToXcmQueue<
+/// 	TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSpecMsg>,
+/// >;
+/// ```
+///
+/// `SpecMsg(source)` converts to the very `Location` that `Sibling(source)`
+/// converts to, so the executor, barriers and every downstream filter see an
+/// origin identical to the HRMP one — no `XcmConfig` changes anywhere, and
+/// no XCM program can distinguish the transport.
+///
+/// The runtime MUST keep the queue's `MaxMessageLen` (derived from
+/// `pallet-message-queue`'s `HeapSize`) at least [`Config::MaxMsgLen`]:
+/// consumed payloads are bounded by the latter, so every payload then fits;
+/// one that does not is dropped defensively.
+///
+/// Until the channels layer demultiplexes userspace protocols per channel,
+/// this forwards ALL consumed `Data` payloads — in MVP every consumed
+/// channel is an XCM channel.
+pub struct EnqueueToXcmQueue<Queue>(core::marker::PhantomData<Queue>);
+
+impl<Queue> OnSpecMsgData for EnqueueToXcmQueue<Queue>
+where
+	Queue: frame_support::traits::EnqueueMessage<ParaId>,
+{
+	fn on_data(source: ParaId, _stream: StreamId, _position: MessagePosition, data: Vec<u8>) {
+		let Ok(data) = frame_support::BoundedSlice::try_from(&data[..]) else {
+			frame_support::defensive!(
+				"consumed spec-msg payload exceeds the queue's `MaxMessageLen`; dropped \
+				 (`MaxMessageLen` must be at least `MaxMsgLen`)"
+			);
+			return;
+		};
+		Queue::enqueue_message(data, source);
+	}
 }
 
 /// Why a messaging-inherent item was rejected (see

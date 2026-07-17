@@ -109,6 +109,14 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
+	/// The message came from a sibling para-chain over Speculative Messaging.
+	///
+	/// This is used by the Speculative Messaging queue. It MUST convert to
+	/// the same `Location` as [`Self::Sibling`]: the XCM executor's origin
+	/// conversion, barriers and every downstream filter then see an origin
+	/// identical to the HRMP one, so no XCM program can distinguish the
+	/// transport (and the HRMP→spec-msg flip stays unobservable).
+	SpecMsg(ParaId),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -117,6 +125,7 @@ impl From<AggregateMessageOrigin> for Location {
 			AggregateMessageOrigin::Here => Location::here(),
 			AggregateMessageOrigin::Parent => Location::parent(),
 			AggregateMessageOrigin::Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
+			AggregateMessageOrigin::SpecMsg(id) => Location::new(1, Junction::Parachain(id.into())),
 		}
 	}
 }
@@ -736,5 +745,30 @@ sp_api::decl_runtime_apis! {
 		///
 		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn spec_msg_origin_location_is_sibling_identical() {
+		// Property test over para ids: the Speculative Messaging origin MUST
+		// convert to the very `Location` the HRMP origin converts to — any
+		// divergence makes the HRMP→spec-msg flip observable to XCM programs
+		// (origin conversion, barriers, downstream filters).
+		let mut lcg = 0x5DEE_CE66_D411u64;
+		let mut rand = move || {
+			lcg = lcg.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+			(lcg >> 32) as u32
+		};
+		let boundaries = [0u32, 1, 999, 1000, 2000, 3369, u32::MAX];
+
+		for id in boundaries.into_iter().chain((0..100).map(|_| rand())) {
+			let spec_msg = Location::from(AggregateMessageOrigin::SpecMsg(id.into()));
+			assert_eq!(spec_msg, Location::from(AggregateMessageOrigin::Sibling(id.into())));
+			assert_eq!(spec_msg, Location::new(1, Junction::Parachain(id)));
+		}
 	}
 }

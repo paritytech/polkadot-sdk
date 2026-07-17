@@ -57,6 +57,12 @@ pub enum AggregateMessageOrigin {
 	/// This is used by Snowbridge inbound queue.
 	Snowbridge(ChannelId),
 	SnowbridgeV2(H256),
+	/// The message came from a sibling para-chain over Speculative Messaging.
+	///
+	/// This is used by the Speculative Messaging queue. It MUST convert to
+	/// the same `Location` as [`Self::Sibling`], so that no XCM program can
+	/// distinguish the transport.
+	SpecMsg(ParaId),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -65,7 +71,7 @@ impl From<AggregateMessageOrigin> for Location {
 		match origin {
 			Here => Location::here(),
 			Parent => Location::parent(),
-			Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
+			Sibling(id) | SpecMsg(id) => Location::new(1, Junction::Parachain(id.into())),
 			// NOTE: We don't need this conversion for Snowbridge. However, we have to
 			// implement it anyway as xcm_builder::ProcessXcmMessage requires it.
 			_ => Location::default(),
@@ -79,6 +85,7 @@ impl From<CumulusAggregateMessageOrigin> for AggregateMessageOrigin {
 			CumulusAggregateMessageOrigin::Here => Self::Here,
 			CumulusAggregateMessageOrigin::Parent => Self::Parent,
 			CumulusAggregateMessageOrigin::Sibling(id) => Self::Sibling(id),
+			CumulusAggregateMessageOrigin::SpecMsg(id) => Self::SpecMsg(id),
 		}
 	}
 }
@@ -122,7 +129,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) => {
+			Here | Parent | Sibling(_) | SpecMsg(_) => {
 				XcmpProcessor::process_message(message, origin, meter, id)
 			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
@@ -156,7 +163,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) => {
+			Here | Parent | Sibling(_) | SpecMsg(_) => {
 				XcmpProcessor::process_message(message, origin, meter, id)
 			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),

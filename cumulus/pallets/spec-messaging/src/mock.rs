@@ -15,18 +15,26 @@
 // limitations under the License.
 
 use crate as spec_messaging;
-use cumulus_primitives_core::{ChannelInfo, ChannelStatus, GetChannelInfo, ParaId};
+use crate::{EnqueueToXcmQueue, OnSpecMsgData};
+use cumulus_primitives_core::{
+	AggregateMessageOrigin, ChannelInfo, ChannelStatus, GetChannelInfo, ParaId,
+};
 use cumulus_primitives_spec_messaging::{MessagePosition, StreamId};
-use frame_support::{derive_impl, parameter_types};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU32, ProcessMessage, ProcessMessageError, TransformOrigin},
+	weights::{Weight, WeightMeter},
+};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
-use sp_runtime::BuildStorage;
-use xcm::AlwaysLatest;
+use sp_runtime::{traits::Convert, BuildStorage};
+use xcm::{latest::prelude::Location, AlwaysLatest};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
+		MessageQueue: pallet_message_queue,
 		SpecMessaging: spec_messaging,
 	}
 );
@@ -49,12 +57,28 @@ parameter_types! {
 	pub static ConsumedData: Vec<(ParaId, StreamId, MessagePosition, Vec<u8>)> = Vec::new();
 }
 
-/// Records consumed `Data` payloads — the seam where the XCM-queue
-/// forwarding will sit.
+/// Convert the source `ParaId` to the spec-msg aggregate origin — what
+/// `parachains_common::message_queue::ParaIdToSpecMsg` does, duplicated here
+/// to keep the dev-dependencies light.
+pub struct ParaIdToSpecMsg;
+impl Convert<ParaId, AggregateMessageOrigin> for ParaIdToSpecMsg {
+	fn convert(para_id: ParaId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::SpecMsg(para_id)
+	}
+}
+
+/// The XCM-queue forwarding exactly as a runtime wires it.
+pub type ForwardToXcmQueue = EnqueueToXcmQueue<
+	TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSpecMsg>,
+>;
+
+/// Records consumed `Data` payloads, then forwards them into the message
+/// queue like a runtime would.
 pub struct RecordingDataHandler;
-impl spec_messaging::OnSpecMsgData for RecordingDataHandler {
+impl OnSpecMsgData for RecordingDataHandler {
 	fn on_data(source: ParaId, stream: StreamId, position: MessagePosition, data: Vec<u8>) {
-		ConsumedData::mutate(|consumed| consumed.push((source, stream, position, data)));
+		ConsumedData::mutate(|consumed| consumed.push((source, stream, position, data.clone())));
+		ForwardToXcmQueue::on_data(source, stream, position, data);
 	}
 }
 
@@ -64,6 +88,44 @@ impl spec_messaging::Config for Test {
 	type MaxTouchedStreams = MaxTouchedStreams;
 	type MaxContextGaps = MaxContextGaps;
 	type DataHandler = RecordingDataHandler;
+}
+
+parameter_types! {
+	pub const ServiceWeight: Weight = Weight::MAX;
+	/// Every message the queue processed: the computed origin `Location`
+	/// (the dispatch key `ProcessXcmMessage` hands to the XCM executor) and
+	/// the message bytes.
+	pub static ProcessedXcm: Vec<(Location, Vec<u8>)> = Vec::new();
+}
+
+/// Stand-in for `ProcessXcmMessage`: records each processed message under
+/// its computed origin `Location` instead of executing it.
+pub struct RecordingMessageProcessor;
+impl ProcessMessage for RecordingMessageProcessor {
+	type Origin = AggregateMessageOrigin;
+
+	fn process_message(
+		message: &[u8],
+		origin: Self::Origin,
+		_meter: &mut WeightMeter,
+		_id: &mut [u8; 32],
+	) -> Result<bool, ProcessMessageError> {
+		ProcessedXcm::mutate(|xcms| xcms.push((origin.into(), message.to_vec())));
+		Ok(true)
+	}
+}
+
+impl pallet_message_queue::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type MessageProcessor = RecordingMessageProcessor;
+	type Size = u32;
+	type QueueChangeHandler = ();
+	type QueuePausedQuery = ();
+	type HeapSize = ConstU32<{ 64 * 1024 }>;
+	type MaxStale = ConstU32<8>;
+	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {

@@ -20,7 +20,7 @@ use crate::{
 	ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
 };
 use codec::Encode;
-use cumulus_primitives_core::{relay_chain::UMPSignal, ParaId};
+use cumulus_primitives_core::{relay_chain::UMPSignal, AggregateMessageOrigin, ParaId};
 use cumulus_primitives_spec_messaging::{
 	build_requires, compute_streams_root, hash_leaf, prove_stream,
 	test_utils::{SourceFixture, StreamFixture},
@@ -31,10 +31,16 @@ use cumulus_primitives_spec_messaging::{
 use frame_support::{
 	dispatch::{DispatchClass, GetDispatchInfo},
 	inherent::{InherentData, ProvideInherent},
-	traits::{OnFinalize, OnInitialize},
+	traits::{EnqueueMessage, OnFinalize, OnInitialize, QueueFootprintQuery, ServiceQueues},
+	weights::Weight,
+	BoundedSlice,
 };
 use sp_runtime::{generic::DigestItem, Digest};
 use std::collections::BTreeMap;
+use xcm::{
+	latest::prelude::{ClearOrigin, Location, Parachain, Xcm},
+	VersionedXcm,
+};
 
 fn channel(recipient: u32) -> StreamId {
 	StreamId::Channel { recipient: recipient.into(), domain: 0, num: 0 }
@@ -516,6 +522,65 @@ fn unparseable_payload_is_consumed_and_dropped_signals_are_consumed() {
 			assert_eq!(dropped_events(), vec![(source, stream, MessagePosition(1))]);
 			assert_eq!(reject_events(), vec![]);
 		});
+	});
+}
+
+#[test]
+fn spec_msg_and_sibling_messages_execute_under_the_same_origin() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		arm(source, stream);
+		let xcm = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin])).encode();
+
+		// Once through the real receive path — inherent → `DataHandler` →
+		// message queue, booked under `SpecMsg(source)` …
+		run_block(|| enact(messages_inherent(vec![(source, stream, vec![data_payload(&xcm)])])));
+		assert_eq!(
+			MessageQueue::footprint(AggregateMessageOrigin::SpecMsg(source)).storage.count,
+			1
+		);
+
+		// … and the identical bytes under the HRMP origin.
+		MessageQueue::enqueue_message(
+			BoundedSlice::try_from(&xcm[..]).expect("the message fits the mock heap size; qed"),
+			AggregateMessageOrigin::Sibling(source),
+		);
+
+		// Both process under the same computed origin `Location` — the key
+		// the executor's origin conversion, barriers and filters dispatch on
+		// — and the queued bytes are exactly the encoded `VersionedXcm`, no
+		// framing left: the HRMP→spec-msg flip is unobservable to XCM.
+		MessageQueue::service_queues(Weight::MAX);
+		let expected = (Location::new(1, [Parachain(2000)]), xcm);
+		assert_eq!(ProcessedXcm::take(), vec![expected.clone(), expected]);
+	});
+}
+
+#[test]
+fn signal_leaf_is_consumed_and_never_reaches_the_queue() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		arm(source, stream);
+
+		let xcm = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin])).encode();
+		let payloads = vec![
+			SpecMsgKind::Signal(SpecMsgSignal::OpenChannel { version: 0 }).encode(),
+			data_payload(&xcm),
+		];
+		run_block(|| enact(messages_inherent(vec![(source, stream, payloads)])));
+
+		// Both leaves were consumed — the frontier admits no gaps — but only
+		// the data payload reached the queue: the signal was handled (for
+		// now: dropped) pallet-internally.
+		assert_eq!(InboundFrontier::<Test>::get((source, stream)).leaf_count, 2);
+		assert_eq!(
+			MessageQueue::footprint(AggregateMessageOrigin::SpecMsg(source)).storage.count,
+			1
+		);
+		MessageQueue::service_queues(Weight::MAX);
+		assert_eq!(ProcessedXcm::take(), vec![(Location::new(1, [Parachain(2000)]), xcm)]);
 	});
 }
 

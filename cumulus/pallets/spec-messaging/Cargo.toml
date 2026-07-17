@@ -30,6 +30,10 @@ xcm = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-spec-messaging = { workspace = true }
 
+[dev-dependencies]
+# Substrate
+pallet-message-queue = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
