@@ -763,7 +763,7 @@ fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
 #[test]
 fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 	use crate::{
-		EthereumBlock, OutsideFrameLogs,
+		EthereumBlock, OutsideFrameLogCount,
 		evm::{HashesOrTransactionInfos, block_hash::LogsBloom, block_storage},
 	};
 	use sp_core::H256;
@@ -778,12 +778,12 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		Pallet::<Test>::emit_contract_log_outside_frame(contract, vec![topic], vec![1, 2, 3]);
 
 		// The log is parked in the block-level buffer until finalization.
-		assert!(OutsideFrameLogs::<Test>::get().is_some());
+		assert_eq!(OutsideFrameLogCount::<Test>::get(), 1);
 
 		block_storage::on_finalize_build_eth_block::<Test>(1);
 
 		// The buffer is consumed by the synthetic transaction.
-		assert!(OutsideFrameLogs::<Test>::get().is_none());
+		assert_eq!(OutsideFrameLogCount::<Test>::get(), 0);
 
 		let block = EthereumBlock::<Test>::get();
 

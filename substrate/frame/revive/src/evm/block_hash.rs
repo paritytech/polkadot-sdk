@@ -20,7 +20,7 @@
 
 mod receipt;
 use pallet_revive_types::runtime_api::*;
-pub use receipt::{AccumulateReceipt, AccumulateReceiptIR, LogsBloom};
+pub use receipt::{AccumulateReceipt, LogsBloom};
 
 mod hash_builder;
 pub use hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};

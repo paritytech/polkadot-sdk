@@ -17,7 +17,8 @@
 use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
-	OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight,
+	OutsideFrameLogCount, OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit,
+	Weight,
 	dispatch_result,
 	evm::{
 		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
@@ -132,11 +133,9 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 	});
 
 	if captured.is_none() {
-		let mut receipt = OutsideFrameLogs::<T>::take()
-			.map(AccumulateReceipt::from_ir)
-			.unwrap_or_else(AccumulateReceipt::new);
-		receipt.add_log(contract, data, topics);
-		OutsideFrameLogs::<T>::put(receipt.to_ir());
+		let index = OutsideFrameLogCount::<T>::get();
+		OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
+		OutsideFrameLogCount::<T>::put(index.saturating_add(1));
 	}
 }
 
@@ -237,8 +236,14 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	// Flush logs emitted outside any ethereum transaction as a single synthetic transaction, so
 	// they enter the block bloom / receipts_root / transaction trie. Must run after all real
 	// transactions have been processed, since the trie builders are order-sensitive.
-	if let Some(ir) = OutsideFrameLogs::<T>::take() {
-		let receipt = AccumulateReceipt::from_ir(ir);
+	let outside_frame_log_count = OutsideFrameLogCount::<T>::take();
+	if outside_frame_log_count > 0 {
+		let mut receipt = AccumulateReceipt::new();
+		for index in 0..outside_frame_log_count {
+			if let Some((contract, topics, data)) = OutsideFrameLogs::<T>::take(index) {
+				receipt.add_log(&contract, &data, &topics);
+			}
+		}
 		block_builder.process_transaction(
 			synthetic_transaction::<T>(block_number),
 			true,
