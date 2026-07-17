@@ -25,7 +25,7 @@
 use alloc::vec::Vec;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 
-use crate::mmr::MessagePosition;
+use crate::{mmr::MessagePosition, stream_id::StreamId};
 
 /// The payload of every channel-stream MMR leaf. SCALE-encoded; this
 /// encoding is what the leaf preimage's `payload` field contains — the
@@ -193,6 +193,147 @@ pub struct ChannelId {
 	pub num: u16,
 }
 
+/// One stream this chain currently consumes, as the `consumed_streams()`
+/// runtime API serves it (grouped by source): stream identity and
+/// consumption discipline in one enum, plus the per-stream resume cursor —
+/// what the own collators fetch, from which position on.
+///
+/// The full [`StreamId`]'s `recipient` field is absent: by the uniform
+/// addressing rule a consumed stream is always addressed to the consuming
+/// chain itself — [`ConsumedStream::stream_id`] reconstructs the full id.
+/// `Ack` streams never appear: ack registers carry no resume state (lossy,
+/// latest-wins head reads), and *which* registers to read follows from the
+/// `out_channels()` view. Private kinds cannot appear either.
+#[derive(
+	Clone,
+	Copy,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	codec::MaxEncodedLen,
+	Debug,
+	Eq,
+	PartialEq,
+	scale_info::TypeInfo,
+)]
+pub enum ConsumedStream {
+	/// Ordered channel consumption: fetch the payloads from `from` on.
+	Channel {
+		/// The channel's `domain` discriminator.
+		domain: u8,
+		/// The channel's `num` discriminator.
+		num: u16,
+		/// Resume cursor: the position of the next message to consume —
+		/// projects the stream's inbound frontier (cursor = leaf count;
+		/// storage keeps frontiers because verification needs peaks, the
+		/// API returns positions because fetching addresses by position).
+		from: MessagePosition,
+	},
+	/// Lossy latest-wins event consumption (broadcast streams are post-MVP;
+	/// the discipline ships because ack-register reads are exactly it).
+	Broadcast {
+		/// The feed's `domain` discriminator.
+		domain: u16,
+		/// The feed's `subdomain` discriminator.
+		subdomain: u8,
+		/// The feed's `num` discriminator.
+		num: u32,
+		/// Positions below `from` are no longer of interest.
+		from: MessagePosition,
+	},
+}
+
+impl ConsumedStream {
+	/// Projects a full consumed stream key onto the API view, given the
+	/// stream's resume cursor. `None` for the kinds the view never carries
+	/// (`Ack`, `Private`).
+	pub fn project(stream: &StreamId, from: MessagePosition) -> Option<Self> {
+		match *stream {
+			StreamId::Channel { domain, num, .. } => Some(Self::Channel { domain, num, from }),
+			StreamId::Broadcast { domain, subdomain, num } => {
+				Some(Self::Broadcast { domain, subdomain, num, from })
+			},
+			StreamId::Ack { .. } | StreamId::Private { .. } => None,
+		}
+	}
+
+	/// Reconstructs the full [`StreamId`] (in the source's key space);
+	/// `recipient` is the consuming chain — the uniform addressing rule.
+	pub fn stream_id(&self, recipient: ParaId) -> StreamId {
+		match *self {
+			Self::Channel { domain, num, .. } => StreamId::Channel { recipient, domain, num },
+			Self::Broadcast { domain, subdomain, num, .. } => {
+				StreamId::Broadcast { domain, subdomain, num }
+			},
+		}
+	}
+}
+
+/// Sender-side state of one OUTBOUND channel — the value of the
+/// `out_channels()` runtime API view. Phases are views over the fields:
+/// `Opening` = `register` is `None`; `Open` = `Some` with neither side
+/// closed; `Closed` = `closed_by_us` or `register.closed`.
+///
+/// The channel lifecycle machinery derives this from the `OpenChannel`
+/// handshake and the peer's register reads; until it lands the runtime
+/// serves placeholder-grade defaults — the shape is the API contract.
+#[derive(
+	Clone,
+	Copy,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	codec::MaxEncodedLen,
+	Debug,
+	Default,
+	Eq,
+	PartialEq,
+	scale_info::TypeInfo,
+)]
+pub struct OutChannelState {
+	/// Whether this chain half-closed the channel (`CloseChannel` sent).
+	pub closed_by_us: bool,
+	/// This chain's latest version announcement (monotonic; MVP always 0).
+	pub announced_version: u8,
+	/// The latest verified read of the peer's [`Register`]; `None` until
+	/// the first read — the register's very existence is the peer's
+	/// acceptance. Credit/watermark standing lives here; *which* ack
+	/// registers the own collators read follows from this view's keys.
+	pub register: Option<Register>,
+}
+
+/// Receiver-side state of one INBOUND channel — the value of the
+/// `in_channels()` runtime API view: which channels are due a register
+/// publish check (compare [`Self::published`] against the stream's
+/// consumption progress) and the suspension standing.
+///
+/// Placeholder-grade defaults until the channel lifecycle machinery lands,
+/// like [`OutChannelState`].
+#[derive(
+	Clone,
+	Copy,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	codec::MaxEncodedLen,
+	Debug,
+	Default,
+	Eq,
+	PartialEq,
+	scale_info::TypeInfo,
+)]
+pub struct InChannelState {
+	/// The register this chain last published on its ack stream.
+	pub published: Register,
+	/// The peer's latest version announcement (`OpenChannel` / `Upgrade`;
+	/// monotonic).
+	pub peer_version: u8,
+	/// Upper-layer off switch (pause, not close): while suspended the STF
+	/// refuses the channel's messages, `consumed_streams()` omits the
+	/// stream and published registers grant zero.
+	pub suspended: bool,
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -212,6 +353,36 @@ mod tests {
 			alloc::vec![0x00, 0x01]
 		);
 		assert_eq!(SpecMsgKind::Data(alloc::vec![0xAB]).encode(), alloc::vec![0x01, 0x04, 0xAB]);
+	}
+
+	#[test]
+	fn consumed_stream_projection_round_trips() {
+		// `recipient` is redundant in the view (uniform addressing rule):
+		// projecting and reconstructing with the consuming chain's id is
+		// the identity on the kinds the view carries.
+		let me = ParaId::from(2001);
+		let cursor = MessagePosition(42);
+		let carried = [
+			StreamId::Channel { recipient: me, domain: 3, num: 7 },
+			StreamId::Broadcast { domain: 1, subdomain: 2, num: 3 },
+		];
+		for stream in carried {
+			let view = ConsumedStream::project(&stream, cursor).unwrap();
+			assert_eq!(view.stream_id(me), stream);
+			let (ConsumedStream::Channel { from, .. } | ConsumedStream::Broadcast { from, .. }) =
+				view;
+			assert_eq!(from, cursor);
+		}
+
+		// Ack registers (no resume state; they follow from `out_channels()`)
+		// and private kinds never appear in the view.
+		let never = [
+			StreamId::Ack { recipient: me, domain: 0, num: 0 },
+			StreamId::private(0x80, [0; 7]).unwrap(),
+		];
+		for stream in never {
+			assert_eq!(ConsumedStream::project(&stream, cursor), None);
+		}
 	}
 
 	#[test]

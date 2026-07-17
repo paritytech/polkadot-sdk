@@ -16,17 +16,18 @@
 
 use crate::{
 	mock::*, BlockStreamsRoot, Call, ConsumedStreams, ConsumptionOutbox, Error, Event,
-	InboundFrontier, OutboundFrontier, OutboundMessages, RejectReason, TreeRoot,
-	ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
+	InboundFrontier, OpenOutboundChannels, OutboundFrontier, OutboundMessages, RejectReason,
+	TreeRoot, ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
 };
 use codec::Encode;
 use cumulus_primitives_core::{relay_chain::UMPSignal, AggregateMessageOrigin, ParaId};
 use cumulus_primitives_spec_messaging::{
 	build_requires, compute_streams_root, hash_leaf, prove_stream,
 	test_utils::{SourceFixture, StreamFixture},
-	Interval, LiftsBySource, MessagePosition, MmrFrontier, MmrRoot, ProvideUmpSignals, Register,
-	SpecHasher, SpecMsgInherentData, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot,
-	LEAF_VERSION, SPMS_ENGINE_ID,
+	ChannelId, ConsumedStream, InChannelState, Interval, LiftsBySource, MessagePosition,
+	MmrFrontier, MmrRoot, OutChannelState, ProvideUmpSignals, Register, SpecHasher,
+	SpecMsgInherentData, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, LEAF_VERSION,
+	SPMS_ENGINE_ID,
 };
 use frame_support::{
 	dispatch::{DispatchClass, GetDispatchInfo},
@@ -425,6 +426,164 @@ fn consumption_record_groups_and_sorts_the_outbox() {
 				Default::default()
 			);
 		});
+	});
+}
+
+#[test]
+fn outbound_messages_serves_this_blocks_sends_in_canonical_order() {
+	new_test_ext().execute_with(|| {
+		let (first, second) = (channel(2001), channel(2002));
+
+		// Sends interleaved across two streams: one entry per stream in
+		// canonical order, payloads in send order.
+		run_block(|| {
+			append(second, b"b0").unwrap();
+			append(first, b"a0").unwrap();
+			append(second, b"b1").unwrap();
+		});
+		assert_eq!(
+			SpecMessaging::outbound_messages(),
+			vec![(first, vec![b"a0".to_vec()]), (second, vec![b"b0".to_vec(), b"b1".to_vec()]),]
+		);
+
+		// The view is per block, not cumulative: the next block serves only
+		// its own sends, whose positions continue the stored frontier.
+		run_block(|| {
+			append(first, b"a1").unwrap();
+		});
+		assert_eq!(SpecMessaging::outbound_messages(), vec![(first, vec![b"a1".to_vec()])]);
+		assert_eq!(OutboundFrontier::<Test>::get(first).leaf_count, 1);
+
+		// An idle block serves an empty vec.
+		run_block(|| {});
+		assert!(SpecMessaging::outbound_messages().is_empty());
+	});
+}
+
+#[test]
+fn consumed_streams_projects_cursors_and_omits_ack_registers() {
+	new_test_ext().execute_with(|| {
+		let (source_a, source_b) = (ParaId::from(2000), ParaId::from(3000));
+		let consumed = channel(100);
+		let unconsumed = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
+		arm(source_a, consumed);
+		arm(source_a, unconsumed);
+		// The own outbound channel's ack register gates the inherent but is
+		// absent from the view (which registers to read follows from
+		// `out_channels()`).
+		arm(source_a, ack(100));
+		arm(source_b, consumed);
+
+		let view = |domain, num, from| ConsumedStream::Channel {
+			domain,
+			num,
+			from: MessagePosition(from),
+		};
+
+		// Armed-but-never-consumed streams (accepted before the sender's
+		// open — the pre-authorization order) are present with cursor 0;
+		// per source in canonical stream order.
+		assert_eq!(
+			SpecMessaging::consumed_streams(),
+			std::collections::BTreeMap::from([
+				(source_a, vec![view(0, 0, 0), view(0, 1, 0)]),
+				(source_b, vec![view(0, 0, 0)]),
+			])
+		);
+
+		// Cursor continuity across blocks: after each block the cursor
+		// equals the inbound frontier's leaf count — exactly where the next
+		// fetch resumes.
+		let payloads: Vec<Vec<u8>> = (0..5u8).map(|i| data_payload(&[i])).collect();
+		run_block(|| enact(messages_inherent(vec![(source_a, consumed, payloads[..3].to_vec())])));
+		assert_eq!(SpecMessaging::consumed_streams()[&source_a][0], view(0, 0, 3));
+		run_block(|| enact(messages_inherent(vec![(source_a, consumed, payloads[3..].to_vec())])));
+		assert_eq!(SpecMessaging::consumed_streams()[&source_a][0], view(0, 0, 5));
+		assert_eq!(
+			InboundFrontier::<Test>::get((source_a, consumed)).leaf_count,
+			5,
+			"the cursor projects the frontier"
+		);
+
+		// Un-arming (what the lifecycle's suspension will do) omits the
+		// stream: the omission is how the own collators learn to stop
+		// fetching. A source with nothing consumable left disappears.
+		ConsumedStreams::<Test>::remove((source_a, consumed));
+		assert_eq!(SpecMessaging::consumed_streams()[&source_a], vec![view(0, 1, 0)]);
+		ConsumedStreams::<Test>::remove((source_a, unconsumed));
+		assert!(!SpecMessaging::consumed_streams().contains_key(&source_a));
+		assert!(SpecMessaging::consumed_streams().contains_key(&source_b));
+	});
+}
+
+#[test]
+fn consumption_record_is_byte_identical_for_both_callers() {
+	// One definition, two callers: the record the node reads via the
+	// runtime API (`Pallet::consumption_record`, what the runtime's
+	// `SpecMsgApi` implementation delegates to) and the one the
+	// `validate_block` wrapper pulls directly in-wasm (`ProvideUmpSignals`)
+	// must be byte-identical — the wrapper's `Requires` synthesis depends
+	// on it.
+	new_test_ext().execute_with(|| {
+		let (source_a, source_b) = (ParaId::from(2000), ParaId::from(3000));
+		let (one, two) =
+			(channel(100), StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 });
+		for (source, stream) in [(source_a, one), (source_a, two), (source_b, one)] {
+			arm(source, stream);
+		}
+
+		run_block(|| {
+			enact(messages_inherent(vec![
+				(source_b, one, vec![data_payload(&[1])]),
+				(source_a, two, vec![data_payload(&[2])]),
+				(source_a, one, vec![data_payload(&[3])]),
+			]));
+
+			let via_api = SpecMessaging::consumption_record();
+			let via_wrapper = <SpecMessaging as ProvideUmpSignals>::consumption_record();
+			assert_eq!(via_api.encode(), via_wrapper.encode());
+
+			// Grouped by source, per source StreamId-ordered and unique.
+			assert_eq!(
+				via_api.entries.keys().copied().collect::<Vec<_>>(),
+				vec![source_a, source_b]
+			);
+			assert_eq!(
+				via_api.entries[&source_a].iter().map(|(stream, _)| *stream).collect::<Vec<_>>(),
+				vec![one, two]
+			);
+			assert_eq!(via_api.entries[&source_b].len(), 1);
+		});
+	});
+}
+
+#[test]
+fn channel_views_serve_the_armed_placeholder_state() {
+	new_test_ext().execute_with(|| {
+		assert!(SpecMessaging::out_channels().is_empty());
+		assert!(SpecMessaging::in_channels().is_empty());
+
+		// Outbound: every armed channel appears under its `ChannelId`, with
+		// the placeholder default state (no register read yet).
+		let outbound = ChannelId { peer: 2001.into(), domain: 0, num: 7 };
+		OpenOutboundChannels::<Test>::insert(outbound, ());
+		assert_eq!(
+			SpecMessaging::out_channels(),
+			std::collections::BTreeMap::from([(outbound, OutChannelState::default())])
+		);
+
+		// Inbound: armed channel data streams appear keyed by the peer (the
+		// stream's sender); armed ack registers are not inbound channels.
+		let source = ParaId::from(2000);
+		arm(source, channel(100));
+		arm(source, ack(100));
+		assert_eq!(
+			SpecMessaging::in_channels(),
+			std::collections::BTreeMap::from([(
+				ChannelId { peer: source, domain: 0, num: 0 },
+				InChannelState::default()
+			)])
+		);
 	});
 }
 

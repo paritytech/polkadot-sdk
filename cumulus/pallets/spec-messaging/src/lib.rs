@@ -114,6 +114,16 @@
 //! [`Config::DataHandler`] — runtimes wire [`EnqueueToXcmQueue`] there to
 //! forward them into the message queue for XCM execution, under an origin
 //! (`SpecMsg(source)`) indistinguishable from the HRMP one.
+//!
+//! ## Runtime API
+//!
+//! This pallet backs the `SpecMsgApi` node–runtime boundary (declared in
+//! `cumulus-primitives-core`, implemented by the runtime as one-line
+//! delegations): [`Pallet::outbound_messages`], [`Pallet::consumed_streams`],
+//! [`Pallet::out_channels`], [`Pallet::in_channels`] and
+//! [`Pallet::consumption_record`] — the latter dual-called, by the node via
+//! API dispatch and by the `validate_block` wrapper directly in-wasm
+//! ([`ProvideUmpSignals`]).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -125,7 +135,10 @@ mod mock;
 mod tests;
 pub mod xcm_router;
 
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{
+	collections::{BTreeMap, BTreeSet},
+	vec::Vec,
+};
 use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::{UMPSignal, MAX_COMMITMENT_ENTRIES},
@@ -134,9 +147,10 @@ use cumulus_primitives_core::{
 use cumulus_primitives_spec_messaging::{
 	hash_leaf,
 	tree::{bit_at, first_diff_bit, tree_inner_hash, tree_leaf_hash, KEY_BITS},
-	ChannelId, ConsumptionRecord, Interval, MessagePosition, MmrFrontier, MmrInclusionProof,
-	ProvideUmpSignals, Register, SpecHasher, SpecMsgInherentData, SpecMsgKind, SpecMsgSignal,
-	StreamId, StreamsRoot, LEAF_VERSION, SPMS_ENGINE_ID, STREAM_ID_LEN,
+	ChannelId, ConsumedStream, ConsumptionRecord, InChannelState, Interval, MessagePosition,
+	MmrFrontier, MmrInclusionProof, OutChannelState, ProvideUmpSignals, Register, SpecHasher,
+	SpecMsgInherentData, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, LEAF_VERSION,
+	SPMS_ENGINE_ID, STREAM_ID_LEN,
 };
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -498,9 +512,10 @@ pub mod pallet {
 	/// The full stream keys this runtime currently consumes: channel data
 	/// streams of open, non-suspended inbound channels and the ack
 	/// registers of its own outbound channels. The messaging inherent
-	/// rejects items for streams absent here (the API contract: everything
-	/// the inherent carries is for a stream listed by
-	/// [`Pallet::consumed_streams`]).
+	/// rejects items for streams absent here (the API contract: every
+	/// channel item the inherent carries is for a stream
+	/// [`Pallet::consumed_streams`] lists, every register read for an ack
+	/// register that follows from [`Pallet::out_channels`]).
 	///
 	/// PLACEHOLDER for the channel lifecycle machinery (channels & flow
 	/// control), which will derive this set from the `InChannels` /
@@ -851,24 +866,99 @@ pub mod pallet {
 		/// The block's consumption record: the transient outbox grouped by
 		/// source, per source sorted by [`StreamId`] (canonical encoding
 		/// order) — the shape the `validate_block` wrapper stitches and the
-		/// `consumption_record()` runtime API serves.
+		/// `consumption_record()` runtime API serves. One definition, two
+		/// callers: the node reaches it via API dispatch, the wrapper calls
+		/// it directly in-wasm — the records must be byte-identical.
 		pub fn consumption_record() -> ConsumptionRecord {
 			let mut record = ConsumptionRecord::default();
 			for (source, stream, interval) in ConsumptionOutbox::<T>::get() {
 				record.entries.entry(source).or_default().push((stream, interval));
 			}
 			for streams in record.entries.values_mut() {
-				streams.sort_by(|a, b| a.0.cmp(&b.0));
+				streams.sort_by_key(|(stream, _)| *stream);
 			}
 			record
 		}
 
-		/// The full stream keys this runtime currently consumes — what the
-		/// `consumed_streams()` runtime API serves and the node fetches.
-		/// Placeholder derivation until the channel lifecycle machinery
-		/// lands: reads the manually armed [`ConsumedStreams`] set.
-		pub fn consumed_streams() -> Vec<(ParaId, StreamId)> {
-			ConsumedStreams::<T>::iter_keys().collect()
+		/// THIS block's sends, per touched stream — what the
+		/// `outbound_messages()` runtime API serves and a collator extracts
+		/// for delivery and appends to its archive, calling at the built
+		/// block (block N's sends live in block N's state; see the sender
+		/// lifecycle in the module docs). Entries in canonical [`StreamId`]
+		/// order; payload `i` of a stream's vec sits at position
+		/// `OutboundFrontier[stream].leaf_count + i`. Empty on idle blocks.
+		pub fn outbound_messages() -> Vec<(StreamId, Vec<Vec<u8>>)> {
+			let mut messages: Vec<(StreamId, Vec<Vec<u8>>)> = OutboundMessages::<T>::iter()
+				.map(|(stream, payloads)| {
+					(stream, payloads.into_iter().map(BoundedVec::into_inner).collect())
+				})
+				.collect();
+			messages.sort_by_key(|(stream, _)| *stream);
+			messages
+		}
+
+		/// Everything this runtime currently consumes, grouped by source
+		/// with per-stream resume cursors (= inbound frontier leaf counts) —
+		/// what the `consumed_streams()` runtime API serves: the own
+		/// collators fetch what is listed, from the cursor on, and stop
+		/// fetching what is omitted. Per source in canonical [`StreamId`]
+		/// order. Ack registers are deliberately absent (no resume state;
+		/// which registers to read follows from [`Pallet::out_channels`]).
+		///
+		/// PLACEHOLDER derivation until the channel lifecycle machinery
+		/// lands: projects the manually armed [`ConsumedStreams`] set —
+		/// suspension will express itself as omission here.
+		pub fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>> {
+			let mut grouped = BTreeMap::<ParaId, Vec<(StreamId, ConsumedStream)>>::new();
+			for (source, stream) in ConsumedStreams::<T>::iter_keys() {
+				let cursor =
+					MessagePosition(InboundFrontier::<T>::get((source, stream)).leaf_count);
+				if let Some(consumed) = ConsumedStream::project(&stream, cursor) {
+					grouped.entry(source).or_default().push((stream, consumed));
+				}
+			}
+			grouped
+				.into_iter()
+				.map(|(source, mut streams)| {
+					streams.sort_by_key(|(stream, _)| *stream);
+					(source, streams.into_iter().map(|(_, consumed)| consumed).collect())
+				})
+				.collect()
+		}
+
+		/// Channel views, outbound direction — what the `out_channels()`
+		/// runtime API serves: standing for authoring decisions and, via the
+		/// keys, which ack registers the own collators read.
+		///
+		/// PLACEHOLDER derivation until the channel lifecycle machinery
+		/// lands: every armed [`OpenOutboundChannels`] key maps to the
+		/// default state (version-0 announcement, no register read yet) —
+		/// the view's shape is the API contract, the lifecycle fills in the
+		/// fields.
+		pub fn out_channels() -> BTreeMap<ChannelId, OutChannelState> {
+			OpenOutboundChannels::<T>::iter_keys()
+				.map(|channel| (channel, OutChannelState::default()))
+				.collect()
+		}
+
+		/// Channel views, inbound direction — what the `in_channels()`
+		/// runtime API serves: which channels are due a register publish
+		/// check, suspension standing, diagnostics.
+		///
+		/// PLACEHOLDER derivation until the channel lifecycle machinery
+		/// lands: every armed channel data stream in [`ConsumedStreams`]
+		/// maps to the default state (no register published yet, version-0
+		/// peer announcement, not suspended), mirroring
+		/// [`Pallet::out_channels`].
+		pub fn in_channels() -> BTreeMap<ChannelId, InChannelState> {
+			ConsumedStreams::<T>::iter_keys()
+				.filter_map(|(source, stream)| match stream {
+					StreamId::Channel { domain, num, .. } => {
+						Some((ChannelId { peer: source, domain, num }, InChannelState::default()))
+					},
+					_ => None,
+				})
+				.collect()
 		}
 
 		/// Consumes one channel item of the messaging inherent: hashes the

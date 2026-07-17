@@ -41,8 +41,10 @@
 //! - The fetch protocol wire types ([`wire`]): [`MessagesRequest`] / [`MessagesResponse`],
 //!   [`EventRequest`] / [`EventResponse`] — every response independently verifiable against a
 //!   requester-named root.
-//! - Channel-layer payloads ([`channel`]): [`SpecMsgKind`], [`SpecMsgSignal`], [`Register`],
-//!   [`WindowGrant`], [`ChannelId`].
+//! - Channel-layer payloads and views ([`channel`]): [`SpecMsgKind`], [`SpecMsgSignal`],
+//!   [`Register`], [`WindowGrant`], [`ChannelId`] — plus the runtime-API view types
+//!   [`ConsumedStream`], [`OutChannelState`], [`InChannelState`] (the `SpecMsgApi` declaration
+//!   itself lives in `cumulus-primitives-core`, next to the other node–runtime boundaries).
 //! - The messaging inherent's data ([`inherent`]): [`SpecMsgInherentData`] and its
 //!   [`INHERENT_IDENTIFIER`] — fetched payloads in, no roots of any kind.
 //!
@@ -66,7 +68,10 @@ pub mod test_utils;
 pub mod tree;
 pub mod wire;
 
-pub use channel::{ChannelId, Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
+pub use channel::{
+	ChannelId, ConsumedStream, InChannelState, OutChannelState, Register, SpecMsgKind,
+	SpecMsgSignal, WindowGrant,
+};
 pub use inherent::{SpecMsgInherentData, INHERENT_IDENTIFIER};
 pub use lift::{
 	build_requires, build_requires_entry, stitch, LiftError, LiftsBySource, RequiresLift,
