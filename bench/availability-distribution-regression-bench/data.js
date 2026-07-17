@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784310523016,
+  "lastUpdate": 1784319417564,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "abe05daf56d3af1611de7d6478e0cd1a23a789d9",
-          "message": "pallet-revive benchmark opcode fix (#10380)\n\nBenchmark opcode was using the invalid opcode instead of defining a new\none.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-21T12:04:04Z",
-          "tree_id": "b795e978bf9e8e168204ddc92dbe05efd8a94eae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/abe05daf56d3af1611de7d6478e0cd1a23a789d9"
-        },
-        "date": 1763731736027,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013336829959999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00767259279333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02263137460666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15874504018000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007501387873333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tim.n@parity.io",
+            "name": "Tim Nieradzik",
+            "username": "tindzk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12e585fffc0a12c5b48635fd3301d510a34af912",
+          "message": "claims: Reject vesting claims below the existential deposit (#12254)\n\n## Description\n\nA vesting claim attaches a balance lock to the destination account,\nwhich requires the account to stay alive (balance >= existential\ndeposit). This is currently not enforced: If a claim's value was below\nED, `process_claim`'s `deposit_creating` left the account below ED, and\nthe subsequent `add_vesting_schedule` -> `update_locks` ->\n`try_mutate_account` saw `free < ED`. This dusted the account and\ntripped `pallet_balances`' \"caused unexpected dusting/balance update\"\ndefensive failure. `defensive!` panics in tests and benchmarks but only\nlogs in release, so in production this produced silently inconsistent\nstate (a vesting lock written onto a dusted account). `process_claim`\nalso relied on an `.expect()` over `add_vesting_schedule` that assumed\nthe failure was impossible.\n\nGuard the invariant in `process_claim`, and add a\n`ClaimBelowExistentialDeposit` error. The benchmark was updated to floor\nits claim amount at `max(ED, 1_000_000)`, which satisfies the invariant.\n\n## Integration\n\nNo action required for downstream users. The changes are additive:\n\n- An error variant `ClaimBelowExistentialDeposit` was appended to\n`claims::Error`, so the indices of existing variants remain unchanged.\n- `process_claim` now rejects a vesting claim whose destination account\nwould end up below the ED after the deposit; it fails with\n`ClaimBelowExistentialDeposit` and is reverted by the dispatch's storage\nlayer. The check is on the resulting free balance, so a small claim into\nan account that already holds funds is still accepted. `mint_claim` is\nunchanged: the destination account is not known until claim time, so the\ninvariant can only be enforced there.\n\nThere is no storage migration and no change to dispatchable signatures\nor weights.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>",
+          "timestamp": "2026-07-17T18:33:12Z",
+          "tree_id": "8e964c5e976e79bf6f941dc727219cae29f35597",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12e585fffc0a12c5b48635fd3301d510a34af912"
+        },
+        "date": 1784319385621,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14830390976666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022719403873333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00760707856666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009934630686666675,
             "unit": "seconds"
           }
         ]
