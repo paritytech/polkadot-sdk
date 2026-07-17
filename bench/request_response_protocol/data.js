@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784309685978,
+  "lastUpdate": 1784317315301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -108755,6 +108755,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2526117923,
             "range": "± 40505330",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "75bad7139740e8fa7ca813cdd9516855e3b4a2a4",
+          "message": "Remove deprecated FixedPoint::try_sqrt. (#12671)\n\nPart of #11561\n\nRemove the deprecated `try_sqrt` method from the fixed-point arithmetic\ntypes in `sp-arithmetic`.\n\nIt was deprecated with a removal date of October 2025 in favor of\n`checked_sqrt`. There are no remaining in-repo callers.\n\n## Integration\n\nReplace `value.try_sqrt()` with `value.checked_sqrt()`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-07-17T17:32:48Z",
+          "tree_id": "f06d8b8c03b51381a8dddbc015aef2f04b4f23ae",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/75bad7139740e8fa7ca813cdd9516855e3b4a2a4"
+        },
+        "date": 1784317283879,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21519802,
+            "range": "± 283257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21397070,
+            "range": "± 272098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22198765,
+            "range": "± 244796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27020571,
+            "range": "± 228737",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59515030,
+            "range": "± 454652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 380271554,
+            "range": "± 6611842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2353390639,
+            "range": "± 122384739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17379928,
+            "range": "± 172658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17833079,
+            "range": "± 145180",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17914737,
+            "range": "± 310961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21360235,
+            "range": "± 227621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58004762,
+            "range": "± 889089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 319949214,
+            "range": "± 7376190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2410040367,
+            "range": "± 12223422",
             "unit": "ns/iter"
           }
         ]
