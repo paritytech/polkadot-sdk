@@ -39,7 +39,8 @@
 //!   [`LiftsBySource`], carried in the POV — plus the verification the `validate_block` wrapper
 //!   runs over them ([`stitch`] / [`build_requires_entry`] / [`build_requires`]).
 //! - The fetch protocol wire types ([`wire`]): [`MessagesRequest`] / [`MessagesResponse`],
-//!   [`EventRequest`] / [`EventResponse`] — every response independently verifiable against a
+//!   [`EventRequest`] / [`EventResponse`] and the `/spec-msg/exchange` envelopes
+//!   [`ExchangeRequest`] / [`ExchangeResponse`] — every response independently verifiable against a
 //!   requester-named root.
 //! - Channel-layer payloads and views ([`channel`]): [`SpecMsgKind`], [`SpecMsgSignal`],
 //!   [`Register`], [`WindowGrant`], [`ChannelId`] — plus the runtime-API view types
@@ -86,7 +87,10 @@ pub use tree::{
 	compute_streams_root, prove_stream, tree_inner_hash, tree_leaf_hash, TreeError,
 	TreeInclusionProof,
 };
-pub use wire::{EventRequest, EventResponse, MessagesRequest, MessagesResponse};
+pub use wire::{
+	EventRequest, EventResponse, ExchangeRequest, ExchangeResponse, MessagesRequest,
+	MessagesResponse,
+};
 
 // Relay-side commitment types (UMPSignal-embedded), re-exported for
 // convenience.

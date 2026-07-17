@@ -914,6 +914,7 @@ node = [
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
 	"cumulus-client-service",
+	"cumulus-client-spec-msg",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
 	"cumulus-relay-chain-minimal-node",
@@ -2368,6 +2369,11 @@ path = "../cumulus/client/proof-size-recording"
 default-features = false
 optional = true
 path = "../cumulus/client/service"
+
+[dependencies.cumulus-client-spec-msg]
+default-features = false
+optional = true
+path = "../cumulus/client/spec-msg"
 
 [dependencies.cumulus-relay-chain-inprocess-interface]
 default-features = false

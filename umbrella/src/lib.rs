@@ -122,6 +122,10 @@ pub use cumulus_client_proof_size_recording;
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
 
+/// Speculative Messaging node parts: sender-side archive and the /spec-msg/exchange protocol.
+#[cfg(feature = "cumulus-client-spec-msg")]
+pub use cumulus_client_spec_msg;
+
 /// AURA consensus extension pallet for parachains.
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;

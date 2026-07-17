@@ -150,6 +150,54 @@ pub struct EventRequest {
 	pub at: Option<MessagePosition>,
 }
 
+/// The `/spec-msg/exchange` request envelope: both root-keyed request kinds
+/// travel over the one exchange protocol, so the discriminant is part of the
+/// wire format. Variant indices are frozen — foreign implementations decode
+/// by them.
+#[derive(
+	Clone,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	Debug,
+	Eq,
+	PartialEq,
+	scale_info::TypeInfo,
+)]
+pub enum ExchangeRequest {
+	/// Ordered fetching / lift material — answered by
+	/// [`ExchangeResponse::Messages`].
+	#[codec(index = 0)]
+	Messages(MessagesRequest),
+	/// Single-event read — answered by [`ExchangeResponse::Event`].
+	#[codec(index = 1)]
+	Event(EventRequest),
+}
+
+/// The `/spec-msg/exchange` response envelope, mirroring
+/// [`ExchangeRequest`]. There is no error variant: a server that cannot
+/// serve (root unknown, outside the serving horizon) refuses at the
+/// transport level — nothing is resolved server-side, so there is nothing
+/// to say.
+#[derive(
+	Clone,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	Debug,
+	Eq,
+	PartialEq,
+	scale_info::TypeInfo,
+)]
+pub enum ExchangeResponse {
+	/// Response to [`ExchangeRequest::Messages`].
+	#[codec(index = 0)]
+	Messages(MessagesResponse),
+	/// Response to [`ExchangeRequest::Event`].
+	#[codec(index = 1)]
+	Event(EventResponse),
+}
+
 /// One event leaf with the proofs placing it under the requested root.
 ///
 /// Head-ness comes with the check: `under` fixes the stream's leaf count,
@@ -173,4 +221,37 @@ pub struct EventResponse {
 	pub inclusion: MmrInclusionProof,
 	/// Places the stream's root (computed from `inclusion`) under `under`.
 	pub tree_proof: TreeInclusionProof,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::Encode;
+
+	/// The envelope's variant indices are wire-format-critical: foreign
+	/// implementations decode by them, forever.
+	#[test]
+	fn exchange_envelope_indices_are_frozen() {
+		let messages = ExchangeRequest::Messages(MessagesRequest {
+			stream: StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 },
+			start: MessagePosition(0),
+			under: StreamsRoot(Hash::zero()),
+			max_bytes: 0,
+		});
+		assert_eq!(messages.encode()[0], 0x00);
+
+		let event = ExchangeRequest::Event(EventRequest {
+			stream: StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 },
+			under: StreamsRoot(Hash::zero()),
+			at: None,
+		});
+		assert_eq!(event.encode()[0], 0x01);
+
+		let response = ExchangeResponse::Event(EventResponse {
+			payload: Vec::new(),
+			inclusion: MmrInclusionProof { mmr_size: 0, items: Vec::new() },
+			tree_proof: Default::default(),
+		});
+		assert_eq!(response.encode()[0], 0x01);
+	}
 }
