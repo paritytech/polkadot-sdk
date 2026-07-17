@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784294346873,
+  "lastUpdate": 1784301507129,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d38ac656a243d576da7d8da0cbcdca10500e1022",
-          "message": "Upgrade litep2p to v0.12.0 and handle Kademlia publish success events (#9685)\n\nlitep2p v0.12.0 adds ability to track whether publishing a DHT record or\nprovider was successful. This PR brings this functionality to substrate.\nParticularly, this fixes authority-discovery unnecessarily republishing\nDHT records due to litep2p not emitting\n`KademliaEvent::PutRecordSuccess` before v0.12.0.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:00:26Z",
-          "tree_id": "403a909fa0de016a09c52706aec96c3a200fb2ba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d38ac656a243d576da7d8da0cbcdca10500e1022"
-        },
-        "date": 1763565297293,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63622.579999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001923182,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5108430509900006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018991490000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9585087695699914,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.456597986779995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018991490000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5424072484000013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4361514038800002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4989071908300007,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.705431511850878,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001923182,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.503943498820001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0058368242900000075,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005529075569999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08f58c40ea9c3a722db06407368d5b5e9a5ce212",
+          "message": "binary-merkle-tree: preallocate proof vector to avoid reallocations (#12288)\n\nresolves #9106",
+          "timestamp": "2026-07-17T10:30:47Z",
+          "tree_id": "434576ef5994ca92b29f9e57ab11e0b111e79c28",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/08f58c40ea9c3a722db06407368d5b5e9a5ce212"
+        },
+        "date": 1784301475286,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63562.39,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001848444,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.054643178109952,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005516788449999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.755428801789999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001848444,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.708395756040001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019683040000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3385710871599987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019683040000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7383805070900005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7935350091599538,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.398803593952908,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.714815228419999,
             "unit": "seconds"
           }
         ]
