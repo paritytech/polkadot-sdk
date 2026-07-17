@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784306737642,
+  "lastUpdate": 1784309685978,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -108647,6 +108647,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2545702578,
             "range": "± 13399504",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karol@parity.io",
+            "name": "Karol Kokoszka",
+            "username": "karolk91"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91d93d4ebc6d441d8e93f4a5d5fc368a494d8f78",
+          "message": "sp-database: aggregate same-key refcount ops within a transaction (#12106)\n\nFix a kvdb refcount-leak: multiple `Store`/`Reference`/`Release` ops on\nthe same key in one `sp_database::Transaction` each read a stale on-disk\ncounter and write back to the same counter key — the underlying\n`DBTransaction` keeps only the last `put`, collapsing N ops to a single\n±1. `commit_impl` now aggregates per-`(col, key)` deltas first and\nperforms one read-modify-write per unique key.\n\nSurfaces when multiple displaced fork branches at the same height carry\nthe same indexed extrinsics. `prune_displaced_branches` then issues\n`release(col11, hash) × N` per fork **in one finalization commit** —\npre-fix only one decrement landed, leaving indexed transaction data\nreachable past its retention period.\n\nAdds parametrized tests across `KvdbMemdb` / `ParityDb` / `RocksDb`\ncovering same-commit `Store + 2× Release`, `Store + 2× Reference`, and\n`Store + Release` net-zero patterns. All three failed on the kvdb\nbackends pre-fix; all pass post-fix.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-17T15:58:39Z",
+          "tree_id": "e3a5cca7efc31fd9d3d4bcc6332dcf2596074af1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91d93d4ebc6d441d8e93f4a5d5fc368a494d8f78"
+        },
+        "date": 1784309654447,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18650373,
+            "range": "± 75050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18927752,
+            "range": "± 123293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20355914,
+            "range": "± 107245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24828189,
+            "range": "± 240763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56058431,
+            "range": "± 694220",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 341823240,
+            "range": "± 3853513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2615139109,
+            "range": "± 45327952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 15467714,
+            "range": "± 172913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15466575,
+            "range": "± 85321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16047298,
+            "range": "± 146679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20139409,
+            "range": "± 120971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 56372866,
+            "range": "± 612877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 333070425,
+            "range": "± 2816642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2526117923,
+            "range": "± 40505330",
             "unit": "ns/iter"
           }
         ]
