@@ -234,7 +234,264 @@ Instead of routing messages through relay chain state, we:
 
 ---
 
-## Detailed Design
+# Detailed Design - MVP focus
+
+Parachain nodes operating on different peer-to-peer (P2P) networks need a mechanism to exchange messages off-chain.
+The relay chain only processes message commitments, not the messages themselves. Parachains must rely on an
+alternative discovery method: differing genesis hashes and sync protocols prevent direct communication.
+
+The design covers the following parts:
+
+1. **Discoverability**: Parachain A finds the nodes of parachain B.
+2. **Communication**: Nodes from A connect to B in a resource efficient manner.
+3. **P2P messaging protocol**: Announcement and exchange of messages offchain.
+
+## 1. Parachain Discoverability
+
+The discoverability of parachains leverages the existing bootnodes on DHT mechanism on the relay chain side,
+as specified in [RFC-0008](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md).
+The relay chain peers of parachains advertise themselves as providers in the relay chain DHT under the key `para ID || epoch randomness`.
+Only the 20 closest peer IDs to this key are kept as providers, and the provider set is updated on every epoch change.
+
+To resolve these peer IDs into actual bootnode addresses, the node uses the /paranode request-response protocol.
+It accepts a SCALE-compact-encoded para ID and returns a list of bootnode multiaddresses for that parachain.
+
+## 2. Parachain Communication
+
+Rather than spawning a dedicated global network for speculative messaging, a parachain node reuses its existing
+parachain-side litep2p network backend.
+
+Using the genesis hash and fork ID from the /paranode response, the node dynamically registers and spawns a new
+Kademlia instance dedicated to the destination parachain, named `/{genesis_B}/{fork_B}/kad`.
+
+The instance is initialized lazily, the first time when parachain A needs to communicate with parachain B.
+
+To prevent intertwining of DHTs between different parachains, the dedicated Kademlia instance operates strictly in
+client-only mode, ensuring it only participates in the DHT of the destination parachain without contributing to its routing table.
+
+The instance performs a low intensity DHT crawling by periodically submitting `FIND_NODE` queries to the destination
+parachain. The discovered peers are kept in memory keyed by the parachain id. This information is used to send
+speculative messages only to the peers of the destination parachain.
+
+## 3. Speculative Messaging P2P Protocol
+
+The messages are exchanged over two new dedicated protocols:
+ - `/spec-msg/announce/1`: notification protocol required for speculating below backed-block tier.
+ - `/spec-msg/exchange/1`: request response protocol for fetching messages off-chain.
+
+The protocols intentionally omit the genesis hash and fork ID, so nodes can communicate regardless of
+genesis. Isolation is already provided by the dedicated Kademlia instance, which maps each parachain's peers.
+
+Without a block-announcement protocol to keep connections alive, an idle connection is subject to termination.
+To avoid re-dialing the peers for every message, the `/spec-msg/exchange/1` keeps a long lived substream active
+for the entire duration of the exchange and reutilizes it for subsequent requests.
+This reduces latency and removes repeated connection setup. The protocol diverges slightly from
+Substrate's request-response protocols, where the substream is short-lived per request.
+
+All messages are SCALE-encoded.
+
+### Payload Limits
+
+- `/spec-msg/announce/1` — maximum over-the-wire payload of **2 MiB**.
+- `/spec-msg/exchange/1` — maximum over-the-wire payload of **16 MiB**.
+
+Payloads exceeding these limits are fragmented into multiple speculative messages and
+chunking is implementation-specific. Implementers must account for the messaging-format overhead when sizing chunks.
+
+The trust does not come from the connection. Every message is verified against a root the
+sender signed. Therefore, any peer may deliver a batch message. Malformed messages, either
+forged or substituted simply fail the verification against the MMR root.
+
+### Handshake
+
+The handshake only identifies the peer, it does not make the data trustworthy.
+It is the first message exchanged over the wire by both peers, on either protocol:
+
+```rust
+pub struct Handshake {
+    /// The role of the node (light / full / authority).
+    pub node_role: NodeRole,
+    /// The parachain ID of the peer.
+    pub para_id: ParaId,
+}
+```
+
+The examples below assume parachain A sends to destination parachain B.
+
+### Notification: Message Announcement `/spec-msg/announce/1`
+
+This notification protocol informs the parachain B that A has included new messages for it in a block.
+
+Speculation happens under different modes:
+- HRMP replacement (phase 1): Parachain B builds blocks after A's block is backed on the relay chain.
+  B discovers that A has propagated messages by reading the `provides` root from the relay chain state.
+  In this mode, the notification protocol is entirely optional.
+- Best block: B aims to back its block roughly at the same time as A, before A's block is on the relay chain.
+  In this mode, B has no on-chain anchor and the notification protocol is mandatory.
+  The signature of the provided message anchors the trust author of the block.
+
+
+```rust
+/// Per destination message.
+///
+/// When A communicates with multiple parachains in a single block,
+/// each destination receives its own individually signed announcement.
+/// In this model, B never learns A's other counterparties.
+pub struct ProvidesMessages {
+    /// The parachain A that authored the block.
+    pub source: ParaId,
+    /// The relay parent block the parachain block is built on (pins production slot).
+    pub relay_parent: Hash,
+    /// A's parachain block number.
+    pub source_number: BlockNumber,
+
+    /// Destination parachain B that receives the messages.
+    pub destination: ParaId,
+    /// A's parachain block that includes the messages.
+    pub source_block: Hash,
+
+    /// Root of A's cumulative per-destination MMR for B (the "provides" root).
+    pub provides: Hash,
+    /// Cumulative number of messages A has sent B through this block.
+    /// Doubles as the pagination target.
+    pub message_count: u64,
+
+    /// Session in which the collator key is valid (anti cross-session replay).
+    pub session_index: u32,
+}
+
+pub struct SignedProvidesMessages {
+    /// The signed payload.
+    pub payload: ProvidesMessages,
+    /// Signature by `collator` over the SCALE-encoded payload.
+    pub signature: Vec<u8>,
+}
+```
+
+The purpose of the message is to announce to B that A has included new messages
+for it in a block.
+
+**Equivocation**: A collator's block production slot is pinned by `(source, relay_parent, source_number)`
+as one checkpoint. If A signs this announcement for a slot, but the relay chain later includes a different
+`provides` root for the same `(source, relay_parent, source_number)`, the two conflicting signed
+messages are proof that A double produced. This is submittable on-chain to slash A's bond and makes
+the pre-backing speculation safe. Any node observing the double produced behavior can submit the proof on chain.
+
+Relay chain forks use a different `relay_parent` and parachain segment heights use different `source_number`.
+Therefore, neither is a slashable fault.
+
+In cases where A's block may fail to get backed, B's `requires` won't match at inclusion. Therefore, B
+drops the blocks and the rollback is the cost of speculation, without causing a penalty to A.
+
+### Request-Response: Batch Request `/spec-msg/exchange/1`
+
+The destination parachain pulls the messages from any peer that announced `SignedProvidesMessages`.
+The data is addressed by the `provides` field.
+
+```rust
+pub struct BatchRequest {
+    /// The para ID of A.
+    pub source: ParaId,
+    /// The provides from the `SignedProvidesMessages` per destination B only.
+    pub provides: Hash,
+    /// B's resume cursor: the first MMR leaf index B still needs.
+    pub from_index: u64,
+}
+```
+
+A message as it sits in the cumulative MMR:
+
+```rust
+pub struct OutgoingMessage {
+    /// Destination parachain
+    pub destination: ParaId,
+    /// Leaf position in the edge's cumulative MMR (assigned monotonically).
+    pub position: u64,
+    /// Opaque payload (ie XCM blob)
+    pub payload: Vec<u8>,
+
+}
+```
+
+The response carries the signed commitment plus the raw messages and no
+inclusion proof. B reconstructs and checks the root itself:
+
+```rust
+pub struct MessageBatch {
+    /// A's signed commitment (carries `provides` and `message_count`).
+    /// Lets B authenticate the batch even when a third-party peer served it.
+    pub signed_provides: SignedProvidesMessages,
+    /// The raw messages for this chunk, contiguous from `BatchRequest::from_index`.
+    pub messages: Vec<OutgoingMessage>,
+}
+```
+
+**Verification**: Because the batch carries no inclusion proof, verification relies on:
+1. Append: Each message received is checked against `position == cursor`
+  ensuring FIFO ordering, it is appended as a leaf and the cursor is advanced.
+2. Bag: Once all messages have been received, the peeks are transformed into a single root.
+3. Compare: The `SignedProvidesMessages::payload::provides` must each with the root. In case of
+  a mismatch, the peer is banned and disconnected, data is discarded and repulled from a different source.
+
+Together these checks ensure that data arrived in order, that messages were neither altered nor skipped, and that every message was delivered.
+
+**Chunking**: Since the communication happens off-chain, parachains can choose to communicate large messages.
+In these situations, a single p2p message is limited to 16 MiB. Parachain B chunks the requests as follows:
+- B reads the `SignedProvidesMessages::payload::message_count` from the signed announcement.
+- B sends `BatchRequest { source, provides, from_index }` using its own cursor
+- A responds with as many `OutgoingMessage` that fit the message limit
+- B appends them and advances `from_index = last_received_position + 1`.
+- B repeats `BatchRequest` until all messages are delivered.
+
+### Request-Response: Late Block Proof `/spec-msg/exchange/1`
+
+When B binds its `requires` to an older `provides` root that has since aged out of
+the relay chain's provides window (A advanced to a newer root), B must prove
+that the new root extends the old one. This is out of the scope of the MVP.
+
+```rust
+/// Request
+pub struct LateBlockRequest {
+    /// The para ID of A.
+    pub source: ParaId,
+    /// B's old root (its committed `requires`).
+    pub old_root: Hash,
+    /// The latest root, from observed announcements or backed on-chain.
+    pub new_root: Hash,
+}
+
+/// Response
+pub struct LateBlockProof {
+    pub old_root: Hash,
+    pub old_leaf_count: u64,
+    pub new_root: Hash,
+    pub new_leaf_count: u64,
+    /// Minimal MMR nodes that bag to `old_root` under `old_leaf_count`, and
+    /// combine with the extension nodes to bag to `new_root`. O(log n).
+    pub nodes: Vec<Hash>,
+}
+```
+
+### Trust Model for Collators
+
+For Parachain A to securely exchange messages with Parachain B, it must first obtain Parachain B's discovery keys.
+These keys allow Parachain A to map out collator addresses and verify peer integrity.
+
+The `SignedCollatorAuthorityRecord` guarantees that communication stirctly happens with legitimate collators
+of Parachain B, preventing eclipse attacks where malicious peers impersonate collators to drop or manipulate
+messages.
+
+Parachain A relies on light-client similar approach to fetch the discovery key from Parachain B:
+- 1. Read relay header: Parachain A reads Parachain B's header from the relay chain via `paras::Heads::get(Para B)`. This storage entry is located at [relay_well_known_keys::para_head(Para B)](https://github.com/paritytech/polkadot-sdk/blob/acf45cfbb1080f123aab1f2001967073977798c2/substrate/primitives/state-machine/src/lib.rs#L828-L833).
+- 2. Extract state root: The header is decoded to obtain the `state_root` of the block.
+- 3. Craft storage key: We craft the key for the storage read `twox_128("AuthorityDiscovery") ++ twox_128("Keys")`.
+- 4. Query peers: A request is made to the 20 closest peers that registered as providers under `para ID || randomness` key.
+- 5. Submit request: The request is submitted over `/spec-msg/light/2` which includes `RemoteReadRequest { block, keys }` protobuf encoded.
+- 6. Receive proof: The response contains `RemoteReadResponse` containing a storage proof.
+- 7. Verify proof: Parachain A verified via [read_proof_check()](https://github.com/paritytech/polkadot-sdk/blob/acf45cfbb1080f123aab1f2001967073977798c2/substrate/primitives/state-machine/src/lib.rs#L828-L833), passing in the `state_root` (step 2), crafted key (step 3), and the provided storage proof (step 6).
+
+Once verified, parachain A knows the authority keys of parachain B and starts `GET_VALUE` kademlia requests to fetch the multiaddresses of the collators on the Speculative Messaging Network. With the multiaddresses, parachain A can establish direct communication with parachain B's collators over the `/spec-msg/exchange` protocol.
+
 
 ### Message Accumulators
 
