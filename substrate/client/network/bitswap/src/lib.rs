@@ -34,8 +34,8 @@ pub use service::start;
 
 pub(crate) const LOG_TARGET: &str = "sub-libp2p::bitswap";
 
-/// Max number of wantlist entries per Bitswap message: inbound wantlist entries beyond
-/// this are answered with `DONT_HAVE`, and outbound WANT bundles are split at this size.
+/// Bitswap batch size: inbound wantlists are looked up and answered in batches of this
+/// many entries, and outbound WANT bundles are split at this size.
 pub const MAX_WANTED_BLOCKS: usize = 16;
 
 /// IPFS raw multicodec used for indexed transaction payload bytes.

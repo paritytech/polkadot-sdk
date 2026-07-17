@@ -51,7 +51,7 @@ use std::{
 	time::Duration,
 };
 use tokio::{
-	sync::{mpsc, Semaphore},
+	sync::{mpsc, OwnedSemaphorePermit, Semaphore},
 	time::Instant,
 };
 
@@ -83,6 +83,10 @@ impl BitswapTransport for LitepBitswapHandle {
 const MAX_LIVE_CIDS: usize = 1024;
 const MAX_WAITERS_PER_CID: usize = 64;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
+/// Per-peer bound on queued inbound wantlist entries. Sized to a client's largest
+/// possible burst (our own client dispatches at most [`MAX_LIVE_CIDS`] wants at one
+/// peer), so a well-behaved requester never has entries dropped.
+const MAX_QUEUED_INBOUND_ENTRIES_PER_PEER: usize = MAX_LIVE_CIDS;
 const CMD_CHANNEL_CAPACITY: usize = 256;
 const LOOKUP_CHANNEL_CAPACITY: usize = 64;
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
@@ -414,29 +418,86 @@ impl<B: BlockT> InboundLookupPool<B> {
 		)
 	}
 
-	/// Serve the wantlist on a blocking worker. Returns the wantlist back if the pool is
-	/// saturated.
-	fn try_submit(
+	/// Reserve a worker slot, or `None` if all workers are busy. Dropping the permit
+	/// unused returns the slot.
+	fn try_acquire_worker(&self) -> Option<OwnedSemaphorePermit> {
+		self.semaphore.clone().try_acquire_owned().ok()
+	}
+
+	/// Serve the wantlist on a blocking worker occupying `permit`'s slot.
+	fn submit(
 		&self,
+		permit: OwnedSemaphorePermit,
 		peer: litep2p::PeerId,
 		cids: Vec<(Cid, WantType)>,
-	) -> Result<(), Vec<(Cid, WantType)>> {
-		let Ok(permit) = self.semaphore.clone().try_acquire_owned() else {
-			return Err(cids);
-		};
-
+	) {
 		let client = self.client.clone();
 		let result_tx = self.result_tx.clone();
 		let metrics = self.metrics.clone();
 		tokio::task::spawn_blocking(move || {
-			let _permit = permit;
 			let responses = serve_inbound(&*client, cids, &metrics);
+			// Release the worker slot before publishing the result, so that when the actor
+			// sees the result it can immediately dispatch the next queued batch.
+			drop(permit);
 			// Blocking worker: wait for a channel slot rather than discarding the computed
 			// responses when the actor is momentarily behind on draining results.
 			let _ = result_tx.blocking_send((peer, responses));
 		});
+	}
+}
 
-		Ok(())
+/// Per-peer FIFO queues of inbound wantlist entries, drained round-robin in
+/// [`MAX_WANTED_BLOCKS`]-entry batches so one peer's backlog cannot head-of-line-block
+/// other requesters.
+///
+/// Entries beyond the per-peer cap are dropped silently: bitswap clients treat wants as
+/// standing state and re-send unanswered wants, while answering `DONT_HAVE` under load
+/// would misreport blocks we may well have.
+struct InboundQueue {
+	per_peer: HashMap<litep2p::PeerId, VecDeque<(Cid, WantType)>>,
+	/// Peers with queued entries, each exactly once, in service order.
+	rotation: VecDeque<litep2p::PeerId>,
+	/// Per-peer entry cap.
+	max_entries_per_peer: usize,
+}
+
+impl InboundQueue {
+	fn new(max_entries_per_peer: usize) -> Self {
+		Self { per_peer: HashMap::new(), rotation: VecDeque::new(), max_entries_per_peer }
+	}
+
+	/// Queue `entries` for `peer`. Returns the number of entries dropped because the
+	/// peer's queue is full.
+	fn enqueue(&mut self, peer: litep2p::PeerId, mut entries: Vec<(Cid, WantType)>) -> usize {
+		if entries.is_empty() {
+			return 0;
+		}
+		let queue = self.per_peer.entry(peer).or_default();
+		let free = self.max_entries_per_peer.saturating_sub(queue.len());
+		let dropped = entries.len().saturating_sub(free);
+		entries.truncate(free);
+		if queue.is_empty() && !entries.is_empty() {
+			self.rotation.push_back(peer);
+		}
+		queue.extend(entries);
+		if queue.is_empty() {
+			self.per_peer.remove(&peer);
+		}
+		dropped
+	}
+
+	/// Take the next batch of up to [`MAX_WANTED_BLOCKS`] entries, rotating the serviced
+	/// peer to the back of the queue.
+	fn next_batch(&mut self) -> Option<(litep2p::PeerId, Vec<(Cid, WantType)>)> {
+		let peer = self.rotation.pop_front()?;
+		let queue = self.per_peer.get_mut(&peer).expect("peers in rotation have a queue; qed");
+		let batch: Vec<_> = queue.drain(..queue.len().min(MAX_WANTED_BLOCKS)).collect();
+		if queue.is_empty() {
+			self.per_peer.remove(&peer);
+		} else {
+			self.rotation.push_back(peer);
+		}
+		Some((peer, batch))
 	}
 }
 
@@ -450,6 +511,7 @@ pub(crate) struct BitswapService<B: BlockT> {
 	sync_event_stream: Pin<Box<dyn Stream<Item = SyncEvent> + Send>>,
 	inbound_lookup_pool: InboundLookupPool<B>,
 	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
+	inbound_queue: InboundQueue,
 
 	connected_peers: HashSet<litep2p::PeerId>,
 	wants: WantSet,
@@ -489,6 +551,7 @@ where
 		sync_event_stream,
 		inbound_lookup_pool,
 		inbound_lookup_rx,
+		inbound_queue: InboundQueue::new(MAX_QUEUED_INBOUND_ENTRIES_PER_PEER),
 		connected_peers: HashSet::new(),
 		wants: WantSet::new(MAX_LIVE_CIDS),
 		waiters: SlotMap::with_key(),
@@ -512,7 +575,7 @@ impl<B: BlockT> BitswapService<B> {
 			tokio::select! {
 				event = self.handle.next_event() => match event {
 					Some(BitswapEvent::Request { peer, cids }) =>
-						self.on_inbound_request(peer, cids).await,
+						self.on_inbound_request(peer, cids),
 					Some(BitswapEvent::Response { peer, responses }) =>
 						self.on_inbound_response(peer, responses).await,
 					None => {
@@ -550,6 +613,8 @@ impl<B: BlockT> BitswapService<B> {
 
 				Some((peer, responses)) = self.inbound_lookup_rx.recv() => {
 					self.handle.send_response(peer, responses).await;
+					// The finished worker freed its slot: pull in the next queued batch.
+					self.dispatch_inbound_lookups();
 				},
 
 				_ = sweep_ticker.tick() => {
@@ -725,39 +790,32 @@ impl<B: BlockT> BitswapService<B> {
 		self.metrics.record_outbound(outbound_events::ROUND_RESTARTED, restarted.len());
 		cids.extend(restarted);
 		self.top_up_in_flight(cids).await;
+
+		// Backstop for the inbound queue: a lookup worker that died without publishing a
+		// result frees its slot without waking the dispatch path.
+		self.dispatch_inbound_lookups();
 	}
 
-	/// Serve an inbound wantlist, never silently: a `DONT_HAVE` lets the requester fail
-	/// over to another peer immediately, while silence costs it a full request timeout.
-	/// Entries beyond [`MAX_WANTED_BLOCKS`] (bounding the DB work per wantlist) and whole
-	/// wantlists refused by a saturated lookup pool are answered with `DONT_HAVE`.
-	async fn on_inbound_request(&mut self, peer: litep2p::PeerId, mut cids: Vec<(Cid, WantType)>) {
-		let mut refused = if cids.len() > MAX_WANTED_BLOCKS {
-			self.metrics.record_error(metric_errors::TOO_MANY_ENTRIES);
-			cids.split_off(MAX_WANTED_BLOCKS)
-		} else {
-			Vec::new()
-		};
-
-		if let Err(cids) = self.inbound_lookup_pool.try_submit(peer, cids) {
-			self.metrics.record_error(metric_errors::LOOKUP_POOL_SATURATED);
-			log::trace!(
+	/// Queue an inbound wantlist for serving. Wantlists of any size are accepted and
+	/// served in [`MAX_WANTED_BLOCKS`]-entry batches; only entries beyond the per-peer
+	/// queue cap are dropped (see [`InboundQueue`] for why dropping beats `DONT_HAVE`).
+	fn on_inbound_request(&mut self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
+		let dropped = self.inbound_queue.enqueue(peer, cids);
+		if dropped > 0 {
+			self.metrics.record_entries(metric_outcomes::DROPPED_OVERFLOW, dropped);
+			log::debug!(
 				target: LOG_TARGET,
-				"inbound serving pool saturated; answering DONT_HAVE to {peer:?}",
+				"inbound queue for {peer:?} full; dropped {dropped} wantlist entries",
 			);
-			refused.extend(cids);
 		}
+		self.dispatch_inbound_lookups();
+	}
 
-		if !refused.is_empty() {
-			let responses: Vec<_> = refused
-				.into_iter()
-				.map(|(cid, _)| ResponseType::Presence {
-					cid,
-					presence: BlockPresenceType::DontHave,
-				})
-				.collect();
-			self.metrics.record_responses(&responses);
-			self.handle.send_response(peer, responses).await;
+	/// Move queued inbound batches onto free lookup workers, round-robin across peers.
+	fn dispatch_inbound_lookups(&mut self) {
+		while let Some(permit) = self.inbound_lookup_pool.try_acquire_worker() {
+			let Some((peer, batch)) = self.inbound_queue.next_batch() else { break };
+			self.inbound_lookup_pool.submit(permit, peer, batch);
 		}
 	}
 
@@ -815,18 +873,16 @@ fn serve_inbound<B: BlockT>(
 					None
 				},
 			};
-			let response = match (transaction, want_type) {
+			match (transaction, want_type) {
 				(Some(transaction), WantType::Block) => {
 					ResponseType::Block { cid, block: transaction }
 				},
 				(Some(_), _) => ResponseType::Presence { cid, presence: BlockPresenceType::Have },
 				(None, _) => ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
-			};
-			metrics.record_response(&response);
-			response
+			}
 		})
 		.collect::<Vec<_>>();
-	metrics.record_response_bytes(&responses);
+	metrics.record_responses(&responses);
 	metrics.record_duration(started.elapsed());
 	responses
 }
@@ -883,13 +939,19 @@ mod tests {
 		client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
 		max_live_cids: usize,
 	) -> TestRig {
-		build_rig_with_lookup_limit(client, max_live_cids, MAX_CONCURRENT_INBOUND_LOOKUPS)
+		build_rig_with_inbound_limits(
+			client,
+			max_live_cids,
+			MAX_CONCURRENT_INBOUND_LOOKUPS,
+			MAX_QUEUED_INBOUND_ENTRIES_PER_PEER,
+		)
 	}
 
-	fn build_rig_with_lookup_limit(
+	fn build_rig_with_inbound_limits(
 		client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
 		max_live_cids: usize,
 		max_lookups: usize,
+		queued_entries_per_peer: usize,
 	) -> TestRig {
 		let (inbound_tx, inbound_rx) = mpsc::channel(64);
 		let (outbound_req_tx, outbound_req_rx) = mpsc::channel(64);
@@ -916,6 +978,7 @@ mod tests {
 			sync_event_stream,
 			inbound_lookup_pool,
 			inbound_lookup_rx,
+			inbound_queue: InboundQueue::new(queued_entries_per_peer),
 			connected_peers: HashSet::new(),
 			wants: WantSet::new(max_live_cids),
 			waiters: SlotMap::with_key(),
@@ -1093,6 +1156,50 @@ mod tests {
 		}
 
 		assert!(selected.len() > 1, "fresh CIDs should not all select the same peer");
+	}
+
+	#[test]
+	fn inbound_queue_rotates_peers_between_batches() {
+		let peer_a = litep2p::PeerId::random();
+		let peer_b = litep2p::PeerId::random();
+		let entry = |i: u8| (cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [i; 32]), WantType::Block);
+		let mut queue = InboundQueue::new(MAX_QUEUED_INBOUND_ENTRIES_PER_PEER);
+
+		// A backlogs two batches, B one entry: B is served between A's batches.
+		assert_eq!(
+			queue.enqueue(peer_a, (0..(MAX_WANTED_BLOCKS + 4) as u8).map(entry).collect()),
+			0
+		);
+		assert_eq!(queue.enqueue(peer_b, vec![entry(0xff)]), 0);
+
+		let (peer, batch) = queue.next_batch().unwrap();
+		assert_eq!((peer, batch.len()), (peer_a, MAX_WANTED_BLOCKS));
+		let (peer, batch) = queue.next_batch().unwrap();
+		assert_eq!((peer, batch.len()), (peer_b, 1));
+		let (peer, batch) = queue.next_batch().unwrap();
+		assert_eq!((peer, batch.len()), (peer_a, 4));
+		assert!(queue.next_batch().is_none());
+	}
+
+	#[test]
+	fn inbound_queue_drops_overflow_and_counts_it() {
+		let peer = litep2p::PeerId::random();
+		let entry = |i: u8| (cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [i; 32]), WantType::Block);
+		let mut queue = InboundQueue::new(4);
+
+		assert_eq!(queue.enqueue(peer, (0..3).map(entry).collect()), 0);
+		// Only one slot left: two of the three new entries are dropped.
+		assert_eq!(queue.enqueue(peer, (3..6).map(entry).collect()), 2);
+
+		let (_, batch) = queue.next_batch().unwrap();
+		let kept: Vec<Cid> = batch.into_iter().map(|(cid, _)| cid).collect();
+		assert_eq!(
+			kept,
+			(0..4)
+				.map(|i| cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [i; 32]))
+				.collect::<Vec<_>>()
+		);
+		assert!(queue.next_batch().is_none());
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -1510,38 +1617,125 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn saturated_inbound_pool_answers_dont_have() {
+	async fn busy_pool_queues_wantlists_until_worker_frees() {
 		let (gate_tx, gate_rx) = std::sync::mpsc::channel();
 		let backend = Arc::new(GatedBackend { gate: std::sync::Mutex::new(gate_rx) });
-		let mut rig = build_rig_with_lookup_limit(backend, MAX_LIVE_CIDS, 1);
+		let mut rig = build_rig_with_inbound_limits(
+			backend,
+			MAX_LIVE_CIDS,
+			1,
+			MAX_QUEUED_INBOUND_ENTRIES_PER_PEER,
+		);
 
 		let peer = litep2p::PeerId::random();
-		let gated_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0a; 32]);
-		let refused_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0b; 32]);
+		let first_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0a; 32]);
+		let second_cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0b; 32]);
 
 		// The first wantlist occupies the only lookup worker (parked on the gate); the
-		// second finds the pool saturated.
-		for cid in [gated_cid, refused_cid] {
+		// second waits in the peer's queue instead of being refused.
+		for cid in [first_cid, second_cid] {
 			rig.send_wantlist(peer, vec![(cid, WantType::Block)]).await;
 		}
+		let no_response = timeout(Duration::from_millis(300), rig.outbound_resp_rx.recv()).await;
+		assert!(no_response.is_err(), "nothing must be answered while the worker is parked");
 
-		// The refused wantlist is answered with DONT_HAVE instead of silence.
-		let (resp_peer, responses) = drain_next(&mut rig.outbound_resp_rx)
-			.await
-			.expect("DONT_HAVE for refused wantlist");
-		assert_eq!(resp_peer, peer);
-		assert_single_dont_have(&responses, refused_cid);
-
-		// Releasing the worker lets the parked wantlist be served normally.
+		// Releasing the worker serves both wantlists, in arrival order.
 		gate_tx.send(()).unwrap();
-		let (_, responses) = drain_next(&mut rig.outbound_resp_rx)
-			.await
-			.expect("response for gated wantlist");
-		assert_single_dont_have(&responses, gated_cid);
+		let (resp_peer, responses) =
+			drain_next(&mut rig.outbound_resp_rx).await.expect("first response");
+		assert_eq!(resp_peer, peer);
+		assert_single_dont_have(&responses, first_cid);
+
+		gate_tx.send(()).unwrap();
+		let (_, responses) = drain_next(&mut rig.outbound_resp_rx).await.expect("second response");
+		assert_single_dont_have(&responses, second_cid);
 	}
 
 	#[tokio::test]
-	async fn oversized_wantlist_is_answered_for_every_entry() {
+	async fn inbound_queue_round_robins_between_peers() {
+		let (gate_tx, gate_rx) = std::sync::mpsc::channel();
+		let backend = Arc::new(GatedBackend { gate: std::sync::Mutex::new(gate_rx) });
+		let mut rig = build_rig_with_inbound_limits(
+			backend,
+			MAX_LIVE_CIDS,
+			1,
+			MAX_QUEUED_INBOUND_ENTRIES_PER_PEER,
+		);
+
+		let peer_a = litep2p::PeerId::random();
+		let peer_b = litep2p::PeerId::random();
+		let wantlist = |tag: u8, len: usize| -> Vec<(Cid, WantType)> {
+			(0..len as u8)
+				.map(|i| {
+					let mut digest = [tag; 32];
+					digest[1] = i;
+					(cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, digest), WantType::Block)
+				})
+				.collect()
+		};
+
+		// Peer A backlogs three batches: the first is dispatched immediately, two queue.
+		rig.send_wantlist(peer_a, wantlist(0xaa, 3 * MAX_WANTED_BLOCKS)).await;
+		// Peer B queues one batch behind A's backlog.
+		rig.send_wantlist(peer_b, wantlist(0xbb, MAX_WANTED_BLOCKS)).await;
+
+		// Release one batch worth of lookups at a time and record who gets answered.
+		let mut served_order = Vec::new();
+		for _ in 0..4 {
+			for _ in 0..MAX_WANTED_BLOCKS {
+				gate_tx.send(()).unwrap();
+			}
+			let (resp_peer, responses) =
+				drain_next(&mut rig.outbound_resp_rx).await.expect("batch response");
+			assert_eq!(responses.len(), MAX_WANTED_BLOCKS);
+			served_order.push(resp_peer);
+		}
+
+		// Round-robin: B's batch is interleaved into A's backlog instead of waiting for
+		// all of it. (A goes twice first: its second batch re-entered the rotation
+		// before B arrived.)
+		assert_eq!(served_order, vec![peer_a, peer_a, peer_b, peer_a]);
+	}
+
+	#[tokio::test]
+	async fn per_peer_queue_overflow_drops_newest_entries() {
+		let (gate_tx, gate_rx) = std::sync::mpsc::channel();
+		let backend = Arc::new(GatedBackend { gate: std::sync::Mutex::new(gate_rx) });
+		// Single gated worker, queue capped at 4 entries per peer.
+		let mut rig = build_rig_with_inbound_limits(backend, MAX_LIVE_CIDS, 1, 4);
+
+		let peer = litep2p::PeerId::random();
+		let cid = |i: u8| cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [i; 32]);
+
+		// The first wantlist occupies the worker; the next four fill the queue; the
+		// sixth overflows the per-peer cap and is dropped silently.
+		for i in 0..6u8 {
+			rig.send_wantlist(peer, vec![(cid(i), WantType::Block)]).await;
+		}
+
+		// Serve everything: the five accepted entries are answered, the sixth never is.
+		for _ in 0..5 {
+			gate_tx.send(()).unwrap();
+		}
+		let mut answered = HashSet::new();
+		while answered.len() < 5 {
+			let (_, responses) = drain_next(&mut rig.outbound_resp_rx).await.expect("response");
+			for response in responses {
+				match response {
+					ResponseType::Presence { cid, presence: BlockPresenceType::DontHave } => {
+						assert!(answered.insert(cid), "duplicate reply for {cid}");
+					},
+					other => panic!("expected DONT_HAVE, got {other:?}"),
+				}
+			}
+		}
+		assert_eq!(answered, (0..5u8).map(cid).collect());
+		let no_more = timeout(Duration::from_millis(300), rig.outbound_resp_rx.recv()).await;
+		assert!(no_more.is_err(), "the overflowed entry must not be answered");
+	}
+
+	#[tokio::test]
+	async fn large_wantlist_is_served_in_batches_covering_every_entry() {
 		let mut rig = empty_rig();
 		let peer = litep2p::PeerId::random();
 
@@ -1555,9 +1749,9 @@ mod tests {
 
 		rig.send_wantlist(peer, cids.clone()).await;
 
-		// Entries beyond `MAX_WANTED_BLOCKS` get an immediate DONT_HAVE; the first
-		// `MAX_WANTED_BLOCKS` are looked up and answered too (DONT_HAVE as well: the test
-		// client holds no indexed data). Every entry must receive a reply.
+		// A wantlist larger than `MAX_WANTED_BLOCKS` is accepted whole and served in
+		// batches. Every entry gets a reply (DONT_HAVE: the test client holds no
+		// indexed data).
 		let mut answered = HashSet::new();
 		while answered.len() < cids.len() {
 			let (resp_peer, responses) =

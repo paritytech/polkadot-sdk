@@ -28,12 +28,11 @@ pub(crate) mod outcomes {
 	pub(crate) const HAVE: &str = "have";
 	pub(crate) const DONT_HAVE: &str = "dont_have";
 	pub(crate) const UNSUPPORTED_CID: &str = "unsupported_cid";
+	pub(crate) const DROPPED_OVERFLOW: &str = "dropped_overflow";
 }
 
 pub(crate) mod errors {
-	pub(crate) const TOO_MANY_ENTRIES: &str = "too_many_entries";
 	pub(crate) const CLIENT: &str = "client";
-	pub(crate) const LOOKUP_POOL_SATURATED: &str = "lookup_pool_saturated";
 }
 
 pub(crate) mod outbound_events {
@@ -144,8 +143,12 @@ impl BitswapMetrics {
 	}
 
 	pub(crate) fn record_entry(&self, outcome: &str) {
+		self.record_entries(outcome, 1);
+	}
+
+	pub(crate) fn record_entries(&self, outcome: &str, count: usize) {
 		if let Some(inner) = &self.inner {
-			inner.entries_total.with_label_values(&[outcome]).inc();
+			inner.entries_total.with_label_values(&[outcome]).inc_by(count as u64);
 		}
 	}
 
@@ -245,7 +248,8 @@ mod tests {
 		];
 
 		metrics.record_responses(&responses);
-		metrics.record_error(errors::TOO_MANY_ENTRIES);
+		metrics.record_error(errors::CLIENT);
+		metrics.record_entries(outcomes::DROPPED_OVERFLOW, 7);
 		metrics.record_duration(Duration::from_millis(5));
 		metrics.record_outbound(outbound_events::REQUESTED, 2);
 		metrics.set_state(1, 2, 3);
@@ -253,10 +257,8 @@ mod tests {
 		let inner = metrics.inner.as_ref().unwrap();
 		assert_eq!(inner.entries_total.with_label_values(&[outcomes::BLOCK_SERVED]).get(), 1);
 		assert_eq!(inner.entries_total.with_label_values(&[outcomes::DONT_HAVE]).get(), 1);
-		assert_eq!(
-			inner.request_errors_total.with_label_values(&[errors::TOO_MANY_ENTRIES]).get(),
-			1
-		);
+		assert_eq!(inner.entries_total.with_label_values(&[outcomes::DROPPED_OVERFLOW]).get(), 7);
+		assert_eq!(inner.request_errors_total.with_label_values(&[errors::CLIENT]).get(), 1);
 		assert_eq!(
 			inner
 				.outbound_events_total
