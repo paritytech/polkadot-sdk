@@ -88,7 +88,9 @@ const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 /// peer), so a well-behaved requester never has entries dropped.
 const MAX_QUEUED_INBOUND_ENTRIES_PER_PEER: usize = MAX_LIVE_CIDS;
 const CMD_CHANNEL_CAPACITY: usize = 256;
-const LOOKUP_CHANNEL_CAPACITY: usize = 64;
+/// One result-channel slot per worker: permits flow through the channel, so it can never
+/// hold more than one result per worker and senders never block.
+const LOOKUP_CHANNEL_CAPACITY: usize = MAX_CONCURRENT_INBOUND_LOOKUPS;
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 /// Delay before an exhausted CID (every connected peer tried) starts a new round.
 const ROUND_RETRY_DELAY: Duration = Duration::from_secs(5);
@@ -396,7 +398,10 @@ struct Waiter {
 	sink: mpsc::Sender<FetchItem>,
 }
 
-type InboundLookupResult = (litep2p::PeerId, Vec<ResponseType>);
+/// A served batch, carrying the worker permit: the slot is released only once the actor
+/// has forwarded the responses, so downstream backpressure reaches the dispatch path and
+/// at most [`MAX_CONCURRENT_INBOUND_LOOKUPS`] responses are retained at any time.
+type InboundLookupResult = (litep2p::PeerId, Vec<ResponseType>, OwnedSemaphorePermit);
 
 struct InboundLookupPool<B: BlockT> {
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
@@ -436,12 +441,9 @@ impl<B: BlockT> InboundLookupPool<B> {
 		let metrics = self.metrics.clone();
 		tokio::task::spawn_blocking(move || {
 			let responses = serve_inbound(&*client, cids, &metrics);
-			// Release the worker slot before publishing the result, so that when the actor
-			// sees the result it can immediately dispatch the next queued batch.
-			drop(permit);
-			// Blocking worker: wait for a channel slot rather than discarding the computed
-			// responses when the actor is momentarily behind on draining results.
-			let _ = result_tx.blocking_send((peer, responses));
+			// The permit travels with the result and never blocks here: the channel has one
+			// slot per worker, so at most one outstanding result per permit exists.
+			let _ = result_tx.blocking_send((peer, responses, permit));
 		});
 	}
 }
@@ -611,9 +613,11 @@ impl<B: BlockT> BitswapService<B> {
 					},
 				},
 
-				Some((peer, responses)) = self.inbound_lookup_rx.recv() => {
+				Some((peer, responses, permit)) = self.inbound_lookup_rx.recv() => {
 					self.handle.send_response(peer, responses).await;
-					// The finished worker freed its slot: pull in the next queued batch.
+					// The response is forwarded: free the worker slot and pull in the next
+					// queued batch.
+					drop(permit);
 					self.dispatch_inbound_lookups();
 				},
 
