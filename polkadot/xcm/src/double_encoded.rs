@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{MAX_XCM_DECODE_DEPTH, RECURSION_LIMIT};
-use alloc::{boxed::Box, vec::Vec};
+use crate::{DECODE_ALL_ERR_MSG, MAX_XCM_DECODE_DEPTH, RECURSION_LIMIT};
+use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use sp_runtime::Saturating;
 
@@ -60,7 +60,7 @@ fn descend_ref_and_check_depth(
 /// - keeps track of and limits the decoding depth of the `DoubleEncoded` structure currently
 ///   decoded.
 struct NestedInput<'a> {
-	downstream_input: Box<&'a mut dyn codec::Input>,
+	downstream_input: &'a mut dyn codec::Input,
 	encoded: &'a [u8],
 	depth: u32,
 }
@@ -158,15 +158,14 @@ where
 			{
 				// We can't decode remote calls
 				let Some(decode_fn) = T::try_get_decode_fn() else { return Ok(obj) };
-				let mut nested_input = NestedInput {
-					downstream_input: Box::new(input),
-					encoded: &obj.encoded[..],
-					depth: 0,
-				};
+				let mut nested_input =
+					NestedInput { downstream_input: input, encoded: &obj.encoded[..], depth: 0 };
 				obj.decoded = Some(decode_fn(&mut nested_input)?);
 				// We need to also make sure that we consumed all the input data, but we can't use
-				// `decode_all()` initially, because it only accepts a byte slice as input.
-				<() as codec::DecodeAll>::decode_all(&mut nested_input.encoded)?;
+				// `decode_all()`, because it only accepts a byte slice as input.
+				if !nested_input.encoded.is_empty() {
+					return Err(DECODE_ALL_ERR_MSG.into());
+				}
 			}
 
 			let _ = nesting_count::with(|count| {

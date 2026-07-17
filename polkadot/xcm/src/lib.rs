@@ -53,7 +53,7 @@ mod utils;
 mod tests;
 
 /// Maximum decoded heap size for an XCM.
-pub const MAX_XCM_SIZE: usize = 16 * 1024 * 1024;
+pub const MAX_XCM_SIZE: usize = 8 * 1024 * 1024;
 /// Maximum nesting level for XCM decoding.
 ///
 /// The `DoubleEncoded<T>` calls found within the XCM instructions are ignored when applying this
@@ -67,6 +67,8 @@ pub const RECURSION_LIMIT: u8 = 10;
 ///
 /// This is a deliberate limit - not a technical one.
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
+
+const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
 
 /// A version of XCM.
 pub type Version = u32;
@@ -380,8 +382,10 @@ impl<C: DoubleEncodedT> VersionedXcm<C> {
 		let xcm =
 			VersionedXcm::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut mem_tracking_input)?;
 		// We need to also make sure that we consumed all the input data, but we can't use
-		// `decode_all()` initially, because it only accepts a byte slice as input.
-		<() as codec::DecodeAll>::decode_all(input)?;
+		// `decode_all()`, because it only accepts a byte slice as input.
+		if !input.is_empty() {
+			return Err(DECODE_ALL_ERR_MSG.into());
+		}
 
 		Ok(xcm)
 	}
