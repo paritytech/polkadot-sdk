@@ -248,7 +248,7 @@ where
 	AccountId: Eq,
 {
 	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> Result<bool, DispatchError> {
-		let balance = C::reducible_balance(from, Preservation::Expendable, Fortitude::Force);
+		let balance = C::reducible_balance(from, Preservation::Expendable, Fortitude::Polite);
 		if balance.is_zero() {
 			return Ok(false);
 		}
@@ -288,7 +288,7 @@ where
 				id.clone(),
 				from,
 				Preservation::Expendable,
-				Fortitude::Force,
+				Fortitude::Polite,
 			);
 			if balance.is_zero() {
 				continue;

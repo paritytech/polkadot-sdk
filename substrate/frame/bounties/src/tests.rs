@@ -2266,3 +2266,33 @@ fn reclaim_bounty_funds_is_free_for_caller() {
 		);
 	});
 }
+
+#[test]
+fn reclaim_bounty_funds_respects_native_locks() {
+	use frame_support::traits::{LockableCurrency, WithdrawReasons};
+
+	ExtBuilder::default().build_and_execute(|| {
+		let bounty_account = Bounties::bounty_account_id(0);
+		let treasury = Bounties::account_id();
+
+		Balances::make_free_balance_be(&bounty_account, 100);
+		// Lock 60 of the 100 native; only the 40 liquid units should be reclaimable.
+		<Balances as LockableCurrency<_>>::set_lock(
+			*b"testlock",
+			&bounty_account,
+			60,
+			WithdrawReasons::all(),
+		);
+
+		let treasury_before = Balances::free_balance(&treasury);
+		assert!(!pallet_bounties::Bounties::<Test>::contains_key(0));
+		let res = Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0);
+		assert_ok!(res.as_ref());
+
+		// Liquid part swept, locked part left behind.
+		assert_eq!(Balances::free_balance(&treasury).saturating_sub(treasury_before), 40);
+		assert_eq!(Balances::free_balance(&bounty_account), 60);
+		assert_eq!(last_event(), BountiesEvent::BountyFundsReclaimed { bounty_id: 0 });
+		assert_eq!(res.unwrap().pays_fee, Pays::No);
+	});
+}
