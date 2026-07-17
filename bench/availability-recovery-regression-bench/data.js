@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784319378587,
+  "lastUpdate": 1784324027141,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f66f240a47f7ece64936487734ecfe44b6ef5999",
-          "message": "Enable force debug in revive dev node (#10383)\n\nThis change ensures that all types that implement `RuntimeDebug` are\nfully displayed in log output of the revive dev node, instead of just\nshowing `<wasm:stripped>`.\n\nUnfortunately, the trait `RuntimeDebugNoBound`, that we also use\nfrequently in pallet-revive, is not affected and will still output\n`<wasm:stripped>` (it does not check for the `force-debug` feature flag,\ninstead it only fully outputs values when either one of the features\n`std` or `try_runtime` is enabled – this is something we implement as a\ngeneral change).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-21T15:51:45Z",
-          "tree_id": "5eddbb2be51e810d4f82f211c1b93b4d6eddf0b2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66f240a47f7ece64936487734ecfe44b6ef5999"
-        },
-        "date": 1763744993509,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.366167015933335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20214172529999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1444380033,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f7ecbc466872c43259a6d2b707fbe28a4e058bd",
+          "message": "Remove deprecated Utility::derivative_account_id method. (#12670)\n\nPart of #11561\n\nRemove the deprecated `pallet_utility::Pallet::derivative_account_id`\nmethod.\n\nIt was deprecated with a removal date of August 2025 in favor of the\nfreestanding `pallet_utility::derivative_account_id` function. In-repo\ncallers already use the freestanding helper.\n\n## Integration\n\nReplace:\n\n```rust\npallet_utility::Pallet::<T>::derivative_account_id(who, index)\n```\nwith:\n```rust\npallet_utility::derivative_account_id(who, index)\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-17T19:49:35Z",
+          "tree_id": "eec42823215959d680fabe2ea6047f849238febf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f7ecbc466872c43259a6d2b707fbe28a4e058bd"
+        },
+        "date": 1784323992817,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.281860562099999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13907655063333335,
             "unit": "seconds"
           }
         ]
