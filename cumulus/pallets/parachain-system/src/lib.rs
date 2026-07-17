@@ -36,8 +36,8 @@ use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CoreInfo,
 	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
-	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
-	XcmpMessageSource,
+	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
+	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -282,6 +282,35 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Verifier for V3 scheduling proofs.
+		///
+		/// Reports whether V3 scheduling validation is enabled and supplies the
+		/// verification logic for the proof itself. Use `()` to keep V3 scheduling
+		/// disabled.
+		///
+		/// When enabled, this changes how building on older relay parents is enforced:
+		/// - The old `relay_parent_descendants` validation in the inherent is disabled
+		/// - V3 scheduling validation is used instead, with the header chain provided via PVF
+		///   parameters
+		///
+		/// # Migration Guide
+		///
+		/// v3 scheduling is work in progress, and for the moment this should be left as
+		/// `()`. If V3 is wrongfully enabled, the parachain will stall.
+		///
+		/// Before enabling this:
+		/// 1. Ensure all collators are updated to a version that supports V3 candidates
+		/// 2. Ensure the relay chain has `CandidateReceiptV3` node feature enabled
+		/// 3. Swap the verifier for one whose `V3_SCHEDULING_ENABLED` const is `true`, via a
+		///    runtime upgrade.
+		///
+		/// Once enabled, collators will:
+		/// - Stop providing `relay_parent_descendants` in the inherent (empty vec)
+		/// - Provide the header chain via V3 extension in PVF parameters
+		///
+		/// The `RelayParentOffset` config continues to define the header chain length.
+		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
 	}
 
 	#[pallet::hooks]
@@ -598,16 +627,26 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
-			// We need to ensure that `CoreInfo` digest exists only once.
+			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
+			//
+			// With V3: the collator looks up the claim queue at the scheduling parent
+			// (fresh tip), so the max offset is just the `max_claim_queue_offset()`.
+			// Without V3: the collator looks up at the relay parent which is offset
+			// behind the tip, so the effective max includes relay_parent_offset.
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					assert_eq!(
+					let mut max_allowed_offset = Self::max_claim_queue_offset();
+					if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
+						max_allowed_offset = max_allowed_offset
+							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>())
+					}
+					assert!(
+						core_info.claim_queue_offset.0 <= max_allowed_offset,
+						"claim_queue_offset {} exceeds maximum allowed {}",
 						core_info.claim_queue_offset.0,
-						T::RelayParentOffset::get() as u8,
-						"Only {} is supported as valid claim queue offset",
-						T::RelayParentOffset::get()
+						max_allowed_offset,
 					);
 				},
 				CoreInfoExistsAtMaxOnce::NotFound => {},
@@ -675,9 +714,14 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
+			// Relay parent offset validation:
+			// When V3 scheduling is disabled: validate relay_parent_descendants (old mechanism)
+			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
+			// happens in validate_block with header chain from PVF params
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
+			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED;
 
-			if expected_rp_descendants_num > 0 {
+			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
@@ -1121,6 +1165,18 @@ impl<T: Config> Pallet<T> {
 	pub fn unincluded_segment_size_after(included_hash: T::Hash) -> u32 {
 		let segment = UnincludedSegment::<T>::get();
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
+	}
+
+	/// Returns the configured maximum claim queue offset.
+	///
+	/// This is used by the [cumulus_primitives_core::RelayParentOffsetApi::max_claim_queue_offset]
+	/// runtime API to expose the value to collators.
+	pub fn max_claim_queue_offset() -> u8 {
+		if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
+			return 1;
+		}
+
+		2
 	}
 }
 
@@ -1978,10 +2034,6 @@ pub trait RelaychainStateProvider {
 /// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
 /// [`Pallet::last_relay_block_number()`].
 ///
-/// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
-#[deprecated = "Use `RelaychainDataProvider` instead"]
-pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
-
 /// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
 /// data fetched from validation data.
 ///

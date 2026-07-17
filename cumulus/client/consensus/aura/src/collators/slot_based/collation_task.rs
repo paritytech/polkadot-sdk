@@ -50,8 +50,6 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_service: CS,
 	/// Receiver channel for communication with the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
-	/// The handle from the special slot based block import.
-	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
 }
@@ -70,7 +68,6 @@ pub async fn run_collation_task<Block, RClient, CS>(
 		reinitialize,
 		collator_service,
 		mut collator_receiver,
-		mut block_import_handle,
 		export_pov,
 	}: Params<Block, RClient, CS>,
 ) where
@@ -91,21 +88,15 @@ pub async fn run_collation_task<Block, RClient, CS>(
 	)
 	.await;
 
-	loop {
-		futures::select! {
-			collator_message = collator_receiver.next() => {
-				let Some(message) = collator_message else {
-					return;
-				};
-
-				handle_collation_message(message, &collator_service, &mut overseer_handle,relay_client.clone(),export_pov.clone()).await;
-			},
-			block_import_msg = block_import_handle.next().fuse() => {
-				// TODO: Implement me.
-				// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
-				let _ = block_import_msg;
-			}
-		}
+	while let Some(message) = collator_receiver.next().await {
+		handle_collation_message(
+			message,
+			&collator_service,
+			&mut overseer_handle,
+			relay_client.clone(),
+			export_pov.clone(),
+		)
+		.await;
 	}
 }
 
@@ -120,6 +111,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
+		scheduling_proof,
 		parent_header,
 		blocks,
 		proof,
@@ -129,14 +121,21 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		validation_data,
 	} = message;
 
-	let (collation, block_data) =
-		match collator_service.build_multi_block_collation(&parent_header, blocks, proof) {
-			Some(collation) => collation,
-			None => {
-				tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
-				return;
-			},
-		};
+	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
+	// header chain is empty — that's the case with `relay_parent_offset = 0`).
+	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
+	let (collation, block_data) = match collator_service.build_multi_block_collation(
+		&parent_header,
+		blocks,
+		proof,
+		scheduling_proof,
+	) {
+		Some(collation) => collation,
+		None => {
+			tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
+			return;
+		},
+	};
 
 	block_data.log_size_info();
 
@@ -198,7 +197,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
-				scheduling_parent: None,
+				scheduling_parent,
 				session_index,
 				validation_data,
 			}),

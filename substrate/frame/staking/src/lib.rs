@@ -17,6 +17,8 @@
 
 //! # Staking Pallet
 //!
+//! NOTE: This pallet is deprecated and no longer maintained in favour of `pallet-staking-async`.
+//!
 //! The Staking pallet is used to manage funds at stake by network maintainers.
 //!
 //! - [`Config`]
@@ -1132,7 +1134,7 @@ where
 		}
 	}
 
-	fn is_known_offence(offenders: &[Offender], time_slot: &O::TimeSlot) -> bool {
+	fn is_known_offence(offenders: &[Offender], time_slot: &O::Slot) -> bool {
 		R::is_known_offence(offenders, time_slot)
 	}
 }
