@@ -2,7 +2,7 @@
 name = "cumulus-client-spec-msg"
 version = "0.1.0"
 authors.workspace = true
-description = "Speculative Messaging node parts: sender-side archive, the /spec-msg/exchange protocol and the receiver-side relay chain monitor"
+description = "Speculative Messaging node parts: sender-side archive, the /spec-msg/exchange protocol and the receiver-side monitor, fetch pipeline, inherent provider and lift assembler"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage.workspace = true
@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 async-channel = { workspace = true }
+async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 mmr-lib = { workspace = true, default-features = true }

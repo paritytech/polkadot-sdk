@@ -22,6 +22,7 @@ use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{
 	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
 };
+use cumulus_primitives_spec_messaging::LiftsBySource;
 
 use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
@@ -41,6 +42,18 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
+
+/// Assembles the Speculative Messaging lifts for the (imported) blocks of a
+/// candidate, bundle order: one `RequiresLift` per stream the blocks'
+/// consumption records touch, regenerated from public data against the
+/// currently committed source roots. Returns an empty set when the blocks
+/// consumed nothing (the collation then stays on the pre-V3
+/// `ParachainBlockData` versions).
+///
+/// The implementation lives in `cumulus-client-spec-msg`
+/// (`lift_assembler`); nodes without the spec-msg subsystems simply do not
+/// set one.
+pub type SpecMsgLiftAssembler<Block> = Arc<dyn Fn(&[Block]) -> LiftsBySource + Send + Sync>;
 
 /// Utility functions generally applicable to writing collators for Cumulus.
 pub trait ServiceInterface<Block: BlockT> {
@@ -104,6 +117,7 @@ pub struct CollatorService<Block: BlockT, BS, RA> {
 	wait_to_announce: Arc<Mutex<WaitToAnnounce<Block>>>,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	runtime_api: Arc<RA>,
+	spec_msg_lift_assembler: Option<SpecMsgLiftAssembler<Block>>,
 }
 
 impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
@@ -113,6 +127,7 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 			wait_to_announce: self.wait_to_announce.clone(),
 			announce_block: self.announce_block.clone(),
 			runtime_api: self.runtime_api.clone(),
+			spec_msg_lift_assembler: self.spec_msg_lift_assembler.clone(),
 		}
 	}
 }
@@ -139,7 +154,23 @@ where
 		let wait_to_announce =
 			Arc::new(Mutex::new(WaitToAnnounce::new(spawner, announce_block.clone())));
 
-		Self { block_status, wait_to_announce, announce_block, runtime_api }
+		Self {
+			block_status,
+			wait_to_announce,
+			announce_block,
+			runtime_api,
+			spec_msg_lift_assembler: None,
+		}
+	}
+
+	/// Sets the Speculative Messaging lift assembler: collations whose
+	/// blocks' consumption records are non-empty then carry the assembled
+	/// lifts in a [`ParachainBlockData::V3`] POV. Set by the node wiring
+	/// when the spec-msg subsystems are spawned (the runtime advertises
+	/// `SpecMsgApi`).
+	pub fn with_spec_msg_lift_assembler(mut self, assembler: SpecMsgLiftAssembler<Block>) -> Self {
+		self.spec_msg_lift_assembler = Some(assembler);
+		self
 	}
 
 	/// Checks the status of the given block hash in the Parachain.
@@ -313,7 +344,27 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
-		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof);
+		// Speculative Messaging: blocks that consumed messages need their
+		// POV-carried lifts — the `validate_block` wrapper synthesizes the
+		// candidate's `Requires` from them. Lifts are candidate assembly
+		// data (regenerable by anyone from public data), never part of the
+		// blocks; an empty set keeps the pre-V3 encoding.
+		let lifts = self
+			.spec_msg_lift_assembler
+			.as_ref()
+			.map(|assemble| assemble(&blocks))
+			.unwrap_or_default();
+
+		let block_data = if lifts.is_empty() {
+			ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof)
+		} else {
+			ParachainBlockData::<Block>::new_with_lifts(
+				blocks,
+				compact_proof,
+				scheduling_proof,
+				lifts,
+			)
+		};
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(if api_version >= 3 {

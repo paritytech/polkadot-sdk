@@ -66,3 +66,76 @@ impl SpecMsgInherentData {
 		self.messages.is_empty() && self.register_reads.is_empty()
 	}
 }
+
+/// The node-side half of the inherent, mirroring `ParachainInherentData`:
+/// the receiver's inherent data provider (built by the fetch pipeline from
+/// material verified under included source roots) folds itself into the
+/// authoring inherent data under [`INHERENT_IDENTIFIER`].
+///
+/// An empty set puts NO data at all: `create_inherent` then produces no
+/// call, and the block simply carries no spec-msg inherent.
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+impl sp_inherents::InherentDataProvider for SpecMsgInherentData {
+	async fn provide_inherent_data(
+		&self,
+		inherent_data: &mut sp_inherents::InherentData,
+	) -> Result<(), sp_inherents::Error> {
+		if self.is_empty() {
+			return Ok(());
+		}
+		inherent_data.put_data(INHERENT_IDENTIFIER, self)
+	}
+
+	async fn try_handle_error(
+		&self,
+		_: &sp_inherents::InherentIdentifier,
+		_: &[u8],
+	) -> Option<Result<(), sp_inherents::Error>> {
+		None
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mmr::MmrInclusionProof;
+	use sp_inherents::InherentDataProvider;
+
+	#[test]
+	fn empty_data_puts_nothing_non_empty_round_trips() {
+		// Empty pool → no `put_data` at all: an absent inherent is a valid
+		// block that consumes nothing.
+		let mut inherent_data = sp_inherents::InherentData::new();
+		futures::executor::block_on(
+			SpecMsgInherentData::default().provide_inherent_data(&mut inherent_data),
+		)
+		.expect("providing empty data succeeds");
+		assert_eq!(
+			inherent_data.get_data::<SpecMsgInherentData>(&INHERENT_IDENTIFIER).unwrap(),
+			None
+		);
+
+		// Non-empty data round-trips through the inherent bytes.
+		let data = SpecMsgInherentData {
+			messages: alloc::vec![(
+				ParaId::from(2000),
+				StreamId::Channel { recipient: 2001.into(), domain: 0, num: 0 },
+				alloc::vec![alloc::vec![1, 2, 3]],
+			)],
+			register_reads: alloc::vec![(
+				ParaId::from(2000),
+				StreamId::Ack { recipient: 2001.into(), domain: 0, num: 0 },
+				alloc::vec![4, 5],
+				MmrInclusionProof { mmr_size: 1, items: alloc::vec![] },
+			)],
+		};
+		let mut inherent_data = sp_inherents::InherentData::new();
+		futures::executor::block_on(data.provide_inherent_data(&mut inherent_data))
+			.expect("providing data succeeds");
+		assert_eq!(
+			inherent_data.get_data::<SpecMsgInherentData>(&INHERENT_IDENTIFIER).unwrap(),
+			Some(data)
+		);
+	}
+}

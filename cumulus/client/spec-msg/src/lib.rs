@@ -49,10 +49,21 @@
 //!   as a [`RelayProvidesEvent`] to the fetch/verify pipeline, alongside pending-availability
 //!   prefetch hints. [`read_recent_provides`] is the underlying relay-state read, shared with the
 //!   inherent provider.
+//! - [`run_spec_msg_fetcher`] consumes those events: per included root it fetches the source's
+//!   consumed streams (chunked, resumable) and ack register head reads from the source's peers
+//!   ([`SourcePeers`]; the MVP mechanism is the [`PeerRegistry`] the wiring fills), verifies
+//!   everything against exactly that root and lands it in the [`SpecMsgPool`] — a poisoned response
+//!   discards response and peer and is refetched.
+//! - [`inherent_data_at`] builds the block's `specmsg0` inherent data from the pool at the
+//!   authoring parent (include the result in `create_inherent_data_providers` — it IS an
+//!   `sp_inherents::InherentDataProvider`); [`assemble_lifts`] / [`lift_assembler`] build the
+//!   candidate's POV lifts from the built blocks' consumption records, for
+//!   `CollatorService::with_spec_msg_lift_assembler`.
 //!
 //! MVP scope: request-response only — no notification/announce protocol,
 //! no DA, no live push; triggers come from included roots only (the
-//! speculative tier's header-digest anchors are post-MVP).
+//! speculative tier's header-digest anchors are post-MVP, and
+//! pending-availability prefetch hints are ignored by the fetcher).
 //!
 //! [`MessagesRequest`]: cumulus_primitives_spec_messaging::MessagesRequest
 //! [`EventRequest`]: cumulus_primitives_spec_messaging::EventRequest
@@ -60,17 +71,25 @@
 #![warn(missing_docs)]
 
 pub mod archive;
+pub mod authoring;
+pub mod exchange;
+pub mod fetch;
 pub mod monitor;
 mod nodes;
+pub mod pool;
 pub mod protocol;
 pub mod verify;
 pub mod worker;
 
 pub use archive::{ArchiveError, ServeError, SpecMsgArchive, SERVING_HORIZON};
+pub use authoring::{assemble_lifts, inherent_data_at, lift_assembler, AssembleError};
+pub use exchange::{ExchangeError, ExchangeNetwork, PeerRegistry, SourcePeers};
+pub use fetch::{fetch_source, run_spec_msg_fetcher, FetchError, FETCH_CHUNK_BYTES};
 pub use monitor::{
 	pending_provides, read_recent_provides, run_relay_provides_monitor, RelayProvidesEvent,
 	SourceProvides,
 };
+pub use pool::{InherentBudget, SpecMsgPool};
 pub use protocol::{
 	spec_msg_protocol_config, SpecMsgRequestHandler, MAX_RESPONSE_SIZE, PROTOCOL_NAME,
 };
@@ -193,5 +212,87 @@ mod test_support {
 
 	pub fn ack(recipient: u32) -> StreamId {
 		StreamId::Ack { recipient: recipient.into(), domain: 0, num: 0 }
+	}
+
+	pub use exchange_mock::{MockExchange, PeerBehavior};
+
+	mod exchange_mock {
+		//! A mock `/spec-msg/exchange` counterparty: per-peer behavior over a
+		//! shared sender-side [`TestArchive`] — the receiver-side pipeline's
+		//! test double.
+
+		use super::TestArchive;
+		use crate::exchange::{ExchangeError, ExchangeNetwork};
+		use codec::{DecodeAll, Encode};
+		use cumulus_primitives_spec_messaging::{ExchangeRequest, ExchangeResponse};
+		use parking_lot::{Mutex, RwLock};
+		use sc_network::PeerId;
+		use std::collections::HashMap;
+
+		/// How one mock peer answers.
+		#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+		pub enum PeerBehavior {
+			/// Serves faithfully from the archive.
+			Honest,
+			/// Serves archive responses with tampered content.
+			Poison,
+			/// Refuses everything at the transport level.
+			Refuse,
+		}
+
+		/// Routes exchange requests to mock peers over one archive.
+		pub struct MockExchange {
+			pub archive: RwLock<TestArchive>,
+			pub behavior: HashMap<PeerId, PeerBehavior>,
+			/// Every served/attempted request's peer, in order.
+			pub hits: Mutex<Vec<PeerId>>,
+		}
+
+		#[async_trait::async_trait]
+		impl ExchangeNetwork for MockExchange {
+			async fn exchange(
+				&self,
+				peer: PeerId,
+				request: Vec<u8>,
+			) -> Result<Vec<u8>, ExchangeError> {
+				self.hits.lock().push(peer);
+				let behavior = self.behavior.get(&peer).copied().unwrap_or(PeerBehavior::Refuse);
+				if behavior == PeerBehavior::Refuse {
+					return Err(ExchangeError::Network("refused".into()));
+				}
+				let request = ExchangeRequest::decode_all(&mut &request[..])
+					.expect("tests send valid requests");
+				let archive = self.archive.read();
+				let mut response = match request {
+					ExchangeRequest::Messages(request) => {
+						archive.serve_messages(&request).map(ExchangeResponse::Messages)
+					},
+					ExchangeRequest::Event(request) => {
+						archive.serve_event(&request).map(ExchangeResponse::Event)
+					},
+				}
+				.map_err(|_| ExchangeError::Network("unservable".into()))?;
+				if behavior == PeerBehavior::Poison {
+					tamper(&mut response);
+				}
+				Ok(response.encode())
+			}
+		}
+
+		/// Corrupts a valid response so that it still decodes but cannot
+		/// verify under the requested root.
+		fn tamper(response: &mut ExchangeResponse) {
+			match response {
+				ExchangeResponse::Messages(response) => match response.payloads.first_mut() {
+					Some(payload) => payload.push(0xFF),
+					// Payload-free responses: break the tree walk instead.
+					None => response
+						.tree_proof
+						.steps
+						.push((0, polkadot_core_primitives::Hash::repeat_byte(0xAA))),
+				},
+				ExchangeResponse::Event(response) => response.payload.push(0xFF),
+			}
+		}
 	}
 }
