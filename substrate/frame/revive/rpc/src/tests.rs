@@ -393,6 +393,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_subscribe_new_heads,
 		test_subscribe_new_heads_multiple_blocks,
 		test_subscribe_logs,
+		test_outside_of_frame_log_served_via_synthetic_tx,
 		test_subscribe_logs_with_address_filter,
 		test_subscribe_logs_with_topic_filter,
 		test_subscribe_logs_address_filter_excludes_non_matching,
@@ -1390,6 +1391,102 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 	assert!(rpc_logs.contains(&log), "Subscription log should match eth_getLogs result");
 
 	drop(sub);
+	Ok(())
+}
+
+/// End-to-end: a substrate-native call (`Revive::call`, not `eth_transact`) that emits a contract
+/// log produces an "outside-of-frame" log. The runtime aggregates it into the block's synthetic
+/// transaction; eth-rpc must reconstruct that transaction and serve the log via `eth_getLogs` and
+/// `eth_getTransactionReceipt`.
+async fn test_outside_of_frame_log_served_via_synthetic_tx() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+	let account = Account::default();
+
+	// Deploy an event-emitting contract via EVM.
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
+	let deploy = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	deploy.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+
+	// Call it via a *substrate* extrinsic (outside any ethereum transaction). Sending value
+	// triggers the payable `Received` event, which becomes an outside-of-frame log.
+	let call = subxt::dynamic::tx(
+		"Revive",
+		"call",
+		vec![
+			subxt::dynamic::Value::from_bytes(contract_address.as_bytes()),
+			subxt::dynamic::Value::u128(1_000_000_000_000), // value
+			subxt::dynamic::Value::named_composite(vec![
+				("ref_time".to_string(), subxt::dynamic::Value::u128(100_000_000_000)),
+				("proof_size".to_string(), subxt::dynamic::Value::u128(5_000_000)),
+			]),
+			subxt::dynamic::Value::u128(u128::MAX),              // storage_deposit_limit
+			subxt::dynamic::Value::from_bytes(Vec::<u8>::new()), // data
+		],
+	);
+
+	let alice = subxt_signer::sr25519::dev::alice();
+	let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().build();
+	let signed = node_client.tx().create_signed(&call, &alice, params).await?;
+	let mut progress = signed.submit_and_watch().await?;
+	let in_block = loop {
+		match progress.next().await {
+			Some(Ok(TxStatus::InBestBlock(b))) | Some(Ok(TxStatus::InFinalizedBlock(b))) => break b,
+			Some(Ok(_)) => {},
+			Some(Err(e)) => return Err(anyhow!("Revive::call watch error: {e}")),
+			None => return Err(anyhow!("Revive::call: stream ended without inclusion")),
+		}
+	};
+	in_block.wait_for_success().await?;
+	let block_number = node_client.blocks().at(in_block.block_hash()).await?.number();
+
+	// The eth block number equals the substrate block number.
+	let topic0 = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	let filter = Filter::new()
+		.from_block(BlockNumberOrTag::Number(block_number as u64))
+		.to_block(BlockNumberOrTag::Number(block_number as u64));
+
+	// eth-rpc indexes substrate blocks asynchronously; poll until the block is synced and the log
+	// appears (tolerating transient "block not yet indexed" errors from `eth_getLogs`).
+	let mut found: Option<Log> = None;
+	for _ in 0..40 {
+		if let Ok(FilterResults::Logs(logs)) = client.get_logs(Some(filter.clone())).await {
+			if let Some(log) = logs
+				.into_iter()
+				.find(|log| log.address == contract_address && log.topics.first() == Some(&topic0))
+			{
+				found = Some(log);
+				break;
+			}
+		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+	}
+	let log = found.expect("outside-of-frame log should be served via eth_getLogs");
+
+	// The log must be attributed to the block's synthetic transaction — the hash eth-rpc
+	// reconstructs from the shared constructor, matching what the runtime committed.
+	let chain_id = client.chain_id().await?;
+	let synthetic_payload =
+		pallet_revive::evm::synthetic_log_transaction(U256::from(block_number), chain_id);
+	let synthetic_hash = H256(sp_io::hashing::keccak_256(&synthetic_payload));
+	assert_eq!(log.transaction_hash, synthetic_hash, "log attributed to the synthetic transaction");
+
+	// The synthetic transaction's receipt serves the same log, with a zero sender.
+	let receipt = client
+		.get_transaction_receipt(synthetic_hash)
+		.await?
+		.expect("synthetic transaction receipt should be served");
+	assert_eq!(receipt.from, Default::default(), "synthetic transaction sender is zero");
+	assert!(
+		receipt.logs.iter().any(|log| log.address == contract_address),
+		"synthetic receipt should carry the contract log"
+	);
+
 	Ok(())
 }
 
