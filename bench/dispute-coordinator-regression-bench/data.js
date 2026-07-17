@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784301589557,
+  "lastUpdate": 1784307848452,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38c598e335f81f05659b5a3134a0a5ddd0ff28b0",
-          "message": "`fatxpool`: added mortal transactions integration test  (#8887)\n\n# Description\n\nBased on https://github.com/michalkucharczyk/tx-test-tool/pull/43.\n\n## Integration\n\nN/A\n\n## Review Notes\n\n- added tests with future mortal txs that are dropped due to not being\nincluded in blocks within their lifetime, but also future mortal txs\nthat have a sufficient lifetime to be included in blocks\n- added test which uses priorities to delay mortal txs inclusion and\nmake them invalid\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2025-11-19T10:29:03Z",
-          "tree_id": "217c15293452ffdd7568ac5dbc4919ab6911085b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38c598e335f81f05659b5a3134a0a5ddd0ff28b0"
-        },
-        "date": 1763552129822,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005321267649999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008921268169999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026545479699999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0024916139899999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "baaa6023e46abc763a863cf19678e3ae944dec44",
+          "message": "Statement store index optimization, stage 2a (#12304)\n\nThis PR implements stage 2a of the optimizations proposed in #10910\n(Move Read Index to Disk with LRU Cache).\n\nAs a notable difference from the original issue, the `evicted` index has\nalso been moved to disk (AFAIR, it used to consume ~150 MiB of RAM with\n4M statements).\n\n---------\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-17T15:17:39Z",
+          "tree_id": "7f6e81152072ac6ba17a212616fc87cc4e259fda",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaa6023e46abc763a863cf19678e3ae944dec44"
+        },
+        "date": 1784307815371,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011484236199999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002490982029999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009478087299999988,
             "unit": "seconds"
           }
         ]
