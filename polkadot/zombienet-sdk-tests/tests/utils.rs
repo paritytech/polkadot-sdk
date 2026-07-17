@@ -51,18 +51,58 @@ pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
-/// Enables the given `node_features` bits at runtime via a single sudo extrinsic.
-///
-/// All bit indices in `feature_bits` are set to `true` in one batched `set_node_feature` call.
-/// The change takes effect after the next session change.
+/// Enables the given `node_features` bits at runtime. See [`set_node_features`] for the timing
+/// caveat.
 pub async fn enable_node_features(
 	client: &OnlineClient<PolkadotConfig>,
 	feature_bits: &[u8],
 ) -> Result<(), anyhow::Error> {
+	set_node_features(client, feature_bits, true).await
+}
+
+/// Disables the given `node_features` bits at runtime. See [`set_node_features`] for the timing
+/// caveat.
+pub async fn disable_node_features(
+	client: &OnlineClient<PolkadotConfig>,
+	feature_bits: &[u8],
+) -> Result<(), anyhow::Error> {
+	set_node_features(client, feature_bits, false).await
+}
+
+/// Sets the given `node_features` bits to `enabled` via a single sudo batched `set_node_feature`
+/// extrinsic.
+///
+/// # Timing: the change only takes effect two sessions later
+///
+/// The extrinsic is submitted at some arbitrary block in the middle of the current session `N`.
+/// The next session `N+1` is essentially already "in flight": validators derive session-scoped
+/// consensus data at/around session boundaries (validator sets and group assignments,
+/// approval-assignment keys, scheduling), and pieces of `N+1` are already determined by the time
+/// the change lands mid-`N`. If the change applied at `N+1`, different validators could have
+/// computed `N+1`'s parameters at different moments relative to the change — some with the old
+/// config, some with the new.
+///
+/// Deferring to `N+2` guarantees the change lands at a clean session boundary that no validator has
+/// started preparing yet, so every validator applies it atomically and agrees on the active config
+/// for that session from its very first block. That's the "at least one full session has passed"
+/// the relay `configuration` pallet's `SESSION_DELAY` refers to: whatever partial session `N`
+/// remained plus the whole of `N+1` acts as the buffer.
+///
+/// Callers asserting behaviour that depends on the new value must therefore wait ~2 session changes
+/// (e.g. `wait_for_nth_session_change(.., 2)`) after this returns.
+async fn set_node_features(
+	client: &OnlineClient<PolkadotConfig>,
+	feature_bits: &[u8],
+	enabled: bool,
+) -> Result<(), anyhow::Error> {
 	let calls: Vec<Value> = feature_bits
 		.iter()
 		.map(|&bit| {
-			value! { Configuration(set_node_feature { index: bit, value: true }) }
+			if enabled {
+				value! { Configuration(set_node_feature { index: bit, value: true }) }
+			} else {
+				value! { Configuration(set_node_feature { index: bit, value: false }) }
+			}
 		})
 		.collect();
 

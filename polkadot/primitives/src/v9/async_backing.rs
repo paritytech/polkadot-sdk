@@ -30,6 +30,7 @@ use crate::CandidateDescriptorV2;
 	Debug,
 	Copy,
 	Clone,
+	Default,
 	PartialEq,
 	Encode,
 	Decode,

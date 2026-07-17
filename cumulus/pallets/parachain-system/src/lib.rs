@@ -719,7 +719,13 @@ pub mod pallet {
 			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
 			// happens in validate_block with header chain from PVF params
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
-			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED;
+			// Two-sided: V3 is in effect only when the para const AND the relay feature are on, so
+			// the descendant check stays active while the relay feature is off. Short-circuit so
+			// non-V3 parachains skip the read.
+			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
+				relay_state_proof
+					.read_relay_v3_feature_enabled()
+					.expect("Invalid host configuration in relay chain state proof");
 
 			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
@@ -1810,6 +1816,7 @@ impl<T: Config> Pallet<T> {
 				allowed_ancestry_len: 0,
 				max_candidate_depth: 0,
 			},
+			..Default::default()
 		};
 		<HostConfiguration<T>>::put(host_config);
 	}
@@ -1922,6 +1929,7 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 						allowed_ancestry_len: 0,
 						max_candidate_depth: 0,
 					},
+					..Default::default()
 				})
 			},
 		})

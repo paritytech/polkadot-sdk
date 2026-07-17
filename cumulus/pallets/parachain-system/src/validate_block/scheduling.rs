@@ -72,43 +72,61 @@ pub struct ValidatedScheduling {
 	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
 
-/// Validate V3 scheduling based on runtime config and candidate extension.
+/// Validate V3 scheduling from the two-sided V3 flag and the candidate extension.
 ///
-/// Returns `None` for V1/V2 candidates, `Some(ValidatedScheduling)` for valid V3.
-/// Panics on config/extension mismatches or chain-shape validation failures.
+/// V3 is in effect only when `v3_enabled_on_para` (the `V3_SCHEDULING_ENABLED` const) **and**
+/// `relay_feature_on` (the relay `CandidateReceiptV3` feature, read from committed relay state so
+/// validators agree deterministically) are both true — mirroring the collator. While the relay
+/// feature is off, the collator legitimately builds V2, which we must accept rather than stall.
 ///
-/// Only validates the *shape* of the proof; signature verification on
-/// `signed_scheduling_info` is the caller's responsibility (see `validate_block`,
-/// which invokes `PSC::SchedulingSignatureVerifier`).
+/// Returns `None` for the V1/V2 path (including that V2 fallback), `Some` for a valid V3 candidate.
+/// Panics on mismatches: a V3 extension when V3 is not in effect, or a V2 candidate when it is (a
+/// downgrade — nothing else validates scheduling for a V3 parachain).
+///
+/// Only validates the proof *shape*; signature verification is the caller's responsibility.
 pub fn validate_v3_scheduling(
-	v3_enabled: bool,
+	v3_enabled_on_para: bool,
+	relay_feature_on: bool,
 	extension: &Option<ValidationParamsExtension>,
 	scheduling_proof: Option<&SchedulingProof>,
 	expected_header_chain_length: u32,
 	max_claim_queue_offset: u8,
 ) -> Option<ValidatedScheduling> {
-	match (v3_enabled, extension) {
-		(false, None) => {
-			// V3 disabled and no extension: normal V1/V2 path
+	match (v3_enabled_on_para, relay_feature_on, extension) {
+		(false, _, None) => {
+			// Parachain not running V3: normal V1/V2 path, regardless of the relay feature.
 			None
 		},
-		(false, Some(_)) => {
-			// V3 disabled but extension present: this should not happen
-			// The relay chain should not send V3 candidates to parachains that have not enabled it
+		(false, _, Some(_)) => {
+			// Parachain has not enabled V3 but a V3 extension arrived: collators/runtime out of sync.
 			panic!(
-				"V3 extension present but V3 scheduling is disabled. \
+				"V3 extension present but V3 scheduling is disabled on the parachain. \
                 Ensure collators and runtime are in sync."
 			);
 		},
-		(true, None) => {
-			// V3 enabled but no extension: candidates must be V3
+		(true, false, None) => {
+			// Relay feature still off: the collator's legitimate V2 fallback. Accept as V2 — the
+			// inherent keeps the old relay-parent-descendant check active while the feature is off.
+			None
+		},
+		(true, false, Some(_)) => {
+			// Relay feature off yet a V3 extension arrived: the relay rejects V3 descriptors while
+			// the feature is off (`check_version_acceptance`), so this cannot happen honestly.
 			panic!(
-				"V3 scheduling is enabled but no V3 extension present. \
-                Collators must provide V3 candidates when V3 is enabled."
+				"V3 extension present but the relay chain `CandidateReceiptV3` feature is \
+                disabled. The relay chain should not produce V3 candidates before enabling it."
 			);
 		},
-		(true, Some(ValidationParamsExtension::V3 { relay_parent, scheduling_parent })) => {
-			// V3 enabled and extension present: validate scheduling
+		(true, true, None) => {
+			// V3 in effect but the candidate is V2: a downgrade. Nothing else validates scheduling
+			// for a V3 parachain (the inherent's descendant check is disabled), so reject.
+			panic!(
+				"V3 scheduling is required (relay `CandidateReceiptV3` feature enabled) but no \
+                V3 extension present. A V2 candidate here is a downgrade and cannot be accepted."
+			);
+		},
+		(true, true, Some(ValidationParamsExtension::V3 { relay_parent, scheduling_parent })) => {
+			// V3 in effect and extension present: validate scheduling
 			let scheduling_proof = scheduling_proof
 				.expect("V3 candidates require ParachainBlockData::V2 with scheduling_proof");
 
@@ -693,24 +711,42 @@ mod tests {
 
 	#[test]
 	fn v3_disabled_no_extension_returns_none() {
-		let result = validate_v3_scheduling(false, &None, None, 0, TEST_MAX_CQ_OFFSET);
-		assert!(result.is_none());
+		// Para not on V3, no extension: normal path regardless of the relay feature bit.
+		assert!(validate_v3_scheduling(false, false, &None, None, 0, TEST_MAX_CQ_OFFSET).is_none());
+		assert!(validate_v3_scheduling(false, true, &None, None, 0, TEST_MAX_CQ_OFFSET).is_none());
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 extension present but V3 scheduling is disabled")]
+	#[should_panic(expected = "V3 extension present but V3 scheduling is disabled on the parachain")]
 	fn v3_disabled_with_extension_panics() {
 		let ext = ValidationParamsExtension::V3 {
 			relay_parent: RelayHash::default(),
 			scheduling_parent: RelayHash::default(),
 		};
-		validate_v3_scheduling(false, &Some(ext), None, 0, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(false, true, &Some(ext), None, 0, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 scheduling is enabled but no V3 extension present")]
-	fn v3_enabled_no_extension_panics() {
-		validate_v3_scheduling(true, &None, None, 0, TEST_MAX_CQ_OFFSET);
+	fn v3_on_para_relay_feature_off_v2_candidate_accepts() {
+		// Key transition case: para on V3, relay feature off → collator's legitimate V2 fallback
+		// must be accepted, not panic (else the parachain stalls until the feature is enabled).
+		let result = validate_v3_scheduling(true, false, &None, None, 0, TEST_MAX_CQ_OFFSET);
+		assert!(result.is_none());
+	}
+
+	#[test]
+	#[should_panic(expected = "V3 scheduling is required")]
+	fn v3_on_para_relay_feature_on_v2_candidate_panics() {
+		// Downgrade attack: parachain runs V3 and the relay feature is on, yet the candidate is
+		// V2 (no extension). Nothing else validates scheduling for a V3 parachain, so reject.
+		validate_v3_scheduling(true, true, &None, None, 0, TEST_MAX_CQ_OFFSET);
+	}
+
+	#[test]
+	#[should_panic(expected = "relay chain `CandidateReceiptV3` feature is")]
+	fn v3_on_para_relay_feature_off_with_extension_panics() {
+		let (ext, proof, _) = make_v3_initial_submission(3);
+		validate_v3_scheduling(true, false, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[rstest]
@@ -718,9 +754,15 @@ mod tests {
 	#[case::len_3(3)]
 	fn v3_enabled_valid_initial_submission(#[case] chain_len: u32) {
 		let (ext, proof, expected) = make_v3_initial_submission(chain_len);
-		let result =
-			validate_v3_scheduling(true, &Some(ext), Some(&proof), chain_len, TEST_MAX_CQ_OFFSET)
-				.expect("valid initial submission");
+		let result = validate_v3_scheduling(
+			true,
+			true,
+			&Some(ext),
+			Some(&proof),
+			chain_len,
+			TEST_MAX_CQ_OFFSET,
+		)
+		.expect("valid initial submission");
 		assert_eq!(result.internal_scheduling_parent_header.hash(), expected);
 	}
 
@@ -729,7 +771,7 @@ mod tests {
 	fn v3_enabled_missing_scheduling_proof_panics() {
 		let (ext, _, _) = make_v3_initial_submission(3);
 		// Pass None as scheduling_proof to simulate a V0/V1 POV
-		validate_v3_scheduling(true, &Some(ext), None, 3, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(true, true, &Some(ext), None, 3, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
@@ -737,7 +779,7 @@ mod tests {
 	fn v3_enabled_invalid_header_chain_length_panics() {
 		let (ext, proof, _) = make_v3_initial_submission(3);
 		// Expect 5 headers but proof only has 3
-		validate_v3_scheduling(true, &Some(ext), Some(&proof), 5, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(true, true, &Some(ext), Some(&proof), 5, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]
@@ -756,7 +798,8 @@ mod tests {
 			signed_scheduling_info: Some(dummy_signed(CoreSelector(0), internal_scheduling_parent)),
 		};
 
-		let result = validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
+		let result =
+			validate_v3_scheduling(true, true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 		let result = result.expect("should succeed");
 		assert_eq!(result.internal_scheduling_parent_header.hash(), internal_scheduling_parent);
 		assert!(result.signed_scheduling_info.is_some());
@@ -778,7 +821,7 @@ mod tests {
 		};
 
 		// Should panic because resubmission requires signed_scheduling_info
-		validate_v3_scheduling(true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
+		validate_v3_scheduling(true, true, &Some(ext), Some(&proof), 3, TEST_MAX_CQ_OFFSET);
 	}
 
 	#[test]

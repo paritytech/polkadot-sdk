@@ -82,6 +82,7 @@ impl Default for RelayStateSproofBuilder {
 					allowed_ancestry_len: 0,
 					max_candidate_depth: 0,
 				},
+				..Default::default()
 			},
 			dmq_mqc_head: None,
 			upgrade_go_ahead: None,

@@ -288,6 +288,14 @@ impl RelayChainStateProof {
 			.map_err(Error::Config)
 	}
 
+	/// Read the relay `CandidateReceiptV3` node feature from the `ACTIVE_CONFIG` entry — the
+	/// relay-side half of the two-sided V3 scheduling decision. Errors if the entry is missing or
+	/// undecodable (the same entry the mandatory messaging path already requires).
+	pub fn read_relay_v3_feature_enabled(&self) -> Result<bool, Error> {
+		Ok(relay_chain::node_features::FeatureIndex::CandidateReceiptV3
+			.is_set(&self.read_abridged_host_configuration()?.node_features))
+	}
+
 	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
 	/// state proof.
 	///

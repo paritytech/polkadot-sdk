@@ -1,37 +1,74 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Test that `CandidateReceiptV3` can be enabled dynamically while the network is running.
+//! V3 candidates require the `CandidateReceiptV3` node feature (bit 4) on the relay AND the v3
+//! runtime on the para. The relay side is toggled with a `set_node_feature` extrinsic; the para
+//! side via a runtime upgrade to the v3 test runtime.
 //!
-//! Starts with only `CandidateReceiptV2` (bit 3) set in `node_features`. After verifying that V2
-//! candidates are backed and finalized, enables `CandidateReceiptV3` (bit 4) via a sudo
-//! extrinsic. After the next session change (when the config becomes active), verifies that the
-//! relay chain continues to accept V2 candidates from the collator.
+//! Para 2902 walks all four (relay, para) states:
+//!   off/off → V2, on/off → V2, on/on → V3, off/on → V2. The last is the fallback this fix
+//!   enables: a v3 para runtime keeps producing V2 while the relay gate is closed instead of
+//!   stalling. Paras 2900 (basic) and 2901 (elastic scaling) run the V2 runtime throughout and
+//!   stay V2, confirming throughput survives enablement.
 //!
-//! The validator set contains both standard and experimental-collator-protocol validators.
-//! Para 2901 uses elastic scaling with 3 cores to verify throughput under dynamic enablement.
+//! Paras 2900 and 2902 run a mix of a v3-capable collator (current image) and a v2-only collator
+//! (`OLD_CUMULUS_IMAGE`). On 2900 both emit V2; on 2902's V3 phase only the v3 collator can build,
+//! so it carries the para.
 
 use crate::utils::{
-	assert_candidates_version, assert_validator_backed_candidates, enable_node_features,
+	assert_candidates_version, assert_validator_backed_candidates, disable_node_features,
+	enable_node_features,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assign_cores, wait_for_nth_session_change, wait_for_runtime_upgrade,
+};
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
+use rstest::rstest;
 use serde_json::json;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
+	subxt::{dynamic::Value, ext::scale_value::value, tx::dynamic, OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
-/// Test: V3 descriptor enabled dynamically while the network is running.
+/// `relay_parent_offset` selects the v3 runtime para 2902 upgrades to, so the fallback lifecycle is
+/// exercised both with and without a relay parent offset:
+///   - offset 0: the `v3` runtime (relay parent = tip), same as before.
+///   - offset 2: the `v3_rpo_2` runtime, so v3 candidates build on a relay parent 2 blocks behind
+///     the tip. The V3-phase throughput is a bit lower and less predictable with an offset, so its
+///     expected range is a case parameter.
+#[rstest]
+#[case::offset_0(0, 5..15)]
+#[case::offset_2(2, 3..15)]
 #[tokio::test(flavor = "multi_thread")]
-async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
+async fn v3_dynamic_enablement_test(
+	#[case] relay_parent_offset: u32,
+	#[case] v3_expected_throughput: Range<u32>,
+) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
 	let images = zombienet_sdk::environment::get_images_from_env();
+
+	// Target runtime for para 2902's upgrade (needs a WASM build). The relay parent offset variant
+	// is selected by the test case.
+	let v3_wasm = match relay_parent_offset {
+		0 => cumulus_test_runtime::v3::WASM_BINARY,
+		2 => cumulus_test_runtime::v3_rpo_2::WASM_BINARY,
+		other => return Err(anyhow!("no v3 test runtime for relay parent offset {other}")),
+	}
+	.ok_or_else(|| anyhow!("cumulus-test-runtime v3 WASM not built (needs WASM build)"))?;
+
+	// v2-only collator image; falls back to the current image when unset.
+	let old_cumulus_image = std::env::var("OLD_CUMULUS_IMAGE").unwrap_or(images.cumulus.clone());
+	let old_cumulus_command =
+		std::env::var("OLD_CUMULUS_COMMAND").unwrap_or("test-parachain".into());
+
+	// Start with only V2 (bit 3); V3 (bit 4) is enabled later.
+	let node_features_v2_only = json!({"bits": 8, "data": [0b00001000]});
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -45,12 +82,12 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								// 2 extra cores beyond each auto-registered para core.
-								// Para 2901 uses elastic scaling and will be assigned
-								// 0 and 1 in addition.
+								// Para 2901 uses elastic scaling and is assigned 0 and 1 in addition.
 								"num_cores": 2,
 								"max_validators_per_core": 2,
 								"group_rotation_frequency": 4
-							}
+							},
+							"node_features": node_features_v2_only
 						}
 					}
 				}))
@@ -72,13 +109,20 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 				})
 			})
 		})
+		// Para 2900: basic V2 (single core), stays V2. Mix of a v3-capable and a v2-only collator.
 		.with_parachain(|p| {
 			p.with_id(2900)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
-				.with_collator(|n| n.with_name("collator-2900"))
+				.with_collator(|n| n.with_name("collator-2900-v3"))
+				.with_collator(|n| {
+					n.with_name("collator-2900-v2")
+						.with_image(old_cumulus_image.as_str())
+						.with_command(old_cumulus_command.as_str())
+				})
 		})
+		// Para 2901: V2 elastic scaling (3 cores) — throughput must survive enablement.
 		.with_parachain(|p| {
 			p.with_id(2901)
 				.with_default_command("test-parachain")
@@ -90,6 +134,23 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 				])
 				.with_collator(|n| n.with_name("collator-2901"))
 		})
+		// Para 2902: starts V2 ("async-backing"), upgraded to v3 mid-test. Mixed collators.
+		.with_parachain(|p| {
+			p.with_id(2902)
+				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_chain("async-backing")
+				.with_default_args(vec![
+					("--authoring=slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
+				.with_collator(|n| n.with_name("collator-2902-v3"))
+				.with_collator(|n| {
+					n.with_name("collator-2902-v2")
+						.with_image(old_cumulus_image.as_str())
+						.with_command(old_cumulus_command.as_str())
+				})
+		})
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -100,39 +161,105 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2900")?;
+	let para_node = network.get_node("collator-2900-v3")?;
 	let para_node_slot = network.get_node("collator-2901")?;
+	let para_node_v3 = network.get_node("collator-2902-v3")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+	let para_client_v3: OnlineClient<PolkadotConfig> = para_node_v3.wait_client().await?;
 
 	// Assign 2 extra cores to para 2901 for elastic scaling (3 cores total).
 	assign_cores(&relay_client, 2901, vec![0, 1]).await?;
 
 	let para_2900 = ParaId::from(2900);
 	let para_2901 = ParaId::from(2901);
+	let para_2902 = ParaId::from(2902);
 
-	// Para 2900: 1 core, basic lookahead → ~1 backed candidate per 2 relay blocks.
-	// Para 2901: 3 cores, elastic scaling → ~3x throughput.
-	log::info!("checking V2 candidates with V3 disabled");
+	// State (relay `CandidateReceiptV3` feature, para v3 runtime): off / off → V2.
+	log::info!("state off/off (relay off, para off) → V2");
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 15..21), (para_2901, 45..61)]),
-		20,
+		HashMap::from([(para_2900, 5..15), (para_2901, 15..40), (para_2902, 5..15)]),
+		10,
 	)
 	.await?;
 
-	log::info!("Enabling V3");
+	// off/off → on/off: enable the relay feature. Para 2902 still runs the V2 runtime, so it stays
+	// V2. The change applies at session+2 (SESSION_DELAY); wait 2 session changes so the feature is
+	// genuinely active for this assertion (see `set_node_features`).
+	log::info!("state on/off (relay on, para off) → V2");
 	enable_node_features(&relay_client, &[4]).await?;
-
-	log::info!("checking V2 candidates after V3 enabled");
+	let mut sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut sub, 2).await?;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 15..21), (para_2901, 45..61)]),
-		20,
+		HashMap::from([(para_2902, 5..15)]),
+		10,
 	)
 	.await?;
+
+	// on/off → on/on: upgrade para 2902 to the v3 runtime. Both sides on → V3.
+	// v3 shares its spec_version with V2, so use set_code_without_checks.
+	log::info!("state on/on (relay on, para on) → V3 (relay parent offset {relay_parent_offset})");
+	let upgrade_call = dynamic(
+		"Sudo",
+		"sudo_unchecked_weight",
+		vec![
+			value! { System(set_code_without_checks { code: Value::from_bytes(v3_wasm) }) },
+			value! { { ref_time: 1u64, proof_size: 1u64 } },
+		],
+	);
+	para_client_v3
+		.tx()
+		.sign_and_submit_then_watch_default(&upgrade_call, &dev::alice())
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+	wait_for_runtime_upgrade(&para_client_v3).await?;
+	let mut sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut sub, 1).await?;
+	assert_candidates_version(
+		&relay_client,
+		CandidateDescriptorVersion::V3,
+		HashMap::from([(para_2902, v3_expected_throughput)]),
+		10,
+	)
+	.await?;
+
+	// on/on → off/on: disable the relay feature while 2902 keeps the v3 runtime. The collator falls
+	// back to V2 and the para must keep producing (the case this fix enables). The change applies at
+	// session+2 (SESSION_DELAY); wait 2 session changes so the V3 tail has drained before asserting.
+	log::info!("state off/on (relay off, para on) → V2 (fallback)");
+	disable_node_features(&relay_client, &[4]).await?;
+	let mut sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut sub, 2).await?;
+	assert_candidates_version(
+		&relay_client,
+		CandidateDescriptorVersion::V2,
+		HashMap::from([(para_2902, 5..15)]),
+		10,
+	)
+	.await?;
+
+	// 2900 (basic) and 2901 (elastic) run the V2 runtime throughout, so they stay V2.
+	assert_candidates_version(
+		&relay_client,
+		CandidateDescriptorVersion::V2,
+		HashMap::from([(para_2900, 5..15), (para_2901, 15..40)]),
+		10,
+	)
+	.await?;
+
+	// No disputes throughout the lifecycle.
+	relay_node
+		.wait_metric_with_timeout(
+			"polkadot_parachain_candidate_disputes_total",
+			|v| v == 0.0,
+			30u64,
+		)
+		.await?;
 
 	assert_validator_backed_candidates(relay_node, 30).await?;
 	for i in 4..=7 {
@@ -142,8 +269,12 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
 	assert_finality_lag(&para_node_slot.wait_client().await?, 15).await?;
+	assert_finality_lag(&para_node_v3.wait_client().await?, 15).await?;
 
-	log::info!("V3 dynamic enablement test finished successfully");
+	log::info!(
+		"V3 dynamic enablement test (relay then para enablement, relay parent offset \
+		 {relay_parent_offset}) finished successfully"
+	);
 
 	Ok(())
 }

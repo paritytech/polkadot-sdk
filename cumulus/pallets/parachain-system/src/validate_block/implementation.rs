@@ -51,6 +51,41 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 // Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
 
+/// Read the relay `CandidateReceiptV3` feature from the first block's `set_validation_data`
+/// inherent, anchored to the trusted `relay_parent_storage_root` param. Reading from committed
+/// relay state (not a node-local source) keeps the decision deterministic across validators.
+///
+/// Panics if the mandatory `set_validation_data` inherent is missing or the proof is invalid.
+fn read_relay_v3_feature_enabled<B: BlockT, PSC: crate::Config>(
+	block_data: &ParachainBlockData<B::LazyBlock>,
+	relay_parent_storage_root: RHash,
+) -> bool
+where
+	B::Extrinsic: ExtrinsicCall,
+	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
+{
+	let first_block = block_data.blocks().first().expect("Parachain block data has no blocks");
+
+	for xt in first_block.extrinsics() {
+		let Ok(xt) = xt else { continue };
+		if let Some(crate::Call::set_validation_data { data, .. }) = xt.call().is_sub_type() {
+			return crate::relay_state_snapshot::RelayChainStateProof::new(
+				// `ACTIVE_CONFIG` is a global key, so the para id is unused for this read. We must
+				// NOT read `SelfParaId` from storage here: no externalities are set up yet at this
+				// point in `validate_block`, so a storage read would trap.
+				cumulus_primitives_core::ParaId::from(0u32),
+				relay_parent_storage_root,
+				data.relay_chain_state.clone(),
+			)
+			.expect("Invalid relay chain state proof")
+			.read_relay_v3_feature_enabled()
+			.expect("Invalid host configuration in relay chain state proof");
+		}
+	}
+
+	panic!("Missing `set_validation_data` inherent in the first parachain block");
+}
+
 /// Validate the given parachain block.
 ///
 /// This function is doing roughly the following:
@@ -137,11 +172,18 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
+	// V3 is in effect only when the parachain const AND the relay feature are on; otherwise the
+	// collator legitimately builds V2 and we accept it rather than stall. Short-circuit so non-V3
+	// parachains never read the relay feature.
+	let relay_feature_on = PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
+		read_relay_v3_feature_enabled::<B, PSC>(&block_data, relay_parent_storage_root);
+
 	// V3 scheduling validation (chain-shape only). Signature verification of
 	// `signed_scheduling_info` happens here at the call site so the verifier wiring
 	// stays out of the pure shape check.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
 		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
+		relay_feature_on,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),

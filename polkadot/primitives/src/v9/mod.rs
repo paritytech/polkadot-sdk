@@ -944,7 +944,14 @@ impl From<ValidityError> for u8 {
 
 /// Abridged version of `HostConfiguration` (from the `Configuration` parachains host runtime
 /// module) meant to be used by a parachain or PDK such as cumulus.
-#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
+///
+/// # Layout contract
+///
+/// Parachains decode this from a prefix of the relay's full `HostConfiguration` (`ACTIVE_CONFIG`).
+/// SCALE is positional, so every field must match `HostConfiguration`'s leading fields in order and
+/// encoding, up to `node_features`; new `HostConfiguration` fields must be appended *after* it. The
+/// relay's `verify_externally_accessible` test guards this and must be updated in lockstep.
+#[derive(Clone, Encode, Decode, Debug, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct AbridgedHostConfiguration {
 	/// The maximum validation code size, in bytes.
@@ -975,6 +982,59 @@ pub struct AbridgedHostConfiguration {
 	pub validation_upgrade_delay: BlockNumber,
 	/// Asynchronous backing parameters.
 	pub async_backing_params: AsyncBackingParams,
+	// Fields below extend the original prefix (which ended at `async_backing_params`) to reach
+	// `node_features`; they mirror `HostConfiguration` verbatim (see the layout contract).
+	/// The maximum POV block size, in bytes.
+	pub max_pov_size: u32,
+	/// The maximum size of a message that can be put in a downward message queue.
+	pub max_downward_message_size: u32,
+	/// The maximum number of outbound HRMP channels a parachain is allowed to open.
+	pub hrmp_max_parachain_outbound_channels: u32,
+	/// The deposit that the sender should provide for opening an HRMP channel.
+	pub hrmp_sender_deposit: Balance,
+	/// The deposit that the recipient should provide for accepting opening an HRMP channel.
+	pub hrmp_recipient_deposit: Balance,
+	/// The maximum number of messages allowed in an HRMP channel at once.
+	pub hrmp_channel_max_capacity: u32,
+	/// The maximum total size of messages in bytes allowed in an HRMP channel at once.
+	pub hrmp_channel_max_total_size: u32,
+	/// The maximum number of inbound HRMP channels a parachain is allowed to accept.
+	pub hrmp_max_parachain_inbound_channels: u32,
+	/// The maximum size of a message that could ever be put into an HRMP channel.
+	pub hrmp_channel_max_message_size: u32,
+	/// The executor environment parameters.
+	pub executor_params: ExecutorParams,
+	/// How long to keep code on-chain, in blocks.
+	pub code_retention_period: BlockNumber,
+	/// The maximum number of validators to use for parachain consensus, period. `None` means no
+	/// maximum.
+	pub max_validators: Option<u32>,
+	/// The amount of sessions to keep for disputes.
+	pub dispute_period: SessionIndex,
+	/// How long after dispute conclusion to accept statements.
+	pub dispute_post_conclusion_acceptance_period: BlockNumber,
+	/// The amount of consensus slots that must pass between submitting an assignment and
+	/// submitting an approval vote before a validator is considered a no-show.
+	pub no_show_slots: u32,
+	/// The number of delay tranches in total.
+	pub n_delay_tranches: u32,
+	/// The width of the zeroth delay tranche for approval assignments.
+	pub zeroth_delay_tranche_width: u32,
+	/// The number of validators needed to approve a block.
+	pub needed_approvals: u32,
+	/// The number of samples to do of the `RelayVRFModulo` approval assignment criterion.
+	pub relay_vrf_modulo_samples: u32,
+	/// The maximum number of sessions an active PVF pre-checking vote may observe before it is
+	/// automatically rejected.
+	pub pvf_voting_ttl: SessionIndex,
+	/// The lower bound number of blocks an upgrade can be scheduled.
+	pub minimum_validation_upgrade_delay: BlockNumber,
+	/// The minimum number of valid backing statements required to consider a parachain candidate
+	/// backable.
+	pub minimum_backing_votes: u32,
+	/// Node features enablement. This is the last field mirrored from `HostConfiguration`; it
+	/// carries, among others, the `CandidateReceiptV3` bit used to gate V3 scheduling.
+	pub node_features: NodeFeatures,
 }
 
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
