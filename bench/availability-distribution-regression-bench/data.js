@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784319417564,
+  "lastUpdate": 1784324068422,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c073c5c2194cea49c2c5534b932b851ad439b2b",
-          "message": "Remove \"SolutionImprovementThreshold\" logic (#10340)\n\nFixes [9119](https://github.com/paritytech/polkadot-sdk/issues/9119)\n\nThe threshold mechanism used by the \"election-provider-multi-block\"\nverifier pallet is no longer relevant because there is no more queued\nsolution to compare against during the initial verification and\nsubseuquently, solutions are processed in the order of decreasing score,\nwith the first one being chosen in all cases.\n\n---------\n\nSigned-off-by: Andrei Trandafir <andrei.trandafir@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-21T12:32:28Z",
-          "tree_id": "fd0d9e57fb48396a0b8fb70632d0b114bdc95eeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c073c5c2194cea49c2c5534b932b851ad439b2b"
-        },
-        "date": 1763734015631,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013612164360000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007727798733333312,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022993752373333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1606333770266667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009934630686666675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f7ecbc466872c43259a6d2b707fbe28a4e058bd",
+          "message": "Remove deprecated Utility::derivative_account_id method. (#12670)\n\nPart of #11561\n\nRemove the deprecated `pallet_utility::Pallet::derivative_account_id`\nmethod.\n\nIt was deprecated with a removal date of August 2025 in favor of the\nfreestanding `pallet_utility::derivative_account_id` function. In-repo\ncallers already use the freestanding helper.\n\n## Integration\n\nReplace:\n\n```rust\npallet_utility::Pallet::<T>::derivative_account_id(who, index)\n```\nwith:\n```rust\npallet_utility::derivative_account_id(who, index)\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-17T19:49:35Z",
+          "tree_id": "eec42823215959d680fabe2ea6047f849238febf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f7ecbc466872c43259a6d2b707fbe28a4e058bd"
+        },
+        "date": 1784324034415,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022981909486666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007307388280000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010055741933333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14888946597333333,
             "unit": "seconds"
           }
         ]
