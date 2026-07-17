@@ -25,7 +25,7 @@ use crate::{
 	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
 	SyncingStatus, TransactionTrace,
 	block_sync::SyncCheckpoint,
-	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
+	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
 use futures::TryStreamExt;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
@@ -50,34 +50,34 @@ use std::{
 use storage_api::StorageApi;
 use subxt::{
 	Config, OnlineClient,
-	backend::{
-		StreamOf, StreamOfResults,
-		legacy::{
+	backend::{StreamOf, StreamOfResults},
+	client::OnlineClientAtBlock,
+	config::{HashFor, RpcConfigFor},
+	rpcs::{
+		RpcClient,
+		client::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
+		methods::{
 			LegacyRpcMethods,
-			rpc_methods::{SystemHealth, TransactionStatus},
+			legacy::{SystemHealth, TransactionStatus},
 		},
-		rpc::{
-			RpcClient,
-			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
-		},
+		rpc_params,
 	},
-	config::{HashFor, Header},
-	ext::subxt_rpcs::rpc_params,
 };
+
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
-
-/// The substrate block type.
-pub type SubstrateBlock = subxt::blocks::Block<SrcChainConfig, OnlineClient<SrcChainConfig>>;
 
 /// The substrate block header.
 pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 
 /// The substrate block number type.
-pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
+pub type SubstrateBlockNumber = u64;
 
 /// The substrate block hash type.
 pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
+
+/// A handle to a Substrate block at a specific height.
+pub type SubstrateBlock = OnlineClientAtBlock<SrcChainConfig>;
 
 /// The runtime balance type.
 pub type Balance = u128;
@@ -132,7 +132,7 @@ pub enum ClientError {
 	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
 	#[error(transparent)]
-	RpcError(#[from] subxt::ext::subxt_rpcs::Error),
+	RpcError(#[from] subxt::rpcs::Error),
 	/// A [`sqlx::Error`] wrapper error.
 	#[error(transparent)]
 	SqlxError(#[from] sqlx::Error),
@@ -199,6 +199,33 @@ impl ClientError {
 	}
 }
 
+// Direct `From` impls so `?` can lift sub-error variants without an explicit `subxt::Error::from`.
+macro_rules! impl_from_subxt_subtype {
+	($($ty:ty),* $(,)?) => {
+		$(
+			impl From<$ty> for ClientError {
+				fn from(err: $ty) -> Self {
+					ClientError::SubxtError(err.into())
+				}
+			}
+		)*
+	};
+}
+
+impl_from_subxt_subtype!(
+	subxt::error::OnlineClientAtBlockError,
+	subxt::error::OnlineClientError,
+	subxt::error::BackendError,
+	subxt::error::BlockError,
+	subxt::error::BlocksError,
+	subxt::error::RuntimeApiError,
+	subxt::error::EventsError,
+	subxt::error::ExtrinsicError,
+	subxt::error::ConstantError,
+	subxt::error::StorageError,
+	subxt::error::StorageValueError,
+);
+
 const LOG_TARGET: &str = "eth-rpc::client";
 const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 
@@ -209,10 +236,12 @@ const NOTIFIER_CAPACITY: usize = 16;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
-			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
-				subxt::ext::subxt_rpcs::Error::User(err),
-			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
+			ClientError::SubxtError(subxt::Error::BackendError(
+				subxt::error::BackendError::Rpc(subxt::error::RpcError::ClientError(
+					subxt::rpcs::Error::User(err),
+				)),
+			)) |
+			ClientError::RpcError(subxt::rpcs::Error::User(err)) => {
 				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
 			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
@@ -239,7 +268,7 @@ impl From<ClientError> for ErrorObjectOwned {
 pub struct Client {
 	api: OnlineClient<SrcChainConfig>,
 	rpc_client: RpcClient,
-	rpc: LegacyRpcMethods<SrcChainConfig>,
+	rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
 	receipt_provider: ReceiptProvider,
 	block_provider: SubxtBlockInfoProvider,
 	fee_history_provider: FeeHistoryProvider,
@@ -330,7 +359,7 @@ impl SubscriptionGapQueue {
 }
 
 /// Returns the first EVM block number for main and test nets, `None` otherwise.
-fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u32> {
+fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u64> {
 	match chain_id {
 		420420417 => Some(4_367_914),  // Paseo Asset Hub
 		420420418 => Some(12_234_156), // Kusama Asset Hub
@@ -343,13 +372,15 @@ fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u32> {
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
 	let query = subxt_client::constants().revive().chain_id().unvalidated();
-	api.constants().at(&query).map_err(|err| err.into())
+	let at_block = api.at_current_block().await?;
+	at_block.constants().entry(query).map_err(|err| err.into())
 }
 
 /// Fetch the max block weight from the substrate chain.
 async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, ClientError> {
 	let query = subxt_client::constants().system().block_weights().unvalidated();
-	let weights = api.constants().at(&query)?;
+	let at_block = api.at_current_block().await?;
+	let weights = at_block.constants().entry(query)?;
 	let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
 	Ok(max_block.0)
 }
@@ -371,8 +402,10 @@ pub async fn connect(
 	node_rpc_url: &str,
 	max_request_size: u32,
 	max_response_size: u32,
-) -> Result<(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<SrcChainConfig>), ClientError>
-{
+) -> Result<
+	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	ClientError,
+> {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
@@ -384,7 +417,7 @@ pub async fn connect(
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
-	let rpc = LegacyRpcMethods::<SrcChainConfig>::new(rpc_client.clone());
+	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
 
@@ -393,7 +426,7 @@ impl Client {
 	pub(crate) async fn new(
 		api: OnlineClient<SrcChainConfig>,
 		rpc_client: RpcClient,
-		rpc: LegacyRpcMethods<SrcChainConfig>,
+		rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
 		is_archive: bool,
@@ -495,7 +528,7 @@ impl Client {
 
 	/// The earliest block number where the ReviveApi is available.
 	/// Resolution order: in-memory value > known-networks table > 0.
-	fn earliest_block_number(&self) -> u32 {
+	fn earliest_block_number(&self) -> SubstrateBlockNumber {
 		self.receipt_provider
 			.first_evm_block()
 			.or_else(|| known_first_evm_block_for_chain(self.chain_id))
@@ -513,8 +546,8 @@ impl Client {
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
 		let mut block_stream = match subscription_type {
-			SubscriptionType::BestBlocks => self.api.blocks().subscribe_best().await,
-			SubscriptionType::FinalizedBlocks => self.api.blocks().subscribe_finalized().await,
+			SubscriptionType::BestBlocks => self.api.stream_best_blocks().await,
+			SubscriptionType::FinalizedBlocks => self.api.stream_blocks().await,
 		}
 		.inspect_err(|err| {
 			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
@@ -526,6 +559,7 @@ impl Client {
 			let block = match block {
 				Ok(block) => block,
 				Err(err) => {
+					let err: subxt::Error = err.into();
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
 							target: LOG_TARGET,
@@ -540,10 +574,14 @@ impl Client {
 				},
 			};
 
+			let block = block.at().await.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "Failed to resolve streamed block: {err:?}");
+			})?;
+
 			// Acquire lock to ensure only one subscription can perform write operations at a time
 			let _guard = self.subscription_lock.lock().await;
 
-			let block_number = block.number();
+			let block_number = block.block_number();
 
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {
@@ -571,8 +609,7 @@ impl Client {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<(Block, Vec<ReceiptInfo>), ClientError> {
-		let block_number = block.number();
-		let hash = block.hash();
+		let block_number = block.block_number();
 
 		macro_rules! time {
 			($label:expr, $expr:expr) => {{
@@ -587,7 +624,7 @@ impl Client {
 			}};
 		}
 
-		let eth_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
+		let eth_block = time!("eth_block", RuntimeApi::new(block.clone()).eth_block().await?);
 		let receipts = time!(
 			"receipts_from_block",
 			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
@@ -612,7 +649,7 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			let hash = block.hash();
+			let hash = block.block_hash();
 
 			match subscription_type {
 				SubscriptionType::BestBlocks => {
@@ -629,7 +666,7 @@ impl Client {
 					}
 				},
 				SubscriptionType::FinalizedBlocks => {
-					let block_number = block.number();
+					let block_number = block.block_number();
 					let (receipt_infos, eth_hash) = match self
 						.receipt_provider
 						.get_processed_eth_block_hash(block_number, hash)
@@ -681,7 +718,7 @@ impl Client {
 			BlockId::Number(tag) => self
 				.block_by_number_or_tag(&tag)
 				.await?
-				.map(|block| block.hash())
+				.map(|block| block.block_hash())
 				.ok_or(ClientError::BlockNotFound),
 		}
 	}
@@ -717,19 +754,19 @@ impl Client {
 				.block_by_number_or_tag(&tag)
 				.await?
 				.ok_or(ClientError::BlockNotFound)?
-				.number()
+				.block_number()
 				.into()),
 		}
 	}
 
 	/// Get the storage API for the given block.
-	pub fn storage_api(&self, block_hash: H256) -> StorageApi {
-		StorageApi::new(self.api.storage().at(block_hash))
+	pub async fn storage_api(&self, block_hash: H256) -> Result<StorageApi, ClientError> {
+		Ok(StorageApi::new(self.api.at_block(block_hash).await?))
 	}
 
 	/// Get the runtime API for the given block.
-	pub fn runtime_api(&self, block_hash: H256) -> RuntimeApi {
-		RuntimeApi::new(self.api.runtime_api().at(block_hash))
+	pub async fn runtime_api(&self, block_hash: H256) -> Result<RuntimeApi, ClientError> {
+		Ok(RuntimeApi::new(self.api.at_block(block_hash).await?))
 	}
 
 	/// Get the latest finalized block.
@@ -745,9 +782,10 @@ impl Client {
 	/// Submit an ethereum transaction and return a stream of transaction status updates.
 	async fn submit_transaction(
 		&self,
-		call: subxt::tx::DefaultPayload<EthTransact>,
+		call: subxt::tx::StaticPayload<EthTransact>,
 	) -> Result<StreamOfResults<TransactionStatus<SubstrateBlockHash>>, ClientError> {
-		let ext = self.api.tx().create_unsigned(&call.unvalidated()).map_err(ClientError::from)?;
+		let at_block = self.api.at_current_block().await?;
+		let ext = at_block.tx().create_unsigned(&call.unvalidated()).map_err(ClientError::from)?;
 
 		let sub = self
 			.rpc_client
@@ -765,7 +803,7 @@ impl Client {
 	/// Expose the transaction API.
 	pub async fn submit(
 		&self,
-		call: subxt::tx::DefaultPayload<EthTransact>,
+		call: subxt::tx::StaticPayload<EthTransact>,
 	) -> Result<TransactionStatus<SubstrateBlockHash>, ClientError> {
 		let mut progress = self.submit_transaction(call).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to submit transaction: {err:?}");
@@ -817,8 +855,9 @@ impl Client {
 		let ReceiptInfo { block_hash, transaction_index, .. } = self.receipt(tx_hash).await?;
 		let block_hash = self.resolve_substrate_hash(&block_hash).await?;
 		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let ext = block.extrinsics().await.ok()?.iter().nth(transaction_index.as_u32() as _)?;
-		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>().ok()??;
+		let extrinsics = block.extrinsics().fetch().await.ok()?;
+		let ext = extrinsics.iter().nth(transaction_index.as_u32() as _)?.ok()?;
+		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>()?.ok()?;
 		Some(event.dispatch_info.weight.0)
 	}
 
@@ -895,7 +934,7 @@ impl Client {
 	/// Get the block number of the latest block.
 	pub async fn block_number(&self) -> Result<SubstrateBlockNumber, ClientError> {
 		let latest_block = self.block_provider.latest_block().await;
-		Ok(latest_block.number())
+		Ok(latest_block.block_number())
 	}
 
 	/// Get a block by hash
@@ -950,7 +989,7 @@ impl Client {
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<SubstrateBlockHash>, ClientError> {
 		let maybe_block = self.block_provider.block_by_number(block_number).await?;
-		Ok(maybe_block.map(|block| block.hash()))
+		Ok(maybe_block.map(|block| block.block_hash()))
 	}
 
 	async fn tracing_block(
@@ -992,7 +1031,7 @@ impl Client {
 		if parent_hash == Default::default() {
 			return Ok(vec![]);
 		}
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(parent_hash));
+		let runtime_api = self.runtime_api(parent_hash).await?;
 		let traces = runtime_api.trace_block(block, config.clone()).await?;
 
 		let mut hashes = self
@@ -1022,7 +1061,7 @@ impl Client {
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
-		let runtime_api = self.runtime_api(parent_hash);
+		let runtime_api = self.runtime_api(parent_hash).await?;
 
 		runtime_api.trace_tx(block, transaction_index as u32, config).await
 	}
@@ -1036,7 +1075,7 @@ impl Client {
 		state_overrides: Option<StateOverrideSet>,
 	) -> Result<TraceV1, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
-		let runtime_api = self.runtime_api(block_hash);
+		let runtime_api = self.runtime_api(block_hash).await?;
 		runtime_api.trace_call(transaction, config, state_overrides).await
 	}
 
@@ -1046,14 +1085,14 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Option<Block> {
-		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
+		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.block_hash());
 
 		if self
 			.receipt_provider
-			.is_before_earliest_block(&BlockNumberOrTag::Number(block.number().into()))
+			.is_before_earliest_block(&BlockNumberOrTag::Number(block.block_number().into()))
 		{
 			log::trace!(target: LOG_TARGET,
-				"Block #{} is before receipt floor, skipping", block.number());
+				"Block #{} is before receipt floor, skipping", block.block_number());
 			return None;
 		}
 
@@ -1062,7 +1101,8 @@ impl Client {
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		match self.runtime_api(block.hash()).eth_block().await {
+		let runtime_api = RuntimeApi::new((*block).clone());
+		match runtime_api.eth_block().await {
 			Ok(mut eth_block) => {
 				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
@@ -1075,7 +1115,7 @@ impl Client {
 						.inspect_err(|err| {
 							log::trace!(target: LOG_TARGET,
 								"Failed to extract receipts for block #{}: {err:?}",
-								block.number());
+								block.block_number());
 						})
 						.unwrap_or_default()
 						.into_iter()
@@ -1088,7 +1128,7 @@ impl Client {
 				Some(eth_block)
 			},
 			Err(err) => {
-				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
+				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.block_hash());
 				None
 			},
 		}
@@ -1133,7 +1173,7 @@ impl Client {
 		};
 
 		self.fee_history_provider
-			.fee_history(block_count, latest_block.number(), reward_percentiles)
+			.fee_history(block_count, latest_block.block_number(), reward_percentiles)
 			.await
 	}
 

@@ -223,14 +223,19 @@ pub fn get_allowance(account_id: impl AsRef<[u8]>) -> StatementAllowance {
 	frame_support::storage::unhashed::get_or_default(&key)
 }
 
+pub use event::{
+	AddFilterResponse, LimitReachedResult, LimitReachedTag, NewStatementEntry, SubscribeEvent,
+};
 #[cfg(feature = "std")]
 pub use store_api::{
-	Error, FilterDecision, InvalidReason, OptimizedTopicFilter, RejectionReason, Result,
-	StatementEvent, StatementSource, StatementStore, SubmitResult, TopicFilter,
+	Error, FilterDecision, FilterId, InvalidReason, LiveStatementEvent, OptimizedTopicFilter,
+	RejectionReason, Result, StatementEvent, StatementSource, StatementStore, SubmitInvalidReason,
+	SubmitOutcome, SubmitRejectionReason, SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]
 mod ecies;
+mod event;
 pub mod runtime_api;
 #[cfg(feature = "std")]
 mod store_api;
