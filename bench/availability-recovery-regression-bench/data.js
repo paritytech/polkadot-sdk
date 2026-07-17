@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784294264143,
+  "lastUpdate": 1784301424657,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c9879a5e3eeda1e8938ae7f6d06ec8df0a7a7da9",
-          "message": "[pallet-revive] add tracing for selfdestruct (#10244)\n\nAdd tracing for selfdestruct\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-20T13:28:49Z",
-          "tree_id": "5ca7c5d68e95fdf24f2e1d8610f63cc59797ce2c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c9879a5e3eeda1e8938ae7f6d06ec8df0a7a7da9"
-        },
-        "date": 1763650892188,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.190877175766667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2035582765333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14076163013333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08f58c40ea9c3a722db06407368d5b5e9a5ce212",
+          "message": "binary-merkle-tree: preallocate proof vector to avoid reallocations (#12288)\n\nresolves #9106",
+          "timestamp": "2026-07-17T10:30:47Z",
+          "tree_id": "434576ef5994ca92b29f9e57ab11e0b111e79c28",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/08f58c40ea9c3a722db06407368d5b5e9a5ce212"
+        },
+        "date": 1784301392045,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.199331328266666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1333247433,
             "unit": "seconds"
           }
         ]
