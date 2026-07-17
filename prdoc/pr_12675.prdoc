@@ -1,0 +1,7 @@
+title: Collator revamp - tests for subsystem startup and registered parachains pruning
+doc:
+- audience: Node Dev
+  description: null
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
