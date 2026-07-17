@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784319526027,
+  "lastUpdate": 1784324193126,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "77c01251ebf91e1d2a55cbf6945c7711f9cfa263",
-          "message": "aura/slot_based: Reduce authoring duration of the last produced block  (#10154)\n\nThis PR adjusts the block authoring to stop producing blocks 1 second\nbefore the scheduled slot change.\nThis introduces a safety buffer to prevent blocks from being authored\ntoo late for inclusion.\n\n- 2s blocks / 3 cores: The authoring duration of the last block is\nreduced from 2s to 1s.\n- 500ms blocks / 12 cores: The authoring duration cannot be reduced past\n500ms, therefore the last two blocks are no longer authored\n\n### Testing Done\n\nTested on top of:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n### 3 cores 2s blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.987s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=5.987s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.987s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.991s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723040) next_duration_change=3.991s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(1.991s)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=1.99s last_reported_slot=Some(Slot(293723040)) next_slot=Slot(293723041) next_duration_change=1.99s next_slot_change=Slot(293723041)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(990ms)\n```\n\n### 12 cores 500ms blocks\n\n```\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=1.494s next_slot_change=Slot(293724135) deadline=494ms\naura::cumulus: [Parachain] Adjusted proposal duration. duration=Some(494ms)\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=493ms last_reported_slot=Some(Slot(293724134)) next_slot=Slot(293724134) next_duration_change=993ms next_slot_change=Slot(293724135) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=993ms next_slot_change=Slot(293724135)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n\naura::cumulus: [Parachain] Adjusting authoring duration for slot. authoring_duration=2s duration=494ms last_reported_slot=Some(Slot(293724136)) next_slot=Slot(293724137) next_duration_change=494ms next_slot_change=Slot(293724137) deadline=0ns\naura::cumulus: [Parachain] Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot. next_duration_change=494ms next_slot_change=Slot(293724137)\naura::cumulus: [Parachain] Adjusted proposal duration. duration=None\naura::cumulus: [Parachain] Not building block due to insufficient authoring duration\n```\n\nPart of: https://github.com/paritytech/polkadot-sdk/issues/9848\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eduardspa <eduard@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
-          "timestamp": "2025-11-19T14:46:16Z",
-          "tree_id": "14ce62d93d9b5295823e962a1145111f87e60acc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77c01251ebf91e1d2a55cbf6945c7711f9cfa263"
-        },
-        "date": 1763567800916,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008815907979999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005199819749999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002645912550000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009622714709999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f7ecbc466872c43259a6d2b707fbe28a4e058bd",
+          "message": "Remove deprecated Utility::derivative_account_id method. (#12670)\n\nPart of #11561\n\nRemove the deprecated `pallet_utility::Pallet::derivative_account_id`\nmethod.\n\nIt was deprecated with a removal date of August 2025 in favor of the\nfreestanding `pallet_utility::derivative_account_id` function. In-repo\ncallers already use the freestanding helper.\n\n## Integration\n\nReplace:\n\n```rust\npallet_utility::Pallet::<T>::derivative_account_id(who, index)\n```\nwith:\n```rust\npallet_utility::derivative_account_id(who, index)\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-07-17T19:49:35Z",
+          "tree_id": "eec42823215959d680fabe2ea6047f849238febf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f7ecbc466872c43259a6d2b707fbe28a4e058bd"
+        },
+        "date": 1784324160153,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009880188619999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010783331809999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002638351909999999,
             "unit": "seconds"
           }
         ]
