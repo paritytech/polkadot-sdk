@@ -57,6 +57,8 @@ pub trait WasmInstance: Send {
 		self.call_with_allocation_stats(method, data).0
 	}
 
+	/// Call a method on this WASM instance.
+	///
 	/// Before execution, instance is reset.
 	///
 	/// Returns the encoded result on success.
@@ -82,7 +84,7 @@ pub trait WasmInstance: Send {
 	fn set_heap_alloc_strategy(&mut self, _heap_alloc_strategy: HeapAllocStrategy) {}
 }
 
-/// A wasm module whose instances are only callable with an execution timeout.
+/// A trait that defines an abstract wasm runtime module only callable with an execution timeout.
 ///
 /// This can be implemented by an execution engine.
 pub trait TimedWasmModule: Sync + Send {
@@ -95,7 +97,8 @@ pub trait TimedWasmModule: Sync + Send {
 	) -> Result<Box<dyn TimedWasmInstance>, Error>;
 }
 
-/// A wasm instance whose calls are bounded in execution time.
+/// A trait that defines an abstract wasm module instance whose calls are bounded in execution
+/// time.
 ///
 /// This can be implemented by an execution engine.
 pub trait TimedWasmInstance: Send {
