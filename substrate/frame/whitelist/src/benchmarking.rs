@@ -22,9 +22,9 @@
 use super::*;
 #[cfg(test)]
 use crate::Pallet as Whitelist;
-use frame::benchmarking::prelude::*;
+use frame::{benchmarking::prelude::*, traits::Authorize};
 
-#[benchmarks]
+#[benchmarks(where <T as frame_system::Config>::RuntimeCall: From<Call<T>>)]
 mod benchmarks {
 	use super::*;
 
@@ -157,6 +157,66 @@ mod benchmarks {
 		ensure!(!WhitelistedCall::<T>::contains_key(call_hash), "whitelist not removed");
 		ensure!(!DeferredDispatch::<T>::contains_key(call_hash), "deferred entry not removed");
 		ensure!(!T::Preimages::is_requested(&call_hash), "preimage still requested");
+		Ok(())
+	}
+
+	// Worst case: hash whitelisted and preimage present at the witnessed length.
+	#[benchmark]
+	fn authorize_dispatch_whitelisted_call() -> Result<(), BenchmarkError> {
+		let whitelist_origin =
+			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::remark { remark: alloc::vec![1u8; 100] }.into();
+		let call_weight_witness = call.get_dispatch_info().call_weight;
+		let encoded_call = call.encode();
+		let call_encoded_len = encoded_call.len() as u32;
+		let call_hash = T::Hashing::hash_of(&call);
+
+		Pallet::<T>::whitelist_call(whitelist_origin, call_hash)
+			.expect("whitelisting call must be successful");
+		T::Preimages::note(encoded_call.into()).unwrap();
+
+		let call: <T as frame_system::Config>::RuntimeCall = Call::<T>::dispatch_whitelisted_call {
+			call_hash,
+			call_encoded_len,
+			call_weight_witness,
+		}
+		.into();
+
+		#[block]
+		{
+			call.authorize(TransactionSource::InBlock)
+				.expect("call has authorize logic")
+				.map_err(|_| "authorize failed")?;
+		}
+
+		Ok(())
+	}
+
+	// Includes hashing the `n`-byte call.
+	#[benchmark]
+	fn authorize_dispatch_whitelisted_call_with_preimage(
+		n: Linear<1, 10_000>,
+	) -> Result<(), BenchmarkError> {
+		let whitelist_origin =
+			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let remark = alloc::vec![1u8; n as usize];
+		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
+		let call_hash = T::Hashing::hash_of(&call);
+
+		Pallet::<T>::whitelist_call(whitelist_origin, call_hash)
+			.expect("whitelisting call must be successful");
+
+		let call: <T as frame_system::Config>::RuntimeCall =
+			Call::<T>::dispatch_whitelisted_call_with_preimage { call: Box::new(call) }.into();
+
+		#[block]
+		{
+			call.authorize(TransactionSource::InBlock)
+				.expect("call has authorize logic")
+				.map_err(|_| "authorize failed")?;
+		}
+
 		Ok(())
 	}
 

@@ -405,14 +405,41 @@ fn authorize_dispatch_whitelisted_call_uses_hash_argument() {
 		InvalidTransaction, TransactionSource, TransactionValidityError,
 	};
 	new_test_ext().execute_with(|| {
-		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&1u8);
+		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+		let encoded = call.encode();
+		let call_encoded_len = encoded.len() as u32;
+		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded[..]);
 
-		// Unknown hash: rejected at the pool.
+		// No preimage: rejected at the pool.
 		assert_eq!(
 			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
 				TransactionSource::External,
 				&call_hash,
-				&0,
+				&call_encoded_len,
+				&Weight::zero(),
+			),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+
+		assert_ok!(Preimage::note(encoded.into()));
+
+		// Wrong length witness: rejected.
+		assert_eq!(
+			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
+				TransactionSource::External,
+				&call_hash,
+				&(call_encoded_len + 1),
+				&Weight::zero(),
+			),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+
+		// Preimage available but hash not whitelisted: rejected.
+		assert_eq!(
+			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
+				TransactionSource::External,
+				&call_hash,
+				&call_encoded_len,
 				&Weight::zero(),
 			),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
@@ -420,11 +447,11 @@ fn authorize_dispatch_whitelisted_call_uses_hash_argument() {
 
 		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
 
-		// Whitelisted: admitted with the hash as the validity tag.
+		// Whitelisted with preimage: admitted with the hash as the validity tag.
 		let (valid, _) = crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
 			TransactionSource::External,
 			&call_hash,
-			&0,
+			&call_encoded_len,
 			&Weight::zero(),
 		)
 		.expect("whitelisted submission is admitted");

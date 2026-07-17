@@ -86,10 +86,10 @@ pub mod pallet {
 		type WhitelistOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Required origin for dispatching whitelisted call with root origin.
-        ///
-        /// If this origin accepts `Authorized` (e.g. via [`frame_system::EnsureAuthorized`]),
-        /// whitelisted calls can additionally be dispatched permissionlessly as unsigned
-        /// transactions.
+		///
+		/// If this origin accepts `Authorized` (e.g. via [`frame_system::EnsureAuthorized`]),
+		/// whitelisted calls can additionally be dispatched permissionlessly as unsigned
+		/// transactions.
 		type DispatchWhitelistedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The handler of pre-images.
@@ -205,7 +205,7 @@ pub mod pallet {
 		}
 
 		#[pallet::authorize(Self::authorize_dispatch_whitelisted_call)]
-		#[pallet::weight_of_authorize(T::DbWeight::get().reads(1))]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_dispatch_whitelisted_call())]
 		#[pallet::call_index(2)]
 		#[pallet::weight(
 			T::WeightInfo::dispatch_whitelisted_call(*call_encoded_len)
@@ -257,7 +257,11 @@ pub mod pallet {
 		}
 
 		#[pallet::authorize(Self::authorize_dispatch_whitelisted_call_with_preimage)]
-		#[pallet::weight_of_authorize(T::DbWeight::get().reads(1))]
+		#[pallet::weight_of_authorize(
+			T::WeightInfo::authorize_dispatch_whitelisted_call_with_preimage(
+				call.encoded_size() as u32
+			)
+		)]
 		#[pallet::call_index(3)]
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().call_weight;
@@ -348,9 +352,13 @@ impl<T: Config> Pallet<T> {
 	fn authorize_dispatch_whitelisted_call(
 		_source: TransactionSource,
 		call_hash: &T::Hash,
-		_call_encoded_len: &u32,
+		call_encoded_len: &u32,
 		_call_weight_witness: &Weight,
 	) -> TransactionValidityWithRefund {
+		// Missing preimage or wrong length witness would fail at dispatch with nobody charged.
+		if T::Preimages::len(call_hash) != Some(*call_encoded_len) {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+		}
 		Self::authorize_whitelisted_dispatch(*call_hash)
 	}
 
