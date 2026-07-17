@@ -1,0 +1,21 @@
+title: 'frame system/executive: add a flag to know if the runtime is validating a transaction for the tx-pool'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Executive::validate_transaction` now sets a whitelisted storage flag in frame-system for the
+    duration of the transaction validation. Runtimes can query it with
+    `frame_system::Pallet::<T>::is_pool_transaction_validation()` to know whether the code is
+    running as part of the transaction validation for the transaction pool, as opposed to block
+    construction, block execution or any other context.
+
+    This enables conditional execution in transaction extensions and `ValidateUnsigned`
+    implementations: for example, expensive proofs can be fully verified when the transaction is
+    validated for the pool, while during block execution the verification can be deferred and
+    batched at the end of the block (e.g. in `on_finalize`), which is significantly more efficient
+    for proofs supporting batch verification such as Bandersnatch Ring VRF.
+
+crates:
+- name: frame-system
+  bump: minor
+- name: frame-executive
+  bump: minor
