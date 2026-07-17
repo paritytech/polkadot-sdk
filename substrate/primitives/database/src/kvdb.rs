@@ -128,21 +128,13 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 	}
 
 	for ((col, key), ops) in ref_counted {
-		let (counter_key, on_disk_counter) = read_counter(db, col, &key)?;
-		let incr = |c: u32| {
-			c.checked_add(1).ok_or_else(|| {
-				error::DatabaseError(Box::new(std::io::Error::other(format!(
-					"Refcount overflow for key {key:02x?} in column {col}",
-				))))
-			})
-		};
+		let (counter_key, mut counter) = read_counter(db, col, &key)?;
 
-		let mut counter = on_disk_counter;
 		let mut value_to_write = None;
 		for op in ops {
 			match op {
 				RefCountedOp::Store(value) => match counter {
-					Some(c) => counter = Some(incr(c)?),
+					Some(c) => counter = Some(c + 1),
 					None => {
 						counter = Some(1);
 						value_to_write = Some(value);
