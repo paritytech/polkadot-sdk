@@ -15,13 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! Speculative Messaging node parts: the sender-side archive and the
-//! `/spec-msg/exchange` request-response protocol.
+//! Speculative Messaging node parts: the sender-side archive, the
+//! `/spec-msg/exchange` request-response protocol and the receiver-side
+//! relay chain monitor.
 //!
 //! A sending parachain's block commits to all its outbound message streams
 //! with one hash — the `StreamsRoot` — while the payloads travel off-chain
-//! between collators. This crate is the off-chain half on the sender's
-//! side:
+//! between collators. This crate is the off-chain half around that hash,
+//! starting with the sender's side:
 //!
 //! - [`SpecMsgArchive`] persists every block's sends keyed by `(stream, position)` (payloads plus
 //!   leaf hashes — proofs need hashes even where payloads were pruned) together with per-block
@@ -40,8 +41,18 @@
 //!   compares against the root the request named — a mismatch discards response and peer. The
 //!   receiver-side fetch loop and inherent provider build on these.
 //!
+//! And the receiver's side:
+//!
+//! - [`run_relay_provides_monitor`] watches imported relay chain blocks for the consumed sources'
+//!   newly *included* `StreamsRoot`s (the inclusion-tier trust anchor: the relay pushes each
+//!   enacted `Provides` root into the source's `RecentProvides` ring) and offers each exactly once
+//!   as a [`RelayProvidesEvent`] to the fetch/verify pipeline, alongside pending-availability
+//!   prefetch hints. [`read_recent_provides`] is the underlying relay-state read, shared with the
+//!   inherent provider.
+//!
 //! MVP scope: request-response only — no notification/announce protocol,
-//! no DA, no live push.
+//! no DA, no live push; triggers come from included roots only (the
+//! speculative tier's header-digest anchors are post-MVP).
 //!
 //! [`MessagesRequest`]: cumulus_primitives_spec_messaging::MessagesRequest
 //! [`EventRequest`]: cumulus_primitives_spec_messaging::EventRequest
@@ -49,12 +60,17 @@
 #![warn(missing_docs)]
 
 pub mod archive;
+pub mod monitor;
 mod nodes;
 pub mod protocol;
 pub mod verify;
 pub mod worker;
 
 pub use archive::{ArchiveError, ServeError, SpecMsgArchive, SERVING_HORIZON};
+pub use monitor::{
+	pending_provides, read_recent_provides, run_relay_provides_monitor, RelayProvidesEvent,
+	SourceProvides,
+};
 pub use protocol::{
 	spec_msg_protocol_config, SpecMsgRequestHandler, MAX_RESPONSE_SIZE, PROTOCOL_NAME,
 };

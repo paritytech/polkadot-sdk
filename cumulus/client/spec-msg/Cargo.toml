@@ -2,7 +2,7 @@
 name = "cumulus-client-spec-msg"
 version = "0.1.0"
 authors.workspace = true
-description = "Speculative Messaging node parts: sender-side archive and the /spec-msg/exchange protocol"
+description = "Speculative Messaging node parts: sender-side archive, the /spec-msg/exchange protocol and the receiver-side relay chain monitor"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage.workspace = true
@@ -33,3 +33,4 @@ polkadot-core-primitives = { workspace = true, default-features = true }
 # Cumulus
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }

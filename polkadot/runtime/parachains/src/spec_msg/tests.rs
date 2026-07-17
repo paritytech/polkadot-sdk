@@ -164,3 +164,26 @@ fn offboarding_clears_the_ring() {
 		assert_matches(2000, root(2));
 	});
 }
+
+#[test]
+fn ring_is_readable_under_the_well_known_key_as_a_plain_vec() {
+	// The receiver-side node monitor (`cumulus-client-spec-msg`) reads the ring from relay
+	// chain state under `well_known_keys::spec_msg_recent_provides` and decodes it as a
+	// plain `Vec<(StreamsRoot, BlockNumber)>` — pin both halves of that contract here,
+	// where the pallet placement (`SpecMsg`) and the `RecentRoots` layout are in scope.
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		let sender = ParaId::from(2000);
+
+		frame_system::Pallet::<Test>::set_block_number(7);
+		Pallet::<Test>::note_provides(sender, root(1));
+		Pallet::<Test>::note_provides(sender, root(2));
+
+		let raw = sp_io::storage::get(
+			&polkadot_primitives::well_known_keys::spec_msg_recent_provides(sender),
+		)
+		.expect("the well-known key is where the pallet writes the ring");
+		let decoded: Vec<(StreamsRoot, u32)> =
+			Decode::decode(&mut &raw[..]).expect("a ring decodes as a plain vec of entries");
+		assert_eq!(decoded, vec![(root(1), 7), (root(2), 7)]);
+	});
+}

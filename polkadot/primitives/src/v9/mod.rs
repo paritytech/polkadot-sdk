@@ -428,6 +428,26 @@ pub mod well_known_keys {
 				.collect()
 		})
 	}
+
+	/// The ring of the given para's (the Speculative Messaging sender's) recently included
+	/// stream commitment roots, oldest first.
+	///
+	/// The storage entry stores a `RecentRoots` newtype whose SCALE encoding is that of a
+	/// `Vec<(StreamsRoot, BlockNumber)>` — each root paired with the relay chain block number
+	/// at which it was pushed (the block enacting the sender candidate that committed it).
+	pub fn spec_msg_recent_provides(para_id: Id) -> Vec<u8> {
+		let prefix = hex!["0fcce6413acc3a77c778c0d29cd914f7dd77411effbaf154539ed4f164654b66"];
+
+		para_id.using_encoded(|para_id: &[u8]| {
+			prefix
+				.as_ref()
+				.iter()
+				.chain(twox_64(para_id).iter())
+				.chain(para_id.iter())
+				.cloned()
+				.collect()
+		})
+	}
 }
 
 /// Relay chain slot duration in milliseconds, which is the same
