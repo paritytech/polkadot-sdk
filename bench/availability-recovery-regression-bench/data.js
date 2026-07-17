@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784307679818,
+  "lastUpdate": 1784310483983,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "abe05daf56d3af1611de7d6478e0cd1a23a789d9",
-          "message": "pallet-revive benchmark opcode fix (#10380)\n\nBenchmark opcode was using the invalid opcode instead of defining a new\none.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-21T12:04:04Z",
-          "tree_id": "b795e978bf9e8e168204ddc92dbe05efd8a94eae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/abe05daf56d3af1611de7d6478e0cd1a23a789d9"
-        },
-        "date": 1763731701546,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19837204643333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.30774633923333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.867484501966668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karol@parity.io",
+            "name": "Karol Kokoszka",
+            "username": "karolk91"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "91d93d4ebc6d441d8e93f4a5d5fc368a494d8f78",
+          "message": "sp-database: aggregate same-key refcount ops within a transaction (#12106)\n\nFix a kvdb refcount-leak: multiple `Store`/`Reference`/`Release` ops on\nthe same key in one `sp_database::Transaction` each read a stale on-disk\ncounter and write back to the same counter key — the underlying\n`DBTransaction` keeps only the last `put`, collapsing N ops to a single\n±1. `commit_impl` now aggregates per-`(col, key)` deltas first and\nperforms one read-modify-write per unique key.\n\nSurfaces when multiple displaced fork branches at the same height carry\nthe same indexed extrinsics. `prune_displaced_branches` then issues\n`release(col11, hash) × N` per fork **in one finalization commit** —\npre-fix only one decrement landed, leaving indexed transaction data\nreachable past its retention period.\n\nAdds parametrized tests across `KvdbMemdb` / `ParityDb` / `RocksDb`\ncovering same-commit `Store + 2× Release`, `Store + 2× Reference`, and\n`Store + Release` net-zero patterns. All three failed on the kvdb\nbackends pre-fix; all pass post-fix.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-07-17T15:58:39Z",
+          "tree_id": "e3a5cca7efc31fd9d3d4bcc6332dcf2596074af1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/91d93d4ebc6d441d8e93f4a5d5fc368a494d8f78"
+        },
+        "date": 1784310453540,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.146954221799998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13326058193333332,
             "unit": "seconds"
           }
         ]
