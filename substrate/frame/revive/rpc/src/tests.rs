@@ -377,6 +377,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input,
 		test_transfer,
 		test_deploy_and_call,
+		test_filter_lifecycle,
 		test_receipt_mixed_revert_and_logs_same_block,
 		test_runtime_api_dry_run_addr_works,
 		test_invalid_transaction,
@@ -677,6 +678,108 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 		)
 		.await?;
 	assert_eq!(tx1.unwrap().hash, revert_receipt.transaction_hash);
+
+	Ok(())
+}
+
+/// `FilterResults` is an untagged enum, so an empty JSON array (`[]`) always deserializes to its
+/// first variant (`Hashes`). Treat either empty variant as "no changes".
+fn is_empty_filter_results(results: &FilterResults) -> bool {
+	match results {
+		FilterResults::Hashes(hashes) => hashes.is_empty(),
+		FilterResults::Logs(logs) => logs.is_empty(),
+	}
+}
+
+/// Exercise the polling filter API end to end: `eth_newFilter`, `eth_getFilterChanges`,
+/// `eth_getFilterLogs`, `eth_newBlockFilter` and `eth_uninstallFilter`.
+async fn test_filter_lifecycle() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	// Deploy a contract that emits `Received(address,uint256)` when it receives value.
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), Default::default()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	// Emit a single event.
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	let emit_receipt = tx.wait_for_receipt().await?;
+
+	// A log filter scoped to this (uniquely addressed) contract, starting at the emit block.
+	let filter = Filter::new()
+		.from_block(emit_receipt.block_number.as_u64())
+		.address(AlloyAddress::from_slice(contract_address.as_ref()));
+	let filter_id = client.new_filter(filter).await?;
+
+	// The first poll returns the emitted log.
+	let logs = match client.get_filter_changes(filter_id).await? {
+		FilterResults::Logs(logs) => logs,
+		other => return Err(anyhow!("Expected Logs from eth_getFilterChanges, got: {other:?}")),
+	};
+	assert_eq!(logs.len(), 1, "filter should report exactly the one emitted log");
+	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	assert_eq!(logs[0].address, contract_address);
+	assert!(!logs[0].topics.is_empty(), "log should carry the event signature topic");
+	assert_eq!(logs[0].topics[0], event_signature);
+	assert_eq!(logs[0].transaction_hash, emit_receipt.transaction_hash);
+
+	// `eth_getFilterLogs` replays the full range and returns the same log.
+	let all_logs = match client.get_filter_logs(filter_id).await? {
+		FilterResults::Logs(logs) => logs,
+		other => return Err(anyhow!("Expected Logs from eth_getFilterLogs, got: {other:?}")),
+	};
+	assert_eq!(all_logs, logs, "getFilterLogs should replay the same log");
+
+	// A second poll has no new logs, as the cursor advanced past the emit block.
+	let empty = client.get_filter_changes(filter_id).await?;
+	assert!(is_empty_filter_results(&empty), "a second poll should be empty, got: {empty:?}");
+
+	// Uninstall succeeds once; afterwards the id is unknown.
+	assert!(
+		client.uninstall_filter(filter_id).await?,
+		"uninstall should report the filter existed"
+	);
+	assert!(!client.uninstall_filter(filter_id).await?, "a filter can only be uninstalled once");
+	let err = client
+		.get_filter_changes(filter_id)
+		.await
+		.expect_err("polling a removed filter should error");
+	let ClientError::Call(call) = err else {
+		return Err(anyhow!("Expected a Call error, got: {err:?}"));
+	};
+	assert_eq!(call.message(), "filter not found");
+
+	// A block filter reports the hashes of blocks added after it was installed.
+	let block_filter_id = client.new_block_filter().await?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+	let block_hashes = match client.get_filter_changes(block_filter_id).await? {
+		FilterResults::Hashes(hashes) => hashes,
+		other => return Err(anyhow!("Expected Hashes from a block filter, got: {other:?}")),
+	};
+	assert!(!block_hashes.is_empty(), "block filter should report the newly produced block");
+	let newest = block_hashes.last().expect("non-empty checked above");
+	assert!(
+		client.get_block_by_hash(*newest, false).await?.is_some(),
+		"a reported block hash should resolve to a real block"
+	);
+	assert!(client.uninstall_filter(block_filter_id).await?);
 
 	Ok(())
 }

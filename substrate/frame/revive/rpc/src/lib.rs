@@ -18,7 +18,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub use alloy_rpc_types::{BlockId, BlockNumberOrTag, Filter, FilterBlockOption};
-use client::ClientError;
+use client::{ClientError, SubstrateBlockNumber};
 use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{
 	PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
@@ -58,6 +58,9 @@ pub use fee_history_provider::*;
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
+mod filters;
+pub use filters::*;
+
 mod apis;
 pub use apis::*;
 
@@ -79,6 +82,9 @@ pub struct EthRpcServerImpl {
 
 	/// When true, estimate_gas uses Pending block if no block is specified.
 	use_pending_for_estimate_gas: bool,
+
+	/// Registry of installed polling filters (`eth_newFilter` / `eth_newBlockFilter`).
+	filters: FilterManager,
 }
 
 impl EthRpcServerImpl {
@@ -89,6 +95,7 @@ impl EthRpcServerImpl {
 			accounts: vec![],
 			allow_unprotected_txs: false,
 			use_pending_for_estimate_gas: false,
+			filters: FilterManager::new(),
 		}
 	}
 
@@ -135,6 +142,9 @@ pub enum EthRpcError {
 	/// Received an invalid transaction
 	#[error("Invalid transaction {0:?}")]
 	TransactionTypeNotSupported(Byte),
+	/// No filter is registered under the given id (it is unknown or has expired).
+	#[error("filter not found")]
+	FilterNotFound,
 }
 
 impl From<EthRpcError> for ErrorObjectOwned {
@@ -150,6 +160,7 @@ impl From<EthRpcError> for ErrorObjectOwned {
 			EthRpcError::InvalidSignature |
 			EthRpcError::AccountNotFound(_) |
 			EthRpcError::InvalidTransaction |
+			EthRpcError::FilterNotFound |
 			EthRpcError::TransactionTypeNotSupported(_) => CALL_EXECUTION_FAILED_CODE,
 		};
 		Self::owned::<String>(code, message, None)
@@ -433,6 +444,70 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(FilterResults::Logs(logs))
 	}
 
+	async fn new_filter(&self, filter: Filter) -> RpcResult<U256> {
+		let head = self.client.block_number().await?;
+		let (from, to) = self.resolve_filter_range(&filter, head).await?;
+		Ok(self.filters.install_logs(filter, from, to))
+	}
+
+	async fn new_block_filter(&self) -> RpcResult<U256> {
+		let head = self.client.block_number().await?;
+		// Report only blocks added after the filter is installed, matching go-ethereum.
+		Ok(self.filters.install_block(head.saturating_add(1)))
+	}
+
+	async fn get_filter_changes(&self, filter_id: U256) -> RpcResult<FilterResults> {
+		match self.filters.poll(filter_id).ok_or(EthRpcError::FilterNotFound)? {
+			FilterPoll::Logs { mut filter, from, to } => {
+				let head = self.client.block_number().await?;
+				let upper = to.unwrap_or(head).min(head);
+				if from > upper {
+					return Ok(FilterResults::Logs(vec![]));
+				}
+
+				filter.block_option = FilterBlockOption::Range {
+					from_block: Some(BlockNumberOrTag::Number(from)),
+					to_block: Some(BlockNumberOrTag::Number(upper)),
+				};
+				let logs = self.client.logs(Some(filter)).await?;
+				self.filters.advance(filter_id, upper.saturating_add(1));
+				Ok(FilterResults::Logs(logs))
+			},
+			FilterPoll::Block { from } => {
+				let head = self.client.block_number().await?;
+				if from > head {
+					return Ok(FilterResults::Hashes(vec![]));
+				}
+
+				let mut hashes = Vec::new();
+				for number in from..=head {
+					let Some(block) = self
+						.client
+						.block_by_number_or_tag(&BlockNumberOrTag::Number(number))
+						.await?
+					else {
+						continue;
+					};
+					if let Some(eth_block) = self.client.evm_block(block, false).await {
+						hashes.push(eth_block.hash);
+					}
+				}
+				self.filters.advance(filter_id, head.saturating_add(1));
+				Ok(FilterResults::Hashes(hashes))
+			},
+		}
+	}
+
+	async fn get_filter_logs(&self, filter_id: U256) -> RpcResult<FilterResults> {
+		let filter = self.filters.logs_filter(filter_id).ok_or(EthRpcError::FilterNotFound)?;
+		let logs = self.client.logs(Some(filter)).await?;
+		Ok(FilterResults::Logs(logs))
+	}
+
+	async fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
+		Ok(self.filters.uninstall(filter_id))
+	}
+
 	async fn get_storage_at(
 		&self,
 		address: H160,
@@ -559,6 +634,69 @@ impl EthRpcServer for EthRpcServerImpl {
 }
 
 impl EthRpcServerImpl {
+	/// Resolve the block range of a newly installed log filter into concrete block numbers.
+	///
+	/// Returns `(from, to)` where `from` is the first block a poll should report and `to` is the
+	/// inclusive upper bound (`None` to follow the chain head). A filter without an explicit
+	/// `fromBlock`, or one pinned to `latest`/`pending`, reports only blocks added after it was
+	/// installed, matching go-ethereum.
+	async fn resolve_filter_range(
+		&self,
+		filter: &Filter,
+		head: SubstrateBlockNumber,
+	) -> RpcResult<(SubstrateBlockNumber, Option<SubstrateBlockNumber>)> {
+		match &filter.block_option {
+			FilterBlockOption::AtBlockHash(block_hash) => {
+				let number = self
+					.resolve_ethereum_block_number(H256::from_slice(block_hash.as_slice()))
+					.await?;
+				Ok((number, Some(number)))
+			},
+			FilterBlockOption::Range { from_block, to_block } => {
+				let from = match from_block {
+					None | Some(BlockNumberOrTag::Latest) | Some(BlockNumberOrTag::Pending) => {
+						head.saturating_add(1)
+					},
+					Some(tag) => self.resolve_block_tag(tag, head).await?,
+				};
+				let to = match to_block {
+					None | Some(BlockNumberOrTag::Latest) | Some(BlockNumberOrTag::Pending) => None,
+					Some(tag) => Some(self.resolve_block_tag(tag, head).await?),
+				};
+				Ok((from, to))
+			},
+		}
+	}
+
+	/// Resolve a block tag (a number, or `earliest`/`finalized`/`safe`) into a concrete block
+	/// number, falling back to the chain head if the tagged block cannot be located.
+	async fn resolve_block_tag(
+		&self,
+		tag: &BlockNumberOrTag,
+		head: SubstrateBlockNumber,
+	) -> RpcResult<SubstrateBlockNumber> {
+		if let BlockNumberOrTag::Number(number) = tag {
+			return Ok(*number);
+		}
+		match self.client.block_by_number_or_tag(tag).await? {
+			Some(block) => Ok(block.number()),
+			None => Ok(head),
+		}
+	}
+
+	/// Resolve an Ethereum block hash to its block number, erroring if the block is unknown.
+	async fn resolve_ethereum_block_number(
+		&self,
+		block_hash: H256,
+	) -> RpcResult<SubstrateBlockNumber> {
+		let block = self
+			.client
+			.block_by_ethereum_hash(&block_hash)
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
+		Ok(block.number())
+	}
+
 	async fn get_transaction_by_substrate_block_hash_and_index(
 		&self,
 		substrate_block_hash: H256,
@@ -633,6 +771,7 @@ mod error_codes_tests {
 				EthRpcError::TransactionTypeNotSupported(Byte::from(0x7eu8)),
 				CALL_EXECUTION_FAILED_CODE,
 			),
+			(EthRpcError::FilterNotFound, CALL_EXECUTION_FAILED_CODE),
 		];
 
 		for (err, expected_code) in cases {

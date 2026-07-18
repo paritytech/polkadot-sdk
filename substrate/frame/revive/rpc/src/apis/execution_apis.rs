@@ -99,6 +99,29 @@ pub trait EthRpc {
 	#[method(name = "eth_getLogs")]
 	async fn get_logs(&self, filter: Option<Filter>) -> RpcResult<FilterResults>;
 
+	/// Creates a log filter, returning its id. Use `eth_getFilterChanges` to poll it for the logs
+	/// that matched since the last poll.
+	#[method(name = "eth_newFilter")]
+	async fn new_filter(&self, filter: Filter) -> RpcResult<U256>;
+
+	/// Creates a block filter, returning its id. Use `eth_getFilterChanges` to poll it for the
+	/// hashes of blocks added since the last poll.
+	#[method(name = "eth_newBlockFilter")]
+	async fn new_block_filter(&self) -> RpcResult<U256>;
+
+	/// Polls the filter with the given id, returning the logs (for a log filter) or block hashes
+	/// (for a block filter) that occurred since the last poll.
+	#[method(name = "eth_getFilterChanges")]
+	async fn get_filter_changes(&self, filter_id: U256) -> RpcResult<FilterResults>;
+
+	/// Returns all logs matching the log filter with the given id, over its full range.
+	#[method(name = "eth_getFilterLogs")]
+	async fn get_filter_logs(&self, filter_id: U256) -> RpcResult<FilterResults>;
+
+	/// Uninstalls the filter with the given id. Returns `true` if the filter existed.
+	#[method(name = "eth_uninstallFilter")]
+	async fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool>;
+
 	/// Returns the value from a storage position at a given address.
 	#[method(name = "eth_getStorageAt")]
 	async fn get_storage_at(
