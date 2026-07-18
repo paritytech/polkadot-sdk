@@ -1,0 +1,14 @@
+title: Remove deprecated cumulus-pallet-dmp-queue
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    - Remove the `cumulus-pallet-dmp-queue` crate (deprecated after November 2024).
+    - Drop workspace membership and umbrella feature/dependency wiring.
+    - No in-repo runtime still depends on this pallet; DMP is handled via `pallet-message-queue`.
+
+    Part of #11561
+crates:
+- name: polkadot-sdk
+  bump: major
