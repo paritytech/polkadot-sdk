@@ -35,7 +35,7 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Source of Bitswap response streams.
 pub trait BitswapRequest: Send + Sync {
-	/// Requests blocks by CID.
+	/// Requests blocks by CID. Successful stream items contain only requested CIDs.
 	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError>;
 }
 
@@ -81,13 +81,7 @@ impl IndexedTransactionFetcher {
 		}
 		let handle = self.bitswap.get().ok_or(FetchError::BitswapUnavailable)?;
 
-		let mut by_cid: HashMap<Cid, ContentHash> = HashMap::with_capacity(wants.len());
-		let mut cids: Vec<Cid> = Vec::with_capacity(wants.len());
-		for want in wants {
-			let cid = Cid::from(*want);
-			by_cid.insert(cid, want.hash);
-			cids.push(cid);
-		}
+		let cids: Vec<Cid> = wants.iter().copied().map(Cid::from).collect();
 
 		let mut rx = match handle.request_stream(cids) {
 			Ok(rx) => rx,
@@ -103,14 +97,17 @@ impl IndexedTransactionFetcher {
 		loop {
 			match tokio::time::timeout_at(deadline, rx.recv()).await {
 				Ok(Some(Ok((cid, bytes)))) => {
-					if let Some(hash) = by_cid.get(&cid) {
-						log::debug!(
-							target: LOG_TARGET,
-							"bitswap fetched {} bytes for {hash:?}",
-							bytes.len(),
-						);
-						acquired.insert(*hash, bytes);
-					}
+					let hash: ContentHash = cid
+						.hash()
+						.digest()
+						.try_into()
+						.map_err(|_| BitswapError::InvalidCid { cid })?;
+					log::debug!(
+						target: LOG_TARGET,
+						"bitswap fetched {} bytes for {hash:?}",
+						bytes.len(),
+					);
+					acquired.insert(hash, bytes);
 				},
 				Ok(Some(Err(BitswapError::ServiceClosed))) => {
 					log::warn!(
