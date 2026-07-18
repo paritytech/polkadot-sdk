@@ -42,7 +42,7 @@ use smallvec::SmallVec;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
 	pin::Pin,
 	sync::Arc,
@@ -186,9 +186,9 @@ impl CidState {
 		match &mut self.phase {
 			CidPhase::Ready => self.phase = CidPhase::RetryAt(at),
 			CidPhase::Queued { retry_at: slot @ None } => *slot = Some(at),
-			CidPhase::Queued { retry_at: Some(_) } |
-			CidPhase::InFlight { .. } |
-			CidPhase::RetryAt(_) => return false,
+			CidPhase::Queued { retry_at: Some(_) }
+			| CidPhase::InFlight { .. }
+			| CidPhase::RetryAt(_) => return false,
 		}
 		true
 	}
@@ -279,6 +279,7 @@ impl WantSet {
 		None
 	}
 
+	/// Selects an eligible peer for `cid`, queueing it when the dispatch window is full.
 	fn next_peer_to_request<R: Rng + ?Sized>(
 		&mut self,
 		cid: Cid,
@@ -286,13 +287,14 @@ impl WantSet {
 		now: Instant,
 		rng: &mut R,
 	) -> Option<litep2p::PeerId> {
-		let state = self.inner.get(&cid)?;
+		let has_window_capacity = self.has_window_capacity();
+		let state = self.inner.get_mut(&cid)?;
 		if !state.has_waiters() || matches!(state.phase, CidPhase::InFlight { .. }) {
 			return None;
 		}
 
-		if !self.has_window_capacity() {
-			let state = self.inner.get_mut(&cid).expect("CID exists");
+		if !has_window_capacity {
+			// Preserve the CID for promotion when a dispatch slot opens.
 			if state.queue() {
 				self.pending.push_back(cid);
 				self.queued += 1;
@@ -300,6 +302,7 @@ impl WantSet {
 			return None;
 		}
 
+		// Prefer peers that advertised HAVE before falling back to any untried peer.
 		let eligible = |peer: &litep2p::PeerId| !state.tried_peers.contains(peer);
 		let Some(peer) = state
 			.have_peers
@@ -310,7 +313,7 @@ impl WantSet {
 			.copied()
 		else {
 			if !connected_peers.is_empty() {
-				let state = self.inner.get_mut(&cid).expect("CID exists");
+				// Retry later once every connected peer has been tried.
 				if state.schedule_retry(now + ROUND_RETRY_DELAY) {
 					log::trace!(
 						target: LOG_TARGET,
@@ -321,7 +324,6 @@ impl WantSet {
 			return None;
 		};
 
-		let state = self.inner.get_mut(&cid).expect("CID exists");
 		if state.is_queued() {
 			self.queued -= 1;
 		}
@@ -411,11 +413,13 @@ impl WantSet {
 	}
 
 	fn remove_if_idle(&mut self, cid: Cid) {
-		if self.inner.get(&cid).is_some_and(CidState::is_idle) {
-			let state = self.inner.remove(&cid).expect("CID exists");
-			if state.is_queued() {
-				self.queued -= 1;
-			}
+		let Entry::Occupied(entry) = self.inner.entry(cid) else { return };
+		if !entry.get().is_idle() {
+			return;
+		}
+		let state = entry.remove();
+		if state.is_queued() {
+			self.queued -= 1;
 		}
 	}
 }
@@ -508,15 +512,26 @@ impl InboundQueue {
 	/// Take the next batch of up to [`MAX_WANTED_BLOCKS`] entries, rotating the serviced
 	/// peer to the back of the queue.
 	fn next_batch(&mut self) -> Option<(litep2p::PeerId, Vec<(Cid, WantType)>)> {
-		let peer = self.rotation.pop_front()?;
-		let queue = self.per_peer.get_mut(&peer).expect("queued peer has entries");
-		let batch: Vec<_> = queue.drain(..queue.len().min(MAX_WANTED_BLOCKS)).collect();
-		if queue.is_empty() {
-			self.per_peer.remove(&peer);
-		} else {
-			self.rotation.push_back(peer);
+		while let Some(peer) = self.rotation.pop_front() {
+			let Some(queue) = self.per_peer.get_mut(&peer) else {
+				log::error!(target: LOG_TARGET, "stale peer in inbound queue rotation: {peer}");
+				continue;
+			};
+			if queue.is_empty() {
+				log::error!(target: LOG_TARGET, "empty peer queue in inbound rotation: {peer}");
+				self.per_peer.remove(&peer);
+				continue;
+			}
+
+			let batch: Vec<_> = queue.drain(..queue.len().min(MAX_WANTED_BLOCKS)).collect();
+			if queue.is_empty() {
+				self.per_peer.remove(&peer);
+			} else {
+				self.rotation.push_back(peer);
+			}
+			return Some((peer, batch));
 		}
-		Some((peer, batch))
+		None
 	}
 }
 
@@ -654,6 +669,8 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids).await;
 	}
 
+	/// Schedules the supplied CIDs, then promotes queued CIDs until the dispatch window is full.
+	/// Eligible wants are grouped by peer and sent in protocol-sized batches.
 	async fn top_up_in_flight(&mut self, cids: impl IntoIterator<Item = Cid>) {
 		let now = Instant::now();
 		let by_peer = {
@@ -1166,6 +1183,25 @@ mod tests {
 		assert_eq!((peer, batch.len()), (peer_b, 1));
 		let (peer, batch) = queue.next_batch().unwrap();
 		assert_eq!((peer, batch.len()), (peer_a, 4));
+		assert!(queue.next_batch().is_none());
+	}
+
+	#[test]
+	fn inbound_queue_skips_inconsistent_rotation_entries() {
+		let stale_peer = litep2p::PeerId::random();
+		let empty_peer = litep2p::PeerId::random();
+		let ready_peer = litep2p::PeerId::random();
+		let entry = (cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xaa; 32]), WantType::Block);
+		let mut queue = InboundQueue::new(MAX_QUEUED_INBOUND_ENTRIES_PER_PEER);
+
+		queue.rotation.extend([stale_peer, empty_peer]);
+		queue.per_peer.insert(empty_peer, VecDeque::new());
+		queue.enqueue(ready_peer, vec![entry]);
+
+		let (peer, batch) = queue.next_batch().expect("ready peer remains serviceable");
+		assert_eq!(peer, ready_peer);
+		assert_eq!(batch, vec![entry]);
+		assert!(!queue.per_peer.contains_key(&empty_peer));
 		assert!(queue.next_batch().is_none());
 	}
 
@@ -2039,9 +2075,9 @@ mod proptests {
 					assert!(
 						matches!(
 							state.phase,
-							CidPhase::Queued { .. } |
-								CidPhase::InFlight { .. } |
-								CidPhase::RetryAt(_)
+							CidPhase::Queued { .. }
+								| CidPhase::InFlight { .. }
+								| CidPhase::RetryAt(_)
 						),
 						"stranded CID {cid}",
 					);
