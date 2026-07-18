@@ -20,6 +20,8 @@ crates:
   bump: major
 - name: frame-system
   bump: minor
+- name: kitchensink-runtime
+  bump: minor
 - name: asset-hub-westend-runtime
   bump: minor
 - name: rococo-runtime

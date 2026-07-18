@@ -163,6 +163,12 @@ mod benchmarks {
 	// Worst case: hash whitelisted and preimage present at the witnessed length.
 	#[benchmark]
 	fn authorize_dispatch_whitelisted_call() -> Result<(), BenchmarkError> {
+		// Skip on runtimes that have not opted into permissionless dispatch.
+		let authorized: T::RuntimeOrigin = frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		if T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
+			return Err(BenchmarkError::Weightless);
+		}
+
 		let whitelist_origin =
 			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let call: <T as Config>::RuntimeCall =
@@ -198,6 +204,12 @@ mod benchmarks {
 	fn authorize_dispatch_whitelisted_call_with_preimage(
 		n: Linear<1, 10_000>,
 	) -> Result<(), BenchmarkError> {
+		// Skip on runtimes that have not opted into permissionless dispatch.
+		let authorized: T::RuntimeOrigin = frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		if T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
+			return Err(BenchmarkError::Weightless);
+		}
+
 		let whitelist_origin =
 			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let remark = alloc::vec![1u8; n as usize];
