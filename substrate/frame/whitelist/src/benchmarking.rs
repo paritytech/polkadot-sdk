@@ -164,7 +164,8 @@ mod benchmarks {
 	#[benchmark]
 	fn authorize_dispatch_whitelisted_call() -> Result<(), BenchmarkError> {
 		// Skip on runtimes that have not opted into permissionless dispatch.
-		let authorized: T::RuntimeOrigin = frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		let authorized: T::RuntimeOrigin =
+			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
 		if T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
 			return Err(BenchmarkError::Weightless);
 		}
@@ -205,7 +206,8 @@ mod benchmarks {
 		n: Linear<1, 10_000>,
 	) -> Result<(), BenchmarkError> {
 		// Skip on runtimes that have not opted into permissionless dispatch.
-		let authorized: T::RuntimeOrigin = frame_system::RawOrigin::<T::AccountId>::Authorized.into();
+		let authorized: T::RuntimeOrigin =
+			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
 		if T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
 			return Err(BenchmarkError::Weightless);
 		}
