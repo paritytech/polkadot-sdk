@@ -3,12 +3,9 @@ doc:
 - audience: Runtime Dev
   description: |-
     ## Summary
-
     - Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related public getters.
     - Keeped `MaxApprovals` and `ProposalCount` / `Proposals` / `Approvals` so leftover approvals still pay out via `spend_funds`, and so bounties can keep using `MaxApprovals`.
     - Updated tests/benchmarks to seed legacy proposal storage directly; drop weight methods from runtime weight files.
-
-    Part of #11561
 crates:
 - name: asset-hub-westend-runtime
   bump: major
