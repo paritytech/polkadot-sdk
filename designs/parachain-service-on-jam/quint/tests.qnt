@@ -24,6 +24,16 @@ module tests {
 
   // --- Deterministic helpers ---------------------------------------------
 
+  /// Mark a solicited preimage as `Provided`.
+  pure def markProvided(
+    s: ParachainServiceState, h: Hash, len: int
+  ): ParachainServiceState =
+    { ...s, preimageStatus: s.preimageStatus.put((h, len), Provided) }
+
+  /// True iff a `RequestStatus` is `Unrequested(_)`.
+  pure def isUnrequested(st: RequestStatus): bool =
+    match st { | Unrequested(_) => true | _ => false }
+
   /// Apply a sequence of happy-path work packages in one block via the shared
   /// `accumulateBlock` pipeline — the SAME function the model step
   /// (`stepRefineAccumulate`) uses — so these tests exercise the real logic
@@ -81,6 +91,20 @@ module tests {
   action expectThat(pred: bool): bool = all {
     pred,
     svc' = svc,
+    now' = now,
+    jamStagingSet' = jamStagingSet,
+    solicitedSet' = solicitedSet,
+    prevSvc' = prevSvc,
+    lastStepWorkResults' = lastStepWorkResults,
+    lastStepBouncedTransfers' = lastStepBouncedTransfers,
+    lastStepAssigns' = lastStepAssigns,
+    logPrunedBelow' = logPrunedBelow
+  }
+
+  /// Action wrapper for `markProvided`: flips a solicited preimage's `query`
+  /// status to `Provided`.
+  action provide(h: Hash, len: int): bool = all {
+    svc' = markProvided(svc, h, len),
     now' = now,
     jamStagingSet' = jamStagingSet,
     solicitedSet' = solicitedSet,
@@ -358,12 +382,20 @@ module tests {
         | None => false
         | Some(pair) => pair._1.ref.hash == codeB
       }))
+      // codeA was validated against, so its preimage is available (Provided);
+      // only then does activation's `forget` arm the two-step expunge.
+      .then(provide(vchAsHash(codeA), FixedCodeLen))
       .then(applyHappyPath(MkParaId(3), codeB, List()))
       .then(expectThat(all {
         svc.paraInfo(MkParaId(3)).validationCode.ref.hash == codeB,
         svc.paraInfo(MkParaId(3)).pendingUpgrade == None,
-        // Old codeA referencer released (no other para held it).
-        not(svc.preimageRegistry.keys().contains((vchAsHash(codeA), FixedCodeLen)))
+        // Old codeA was the sole referencer of an available preimage, so
+        // activation's first `forget` unrequests it (§6.1): the registry entry
+        // survives and the code's status is now `Unrequested`.
+        isUnrequested(svc.preimageStatus.get((vchAsHash(codeA), FixedCodeLen))),
+        svc.preimageRegistry.keys().contains((vchAsHash(codeA), FixedCodeLen)),
+        svc.preimageRegistry.get((vchAsHash(codeA), FixedCodeLen)).referencers
+          == Set(MkParaId(3))
       }))
   }
 
@@ -380,8 +412,13 @@ module tests {
     val d1 = s0.addReferencer(p1, h, 100)
     // Solicit (h, 200) for p2.
     val d2 = d1.state.addReferencer(p2, h, 200)
-    // Forget (h, 100) for p1.
-    val d3 = d2.state.removeReferencer(p1, h, 100)
+    // (h, 100) becomes available, so its forget takes the two-step path.
+    val provided = markProvided(d2.state, h, 100)
+    // First forget of (h, 100) for p1 (its sole referencer) at now = 0:
+    // unrequests it, the entry survives awaiting expunge.
+    val d3 = provided.removeReferencer(p1, h, 100, 0)
+    // Second forget once strictly past the deadline: the entry is expunged.
+    val d4 = d3.state.removeReferencer(p1, h, 100, ExpungePeriod + 1)
     all {
       // After soliciting (h,100) and (h,200): two distinct entries.
       assert(d2.state.preimageRegistry.keys().contains((h, 100))),
@@ -389,10 +426,13 @@ module tests {
       // (h,100) has p1 as referencer; (h,200) has p2.
       assert(d2.state.preimageRegistry.get((h, 100)).referencers == Set(p1)),
       assert(d2.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
-      // After forgetting (h,100): (h,100) entry is gone; (h,200) untouched.
-      assert(not(d3.state.preimageRegistry.keys().contains((h, 100)))),
-      assert(d3.state.preimageRegistry.keys().contains((h, 200))),
-      assert(d3.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
+      // First forget: (h,100) still present (awaiting expunge), (h,200) untouched.
+      assert(d3.state.preimageRegistry.keys().contains((h, 100))),
+      assert(isUnrequested(d3.state.preimageStatus.get((h, 100)))),
+      // Second forget once due: (h,100) entry is gone; (h,200) untouched.
+      assert(not(d4.state.preimageRegistry.keys().contains((h, 100)))),
+      assert(d4.state.preimageRegistry.keys().contains((h, 200))),
+      assert(d4.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
       init
     }
   }
@@ -411,22 +451,62 @@ module tests {
     // Build a state where para has active (hA, lenA) and pending (hB, lenB).
     // Use parachainSetValidationCode to establish hA, then requestCodeUpgrade for hB.
     val s0 = initialState
-    val s1 = parachainSetValidationCode(s0, para, hA, lenA).state
+    val s1 = parachainSetValidationCode(s0, para, hA, lenA, 0).state
     val s2 = requestCodeUpgrade(s1, 0, para, hB, lenB).state
-    // Now force-replace with hC: must release (hA, lenA) and (hB, lenB) correctly.
-    val s3 = parachainSetValidationCode(s2, para, hC, lenC).state
+    // Both codes become available, so their release takes the two-step path.
+    val s2p = markProvided(markProvided(s2, vchAsHash(hA), lenA), vchAsHash(hB), lenB)
+    // Now force-replace with hC: releases (hA, lenA) and (hB, lenB) via the
+    // two-step forget, so both go `Unrequested` under their OWN len.
+    val s3 = parachainSetValidationCode(s2p, para, hC, lenC, 0).state
     all {
       // Registry before force-replace: (hA, lenA) and (hB, lenB) present.
       assert(s2.preimageRegistry.keys().contains((vchAsHash(hA), lenA))),
       assert(s2.preimageRegistry.keys().contains((vchAsHash(hB), lenB))),
-      // After force-replace: (hA, lenA) and (hB, lenB) released.
-      assert(not(s3.hasReferencer(vchAsHash(hA), lenA, para))),
-      assert(not(s3.hasReferencer(vchAsHash(hB), lenB, para))),
+      // After force-replace: (hA, lenA) and (hB, lenB) awaiting expunge under
+      // their OWN lens (proves no wrong cross-code len).
+      assert(isUnrequested(s3.preimageStatus.get((vchAsHash(hA), lenA)))),
+      assert(isUnrequested(s3.preimageStatus.get((vchAsHash(hB), lenB)))),
       // (hC, lenC) now has para as referencer.
       assert(s3.hasReferencer(vchAsHash(hC), lenC, para)),
-      // Wrong-len lookups are NOT a referencer (proves no cross-contamination).
-      assert(not(s3.hasReferencer(vchAsHash(hA), lenC, para))),
-      assert(not(s3.hasReferencer(vchAsHash(hB), lenC, para))),
+      // Wrong-len entries were never created (proves no cross-contamination).
+      assert(not(s3.preimageStatus.keys().contains((vchAsHash(hA), lenC)))),
+      assert(not(s3.preimageStatus.keys().contains((vchAsHash(hB), lenC)))),
+      init
+    }
+  }
+
+  /// Forgetting BOTH an active and a pending code in one call emits a SEPARATE
+  /// `ForgetAgainAt` for each, with each code's OWN deadline. Regression for the
+  /// bug where only one log entry was kept, dropping the other code's retry
+  /// deadline. Here the two codes are in different limbo states, so the two
+  /// deadlines are genuinely distinct.
+  run cleanUpEmitsBothForgetAgainAtTest = {
+    val para = MkParaId(9)
+    val hA: ValidationCodeHash = { vchBytes: 0xA9 }
+    val hB: ValidationCodeHash = { vchBytes: 0xB9 }
+    val lenA = 100
+    val lenB = 200
+    val bal = BaselineFootprint + preimageFootprint(lenA) + preimageFootprint(lenB)
+    val s0 = parachainSetStateBalance(initialState, para, bal).state
+    val s1 = parachainSetValidationCode(s0, para, hA, lenA, 0).state
+    val s2 = requestCodeUpgrade(s1, 0, para, hB, lenB).state
+    // Pending code (hB) is available; active code (hA) is already `Unrequested(5)`
+    // (its window not yet elapsed), so their forget deadlines differ.
+    val s3 = markProvided(s2, vchAsHash(hB), lenB)
+    val s4 = { ...s3, preimageStatus: s3.preimageStatus.put((vchAsHash(hA), lenA), Unrequested(5)) }
+    // Clean up at now = 10, inside hA's window (10 <= 5 + ExpungePeriod):
+    //   active hA:  Unrequested(5) → no-op retry, due = 5 + ExpungePeriod
+    //   pending hB: Provided       → Unrequested(10), due = 10 + ExpungePeriod
+    val nowT = 10
+    val c = parachainCleanUp(s4, para, nowT)
+    all {
+      // Two log entries, one ForgetAgainAt per code, with DISTINCT deadlines —
+      // the pick-one bug would have kept only one of these.
+      assert(c.logs.length() == 2),
+      assert(c.logs.select(e =>
+        e == ForgetAgainAt({ hash: vchAsHash(hA), len: lenA, due: 5 + ExpungePeriod })).length() == 1),
+      assert(c.logs.select(e =>
+        e == ForgetAgainAt({ hash: vchAsHash(hB), len: lenB, due: nowT + ExpungePeriod })).length() == 1),
       init
     }
   }
@@ -516,6 +596,236 @@ module tests {
       }))
   }
 
+  /// Clean-up of a para holding an available validation code is a two-step
+  /// forget: the first `parachain_clean_up` unrequests the code (does not
+  /// expunge), so it sets `isDeregistering` and keeps the entry; a retry once
+  /// expungeable (`now > due`) fully removes the para (§6.4).
+  run cleanUpTwoStepForgetTest = {
+    val para = MkParaId(5)
+    val code: ValidationCodeHash = { vchBytes: 0x55 }
+    val bal = BaselineFootprint + preimageFootprint(FixedCodeLen)
+    val s0 = parachainSetStateBalance(initialState, para, bal).state
+    val s1raw = parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state
+    // The code is available, so cleanup's forget takes the two-step path.
+    val s1 = markProvided(s1raw, vchAsHash(code), FixedCodeLen)
+    // First clean-up at now = 0: code is the sole referencer, first forget only
+    // unrequests it, so the para is left deregistering.
+    val c1 = parachainCleanUp(s1, para, 0)
+    // Retry once strictly past the deadline: second forget expunges + removes.
+    val c2 = parachainCleanUp(c1.state, para, ExpungePeriod + 1)
+    all {
+      // First clean-up: para retained, marked deregistering, code unrequested,
+      // first JAM forget forwarded, ForgetAgainAt logged.
+      assert(c1.state.isLive(para)),
+      assert(c1.state.paraInfo(para).isDeregistering),
+      assert(isUnrequested(c1.state.preimageStatus.get((vchAsHash(code), FixedCodeLen)))),
+      assert(c1.jamForget == Set(vchAsHash(code))),
+      assert(c1.logs != List()),
+      // Retry: para fully removed, code expunged.
+      assert(not(c2.state.isLive(para))),
+      assert(not(c2.state.preimageStatus.keys().contains((vchAsHash(code), FixedCodeLen)))),
+      assert(c2.jamForget == Set(vchAsHash(code))),
+      init
+    }
+  }
+
+  /// Clean-up is rejected with `TooMuchStateHeld` while the para still holds
+  /// state beyond its baseline and validation code — here an extra solicited
+  /// preimage (§6.4).
+  run cleanUpTooMuchStateHeldTest = {
+    val para = MkParaId(6)
+    val code: ValidationCodeHash = { vchBytes: 0x66 }
+    val extra: Hash = { hashBytes: 0x99 }
+    val bal = BaselineFootprint + preimageFootprint(FixedCodeLen) + preimageFootprint(512)
+    val s0 = parachainSetStateBalance(initialState, para, bal).state
+    val s1 = parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state
+    // Solicit an extra preimage — now the para holds more than baseline + code.
+    val s2 = s1.addReferencer(para, extra, 512).state
+    val c = parachainCleanUp(s2, para, 0)
+    all {
+      // Rejected: state unchanged, TooMuchStateHeld logged, para still live.
+      assert(c.state == s2),
+      assert(c.logs == List(TooMuchStateHeld)),
+      assert(c.state.isLive(para)),
+      assert(not(c.state.paraInfo(para).isDeregistering)),
+      init
+    }
+  }
+
+  /// A never-provided preimage (`Unprovided`) is dropped by a SINGLE `forget`:
+  /// no limbo, no retained referencer, refund now (JAM `ForgetImplication::Drop`).
+  run forgetUnprovidedDropsInOneStepTest = {
+    val para = CoretimeParaId
+    val h: Hash = { hashBytes: 0x7A }
+    // Solicit only — the preimage is never provided, so status is `Unprovided`.
+    val d1 = initialState.addReferencer(para, h, 512)
+    val d2 = d1.state.removeReferencer(para, h, 512, 0)
+    all {
+      assert(d1.state.preimageStatus.get((h, 512)) == Unprovided),
+      // Single forget drops it: entry gone, status gone, JAM forget forwarded,
+      // NOT retained (footprint refunded), and no ForgetAgainAt.
+      assert(not(d2.state.preimageRegistry.keys().contains((h, 512)))),
+      assert(not(d2.state.preimageStatus.keys().contains((h, 512)))),
+      assert(d2.jamForget),
+      assert(not(d2.retained)),
+      assert(d2.log == None),
+      init
+    }
+  }
+
+  /// The expunge boundary is strict (JAM `now > unrequested_since +
+  /// min_turnaround`): a second forget at `now == due` is a no-op retry, at
+  /// `now == due + 1` it expunges.
+  run forgetExpungeBoundaryTest = {
+    val para = CoretimeParaId
+    val h: Hash = { hashBytes: 0x7B }
+    // Solicit, provide, then first forget at now = 0 -> Unrequested(0),
+    // due = 0 + ExpungePeriod.
+    val d1 = initialState.addReferencer(para, h, 512)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(para, h, 512, 0)
+    // At now == due: not yet expungeable (no-op retry, entry survives).
+    val atDue = d2.state.removeReferencer(para, h, 512, ExpungePeriod)
+    // At now == due + 1: expunges.
+    val pastDue = d2.state.removeReferencer(para, h, 512, ExpungePeriod + 1)
+    all {
+      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(0)),
+      // now == due -> no-op, still present and retained, ForgetAgainAt re-emitted.
+      assert(atDue.state.preimageRegistry.keys().contains((h, 512))),
+      assert(atDue.retained),
+      assert(not(atDue.jamForget)),
+      assert(atDue.log == Some(ForgetAgainAt({ hash: h, len: 512, due: ExpungePeriod }))),
+      // now == due + 1 -> expunged.
+      assert(not(pastDue.state.preimageRegistry.keys().contains((h, 512)))),
+      assert(not(pastDue.state.preimageStatus.keys().contains((h, 512)))),
+      assert(pastDue.jamForget),
+      assert(not(pastDue.retained)),
+      init
+    }
+  }
+
+  /// Rescue: a `solicit` on an `Unrequested` preimage rescues the still-held
+  /// blob back to available (JAM `Unrequested → Rerequested`), keeping the
+  /// ORIGINAL unrequest slot for the next forget's gate. A DIFFERENT para (p2)
+  /// soliciting p1's limbo entry triggers it — and frees the retained ghost p1:
+  /// p1 had already forgotten, so its retention was only the two-step stand-in.
+  /// Once p2 is the live referencer covering the single JAM entry, keeping p1
+  /// charged would double-count it, so p1 is refunded and dropped (§6.1).
+  run forgetRescueRerequestedTest = {
+    val h: Hash = { hashBytes: 0x8A }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // p1 solicits, the blob is provided, p1 forgets (last ref) at now = 5.
+    val d1 = initialState.addReferencer(p1, h, 512)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(p1, h, 512, 5)
+    // p2 solicits the same (h, 512) while it is Unrequested(5) — rescue.
+    val d3 = d2.state.addReferencer(p2, h, 512)
+    all {
+      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(5)),
+      // p1 still charged the footprint while retained as the ghost.
+      assert(d2.state.paraInfo(p1).usedStateBalance == d1.state.paraInfo(p1).usedStateBalance),
+      // Rescue fires a real JAM solicit and moves to Rerequested keeping y = 5.
+      assert(d3.jamSolicit),
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(5)),
+      // Ghost p1 is freed+refunded; p2 is the sole live referencer.
+      assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(d3.state.paraInfo(p1).usedStateBalance
+        == d2.state.paraInfo(p1).usedStateBalance - preimageFootprint(512)),
+      init
+    }
+  }
+
+  /// NotYetUnrequest (Oracle Q6): a rescued preimage forgotten again WITHIN the
+  /// original turnaround is a no-op retry — the gate keys off the original
+  /// unrequest slot, NOT `now`. Proves collapsing `Rerequested` into `Provided`
+  /// would be unfaithful (it would wrongly succeed with a shifted deadline).
+  run forgetRerequestedNotYetTest = {
+    val h: Hash = { hashBytes: 0x8B }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // p1 solicit + provide + forget at now = 10 -> Unrequested(10).
+    val d1 = initialState.addReferencer(p1, h, 512)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(p1, h, 512, 10)
+    // p2 rescues at now = 20 -> Rerequested(10), freeing ghost p1: p2 is now
+    // the sole referencer.
+    val d3 = d2.state.addReferencer(p2, h, 512)
+    // A forget of p1 is now a no-op (p1 was freed on rescue); p2 (last live
+    // referencer) forgets at now = 25, still within the ORIGINAL turnaround
+    // (25 <= 10 + ExpungePeriod), so it hits the NotYetUnrequest gate.
+    val d4 = d3.state.removeReferencer(p1, h, 512, 25)
+    val d5 = d4.state.removeReferencer(p2, h, 512, 25)
+    all {
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(10)),
+      assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      // Last forget is NotYetUnrequest: no-op, entry survives, retained, no JAM
+      // forget, and the retry deadline is the ORIGINAL 10 + ExpungePeriod.
+      assert(d5.state.preimageRegistry.keys().contains((h, 512))),
+      assert(d5.retained),
+      assert(not(d5.jamForget)),
+      assert(d5.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
+      // Status is unchanged (still Rerequested(10)).
+      assert(d5.state.preimageStatus.get((h, 512)) == Rerequested(10)),
+      init
+    }
+  }
+
+  /// Retained self-rescue: the SAME para that forgot its own code (leaving it
+  /// `Unrequested` with itself retained) re-solicits it — the idempotent
+  /// early-return must NOT short-circuit; JAM `solicit` still fires to rescue.
+  run forgetRetainedSelfRescueTest = {
+    val h: Hash = { hashBytes: 0x8C }
+    val para = CoretimeParaId
+    val d1 = initialState.addReferencer(para, h, 512)
+    val provided = markProvided(d1.state, h, 512)
+    val d2 = provided.removeReferencer(para, h, 512, 7)
+    // Same para re-solicits its own code sitting in limbo.
+    val d3 = d2.state.addReferencer(para, h, 512)
+    all {
+      assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(7)),
+      assert(d2.state.preimageRegistry.get((h, 512)).referencers == Set(para)),
+      // Idempotent branch still fires JAM solicit and rescues to Rerequested(7).
+      assert(d3.jamSolicit),
+      assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(7)),
+      assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(para)),
+      init
+    }
+  }
+
+  /// Ghost accumulation regression: repeated forget → rescue cycles by
+  /// alternating paras must NOT pile up ghosts. Each rescue frees the prior
+  /// ghost, so the referencer set stays size 1 and the footprint is charged
+  /// exactly once — never `N × footprint` across N cycles (§6.1).
+  run forgetRescueNoGhostAccumulationTest = {
+    val h: Hash = { hashBytes: 0x8D }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // p1 solicit + provide + forget at now=5 -> Unrequested(5), p1 ghost.
+    val d1 = initialState.addReferencer(p1, h, 512)
+    val prov = markProvided(d1.state, h, 512)
+    val d2 = prov.removeReferencer(p1, h, 512, 5)
+    // p2 rescues (frees p1) -> Rerequested(5), referencers = {p2}.
+    val d3 = d2.state.addReferencer(p2, h, 512)
+    // p2 forgets past the ORIGINAL deadline (now > 5 + ExpungePeriod): the
+    // Rerequested forget succeeds -> Unrequested(now), p2 retained (ghost).
+    val t2 = 5 + ExpungePeriod + 1
+    val d4 = d3.state.removeReferencer(p2, h, 512, t2)
+    // p1 rescues again (frees p2) -> Rerequested, referencers = {p1}.
+    val d5 = d4.state.addReferencer(p1, h, 512)
+    all {
+      // After every cycle the set is a singleton — no ghost pile-up.
+      assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(d4.state.preimageStatus.get((h, 512)) == Unrequested(t2)),
+      assert(d4.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
+      assert(d5.state.preimageRegistry.get((h, 512)).referencers == Set(p1)),
+      // Only the current sole referencer is charged the footprint; the other
+      // para is back at baseline (freed on the rescue that displaced it).
+      assert(d5.state.paraInfo(p2).usedStateBalance == d2.state.paraInfo(p2).usedStateBalance),
+      init
+    }
+  }
+
   // --- Pending-upgrade timeout reap (§5.2 Phase 5b) ----------------------
   //
   // The timeout is hard to hit in random simulation: `UpgradeTimeoutTimeslots
@@ -563,8 +873,10 @@ module tests {
     }
   }
 
-  /// Reaping AT/AFTER the deadline clears the pending upgrade and releases
-  /// the (unpinned) pending code's referencer, forwarding JAM `forget`.
+  /// Reaping AT/AFTER the deadline clears the pending upgrade and releases the
+  /// (unpinned) pending code's referencer. The preimage was never provided
+  /// (`Unprovided`), so the single JAM `forget` DROPS it in one step — no
+  /// limbo, no retained referencer (§6.1, JAM `ForgetImplication::Drop`).
   run reapAfterDeadlineTest = {
     val para = CoretimeParaId
     val s0 = stateWithPendingUpgrade
@@ -574,9 +886,10 @@ module tests {
     all {
       // Pending upgrade is gone.
       assert(cleared),
-      // The pending code was unpinned, so its referencer is released and
-      // JAM `forget` is forwarded (it was the only referencer).
-      assert(not(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para))),
+      // The never-provided pending code is dropped outright: the entry and its
+      // referencer are gone, no limbo status remains, JAM `forget` forwarded.
+      assert(not(reaped.state.preimageRegistry.keys().contains((vchAsHash(pendingUpgradeHash), FixedCodeLen)))),
+      assert(not(reaped.state.preimageStatus.keys().contains((vchAsHash(pendingUpgradeHash), FixedCodeLen)))),
       assert(reaped.jamForget),
       // The active code is untouched.
       assert(reaped.state.hasReferencer(

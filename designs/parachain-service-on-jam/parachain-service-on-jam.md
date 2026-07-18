@@ -290,6 +290,14 @@ enum AccumulateLog {
     /// The JAM `transfer` call replaying a `TransferOut`. Only the memo
     /// hash is recorded — the full 128-byte memo is not preserved. See §5.1 step 7.
     TransferFailed { memo_hash: Hash },
+    /// A `forget` removed the last referencer without expunging the preimage;
+    /// the caller must `forget(hash, len)` again *after* `due` (strictly, once
+    /// the current timeslot exceeds `due`) to free it. See §6.1.
+    ForgetAgainAt { hash: Hash, len: u32, due: Timeslot },
+    /// `parachain_clean_up` was rejected because the parachain still holds state
+    /// beyond its baseline and validation code(s); it must release the rest
+    /// first. See §6.4.
+    TooMuchStateHeld,
 }
 
 struct PreimageEntry {
@@ -334,6 +342,9 @@ struct ParaInfo {
     /// preimages (active validation code + pending upgrade, if any).
     /// Increased on `solicit()`, decreased on `forget()`. See §6.1.
     used_state_balance: Compact<Balance>,
+    /// Set once `parachain_clean_up` has begun deregistering this parachain
+    /// but some preimage still awaits its second, expunging `forget`. See §6.4.
+    is_deregistering: bool,
 }
 ```
 
@@ -430,10 +441,10 @@ enum UpwardMessage {
     /// and increments `ParaInfo.used_state_balance` (rejected if it
     /// would exceed `total_state_balance`). See §6.1.
     Solicit { hash: Hash, len: u32 },
-    /// From `forget` — release a previously solicited preimage.
-    /// Accumulate forwards this to JAM and decrements
-    /// `ParaInfo.used_state_balance`. For the parachain's active or pending
-    /// validation code it only clears `pinned` (§5.2). See §6.1.
+    /// From `forget` — release a previously solicited preimage. Removing the
+    /// last referencer may need a follow-up `forget` (two-step expunge; see
+    /// §6.1). For the parachain's active or pending validation code it only
+    /// clears `pinned` (§5.2).
     Forget { hash: Hash, len: u32 },
     /// From `kv_set` — upsert `key_value_storage[(para_id, key)] = value`.
     /// Accumulate replays it with delta state-balance charging (see §6.1).
@@ -660,14 +671,10 @@ A work result of gray-paper `WorkExecResult::Error` indicates a bug in the parac
 service's `refine` and is skipped entirely here — no `parachain_log` entry, no state
 change, and it never reaches the steps below. Otherwise:
 
-1. **Registration check**: If `para_id` is not in `parachains`, reject the work-package
-   immediately and stop processing. In practice the work-report should already have
-   failed Refine — the unregistered para's validation code is no longer solicited and
-   thus not retrievable via `historical_lookup`, so the digest would have come in as
-   `Err(InvalidCodeHash)` (see §4.1). But a successful Refine digest can still arrive
-   at Accumulate for a parachain the Coretime chain cleaned up between guarantee and
-   accumulation; this check is the earliest possible reject. No `parachain_log` entry
-   is recorded — there is no `parachain_log[para_id]` to append to.
+1. **Registration check**: Reject the work-package immediately, and record no
+   `parachain_log` entry, if `para_id` is not in `parachains` or its `ParaInfo`
+   has `is_deregistering == true` (§6.4) — a deregistering para is treated as if
+   it no longer exists.
  2. **Refine-result dispatch**: If the work digest is a **Refine failure**
     (`ParachainWorkDigest::Err`, where `refine` completed and returned an error digest —
     see §3.3), forward its `RefineLog` into a `RefineLogEntry` appended to
@@ -969,7 +976,35 @@ JAM allows only one `(hash, len)` solicitation per service. The Parachain Servic
 a single service hosting many parachains, so it multiplexes via `preimage_registry`:
 each entry records the set of `ParaId`s referencing the hash. JAM `solicit` is
 called when the set transitions empty → non-empty; JAM `forget` is called when it
-transitions back to empty (at which point the entry is removed).
+transitions back to empty.
+
+Releasing an *available* preimage takes **two steps**. A JAM `forget` does not
+delete it — it marks the request unavailable, and only a **second** `forget`, no
+earlier than `C_expungeperiod = 19 200` timeslots (~32 h) later, actually expunges
+it. The service keeps no bookkeeping for this. When a `forget` removes the last
+referencer without expunging the preimage, Accumulate appends an
+`AccumulateLog::ForgetAgainAt { hash, len, due }`, where `due = now +
+C_expungeperiod`, and leaves the last referencer in `referencers` — still charged
+the full footprint. The parachain calls `forget(hash, len)` again once the
+timeslot is *strictly after* `due` to complete the expunge and free the footprint.
+
+A preimage that was solicited but **never provided** to JAM is different: a single
+`forget` of its last referencer drops the request outright - there is nothing to
+expunge, so the footprint is freed immediately with no `ForgetAgainAt`.
+
+**Rescue.** During the ~32 h window between the two forgets, JAM still holds the
+blob, so a `solicit` can bring the request back to available. The service does this
+automatically: if a parachain references an entry whose last referencer is awaiting
+expunge, Accumulate re-forwards JAM `solicit` and the preimage serves lookups again.
+The rescuing parachain becomes the entry's sole referencer, and the parachain that
+was awaiting expunge is dropped and refunded (it had already forgotten; it was only
+being held as the stand-in for the pending second forget).
+
+A rescue does **not** reset the expunge deadline: the gate on the next `forget` is
+still measured from the *original* unrequest, so a `forget` at or before that `due`
+is a no-op that must be retried strictly after `due` reported by `ForgetAgainAt`.
+And when that `forget` does fire, it does not expunge - it only marks the preimage
+unavailable again.
 
 Applying §6.1's sole-user rule, a single referencer's **preimage footprint** is the
 sum of two JAM entries: the **preimage request** (`81 + len`) and its
@@ -1116,13 +1151,17 @@ upgrade lifecycle:
 - `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
 - `parachain_set_validation_code(para_id, new_hash, new_len)` overwrites
   `ParaInfo.validation_code.hash`, solicits `new_hash`, and clears any
-  `pending_upgrade` (releasing its referencer if set). `used_state_balance`
-  is adjusted by `preimage_footprint(new_len) - preimage_footprint(old_len)`,
-  where `old_len` is `pending_upgrade`'s code length if one was scheduled,
-  otherwise the active code's. Rejected with
-  `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't
-  fit, so Coretime must raise `total_state_balance` first (in the same
-  batch) when needed.
+  `pending_upgrade`. `used_state_balance` grows by `preimage_footprint(new_len)`
+  to hold the new validation code. The displaced validation codes (the old active
+  code and any pending code) are released via the normal `forget` step (§6.1).
+  Each keeps its footprint charged until the parachain calls `forget` again to
+  complete the two-step release. So while those releases are in flight the
+  parachain holds the new validation code plus every not-yet-forgotten displaced
+  validation code. That is two validation codes when there was no pending
+  upgrade, three when there was. `total_state_balance` must cover whatever is
+  concurrently held. The call is rejected with
+  `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so
+  Coretime must raise `total_state_balance` first (in the same batch) when needed.
 
 ```
 Coretime chain
@@ -1132,10 +1171,8 @@ Coretime chain
     │        parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)
     ▼
 Parachain Service (Accumulate)
-    │  Applies the change, updating each affected preimage_registry entry's
-    │  referencers set as needed. When the old validation code's referencers
-    │  set becomes empty, the entry is removed and JAM forget is called.
-    │  used_state_balance is adjusted accordingly.
+    │  Applies the change, re-soliciting/forgetting preimages and adjusting
+    │  used_state_balance as described above.
 ```
 
 ### 6.4 Clean-up (Deregistration)
@@ -1146,14 +1183,29 @@ Coretime chain
     │  Calls parachain_clean_up(para_id)
     ▼
 Parachain Service (Accumulate)
-	│  Removes para_id from every preimage_registry entry's referencers set
-	│  (releasing each preimage; see §6.1), wipes every key_value_storage
-	│  entry keyed by (para_id, _), then drops parachains[para_id] and
-	│  parachain_log[para_id].
+	│  Rejects with `AccumulateLog::TooMuchStateHeld` unless used_state_balance
+	│  is exactly BASELINE_FOOTPRINT + preimage_footprint(validation_code)
+	│  + preimage_footprint(pending_upgrade code, if any) — i.e. the parachain
+	│  has already released all other solicited preimages and key_value_storage.
+	│  Otherwise forgets the validation code(s). If any cannot be expunged yet
+	│  (JAM's two-step forget; see §6.1), sets ParaInfo.is_deregistering = true
+	│  and stops. Once expungeable, drops parachains[para_id]
+	│  and parachain_log[para_id].
 ```
 
-The Coretime chain handles deposit refund and any economic unwinding according to
-its own policy.
+Requiring the parachain to drain its own extra state first keeps clean-up bounded:
+the service only ever has to forget the two validation codes, never an unbounded
+set of solicited preimages or KV entries.
+
+While `is_deregistering` is set the service rejects every work package for the
+parachain (§5.1), so no new state accrues. Each not-yet-expungeable validation
+code emits a `ForgetAgainAt { .., due }` log (§6.1). The Coretime chain retries
+the call once the timeslot is strictly past the latest such `due`, and the
+parachain is fully removed. This keeps all follow-up in a single host call rather
+than tracking per-preimage `forget` deadlines.
+
+Coretime also handles deposit refund and any economic unwinding according to its
+own policy.
 
 ---
 

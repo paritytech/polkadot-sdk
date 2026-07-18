@@ -75,7 +75,8 @@ module state_balance {
         validationCode: { ref: { hash: { vchBytes: 0 }, len: 0 }, pinned: false },
         pendingUpgrade: None,
         totalStateBalance: newTotal,
-        usedStateBalance: baseline
+        usedStateBalance: baseline,
+        isDeregistering: false
       })
   }
 
@@ -93,6 +94,9 @@ module state_balance {
     jamSolicit: bool,
     // Whether JAM `forget` should be invoked for `hash`.
     jamForget: bool,
+    // `true` iff `removeReferencer` kept the para as a referencer awaiting the
+    // second, expunging forget (first forget of the last referencer, §6.1).
+    retained: bool,
     // Optional log entry (`InsufficientStateBalance`).
     log: Option[AccumulateLog]
   }
@@ -102,12 +106,34 @@ module state_balance {
   ): PreimageDelta = {
     val pi = s.paraInfo(para_id)
     val delta = preimageFootprint(len)
+    // A `solicit` while the request is `Unrequested(y)` RESCUES the still-held
+    // blob back to available (JAM `Unrequested → Rerequested`), keeping the
+    // original `y` for the next forget's gate. This fires a real JAM `solicit`.
+    // `rescueSlot` is `Some(y)` exactly when this solicit is a rescue, so it
+    // doubles as the rescue flag and carries `y` for the status transition.
+    val rescueSlot: Option[Timeslot] =
+      if (s.preimageStatus.keys().contains((h, len)))
+        match s.preimageStatus.get((h, len)) {
+          | Unrequested(y) => Some(y)
+          | _ => None
+        }
+      else None
+    val isRescue = rescueSlot != None
+    val rescuedStatus =
+      match rescueSlot {
+        | Some(y) => s.preimageStatus.put((h, len), Rerequested(y))
+        | None => s.preimageStatus
+      }
     if (s.hasReferencer(h, len, para_id)) {
-      // Already a referencer — idempotent, and requires no extra state
-      // balance (the footprint is already charged). Checked before the
-      // headroom test so a para at its balance limit can still re-reference
-      // a preimage it already holds (design §6.1).
-      { state: s, jamSolicit: false, jamForget: false, log: None }
+      // Already a referencer — idempotent and needs no extra state balance
+      // (footprint already charged). But if the request is `Unrequested` (the
+      // retained para re-soliciting its own code in limbo), the service still
+      // must fire JAM `solicit` to rescue it, else the para cannot look it up.
+      if (isRescue)
+        { state: { ...s, preimageStatus: rescuedStatus },
+          jamSolicit: true, jamForget: false, retained: false, log: None }
+      else
+        { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
     } else if (not(pi.hasHeadroom(delta))) {
       // Insufficient headroom for a genuinely new reference — no state
       // change, log it.
@@ -115,56 +141,142 @@ module state_balance {
         state: s,
         jamSolicit: false,
         jamForget: false,
+        retained: false,
         log: Some(InsufficientStateBalance(FromSolicit({ hash: h, len: len })))
       }
     } else {
       val wasEmpty = not(s.preimageRegistry.keys().contains((h, len))) or
       s.preimageRegistry.get((h, len)).referencers == Set()
+      // On a rescue, the existing referencers are only the retained ghost(s)
+      // from the two-step forget (`Unrequested` has no live referencer). The
+      // soliciting para becomes the sole LIVE referencer, so refund and drop
+      // every ghost — keeping them charged would double-count one JAM request
+      // entry (§6.1). A fresh solicit / non-rescue join has no ghosts to clear.
+      val ghosts =
+        if (isRescue) s.preimageRegistry.get((h, len)).referencers else Set()
+      val parasAfterRefund =
+        ghosts.fold(s.parachains, (acc, g) =>
+          acc.put(g, acc.get(g).addUsed(-preimageFootprint(len))))
+      // Rescue drops the ghost(s), leaving the soliciting para alone. Otherwise
+      // add the para to whatever set already exists (or a fresh singleton).
+      val existing =
+        if (s.preimageRegistry.keys().contains((h, len)))
+          s.preimageRegistry.get((h, len)).referencers
+        else Set()
       val newEntry =
-      if (s.preimageRegistry.keys().contains((h, len))) {
-        val e = s.preimageRegistry.get((h, len))
-        { ...e, referencers: e.referencers.union(Set(para_id)) }
-      } else {
-        { referencers: Set(para_id) }
-      }
+        { referencers: (if (isRescue) Set() else existing).union(Set(para_id)) }
+      // A fresh JAM `solicit` (empty → non-empty) starts `Unprovided`. A new
+      // referencer joining an `Unrequested(y)` entry rescues it to
+      // `Rerequested(y)` (fires JAM `solicit`). Any other join leaves the
+      // status untouched (already `Unprovided`/`Provided`/`Rerequested`).
+      val newStatus =
+        if (wasEmpty) s.preimageStatus.put((h, len), Unprovided)
+        else rescuedStatus
       {
         state: {
           ...s,
-          parachains: s.parachains.put(para_id, pi.addUsed(delta)),
-          preimageRegistry: s.preimageRegistry.put((h, len), newEntry)
+          parachains: parasAfterRefund.put(para_id, parasAfterRefund.get(para_id).addUsed(delta)),
+          preimageRegistry: s.preimageRegistry.put((h, len), newEntry),
+          preimageStatus: newStatus
         },
-        jamSolicit: wasEmpty,
+        jamSolicit: wasEmpty or isRescue,
         jamForget: false,
+        retained: false,
         log: None
       }
     }
   }
 
+  // Release a referencer via JAM's `forget` (design §6.1). `now` is the current
+  // timeslot, needed to gate the expunging second forget. 
   pure def removeReferencer(
-    s: ParachainServiceState, para_id: ParaId, h: Hash, len: int
+    s: ParachainServiceState, para_id: ParaId, h: Hash, len: int, now: Timeslot
   ): PreimageDelta = {
     if (not(s.hasReferencer(h, len, para_id))) {
       // Idempotent: not a referencer, no-op (design §4.3 `forget`).
-      { state: s, jamSolicit: false, jamForget: false, log: None }
+      { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
     } else {
       val pi = s.paraInfo(para_id)
       val delta = preimageFootprint(len)
       val e = s.preimageRegistry.get((h, len))
       val rest = e.referencers.exclude(Set(para_id))
-      val (registry, jamForget) =
-      if (rest == Set())
-      (s.preimageRegistry.mapRemove((h, len)), true)
-      else
-      (s.preimageRegistry.put((h, len), { ...e, referencers: rest }), false)
-      {
-        state: {
-          ...s,
-          parachains: s.parachains.put(para_id, pi.addUsed(-delta)),
-          preimageRegistry: registry
-        },
-        jamSolicit: false,
-        jamForget: jamForget,
-        log: None
+      if (rest != Set()) {
+        // A non-last referencer leaves immediately: the remaining referencers
+        // still cover the live JAM request, so refund now, no JAM forget.
+        {
+          state: {
+            ...s,
+            parachains: s.parachains.put(para_id, pi.addUsed(-delta)),
+            preimageRegistry: s.preimageRegistry.put((h, len), { ...e, referencers: rest })
+          },
+          jamSolicit: false,
+          jamForget: false,
+          retained: false,
+          log: None
+        }
+      } else {
+        // Last referencer leaves — JAM `forget` behaviour depends on whether the
+        // preimage was ever provided (its `query` status).
+        val expunged = {
+          // Drop / Expunge: JAM removes the request. Refund and drop the entry.
+          state: {
+            ...s,
+            parachains: s.parachains.put(para_id, pi.addUsed(-delta)),
+            preimageRegistry: s.preimageRegistry.mapRemove((h, len)),
+            preimageStatus: s.preimageStatus.mapRemove((h, len))
+          },
+          jamSolicit: false,
+          jamForget: true,
+          retained: false,
+          log: None
+        }
+        match s.preimageStatus.get((h, len)) {
+          | Unprovided =>
+            // Never provided → single `forget` drops it, deposit lifted now.
+            expunged
+          | Provided =>
+            // Available → first `forget` only unrequests (JAM keeps it for the
+            // turnaround). Keep the referencer (still charged), record the
+            // unrequest slot, log the expunge deadline.
+            {
+              state: { ...s, preimageStatus: s.preimageStatus.put((h, len), Unrequested(now)) },
+              jamSolicit: false,
+              jamForget: true,
+              retained: true,
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
+            }
+          | Unrequested(since) =>
+            // Second forget: expunge only once strictly past the turnaround
+            // (JAM `now > since + min_turnaround`); otherwise a no-op retry.
+            val due = since + ExpungePeriod
+            if (now > due) expunged
+            else {
+              state: s,
+              jamSolicit: false,
+              jamForget: false,
+              retained: true,
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
+            }
+          | Rerequested(since) =>
+            // Rescued preimage. JAM gates `forget` against the ORIGINAL
+            // `unrequested_since`: past the turnaround it unrequests again
+            // (→ `Unrequested(now)`, fresh clock); otherwise a no-op retry
+            // (JAM `NotYetUnrequest`). Either way it does NOT expunge here.
+            val due = since + ExpungePeriod
+            if (now > due) {
+              state: { ...s, preimageStatus: s.preimageStatus.put((h, len), Unrequested(now)) },
+              jamSolicit: false,
+              jamForget: true,
+              retained: true,
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
+            } else {
+              state: s,
+              jamSolicit: false,
+              jamForget: false,
+              retained: true,
+              log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
+            }
+        }
       }
     }
   }

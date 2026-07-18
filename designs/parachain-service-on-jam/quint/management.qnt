@@ -15,7 +15,8 @@ module management {
     // Hashes for which JAM `solicit` / `forget` should be invoked.
     jamSolicit: Set[Hash],
     jamForget: Set[Hash],
-    log: Option[AccumulateLog]
+    // Log entries to append.
+    logs: List[AccumulateLog]
   }
 
   /// §6.1 — sole creator of `ParaInfo`. On an unused ParaId, creates with
@@ -34,7 +35,7 @@ module management {
           state: s,
           jamSolicit: Set(),
           jamForget: Set(),
-          log: Some(StateBalanceUpdateRejected({
+          logs: List(StateBalanceUpdateRejected({
                 attempted: newTotal,
                 currentTotal: 0,
                 currentUsed: baselineFor(para_id)
@@ -45,7 +46,7 @@ module management {
           state: { ...s, parachains: s.parachains.put(para_id, pi) },
           jamSolicit: Set(),
           jamForget: Set(),
-          log: None
+          logs: List()
         }
       }
     } else {
@@ -55,7 +56,7 @@ module management {
           state: s,
           jamSolicit: Set(),
           jamForget: Set(),
-          log: Some(StateBalanceUpdateRejected({
+          logs: List(StateBalanceUpdateRejected({
                 attempted: newTotal,
                 currentTotal: pi.totalStateBalance,
                 currentUsed: pi.usedStateBalance
@@ -66,7 +67,7 @@ module management {
           state: { ...s, parachains: s.parachains.put(para_id, pi.setTotal(newTotal)) },
           jamSolicit: Set(),
           jamForget: Set(),
-          log: None
+          logs: List()
         }
       }
     }
@@ -80,14 +81,14 @@ module management {
     newHead: HeadData
   ): MgmtOutcome = {
     if (not(s.isLive(para_id))) {
-      { state: s, jamSolicit: Set(), jamForget: Set(), log: None }
+      { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
       {
         state: { ...s, parachains: s.parachains.put(para_id, { ...pi, headData: newHead }) },
         jamSolicit: Set(),
         jamForget: Set(),
-        log: None
+        logs: List()
       }
     }
   }
@@ -102,10 +103,11 @@ module management {
     s: ParachainServiceState,
     para_id: ParaId,
     newHash: ValidationCodeHash,
-    codeLen: int
+    codeLen: int,
+    now: Timeslot
   ): MgmtOutcome = {
     if (not(s.isLive(para_id))) {
-      { state: s, jamSolicit: Set(), jamForget: Set(), log: None }
+      { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
       val oldHash = pi.validationCode.ref.hash
@@ -124,26 +126,26 @@ module management {
       val acquired = s.addReferencer(para_id, vchAsHash(newHash), codeLen)
       match acquired.log {
         | Some(_) =>
-        { state: s, jamSolicit: Set(), jamForget: Set(), log: acquired.log }
+        { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }
         | None =>
         // Release the old active code unless it is the uninitialised
         // sentinel, equals the new code, or is independently solicited.
         val afterOld =
           if (oldHash == { vchBytes: 0 } or oldHash == newHash or pi.validationCode.pinned)
-          { state: acquired.state, jamSolicit: false, jamForget: false, log: None }
+          { state: acquired.state, jamSolicit: false, jamForget: false, retained: false, log: None }
           else
-          acquired.state.removeReferencer(para_id, vchAsHash(oldHash), pi.validationCode.ref.len)
+          acquired.state.removeReferencer(para_id, vchAsHash(oldHash), pi.validationCode.ref.len, now)
         // Clear any pending upgrade, releasing its code unless it equals the
         // new code or is independently solicited.
         val afterPending =
           match pi.pendingUpgrade {
             | None =>
-              { state: afterOld.state, jamSolicit: false, jamForget: false, log: None }
+              { state: afterOld.state, jamSolicit: false, jamForget: false, retained: false, log: None }
             | Some(pair) =>
               if (pair._1.ref.hash == newHash or pair._1.pinned)
-                { state: afterOld.state, jamSolicit: false, jamForget: false, log: None }
+                { state: afterOld.state, jamSolicit: false, jamForget: false, retained: false, log: None }
               else
-                afterOld.state.removeReferencer(para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len)
+                afterOld.state.removeReferencer(para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
           }
         val pi2 = afterPending.state.paraInfo(para_id)
         {
@@ -167,49 +169,99 @@ module management {
                 | None => Set()
                 | Some(pair) => if (afterPending.jamForget) Set(vchAsHash(pair._1.ref.hash)) else Set()
               }),
-          log: None
+          // Both the old active and the pending code can enter limbo with
+          // distinct deadlines.
+          logs: List().appendOption(afterOld.log).appendOption(afterPending.log)
         }
       }
     }
   }
 
-   /// §6.4 — remove all per-parachain state. Releases every preimage the
-   /// parachain references; JAM `forget` is invoked for each preimage that
-   /// becomes referencerless. Wipes all `keyValueStorage` entries keyed by
-   /// `(para_id, _)`. Also clears any service-level state that's logically
-   /// Asset-Hub-only (notably `stagedValidatorKeys`) when Asset Hub
-   /// (`AssetHubParaId`) itself is being cleaned up.
+   /// The exact `usedStateBalance` a para may hold at clean-up: its baseline
+   /// plus the footprints of its active validation code and (if any) pending
+   /// upgrade code — nothing else. Any excess means it still holds other
+   /// solicited preimages or `keyValueStorage`, which it must release first.
+  pure def cleanUpAllowedBalance(pi: ParaInfo, para_id: ParaId): int = {
+    val activeFp =
+      if (pi.validationCode.ref.hash == { vchBytes: 0 } and pi.validationCode.ref.len == 0) 0
+      else preimageFootprint(pi.validationCode.ref.len)
+    val pendingFp = match pi.pendingUpgrade {
+      | None => 0
+      | Some(pair) => preimageFootprint(pair._1.ref.len)
+    }
+    baselineFor(para_id) + activeFp + pendingFp
+  }
+
+   /// §6.4 — deregister a parachain. Rejects with `TooMuchStateHeld` unless the
+   /// para holds only its baseline and validation code(s) (it must release all
+   /// other solicited preimages and `keyValueStorage` first). Otherwise forgets
+   /// the validation code(s) via the two-step forget (§6.1). If any code cannot
+   /// be expunged yet, sets `isDeregistering = true` and keeps the entry; the
+   /// Coretime chain needs to retry once the logged `due` is reached. Once every code
+   /// is expunged, drops all per-para state.
   pure def parachainCleanUp(
     s: ParachainServiceState,
-    para_id: ParaId
-  ): ParachainServiceState = {
+    para_id: ParaId,
+    now: Timeslot
+  ): MgmtOutcome = {
     if (not(s.isLive(para_id))) {
-      s
+      { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
-      // Remove para_id from every referencer set, dropping entries that
-      // go empty.
-      val regAfter: (Hash, int) -> PreimageEntry =
-      s.preimageRegistry.keys()
-      .filter(key => {
-          val e = s.preimageRegistry.get(key)
-          e.referencers.exclude(Set(para_id)) != Set()
-      })
-      .mapBy(key => {
-          val e = s.preimageRegistry.get(key)
-          { ...e, referencers: e.referencers.exclude(Set(para_id)) }
-      })
-       // Drop any Asset-Hub-specific service-level state if Asset Hub
-       // itself is being unregistered.
-       val stagedAfter =
-       if (para_id == AssetHubParaId) List() else s.stagedValidatorKeys
-       {
-         ...s,
-         preimageRegistry: regAfter,
-         parachains: s.parachains.mapRemove(para_id),
-         parachainLog: s.parachainLog.mapRemove(para_id),
-         stagedValidatorKeys: stagedAfter,
-         keyValueStorage: s.keyValueStorage.mapFilterKeys(key => key._1 != para_id)
-       }
+      val pi = s.paraInfo(para_id)
+      if (pi.usedStateBalance > cleanUpAllowedBalance(pi, para_id)) {
+        // Still holds extra state — reject, no change.
+        { state: s, jamSolicit: Set(), jamForget: Set(), logs: List(TooMuchStateHeld) }
+      } else {
+        // Forget the active code, then the pending code, via two-step forget.
+        val vc = pi.validationCode.ref
+        val afterActive =
+          if (vc.hash == { vchBytes: 0 } and vc.len == 0)
+            { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
+          else
+            s.removeReferencer(para_id, vchAsHash(vc.hash), vc.len, now)
+        val afterPending = match pi.pendingUpgrade {
+          | None =>
+            { state: afterActive.state, jamSolicit: false, jamForget: false, retained: false, log: None }
+          | Some(pair) =>
+            afterActive.state.removeReferencer(
+              para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
+        }
+        val s1 = afterPending.state
+        val jamForgets =
+          (if (afterActive.jamForget) Set(vchAsHash(vc.hash)) else Set()).union(
+            match pi.pendingUpgrade {
+              | None => Set()
+              | Some(pair) => if (afterPending.jamForget) Set(vchAsHash(pair._1.ref.hash)) else Set()
+            })
+
+        val stillHeld = afterActive.retained or afterPending.retained
+        if (stillHeld) {
+          // Mark deregistering and keep the entry; retry completes it later.
+          {
+            state: { ...s1,
+              parachains: s1.parachains.put(para_id, { ...s1.paraInfo(para_id), isDeregistering: true }) },
+            jamSolicit: Set(),
+            jamForget: jamForgets,
+            // Both the active and the pending code can enter limbo with distinct
+            // deadlines.
+            logs: List().appendOption(afterActive.log).appendOption(afterPending.log)
+          }
+        } else {
+          // Fully expunged — drop all per-para state.
+          val stagedAfter =
+            if (para_id == AssetHubParaId) List() else s1.stagedValidatorKeys
+          {
+            state: { ...s1,
+              parachains: s1.parachains.mapRemove(para_id),
+              parachainLog: s1.parachainLog.mapRemove(para_id),
+              stagedValidatorKeys: stagedAfter,
+              keyValueStorage: s1.keyValueStorage.mapFilterKeys(key => key._1 != para_id) },
+            jamSolicit: Set(),
+            jamForget: jamForgets,
+            logs: List()
+          }
+        }
+      }
     }
   }
 }

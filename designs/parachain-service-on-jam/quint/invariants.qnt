@@ -387,10 +387,27 @@ module invariants {
       svc.paraLog(p).select(e => e._1 < threshold).length() == 0
     })
 
+  /// The ghost `preimageStatus` (JAM `query`) tracks exactly the solicited
+  /// preimages: its domain always equals `preimage_registry`'s. Catches any
+  /// path that drops one map but not the other.
+  val preimage_status_domain: bool =
+    svc.preimageStatus.keys() == svc.preimageRegistry.keys()
+
+  /// An `Unrequested(_)` entry has exactly one referencer — the retained last
+  /// one awaiting the expunging second `forget` (§6.1).
+  val unrequested_is_singleton_retention: bool =
+    svc.preimageRegistry.keys().forall(key =>
+      match svc.preimageStatus.get(key) {
+        | Unrequested(_) => svc.preimageRegistry.get(key).referencers.size() == 1
+        | _ => true
+      })
+
   /// Composite invariant — every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
     preimage_referencer_consistency,
+    preimage_status_domain,
+    unrequested_is_singleton_retention,
     designate_only_valid_lengths,
     no_pending_when_code_matches,
     staged_keys_owned_by_asset_hub,

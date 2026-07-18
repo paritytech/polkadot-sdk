@@ -45,10 +45,10 @@ module main {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     val s1 = parachainSetStateBalance(emptyState, CoretimeParaId, InitialParaBalance).state
-    val s2 = parachainSetValidationCode(s1, CoretimeParaId, coretimeCode, FixedCodeLen).state
+    val s2 = parachainSetValidationCode(s1, CoretimeParaId, coretimeCode, FixedCodeLen, 0).state
     val s3 = parachainSetHead(s2, CoretimeParaId, 0).state
     val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialAssetHubBalance).state
-    val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen).state
+    val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen, 0).state
     parachainSetHead(s5, AssetHubParaId, 0).state
   }
 
@@ -279,9 +279,29 @@ module main {
     }
   }
 
+  // Model JAM Phase 3: anyone submits a solicited preimage out-of-band, moving
+  // its `query` status `Unprovided -> Provided`.
+  action provisionPreimage = {
+    val unprovided =
+      svc.preimageStatus.keys().filter(k => svc.preimageStatus.get(k) == Unprovided)
+    all {
+      unprovided != Set(),
+      nondet key = oneOf(unprovided)
+      svc' = { ...svc, preimageStatus: svc.preimageStatus.put(key, Provided) },
+      now' = now,
+      jamStagingSet' = jamStagingSet,
+      solicitedSet' = solicitedSet,
+      prevSvc' = svc,
+      lastStepWorkResults' = List(),
+      lastStepBouncedTransfers' = List(),
+      lastStepAssigns' = List(),
+      logPrunedBelow' = logPrunedBelow
+    }
+  }
+
   // --- Step composition --------------------------------------------------
 
-  action step = any { stepRefineAccumulate, stepIncomingTransfer }
+  action step = any { stepRefineAccumulate, stepIncomingTransfer, provisionPreimage }
 
   // --- Auxiliary: nondeterministic refine-input generators --------------
 

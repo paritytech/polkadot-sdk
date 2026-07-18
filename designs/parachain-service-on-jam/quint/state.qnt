@@ -25,7 +25,11 @@ module state {
     // on activation.
     pendingUpgrade: Option[(ValidationCode, Timeslot)],
     totalStateBalance: Balance,
-    usedStateBalance: Balance
+    usedStateBalance: Balance,
+    // Set once `parachain_clean_up` has begun deregistering this parachain
+    // but some validation code still awaits its second, expunging `forget`.
+    // While `true` the service rejects all work packages for it (design §6.4).
+    isDeregistering: bool
   }
 
   // --- Shared preimage registry (design §3.1, §6.1) ----------------------
@@ -33,6 +37,28 @@ module state {
   type PreimageEntry = {
     referencers: Set[ParaId]
   }
+
+  /// JAM's `query(hash, len)` request status. The service reaches every state
+  // except that it / never carries the `provided_since`/`rerequested_since`
+  // slots - only the / `unrequested_since` slot that gates the next `forget`.
+  ///   - `Unprovided`: solicited, preimage never submitted. A `forget` drops
+  ///     it in one step.
+  ///   - `Provided`: the preimage is available. A `forget` unrequests it (does
+  ///     NOT expunge) and moves it to `Unrequested`.
+  ///   - `Unrequested(since)`: provided then forgotten once; `since` is the
+  ///     unrequest slot. A second `forget` expunges only once
+  ///     `now > since + ExpungePeriod`.
+  ///     A `solicit` while `Unrequested` RESCUES the still-held blob back to
+  ///     available, moving it to `Rerequested`.
+  ///   - `Rerequested(since)`: unrequested then re-solicited — available again.
+  ///     `since` is the ORIGINAL `unrequested_since`, which still gates the
+  ///     next `forget` (JAM `Rerequested → Unrequest` requires
+  ///     `now > since + ExpungePeriod`; otherwise `NotYetUnrequest`).
+  type RequestStatus =
+    | Unprovided
+    | Provided
+    | Unrequested(Timeslot)
+    | Rerequested(Timeslot)
 
   // --- Per-parachain log (design §3.1, capacity-bounded) -----------------
   type ParachainLog = List[(Timeslot, LogEntry)]
@@ -61,7 +87,13 @@ module state {
     serviceCodeHash: Hash,
     // Per-parachain key/value store (design §3.1, §6.1). Keyed by
     // (ParaId, user_key); each entry is billed under the sole-user rule.
-    keyValueStorage: (ParaId, List[int]) -> List[int]
+    keyValueStorage: (ParaId, List[int]) -> List[int],
+    // MODEL-ONLY ghost state, NOT part of the service's real storage or
+    // footprint. The spec keeps no bookkeeping for the two-step forget and
+    // reads request status from JAM's `query` (§6.1); the model stands that in
+    // with this map, mirroring JAM's `query(hash, len)` for every solicited
+    // preimage. Its domain always equals `preimageRegistry`'s.
+    preimageStatus: (Hash, int) -> RequestStatus
   }
 
   // --- Constructors ------------------------------------------------------
@@ -75,7 +107,8 @@ module state {
     pendingAuthorizerCores: Map(),
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 },
-    keyValueStorage: Map()
+    keyValueStorage: Map(),
+    preimageStatus: Map()
   }
 
   // --- Read helpers ------------------------------------------------------
@@ -125,6 +158,8 @@ module state {
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32
     | TransferFailed(_) => 32
+    | ForgetAgainAt(_) => 32 + 4 + 4
+    | TooMuchStateHeld => 0
   }
 
   /// SCALE size of a RefineLog variant. Nullary variants = 1 B (discriminant only).

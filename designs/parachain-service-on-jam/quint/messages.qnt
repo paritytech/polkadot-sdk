@@ -78,6 +78,12 @@ module messages {
   // transfer). Only the memo hash is recorded — the full 128-byte memo
   // is not preserved. See §5.1 step 7.
   | TransferFailed({ memoHash: Hash })
+  // A `forget` removed the last referencer without expunging the preimage;
+  // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
+  | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
+  // `parachain_clean_up` rejected: the parachain still holds state beyond its
+  // baseline and validation code(s) and must release the rest first. See §6.4.
+  | TooMuchStateHeld
 
   /// A JAM `assign` host-function call recorded during a step. JAM's single
   /// `assign(core, queue, assigner)` sets both; the service uses it two distinct

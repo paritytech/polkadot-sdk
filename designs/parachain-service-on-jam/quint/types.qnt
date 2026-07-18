@@ -97,6 +97,11 @@ module types {
   /// block; distinct from the recent-history *anchor* window (8 blocks).
   pure val MaxLookupAge: int = 24 * 3600 / 6
 
+  /// Gray paper `C_expungeperiod = C_maxlookupanchorage + 4800 = 19 200`
+  /// (~32 h). A preimage forgotten at timeslot `y` may only be expunged by a
+  /// second `forget` once `y < now - ExpungePeriod`. See §6.1.
+  pure val ExpungePeriod: int = MaxLookupAge + 4800
+
   /// §3.1: report_error opaque payload cap.
   pure val ReportErrorPayloadCap: int = 1024
 

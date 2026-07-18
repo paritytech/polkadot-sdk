@@ -162,14 +162,14 @@ module accumulate {
                   | Some(pair) => Some(({ ...pair._1, pinned: false }, pair._2))
                 } }) } }
       } else {
-        val d = acc.state.removeReferencer(para_id, payload.hash, payload.len)
+        val d = acc.state.removeReferencer(para_id, payload.hash, payload.len, now)
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
           jamSolicit: acc.jamSolicit,
           jamForget: if (d.jamForget) acc.jamForget.union(Set(payload.hash)) else acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs
+          logs: acc.logs.appendOption(d.log)
         }
       }
       | SetValidatorKeys(payload) =>
@@ -196,7 +196,7 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.appendOption(o.log)
+        logs: acc.logs.concat(o.logs)
       }
       | ParachainSetHead(payload) =>
       val o = parachainSetHead(acc.state, payload.paraId, payload.newHead)
@@ -204,7 +204,7 @@ module accumulate {
       | ParachainSetValidationCode(payload) =>
       val o = parachainSetValidationCode(
         acc.state, payload.paraId, payload.newValidationCodeHash,
-        payload.newValidationCodeLen
+        payload.newValidationCodeLen, now
       )
       {
         state: o.state,
@@ -212,10 +212,18 @@ module accumulate {
         jamSolicit: acc.jamSolicit.union(o.jamSolicit),
         jamForget: acc.jamForget.union(o.jamForget),
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.appendOption(o.log)
+        logs: acc.logs.concat(o.logs)
       }
       | ParachainCleanUp(paraId) =>
-      { ...acc, state: parachainCleanUp(acc.state, paraId) }
+      val o = parachainCleanUp(acc.state, paraId, now)
+      {
+        state: o.state,
+        jamDesignate: acc.jamDesignate,
+        jamSolicit: acc.jamSolicit,
+        jamForget: acc.jamForget.union(o.jamForget),
+        jamAssigns: acc.jamAssigns,
+        logs: acc.logs.concat(o.logs)
+      }
       | TransferOut(_) =>
       // Asset-Hub-only outbound transfer. Modeled abstractly: the
       // top-level `step` action routes the transfer into the destination
@@ -326,9 +334,9 @@ module accumulate {
     jamForget: Set[Hash],
     logs: List[AccumulateLog]
   } = {
-    // Step 1: parent-head check.
-    if (not(s.isLive(r.paraId))) {
-      // Para not registered — silently drop.
+    // Step 1: registration check. A not-registered OR deregistering para
+    // (§6.4) is treated as if it no longer exists — silently drop, no log.
+    if (not(s.isLive(r.paraId)) or s.paraInfo(r.paraId).isDeregistering) {
       { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi0 = s.paraInfo(r.paraId)
@@ -373,7 +381,7 @@ module accumulate {
             parachains: reaped.state.parachains.put(r.paraId, { ...pi2, headData: r.headData })
           }
           // Step 4b: activate code upgrade if this candidate used the pending hash.
-          val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen)
+          val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen, now)
           val solicits =
           if (reaped.jamSolicit) Set({ hashBytes: 0 }) else Set()
           val forgets = (

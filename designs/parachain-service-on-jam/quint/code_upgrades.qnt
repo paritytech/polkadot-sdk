@@ -24,12 +24,13 @@ module code_upgrades {
     s: ParachainServiceState,
     para_id: ParaId,
     ref: ValidationCodeRef,
-    pinned: bool
+    pinned: bool,
+    now: Timeslot
   ): PreimageDelta =
     if (pinned)
-      { state: s, jamSolicit: false, jamForget: false, log: None }
+      { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
     else
-      s.removeReferencer(para_id, vchAsHash(ref.hash), ref.len)
+      s.removeReferencer(para_id, vchAsHash(ref.hash), ref.len, now)
 
   /// Phase 2: solicit the new code (if not already solicited) and arm
   /// `pendingUpgrade` with a deadline.
@@ -63,7 +64,7 @@ module code_upgrades {
       }
     if (newHash == pi.validationCode.ref.hash) {
       // Can't "upgrade" to the code already running — no-op.
-      { state: s, jamSolicit: false, jamForget: false, log: None }
+      { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
     } else if (isSamePending) {
       // Re-request of the same pending code — refresh the deadline only,
       // preserving the pending code's pinned bit.
@@ -79,7 +80,7 @@ module code_upgrades {
             para_id, { ...pi, pendingUpgrade: Some((keep, deadline)) }
           )
         },
-        jamSolicit: false, jamForget: false, log: None
+        jamSolicit: false, jamForget: false, retained: false, log: None
       }
     } else {
       // The parachain independently solicited this code already iff it is a
@@ -96,10 +97,10 @@ module code_upgrades {
           val released =
             match pi.pendingUpgrade {
               | None =>
-                { state: acquired.state, jamSolicit: false, jamForget: false, log: None }
+                { state: acquired.state, jamSolicit: false, jamForget: false, retained: false, log: None }
               | Some(pair) =>
                 releaseCodeIfNotPinned(
-                  acquired.state, para_id, pair._1.ref, pair._1.pinned
+                  acquired.state, para_id, pair._1.ref, pair._1.pinned, now
                 )
             }
           val pi2 = released.state.paraInfo(para_id)
@@ -119,6 +120,7 @@ module code_upgrades {
             },
             jamSolicit: acquired.jamSolicit,
             jamForget: released.jamForget,
+            retained: released.retained,
             log: None
           }
       }
@@ -136,14 +138,14 @@ module code_upgrades {
   ): PreimageDelta = {
     val pi = s.paraInfo(para_id)
     match pi.pendingUpgrade {
-      | None => { state: s, jamSolicit: false, jamForget: false, log: None }
+      | None => { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
       | Some(pair) =>
       val deadline = pair._2
       if (deadline > now) {
-        { state: s, jamSolicit: false, jamForget: false, log: None }
+        { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
       } else {
         val released =
-          releaseCodeIfNotPinned(s, para_id, pair._1.ref, pair._1.pinned)
+          releaseCodeIfNotPinned(s, para_id, pair._1.ref, pair._1.pinned, now)
         val pi2 = released.state.paraInfo(para_id)
         {
           ...released,
@@ -167,18 +169,19 @@ module code_upgrades {
     s: ParachainServiceState,
     para_id: ParaId,
     candidateCodeHash: ValidationCodeHash,
-    codeLen: int
+    codeLen: int,
+    now: Timeslot
   ): PreimageDelta = {
     val pi = s.paraInfo(para_id)
     match pi.pendingUpgrade {
-      | None => { state: s, jamSolicit: false, jamForget: false, log: None }
+      | None => { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
       | Some(pair) =>
       if (candidateCodeHash != pair._1.ref.hash) {
         // Validated with old code; pending stays armed.
-        { state: s, jamSolicit: false, jamForget: false, log: None }
+        { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
       } else {
         val released =
-          releaseCodeIfNotPinned(s, para_id, pi.validationCode.ref, pi.validationCode.pinned)
+          releaseCodeIfNotPinned(s, para_id, pi.validationCode.ref, pi.validationCode.pinned, now)
         val pi2 = released.state.paraInfo(para_id)
         {
           ...released,
