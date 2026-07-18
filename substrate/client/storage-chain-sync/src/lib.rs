@@ -36,6 +36,7 @@ mod fetcher;
 pub(crate) use fetcher::FetchError;
 pub use fetcher::{BitswapHandleSlot, BitswapRequest, IndexedTransactionFetcher};
 
+use cid::{multihash::Multihash, Cid};
 use codec::Encode;
 use sc_client_api::{BlockBackend, PrefetchedIndexedTransactions};
 use sc_consensus::{
@@ -111,6 +112,14 @@ pub(crate) struct RenewWant {
 	pub hashing: HashingAlgorithm,
 	/// CID codec.
 	pub cid_codec: u64,
+}
+
+impl From<RenewWant> for Cid {
+	fn from(want: RenewWant) -> Self {
+		let multihash = Multihash::<64>::wrap(want.hashing.multihash_code(), &want.hash)
+			.expect("a 32-byte content hash always fits into a 64-byte multihash");
+		Cid::new_v1(want.cid_codec, multihash)
+	}
 }
 
 /// Block-import wrapper that bitswap-fetches missing TRANSACTION-column entries
@@ -597,6 +606,18 @@ mod tests {
 
 	fn extrinsic(bytes: &[u8]) -> OpaqueExtrinsic {
 		OpaqueExtrinsic::from_blob(bytes.to_vec())
+	}
+
+	#[test]
+	fn renew_want_converts_to_cid() {
+		let want =
+			RenewWant { hash: [0xAB; 32], hashing: HashingAlgorithm::Keccak256, cid_codec: 0x70 };
+
+		let cid: Cid = want.into();
+
+		assert_eq!(cid.codec(), 0x70);
+		assert_eq!(cid.hash().code(), HashingAlgorithm::Keccak256.multihash_code());
+		assert_eq!(cid.hash().digest(), &[0xAB; 32]);
 	}
 
 	fn body_info(

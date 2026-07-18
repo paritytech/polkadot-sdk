@@ -19,7 +19,7 @@
 //! Indexed-transaction fetching over Bitswap.
 
 use crate::RenewWant;
-use cid::{multihash::Multihash, Cid};
+use cid::Cid;
 use sc_network_bitswap::{BitswapError, BitswapHandle, FetchItem};
 use sp_transaction_storage_proof::ContentHash;
 use std::{
@@ -61,9 +61,6 @@ pub enum FetchError {
 	/// Bitswap is unavailable.
 	#[error("bitswap unavailable: disabled on this node, or network not yet initialized")]
 	BitswapUnavailable,
-	/// CID construction failed.
-	#[error("failed to construct multihash for CID: {0}")]
-	Multihash(String),
 	/// The Bitswap request failed.
 	#[error("bitswap service error: {0}")]
 	Bitswap(#[from] BitswapError),
@@ -94,9 +91,7 @@ impl IndexedTransactionFetcher {
 		let mut by_cid: HashMap<Cid, ContentHash> = HashMap::with_capacity(wants.len());
 		let mut cids: Vec<Cid> = Vec::with_capacity(wants.len());
 		for want in wants {
-			let mh = Multihash::<64>::wrap(want.hashing.multihash_code(), &want.hash)
-				.map_err(|e| FetchError::Multihash(e.to_string()))?;
-			let cid = Cid::new_v1(want.cid_codec, mh);
+			let cid = Cid::from(*want);
 			by_cid.insert(cid, want.hash);
 			cids.push(cid);
 		}
