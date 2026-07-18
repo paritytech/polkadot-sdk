@@ -48,9 +48,7 @@
 //!
 //! ### Example
 //!
-//! 1. Multiple local spends approved by spend origins and received by a beneficiary.
-#![doc = docify::embed!("src/tests.rs", spend_local_origin_works)]
-//! 2. Approve a spend of some asset kind and claim it.
+//! 1. Approve a spend of some asset kind and claim it.
 #![doc = docify::embed!("src/tests.rs", spend_payout_works)]
 //! ## Pallet API
 //!
@@ -59,14 +57,16 @@
 //!
 //! ## Low Level / Implementation Details
 //!
-//! Spends can be initiated using either the `spend_local` or `spend` dispatchable. The
-//! `spend_local` dispatchable enables the creation of spends using the native currency of the
-//! chain, utilizing the funds stored in the pot. These spends are automatically paid out every
-//! [`pallet::Config::SpendPeriod`]. On the other hand, the `spend` dispatchable allows spending of
-//! any asset kind managed by the treasury, with payment facilitated by a designated
+//! Spends are initiated using the `spend` dispatchable, which allows spending of any asset kind
+//! managed by the treasury, with payment facilitated by a designated
 //! [`pallet::Config::Paymaster`]. To claim these spends, the `payout` dispatchable should be called
 //! within some temporal bounds, starting from the moment they become valid and within one
 //! [`pallet::Config::PayoutPeriod`].
+//!
+//! A legacy queue of approvals (see [`Approvals`]) may still exist from before the removal of the
+//! deprecated `spend_local` call. Any entries left in that queue continue to be drained and paid
+//! out from [`Pallet::spend_funds`] every [`pallet::Config::SpendPeriod`]; the bounties pallet also
+//! relies on the same queue (bounded by [`pallet::Config::MaxApprovals`]) to schedule its payouts.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -118,7 +118,6 @@ pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currenc
 pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 pub type BlockNumberFor<T, I = ()> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -247,8 +246,7 @@ pub mod pallet {
 		/// Runtime hooks to external pallet using treasury to compute spend funds.
 		type SpendFunds: SpendFunds<Self, I>;
 
-		/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-		/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+		/// Legacy leftover from the removed `spend_local` call.
 		///
 		/// The maximum number of approvals that can wait in the spending queue.
 		///
@@ -302,15 +300,13 @@ pub mod pallet {
 		}
 	}
 
-	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+	/// Legacy leftover from the removed `spend_local` call.
 	///
 	/// Number of proposals that have been made.
 	#[pallet::storage]
 	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
-	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+	/// Legacy leftover from the removed `spend_local` call.
 	///
 	/// Proposals that have been made.
 	#[pallet::storage]
@@ -327,8 +323,9 @@ pub mod pallet {
 	pub type Deactivated<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceOf<T, I>, ValueQuery>;
 
-	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
-	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+	/// Legacy leftover from the removed `spend_local` call. Still drained by
+	/// [`Pallet::spend_funds`] every spend period, and used by the Bounties Pallet extension to
+	/// schedule bounty payouts (bounded by [`Config::MaxApprovals`]).
 	///
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
@@ -502,124 +499,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Propose and approve a spend of treasury funds.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least `amount`.
-		///
-		/// ### Details
-		/// NOTE: For record-keeping purposes, the proposer is deemed to be equivalent to the
-		/// beneficiary.
-		///
-		/// ### Parameters
-		/// - `amount`: The amount to be transferred from the treasury to the `beneficiary`.
-		/// - `beneficiary`: The destination account for the transfer.
-		///
-		/// ## Events
-		///
-		/// Emits [`Event::SpendApproved`] if successful.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::spend_local())]
-		#[deprecated(
-			note = "The `spend_local` call will be removed by May 2025. Migrate to the new flow and use the `spend` call."
-		)]
-		#[allow(deprecated)]
-		pub fn spend_local(
-			origin: OriginFor<T>,
-			#[pallet::compact] amount: BalanceOf<T, I>,
-			beneficiary: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
-			ensure!(amount <= max_amount, Error::<T, I>::InsufficientPermission);
-
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
-				let context = v.or_default();
-
-				// We group based on `max_amount`, to distinguish between different kind of
-				// origins. (assumes that all origins have different `max_amount`)
-				//
-				// Worst case is that we reject some "valid" request.
-				let spend = context.spend_in_context.entry(max_amount).or_default();
-
-				// Ensure that we don't overflow nor use more than `max_amount`
-				if spend.checked_add(&amount).map(|s| s > max_amount).unwrap_or(true) {
-					Err(Error::<T, I>::InsufficientPermission)
-				} else {
-					*spend = spend.saturating_add(amount);
-
-					Ok(())
-				}
-			})
-			.unwrap_or(Ok(()))?;
-
-			let beneficiary = T::Lookup::lookup(beneficiary)?;
-			#[allow(deprecated)]
-			let proposal_index = ProposalCount::<T, I>::get();
-			#[allow(deprecated)]
-			Approvals::<T, I>::try_append(proposal_index)
-				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
-			let proposal = Proposal {
-				proposer: beneficiary.clone(),
-				value: amount,
-				beneficiary: beneficiary.clone(),
-				bond: Default::default(),
-			};
-			#[allow(deprecated)]
-			Proposals::<T, I>::insert(proposal_index, proposal);
-			#[allow(deprecated)]
-			ProposalCount::<T, I>::put(proposal_index + 1);
-
-			Self::deposit_event(Event::SpendApproved { proposal_index, amount, beneficiary });
-			Ok(())
-		}
-
-		/// Force a previously approved proposal to be removed from the approval queue.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::RejectOrigin`].
-		///
-		/// ## Details
-		///
-		/// The original deposit will no longer be returned.
-		///
-		/// ### Parameters
-		/// - `proposal_id`: The index of a proposal
-		///
-		/// ### Complexity
-		/// - O(A) where `A` is the number of approvals
-		///
-		/// ### Errors
-		/// - [`Error::ProposalNotApproved`]: The `proposal_id` supplied was not found in the
-		///   approval queue, i.e., the proposal has not been approved. This could also mean the
-		///   proposal does not exist altogether, thus there is no way it would have been approved
-		///   in the first place.
-		#[pallet::call_index(4)]
-		#[pallet::weight((T::WeightInfo::remove_approval(), DispatchClass::Operational))]
-		#[deprecated(
-			note = "The `remove_approval` call will be removed by May 2025. It associated with the deprecated `spend_local` call."
-		)]
-		#[allow(deprecated)]
-		pub fn remove_approval(
-			origin: OriginFor<T>,
-			#[pallet::compact] proposal_id: ProposalIndex,
-		) -> DispatchResult {
-			T::RejectOrigin::ensure_origin(origin)?;
-
-			#[allow(deprecated)]
-			Approvals::<T, I>::try_mutate(|v| -> DispatchResult {
-				if let Some(index) = v.iter().position(|x| x == &proposal_id) {
-					v.remove(index);
-					Ok(())
-				} else {
-					Err(Error::<T, I>::ProposalNotApproved.into())
-				}
-			})?;
-
-			Ok(())
-		}
-
 		/// Propose and approve a spend of treasury funds.
 		///
 		/// ## Dispatch Origin
@@ -876,33 +755,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		last_spend_period
 	}
 
-	/// Public function to proposal_count storage.
-	#[deprecated(
-		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
-	)]
-	pub fn proposal_count() -> ProposalIndex {
-		#[allow(deprecated)]
-		ProposalCount::<T, I>::get()
-	}
-
-	/// Public function to proposals storage.
-	#[deprecated(
-		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
-	)]
-	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
-		#[allow(deprecated)]
-		Proposals::<T, I>::get(index)
-	}
-
-	/// Public function to approvals storage.
-	#[deprecated(
-		note = "This function will be removed by May 2025. Configure pallet to use PayFromAccount for Paymaster type instead"
-	)]
-	#[allow(deprecated)]
-	pub fn approvals() -> BoundedVec<ProposalIndex, T::MaxApprovals> {
-		Approvals::<T, I>::get()
-	}
-
 	/// Spend some money! returns number of approvals before spend.
 	pub fn spend_funds(
 		spend_periods_passed: BlockNumberFor<T, I>,
@@ -917,7 +769,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
-		#[allow(deprecated)]
 		let proposals_len = Approvals::<T, I>::mutate(|v| {
 			let proposals_approvals_len = v.len() as u32;
 			v.retain(|&index| {

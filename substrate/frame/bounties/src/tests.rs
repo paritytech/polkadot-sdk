@@ -52,6 +52,24 @@ fn go_to_block(n: u64) {
 	<Treasury as OnInitialize<u64>>::on_initialize(n);
 }
 
+// Directly insert a proposal into the legacy treasury `ProposalCount`/`Proposals`/`Approvals`
+// storage, bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around
+// so that spend-period tests exercising the legacy approvals queue still work.
+fn add_treasury_proposal(value: u64, beneficiary: u128) -> pallet_treasury::ProposalIndex {
+	let proposal_index = pallet_treasury::ProposalCount::<Test>::get();
+	pallet_treasury::Approvals::<Test>::try_append(proposal_index)
+		.expect("too many approvals");
+	let proposal = pallet_treasury::Proposal {
+		proposer: beneficiary,
+		value,
+		beneficiary,
+		bond: Default::default(),
+	};
+	pallet_treasury::Proposals::<Test>::insert(proposal_index, proposal);
+	pallet_treasury::ProposalCount::<Test>::put(proposal_index + 1);
+	proposal_index
+}
+
 frame_support::construct_runtime!(
 	pub enum Test
 	{
@@ -274,11 +292,10 @@ fn expect_events(e: Vec<BountiesEvent<Test>>) {
 }
 
 #[test]
-#[allow(deprecated)]
 fn genesis_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
+		assert_eq!(pallet_treasury::ProposalCount::<Test>::get(), 0);
 	});
 }
 
@@ -292,12 +309,11 @@ fn minting_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
+		add_treasury_proposal(100, 3);
 
 		go_to_block(1);
 		assert_eq!(Balances::free_balance(3), 0);
@@ -319,13 +335,12 @@ fn unused_pot_should_diminish() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn accepted_spend_proposal_enacted_on_spend_period() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
+		add_treasury_proposal(100, 3);
 
 		go_to_block(2);
 		assert_eq!(Balances::free_balance(3), 100);
@@ -334,13 +349,12 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn pot_underflow_should_not_diminish() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 150, 3) });
+		add_treasury_proposal(150, 3);
 
 		go_to_block(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
@@ -355,19 +369,18 @@ fn pot_underflow_should_not_diminish() {
 // Treasury account doesn't get deleted if amount approved to spend is all its free balance.
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
-#[allow(deprecated)]
 fn treasury_account_doesnt_get_deleted() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
 
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), treasury_balance, 3) });
+		add_treasury_proposal(treasury_balance, 3);
 
 		go_to_block(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), Treasury::pot(), 3) });
+		add_treasury_proposal(Treasury::pot(), 3);
 
 		go_to_block(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
@@ -378,7 +391,6 @@ fn treasury_account_doesnt_get_deleted() {
 // In case treasury account is not existing then it works fine.
 // This is useful for chain that will just update runtime.
 #[test]
-#[allow(deprecated)]
 fn inexistent_account_works() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
@@ -394,8 +406,8 @@ fn inexistent_account_works() {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 99, 3) });
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 1, 3) });
+		add_treasury_proposal(99, 3);
+		add_treasury_proposal(1, 3);
 		go_to_block(2);
 
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed

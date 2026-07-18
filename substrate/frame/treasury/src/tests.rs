@@ -21,7 +21,7 @@
 
 use core::{cell::RefCell, marker::PhantomData};
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, IdentityLookup},
+	traits::{Dispatchable, IdentityLookup},
 	BuildStorage,
 };
 
@@ -242,61 +242,24 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 	}
 }
 
+// Directly insert a proposal into the legacy `ProposalCount`/`Proposals`/`Approvals` storage,
+// bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around so that
+// spend-period / integrity tests exercising the legacy approvals queue still work.
+fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
+	let proposal_index = ProposalCount::<Test>::get();
+	Approvals::<Test>::try_append(proposal_index).expect("too many approvals");
+	let proposal =
+		Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
+	Proposals::<Test>::insert(proposal_index, proposal);
+	ProposalCount::<Test>::put(proposal_index + 1);
+	proposal_index
+}
+
 #[test]
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
 		assert_eq!(ProposalCount::<Test>::get(), 0);
-	});
-}
-
-#[test]
-fn spend_local_origin_permissioning_works() {
-	#[allow(deprecated)]
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(Treasury::spend_local(RuntimeOrigin::signed(1), 1, 1), BadOrigin);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(10), 6, 1),
-			Error::<Test>::InsufficientPermission
-		);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(11), 11, 1),
-			Error::<Test>::InsufficientPermission
-		);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(12), 21, 1),
-			Error::<Test>::InsufficientPermission
-		);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(13), 51, 1),
-			Error::<Test>::InsufficientPermission
-		);
-	});
-}
-
-#[docify::export]
-#[test]
-fn spend_local_origin_works() {
-	#[allow(deprecated)]
-	ExtBuilder::default().build().execute_with(|| {
-		// Check that accumulate works when we have Some value in Dummy already.
-		Balances::make_free_balance_be(&Treasury::account_id(), 102);
-		// approve spend of some amount to beneficiary `6`.
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
-		// free balance of `6` is zero, spend period has not passed.
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(6), 0);
-		// free balance of `6` is `100`, spend period has passed.
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(6), 100);
-		// `100` spent, `1` burned, `1` in ED.
-		assert_eq!(Treasury::pot(), 0);
 	});
 }
 
@@ -314,10 +277,7 @@ fn accepted_spend_proposal_ignored_outside_spend_period() {
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
-		}
+		add_proposal(100, 3);
 
 		go_to_block(1);
 		assert_eq!(Balances::free_balance(3), 0);
@@ -344,10 +304,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
-		}
+		add_proposal(100, 3);
 
 		go_to_block(2);
 		assert_eq!(Balances::free_balance(3), 100);
@@ -361,10 +318,7 @@ fn pot_underflow_should_not_diminish() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 150, 3));
-		}
+		add_proposal(150, 3);
 
 		go_to_block(2);
 		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
@@ -384,19 +338,17 @@ fn treasury_account_doesnt_get_deleted() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 		let treasury_balance = Balances::free_balance(&Treasury::account_id());
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
-			<Treasury as OnInitialize<u64>>::on_initialize(2);
-			assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
+		add_proposal(treasury_balance, 3);
+		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-			go_to_block(2);
-			assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
+		add_proposal(treasury_balance, 3);
 
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), Treasury::pot(), 3));
-		}
+		go_to_block(2);
+		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
+
+		add_proposal(Treasury::pot(), 3);
 
 		go_to_block(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
@@ -422,11 +374,8 @@ fn inexistent_account_works() {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 99, 3));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
-		}
+		add_proposal(99, 3);
+		add_proposal(1, 3);
 
 		go_to_block(2);
 
@@ -466,65 +415,19 @@ fn genesis_funding_works() {
 
 #[test]
 fn max_approvals_limited() {
-	#[allow(deprecated)]
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), u64::MAX);
 		Balances::make_free_balance_be(&0, u64::MAX);
 
 		for _ in 0..<Test as Config>::MaxApprovals::get() {
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
+			add_proposal(100, 3);
 		}
 
-		// One too many will fail
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3),
-			Error::<Test, _>::TooManyApprovals
-		);
+		// One too many will fail: the `Approvals` bound is enforced directly since there is no
+		// dispatchable left that can grow the legacy approvals queue.
+		let proposal_index = ProposalCount::<Test>::get();
+		assert!(Approvals::<Test>::try_append(proposal_index).is_err());
 	});
-}
-
-#[test]
-fn remove_already_removed_approval_fails() {
-	#[allow(deprecated)]
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
-
-		assert_eq!(Approvals::<Test>::get(), vec![0]);
-		assert_ok!(Treasury::remove_approval(RuntimeOrigin::root(), 0));
-		assert_eq!(Approvals::<Test>::get(), vec![]);
-
-		assert_noop!(
-			Treasury::remove_approval(RuntimeOrigin::root(), 0),
-			Error::<Test, _>::ProposalNotApproved
-		);
-	});
-}
-
-#[test]
-fn spending_local_in_batch_respects_max_total() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Respect the `max_total` for the given origin.
-		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
-			calls: vec![
-				RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 100 }),
-				RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 101 })
-			]
-		})
-		.dispatch(RuntimeOrigin::signed(10)));
-
-		assert_err_ignore_postinfo!(
-			RuntimeCall::from(UtilityCall::batch_all {
-				calls: vec![
-					RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 100 }),
-					RuntimeCall::from(TreasuryCall::spend_local { amount: 4, beneficiary: 101 })
-				]
-			})
-			.dispatch(RuntimeOrigin::signed(10)),
-			Error::<Test, _>::InsufficientPermission
-		);
-	})
 }
 
 #[test]
@@ -853,11 +756,8 @@ fn check_status_works() {
 fn try_state_proposals_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal and approve using `spend_local`
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
-		}
+		// Add a proposal and approve it
+		add_proposal(1, 3);
 
 		assert_eq!(Proposals::<Test>::iter().count(), 1);
 		assert_eq!(ProposalCount::<Test>::get(), 1);
@@ -877,11 +777,8 @@ fn try_state_proposals_invariant_1_works() {
 fn try_state_proposals_invariant_2_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		#[allow(deprecated)]
-		{
-			// Add a proposal and approve using `spend_local`
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
-		}
+		// Add a proposal and approve it
+		add_proposal(1, 3);
 
 		assert_eq!(Proposals::<Test>::iter().count(), 1);
 		assert_eq!(Approvals::<Test>::get().len(), 1);
@@ -909,11 +806,8 @@ fn try_state_proposals_invariant_2_works() {
 fn try_state_proposals_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal and approve using `spend_local`
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 10, 3));
-		}
+		// Add a proposal and approve it
+		add_proposal(10, 3);
 
 		assert_eq!(Proposals::<Test>::iter().count(), 1);
 		assert_eq!(Approvals::<Test>::get().len(), 1);
@@ -1019,16 +913,13 @@ fn multiple_spend_periods_work() {
 		// 100 will be spent, 1024 will be the burn amount, 1 for ED
 		Balances::make_free_balance_be(&Treasury::account_id(), 100 + 1024 + 1);
 		// approve spend of total amount 100 to beneficiary `6`.
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
-		}
+		add_proposal(5, 6);
+		add_proposal(5, 6);
+		add_proposal(5, 6);
+		add_proposal(5, 6);
+		add_proposal(10, 6);
+		add_proposal(20, 6);
+		add_proposal(50, 6);
 		// free balance of `6` is zero, spend period has not passed.
 		go_to_block(1);
 		assert_eq!(Balances::free_balance(6), 0);
