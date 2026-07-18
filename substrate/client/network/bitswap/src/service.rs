@@ -196,9 +196,9 @@ impl CidState {
 		match &mut self.phase {
 			CidPhase::Ready => self.phase = CidPhase::RetryAt(at),
 			CidPhase::Queued { retry_at: slot @ None } => *slot = Some(at),
-			CidPhase::Queued { retry_at: Some(_) }
-			| CidPhase::InFlight { .. }
-			| CidPhase::RetryAt(_) => return false,
+			CidPhase::Queued { retry_at: Some(_) } |
+			CidPhase::InFlight { .. } |
+			CidPhase::RetryAt(_) => return false,
 		}
 		true
 	}
@@ -2130,9 +2130,9 @@ mod proptests {
 					assert!(
 						matches!(
 							state.phase,
-							CidPhase::Queued { .. }
-								| CidPhase::InFlight { .. }
-								| CidPhase::RetryAt(_)
+							CidPhase::Queued { .. } |
+								CidPhase::InFlight { .. } |
+								CidPhase::RetryAt(_)
 						),
 						"stranded CID {cid}",
 					);
