@@ -1269,10 +1269,9 @@ fn instantiation_from_contract() {
 
 #[test]
 fn reentrant_instantiate_at_same_address_is_rejected() {
-	// Re-entrant `CREATE2` collision (EIP-684): while `B1` is still constructing at address `X`,
-	// its constructor re-enters the deployer, which instantiates the same code+salt again. The
-	// second instantiate resolves to `X` and must be rejected instead of running a second
-	// constructor for the same account.
+	// EIP-684: while `B1` constructs at address `X`, its constructor re-enters the deployer to
+	// instantiate the same code+salt. That resolves to `X` again and must be rejected rather
+	// than run a second constructor for one account.
 	let salt = [42u8; 32];
 
 	let constructor_ch = MockLoader::insert(Constructor, |ctx, _| {
@@ -1298,7 +1297,7 @@ fn reentrant_instantiate_at_same_address_is_rejected() {
 		move |ctx, _| {
 			*invocations.borrow_mut() += 1;
 			let n = *invocations.borrow();
-			// Cap instantiate attempts so the recursion is bounded if the collision is allowed.
+			// Bound the recursion in case the guard fails to reject the collision.
 			if n <= 2 {
 				let min_balance = <Test as Config>::Currency::minimum_balance();
 				let value = Pallet::<Test>::convert_native_to_evm(min_balance);
@@ -1341,10 +1340,8 @@ fn reentrant_instantiate_at_same_address_is_rejected() {
 				&ExecConfig::new_substrate_tx(),
 			));
 
-			// Invoked exactly twice (initial call + one re-entry); without the guard the second
-			// constructor would keep re-entering.
+			// Initial call plus one re-entry; without the guard it would recurse further.
 			assert_eq!(*invocations.borrow(), 2);
-			// The re-entrant instantiate at the in-construction address was rejected.
 			assert_eq!(
 				*second_instantiate_error.borrow(),
 				Some(<Error<Test>>::DuplicateContract.into())

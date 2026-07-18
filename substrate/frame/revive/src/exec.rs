@@ -1235,9 +1235,8 @@ where
 			input_data,
 			self.exec_config,
 		)? {
-			// Reject instantiating at an address already under construction by an ancestor
-			// frame (EIP-684). It isn't in `AccountInfoOf` yet, so `ContractInfo::new`'s
-			// `is_contract` guard can't catch this re-entrant `CREATE2` collision.
+			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
+			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
 			if frame.entry_point == ExportedFunction::Constructor &&
 				self.frames().any(|f| {
 					f.entry_point == ExportedFunction::Constructor &&
