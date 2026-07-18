@@ -21,15 +21,17 @@ frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
+pallet-balances = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
+	"pallet-balances/std",
 	"scale-info/std",
 ]
 try-runtime = [
 	"frame/try-runtime",
+	"pallet-balances/try-runtime",
 ]

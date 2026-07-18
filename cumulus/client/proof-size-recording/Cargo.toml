@@ -13,11 +13,7 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-sc-client-api.workspace = true
-sc-client-api.default-features = true
-sp-blockchain.workspace = true
-sp-blockchain.default-features = true
-sp-runtime.workspace = true
-sp-runtime.default-features = true
-sp-trie.workspace = true
-sp-trie.default-features = true
+sc-client-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }

@@ -21,5 +21,4 @@ name = "subkey"
 
 [dependencies]
 clap = { features = ["derive"], workspace = true }
-sc-cli.workspace = true
-sc-cli.default-features = true
+sc-cli = { workspace = true, default-features = true }
