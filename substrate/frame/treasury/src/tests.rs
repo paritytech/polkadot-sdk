@@ -248,8 +248,7 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
 	let proposal_index = ProposalCount::<Test>::get();
 	Approvals::<Test>::try_append(proposal_index).expect("too many approvals");
-	let proposal =
-		Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
+	let proposal = Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
 	Proposals::<Test>::insert(proposal_index, proposal);
 	ProposalCount::<Test>::put(proposal_index + 1);
 	proposal_index

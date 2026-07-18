@@ -78,12 +78,8 @@ fn add_proposal<T: Config<I>, I: 'static>(
 ) -> Result<ProposalIndex, &'static str> {
 	let proposal_index = ProposalCount::<T, I>::get();
 	Approvals::<T, I>::try_append(proposal_index).map_err(|_| "Too many approvals")?;
-	let proposal = Proposal {
-		proposer: beneficiary.clone(),
-		value,
-		beneficiary,
-		bond: Default::default(),
-	};
+	let proposal =
+		Proposal { proposer: beneficiary.clone(), value, beneficiary, bond: Default::default() };
 	Proposals::<T, I>::insert(proposal_index, proposal);
 	ProposalCount::<T, I>::put(proposal_index + 1);
 	Ok(proposal_index)

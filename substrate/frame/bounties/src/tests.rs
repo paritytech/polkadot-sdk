@@ -57,8 +57,7 @@ fn go_to_block(n: u64) {
 // so that spend-period tests exercising the legacy approvals queue still work.
 fn add_treasury_proposal(value: u64, beneficiary: u128) -> pallet_treasury::ProposalIndex {
 	let proposal_index = pallet_treasury::ProposalCount::<Test>::get();
-	pallet_treasury::Approvals::<Test>::try_append(proposal_index)
-		.expect("too many approvals");
+	pallet_treasury::Approvals::<Test>::try_append(proposal_index).expect("too many approvals");
 	let proposal = pallet_treasury::Proposal {
 		proposer: beneficiary,
 		value,
