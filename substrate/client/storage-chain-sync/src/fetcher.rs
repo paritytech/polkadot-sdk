@@ -31,14 +31,7 @@ use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "storage-chain-fetcher";
 
-const FETCH_TIMEOUT_BASE: Duration = Duration::from_secs(30);
-const FETCH_TIMEOUT_PER_CID: Duration = Duration::from_millis(100);
-const FETCH_TIMEOUT_MAX: Duration = Duration::from_secs(600);
-
-fn fetch_timeout(cid_count: usize) -> Duration {
-	let per_cid = FETCH_TIMEOUT_PER_CID.saturating_mul(cid_count.min(u32::MAX as usize) as u32);
-	FETCH_TIMEOUT_BASE.saturating_add(per_cid).min(FETCH_TIMEOUT_MAX)
-}
+const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Source of Bitswap response streams.
 pub trait BitswapRequest: Send + Sync {
@@ -105,7 +98,7 @@ impl IndexedTransactionFetcher {
 			Err(other) => return Err(FetchError::Bitswap(other)),
 		};
 
-		let deadline = tokio::time::Instant::now() + fetch_timeout(wants.len());
+		let deadline = tokio::time::Instant::now() + FETCH_TIMEOUT;
 		let mut acquired: HashMap<ContentHash, Vec<u8>> = HashMap::with_capacity(wants.len());
 		loop {
 			match tokio::time::timeout_at(deadline, rx.recv()).await {
