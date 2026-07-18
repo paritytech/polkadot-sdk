@@ -31,7 +31,7 @@
 //!   read path (`EventRequest`/`EventResponse`) lands with the event-stream subsystem.
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
@@ -79,11 +79,13 @@ pub fn leaf_hash<H: HashT<Output = Hash>>(leaf_version: u8, payload: &[u8]) -> H
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
+	MaxEncodedLen,
 	PartialEq,
 	Eq,
 	PartialOrd,
 	Ord,
 	Debug,
+	Default,
 	TypeInfo,
 )]
 pub struct MessagePosition(pub u64);

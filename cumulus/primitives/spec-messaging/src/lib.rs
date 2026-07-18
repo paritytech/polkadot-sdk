@@ -43,12 +43,14 @@
 
 extern crate alloc;
 
+pub mod flow_control;
 pub mod lift;
 pub mod message;
 pub mod mmr;
 pub mod stream;
 pub mod streams_root;
 
+pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
 	MMRExtensionProof, MmrFrontier, MmrRoot, RequiresLift, TreeInclusionProof,
