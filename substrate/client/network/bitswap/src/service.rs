@@ -53,6 +53,8 @@ use tokio::{
 	time::Instant,
 };
 
+/// Transport boundary used by the Bitswap actor.
+/// Implementations must verify block bytes before emitting `VerifiedBlock`.
 #[async_trait]
 trait BitswapTransport: Send {
 	async fn next_event(&mut self) -> Option<TransportEvent>;
@@ -157,6 +159,8 @@ impl CidState {
 		matches!(self.phase, CidPhase::Queued { .. })
 	}
 
+	/// Moves a ready CID into the pending queue while preserving its retry deadline.
+	/// Returns `false` when the CID is already queued or in flight.
 	fn queue(&mut self) -> bool {
 		let retry_at = match self.phase {
 			CidPhase::Ready => None,
@@ -167,12 +171,16 @@ impl CidState {
 		true
 	}
 
+	/// Removes a CID from the pending queue and restores its prior scheduling phase.
+	/// Returns `false` when the state was not queued.
 	fn dequeue(&mut self) -> bool {
 		let CidPhase::Queued { retry_at } = self.phase else { return false };
 		self.phase = retry_at.map_or(CidPhase::Ready, CidPhase::RetryAt);
 		true
 	}
 
+	/// Finishes the active request only when `peer` currently owns it.
+	/// The return value indicates whether an in-flight slot was released.
 	fn finish_peer(&mut self, peer: litep2p::PeerId) -> bool {
 		let CidPhase::InFlight { peer: active, .. } = self.phase else { return false };
 		if active != peer {
@@ -182,6 +190,8 @@ impl CidState {
 		true
 	}
 
+	/// Parks an exhausted CID until `at`, including while it waits in the queue.
+	/// Returns `false` when a retry is already scheduled or work remains in flight.
 	fn schedule_retry(&mut self, at: Instant) -> bool {
 		match &mut self.phase {
 			CidPhase::Ready => self.phase = CidPhase::RetryAt(at),
@@ -193,6 +203,8 @@ impl CidState {
 		true
 	}
 
+	/// Starts a new peer-selection round once the retry deadline has elapsed.
+	/// Peer history is cleared so every connected peer becomes eligible again.
 	fn restart_round(&mut self, now: Instant) -> bool {
 		self.phase = match self.phase {
 			CidPhase::RetryAt(at) if at <= now => CidPhase::Ready,
@@ -211,11 +223,11 @@ struct WantSet {
 	inner: HashMap<Cid, CidState>,
 	/// FIFO of CIDs waiting for a free dispatch-window slot. May contain stale entries
 	/// (resolved, abandoned or already-dispatched CIDs); those are skipped on pop, guarded
-	/// by [`CidState::pending`].
+	/// by [`CidState::is_queued`].
 	pending: VecDeque<Cid>,
 	/// Number of CIDs with at least one in-flight peer request.
 	live: usize,
-	/// Number of CIDs with [`CidState::pending`] set, maintained incrementally: the
+	/// Number of queued [`CidState`] entries, maintained incrementally: the
 	/// metrics path reads it after every actor event, so recomputing it by scanning
 	/// `inner` would make large requests quadratic.
 	queued: usize,
@@ -240,6 +252,8 @@ impl WantSet {
 		self.inner.entry(cid).or_default().waiters.push(waiter);
 	}
 
+	/// Detaches a user request from `cid` and removes newly idle state.
+	/// In-flight state remains until its response, timeout, or disconnect arrives.
 	fn remove_waiter(&mut self, cid: Cid, waiter: WaiterId) {
 		if let Some(state) = self.inner.get_mut(&cid) {
 			state.waiters.retain(|w| *w != waiter);
@@ -251,6 +265,8 @@ impl WantSet {
 		self.inner.keys().copied().collect()
 	}
 
+	/// Removes a delivered CID and returns every waiter that should receive it.
+	/// Scheduler counters are released according to the CID's previous phase.
 	fn take_waiters_for_delivered_cid(&mut self, cid: Cid) -> Option<SmallVec<[WaiterId; 2]>> {
 		self.inner.remove(&cid).map(|state| {
 			if matches!(state.phase, CidPhase::InFlight { .. }) {
@@ -267,6 +283,8 @@ impl WantSet {
 		self.live < self.max_live
 	}
 
+	/// Pops the next still-valid queued CID and updates its queue accounting.
+	/// Stale FIFO entries are skipped until a queued state is found.
 	fn pop_pending(&mut self) -> Option<Cid> {
 		while let Some(cid) = self.pending.pop_front() {
 			if let Some(state) = self.inner.get_mut(&cid) {
@@ -280,6 +298,7 @@ impl WantSet {
 	}
 
 	/// Selects an eligible peer for `cid`, queueing it when the dispatch window is full.
+	/// A selected peer owns one live slot until completion, timeout, or disconnect.
 	fn next_peer_to_request<R: Rng + ?Sized>(
 		&mut self,
 		cid: Cid,
@@ -333,6 +352,8 @@ impl WantSet {
 		Some(peer)
 	}
 
+	/// Records a terminal response from `peer` and releases its active slot.
+	/// Late responses cannot finish a newer request owned by a different peer.
 	fn mark_peer_done_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
 		if let Some(state) = self.inner.get_mut(&cid) {
 			if state.finish_peer(peer) {
@@ -343,6 +364,8 @@ impl WantSet {
 		self.remove_if_idle(cid);
 	}
 
+	/// Records that `peer` has a CID and releases its active request.
+	/// A repeated `HAVE` marks that peer tried so another peer is selected next.
 	fn note_peer_have_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
 		if let Some(state) = self.inner.get_mut(&cid) {
 			if state.have_peers.contains(&peer) {
@@ -357,6 +380,8 @@ impl WantSet {
 		self.remove_if_idle(cid);
 	}
 
+	/// Releases every active request owned by a disconnected peer.
+	/// Returned CIDs are still wanted and ready for immediate failover.
 	fn remove_in_flight_peer(&mut self, peer: litep2p::PeerId) -> Vec<Cid> {
 		let mut affected = Vec::new();
 		for (cid, state) in self.inner.iter_mut() {
@@ -388,6 +413,8 @@ impl WantSet {
 		(self.remove_idle_and_filter_existing(timed_out), timed_out_count)
 	}
 
+	/// Restarts every exhausted CID whose retry delay has elapsed.
+	/// Returned CIDs should be reconsidered for immediate dispatch.
 	fn restart_exhausted_rounds(&mut self, now: Instant) -> Vec<Cid> {
 		let mut cids = Vec::new();
 		for (cid, state) in self.inner.iter_mut() {
@@ -405,6 +432,8 @@ impl WantSet {
 		self.queued = 0;
 	}
 
+	/// Removes idle states from `cids` and returns those still tracked.
+	/// The filtered result is safe to feed back into peer selection.
 	fn remove_idle_and_filter_existing(&mut self, cids: Vec<Cid>) -> Vec<Cid> {
 		for cid in &cids {
 			self.remove_if_idle(*cid);
@@ -454,13 +483,14 @@ impl<B: BlockT> InboundLookupPool<B> {
 		)
 	}
 
-	/// Reserve a worker slot, or `None` if all workers are busy. Dropping the permit
-	/// unused returns the slot.
+	/// Reserves a worker slot, or returns `None` if all workers are busy.
+	/// Dropping an unused permit immediately returns the slot.
 	fn try_acquire_worker(&self) -> Option<OwnedSemaphorePermit> {
 		self.semaphore.clone().try_acquire_owned().ok()
 	}
 
-	/// Serve the wantlist on a blocking worker occupying `permit`'s slot.
+	/// Serves a wantlist on a blocking worker occupying `permit`'s slot.
+	/// The permit travels with the result so backpressure retains the slot.
 	fn submit(
 		&self,
 		permit: OwnedSemaphorePermit,
@@ -499,6 +529,7 @@ impl InboundQueue {
 		let free = self.max_entries_per_peer.saturating_sub(queue.len());
 		let dropped = entries.len().saturating_sub(free);
 		entries.truncate(free);
+		// Enter the rotation only on the empty-to-nonempty transition.
 		if queue.is_empty() && !entries.is_empty() {
 			self.rotation.push_back(peer);
 		}
@@ -592,6 +623,8 @@ where
 }
 
 impl<B: BlockT> BitswapService<B> {
+	/// Runs the service actor until a required input stream closes.
+	/// Each event is handled serially before metrics are refreshed.
 	async fn run(mut self) {
 		log::debug!(target: LOG_TARGET, "BitswapService starting");
 		let mut sweep_ticker = tokio::time::interval(SWEEP_INTERVAL);
@@ -650,6 +683,8 @@ impl<B: BlockT> BitswapService<B> {
 		}
 	}
 
+	/// Admits a user wantlist and attaches one waiter to all requested CIDs.
+	/// Requests exceeding the per-CID waiter limit are rejected as overloaded.
 	async fn on_request_stream(&mut self, cids: Vec<Cid>, sink: mpsc::Sender<FetchItem>) {
 		for cid in &cids {
 			if self.wants.waiter_count(cid) >= MAX_WAITERS_PER_CID {
@@ -685,6 +720,7 @@ impl<B: BlockT> BitswapService<B> {
 				}
 			}
 
+			// Fill remaining dispatch slots from the pending FIFO.
 			while self.wants.has_window_capacity() {
 				let Some(cid) = self.wants.pop_pending() else { break };
 				if let Some(peer) =
@@ -705,6 +741,8 @@ impl<B: BlockT> BitswapService<B> {
 		}
 	}
 
+	/// Applies verified blocks and presence updates received from a peer.
+	/// Unresolved presence responses are immediately reconsidered for dispatch.
 	async fn on_inbound_response(
 		&mut self,
 		peer: litep2p::PeerId,
@@ -715,6 +753,7 @@ impl<B: BlockT> BitswapService<B> {
 		for response in responses {
 			match response {
 				TransportResponse::VerifiedBlock { cid, bytes } => {
+					// A late verified block may satisfy a want reassigned to another peer.
 					self.wants.mark_peer_done_for_cid(peer, cid);
 
 					if self.wants.contains(&cid) {
@@ -745,6 +784,8 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
+	/// Delivers a resolved block to every waiter sharing its CID.
+	/// The CID is removed once, releasing any replacement in-flight request.
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
 		let Some(waiter_ids) = self.wants.take_waiters_for_delivered_cid(cid) else { return };
 		self.metrics.record_outbound(outbound_events::DELIVERED, 1);
@@ -765,6 +806,8 @@ impl<B: BlockT> BitswapService<B> {
 		}
 	}
 
+	/// Removes a waiter and detaches it from every unresolved CID.
+	/// CID state is retained only while another waiter or request needs it.
 	fn drop_waiter(&mut self, id: WaiterId) {
 		let Some(waiter) = self.waiters.remove(id) else { return };
 
@@ -773,8 +816,9 @@ impl<B: BlockT> BitswapService<B> {
 		}
 	}
 
+	/// Adds a connected non-light peer and reconsiders every outstanding CID.
+	/// Light peers are ignored because they do not store indexed transactions.
 	async fn on_peer_connected(&mut self, peer: litep2p::PeerId, roles: Roles) {
-		// Light clients do not store indexed transactions.
 		if roles.is_light() {
 			return;
 		}
@@ -783,6 +827,8 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids).await;
 	}
 
+	/// Removes a peer and immediately fails over requests it owned.
+	/// Late responses remain safe because peer ownership is checked on completion.
 	async fn on_peer_disconnected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.remove(&peer);
 		let cids_to_top_up = self.wants.remove_in_flight_peer(peer);
@@ -815,6 +861,8 @@ impl<B: BlockT> BitswapService<B> {
 		self.dispatch_inbound_lookups();
 	}
 
+	/// Queues an inbound peer wantlist and records entries dropped by backpressure.
+	/// Available lookup workers are dispatched immediately after admission.
 	fn on_inbound_request(&mut self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
 		let dropped = self.inbound_queue.enqueue(peer, cids);
 		if dropped > 0 {
@@ -827,6 +875,8 @@ impl<B: BlockT> BitswapService<B> {
 		self.dispatch_inbound_lookups();
 	}
 
+	/// Starts queued inbound lookups while worker permits remain available.
+	/// Work stays queued when either the pool is full or no batch is ready.
 	fn dispatch_inbound_lookups(&mut self) {
 		while let Some(permit) = self.inbound_lookup_pool.try_acquire_worker() {
 			let Some((peer, batch)) = self.inbound_queue.next_batch() else { break };
@@ -838,6 +888,8 @@ impl<B: BlockT> BitswapService<B> {
 		self.metrics.set_state(self.wants.live, self.wants.queued, self.waiters.len());
 	}
 
+	/// Notifies every waiter that the service closed and clears scheduler state.
+	/// Send failures are ignored because the corresponding receiver already vanished.
 	fn shutdown_waiters(&mut self) {
 		for (_, waiter) in self.waiters.drain() {
 			let _ = waiter.sink.try_send(Err(BitswapError::ServiceClosed));
@@ -847,6 +899,8 @@ impl<B: BlockT> BitswapService<B> {
 	}
 }
 
+/// Resolves an inbound wantlist against locally indexed transactions.
+/// Unsupported CIDs and missing transactions become `DONT_HAVE` responses.
 fn serve_inbound<B: BlockT>(
 	client: &(dyn BlockBackend<B> + Send + Sync),
 	cids: Vec<(Cid, WantType)>,
@@ -860,6 +914,7 @@ fn serve_inbound<B: BlockT>(
 				metrics.record_entry(metric_outcomes::UNSUPPORTED_CID);
 				return ResponseType::Presence { cid, presence: BlockPresenceType::DontHave };
 			}
+			// Supported CIDs always carry a 32-byte digest.
 			let hash = H256::from_slice(&cid.hash().digest()[0..32]);
 			let transaction = match client.indexed_transaction(hash) {
 				Ok(t) => t,
