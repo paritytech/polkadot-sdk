@@ -17551,6 +17551,7 @@ dependencies = [
  "sc-keystore",
  "sc-mixnet",
  "sc-network 0.34.0",
+ "sc-network-bitswap",
  "sc-network-common 0.33.0",
  "sc-network-gossip",
  "sc-network-light",
