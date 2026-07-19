@@ -135,6 +135,13 @@ module types {
     | None => l
   }
 
+  /// `Some(e)` -> singleton `{e}`; `None` -> empty set.
+  pure def optionToSet(opt: Option[a]): Set[a] =
+  match opt {
+    | Some(e) => Set(e)
+    | None => Set()
+  }
+
   // --- Abstract hash function ---------------------------------------------
   //
   // We model `hash(head_data)` as an injective function — we only need

@@ -132,7 +132,7 @@ module management {
         // sentinel, equals the new code, or is independently solicited.
         val afterOld =
           if (oldHash == { vchBytes: 0 } or oldHash == newHash or pi.validationCode.pinned)
-          { state: acquired.state, jamSolicit: false, jamForget: false, retained: false, log: None }
+          { state: acquired.state, jamSolicit: None, jamForget: None, retained: false, log: None }
           else
           acquired.state.removeReferencer(para_id, vchAsHash(oldHash), pi.validationCode.ref.len, now)
         // Clear any pending upgrade, releasing its code unless it equals the
@@ -140,10 +140,10 @@ module management {
         val afterPending =
           match pi.pendingUpgrade {
             | None =>
-              { state: afterOld.state, jamSolicit: false, jamForget: false, retained: false, log: None }
+              { state: afterOld.state, jamSolicit: None, jamForget: None, retained: false, log: None }
             | Some(pair) =>
               if (pair._1.ref.hash == newHash or pair._1.pinned)
-                { state: afterOld.state, jamSolicit: false, jamForget: false, retained: false, log: None }
+                { state: afterOld.state, jamSolicit: None, jamForget: None, retained: false, log: None }
               else
                 afterOld.state.removeReferencer(para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
           }
@@ -162,13 +162,8 @@ module management {
               }
             )
           },
-          jamSolicit: if (acquired.jamSolicit) Set(vchAsHash(newHash)) else Set(),
-          jamForget:
-            (if (afterOld.jamForget) Set(vchAsHash(oldHash)) else Set())
-              .union(match pi.pendingUpgrade {
-                | None => Set()
-                | Some(pair) => if (afterPending.jamForget) Set(vchAsHash(pair._1.ref.hash)) else Set()
-              }),
+          jamSolicit: optionToSet(acquired.jamSolicit),
+          jamForget: optionToSet(afterOld.jamForget).union(optionToSet(afterPending.jamForget)),
           // Both the old active and the pending code can enter limbo with
           // distinct deadlines.
           logs: List().appendOption(afterOld.log).appendOption(afterPending.log)
@@ -216,23 +211,19 @@ module management {
         val vc = pi.validationCode.ref
         val afterActive =
           if (vc.hash == { vchBytes: 0 } and vc.len == 0)
-            { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
+            { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
           else
             s.removeReferencer(para_id, vchAsHash(vc.hash), vc.len, now)
         val afterPending = match pi.pendingUpgrade {
           | None =>
-            { state: afterActive.state, jamSolicit: false, jamForget: false, retained: false, log: None }
+            { state: afterActive.state, jamSolicit: None, jamForget: None, retained: false, log: None }
           | Some(pair) =>
             afterActive.state.removeReferencer(
               para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
         }
         val s1 = afterPending.state
         val jamForgets =
-          (if (afterActive.jamForget) Set(vchAsHash(vc.hash)) else Set()).union(
-            match pi.pendingUpgrade {
-              | None => Set()
-              | Some(pair) => if (afterPending.jamForget) Set(vchAsHash(pair._1.ref.hash)) else Set()
-            })
+          optionToSet(afterActive.jamForget).union(optionToSet(afterPending.jamForget))
 
         val stillHeld = afterActive.retained or afterPending.retained
         if (stillHeld) {

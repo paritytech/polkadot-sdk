@@ -666,7 +666,7 @@ module tests {
       // NOT retained (footprint refunded), and no ForgetAgainAt.
       assert(not(d2.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(d2.state.preimageStatus.keys().contains((h, 512)))),
-      assert(d2.jamForget),
+      assert(d2.jamForget == Some(h)),
       assert(not(d2.retained)),
       assert(d2.log == None),
       init
@@ -693,12 +693,12 @@ module tests {
       // now == due -> no-op, still present and retained, ForgetAgainAt re-emitted.
       assert(atDue.state.preimageRegistry.keys().contains((h, 512))),
       assert(atDue.retained),
-      assert(not(atDue.jamForget)),
+      assert(atDue.jamForget == None),
       assert(atDue.log == Some(ForgetAgainAt({ hash: h, len: 512, due: ExpungePeriod }))),
       // now == due + 1 -> expunged.
       assert(not(pastDue.state.preimageRegistry.keys().contains((h, 512)))),
       assert(not(pastDue.state.preimageStatus.keys().contains((h, 512)))),
-      assert(pastDue.jamForget),
+      assert(pastDue.jamForget == Some(h)),
       assert(not(pastDue.retained)),
       init
     }
@@ -726,7 +726,7 @@ module tests {
       // p1 still charged the footprint while retained as the ghost.
       assert(d2.state.paraInfo(p1).usedStateBalance == d1.state.paraInfo(p1).usedStateBalance),
       // Rescue fires a real JAM solicit and moves to Rerequested keeping y = 5.
-      assert(d3.jamSolicit),
+      assert(d3.jamSolicit == Some(h)),
       assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(5)),
       // Ghost p1 is freed+refunded; p2 is the sole live referencer.
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
@@ -763,7 +763,7 @@ module tests {
       // forget, and the retry deadline is the ORIGINAL 10 + ExpungePeriod.
       assert(d5.state.preimageRegistry.keys().contains((h, 512))),
       assert(d5.retained),
-      assert(not(d5.jamForget)),
+      assert(d5.jamForget == None),
       assert(d5.log == Some(ForgetAgainAt({ hash: h, len: 512, due: 10 + ExpungePeriod }))),
       // Status is unchanged (still Rerequested(10)).
       assert(d5.state.preimageStatus.get((h, 512)) == Rerequested(10)),
@@ -786,7 +786,7 @@ module tests {
       assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(7)),
       assert(d2.state.preimageRegistry.get((h, 512)).referencers == Set(para)),
       // Idempotent branch still fires JAM solicit and rescues to Rerequested(7).
-      assert(d3.jamSolicit),
+      assert(d3.jamSolicit == Some(h)),
       assert(d3.state.preimageStatus.get((h, 512)) == Rerequested(7)),
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(para)),
       init
@@ -868,7 +868,7 @@ module tests {
       assert(s0.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para)),
       assert(stillArmed),
       assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para)),
-      assert(not(reaped.jamForget)),
+      assert(reaped.jamForget == None),
       init
     }
   }
@@ -890,7 +890,7 @@ module tests {
       // referencer are gone, no limbo status remains, JAM `forget` forwarded.
       assert(not(reaped.state.preimageRegistry.keys().contains((vchAsHash(pendingUpgradeHash), FixedCodeLen)))),
       assert(not(reaped.state.preimageStatus.keys().contains((vchAsHash(pendingUpgradeHash), FixedCodeLen)))),
-      assert(reaped.jamForget),
+      assert(reaped.jamForget == Some(vchAsHash(pendingUpgradeHash))),
       // The active code is untouched.
       assert(reaped.state.hasReferencer(
         vchAsHash(s0.paraInfo(para).validationCode.ref.hash), FixedCodeLen, para)),
@@ -921,7 +921,7 @@ module tests {
       assert(reaped.state.paraInfo(para).pendingUpgrade == None),
       // Referencer survives because the para independently solicited it.
       assert(reaped.state.hasReferencer(vchAsHash(pendingUpgradeHash), FixedCodeLen, para)),
-      assert(not(reaped.jamForget)),
+      assert(reaped.jamForget == None),
       init
     }
   }

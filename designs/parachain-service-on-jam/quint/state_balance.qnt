@@ -90,10 +90,10 @@ module state_balance {
   type PreimageDelta = {
     // The mutated service state.
     state: ParachainServiceState,
-    // Whether JAM `solicit` should be invoked for `hash`.
-    jamSolicit: bool,
-    // Whether JAM `forget` should be invoked for `hash`.
-    jamForget: bool,
+    // `Some(hash)` iff JAM `solicit` should be invoked for that hash.
+    jamSolicit: Option[Hash],
+    // `Some(hash)` iff JAM `forget` should be invoked for that hash.
+    jamForget: Option[Hash],
     // `true` iff `removeReferencer` kept the para as a referencer awaiting the
     // second, expunging forget (first forget of the last referencer, §6.1).
     retained: bool,
@@ -131,16 +131,16 @@ module state_balance {
       // must fire JAM `solicit` to rescue it, else the para cannot look it up.
       if (isRescue)
         { state: { ...s, preimageStatus: rescuedStatus },
-          jamSolicit: true, jamForget: false, retained: false, log: None }
+          jamSolicit: Some(h), jamForget: None, retained: false, log: None }
       else
-        { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
+        { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else if (not(pi.hasHeadroom(delta))) {
       // Insufficient headroom for a genuinely new reference — no state
       // change, log it.
       {
         state: s,
-        jamSolicit: false,
-        jamForget: false,
+        jamSolicit: None,
+        jamForget: None,
         retained: false,
         log: Some(InsufficientStateBalance(FromSolicit({ hash: h, len: len })))
       }
@@ -179,8 +179,8 @@ module state_balance {
           preimageRegistry: s.preimageRegistry.put((h, len), newEntry),
           preimageStatus: newStatus
         },
-        jamSolicit: wasEmpty or isRescue,
-        jamForget: false,
+        jamSolicit: if (wasEmpty or isRescue) Some(h) else None,
+        jamForget: None,
         retained: false,
         log: None
       }
@@ -194,7 +194,7 @@ module state_balance {
   ): PreimageDelta = {
     if (not(s.hasReferencer(h, len, para_id))) {
       // Idempotent: not a referencer, no-op (design §4.3 `forget`).
-      { state: s, jamSolicit: false, jamForget: false, retained: false, log: None }
+      { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else {
       val pi = s.paraInfo(para_id)
       val delta = preimageFootprint(len)
@@ -209,8 +209,8 @@ module state_balance {
             parachains: s.parachains.put(para_id, pi.addUsed(-delta)),
             preimageRegistry: s.preimageRegistry.put((h, len), { ...e, referencers: rest })
           },
-          jamSolicit: false,
-          jamForget: false,
+          jamSolicit: None,
+          jamForget: None,
           retained: false,
           log: None
         }
@@ -225,8 +225,8 @@ module state_balance {
             preimageRegistry: s.preimageRegistry.mapRemove((h, len)),
             preimageStatus: s.preimageStatus.mapRemove((h, len))
           },
-          jamSolicit: false,
-          jamForget: true,
+          jamSolicit: None,
+          jamForget: Some(h),
           retained: false,
           log: None
         }
@@ -240,8 +240,8 @@ module state_balance {
             // unrequest slot, log the expunge deadline.
             {
               state: { ...s, preimageStatus: s.preimageStatus.put((h, len), Unrequested(now)) },
-              jamSolicit: false,
-              jamForget: true,
+              jamSolicit: None,
+              jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
             }
@@ -252,8 +252,8 @@ module state_balance {
             if (now > due) expunged
             else {
               state: s,
-              jamSolicit: false,
-              jamForget: false,
+              jamSolicit: None,
+              jamForget: None,
               retained: true,
               log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
             }
@@ -265,14 +265,14 @@ module state_balance {
             val due = since + ExpungePeriod
             if (now > due) {
               state: { ...s, preimageStatus: s.preimageStatus.put((h, len), Unrequested(now)) },
-              jamSolicit: false,
-              jamForget: true,
+              jamSolicit: None,
+              jamForget: Some(h),
               retained: true,
               log: Some(ForgetAgainAt({ hash: h, len: len, due: now + ExpungePeriod }))
             } else {
               state: s,
-              jamSolicit: false,
-              jamForget: false,
+              jamSolicit: None,
+              jamForget: None,
               retained: true,
               log: Some(ForgetAgainAt({ hash: h, len: len, due: due }))
             }

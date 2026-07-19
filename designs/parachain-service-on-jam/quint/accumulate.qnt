@@ -89,7 +89,7 @@ module accumulate {
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
-          jamSolicit: if (d.jamSolicit) acc.jamSolicit.union(Set(vchAsHash(payload.hash))) else acc.jamSolicit,
+          jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log)
@@ -127,7 +127,7 @@ module accumulate {
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
-          jamSolicit: if (d.jamSolicit) acc.jamSolicit.union(Set(payload.hash)) else acc.jamSolicit,
+          jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log)
@@ -167,7 +167,7 @@ module accumulate {
           state: d.state,
           jamDesignate: acc.jamDesignate,
           jamSolicit: acc.jamSolicit,
-          jamForget: if (d.jamForget) acc.jamForget.union(Set(payload.hash)) else acc.jamForget,
+          jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log)
         }
@@ -358,7 +358,7 @@ module accumulate {
             state: reaped.state,
             rejected: true,
             jamSolicit: Set(),
-            jamForget: if (reaped.jamForget) Set({ hashBytes: 0 }) else Set(),
+            jamForget: optionToSet(reaped.jamForget),
             logs: List(InvalidCodeHashAcc(r.validationCode.hash))
           }
         } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
@@ -370,7 +370,7 @@ module accumulate {
             state: reaped.state,
             rejected: true,
             jamSolicit: Set(),
-            jamForget: if (reaped.jamForget) Set({ hashBytes: 0 }) else Set(),
+            jamForget: optionToSet(reaped.jamForget),
             logs: List(InvalidCodeHashAcc(r.validationCode.hash))
           }
         } else {
@@ -382,18 +382,12 @@ module accumulate {
           }
           // Step 4b: activate code upgrade if this candidate used the pending hash.
           val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen, now)
-          val solicits =
-          if (reaped.jamSolicit) Set({ hashBytes: 0 }) else Set()
-          val forgets = (
-            if (reaped.jamForget) Set({ hashBytes: 0 }) else Set()
-          ).union(
-            if (activated.jamForget) Set({ hashBytes: 0 }) else Set()
-          )
+           
           {
             state: activated.state,
             rejected: false,
-            jamSolicit: solicits,
-            jamForget: forgets,
+            jamSolicit: optionToSet(reaped.jamSolicit),
+            jamForget: optionToSet(reaped.jamForget).union(optionToSet(activated.jamForget)),
             logs: List()
           }
         }
