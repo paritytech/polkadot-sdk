@@ -15,11 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use bitvec::{bitvec, prelude::Lsb0};
+use codec::Encode;
 use frame_benchmarking::v2::*;
 use pallet_message_queue as mq;
 use polkadot_primitives::{
-	CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, HrmpChannelId,
-	OutboundHrmpMessage, SessionIndex,
+	CandidateCommitments, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash,
+	HrmpChannelId, OutboundHrmpMessage, SessionIndex, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 };
 
 use super::*;
@@ -113,7 +114,19 @@ mod benchmarks {
 		let head_data = HeadData(vec![0xFF; 1024]);
 
 		let relay_parent_number = BlockNumberFor::<T>::from(10_u32);
-		let commitments = create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
+		let mut commitments =
+			create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
+
+		// Speculative messaging: carry a `Provides` signal so `enact_candidate` records it into the
+		// sender's provides window, and pre-fill that window so the record hits its worst case (a
+		// full-window `RecentProvides` read + drop-oldest + write).
+		commitments.upward_messages.force_push(UMP_SEPARATOR);
+		commitments
+			.upward_messages
+			.force_push(UMPSignal::Provides(StreamsRoot(Hash::from_low_u64_be(u64::MAX))).encode());
+		for i in 0..MAX_PROVIDES_WINDOW_SIZE {
+			Pallet::<T>::record_provides(para, StreamsRoot(Hash::from_low_u64_be(i as u64)));
+		}
 		let backers = bitvec![u8, Lsb0; 1; backing_group_size as usize];
 		let availability_votes = bitvec![u8, Lsb0; 1; n_validators as usize];
 		let core_index = CoreIndex::from(0);
