@@ -134,6 +134,18 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 
 	if captured.is_none() {
 		let index = OutsideFrameLogCount::<T>::get();
+		// Cap the per-block buffer so the `on_finalize` drain (reserved in `on_initialize` as
+		// `MaxOutsideFrameLogs * on_finalize_block_per_outside_frame_log`) can never exceed its
+		// declared weight. The per-emit weight charged on each firing path is expected to exhaust
+		// block weight well before this backstop is hit; a log dropped here has no `Transfer` entry
+		// despite its balance event, so reaching the cap is a degraded, warned condition.
+		if index >= <T as Config>::MaxOutsideFrameLogs::get() {
+			log::warn!(
+				target: LOG_TARGET,
+				"outside-of-frame log buffer full ({index} logs); dropping log for {contract:?}",
+			);
+			return;
+		}
 		OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
 		OutsideFrameLogCount::<T>::put(index.saturating_add(1));
 	}

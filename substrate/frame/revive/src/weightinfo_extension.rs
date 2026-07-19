@@ -54,6 +54,15 @@ pub trait OnFinalizeBlockParts {
 	/// # Parameters
 	/// - `data_len`: Total bytes of event data (includes topics and data field)
 	fn on_finalize_block_per_event(data_len: u32) -> Weight;
+
+	/// Returns the per-log weight cost for draining one buffered outside-of-frame log in
+	/// `on_finalize` (see `OutsideFrameLogs`).
+	///
+	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. This
+	/// marginal cost, multiplied by [`Config::MaxOutsideFrameLogs`], is reserved up-front in
+	/// `on_initialize` so the synthetic transaction's drain never exceeds the block's declared
+	/// weight.
+	fn on_finalize_block_per_outside_frame_log() -> Weight;
 }
 
 /// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo`
@@ -120,5 +129,12 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		};
 
 		per_event_cost.saturating_add(data_cost)
+	}
+
+	fn on_finalize_block_per_outside_frame_log() -> Weight {
+		// The `on_finalize_per_event` benchmark buffers its events via `capture_ethereum_log` and
+		// measures only the `on_finalize` drain, so its marginal is exactly the per-log drain cost
+		// (`OutsideFrameLogs::take` + RLP/bloom `add_log`).
+		W::on_finalize_per_event(1).saturating_sub(W::on_finalize_per_event(0))
 	}
 }
