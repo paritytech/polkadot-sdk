@@ -402,6 +402,18 @@ pub mod pallet {
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type GasScale: Get<u32>;
+
+		/// Maximum number of logs that may be buffered outside any ethereum transaction within a
+		/// single block (see [`OutsideFrameLogs`]).
+		///
+		/// These are logs mirrored from substrate-native activity (e.g. plain pallet-assets
+		/// transfers, XCM) that have no ethereum transaction to attach a receipt to; they are
+		/// drained in `on_finalize` into one synthetic transaction. This bound caps the worst-case
+		/// drain cost so it can be reserved up-front in `on_initialize`. Buffering beyond the cap
+		/// drops the log (see `capture_ethereum_log`); the per-emit weight charged on each firing
+		/// path is expected to exhaust block weight before the cap is reached.
+		#[pallet::constant]
+		type MaxOutsideFrameLogs: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -488,6 +500,7 @@ pub mod pallet {
 			type AutoMap = ConstBool<false>;
 			type GasScale = GasScale;
 			type OnBurn = ();
+			type MaxOutsideFrameLogs = ConstU32<1024>;
 		}
 	}
 
@@ -992,8 +1005,14 @@ pub mod pallet {
 
 			// Warm up the pallet account.
 			System::<T>::account_exists(&Pallet::<T>::account_id());
-			// Account for the fixed part of the costs incurred in `on_finalize`.
-			<T as Config>::WeightInfo::on_finalize_block_fixed()
+			// Account for the fixed part of the costs incurred in `on_finalize`, plus the worst-case
+			// drain of the outside-of-frame log buffer (bounded by `MaxOutsideFrameLogs`). The
+			// buffer is filled during the block's extrinsics, after `on_initialize` runs, so the
+			// count is unknown here and the cap is reserved conservatively.
+			<T as Config>::WeightInfo::on_finalize_block_fixed().saturating_add(
+				<T as Config>::WeightInfo::on_finalize_block_per_outside_frame_log()
+					.saturating_mul(<T as Config>::MaxOutsideFrameLogs::get().into()),
+			)
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {

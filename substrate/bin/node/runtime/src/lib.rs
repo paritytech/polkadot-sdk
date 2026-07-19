@@ -1630,6 +1630,8 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// The ERC-20 Transfer log callback is not wired here, so nothing buffers outside-of-frame logs.
+	type MaxOutsideFrameLogs = ConstU32<0>;
 	type Deposit = ();
 }
 
