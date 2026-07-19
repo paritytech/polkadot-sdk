@@ -147,24 +147,6 @@ impl ChannelLedger {
 			&self.base,
 		)
 	}
-
-	/// Drops payloads (and advances the base frontier) below `position` —
-	/// the runtime's cursor moved past them. `position` beyond the ledger
-	/// clears it entirely (another collator's block consumed material we
-	/// never pooled; the fetcher restarts trust-free from the new cursor).
-	///
-	/// Returns `false` when the ledger became useless and should be dropped.
-	fn prune_below(&mut self, position: u64) -> bool {
-		if position > self.end_position() {
-			return false;
-		}
-		while self.base_position() < position {
-			let leaf = self.leaves.pop_front().expect("base < end implies leaves remain; qed");
-			self.payloads.pop_front();
-			self.base.append_leaf(leaf);
-		}
-		true
-	}
 }
 
 /// Global-position leaf access over a ledger's retained run.
@@ -320,15 +302,22 @@ impl SpecMsgPool {
 		self.sources.lock().retain(|source, _| keep(source));
 	}
 
-	/// Drops pooled payloads of `stream` below the runtime's cursor. A
-	/// cursor beyond the pooled run drops the ledger entirely (a block of
-	/// another collator consumed material we never pooled; the fetcher
-	/// restarts trust-free from the new cursor).
+	/// Reconciles `stream`'s ledger with the runtime's cursor. A cursor
+	/// beyond the pooled run drops the ledger entirely (a block of another
+	/// collator consumed material we never pooled; the fetcher restarts
+	/// trust-free from the new cursor).
+	///
+	/// Payloads *below* the cursor are deliberately retained: the cursor is
+	/// read at an unfinalized block, and a consuming ancestor may yet be
+	/// reorged away — dropping the payloads would strand the surviving
+	/// branch on an unservable gap (ordered streams admit no skips).
+	/// Retention discipline against *finalized* consumption is future work;
+	/// pooled runs are bounded by the fetch chunking meanwhile.
 	pub fn prune_channel(&self, source: ParaId, stream: &StreamId, cursor: u64) {
 		let mut sources = self.sources.lock();
 		let Some(pool) = sources.get_mut(&source) else { return };
-		let Some(ledger) = pool.channels.get_mut(stream) else { return };
-		if !ledger.prune_below(cursor) {
+		let Some(ledger) = pool.channels.get(stream) else { return };
+		if cursor > ledger.end_position() {
 			pool.channels.remove(stream);
 		}
 	}
@@ -338,9 +327,10 @@ impl SpecMsgPool {
 	/// `channel_cursors` are the consumed channel streams with the runtime's
 	/// resume cursor at the authoring parent (`consumed_streams()`);
 	/// `register_streams` the ack streams to read (`out_channels()` keys).
-	/// Pooled payloads below a cursor were consumed by ancestors and are
-	/// pruned; what is handed over is the contiguous continuation from the
-	/// cursor, within `budget`.
+	/// What is handed over is the contiguous continuation from the cursor,
+	/// within `budget`. Handing is non-destructive: the authoring parent may
+	/// sit on a fork that never survives, so payloads its ancestors consumed
+	/// stay pooled for the branches that did not (see [`Self::prune_channel`]).
 	///
 	/// Only material bound to the source's current target root is handed
 	/// over — the guarantee that lift assembly for the resulting block
@@ -363,9 +353,15 @@ impl SpecMsgPool {
 			}
 			let Some(pool) = sources.get_mut(source) else { continue };
 			let target = pool.target;
-			let Some(ledger) = pool.channels.get_mut(stream) else { continue };
-			if !ledger.prune_below(*cursor) {
+			let Some(ledger) = pool.channels.get(stream) else { continue };
+			if *cursor > ledger.end_position() {
+				// Another collator's block consumed material we never pooled;
+				// the fetcher restarts trust-free from the new cursor.
 				pool.channels.remove(stream);
+				continue;
+			}
+			if *cursor < ledger.base_position() {
+				// The continuation from the cursor is not retained.
 				continue;
 			}
 			if ledger.binding.as_ref().map(|binding| binding.root) != target {
@@ -373,9 +369,11 @@ impl SpecMsgPool {
 				// run for one block rather than risk an unliftable record.
 				continue;
 			}
+			let skip = usize::try_from(*cursor - ledger.base_position())
+				.expect("pooled runs are memory-resident; qed");
 			let mut take = 0usize;
 			let mut taken_bytes = 0usize;
-			for payload in &ledger.payloads {
+			for payload in ledger.payloads.iter().skip(skip) {
 				if taken_bytes + payload.len() > bytes_left {
 					break;
 				}
@@ -386,7 +384,8 @@ impl SpecMsgPool {
 				continue;
 			}
 			bytes_left -= taken_bytes;
-			let payloads: Vec<Vec<u8>> = ledger.payloads.iter().take(take).cloned().collect();
+			let payloads: Vec<Vec<u8>> =
+				ledger.payloads.iter().skip(skip).take(take).cloned().collect();
 			data.messages.push((*source, *stream, payloads));
 		}
 

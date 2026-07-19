@@ -11,6 +11,7 @@ publish = false
 anyhow = { workspace = true }
 asset-hub-westend-runtime = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
+cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 env_logger = { workspace = true }

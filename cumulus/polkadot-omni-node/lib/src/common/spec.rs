@@ -20,6 +20,7 @@ use crate::{
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
+		spec_msg::{new_spec_msg_protocol, SpecMsgDeps},
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
@@ -105,6 +106,7 @@ where
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		block_import_extra_return_value: BIAuxiliaryData,
+		spec_msg: Option<SpecMsgDeps<Block>>,
 	) -> Result<(), sc_service::Error>;
 }
 
@@ -397,6 +399,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				(proto, config)
 			});
 
+			// Speculative Messaging: the `/spec-msg/exchange` protocol must be
+			// registered before the network is built; the tasks start below,
+			// once the network service exists.
+			let spec_msg_protocol =
+				new_spec_msg_protocol::<_, _, Net>(client.clone(), &mut net_config)?;
+
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
@@ -602,6 +610,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry: prometheus_registry.as_ref(),
 			})?;
 
+			// Speculative Messaging: archive + exchange handler on every node;
+			// monitor + fetch pipeline (whose deps feed the consensus wiring)
+			// on collators. Everything version-gates on the `SpecMsgApi`
+			// runtime API and idles for non-participating runtimes.
+			let spec_msg = spec_msg_protocol.start(
+				&task_manager,
+				client.clone(),
+				network.clone(),
+				relay_chain_interface.clone(),
+				para_id,
+				validator,
+				&node_extra_args.spec_msg_source_peers,
+			)?;
+
 			start_bootnode_tasks(StartBootnodeTasksParams {
 				embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
 				dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
@@ -637,6 +659,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					backend.clone(),
 					node_extra_args,
 					block_import_auxiliary_data,
+					spec_msg,
 				)?;
 			}
 

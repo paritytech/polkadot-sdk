@@ -51,13 +51,14 @@
 
 use std::sync::Arc;
 
+use codec::Encode;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::traits::Block as BlockT;
 
-use cumulus_primitives_core::{ParaId, SpecMsgApi};
+use cumulus_primitives_core::{relay_chain::UMPSignal, ParaId, SpecMsgApi};
 use cumulus_primitives_spec_messaging::{
-	ConsumedStream, ConsumptionRecord, Interval, LiftsBySource, MmrFrontier, RequiresLift,
-	SpecMsgInherentData, StreamId, StreamsRoot,
+	build_requires, ConsumedStream, ConsumptionRecord, Interval, LiftError, LiftsBySource,
+	MmrFrontier, RequiresLift, SpecMsgInherentData, StreamId, StreamsRoot,
 };
 
 use crate::{
@@ -148,6 +149,10 @@ pub enum AssembleError {
 	/// The synthesized lifts do not form a canonical `LiftsBySource`.
 	#[error("lifts do not form a canonical per-source set")]
 	NonCanonical,
+	/// The assembled lifts did not pass the wrapper's own `Requires`
+	/// synthesis — a local bug, since the assembler generated them.
+	#[error("`Requires` synthesis over the assembled lifts failed: {0:?}")]
+	Synthesis(LiftError),
 }
 
 /// Assembles the candidate's lifts for the built (and imported) `blocks`,
@@ -164,6 +169,30 @@ where
 	Client: ProvideRuntimeApi<Block>,
 	Client::Api: SpecMsgApi<Block>,
 {
+	assemble_collation(client, pool, blocks).map(|(lifts, _)| lifts)
+}
+
+/// Assembles the candidate's spec-msg pieces for the built `blocks`: the
+/// POV-carried lifts plus the encoded, synthesized `Requires` UMP signal
+/// (`None` when nothing was consumed).
+///
+/// The signal must be part of the *declared* candidate commitments: the
+/// `validate_block` wrapper synthesizes exactly the same entries from the
+/// records and lifts and appends them after the block-emitted signals — a
+/// collator that omits them declares different commitments and its
+/// candidate is rejected at backing. Running [`build_requires`] here (the
+/// wrapper's own code) over the assembler's records and lifts is what
+/// guarantees byte-identity.
+pub fn assemble_collation<Block, Client>(
+	client: &Client,
+	pool: &SpecMsgPool,
+	blocks: &[Block],
+) -> Result<(LiftsBySource, Option<Vec<u8>>), AssembleError>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: SpecMsgApi<Block>,
+{
 	let api = client.runtime_api();
 	let mut records = Vec::with_capacity(blocks.len());
 	for block in blocks {
@@ -173,7 +202,9 @@ where
 		}
 		records.push(api.consumption_record(hash)?);
 	}
-	assemble_from_records(pool, &records)
+	let lifts = assemble_from_records(pool, &records)?;
+	let requires = build_requires(&records, &lifts).map_err(AssembleError::Synthesis)?;
+	Ok((lifts, requires.map(|set| UMPSignal::Requires(set).encode())))
 }
 
 /// The pure assembly core over the bundle's records — what
@@ -242,30 +273,30 @@ fn chain_endpoint(intervals: &[Interval]) -> Result<MmrFrontier, AssembleError> 
 	Ok(end)
 }
 
-/// Wraps [`assemble_lifts`] into the lift-assembler closure
+/// Wraps [`assemble_collation`] into the assembler closure
 /// `CollatorService::with_spec_msg_lift_assembler` accepts. Assembly
-/// failures are logged loudly and yield no lifts — the candidate then fails
+/// failures are logged loudly and yield nothing — the candidate then fails
 /// validation if it consumed anything, exactly as visible as submitting
 /// nothing (the material regenerates on the next round; blocks never go
 /// stale).
 pub fn lift_assembler<Block, Client>(
 	client: Arc<Client>,
 	pool: Arc<SpecMsgPool>,
-) -> Arc<dyn Fn(&[Block]) -> LiftsBySource + Send + Sync>
+) -> Arc<dyn Fn(&[Block]) -> (LiftsBySource, Option<Vec<u8>>) + Send + Sync>
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	Client::Api: SpecMsgApi<Block>,
 {
-	Arc::new(move |blocks| match assemble_lifts(&*client, &pool, blocks) {
-		Ok(lifts) => lifts,
+	Arc::new(move |blocks| match assemble_collation(&*client, &pool, blocks) {
+		Ok(assembled) => assembled,
 		Err(error) => {
 			tracing::error!(
 				target: LOG_TARGET,
 				?error,
 				"Failed to assemble the candidate's lifts",
 			);
-			LiftsBySource::default()
+			(LiftsBySource::default(), None)
 		},
 	})
 }
@@ -487,12 +518,20 @@ mod tests {
 		let stream = channel(RECEIVER);
 
 		// Cursor 4: ancestors consumed four; a 64-byte budget hands exactly
-		// the four-payload continuation 4..8, the rest stays pooled.
+		// the four-payload continuation 4..8. Handing is non-destructive —
+		// the whole run stays pooled (the parent may sit on a losing fork).
 		let budget = InherentBudget { max_bytes: 64, max_streams: 8 };
 		let data = pool.build_inherent(&[(source(), stream, 4)], &[], budget);
 		assert_eq!(data.messages, vec![(source(), stream, all_payloads(&stream, 8)[4..].to_vec())]);
 		assert!(data.register_reads.is_empty());
-		assert_eq!(pool.pooled_payloads(source(), &stream), 6);
+		assert_eq!(pool.pooled_payloads(source(), &stream), 10);
+
+		// Fork safety: after a fork parent's cursor (4) was served, a block
+		// on a branch whose ancestors consumed NOTHING still gets the full
+		// run from position 0 — a lost fork must never strand the survivor.
+		let from_zero =
+			pool.build_inherent(&[(source(), stream, 0)], &[], InherentBudget::default());
+		assert_eq!(from_zero.messages, vec![(source(), stream, all_payloads(&stream, 10))]);
 
 		// Register reads are handed at most once per verified read.
 		let data =

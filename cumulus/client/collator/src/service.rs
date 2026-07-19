@@ -43,17 +43,21 @@ use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
 
-/// Assembles the Speculative Messaging lifts for the (imported) blocks of a
-/// candidate, bundle order: one `RequiresLift` per stream the blocks'
-/// consumption records touch, regenerated from public data against the
-/// currently committed source roots. Returns an empty set when the blocks
-/// consumed nothing (the collation then stays on the pre-V3
-/// `ParachainBlockData` versions).
+/// Assembles the Speculative Messaging pieces for the (imported) blocks of
+/// a candidate, bundle order: the lifts — one `RequiresLift` per stream the
+/// blocks' consumption records touch, regenerated from public data against
+/// the currently committed source roots — plus the encoded, synthesized
+/// `Requires` UMP signal for the declared candidate commitments (the
+/// `validate_block` wrapper appends exactly the same signal; a collator
+/// omitting it declares different commitments and is rejected at backing).
+/// Returns an empty set and no signal when the blocks consumed nothing
+/// (the collation then stays on the pre-V3 `ParachainBlockData` versions).
 ///
 /// The implementation lives in `cumulus-client-spec-msg`
 /// (`lift_assembler`); nodes without the spec-msg subsystems simply do not
 /// set one.
-pub type SpecMsgLiftAssembler<Block> = Arc<dyn Fn(&[Block]) -> LiftsBySource + Send + Sync>;
+pub type SpecMsgLiftAssembler<Block> =
+	Arc<dyn Fn(&[Block]) -> (LiftsBySource, Option<Vec<u8>>) + Send + Sync>;
 
 /// Utility functions generally applicable to writing collators for Cumulus.
 pub trait ServiceInterface<Block: BlockT> {
@@ -348,12 +352,17 @@ where
 		// POV-carried lifts — the `validate_block` wrapper synthesizes the
 		// candidate's `Requires` from them. Lifts are candidate assembly
 		// data (regenerable by anyone from public data), never part of the
-		// blocks; an empty set keeps the pre-V3 encoding.
-		let lifts = self
+		// blocks; an empty set keeps the pre-V3 encoding. The synthesized
+		// `Requires` signal itself belongs to the DECLARED commitments: the
+		// wrapper appends it after the block-emitted signals, so it goes
+		// last into the signal tail below — byte-matching the wrapper's
+		// re-assembly.
+		let (lifts, requires_signal) = self
 			.spec_msg_lift_assembler
 			.as_ref()
 			.map(|assemble| assemble(&blocks))
 			.unwrap_or_default();
+		upward_message_signals.extend(requires_signal);
 
 		let block_data = if lifts.is_empty() {
 			ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof)
