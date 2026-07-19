@@ -43,8 +43,14 @@ pub struct MockExt<T: Config> {
 
 impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
+		Self::with_weight_limit(Weight::MAX)
+	}
+
+	/// Like [`Self::new`] but caps the frame's weight budget, so charges beyond `weight_limit`
+	/// halt with `OutOfGas`.
+	pub fn with_weight_limit(weight_limit: Weight) -> Self {
 		let transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
-			weight_limit: Weight::MAX,
+			weight_limit,
 			deposit_limit: BalanceOf::<T>::max_value(),
 		})
 		.unwrap();
