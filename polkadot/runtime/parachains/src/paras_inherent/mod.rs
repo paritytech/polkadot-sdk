@@ -440,6 +440,9 @@ impl<T: Config> Pallet<T> {
 
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
 
+		// Speculative messaging: no provides-window eviction here — a dispute revert is rolled back
+		// by the node's state-revert (see `inclusion::RecentProvides`).
+
 		if T::DisputesHandler::is_frozen() {
 			// Relay chain freeze, at this point we will not include any parachain blocks.
 			METRICS.on_relay_chain_freeze();
@@ -609,6 +612,7 @@ impl<T: Config> Pallet<T> {
 
 		let node_features = configuration::ActiveConfig::<T>::get().node_features;
 		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
+		let speculative_enabled = FeatureIndex::SpeculativeMessaging.is_set(&node_features);
 
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
@@ -616,6 +620,7 @@ impl<T: Config> Pallet<T> {
 			concluded_invalid_hashes,
 			eligible,
 			v3_enabled,
+			speculative_enabled,
 		);
 		let count = count_backed_candidates(&backed_candidates_with_core);
 
@@ -1108,6 +1113,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	v3_enabled: bool,
+	speculative_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
@@ -1119,6 +1125,14 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 			allowed_scheduling_parents,
 			v3_enabled,
 		) {
+			continue;
+		}
+
+		// Speculative messaging: drop candidates carrying speculative UMP signals while the feature
+		// is disabled, and drop a candidate whose `requires` are not in the relay-side provides
+		// window. Dropping here breaks the para's chain, so descendants are dropped by
+		// `filter_unchained_candidates` below (same as the other pre-chain filters).
+		if !check_speculative_messaging::<T>(&candidate, speculative_enabled) {
 			continue;
 		}
 
@@ -1162,6 +1176,55 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	);
 
 	backed_candidates_with_core
+}
+
+/// Speculative-messaging admission check for one candidate. Returns `true` to keep the candidate:
+///
+/// - **feature off** — drop it if it carries any `Provides`/`Requires` UMP signal (migration
+///   safety: otherwise its `Provides` would seed the window with no matching performed);
+/// - **feature on** — drop it if its `Requires` set is not fully present in the relay-side provides
+///   window (every `(source, StreamsRoot)` must be in that source's `RecentProvides`);
+/// - otherwise keep it. A malformed UMP-signal set is treated as no speculative signals (rejected
+///   separately by `check_descriptor_version_and_signals`).
+///
+/// Matches against the *stored* window only — a `Requires` is satisfiable by a sender already
+/// enacted into the ring, not by a co-arriving same-relay-block sender. The design's virtually
+/// extended window (and the atomic enactment dependencies it needs) is only required for the
+/// live / speculative tier (same-relay-block co-arrival), so it is omitted here.
+fn check_speculative_messaging<T: crate::inclusion::Config>(
+	candidate: &BackedCandidate<T::Hash>,
+	speculative_enabled: bool,
+) -> bool {
+	let Ok(signals) = candidate.candidate().commitments.ump_signals() else {
+		return true;
+	};
+
+	if !speculative_enabled {
+		if signals.provides().is_some() || signals.requires().is_some() {
+			log::debug!(
+				target: LOG_TARGET,
+				"Dropping candidate {:?} for para {:?}: speculative UMP signals while feature disabled.",
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id(),
+			);
+			return false;
+		}
+		return true;
+	}
+
+	if let Some(requires) = signals.requires() {
+		if !crate::inclusion::Pallet::<T>::requires_satisfied(requires) {
+			log::debug!(
+				target: LOG_TARGET,
+				"Dropping candidate {:?} for para {:?}: requires not in provides window.",
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id(),
+			);
+			return false;
+		}
+	}
+
+	true
 }
 
 fn count_backed_candidates<B>(backed_candidates: &BTreeMap<ParaId, Vec<B>>) -> usize {

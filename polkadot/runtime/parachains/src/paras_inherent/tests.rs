@@ -4542,6 +4542,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						false,
+						false,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -4566,6 +4567,7 @@ mod sanitizers {
 						BTreeSet::new(),
 						scheduled,
 						v2_descriptor,
+						false,
 					),
 					expected_backed_candidates_with_core,
 				);
@@ -4587,6 +4589,7 @@ mod sanitizers {
 						&shared::AllowedSchedulingParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
+						false,
 						false,
 					),
 					expected_backed_candidates_with_core
@@ -4617,6 +4620,7 @@ mod sanitizers {
 						&shared::AllowedSchedulingParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
+						false,
 						false,
 					),
 					expected_backed_candidates_with_core
@@ -4657,6 +4661,7 @@ mod sanitizers {
 					&shared::AllowedSchedulingParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
+					false,
 					false,
 				);
 
@@ -4724,6 +4729,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					false,
+					false,
 				);
 
 				assert_eq!(res.len(), 1);
@@ -4755,6 +4761,7 @@ mod sanitizers {
 					BTreeSet::new(),
 					scheduled,
 					v2_descriptor,
+					false,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -4786,6 +4793,7 @@ mod sanitizers {
 					&shared::AllowedSchedulingParents::<Test>::get(),
 					set,
 					scheduled,
+					false,
 					false,
 				);
 
@@ -4826,6 +4834,7 @@ mod sanitizers {
 					invalid_set,
 					scheduled,
 					v2_descriptor,
+					false,
 				);
 
 				// We'll be left with candidates from paraid 2 and 4.
@@ -4862,6 +4871,7 @@ mod sanitizers {
 					invalid_set,
 					scheduled,
 					v2_descriptor,
+					false,
 				);
 
 				// Only the second candidate of paraid 1 should be removed.
@@ -5179,5 +5189,96 @@ mod sanitizers {
 				assert_eq!(candidate_receipt_with_backing_validator_indices.len(), untouched.len());
 			});
 		}
+	}
+}
+
+#[cfg(test)]
+mod speculative_admission_gate {
+	//! Candidate-level tests for the `check_speculative_messaging` sanitize gate: feature-off drops
+	//! candidates carrying speculative UMP signals; feature-on matches their `Requires` against the
+	//! relay-side provides window.
+	use super::{check_speculative_messaging, default_config};
+	use crate::{
+		inclusion::tests::TestCandidateBuilder,
+		mock::{new_test_ext, Test},
+	};
+	use codec::Encode;
+	use polkadot_primitives::{
+		BackedCandidate, CoreIndex, Id as ParaId, RequiresSet, StreamsRoot, UMPSignal,
+	};
+
+	fn sr(b: u8) -> StreamsRoot {
+		StreamsRoot(polkadot_primitives::Hash::repeat_byte(b))
+	}
+
+	fn requires(source: u32, root: u8) -> RequiresSet {
+		RequiresSet::try_from_iter([(ParaId::from(source), sr(root))]).unwrap()
+	}
+
+	/// A V2 candidate (which auto-carries a `SelectCore` signal), optionally also carrying
+	/// `Provides` / `Requires` speculative signals.
+	fn candidate(
+		para: u32,
+		provides: Option<StreamsRoot>,
+		requires: Option<RequiresSet>,
+	) -> BackedCandidate {
+		let mut builder = TestCandidateBuilder::default();
+		builder.para_id = ParaId::from(para);
+		builder.core_index = Some(CoreIndex(0));
+		let mut ccr = builder.build();
+		if let Some(r) = requires {
+			ccr.commitments.upward_messages.force_push(UMPSignal::Requires(r).encode());
+		}
+		if let Some(p) = provides {
+			ccr.commitments.upward_messages.force_push(UMPSignal::Provides(p).encode());
+		}
+		BackedCandidate::new(ccr.into(), Default::default(), Default::default(), CoreIndex(0))
+	}
+
+	#[test]
+	fn feature_off_drops_speculative_candidates_keeps_plain() {
+		new_test_ext(default_config()).execute_with(|| {
+			// Carrying `Requires` or `Provides` while the feature is off → dropped (migration
+			// safety).
+			assert!(!check_speculative_messaging::<Test>(
+				&candidate(2000, None, Some(requires(1000, 0xA))),
+				false,
+			));
+			assert!(!check_speculative_messaging::<Test>(
+				&candidate(2000, Some(sr(0xB)), None),
+				false,
+			));
+			// A plain candidate (no speculative signals, just `SelectCore`) is kept.
+			assert!(check_speculative_messaging::<Test>(&candidate(2000, None, None), false));
+		});
+	}
+
+	#[test]
+	fn feature_on_matches_requires_against_window() {
+		new_test_ext(default_config()).execute_with(|| {
+			let source = 1000;
+			crate::inclusion::Pallet::<Test>::record_provides(ParaId::from(source), sr(0xA));
+
+			// `Requires` present in the source's window → kept.
+			assert!(check_speculative_messaging::<Test>(
+				&candidate(2000, None, Some(requires(source, 0xA))),
+				true,
+			));
+			// `Requires` with the wrong root → not in window → dropped.
+			assert!(!check_speculative_messaging::<Test>(
+				&candidate(2000, None, Some(requires(source, 0xC))),
+				true,
+			));
+			// `Requires` for an unknown source → dropped.
+			assert!(!check_speculative_messaging::<Test>(
+				&candidate(2000, None, Some(requires(9999, 0xA))),
+				true,
+			));
+			// No `Requires` (only `Provides`) → nothing to match → kept.
+			assert!(check_speculative_messaging::<Test>(
+				&candidate(2000, Some(sr(0xB)), None),
+				true,
+			));
+		});
 	}
 }

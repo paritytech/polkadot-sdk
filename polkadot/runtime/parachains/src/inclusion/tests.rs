@@ -3209,3 +3209,60 @@ fn check_validation_outputs_for_runtime_api_rejects_oversized_new_validation_cod
 		assert!(!ParaInclusion::check_validation_outputs_for_runtime_api(chain_a, 1, commitments,));
 	});
 }
+
+#[cfg(test)]
+mod speculative_provides_window {
+	//! Isolation tests for the relay-side speculative-messaging provides window: window
+	//! advance/trim and requires matching by root.
+	use super::*;
+	use polkadot_primitives::{RequiresSet, StreamsRoot};
+
+	fn sr(b: u8) -> StreamsRoot {
+		StreamsRoot(Hash::repeat_byte(b))
+	}
+
+	fn requires(entries: &[(u32, u8)]) -> RequiresSet {
+		RequiresSet::try_from_iter(
+			entries.iter().map(|(src, root)| (ParaId::from(*src), sr(*root))),
+		)
+		.unwrap()
+	}
+
+	#[test]
+	fn record_provides_trims_to_window_and_keeps_newest() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			let source = ParaId::from(1000);
+			let total = MAX_PROVIDES_WINDOW_SIZE + 3;
+			for i in 0..total {
+				ParaInclusion::record_provides(source, sr(i as u8));
+			}
+			// The window holds exactly `MAX_PROVIDES_WINDOW_SIZE` entries.
+			assert_eq!(
+				RecentProvides::<Test>::get(source).len(),
+				MAX_PROVIDES_WINDOW_SIZE as usize
+			);
+			// The 3 oldest roots were dropped; roots from index 3 onward are retained.
+			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1000, 0)])));
+			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1000, 2)])));
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 3)])));
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, (total - 1) as u8)])));
+		});
+	}
+
+	#[test]
+	fn requires_satisfied_needs_all_sources_and_exact_roots() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			let (a, b) = (ParaId::from(1), ParaId::from(2));
+			ParaInclusion::record_provides(a, sr(0xA));
+			ParaInclusion::record_provides(b, sr(0xB));
+			// Both sources present with the right roots → satisfied.
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xB)])));
+			// Wrong root for a present source → not satisfied.
+			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xC)])));
+			// Unknown source → not satisfied.
+			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (3, 0xB)])));
+			// Empty requires → trivially satisfied.
+			assert!(ParaInclusion::requires_satisfied(&requires(&[])));
+		});
+	}
+}

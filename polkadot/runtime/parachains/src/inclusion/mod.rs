@@ -48,8 +48,8 @@ use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData,
-	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
-	ValidatorIndex, ValidityAttestation,
+	Id as ParaId, RequiresSet, SignedAvailabilityBitfields, SigningContext, StreamsRoot,
+	UpwardMessage, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -359,11 +359,41 @@ pub mod pallet {
 		VecDeque<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>>,
 	>;
 
+	/// Per-sender window of recently-committed `StreamsRoot`s for speculative messaging. Newest
+	/// entry last, at most [`MAX_PROVIDES_WINDOW_SIZE`] entries. A receiver's `requires` root
+	/// matches when it is present in the referenced source's window. Bare ring (no block tag): a
+	/// dispute revert is rolled back by the node's state-revert, so there is no explicit on-chain
+	/// eviction.
+	///
+	/// NOTE(offboarding leak): the design prunes this window "as a whole when the sender
+	/// offboards", but that cleanup is **not yet wired** — an offboarded sender's entry lingers
+	/// indefinitely. Bounded, slow leak (≤ live-paras × W × 32 B, ≈ 4 KB/sender). Hook para
+	/// offboarding to `RecentProvides::remove(para)` before production.
+	#[pallet::storage]
+	pub(crate) type RecentProvides<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		BoundedVec<StreamsRoot, ConstU32<MAX_PROVIDES_WINDOW_SIZE>>,
+		ValueQuery,
+	>;
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
 }
 
 const LOG_TARGET: &str = "runtime::inclusion";
+
+/// Maximum length of a sender's `provides` window for speculative messaging. The window holds the
+/// most-recent `StreamsRoot`s a sender has committed; a receiver's `requires` root matches when it
+/// is present here.
+///
+/// Sized per the design (`W = 128`): W must cover the authoring→backing→inclusion pipeline
+/// *including elastic-scaling bursts* (up to ~36 sender blocks / 18 s at 500 ms block time), with
+/// ample slack. Cost is `W × 32 B` per sender (~4 KB), ~800 KB relay-wide at 200 parachains. The
+/// design makes W governance-adjustable via a `HostConfiguration` field; kept a `const` for the MVP
+/// (revisit if per-network tuning is needed).
+pub const MAX_PROVIDES_WINDOW_SIZE: u32 = 128;
 
 /// The reason that a candidate's outputs were rejected for.
 #[derive(Debug)]
@@ -856,6 +886,10 @@ impl<T: Config> Pallet<T> {
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
 
+		// Speculative messaging: parse the UMP signals up front, before any field of
+		// `commitments` is moved out below; a malformed signal set is treated as absent.
+		let provides = commitments.ump_signals().ok().and_then(|s| s.provides().copied());
+
 		T::RewardValidators::reward_backing(
 			backers
 				.iter()
@@ -903,6 +937,18 @@ impl<T: Config> Pallet<T> {
 			commitments.horizontal_messages,
 		);
 
+		// Record the sender's committed `StreamsRoot` into its provides window so a later
+		// receiver's `requires` can match it. One-phase (inclusion tier):
+		// requires are matched only at `sanitize_backed_candidates`; a dispute revert unwinds a
+		// reverted sender together with any receiver that consumed it via the node's state-revert
+		// (see `RecentProvides`), so there is no explicit eviction and no enactment-time re-check
+		// (that would be the hook for the speculative / optimistic tiers). A candidate carrying
+		// `provides` is only ever included with the feature enabled (the feature-off case is
+		// dropped at sanitize), so recording here needs no separate feature gate.
+		if let Some(root) = provides {
+			Self::record_provides(receipt.descriptor.para_id(), root);
+		}
+
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,
 			commitments.head_data.clone(),
@@ -915,6 +961,39 @@ impl<T: Config> Pallet<T> {
 			commitments.head_data,
 			relay_parent_number,
 		);
+	}
+
+	/// Whether `root` is present in `source`'s provides window.
+	fn provides_contains(source: ParaId, root: &StreamsRoot) -> bool {
+		RecentProvides::<T>::get(source).iter().any(|committed| committed == root)
+	}
+
+	/// Whether every `(source, StreamsRoot)` in `requires` is present in that source's provides
+	/// window — the relay-side match a receiver candidate must pass to be included.
+	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> bool {
+		// TODO(weights): unmetered — does up to `MAX_SOURCES_PER_BLOCK` (128) `RecentProvides`
+		// reads per candidate (the candidate author sizes the `RequiresSet`). Benchmark + weight
+		// the sanitize match, and account for it in the inherent weight, before production.
+		requires
+			.iter()
+			.all(|(source, expected)| Self::provides_contains(*source, expected))
+	}
+
+	/// Record a sender's committed `StreamsRoot` into its provides window at enactment, trimming to
+	/// [`MAX_PROVIDES_WINDOW_SIZE`] (drop-oldest). A dispute revert is handled by the node's
+	/// state-revert (see [`RecentProvides`]); there is no explicit eviction.
+	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
+		// TODO(weights): unmetered — one `RecentProvides` read+write per enacted provides-carrying
+		// candidate; not covered by the `enact_candidate` benchmark. Fold into that weight before
+		// production.
+		RecentProvides::<T>::mutate(source, |window| {
+			// Drop oldest entries until there is room for one more within the window.
+			while window.len() >= MAX_PROVIDES_WINDOW_SIZE as usize {
+				window.remove(0);
+			}
+			// `window.len() < MAX_PROVIDES_WINDOW_SIZE`, so the push fits.
+			let _ = window.try_push(root);
+		});
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
