@@ -100,6 +100,7 @@ std = [
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen?/std",
 	"pallet-fast-unstake?/std",
+	"pallet-footprint?/std",
 	"pallet-glutton?/std",
 	"pallet-grandpa?/std",
 	"pallet-identity?/std",
@@ -306,6 +307,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"pallet-elections-phragmen?/runtime-benchmarks",
 	"pallet-fast-unstake?/runtime-benchmarks",
+	"pallet-footprint?/runtime-benchmarks",
 	"pallet-glutton?/runtime-benchmarks",
 	"pallet-grandpa?/runtime-benchmarks",
 	"pallet-identity?/runtime-benchmarks",
@@ -456,6 +458,7 @@ try-runtime = [
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
 	"pallet-fast-unstake?/try-runtime",
+	"pallet-footprint?/try-runtime",
 	"pallet-glutton?/try-runtime",
 	"pallet-grandpa?/try-runtime",
 	"pallet-identity?/try-runtime",
@@ -676,6 +679,7 @@ runtime-full = [
 	"pallet-election-provider-support-benchmarking",
 	"pallet-elections-phragmen",
 	"pallet-fast-unstake",
+	"pallet-footprint",
 	"pallet-glutton",
 	"pallet-grandpa",
 	"pallet-identity",
@@ -1530,6 +1534,11 @@ path = "../substrate/frame/elections-phragmen"
 default-features = false
 optional = true
 path = "../substrate/frame/fast-unstake"
+
+[dependencies.pallet-footprint]
+default-features = false
+optional = true
+path = "../substrate/frame/footprint"
 
 [dependencies.pallet-glutton]
 default-features = false

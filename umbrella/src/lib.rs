@@ -512,6 +512,10 @@ pub use pallet_elections_phragmen;
 #[cfg(feature = "pallet-fast-unstake")]
 pub use pallet_fast_unstake;
 
+/// FRAME pallet tracking per-account storage footprint against a central allowance.
+#[cfg(feature = "pallet-footprint")]
+pub use pallet_footprint;
+
 /// FRAME pallet for pushing a chain to its weight limits.
 #[cfg(feature = "pallet-glutton")]
 pub use pallet_glutton;
