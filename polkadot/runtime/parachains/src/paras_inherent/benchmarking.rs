@@ -18,13 +18,41 @@
 use super::*;
 use crate::{inclusion, ParaId};
 use alloc::collections::btree_map::BTreeMap;
+use codec::Encode;
 use core::cmp::{max, min};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use polkadot_primitives::{node_features::FeatureIndex, GroupIndex};
+use polkadot_primitives::{
+	node_features::FeatureIndex, v9::MAX_SOURCES_PER_BLOCK, CommittedCandidateReceiptV2,
+	GroupIndex, Hash, RequiresSet, StreamsRoot, UMPSignal,
+};
 
-use crate::builder::BenchBuilder;
+use crate::builder::{BenchBuilder, CandidateDescriptorVersionConfig};
+
+/// A worst-case speculative-messaging `Requires` set — `MAX_SOURCES_PER_BLOCK` entries — for the
+/// backed-candidate benchmark. The provides window must be seeded with these exact entries so the
+/// injected `Requires` matches and the candidate stays admitted.
+fn bench_requires_set() -> RequiresSet {
+	RequiresSet::try_from_iter(
+		(0..MAX_SOURCES_PER_BLOCK)
+			.map(|i| (ParaId::from(i), StreamsRoot(Hash::from_low_u64_be(i as u64)))),
+	)
+	.expect("MAX_SOURCES_PER_BLOCK entries fit the bound; qed")
+}
+
+/// Candidate modifier: append a worst-case `Requires` UMP signal so
+/// `enter_backed_candidates_variable` captures the per-candidate `requires`-match read cost (one
+/// `RecentProvides` read per source).
+fn add_requires_signal<H>(
+	mut candidate: CommittedCandidateReceiptV2<H>,
+) -> CommittedCandidateReceiptV2<H> {
+	candidate
+		.commitments
+		.upward_messages
+		.force_push(UMPSignal::Requires(bench_requires_set()).encode());
+	candidate
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -139,13 +167,29 @@ mod benchmarks {
 			true,
 		)
 		.unwrap();
+		// Speculative messaging: enable the feature and make the backed candidate carry a
+		// worst-case `Requires` set (via the candidate modifier) against a fully-seeded provides
+		// window, so this benchmark captures the per-candidate `requires`-match read cost.
+		configuration::Pallet::<T>::set_node_feature(
+			RawOrigin::Root.into(),
+			FeatureIndex::SpeculativeMessaging as u8,
+			true,
+		)
+		.unwrap();
 		let cores_with_backed: BTreeMap<_, _> = vec![(0, v)] // The backed candidate will have `v` validity votes.
 			.into_iter()
 			.collect();
 
 		let scenario = BenchBuilder::<T>::new()
 			.set_backed_in_inherent_paras(cores_with_backed.clone())
+			.set_candidate_descriptor_version(CandidateDescriptorVersionConfig::V2)
+			.set_candidate_modifier(Some(add_requires_signal::<T::Hash>))
 			.build();
+
+		// Seed the provides window so the injected `Requires` matches (candidate stays admitted).
+		for (source, root) in bench_requires_set().iter() {
+			inclusion::Pallet::<T>::record_provides(*source, *root);
+		}
 
 		let mut benchmark = scenario.data.clone();
 

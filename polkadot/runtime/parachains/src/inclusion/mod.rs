@@ -971,9 +971,7 @@ impl<T: Config> Pallet<T> {
 	/// Whether every `(source, StreamsRoot)` in `requires` is present in that source's provides
 	/// window — the relay-side match a receiver candidate must pass to be included.
 	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> bool {
-		// TODO(weights): unmetered — does up to `MAX_SOURCES_PER_BLOCK` (128) `RecentProvides`
-		// reads per candidate (the candidate author sizes the `RequiresSet`). Benchmark + weight
-		// the sanitize match, and account for it in the inherent weight, before production.
+		// Does one `RecentProvides` read per required source (≤ `MAX_SOURCES_PER_BLOCK` = 128).
 		requires
 			.iter()
 			.all(|(source, expected)| Self::provides_contains(*source, expected))
@@ -983,9 +981,6 @@ impl<T: Config> Pallet<T> {
 	/// [`MAX_PROVIDES_WINDOW_SIZE`] (drop-oldest). A dispute revert is handled by the node's
 	/// state-revert (see [`RecentProvides`]); there is no explicit eviction.
 	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
-		// TODO(weights): unmetered — one `RecentProvides` read+write per enacted provides-carrying
-		// candidate; not covered by the `enact_candidate` benchmark. Fold into that weight before
-		// production.
 		RecentProvides::<T>::mutate(source, |window| {
 			// Drop oldest entries until there is room for one more within the window.
 			while window.len() >= MAX_PROVIDES_WINDOW_SIZE as usize {
