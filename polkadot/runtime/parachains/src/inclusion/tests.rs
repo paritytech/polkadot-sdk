@@ -3265,4 +3265,21 @@ mod speculative_provides_window {
 			assert!(ParaInclusion::requires_satisfied(&requires(&[])));
 		});
 	}
+
+	#[test]
+	fn offboarding_clears_provides_window() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			let (staying, leaving) = (ParaId::from(1), ParaId::from(2));
+			ParaInclusion::record_provides(staying, sr(0xA));
+			ParaInclusion::record_provides(leaving, sr(0xB));
+			assert!(!RecentProvides::<Test>::get(leaving).is_empty());
+
+			// A session change that offboards `leaving` drops its window; `staying` is untouched.
+			let notification = crate::initializer::SessionChangeNotification::default();
+			ParaInclusion::initializer_on_new_session(&notification, &[leaving]);
+
+			assert!(RecentProvides::<Test>::get(leaving).is_empty());
+			assert!(!RecentProvides::<Test>::get(staying).is_empty());
+		});
+	}
 }

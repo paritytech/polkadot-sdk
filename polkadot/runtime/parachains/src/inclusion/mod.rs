@@ -363,12 +363,8 @@ pub mod pallet {
 	/// entry last, at most [`MAX_PROVIDES_WINDOW_SIZE`] entries. A receiver's `requires` root
 	/// matches when it is present in the referenced source's window. Bare ring (no block tag): a
 	/// dispute revert is rolled back by the node's state-revert, so there is no explicit on-chain
-	/// eviction.
-	///
-	/// NOTE(offboarding leak): the design prunes this window "as a whole when the sender
-	/// offboards", but that cleanup is **not yet wired** — an offboarded sender's entry lingers
-	/// indefinitely. Bounded, slow leak (≤ live-paras × W × 32 B, ≈ 4 KB/sender). Hook para
-	/// offboarding to `RecentProvides::remove(para)` before production.
+	/// eviction. A sender's window is dropped in full when it offboards (see
+	/// `initializer_on_new_session`), so it does not linger after the para is gone.
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> = StorageMap<
 		_,
@@ -503,6 +499,12 @@ impl<T: Config> Pallet<T> {
 		for _ in PendingAvailability::<T>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
+
+		// Speculative messaging: drop the offboarded senders' provides windows so their entries
+		// don't linger in `RecentProvides` after the para is gone.
+		for outgoing_para in outgoing_paras {
+			RecentProvides::<T>::remove(outgoing_para);
+		}
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queues(outgoing: &[ParaId]) {
