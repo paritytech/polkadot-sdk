@@ -132,9 +132,10 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 	}
 
 	fn on_finalize_block_per_outside_frame_log() -> Weight {
-		// The `on_finalize_per_event` benchmark buffers its events via `capture_ethereum_log` and
-		// measures only the `on_finalize` drain, so its marginal is exactly the per-log drain cost
-		// (`OutsideFrameLogs::take` + RLP/bloom `add_log`).
-		W::on_finalize_per_event(1).saturating_sub(W::on_finalize_per_event(0))
+		// Marginal cost of draining one buffered outside-of-frame log. The dedicated benchmark is
+		// `pov_mode = Measured`, so this marginal carries the per-log proof size that
+		// `on_finalize_per_event` (constant proof estimate) does not.
+		W::on_finalize_per_outside_frame_log(1)
+			.saturating_sub(W::on_finalize_per_outside_frame_log(0))
 	}
 }

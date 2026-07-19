@@ -3727,6 +3727,47 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark the `on_finalize` drain of the outside-of-frame log buffer, scaling with the number
+	/// of buffered logs `n`.
+	///
+	/// Each buffered log is drained with an `OutsideFrameLogs::take` (a distinct storage key) and
+	/// folded into the synthetic transaction's receipt (RLP + bloom). Unlike `on_finalize_per_event`
+	/// this isolates that path with no real transaction present, and — being `pov_mode = Measured` —
+	/// captures the per-log **proof size** the take incurs, which the reservation in `on_initialize`
+	/// (`MaxOutsideFrameLogs` × the marginal) depends on.
+	///
+	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
+	/// data word.
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
+		let topics = vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; 32];
+
+		// Buffer n outside-of-frame logs. No ethereum context is active, so each is captured into
+		// `OutsideFrameLogs` rather than a transaction receipt.
+		for _ in 0..n {
+			block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
+		}
+
+		// Measure only the `on_finalize` drain of the buffered logs.
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Only the synthetic transaction, and only when at least one log was buffered.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), (n > 0) as usize);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Contracts,
 		crate::tests::ExtBuilder::default().build(),

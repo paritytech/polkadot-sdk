@@ -1444,12 +1444,9 @@ impl pallet_revive::Config for Runtime {
 	// Sized above the per-block ceiling on mirrored logs. That ceiling is PoV-bound: the normal
 	// dispatch budget (75% * MAX_POV_SIZE = 0.75 * 10 MiB ~= 7.86 MB) divided by one
 	// `assets::transfer`'s proof size (~6208 B) is ~1267 transfers, i.e. ~1267 logs. 1300 clears it
-	// with headroom so legitimate logs are not dropped.
-	//
-	// NOTE: the per-log `on_finalize` drain weight reserved for this cap currently carries ~0 PoV
-	// (derived from `on_finalize_per_event`, whose proof estimate does not grow with log count), so
-	// a larger cap is nearly free today. A dedicated per-log benchmark that captures the drain's PoV
-	// is still needed before that reservation is accurate.
+	// with headroom so legitimate logs are not dropped. `on_initialize` reserves this cap times the
+	// benchmarked per-log drain weight (`on_finalize_per_outside_frame_log`, PoV-measured), so a
+	// larger cap does cost reserved block weight every block.
 	type MaxOutsideFrameLogs = ConstU32<1300>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
