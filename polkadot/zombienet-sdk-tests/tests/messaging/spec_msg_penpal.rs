@@ -10,16 +10,20 @@
 //! are known up front), then walks the transition runbook:
 //!
 //! 1. **Baseline**: HRMP channels open in both directions; XCM A→B delivers over HRMP.
-//! 2. **Arm spec-msg channels** in both directions (the MVP placeholder arming:
-//!    `OpenOutboundChannels` + `ConsumedStreams` via sudo `set_storage`; the real
-//!    open/accept/register handshake is the channels & flow-control issue) and assert nothing
-//!    changes on the wire — the router still prefers the open HRMP channel.
+//! 2. **Handshake**: open/accept the spec-msg channels in both directions (`open_channel` +
+//!    `accept_open_channel` via sudo; A→B open-first, B→A accept-first — either order works) and
+//!    wait for phase `Open` on both senders: the peer accepted, published its initial register on
+//!    the ack stream, and the sender READ it through the inherent — a full round-trip over the real
+//!    transport, observable on-chain (the cutover gate). Meanwhile nothing but the `OpenChannel`
+//!    signal leaf touches the wire — the router still prefers the open HRMP channel.
 //! 3. **Cutover**: set `HrmpClosing` on both sides (new traffic diverts, the pipe drains), verify
 //!    the drain, close the HRMP channels relay-side.
 //! 4. **Deliver over spec-msg** in both directions: the sender's stream frontier advances and its
 //!    header carries the `SPMS` digest, the relay's `RecentProvides` ring gains the sender's root,
 //!    and the receiver executes the message under the `SpecMsg(source)` origin — the
-//!    Sibling-identical origin, asserted via `MessageQueue.Processed`.
+//!    Sibling-identical origin, asserted via `MessageQueue.Processed`. The receiver's register
+//!    round-trips back: the sender's channel view shows the advanced watermark (credit refresh +
+//!    archive pruning signal).
 //! 5. **Rollback**: re-open HRMP one direction and clear the flag; the router reverts to HRMP.
 //! 6. **Unroutable**: a sibling with neither transport rejects the send.
 //!
@@ -33,7 +37,9 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use cumulus_primitives_spec_messaging::{ChannelId, MmrFrontier, StreamId};
+use cumulus_primitives_spec_messaging::{
+	ChannelId, ChannelPhase, MessagePosition, MmrFrontier, OutChannelState, StreamId,
+};
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as RelayParaId;
 use sp_core::crypto::AccountId32 as SpAccountId32;
@@ -70,7 +76,6 @@ use rococo::runtime_types::{
 use penpal::runtime_types::{
 	cumulus_pallet_spec_messaging::pallet::Call as SpecMessagingCall,
 	cumulus_primitives_core::AggregateMessageOrigin,
-	frame_system::pallet::Call as SystemCall,
 	pallet_balances::pallet::Call as BalancesCall,
 	penpal_runtime::RuntimeCall as PenpalRuntimeCall,
 	polkadot_parachain_primitives::primitives::Id as PenpalId,
@@ -151,30 +156,103 @@ fn xcm_channel_stream(recipient: u32) -> StreamId {
 	StreamId::Channel { recipient: recipient.into(), domain: 0, num: 0 }
 }
 
-/// Arms the placeholder spec-msg channel state on one penpal via sudo
-/// `set_storage`: the outbound channel to `peer` and consumption of `peer`'s
-/// designated XCM stream. Issue 15's open/accept handshake replaces this.
-async fn arm_spec_msg_channel(
+/// Submits one sudo-wrapped spec-messaging call and waits for finalized
+/// success.
+async fn sudo_spec_messaging(
 	client: &OnlineClient<PolkadotConfig>,
-	own_para: u32,
-	peer: u32,
+	call: SpecMessagingCall,
 ) -> anyhow::Result<()> {
-	let out_channel = ChannelId { peer: peer.into(), domain: 0, num: 0 };
-	let consumed = (RelayParaId::from(peer), xcm_channel_stream(own_para));
-	let items = vec![
-		(spec_messaging_key("OpenOutboundChannels", &out_channel.encode()), ().encode()),
-		(spec_messaging_key("ConsumedStreams", &consumed.encode()), ().encode()),
-	];
-	let arm_tx = penpal::tx()
-		.sudo()
-		.sudo(PenpalRuntimeCall::System(SystemCall::set_storage { items }));
+	let tx = penpal::tx().sudo().sudo(PenpalRuntimeCall::SpecMessaging(call));
 	client
 		.tx()
-		.sign_and_submit_then_watch_default(&arm_tx, &dev::alice())
+		.sign_and_submit_then_watch_default(&tx, &dev::alice())
 		.await?
 		.wait_for_finalized_success()
 		.await?;
 	Ok(())
+}
+
+/// Opens the outbound spec-msg channel to `peer` (designated XCM channel,
+/// domain 0 / num 0): emits the `OpenChannel` signal leaf onto the channel
+/// stream — the sender half of the handshake.
+async fn open_spec_msg_channel(
+	client: &OnlineClient<PolkadotConfig>,
+	peer: u32,
+) -> anyhow::Result<()> {
+	sudo_spec_messaging(
+		client,
+		SpecMessagingCall::open_channel { recipient: PenpalId(peer), domain: 0, num: 0 },
+	)
+	.await
+}
+
+/// Accepts the inbound spec-msg channel from `sender`: its data stream
+/// joins the consumed set (the own collators start fetching it) and the
+/// initial register — the sender-visible acceptance — is published on the
+/// ack stream.
+async fn accept_spec_msg_channel(
+	client: &OnlineClient<PolkadotConfig>,
+	sender: u32,
+) -> anyhow::Result<()> {
+	sudo_spec_messaging(
+		client,
+		SpecMessagingCall::accept_open_channel { sender: PenpalId(sender), domain: 0, num: 0 },
+	)
+	.await
+}
+
+/// The sender-side view of the outbound channel to `peer`, if any.
+async fn out_channel_state(
+	client: &OnlineClient<PolkadotConfig>,
+	peer: u32,
+) -> anyhow::Result<Option<OutChannelState>> {
+	let channel = ChannelId { peer: peer.into(), domain: 0, num: 0 };
+	let key = spec_messaging_key("OutChannels", &channel.encode());
+	let raw = client.storage().at_latest().await?.fetch_raw(key).await?;
+	raw.map(|bytes| {
+		OutChannelState::decode(&mut bytes.as_slice())
+			.map_err(|e| anyhow!("undecodable OutChannelState: {e}"))
+	})
+	.transpose()
+}
+
+/// Polls until the outbound channel to `peer` reaches phase `Open`: the
+/// peer accepted, published its initial register, and this chain READ it
+/// through the messaging inherent — a full handshake round-trip over the
+/// real transport, observable on-chain (what gates the HRMP cutover).
+async fn wait_for_channel_open(
+	client: &OnlineClient<PolkadotConfig>,
+	peer: u32,
+) -> anyhow::Result<()> {
+	for _ in 0..100 {
+		if let Some(state) = out_channel_state(client, peer).await? {
+			if state.phase() == ChannelPhase::Open {
+				return Ok(());
+			}
+		}
+		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+	Err(anyhow!("outbound spec-msg channel to {peer} did not reach phase Open in time"))
+}
+
+/// Polls until the outbound channel to `peer` carries a register read whose
+/// watermark confirms at least `up_to` stream positions — the receiver's
+/// consumption reported back over the ack stream: the sender's credit
+/// refresh and archive pruning signal.
+async fn wait_for_register_watermark(
+	client: &OnlineClient<PolkadotConfig>,
+	peer: u32,
+	up_to: u64,
+) -> anyhow::Result<()> {
+	for _ in 0..100 {
+		if let Some(state) = out_channel_state(client, peer).await? {
+			if state.register.is_some_and(|register| register.up_to >= MessagePosition(up_to)) {
+				return Ok(());
+			}
+		}
+		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+	Err(anyhow!("register watermark of the channel to {peer} did not reach {up_to} in time"))
 }
 
 /// The sender-side outbound frontier of `stream`, if any leaf was appended.
@@ -586,17 +664,29 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	let hrmp_latency = hrmp_started.elapsed();
 	log::info!("HRMP baseline delivery took {hrmp_latency:?}");
 
-	// === 2. Arm spec-msg channels both directions; the wire must not change. ===
-	log::info!("Arming spec-msg channels (placeholder arming via set_storage)");
-	arm_spec_msg_channel(&para_a_client, PARA_A, PARA_B).await?;
-	arm_spec_msg_channel(&para_b_client, PARA_B, PARA_A).await?;
+	// === 2. Handshake: open/accept both directions over the real transport. ===
+	// A→B open-first, B→A accept-first (pre-authorization) — either order
+	// works; crossing opens are just two channels.
+	log::info!("Opening spec-msg channels (open/accept handshake, both directions)");
+	open_spec_msg_channel(&para_a_client, PARA_B).await?;
+	accept_spec_msg_channel(&para_b_client, PARA_A).await?;
+	accept_spec_msg_channel(&para_a_client, PARA_B).await?;
+	open_spec_msg_channel(&para_b_client, PARA_A).await?;
+
+	// Phase `Open` on both senders = the peer accepted, published its
+	// initial register and the sender read it — a full round-trip over the
+	// spec-msg wire while ALL XCM traffic still rides HRMP.
+	log::info!("Waiting for both channels to reach phase Open (register round-trip)");
+	wait_for_channel_open(&para_a_client, PARA_B).await?;
+	wait_for_channel_open(&para_b_client, PARA_A).await?;
+	log::info!("Both spec-msg channels are Open");
 
 	const HRMP_RECEIVER_2: [u8; 32] = [0xA2; 32];
 	let processed = tokio::spawn({
 		let client = para_b_client.clone();
 		async move { wait_for_message_processed(&client, PARA_A, false).await }
 	});
-	log::info!("Sending XCM A -> B with both transports armed; HRMP must win");
+	log::info!("Sending XCM A -> B with both transports open; HRMP must win");
 	send_xcm_to_sibling(&para_a_client, PARA_B, transfer_program(HRMP_RECEIVER_2), true).await?;
 	let success = tokio::time::timeout(Duration::from_secs(300), processed)
 		.await
@@ -604,11 +694,18 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	if !success {
 		return Err(anyhow!("HRMP-wins message failed on penpal B"));
 	}
-	// Nothing touched the spec-msg wire: no outbound frontier exists.
-	if outbound_frontier(&para_a_client, &xcm_channel_stream(PARA_B)).await?.is_some() {
-		return Err(anyhow!("spec-msg outbound frontier advanced while HRMP was open"));
+	// Nothing but the handshake's `OpenChannel` signal leaf touched the
+	// spec-msg wire: the XCM stayed off the stream.
+	let frontier = outbound_frontier(&para_a_client, &xcm_channel_stream(PARA_B))
+		.await?
+		.ok_or_else(|| anyhow!("no outbound frontier despite the open signal"))?;
+	if frontier.leaf_count != 1 {
+		return Err(anyhow!(
+			"unexpected A -> B stream leaves while HRMP was open: {}",
+			frontier.leaf_count
+		));
 	}
-	log::info!("HRMP still wins while the channel is open; spec-msg wire untouched");
+	log::info!("HRMP still wins while the channel is open; only the open signal on the wire");
 
 	// === 3. Cutover: divert new traffic, drain, close relay-side. ===
 	log::info!("Setting HrmpClosing on both penpals");
@@ -645,8 +742,9 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	log::info!("Sending XCM A -> B over spec-msg");
 	send_xcm_to_sibling(&para_a_client, PARA_B, transfer_program(SPEC_RECEIVER_1), false).await?;
 
-	// The send left the sender runtime onto the stream...
-	let frontier = wait_for_frontier(&para_a_client, &xcm_channel_stream(PARA_B), 1).await?;
+	// The send left the sender runtime onto the stream (leaf 0 is the
+	// handshake's open signal, leaf 1 the XCM)...
+	let frontier = wait_for_frontier(&para_a_client, &xcm_channel_stream(PARA_B), 2).await?;
 	log::info!("penpal A's outbound frontier advanced to {} leaf/leaves", frontier.leaf_count);
 	// ...the committing block carries the SPMS header digest...
 	if find_spms_digest(&para_a_client, 30).await?.is_none() {
@@ -678,7 +776,7 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	});
 	log::info!("Sending XCM B -> A over spec-msg");
 	send_xcm_to_sibling(&para_b_client, PARA_A, transfer_program(SPEC_RECEIVER_2), false).await?;
-	wait_for_frontier(&para_b_client, &xcm_channel_stream(PARA_A), 1).await?;
+	wait_for_frontier(&para_b_client, &xcm_channel_stream(PARA_A), 2).await?;
 	wait_for_recent_provides(&relay_client, PARA_B).await?;
 	let success = tokio::time::timeout(Duration::from_secs(600), processed)
 		.await
@@ -700,7 +798,7 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	});
 	log::info!("Sending a second XCM A -> B over spec-msg");
 	send_xcm_to_sibling(&para_a_client, PARA_B, transfer_program(SPEC_RECEIVER_3), false).await?;
-	wait_for_frontier(&para_a_client, &xcm_channel_stream(PARA_B), 2).await?;
+	wait_for_frontier(&para_a_client, &xcm_channel_stream(PARA_B), 3).await?;
 	let success = tokio::time::timeout(Duration::from_secs(600), processed)
 		.await
 		.map_err(|_| anyhow!("timed out waiting for the second spec-msg delivery"))???;
@@ -712,6 +810,13 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 		return Err(anyhow!("second spec-msg deposit did not arrive"));
 	}
 	log::info!("Second spec-msg delivery A -> B verified");
+
+	// Flow control round-trips: B's consumption (all 3 A -> B leaves) is
+	// reported back over B's ack stream and read by A — the watermark in
+	// A's channel view is what refreshes A's credit and prunes A's archive.
+	log::info!("Waiting for B's register watermark to confirm A's 3 stream leaves");
+	wait_for_register_watermark(&para_a_client, PARA_B, 3).await?;
+	log::info!("Register watermark round-trip verified");
 
 	// === 5. Rollback: re-open HRMP A -> B; the router reverts. ===
 	log::info!("Rolling back: re-opening HRMP {PARA_A} -> {PARA_B}");
@@ -738,11 +843,12 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 	if !success {
 		return Err(anyhow!("post-rollback HRMP message failed on penpal B"));
 	}
-	// The frontier did not move: the rollback message stayed off the stream.
+	// The frontier did not move: the rollback message stayed off the stream
+	// (3 leaves: the open signal and the two spec-msg XCMs).
 	let frontier = outbound_frontier(&para_a_client, &xcm_channel_stream(PARA_B))
 		.await?
 		.ok_or_else(|| anyhow!("outbound frontier disappeared"))?;
-	if frontier.leaf_count != 2 {
+	if frontier.leaf_count != 3 {
 		return Err(anyhow!(
 			"outbound frontier moved to {} leaves after the rollback",
 			frontier.leaf_count

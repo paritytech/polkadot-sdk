@@ -26,12 +26,12 @@
 //! moved:
 //!
 //! - Per imported relay block, for each source the own runtime currently consumes
-//!   (`SpecMsgApi::consumed_streams()`, version-gated like the archiver), it reads
-//!   `RecentProvides[source]` and diffs it against what was already offered — each newly included
-//!   root is handed to the fetch/verify pipeline (issue 11) exactly once, as
-//!   [`RelayProvidesEvent::Included`] `(source, root, relay_block)`, oldest first. Authoring always
-//!   targets the newest included root per source; the older entries only tell the fetch loop what
-//!   it may already prove things under.
+//!   (`SpecMsgApi::consumed_streams()` plus the peers of `out_channels()` — register-only sources
+//!   count, version-gated like the archiver), it reads `RecentProvides[source]` and diffs it
+//!   against what was already offered — each newly included root is handed to the fetch/verify
+//!   pipeline (issue 11) exactly once, as [`RelayProvidesEvent::Included`] `(source, root,
+//!   relay_block)`, oldest first. Authoring always targets the newest included root per source; the
+//!   older entries only tell the fetch loop what it may already prove things under.
 //! - As a latency win it also parses the source's `candidates_pending_availability` commitments
 //!   ([`pending_provides`]): a root committed by a backed-but-not-yet-included candidate is offered
 //!   as [`RelayProvidesEvent::Pending`] — a *prefetch hint* only. Fetching may start early;
@@ -348,11 +348,21 @@ where
 	if !parachain.runtime_api().has_api::<dyn SpecMsgApi<Block>>(best)? {
 		return Ok(());
 	}
+	// Register-only sources count too: an outbound channel's handshake
+	// completes by reading the peer's ack register under the peer's
+	// included root, whether or not any inbound channel consumes that
+	// peer's data streams (one-directional channels are first-class).
 	let consumed = parachain.runtime_api().consumed_streams(best)?;
-	tracker.retain_sources(|source| consumed.contains_key(source));
+	let out_channels = parachain.runtime_api().out_channels(best)?;
+	let sources: BTreeSet<ParaId> = consumed
+		.keys()
+		.copied()
+		.chain(out_channels.keys().map(|channel| channel.peer))
+		.collect();
+	tracker.retain_sources(|source| sources.contains(source));
 
 	let relay_block = header.hash();
-	for source in consumed.keys().copied() {
+	for source in sources {
 		// The inclusion-tier trigger: roots newly present in the source's ring.
 		let ring = read_recent_provides(relay_chain, relay_block, source).await?;
 		for included in tracker.note_ring(source, &ring, relay_block) {

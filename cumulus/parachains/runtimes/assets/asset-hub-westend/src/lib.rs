@@ -1114,9 +1114,22 @@ parameter_types! {
 	/// after a cutover. Must not exceed the message queue's `MaxMessageLen` (derived from its
 	/// `HeapSize`), or consumed payloads could not be enqueued for execution.
 	pub const SpecMsgMaxMsgLen: u32 = 102400;
+	/// The advisory credit window granted to accepted inbound spec-msg channels — sized like a
+	/// roomy HRMP channel (advice only: the hard backpressure stays the per-block caps).
+	pub const SpecMsgWindowGrant: cumulus_primitives_spec_messaging::WindowGrant =
+		cumulus_primitives_spec_messaging::WindowGrant {
+			max_messages: 1024,
+			max_bytes: 8 * 1024 * 1024,
+			max_message_size: 102400,
+		};
+	/// Register republish backstop: unreported consumption progress is published at the latest
+	/// this many blocks after the previous publish (~10 minutes — the sender's credit refresh
+	/// and archive pruning lag by at most this on quiet channels).
+	pub const SpecMsgRegisterPublishAge: BlockNumber = 10 * MINUTES;
 }
 
 impl cumulus_pallet_spec_messaging::Config for Runtime {
+	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type MaxMsgLen = SpecMsgMaxMsgLen;
 	type MaxMessagesPerBlock = ConstU32<16>;
 	type MaxTouchedStreams = ConstU32<32>;
@@ -1127,8 +1140,17 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type DataHandler = cumulus_pallet_spec_messaging::EnqueueToXcmQueue<
 		TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSpecMsg>,
 	>;
-	// Sets/clears the `HrmpClosing` cutover flag (drain-before-close).
+	// Sets/clears the `HrmpClosing` cutover flag (drain-before-close) and drives inbound-channel
+	// suspension/resumption.
 	type ChannelManagementOrigin = EnsureRoot<AccountId>;
+	// Channel lifecycle is governance-driven on a system chain, mirroring how HRMP channels are
+	// opened/accepted today; a governance acceptance carries no account, so acceptance is priced
+	// by fees alone — no deposit (the `Consideration` seam stays for a permissionless future).
+	type OpenChannelOrigin = EnsureRoot<AccountId>;
+	type AcceptChannelOrigin = EnsureRoot<AccountId>;
+	type AcceptConsideration = ();
+	type DefaultWindowGrant = SpecMsgWindowGrant;
+	type RegisterPublishAge = SpecMsgRegisterPublishAge;
 }
 
 parameter_types! {

@@ -364,26 +364,35 @@ where
 	}
 
 	let consumed = parachain.runtime_api().consumed_streams(best)?;
-	pool.retain_sources(|source| consumed.contains_key(source));
-	let Some(streams) = consumed.get(&provides.source) else { return Ok(()) };
+	let out_channels = parachain.runtime_api().out_channels(best)?;
+	// Register-only sources are kept and fetched from too: an outbound
+	// channel's handshake completes by reading the peer's ack register,
+	// whether or not any inbound channel consumes that peer's data streams.
+	pool.retain_sources(|source| {
+		consumed.contains_key(source) || out_channels.keys().any(|channel| channel.peer == *source)
+	});
 
-	let channels: Vec<(StreamId, u64)> = streams
-		.iter()
-		.filter_map(|stream| match stream {
-			consumed @ ConsumedStream::Channel { from, .. } => {
-				Some((consumed.stream_id(para_id), from.0))
-			},
-			// Broadcast event streams are post-MVP; their fetch discipline
-			// (`EventRequest`) ships via the register reads below.
-			ConsumedStream::Broadcast { .. } => None,
+	let channels: Vec<(StreamId, u64)> = consumed
+		.get(&provides.source)
+		.map(|streams| {
+			streams
+				.iter()
+				.filter_map(|stream| match stream {
+					consumed @ ConsumedStream::Channel { from, .. } => {
+						Some((consumed.stream_id(para_id), from.0))
+					},
+					// Broadcast event streams are post-MVP; their fetch
+					// discipline (`EventRequest`) ships via the register
+					// reads below.
+					ConsumedStream::Broadcast { .. } => None,
+				})
+				.collect()
 		})
-		.collect();
+		.unwrap_or_default();
 
 	// Which ack registers to read follows from the outbound channel views:
 	// the peer publishes its register on ITS ack stream addressed to us.
-	let registers: Vec<StreamId> = parachain
-		.runtime_api()
-		.out_channels(best)?
+	let registers: Vec<StreamId> = out_channels
 		.keys()
 		.filter(|channel| channel.peer == provides.source)
 		.map(|channel| StreamId::Ack {
@@ -392,6 +401,10 @@ where
 			num: channel.num,
 		})
 		.collect();
+
+	if channels.is_empty() && registers.is_empty() {
+		return Ok(());
+	}
 
 	fetch_source(
 		network,

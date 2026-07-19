@@ -15,19 +15,20 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, xcm_router::xcm_channel, BlockStreamsRoot, Call, ConsumedStreams, ConsumptionOutbox,
-	Error, Event, InboundFrontier, OpenOutboundChannels, OutboundFrontier, OutboundMessages,
-	RejectReason, TreeRoot, ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
+	mock::*, xcm_router::xcm_channel, BlockStreamsRoot, Call, ConsumptionOutbox, Error, Event,
+	InChannelsMeta, InboundFrontier, OutChannels, OutChannelsMeta, OutboundFrontier,
+	OutboundMessages, RejectReason, TreeRoot, ADVANCE_PROOF_RESERVATION_BYTES,
+	LIFT_RESERVATION_BYTES, PROTOCOL_VERSION,
 };
 use codec::Encode;
 use cumulus_primitives_core::{relay_chain::UMPSignal, AggregateMessageOrigin, ParaId};
 use cumulus_primitives_spec_messaging::{
 	build_requires, compute_streams_root, hash_leaf, prove_stream,
 	test_utils::{SourceFixture, StreamFixture},
-	ChannelId, ConsumedStream, InChannelState, Interval, LiftsBySource, MessagePosition,
-	MmrFrontier, MmrRoot, OutChannelState, ProvideUmpSignals, Register, SpecHasher,
-	SpecMsgInherentData, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot, LEAF_VERSION,
-	SPMS_ENGINE_ID,
+	ChannelId, ChannelPhase, ConsumedStream, InChannelState, Interval, LiftsBySource,
+	MessagePosition, MmrFrontier, MmrRoot, OutChannelState, ProvideUmpSignals, Register,
+	SpecHasher, SpecMsgInherentData, SpecMsgKind, SpecMsgSignal, StreamId, StreamsRoot,
+	WindowGrant, LEAF_VERSION, SPMS_ENGINE_ID,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -60,15 +61,80 @@ fn append(stream: StreamId, payload: &[u8]) -> Result<MessagePosition, Error<Tes
 	SpecMessaging::append_to_stream(stream, payload.to_vec())
 }
 
-/// Arms consumption of the full stream key — the manual placeholder for
-/// the channel lifecycle's derived consumed-stream set.
-fn arm(source: ParaId, stream: StreamId) {
-	ConsumedStreams::<Test>::insert((source, stream), ());
+/// Accepts the inbound channel `(source, domain, num)` as root — its data
+/// stream (addressed to this chain) joins the consumed set and the initial
+/// register is published on the ack stream.
+fn accept(source: ParaId, domain: u8, num: u16) {
+	SpecMessaging::accept_open_channel(RuntimeOrigin::root(), source, domain, num)
+		.expect("acceptance by root of a fresh channel succeeds; qed");
+}
+
+/// Puts the outbound channel to `peer` into phase `Open` under `grant`
+/// with `in_flight` unconfirmed messages of one encoded byte each — the
+/// state a completed open/accept/register round-trip leaves behind, laid
+/// down directly where the test drives the send side only.
+fn open_out_channel(peer: u32, grant: WindowGrant, in_flight: u32) {
+	let channel = xcm_channel(peer.into());
+	OutChannels::<Test>::insert(
+		channel,
+		OutChannelState {
+			closed_by_us: false,
+			announced_version: PROTOCOL_VERSION,
+			register: Some(Register {
+				version: PROTOCOL_VERSION,
+				up_to: MessagePosition(0),
+				grant,
+				closed: false,
+			}),
+		},
+	);
+	OutChannelsMeta::<Test>::mutate(channel, |meta| {
+		for _ in 0..in_flight {
+			meta.sizes.push(1);
+			meta.bytes += 1;
+		}
+	});
+}
+
+/// A live register carrying the default grant at watermark `up_to`.
+fn live_register(up_to: u64) -> Register {
+	Register {
+		version: PROTOCOL_VERSION,
+		up_to: MessagePosition(up_to),
+		grant: TestGrant::get(),
+		closed: false,
+	}
 }
 
 /// A messaging inherent carrying only channel items.
 fn messages_inherent(messages: Vec<(ParaId, StreamId, Vec<Vec<u8>>)>) -> SpecMsgInherentData {
 	SpecMsgInherentData { messages, register_reads: Vec::new() }
+}
+
+/// Feeds one verified register head read for the outbound channel
+/// `(peer, 0, 0)` through the messaging inherent: `history` is the peer's
+/// full ack-stream payload history, the head (latest) leaf is the read.
+fn read_register_history(peer: ParaId, history: &[Vec<u8>]) {
+	let stream = StreamId::Ack { recipient: SelfPara::get(), domain: 0, num: 0 };
+	let fixture = StreamFixture::from_payloads(stream, history);
+	enact(SpecMsgInherentData {
+		messages: Vec::new(),
+		register_reads: vec![(
+			peer,
+			stream,
+			history
+				.last()
+				.expect("read_register callers pass a non-empty history; qed")
+				.clone(),
+			fixture.head_proof(history.len() as u64),
+		)],
+	});
+}
+
+/// [`read_register_history`] over encoded [`Register`]s.
+fn read_register(peer: ParaId, history: &[Register]) {
+	let payloads: Vec<Vec<u8>> = history.iter().map(Encode::encode).collect();
+	read_register_history(peer, &payloads);
 }
 
 /// Dispatches the messaging inherent as block execution would.
@@ -466,14 +532,13 @@ fn consumed_streams_projects_cursors_and_omits_ack_registers() {
 	new_test_ext().execute_with(|| {
 		let (source_a, source_b) = (ParaId::from(2000), ParaId::from(3000));
 		let consumed = channel(100);
-		let unconsumed = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
-		arm(source_a, consumed);
-		arm(source_a, unconsumed);
+		accept(source_a, 0, 0);
+		accept(source_a, 0, 1);
+		accept(source_b, 0, 0);
 		// The own outbound channel's ack register gates the inherent but is
 		// absent from the view (which registers to read follows from
 		// `out_channels()`).
-		arm(source_a, ack(100));
-		arm(source_b, consumed);
+		assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), source_a, 0, 0));
 
 		let view = |domain, num, from| ConsumedStream::Channel {
 			domain,
@@ -481,7 +546,7 @@ fn consumed_streams_projects_cursors_and_omits_ack_registers() {
 			from: MessagePosition(from),
 		};
 
-		// Armed-but-never-consumed streams (accepted before the sender's
+		// Accepted-but-never-consumed streams (accepted before the sender's
 		// open — the pre-authorization order) are present with cursor 0;
 		// per source in canonical stream order.
 		assert_eq!(
@@ -506,12 +571,12 @@ fn consumed_streams_projects_cursors_and_omits_ack_registers() {
 			"the cursor projects the frontier"
 		);
 
-		// Un-arming (what the lifecycle's suspension will do) omits the
-		// stream: the omission is how the own collators learn to stop
-		// fetching. A source with nothing consumable left disappears.
-		ConsumedStreams::<Test>::remove((source_a, consumed));
+		// Suspension omits the stream: the omission is how the own
+		// collators learn to stop fetching. A source with nothing
+		// consumable left disappears.
+		assert_ok!(SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), source_a, 0, 0));
 		assert_eq!(SpecMessaging::consumed_streams()[&source_a], vec![view(0, 1, 0)]);
-		ConsumedStreams::<Test>::remove((source_a, unconsumed));
+		assert_ok!(SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), source_a, 0, 1));
 		assert!(!SpecMessaging::consumed_streams().contains_key(&source_a));
 		assert!(SpecMessaging::consumed_streams().contains_key(&source_b));
 	});
@@ -529,8 +594,8 @@ fn consumption_record_is_byte_identical_for_both_callers() {
 		let (source_a, source_b) = (ParaId::from(2000), ParaId::from(3000));
 		let (one, two) =
 			(channel(100), StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 });
-		for (source, stream) in [(source_a, one), (source_a, two), (source_b, one)] {
-			arm(source, stream);
+		for (source, num) in [(source_a, 0), (source_a, 1), (source_b, 0)] {
+			accept(source, 0, num);
 		}
 
 		run_block(|| {
@@ -559,30 +624,48 @@ fn consumption_record_is_byte_identical_for_both_callers() {
 }
 
 #[test]
-fn channel_views_serve_the_armed_placeholder_state() {
+fn channel_views_serve_the_stored_channel_state() {
 	new_test_ext().execute_with(|| {
 		assert!(SpecMessaging::out_channels().is_empty());
 		assert!(SpecMessaging::in_channels().is_empty());
 
-		// Outbound: every armed channel appears under its `ChannelId`, with
-		// the placeholder default state (no register read yet).
-		let outbound = ChannelId { peer: 2001.into(), domain: 0, num: 7 };
-		OpenOutboundChannels::<Test>::insert(outbound, ());
+		// Outbound: every opened channel appears under its `ChannelId`;
+		// no register read yet — phase `Opening`, no credit standing.
+		let peer = ParaId::from(2001);
+		assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 7));
+		let outbound = ChannelId { peer, domain: 0, num: 7 };
 		assert_eq!(
 			SpecMessaging::out_channels(),
-			std::collections::BTreeMap::from([(outbound, OutChannelState::default())])
+			std::collections::BTreeMap::from([(
+				outbound,
+				OutChannelState {
+					closed_by_us: false,
+					announced_version: PROTOCOL_VERSION,
+					register: None,
+				}
+			)])
 		);
 
-		// Inbound: armed channel data streams appear keyed by the peer (the
-		// stream's sender); armed ack registers are not inbound channels.
+		// Inbound: every accepted channel appears keyed by the peer (the
+		// channel's sender), carrying the published register — the
+		// register the sender will read, and the watermark the node-side
+		// archive prunes by.
 		let source = ParaId::from(2000);
-		arm(source, channel(100));
-		arm(source, ack(100));
+		accept(source, 0, 0);
 		assert_eq!(
 			SpecMessaging::in_channels(),
 			std::collections::BTreeMap::from([(
 				ChannelId { peer: source, domain: 0, num: 0 },
-				InChannelState::default()
+				InChannelState {
+					published: Register {
+						version: PROTOCOL_VERSION,
+						up_to: MessagePosition(0),
+						grant: TestGrant::get(),
+						closed: false,
+					},
+					peer_version: 0,
+					suspended: false,
+				}
 			)])
 		);
 	});
@@ -595,8 +678,8 @@ fn inherent_consumes_payloads_and_records_interval() {
 		// `two` (num 1) sorts after `one` (num 0) in canonical order.
 		let one = channel(100);
 		let two = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
-		arm(source, one);
-		arm(source, two);
+		accept(source, 0, 0);
+		accept(source, 0, 1);
 
 		let payloads: Vec<Vec<u8>> = (0..13u8).map(|i| data_payload(&[i, i])).collect();
 		let fixture = StreamFixture::from_payloads(one, &payloads);
@@ -651,7 +734,7 @@ fn unparseable_payload_is_consumed_and_dropped_signals_are_consumed() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
 		let stream = channel(100);
-		arm(source, stream);
+		accept(source, 0, 0);
 
 		// A data payload, raw junk (no `SpecMsgKind` framing) and a
 		// lifecycle signal: ALL of them advance the frontier — no-skip is
@@ -690,7 +773,7 @@ fn spec_msg_and_sibling_messages_execute_under_the_same_origin() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
 		let stream = channel(100);
-		arm(source, stream);
+		accept(source, 0, 0);
 		let xcm = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin])).encode();
 
 		// Once through the real receive path — inherent → `DataHandler` →
@@ -722,7 +805,7 @@ fn signal_leaf_is_consumed_and_never_reaches_the_queue() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
 		let stream = channel(100);
-		arm(source, stream);
+		accept(source, 0, 0);
 
 		let xcm = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin])).encode();
 		let payloads = vec![
@@ -732,8 +815,8 @@ fn signal_leaf_is_consumed_and_never_reaches_the_queue() {
 		run_block(|| enact(messages_inherent(vec![(source, stream, payloads)])));
 
 		// Both leaves were consumed — the frontier admits no gaps — but only
-		// the data payload reached the queue: the signal was handled (for
-		// now: dropped) pallet-internally.
+		// the data payload reached the queue: the signal fed the channel
+		// lifecycle pallet-internally.
 		assert_eq!(InboundFrontier::<Test>::get((source, stream)).leaf_count, 2);
 		assert_eq!(
 			MessageQueue::footprint(AggregateMessageOrigin::SpecMsg(source)).storage.count,
@@ -748,27 +831,30 @@ fn signal_leaf_is_consumed_and_never_reaches_the_queue() {
 fn invalid_items_are_rejected_without_state_changes() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
-		let armed = channel(100);
+		let accepted = channel(100);
 		let oversized_stream = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
 		let empty_stream = StreamId::Channel { recipient: 100.into(), domain: 0, num: 2 };
-		let unarmed = channel(101);
+		// Addressed to this chain, but never accepted — zero receiver
+		// state exists for it.
+		let unaccepted = StreamId::Channel { recipient: 100.into(), domain: 0, num: 3 };
+		// Addressed to ANOTHER chain (the uniform addressing rule).
+		let misaddressed = channel(101);
+		// Ordered consumption is not defined on ack streams.
 		let wrong_kind = ack(100);
-		for stream in [armed, oversized_stream, empty_stream, wrong_kind] {
-			arm(source, stream);
+		for num in 0..3 {
+			accept(source, 0, num);
 		}
 
 		let payload = data_payload(&[7]);
 		run_block(|| {
 			enact(messages_inherent(vec![
 				// Consumed.
-				(source, armed, vec![payload.clone()]),
+				(source, accepted, vec![payload.clone()]),
 				// A second item for the same stream: at most one per
 				// inherent.
-				(source, armed, vec![payload.clone()]),
-				// Not a consumed stream.
-				(source, unarmed, vec![payload.clone()]),
-				// Armed, but ordered consumption is not defined on ack
-				// streams.
+				(source, accepted, vec![payload.clone()]),
+				(source, unaccepted, vec![payload.clone()]),
+				(source, misaddressed, vec![payload.clone()]),
 				(source, wrong_kind, vec![payload.clone()]),
 				// One oversized payload rejects the WHOLE item — no
 				// partial frontier advance.
@@ -780,8 +866,9 @@ fn invalid_items_are_rejected_without_state_changes() {
 			assert_eq!(
 				reject_events(),
 				vec![
-					(source, armed, RejectReason::DuplicateStream),
-					(source, unarmed, RejectReason::UnknownStream),
+					(source, accepted, RejectReason::DuplicateStream),
+					(source, unaccepted, RejectReason::UnknownStream),
+					(source, misaddressed, RejectReason::UnknownStream),
 					(source, wrong_kind, RejectReason::UnknownStream),
 					(source, oversized_stream, RejectReason::OversizedPayload),
 					(source, empty_stream, RejectReason::EmptyItem),
@@ -789,7 +876,7 @@ fn invalid_items_are_rejected_without_state_changes() {
 			);
 			// Only the accepted item consumed anything.
 			assert_eq!(ConsumptionOutbox::<Test>::get().len(), 1);
-			assert_eq!(InboundFrontier::<Test>::get((source, armed)).leaf_count, 1);
+			assert_eq!(InboundFrontier::<Test>::get((source, accepted)).leaf_count, 1);
 			assert_eq!(InboundFrontier::<Test>::get((source, oversized_stream)).leaf_count, 0);
 			assert_eq!(ConsumedData::take().len(), 1);
 		});
@@ -801,7 +888,9 @@ fn register_read_records_context_and_rejects_invalid_proof() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
 		let stream = ack(100);
-		arm(source, stream);
+		// Head reads are gated by the outbound channel's existence: its
+		// ack stream is what the peer publishes the register on.
+		assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), source, 0, 0));
 
 		let registers: Vec<Vec<u8>> = (0..5u64)
 			.map(|i| {
@@ -874,12 +963,12 @@ fn register_read_records_context_and_rejects_invalid_proof() {
 fn touched_stream_and_gap_caps_enforced_and_proof_size_reserved() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
-		// Five armed channel streams against MaxTouchedStreams = 4.
+		// Five accepted channel streams against MaxTouchedStreams = 4.
 		let streams: Vec<StreamId> = (0..5u16)
 			.map(|num| StreamId::Channel { recipient: 100.into(), domain: 0, num })
 			.collect();
-		for stream in &streams {
-			arm(source, *stream);
+		for num in 0..5 {
+			accept(source, 0, num);
 		}
 		let messages: Vec<_> = streams
 			.iter()
@@ -898,7 +987,7 @@ fn touched_stream_and_gap_caps_enforced_and_proof_size_reserved() {
 		let reads: Vec<_> = (0..3u16)
 			.map(|num| {
 				let stream = StreamId::Ack { recipient: 100.into(), domain: 0, num };
-				arm(source, stream);
+				assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), source, 0, num));
 				let fixture = StreamFixture::from_payloads(stream, &[register.clone()]);
 				(source, stream, register.clone(), fixture.head_proof(1))
 			})
@@ -935,7 +1024,13 @@ fn receiver_recomputation_matches_sender_streams() {
 	// this is the test that pins it.
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
-		let streams = [channel(2001), channel(2002), channel(3000)];
+		// Three channels of one sender→receiver pair (recipient 2001),
+		// over distinct discriminators.
+		let streams = [
+			channel(2001),
+			StreamId::Channel { recipient: 2001.into(), domain: 0, num: 1 },
+			StreamId::Channel { recipient: 2001.into(), domain: 5, num: 7 },
+		];
 		let mut histories: BTreeMap<StreamId, Vec<Vec<u8>>> = BTreeMap::new();
 		let mut lcg = 0xC0FF_EE11_2233u64;
 		let mut rand = move || {
@@ -961,11 +1056,12 @@ fn receiver_recomputation_matches_sender_streams() {
 		// One idle block so the last sends reach the stored frontiers.
 		run_block(|| {});
 
-		// Feed the SAME payloads through the receiver, split across two
-		// blocks at an arbitrary per-stream boundary (the consumption
-		// boundary is free).
-		for stream in &streams {
-			arm(source, *stream);
+		// Feed the SAME payloads through the receiver — playing the
+		// recipient chain from here on — split across two blocks at an
+		// arbitrary per-stream boundary (the consumption boundary is free).
+		SelfPara::set(ParaId::from(2001));
+		for (domain, num) in [(0, 0), (0, 1), (5, 7)] {
+			accept(source, domain, num);
 		}
 		let mut first = Vec::new();
 		let mut second = Vec::new();
@@ -1009,7 +1105,7 @@ fn recorded_consumption_binds_to_the_senders_committed_root() {
 	new_test_ext().execute_with(|| {
 		let source = ParaId::from(2000);
 		let stream = channel(100);
-		arm(source, stream);
+		accept(source, 0, 0);
 		let payloads: Vec<Vec<u8>> = (0..10u8).map(|i| data_payload(&[i])).collect();
 		let sender =
 			SourceFixture::new(source, vec![StreamFixture::from_payloads(stream, &payloads)]);
@@ -1032,7 +1128,7 @@ fn recorded_consumption_binds_to_the_senders_committed_root() {
 		// that is NOT the committed one: no valid lift exists, the
 		// candidate dies at the PVF/window match.
 		let stream_tampered = StreamId::Channel { recipient: 100.into(), domain: 0, num: 1 };
-		arm(source, stream_tampered);
+		accept(source, 0, 1);
 		let mut tampered = payloads.clone();
 		tampered[3][2] ^= 0x01;
 		let sender_tampered = SourceFixture::new(
@@ -1121,7 +1217,7 @@ fn per_block_caps_error_and_leave_state_unchanged() {
 fn hrmp_closing_is_gated_by_the_management_origin() {
 	new_test_ext().execute_with(|| {
 		let peer = ParaId::from(2001);
-		OpenOutboundChannels::<Test>::insert(xcm_channel(peer), ());
+		open_out_channel(2001, TestGrant::get(), 0);
 
 		assert_noop!(
 			SpecMessaging::set_hrmp_closing(RuntimeOrigin::signed(1), peer),
@@ -1149,7 +1245,16 @@ fn hrmp_closing_set_requires_an_open_channel_and_clear_rolls_back() {
 			);
 			assert!(!SpecMessaging::is_hrmp_closing(peer));
 
-			OpenOutboundChannels::<Test>::insert(xcm_channel(peer), ());
+			// A merely-opened channel (phase `Opening`, no register read —
+			// the peer never visibly accepted) does NOT pass the gate: the
+			// flip requires the full handshake round-trip.
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0));
+			assert_noop!(
+				SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), peer),
+				Error::<Test>::ChannelNotOpen
+			);
+
+			open_out_channel(2001, TestGrant::get(), 0);
 			assert_ok!(SpecMessaging::set_hrmp_closing(RuntimeOrigin::root(), peer));
 			assert!(SpecMessaging::is_hrmp_closing(peer));
 			System::assert_last_event(RuntimeEvent::SpecMessaging(Event::HrmpClosingSet { peer }));
@@ -1164,5 +1269,735 @@ fn hrmp_closing_set_requires_an_open_channel_and_clear_rolls_back() {
 			}));
 			assert_ok!(SpecMessaging::clear_hrmp_closing(RuntimeOrigin::root(), peer));
 		});
+	});
+}
+
+#[test]
+fn open_channel_creates_state_and_emits_the_signal() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		let id = xcm_channel(peer);
+
+		run_block(|| {
+			// Origin-gated; channels to self are meaningless.
+			assert_noop!(
+				SpecMessaging::open_channel(RuntimeOrigin::signed(1), peer, 0, 0),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				SpecMessaging::open_channel(RuntimeOrigin::root(), 100.into(), 0, 0),
+				Error::<Test>::ChannelToSelf
+			);
+
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0));
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::ChannelOpened {
+				channel: id,
+			}));
+
+			// Phase `Opening`: no register, no credit — `send` refuses.
+			assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Opening);
+			assert!(!SpecMessaging::is_outbound_channel_open(&id));
+			assert_eq!(SpecMessaging::send(id, vec![1]), Err(Error::<Test>::ChannelNotOpen));
+
+			// The `OpenChannel` leaf is on the stream — the one message
+			// sendable without credit — and window-counted like everything
+			// else (in-flight: 1).
+			assert_eq!(
+				OutboundMessages::<Test>::get(channel(2001)).to_vec(),
+				vec![SpecMsgKind::Signal(SpecMsgSignal::OpenChannel { version: PROTOCOL_VERSION })
+					.encode()]
+			);
+			assert_eq!(OutChannelsMeta::<Test>::get(id).sizes.len(), 1);
+
+			// Reopening an `Opening` (or `Open`) channel is refused.
+			assert_noop!(
+				SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0),
+				Error::<Test>::AlreadyOpen
+			);
+		});
+	});
+}
+
+#[test]
+fn handshake_completes_in_either_order() {
+	// Open-first, sender side: open → the peer's acceptance arrives as the
+	// first register read → phase `Open`, credit live.
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		let id = xcm_channel(peer);
+		run_block(|| {
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0));
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Opening);
+
+		run_block(|| read_register(peer, &[live_register(0)]));
+		assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Open);
+		assert!(SpecMessaging::is_outbound_channel_open(&id));
+		let (sent, _) = run_block(|| SpecMessaging::send(id, vec![1]));
+		assert_eq!(sent, Ok(MessagePosition(1)));
+	});
+
+	// Accept-first, receiver side (pre-authorization): the consumed set
+	// lists the stream at cursor 0 and the initial register is published
+	// before any leaf of the sender ever arrived.
+	new_test_ext().execute_with(|| {
+		let sender = ParaId::from(2000);
+		run_block(|| {
+			// An unaccepted open leaves ZERO receiver state, and the STF
+			// refuses the stream's items.
+			assert!(SpecMessaging::in_channels().is_empty());
+			assert!(SpecMessaging::consumed_streams().is_empty());
+			enact(messages_inherent(vec![(sender, channel(100), vec![data_payload(&[1])])]));
+			assert_eq!(reject_events(), vec![(sender, channel(100), RejectReason::UnknownStream)]);
+
+			accept(sender, 0, 0);
+			assert_noop!(
+				SpecMessaging::accept_open_channel(RuntimeOrigin::root(), sender, 0, 0),
+				Error::<Test>::AlreadyAccepted
+			);
+			// The stream is consumed from position 0 on...
+			assert_eq!(
+				SpecMessaging::consumed_streams()[&sender],
+				vec![ConsumedStream::Channel { domain: 0, num: 0, from: MessagePosition(0) }]
+			);
+			// ...and the initial register — the sender-visible acceptance —
+			// is on the ack stream, sent through the ordinary machinery.
+			assert_eq!(
+				OutboundMessages::<Test>::get(ack(2000)).to_vec(),
+				vec![live_register(0).encode()]
+			);
+
+			// The sender's `OpenChannel` arrives later, an ordinary
+			// window-counted leaf.
+			System::reset_events();
+			let open = SpecMsgKind::Signal(SpecMsgSignal::OpenChannel { version: 0 }).encode();
+			enact(messages_inherent(vec![(sender, channel(100), vec![open])]));
+			assert_eq!(reject_events(), vec![]);
+			assert_eq!(InboundFrontier::<Test>::get((sender, channel(100))).leaf_count, 1);
+		});
+	});
+}
+
+#[test]
+fn credit_window_gates_sends_and_reads_restore_capacity() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		let id = xcm_channel(peer);
+		// 3 messages / 12 bytes of credit; nothing in flight yet. The
+		// `Data(vec![i])` leaves below encode to 3 bytes each.
+		let grant = WindowGrant { max_messages: 3, max_bytes: 12, max_message_size: 64 };
+		open_out_channel(2001, grant, 0);
+		let reg =
+			|up_to, grant| Register { up_to: MessagePosition(up_to), grant, ..live_register(0) };
+
+		run_block(|| {
+			for i in 1..=3u8 {
+				assert_ok!(SpecMessaging::send(id, vec![i]));
+			}
+			// The grant-exceeding send fails — no hidden queueing.
+			assert_eq!(SpecMessaging::send(id, vec![4]), Err(Error::<Test>::NoCredit));
+			assert_eq!(OutboundMessages::<Test>::get(channel(2001)).len(), 3);
+		});
+
+		// A register read advancing the watermark restores capacity.
+		let mut history = vec![reg(2, grant)];
+		run_block(|| {
+			read_register(peer, &history);
+			assert_eq!(OutChannelsMeta::<Test>::get(id).sizes.len(), 1);
+			assert_eq!(OutChannelsMeta::<Test>::get(id).bytes, 3);
+			assert_ok!(SpecMessaging::send(id, vec![5]));
+		});
+
+		// Shrinking a grant never invalidates in-flight messages — it only
+		// gates NEW sends (2 in flight / 6 bytes against a 6-byte grant).
+		let shrunk = WindowGrant { max_bytes: 6, ..grant };
+		history.push(reg(2, shrunk));
+		run_block(|| {
+			read_register(peer, &history);
+			assert_eq!(OutChannelsMeta::<Test>::get(id).sizes, vec![3, 3]);
+			assert_eq!(SpecMessaging::send(id, vec![6]), Err(Error::<Test>::NoCredit));
+		});
+		assert_eq!(OutboundFrontier::<Test>::get(channel(2001)).leaf_count, 4);
+
+		// The watermark passing the in-flight tail frees the shrunk window.
+		history.push(reg(4, shrunk));
+		run_block(|| {
+			read_register(peer, &history);
+			assert!(OutChannelsMeta::<Test>::get(id).sizes.is_empty());
+			assert_ok!(SpecMessaging::send(id, vec![7]));
+		});
+	});
+}
+
+#[test]
+fn register_monotonicity_is_enforced() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		let id = xcm_channel(peer);
+		open_out_channel(2001, TestGrant::get(), 0);
+		let reg = |version, up_to| Register {
+			version,
+			up_to: MessagePosition(up_to),
+			grant: TestGrant::get(),
+			closed: false,
+		};
+
+		// Baseline: version 1, watermark 2, read at position 2.
+		let history = vec![reg(1, 0), reg(1, 1), reg(1, 2)];
+		run_block(|| read_register(peer, &history));
+		assert_eq!(SpecMessaging::out_channels()[&id].register, Some(reg(1, 2)));
+
+		// A regressed `up_to` at a fresh position is a peer protocol
+		// violation: ignored, the previous read stands.
+		run_block(|| {
+			System::reset_events();
+			let mut regressed = history.clone();
+			regressed.push(reg(1, 1));
+			read_register(peer, &regressed);
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::RegisterRegressed {
+				channel: id,
+			}));
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id].register, Some(reg(1, 2)));
+
+		// A regressed `version` likewise.
+		run_block(|| {
+			System::reset_events();
+			let mut regressed = history.clone();
+			regressed.extend([reg(1, 1), reg(0, 3)]);
+			read_register(peer, &regressed);
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::RegisterRegressed {
+				channel: id,
+			}));
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id].register, Some(reg(1, 2)));
+
+		// A stale head — an older leaf than the last applied read, e.g.
+		// replaying a since-shrunk grant — is ignored silently.
+		run_block(|| {
+			System::reset_events();
+			read_register(peer, &history[..2]);
+			assert_eq!(reject_events(), vec![]);
+			assert!(!System::events().into_iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::SpecMessaging(Event::RegisterRegressed { .. })
+			)));
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id].register, Some(reg(1, 2)));
+
+		// A `closed` register voids the grant: phase `Closed`, sends
+		// refuse (`up_to` still reports consumption).
+		run_block(|| {
+			let mut closed = history.clone();
+			closed.push(Register { closed: true, ..reg(1, 3) });
+			read_register(peer, &closed);
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Closed);
+		assert_eq!(SpecMessaging::out_channels()[&id].register.unwrap().up_to.0, 3);
+		assert_eq!(SpecMessaging::send(id, vec![1]), Err(Error::<Test>::ChannelNotOpen));
+	});
+}
+
+#[test]
+fn signals_are_window_counted_and_only_open_is_exempt() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		let id = xcm_channel(peer);
+		let one_message = WindowGrant { max_messages: 1, max_bytes: 64, max_message_size: 64 };
+		let reg = |up_to| Register {
+			up_to: MessagePosition(up_to),
+			grant: one_message,
+			..live_register(0)
+		};
+
+		// `OpenChannel` needs no credit (no register exists yet), but IS
+		// window-counted: it occupies an in-flight slot.
+		run_block(|| {
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0));
+		});
+		assert_eq!(OutChannelsMeta::<Test>::get(id).sizes.len(), 1);
+
+		// A one-message grant is fully consumed by the unconfirmed open
+		// signal: everything after the open is gated — the close too.
+		let mut history = vec![reg(0)];
+		run_block(|| {
+			read_register(peer, &history);
+			assert_noop!(
+				SpecMessaging::close_channel(RuntimeOrigin::root(), peer, 0, 0),
+				Error::<Test>::NoCredit
+			);
+		});
+
+		// The watermark passing the open frees the slot: the close goes
+		// out as an ordinary in-band leaf and closes the phase.
+		history.push(reg(1));
+		run_block(|| {
+			read_register(peer, &history);
+			assert_ok!(SpecMessaging::close_channel(RuntimeOrigin::root(), peer, 0, 0));
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::ChannelClosed {
+				channel: id,
+			}));
+			assert_eq!(
+				OutboundMessages::<Test>::get(channel(2001)).to_vec(),
+				vec![SpecMsgKind::Signal(SpecMsgSignal::CloseChannel).encode()]
+			);
+			// Window-counted like everything else.
+			assert_eq!(OutChannelsMeta::<Test>::get(id).sizes.len(), 1);
+
+			assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Closed);
+			assert!(SpecMessaging::out_channels()[&id].closed_by_us);
+			assert_noop!(
+				SpecMessaging::close_channel(RuntimeOrigin::root(), peer, 0, 0),
+				Error::<Test>::AlreadyClosed
+			);
+		});
+	});
+}
+
+#[test]
+fn close_and_reopen_keep_positions_continuous() {
+	new_test_ext().execute_with(|| {
+		let peer = ParaId::from(2001);
+		let id = xcm_channel(peer);
+		let stream = channel(2001);
+
+		run_block(|| {
+			// Position 0: the open signal.
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0));
+		});
+		run_block(|| {
+			read_register(peer, &[live_register(0)]);
+			assert_eq!(SpecMessaging::send(id, vec![1]), Ok(MessagePosition(1)));
+			assert_eq!(SpecMessaging::send(id, vec![2]), Ok(MessagePosition(2)));
+			// Position 3: the close signal.
+			assert_ok!(SpecMessaging::close_channel(RuntimeOrigin::root(), peer, 0, 0));
+			assert_eq!(SpecMessaging::send(id, vec![3]), Err(Error::<Test>::ChannelNotOpen));
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Closed);
+
+		// Sender-half-close reopen: the peer's live register still stands —
+		// phase `Open` again immediately, NO re-acceptance needed — and
+		// positions continue over the eternal frontier (the unconfirmed
+		// tail 1..=3 survives untouched).
+		run_block(|| {
+			// Position 4: the reopen signal.
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer, 0, 0));
+			assert_eq!(SpecMessaging::out_channels()[&id].phase(), ChannelPhase::Open);
+			assert_eq!(SpecMessaging::send(id, vec![4]), Ok(MessagePosition(5)));
+		});
+		run_block(|| {});
+		assert_eq!(OutboundFrontier::<Test>::get(stream).leaf_count, 6);
+		// Everything unconfirmed is still accounted in the window.
+		assert_eq!(OutChannelsMeta::<Test>::get(id).sizes.len(), 6);
+	});
+}
+
+#[test]
+fn suspension_pauses_the_three_derived_effects() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		let id = ChannelId { peer: source, domain: 0, num: 0 };
+		accept(source, 0, 0);
+		let payloads: Vec<Vec<u8>> = (0..3u8).map(|i| data_payload(&[i])).collect();
+		run_block(|| enact(messages_inherent(vec![(source, stream, payloads[..1].to_vec())])));
+
+		run_block(|| {
+			assert_noop!(
+				SpecMessaging::suspend_inbound_channel(RuntimeOrigin::signed(1), source, 0, 0),
+				DispatchError::BadOrigin
+			);
+			assert_ok!(SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), source, 0, 0));
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::ChannelSuspended {
+				channel: id,
+			}));
+
+			// (a) The published register grants zero (watermark intact)...
+			let published = SpecMessaging::in_channels()[&id].published;
+			assert_eq!(published.grant, WindowGrant::default());
+			assert_eq!(published.up_to, MessagePosition(1));
+			// ...(b) the consumed set omits the stream (the own collators
+			// stop fetching)...
+			assert!(SpecMessaging::consumed_streams().is_empty());
+			// ...(c) and the STF refuses the channel's messages.
+			System::reset_events();
+			enact(messages_inherent(vec![(source, stream, payloads[1..2].to_vec())]));
+			assert_eq!(reject_events(), vec![(source, stream, RejectReason::UnknownStream)]);
+			assert_eq!(InboundFrontier::<Test>::get((source, stream)).leaf_count, 1);
+
+			assert_noop!(
+				SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), source, 0, 0),
+				Error::<Test>::AlreadySuspended
+			);
+		});
+
+		// Resume restores all three: a real grant is republished and
+		// consumption continues from the retained frontier.
+		run_block(|| {
+			System::reset_events();
+			assert_ok!(SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), source, 0, 0));
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::ChannelResumed {
+				channel: id,
+			}));
+			assert_eq!(SpecMessaging::in_channels()[&id].published.grant, TestGrant::get());
+			assert_eq!(
+				SpecMessaging::consumed_streams()[&source],
+				vec![ConsumedStream::Channel { domain: 0, num: 0, from: MessagePosition(1) }]
+			);
+			enact(messages_inherent(vec![(source, stream, payloads[1..].to_vec())]));
+			assert_eq!(reject_events(), vec![]);
+			assert_eq!(InboundFrontier::<Test>::get((source, stream)).leaf_count, 3);
+
+			assert_noop!(
+				SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), source, 0, 0),
+				Error::<Test>::NotSuspended
+			);
+		});
+	});
+}
+
+#[test]
+fn receiver_close_publishes_closed_register_and_reacceptance_resumes() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		let id = ChannelId { peer: source, domain: 0, num: 0 };
+		accept(source, 0, 0);
+
+		let payloads: Vec<Vec<u8>> = (0..4u8).map(|i| data_payload(&[i])).collect();
+		run_block(|| enact(messages_inherent(vec![(source, stream, payloads[..2].to_vec())])));
+
+		run_block(|| {
+			assert_ok!(SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), source, 0, 0));
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::InboundChannelClosed {
+				channel: id,
+			}));
+			// The closed register voids the grant but still reports what
+			// was consumed — the sender's pruning watermark.
+			let published = SpecMessaging::in_channels()[&id].published;
+			assert!(published.closed);
+			assert_eq!(published.up_to, MessagePosition(2));
+			assert_eq!(published.grant, WindowGrant::default());
+			// Consumption stops: omitted from the set, items refused.
+			assert!(SpecMessaging::consumed_streams().is_empty());
+			System::reset_events();
+			enact(messages_inherent(vec![(source, stream, payloads[2..].to_vec())]));
+			assert_eq!(reject_events(), vec![(source, stream, RejectReason::UnknownStream)]);
+
+			assert_noop!(
+				SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), source, 0, 0),
+				Error::<Test>::AlreadyClosed
+			);
+		});
+
+		// Re-acceptance revokes the close and resumes from the RETAINED
+		// frontier — the receiver's one obligation across close/reopen.
+		run_block(|| {
+			accept(source, 0, 0);
+			let published = SpecMessaging::in_channels()[&id].published;
+			assert!(!published.closed);
+			assert_eq!(published.up_to, MessagePosition(2));
+			assert_eq!(
+				SpecMessaging::consumed_streams()[&source],
+				vec![ConsumedStream::Channel { domain: 0, num: 0, from: MessagePosition(2) }]
+			);
+			System::reset_events();
+			enact(messages_inherent(vec![(source, stream, payloads[2..].to_vec())]));
+			assert_eq!(reject_events(), vec![]);
+			assert_eq!(InboundFrontier::<Test>::get((source, stream)).leaf_count, 4);
+		});
+	});
+}
+
+#[test]
+fn acceptance_deposit_charged_once_and_only_for_signed_acceptors() {
+	new_test_ext().execute_with(|| {
+		Deposits::take();
+		let source = ParaId::from(2000);
+
+		// Root acceptance: no account, no deposit — the state is created
+		// for free (a governance decision priced the usual way).
+		accept(source, 0, 0);
+		assert_eq!(Deposits::get(), vec![]);
+
+		// A signed acceptance holds the consideration for the permanent
+		// state it creates.
+		assert_ok!(SpecMessaging::accept_open_channel(RuntimeOrigin::signed(7), source, 0, 1));
+		let deposits = Deposits::get();
+		assert_eq!(deposits.len(), 1);
+		assert_eq!(deposits[0].0, 7);
+		assert!(deposits[0].1 > 0);
+
+		// Re-acceptance after a receiver close never charges twice: the
+		// state the held ticket priced never went away.
+		assert_ok!(SpecMessaging::close_inbound_channel(RuntimeOrigin::signed(7), source, 0, 1));
+		assert_ok!(SpecMessaging::accept_open_channel(RuntimeOrigin::signed(7), source, 0, 1));
+		assert_eq!(Deposits::get().len(), 1);
+	});
+}
+
+#[test]
+fn inbound_signals_drive_peer_version_and_close_publishes() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		let id = ChannelId { peer: source, domain: 0, num: 0 };
+		accept(source, 0, 0);
+		let signal = |signal: SpecMsgSignal| SpecMsgKind::Signal(signal).encode();
+
+		run_block(|| {
+			enact(messages_inherent(vec![(
+				source,
+				stream,
+				vec![
+					signal(SpecMsgSignal::OpenChannel { version: 2 }),
+					// Mid-channel downgrades are invalid → ignored.
+					signal(SpecMsgSignal::Upgrade { version: 1 }),
+					signal(SpecMsgSignal::Upgrade { version: 3 }),
+				],
+			)]));
+		});
+		let state = SpecMessaging::in_channels()[&id];
+		assert_eq!(state.peer_version, 3);
+		// Effective = min of the two latest announcements; MVP announces 0
+		// and gates nothing — the machinery ships regardless.
+		assert_eq!(state.effective_version(), PROTOCOL_VERSION);
+
+		// A consumed `CloseChannel` publishes the final watermark right
+		// away: the peer's archive can prune to the end and a reopen
+		// starts fully credited.
+		run_block(|| {
+			System::reset_events();
+			enact(messages_inherent(vec![(
+				source,
+				stream,
+				vec![signal(SpecMsgSignal::CloseChannel)],
+			)]));
+			System::assert_has_event(RuntimeEvent::SpecMessaging(Event::RegisterPublished {
+				channel: id,
+				register: live_register(4),
+			}));
+		});
+
+		// A reopen announcement may be LOWER than the previous one —
+		// genuine downgrades happen exactly via close + reopen.
+		run_block(|| {
+			enact(messages_inherent(vec![(
+				source,
+				stream,
+				vec![signal(SpecMsgSignal::OpenChannel { version: 1 })],
+			)]));
+		});
+		assert_eq!(SpecMessaging::in_channels()[&id].peer_version, 1);
+	});
+}
+
+#[test]
+fn register_publish_policy_quarter_window_then_age_backstop() {
+	new_test_ext().execute_with(|| {
+		let source = ParaId::from(2000);
+		let stream = channel(100);
+		let id = ChannelId { peer: source, domain: 0, num: 0 };
+		// Publish #1 (up_to 0) rides the acceptance, at block 1.
+		run_block(|| accept(source, 0, 0));
+		let payloads: Vec<Vec<u8>> = (0..8u8).map(|i| data_payload(&[i])).collect();
+
+		// Below ¼ of the granted window (16 messages / 4): no republish.
+		run_block(|| {
+			enact(messages_inherent(vec![(source, stream, payloads[..3].to_vec())]));
+			assert!(OutboundMessages::<Test>::get(ack(2000)).is_empty());
+		});
+		assert_eq!(SpecMessaging::in_channels()[&id].published.up_to, MessagePosition(0));
+
+		// The 4th consumed message trips the ¼ trigger.
+		run_block(|| {
+			enact(messages_inherent(vec![(source, stream, payloads[3..4].to_vec())]));
+			assert_eq!(
+				OutboundMessages::<Test>::get(ack(2000)).to_vec(),
+				vec![live_register(4).encode()]
+			);
+		});
+		assert_eq!(SpecMessaging::in_channels()[&id].published.up_to, MessagePosition(4));
+
+		// One more message: below the trigger again...
+		run_block(|| enact(messages_inherent(vec![(source, stream, payloads[4..5].to_vec())])));
+		assert_eq!(SpecMessaging::in_channels()[&id].published.up_to, MessagePosition(4));
+
+		// ...but the age backstop reports the unreported progress: within
+		// `RegisterPublishAge` (8) blocks the on_initialize sweep
+		// republishes, so the sender reclaims credit and prunes even when
+		// the channel goes quiet.
+		for _ in 0..8 {
+			run_block(|| {});
+		}
+		assert_eq!(SpecMessaging::in_channels()[&id].published.up_to, MessagePosition(5));
+
+		// Fully reported channels stay quiet — publishing every block
+		// would be sound, just pointless.
+		let last = InChannelsMeta::<Test>::get(id).published_at;
+		for _ in 0..9 {
+			run_block(|| {});
+		}
+		assert_eq!(InChannelsMeta::<Test>::get(id).published_at, last);
+	});
+}
+
+#[test]
+fn full_lifecycle_between_two_chains() {
+	// The cross-half test: chain A (para 1000) and chain B (para 2000) in
+	// two externalities, payloads shuttled between them exactly as the
+	// node-side fetch pipeline would — open, accept, send under credit,
+	// consume, register publish, watermark advance, close, reopen, the
+	// unconfirmed tail delivered across the reopen.
+	let para_a = ParaId::from(1000);
+	let para_b = ParaId::from(2000);
+	let mut chain_a = new_test_ext();
+	let mut chain_b = new_test_ext();
+
+	// The A→B channel, in both chains' views and key spaces.
+	let id_on_a = ChannelId { peer: para_b, domain: 0, num: 0 };
+	let id_on_b = ChannelId { peer: para_a, domain: 0, num: 0 };
+	let data_stream = StreamId::Channel { recipient: para_b, domain: 0, num: 0 };
+	let ack_stream = StreamId::Ack { recipient: para_a, domain: 0, num: 0 };
+
+	// A block's sends on `stream`, as the node-side extraction serves them.
+	let take_sends = |stream: &StreamId| -> Vec<Vec<u8>> {
+		OutboundMessages::<Test>::get(stream)
+			.into_iter()
+			.map(|leaf| leaf.into_inner())
+			.collect()
+	};
+
+	// A opens: the `OpenChannel` leaf (position 0) goes onto the wire.
+	SelfPara::set(para_a);
+	let (leg1, _) = chain_a.execute_with(|| {
+		run_block(|| {
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), para_b, 0, 0));
+			take_sends(&data_stream)
+		})
+	});
+	assert_eq!(leg1.len(), 1);
+
+	// B accepts, then consumes the open leg; the acceptance published the
+	// initial register (B's whole ack-stream history is shuttled below).
+	SelfPara::set(para_b);
+	let mut ack_history: Vec<Vec<u8>> = Vec::new();
+	chain_b.execute_with(|| {
+		let (published, _) = run_block(|| {
+			accept(para_a, 0, 0);
+			take_sends(&ack_stream)
+		});
+		ack_history.extend(published);
+		run_block(|| {
+			enact(messages_inherent(vec![(para_a, data_stream, leg1.clone())]));
+			assert_eq!(reject_events(), vec![]);
+		});
+		assert_eq!(InboundFrontier::<Test>::get((para_a, data_stream)).leaf_count, 1);
+	});
+	assert_eq!(ack_history.len(), 1);
+
+	// A reads the register: the handshake is complete, credit is live.
+	SelfPara::set(para_a);
+	let (leg2, _) = chain_a.execute_with(|| {
+		run_block(|| read_register_history(para_b, &ack_history));
+		assert_eq!(SpecMessaging::out_channels()[&id_on_a].phase(), ChannelPhase::Open);
+		assert!(SpecMessaging::is_outbound_channel_open(&id_on_a));
+
+		// Four sends under credit: positions 1..=4.
+		run_block(|| {
+			for i in 1..=4u8 {
+				assert_ok!(SpecMessaging::send(id_on_a, vec![i]));
+			}
+			take_sends(&data_stream)
+		})
+	});
+
+	// B consumes them; the ¼-window trigger (5 of 16 messages progressed)
+	// publishes the advanced register in the same block.
+	SelfPara::set(para_b);
+	chain_b.execute_with(|| {
+		ConsumedData::take();
+		let (published, _) = run_block(|| {
+			enact(messages_inherent(vec![(para_a, data_stream, leg2.clone())]));
+			take_sends(&ack_stream)
+		});
+		assert_eq!(published.len(), 1);
+		ack_history.extend(published);
+		// The data payloads reached the handler in order.
+		assert_eq!(
+			ConsumedData::take()
+				.into_iter()
+				.map(|(_, _, position, data)| (position.0, data))
+				.collect::<Vec<_>>(),
+			(1..=4u64).map(|i| (i, vec![i as u8])).collect::<Vec<_>>()
+		);
+	});
+
+	// A reads the advanced register: the watermark is visible in the
+	// channel views — the node-side archive prunes below it — and the
+	// in-flight window drains fully.
+	SelfPara::set(para_a);
+	let leg3 = chain_a.execute_with(|| {
+		run_block(|| read_register_history(para_b, &ack_history));
+		let state = SpecMessaging::out_channels()[&id_on_a];
+		assert_eq!(state.register.expect("register was read; qed").up_to, MessagePosition(5));
+		assert!(OutChannelsMeta::<Test>::get(id_on_a).sizes.is_empty());
+
+		// Two more sends (positions 5, 6), then the half-close (7).
+		let (leg3, _) = run_block(|| {
+			assert_ok!(SpecMessaging::send(id_on_a, vec![5]));
+			assert_ok!(SpecMessaging::send(id_on_a, vec![6]));
+			assert_ok!(SpecMessaging::close_channel(RuntimeOrigin::root(), para_b, 0, 0));
+			take_sends(&data_stream)
+		});
+		assert_eq!(SpecMessaging::out_channels()[&id_on_a].phase(), ChannelPhase::Closed);
+		leg3
+	});
+
+	// A reopens over the eternal frontier — no re-acceptance needed after
+	// a sender half-close — and sends one more (open at 8, data at 9).
+	let leg4 = chain_a.execute_with(|| {
+		let (leg4, _) = run_block(|| {
+			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), para_b, 0, 0));
+			assert_eq!(SpecMessaging::out_channels()[&id_on_a].phase(), ChannelPhase::Open);
+			assert_eq!(SpecMessaging::send(id_on_a, vec![7]), Ok(MessagePosition(9)));
+			take_sends(&data_stream)
+		});
+		leg4
+	});
+
+	// B consumes the unconfirmed tail ACROSS the close/reopen pair in one
+	// go: positions continuous, nothing lost, nothing re-negotiated. The
+	// consumed close forces a register publish reporting the full
+	// watermark.
+	SelfPara::set(para_b);
+	chain_b.execute_with(|| {
+		ConsumedData::take();
+		let tail: Vec<Vec<u8>> = leg3.iter().chain(leg4.iter()).cloned().collect();
+		run_block(|| {
+			enact(messages_inherent(vec![(para_a, data_stream, tail)]));
+			assert_eq!(reject_events(), vec![]);
+		});
+		assert_eq!(InboundFrontier::<Test>::get((para_a, data_stream)).leaf_count, 10);
+		assert_eq!(SpecMessaging::in_channels()[&id_on_b].published.up_to, MessagePosition(10));
+		assert_eq!(
+			ConsumedData::take()
+				.into_iter()
+				.map(|(_, _, position, data)| (position.0, data))
+				.collect::<Vec<_>>(),
+			vec![(5, vec![5u8]), (6, vec![6u8]), (9, vec![7u8])]
+		);
+	});
+
+	// Meanwhile the sender's own frontier agrees with the receiver's — the
+	// recomputation invariant held across the whole lifecycle.
+	SelfPara::set(para_a);
+	let sender_frontier = chain_a.execute_with(|| {
+		run_block(|| {});
+		OutboundFrontier::<Test>::get(data_stream)
+	});
+	SelfPara::set(para_b);
+	chain_b.execute_with(|| {
+		assert_eq!(InboundFrontier::<Test>::get((para_a, data_stream)), sender_frontier);
 	});
 }

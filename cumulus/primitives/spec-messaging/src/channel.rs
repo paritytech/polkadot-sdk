@@ -269,14 +269,32 @@ impl ConsumedStream {
 	}
 }
 
+/// The phase of an outbound channel — a *view* over [`OutChannelState`]'s
+/// fields ([`OutChannelState::phase`]), never stored: `Opening` until the
+/// peer's register is first read (its very existence is the acceptance),
+/// `Open` while neither side closed, `Closed` on either side's close.
+/// Close and reopen only layer over the eternal stream/frontier state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ChannelPhase {
+	/// `OpenChannel` sent, no register read yet: the peer has not
+	/// (visibly) accepted. No credit exists, nothing but the open signal
+	/// was sendable.
+	Opening,
+	/// A register was read and neither side closed: the channel carries
+	/// credit-gated traffic.
+	Open,
+	/// This chain half-closed (`closed_by_us`) or the peer's register did
+	/// (`register.closed`). Advisory and reversible: reopening emits
+	/// `OpenChannel` again over the surviving frontier.
+	Closed,
+}
+
 /// Sender-side state of one OUTBOUND channel — the value of the
-/// `out_channels()` runtime API view. Phases are views over the fields:
-/// `Opening` = `register` is `None`; `Open` = `Some` with neither side
-/// closed; `Closed` = `closed_by_us` or `register.closed`.
-///
-/// The channel lifecycle machinery derives this from the `OpenChannel`
-/// handshake and the peer's register reads; until it lands the runtime
-/// serves placeholder-grade defaults — the shape is the API contract.
+/// `out_channels()` runtime API view and of the messaging pallet's
+/// `OutChannels` storage. Phases are views over the fields
+/// ([`Self::phase`]): `Opening` = `register` is `None`; `Open` = `Some`
+/// with neither side closed; `Closed` = `closed_by_us` or
+/// `register.closed`.
 #[derive(
 	Clone,
 	Copy,
@@ -302,13 +320,33 @@ pub struct OutChannelState {
 	pub register: Option<Register>,
 }
 
+impl OutChannelState {
+	/// The channel's phase, derived from the fields (see [`ChannelPhase`]).
+	pub fn phase(&self) -> ChannelPhase {
+		if self.closed_by_us || self.register.map_or(false, |register| register.closed) {
+			ChannelPhase::Closed
+		} else if self.register.is_none() {
+			ChannelPhase::Opening
+		} else {
+			ChannelPhase::Open
+		}
+	}
+
+	/// The effective protocol version: the min of both sides' latest
+	/// announcements (a variant is usable only after *reading* the
+	/// announcement permitting it). `None` until the peer's register was
+	/// first read.
+	pub fn effective_version(&self) -> Option<u8> {
+		self.register.map(|register| self.announced_version.min(register.version))
+	}
+}
+
 /// Receiver-side state of one INBOUND channel — the value of the
-/// `in_channels()` runtime API view: which channels are due a register
-/// publish check (compare [`Self::published`] against the stream's
-/// consumption progress) and the suspension standing.
-///
-/// Placeholder-grade defaults until the channel lifecycle machinery lands,
-/// like [`OutChannelState`].
+/// `in_channels()` runtime API view and of the messaging pallet's
+/// `InChannels` storage: which channels are due a register publish check
+/// (compare [`Self::published`] against the stream's consumption
+/// progress) and the suspension standing. An entry's existence is the
+/// acceptance.
 #[derive(
 	Clone,
 	Copy,
@@ -332,6 +370,15 @@ pub struct InChannelState {
 	/// refuses the channel's messages, `consumed_streams()` omits the
 	/// stream and published registers grant zero.
 	pub suspended: bool,
+}
+
+impl InChannelState {
+	/// The effective protocol version: the min of both sides' latest
+	/// announcements (the peer's arrived in-band via
+	/// `OpenChannel`/`Upgrade`, this side's rides the published register).
+	pub fn effective_version(&self) -> u8 {
+		self.published.version.min(self.peer_version)
+	}
 }
 
 #[cfg(test)]
@@ -383,6 +430,28 @@ mod tests {
 		for stream in never {
 			assert_eq!(ConsumedStream::project(&stream, cursor), None);
 		}
+	}
+
+	#[test]
+	fn phases_are_views_over_the_fields() {
+		let mut state = OutChannelState::default();
+		assert_eq!(state.phase(), ChannelPhase::Opening);
+		assert_eq!(state.effective_version(), None);
+
+		// The register's existence is the acceptance: reading one opens.
+		state.register = Some(Register { version: 3, ..Default::default() });
+		assert_eq!(state.phase(), ChannelPhase::Open);
+		// Effective = min of the two latest announcements.
+		assert_eq!(state.effective_version(), Some(0));
+		state.announced_version = 7;
+		assert_eq!(state.effective_version(), Some(3));
+
+		// Either side's close closes; both flags are independent views.
+		state.closed_by_us = true;
+		assert_eq!(state.phase(), ChannelPhase::Closed);
+		state.closed_by_us = false;
+		state.register = Some(Register { closed: true, ..Default::default() });
+		assert_eq!(state.phase(), ChannelPhase::Closed);
 	}
 
 	#[test]

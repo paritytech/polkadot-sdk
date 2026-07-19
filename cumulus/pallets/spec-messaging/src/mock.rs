@@ -16,17 +16,23 @@
 
 use crate as spec_messaging;
 use crate::{EnqueueToXcmQueue, OnSpecMsgData};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	AggregateMessageOrigin, ChannelInfo, ChannelStatus, GetChannelInfo, ParaId,
 };
-use cumulus_primitives_spec_messaging::{MessagePosition, StreamId};
+use cumulus_primitives_spec_messaging::{MessagePosition, StreamId, WindowGrant};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ProcessMessage, ProcessMessageError, TransformOrigin},
+	traits::{
+		Consideration, ConstU32, ConstU64, EitherOfDiverse, Footprint, ProcessMessage,
+		ProcessMessageError, TransformOrigin,
+	},
 	weights::{Weight, WeightMeter},
 };
+use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
-use sp_runtime::{traits::Convert, BuildStorage};
+use scale_info::TypeInfo;
+use sp_runtime::{traits::Convert, BuildStorage, DispatchError};
 use xcm::{latest::prelude::Location, AlwaysLatest};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -49,6 +55,44 @@ parameter_types! {
 	pub const MaxMessagesPerBlock: u32 = 8;
 	pub const MaxTouchedStreams: u32 = 4;
 	pub const MaxContextGaps: u32 = 2;
+	/// This chain's own id: inbound streams in the tests are addressed to
+	/// para 100. Settable (`SelfPara::set`) so the cross-half lifecycle
+	/// test can play two chains against each other.
+	pub static SelfPara: ParaId = ParaId::from(100);
+	/// The grant published for live inbound channels. ¼-window publish
+	/// trigger: 4 messages or 1024 bytes.
+	pub const TestGrant: WindowGrant =
+		WindowGrant { max_messages: 16, max_bytes: 4096, max_message_size: 64 };
+}
+
+parameter_types! {
+	/// Deposits taken by [`TestConsideration`]: `(who, footprint bytes)`.
+	pub static Deposits: Vec<(u64, u64)> = Vec::new();
+}
+
+/// Recording acceptance-deposit consideration: every `new` is logged so
+/// tests can assert who was charged for what.
+#[derive(
+	Clone, Debug, Decode, DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, TypeInfo,
+)]
+pub struct TestConsideration;
+
+impl Consideration<u64, Footprint> for TestConsideration {
+	fn new(who: &u64, footprint: Footprint) -> Result<Self, DispatchError> {
+		Deposits::mutate(|deposits| deposits.push((*who, footprint.size)));
+		Ok(Self)
+	}
+
+	fn update(self, _: &u64, _: Footprint) -> Result<Self, DispatchError> {
+		Ok(self)
+	}
+
+	fn drop(self, _: &u64) -> Result<(), DispatchError> {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &u64, _: Footprint) {}
 }
 
 parameter_types! {
@@ -83,12 +127,20 @@ impl OnSpecMsgData for RecordingDataHandler {
 }
 
 impl spec_messaging::Config for Test {
+	type SelfParaId = SelfPara;
 	type MaxMsgLen = MaxMsgLen;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxTouchedStreams = MaxTouchedStreams;
 	type MaxContextGaps = MaxContextGaps;
 	type DataHandler = RecordingDataHandler;
-	type ChannelManagementOrigin = frame_system::EnsureRoot<u64>;
+	type ChannelManagementOrigin = EnsureRoot<u64>;
+	type OpenChannelOrigin = EnsureRoot<u64>;
+	// Root accepts for free; any signed account may accept against the
+	// (recorded) acceptance deposit.
+	type AcceptChannelOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSigned<u64>>;
+	type AcceptConsideration = TestConsideration;
+	type DefaultWindowGrant = TestGrant;
+	type RegisterPublishAge = ConstU64<8>;
 }
 
 parameter_types! {

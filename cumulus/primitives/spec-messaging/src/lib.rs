@@ -70,8 +70,8 @@ pub mod tree;
 pub mod wire;
 
 pub use channel::{
-	ChannelId, ConsumedStream, InChannelState, OutChannelState, Register, SpecMsgKind,
-	SpecMsgSignal, WindowGrant,
+	ChannelId, ChannelPhase, ConsumedStream, InChannelState, OutChannelState, Register,
+	SpecMsgKind, SpecMsgSignal, WindowGrant,
 };
 pub use inherent::{SpecMsgInherentData, INHERENT_IDENTIFIER};
 pub use lift::{

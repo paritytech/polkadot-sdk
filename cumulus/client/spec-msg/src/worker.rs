@@ -164,8 +164,8 @@ where
 	}
 
 	// Retention: channel payloads below the peers' confirmation watermarks
-	// (from the register views — placeholder-grade `None` until the channel
-	// lifecycle machinery stores real registers), then the horizon sweep.
+	// (the latest verified register reads served by the `out_channels()`
+	// view), then the horizon sweep.
 	let out_channels = client.runtime_api().out_channels(hash)?;
 	let mut archive = archive.write();
 	for (channel, state) in out_channels {

@@ -41,13 +41,13 @@ use cumulus_pallet_parachain_system::{
 	RelevantMessagingState,
 };
 use cumulus_pallet_spec_messaging::{
-	xcm_router::xcm_channel, OpenOutboundChannels, OutboundMessages,
-	ADVANCE_PROOF_RESERVATION_BYTES, LIFT_RESERVATION_BYTES,
+	xcm_router::xcm_channel, OutChannels, OutboundMessages, ADVANCE_PROOF_RESERVATION_BYTES,
+	LIFT_RESERVATION_BYTES, PROTOCOL_VERSION,
 };
 use cumulus_primitives_core::{relay_chain::UMPSignal, AbridgedHrmpChannel, ParaId};
 use cumulus_primitives_spec_messaging::{
-	MmrInclusionProof, ProvideUmpSignals, SpecMsgInherentData, SpecMsgKind, StreamId,
-	SPMS_ENGINE_ID,
+	MessagePosition, MmrInclusionProof, OutChannelState, ProvideUmpSignals, Register,
+	SpecMsgInherentData, SpecMsgKind, StreamId, SPMS_ENGINE_ID,
 };
 use frame_support::{
 	assert_ok,
@@ -88,11 +88,23 @@ fn sibling_stream() -> StreamId {
 	StreamId::Channel { recipient: SIBLING.into(), domain: 0, num: 0 }
 }
 
-/// Manual arming of the outbound spec-msg channel to [`SIBLING`] — the
-/// placeholder for the open/accept handshake of the channel lifecycle
-/// machinery (channels & flow control).
+/// Puts the outbound spec-msg channel to [`SIBLING`] into phase `Open`
+/// under the runtime's configured grant — the state a completed
+/// open/accept/register round-trip leaves behind.
 fn open_spec_msg_channel() {
-	OpenOutboundChannels::<Runtime>::insert(xcm_channel(SIBLING.into()), ());
+	OutChannels::<Runtime>::insert(
+		xcm_channel(SIBLING.into()),
+		OutChannelState {
+			closed_by_us: false,
+			announced_version: PROTOCOL_VERSION,
+			register: Some(Register {
+				version: PROTOCOL_VERSION,
+				up_to: MessagePosition(0),
+				grant: crate::SpecMsgWindowGrant::get(),
+				closed: false,
+			}),
+		},
+	);
 }
 
 /// Makes `ParachainSystem` report an HRMP egress channel to [`SIBLING`] as

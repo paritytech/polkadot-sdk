@@ -186,8 +186,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, OpenOutboundChannels, OutboundMessages};
-	use cumulus_primitives_spec_messaging::{SpecMsgKind, StreamId};
+	use crate::{mock::*, OutChannels, OutboundMessages};
+	use cumulus_primitives_spec_messaging::{
+		MessagePosition, OutChannelState, Register, SpecMsgKind, StreamId, WindowGrant,
+	};
 	use frame_support::assert_ok;
 	use xcm::VersionedXcm;
 
@@ -204,8 +206,26 @@ mod tests {
 		Xcm(alloc::vec![ClearOrigin])
 	}
 
+	/// Puts the designated XCM channel to `id` into phase `Open` under the
+	/// given grant, as a completed open/accept/register round-trip would.
+	fn open_spec_msg_channel_with_grant(id: u32, grant: WindowGrant) {
+		OutChannels::<Test>::insert(
+			xcm_channel(id.into()),
+			OutChannelState {
+				closed_by_us: false,
+				announced_version: 0,
+				register: Some(Register {
+					version: 0,
+					up_to: MessagePosition(0),
+					grant,
+					closed: false,
+				}),
+			},
+		);
+	}
+
 	fn open_spec_msg_channel(id: u32) {
-		OpenOutboundChannels::<Test>::insert(xcm_channel(id.into()), ());
+		open_spec_msg_channel_with_grant(id, TestGrant::get());
 	}
 
 	fn stream(id: u32) -> StreamId {
@@ -275,7 +295,7 @@ mod tests {
 			// The flag means "treat as `Closed`", nothing more: without the
 			// open spec-msg channel the router falls through exactly as for
 			// a genuinely closed pair.
-			OpenOutboundChannels::<Test>::remove(xcm_channel(SPEC_SIBLING.into()));
+			OutChannels::<Test>::remove(xcm_channel(SPEC_SIBLING.into()));
 			let (dest, msg, result) = validate(sibling(SPEC_SIBLING), test_xcm());
 			assert_eq!(result.unwrap_err(), SendError::NotApplicable);
 			assert_eq!(dest, Some(sibling(SPEC_SIBLING)));
@@ -383,9 +403,30 @@ mod tests {
 		});
 	}
 
-	// TODO(channels & flow control): once the advisory credit window is
-	// enforced in `can_send`, add the "credit window exhausted →
-	// `SendError::Transport`" case here.
+	#[test]
+	fn exhausted_credit_window_is_a_transport_error() {
+		new_test_ext().execute_with(|| {
+			// Two messages of credit; nothing confirmed yet.
+			let grant = WindowGrant { max_messages: 2, max_bytes: 4096, max_message_size: 64 };
+			open_spec_msg_channel_with_grant(SPEC_SIBLING, grant);
+
+			for _ in 0..2 {
+				assert_ok!(send_xcm::<Router>(sibling(SPEC_SIBLING), test_xcm()));
+			}
+
+			// The grant-exceeding send MUST abort, never fall through —
+			// like the per-block cap, but this is the peer's advisory
+			// window enforced by the own STF (backpressure surfacing).
+			let (_, _, result) = validate(sibling(SPEC_SIBLING), test_xcm());
+			assert_eq!(result.unwrap_err(), SendError::Transport("Spec-msg channel at capacity"));
+
+			// A register read advancing the watermark restores capacity.
+			crate::OutChannelsMeta::<Test>::mutate(xcm_channel(SPEC_SIBLING.into()), |meta| {
+				meta.confirm(MessagePosition(1))
+			});
+			assert_ok!(send_xcm::<Router>(sibling(SPEC_SIBLING), test_xcm()));
+		});
+	}
 
 	#[test]
 	fn dry_run_inspection_sees_and_clears_this_blocks_sends() {
