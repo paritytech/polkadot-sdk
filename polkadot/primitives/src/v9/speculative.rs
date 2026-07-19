@@ -27,8 +27,7 @@
 //! These types live here (not in `cumulus-primitives-spec-messaging`) because the `UMPSignal` enum
 //! is defined in `polkadot-primitives::v9` and the relay chain decodes them — putting them in the
 //! parachain crate would force a `polkadot -> cumulus` dependency. The parachain off-chain / PoV
-//! types and the MMR primitives that *build* these commitments live in that crate. See
-//! `docs/speculative-messaging-impl-design.md`.
+//! types and the MMR primitives that *build* these commitments live in that crate.
 
 use alloc::vec::Vec;
 use polkadot_core_primitives::Hash;
