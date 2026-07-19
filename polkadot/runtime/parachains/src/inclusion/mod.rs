@@ -965,7 +965,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Whether `root` is present in `source`'s provides window.
 	fn provides_contains(source: ParaId, root: &StreamsRoot) -> bool {
-		RecentProvides::<T>::get(source).iter().any(|committed| committed == root)
+		// Scan newest-first: a `requires` almost always references a recent commitment, which sits
+		// at the tail of the drop-oldest window, so this short-circuits sooner on a match. (A miss
+		// still scans the whole window; the storage cost is one `get` either way.)
+		RecentProvides::<T>::get(source).iter().rev().any(|committed| committed == root)
 	}
 
 	/// Whether every `(source, StreamsRoot)` in `requires` is present in that source's provides
