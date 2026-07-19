@@ -72,7 +72,7 @@ module state_balance {
     else
       Some({
         headData: 0,
-        validationCode: { ref: { hash: { vchBytes: 0 }, len: 0 }, pinned: false },
+        validationCode: None,
         pendingUpgrade: None,
         totalStateBalance: newTotal,
         usedStateBalance: baseline,

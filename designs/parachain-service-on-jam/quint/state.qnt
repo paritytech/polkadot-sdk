@@ -19,7 +19,9 @@ module state {
 
   type ParaInfo = {
     headData: HeadData,
-    validationCode: ValidationCode,
+    // `None` for a freshly-registered para that has no validation code yet
+    // (before the first `parachain_set_validation_code`); `Some` once set.
+    validationCode: Option[ValidationCode],
     // Some((newCode, deadlineTimeslot)) when a code upgrade is in flight.
     // The pending code's `pinned` bit carries into `validationCode`
     // on activation.
@@ -118,6 +120,13 @@ module state {
 
   pure def paraInfo(s: ParachainServiceState, para_id: ParaId): ParaInfo =
   s.parachains.get(para_id)
+
+  /// The para's active validation-code hash, or `fallback` if it has no code
+  /// yet (`validationCode == None`).
+  pure def activeCodeHashOr(
+    pi: ParaInfo, fallback: ValidationCodeHash
+  ): ValidationCodeHash =
+  pi.validationCode.optionMap(vc => vc.ref.hash).optionGetOr(fallback)
 
   pure def hasReferencer(
     s: ParachainServiceState, h: Hash, len: int, para_id: ParaId

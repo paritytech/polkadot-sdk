@@ -362,7 +362,7 @@ module tests {
       )))
       .then(expectThat(all {
         svc.parachains.keys().contains(MkParaId(3)),
-        svc.paraInfo(MkParaId(3)).validationCode.ref.hash == codeA,
+        activeCodeHashOr(svc.paraInfo(MkParaId(3)), NoCodeHash) == codeA,
         svc.paraInfo(MkParaId(3)).pendingUpgrade == None
       }))
       .then(applyHappyPath(MkParaId(3), codeA, List(
@@ -387,7 +387,7 @@ module tests {
       .then(provide(vchAsHash(codeA), FixedCodeLen))
       .then(applyHappyPath(MkParaId(3), codeB, List()))
       .then(expectThat(all {
-        svc.paraInfo(MkParaId(3)).validationCode.ref.hash == codeB,
+        activeCodeHashOr(svc.paraInfo(MkParaId(3)), NoCodeHash) == codeB,
         svc.paraInfo(MkParaId(3)).pendingUpgrade == None,
         // Old codeA was the sole referencer of an available preimage, so
         // activation's first `forget` unrequests it (§6.1): the registry entry
@@ -893,7 +893,7 @@ module tests {
       assert(reaped.jamForget == Some(vchAsHash(pendingUpgradeHash))),
       // The active code is untouched.
       assert(reaped.state.hasReferencer(
-        vchAsHash(s0.paraInfo(para).validationCode.ref.hash), FixedCodeLen, para)),
+        vchAsHash(activeCodeHashOr(s0.paraInfo(para), NoCodeHash)), FixedCodeLen, para)),
       init
     }
   }

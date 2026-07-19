@@ -96,7 +96,9 @@ module accumulate {
       }
       | Solicit(payload) =>
       val pi = acc.state.paraInfo(para_id)
-      val isActive = payload.hash == vchAsHash(pi.validationCode.ref.hash)
+      val activeVc = pi.validationCode
+      val isActive =
+        match activeVc { | Some(vc) => payload.hash == vchAsHash(vc.ref.hash) | None => false }
       val isPending =
         match pi.pendingUpgrade {
           | None => false
@@ -111,7 +113,8 @@ module accumulate {
           state: { ...acc.state,
             parachains: acc.state.parachains.put(
               para_id,
-              { ...pi, validationCode: { ...pi.validationCode, pinned: true } }) } }
+              { ...pi, validationCode:
+                match activeVc { | Some(vc) => Some({ ...vc, pinned: true }) | None => activeVc } }) } }
       } else if (isPending) {
         { ...acc,
           state: { ...acc.state,
@@ -135,7 +138,9 @@ module accumulate {
       }
       | Forget(payload) =>
       val pi = acc.state.paraInfo(para_id)
-      val isActive = payload.hash == vchAsHash(pi.validationCode.ref.hash)
+      val activeVc = pi.validationCode
+      val isActive =
+        match activeVc { | Some(vc) => payload.hash == vchAsHash(vc.ref.hash) | None => false }
       val isPending =
         match pi.pendingUpgrade {
           | None => false
@@ -150,7 +155,8 @@ module accumulate {
           state: { ...acc.state,
             parachains: acc.state.parachains.put(
               para_id,
-              { ...pi, validationCode: { ...pi.validationCode, pinned: false } }) } }
+              { ...pi, validationCode:
+                match activeVc { | Some(vc) => Some({ ...vc, pinned: false }) | None => activeVc } }) } }
       } else if (isPending) {
         { ...acc,
           state: { ...acc.state,
@@ -347,8 +353,10 @@ module accumulate {
         val reaped = reapTimedOutUpgrade(s, now, r.paraId, codeLen)
         val pi1 = reaped.state.paraInfo(r.paraId)
         // Step 3: authoritative validation-code check.
+        val matchesActive =
+          match pi1.validationCode { | Some(vc) => r.validationCode == vc.ref | None => false }
         val codeOk =
-        r.validationCode == pi1.validationCode.ref or
+        matchesActive or
         (match pi1.pendingUpgrade {
             | None => false
             | Some(pair) => r.validationCode == pair._1.ref

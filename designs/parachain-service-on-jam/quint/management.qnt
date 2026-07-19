@@ -110,7 +110,6 @@ module management {
       { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
-      val oldHash = pi.validationCode.ref.hash
       val newEqualsPending =
         match pi.pendingUpgrade {
           | None => false
@@ -118,9 +117,11 @@ module management {
         }
       // The parachain independently solicited newHash iff it references it
       // for a reason other than being the current active or pending code.
+      val activeEqualsNew =
+        match pi.validationCode { | Some(vc) => vc.ref.hash == newHash | None => false }
       val parachainHadIt =
         s.hasReferencer(vchAsHash(newHash), codeLen, para_id) and
-        newHash != oldHash and not(newEqualsPending)
+        not(activeEqualsNew) and not(newEqualsPending)
       // Acquire the new referencer (no charge if already solicited); reject
       // if no headroom.
       val acquired = s.addReferencer(para_id, vchAsHash(newHash), codeLen)
@@ -128,13 +129,19 @@ module management {
         | Some(_) =>
         { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }
         | None =>
-        // Release the old active code unless it is the uninitialised
-        // sentinel, equals the new code, or is independently solicited.
+        // Release the old active code, if any - unless it equals the new code
+        // or is independently solicited (a para with no active code yet has
+        // nothing to release).
         val afterOld =
-          if (oldHash == { vchBytes: 0 } or oldHash == newHash or pi.validationCode.pinned)
-          { state: acquired.state, jamSolicit: None, jamForget: None, retained: false, log: None }
-          else
-          acquired.state.removeReferencer(para_id, vchAsHash(oldHash), pi.validationCode.ref.len, now)
+          match pi.validationCode {
+            | None =>
+              { state: acquired.state, jamSolicit: None, jamForget: None, retained: false, log: None }
+            | Some(vc) =>
+              if (vc.ref.hash == newHash or vc.pinned)
+                { state: acquired.state, jamSolicit: None, jamForget: None, retained: false, log: None }
+              else
+                acquired.state.removeReferencer(para_id, vchAsHash(vc.ref.hash), vc.ref.len, now)
+          }
         // Clear any pending upgrade, releasing its code unless it equals the
         // new code or is independently solicited.
         val afterPending =
@@ -154,10 +161,16 @@ module management {
             parachains: afterPending.state.parachains.put(
               para_id,
               { ...pi2,
-                validationCode: {
+                // If the new hash equals the existing active code, preserve its
+                // `pinned` bit; otherwise the new code's bit is `parachainHadIt`.
+                validationCode: Some({
                   ref: { hash: newHash, len: codeLen },
-                  pinned: if (newHash == oldHash) pi.validationCode.pinned else parachainHadIt
-                },
+                  pinned:
+                    match pi.validationCode {
+                      | Some(vc) => if (vc.ref.hash == newHash) vc.pinned else parachainHadIt
+                      | None => parachainHadIt
+                    }
+                }),
                 pendingUpgrade: None
               }
             )
@@ -178,8 +191,10 @@ module management {
    /// solicited preimages or `keyValueStorage`, which it must release first.
   pure def cleanUpAllowedBalance(pi: ParaInfo, para_id: ParaId): int = {
     val activeFp =
-      if (pi.validationCode.ref.hash == { vchBytes: 0 } and pi.validationCode.ref.len == 0) 0
-      else preimageFootprint(pi.validationCode.ref.len)
+      match pi.validationCode {
+        | None => 0
+        | Some(vc) => preimageFootprint(vc.ref.len)
+      }
     val pendingFp = match pi.pendingUpgrade {
       | None => 0
       | Some(pair) => preimageFootprint(pair._1.ref.len)
@@ -207,13 +222,12 @@ module management {
         // Still holds extra state — reject, no change.
         { state: s, jamSolicit: Set(), jamForget: Set(), logs: List(TooMuchStateHeld) }
       } else {
-        // Forget the active code, then the pending code, via two-step forget.
-        val vc = pi.validationCode.ref
+        // Forget the active code (if any), then the pending code, via two-step forget.
         val afterActive =
-          if (vc.hash == { vchBytes: 0 } and vc.len == 0)
-            { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
-          else
-            s.removeReferencer(para_id, vchAsHash(vc.hash), vc.len, now)
+          match pi.validationCode {
+            | None => { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
+            | Some(vc) => s.removeReferencer(para_id, vchAsHash(vc.ref.hash), vc.ref.len, now)
+          }
         val afterPending = match pi.pendingUpgrade {
           | None =>
             { state: afterActive.state, jamSolicit: None, jamForget: None, retained: false, log: None }

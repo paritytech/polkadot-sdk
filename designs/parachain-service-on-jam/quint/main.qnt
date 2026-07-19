@@ -73,11 +73,17 @@ module main {
   /// (§5.1 step 3) must reject.
   pure val StaleParentHead: HeadData = 9223372036854775807
 
+  /// Placeholder hash for a candidate built for a para that has no active
+  /// validation code yet (`validationCode == None`). It matches no real code,
+  /// so Accumulate's authoritative code check rejects the candidate as
+  /// `InvalidCodeHash` — modelling that a codeless para can validate nothing.
+  pure val NoCodeHash: ValidationCodeHash = { vchBytes: 999999 }
+
   /// The happy-path candidate carrying a para's active validation code.
   pure def activeCodeCandidate(
     s: ParachainServiceState, paraId: ParaId
   ): ParachainCandidate =
-    { validationCode: { hash: s.paraInfo(paraId).validationCode.ref.hash, len: FixedCodeLen }, pov: 0 }
+    { validationCode: { hash: activeCodeHashOr(s.paraInfo(paraId), NoCodeHash), len: FixedCodeLen }, pov: 0 }
 
   /// Construct one nondet work package's inputs against a service state `s`.
   /// Used twice in `stepRefineAccumulate` to model 1 or 2 work packages per
@@ -156,7 +162,7 @@ module main {
     nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
     nondet wp1PvfPanic = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
-      wp1Para, svc.paraInfo(wp1Para).validationCode.ref.hash)
+      wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash))
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
@@ -198,7 +204,7 @@ module main {
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
     nondet wp2PvfPanic = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
-      wp2Para, svc.paraInfo(wp2Para).validationCode.ref.hash)
+      wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash))
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
@@ -313,7 +319,7 @@ module main {
     s: ParachainServiceState, para_id: ParaId
   ): Set[ParachainCandidate] = {
     val pi = s.paraInfo(para_id)
-    val active = pi.validationCode.ref.hash
+    val active = activeCodeHashOr(pi, NoCodeHash)
     val pending = match pi.pendingUpgrade {
       | None => active
       | Some(pair) => pair._1.ref.hash

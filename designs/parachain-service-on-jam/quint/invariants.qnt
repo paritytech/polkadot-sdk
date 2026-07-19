@@ -37,7 +37,11 @@ module invariants {
       val pi = svc.paraInfo(para_id)
       match pi.pendingUpgrade {
         | None => true
-        | Some(pair) => pair._1.ref != pi.validationCode.ref
+        | Some(pair) =>
+          match pi.validationCode {
+            | None => true
+            | Some(vc) => pair._1.ref != vc.ref
+          }
       }
   })
 
@@ -51,19 +55,16 @@ module invariants {
   )
 
   /// Every live parachain's active validation code (when set) is a
-  /// referencer in `preimage_registry`. The all-zero hash is the
-  /// uninitialised sentinel between `parachain_set_state_balance` and
-  /// the first `parachain_set_validation_code` in the registration
-  /// sequence (see §6.2).
+  /// referencer in `preimage_registry`. `None` is a freshly-registered para
+  /// between `parachain_set_state_balance` and the first
+  /// `parachain_set_validation_code` in the registration sequence (see §6.2).
   val validation_code_in_registry: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      (pi.validationCode.ref.hash == { vchBytes: 0 } and
-        pi.validationCode.ref.len == 0) or
-      svc.hasReferencer(
-        vchAsHash(pi.validationCode.ref.hash),
-        pi.validationCode.ref.len,
-        para_id)
+      match pi.validationCode {
+        | None => true
+        | Some(vc) => svc.hasReferencer(vchAsHash(vc.ref.hash), vc.ref.len, para_id)
+      }
   })
 
   /// Every live parachain's pending-upgrade code (when present) is also
@@ -160,25 +161,35 @@ module invariants {
       else {
         val before = prevSvc.paraInfo(para_id)
         val after = svc.paraInfo(para_id)
-        val activated =
-          match before.pendingUpgrade {
-            | None => false
-            | Some(pair) =>
-              after.validationCode.ref == pair._1.ref and
-              after.validationCode.ref != before.validationCode.ref
+        // A para with no old active code has nothing to release, so the
+        // invariant holds vacuously there.
+        match before.validationCode {
+          | None => true
+          | Some(beforeVc) => {
+            val activated =
+              match before.pendingUpgrade {
+                | None => false
+                | Some(pair) =>
+                  match after.validationCode {
+                    | None => false
+                    | Some(afterVc) =>
+                      afterVc.ref == pair._1.ref and afterVc.ref != beforeVc.ref
+                  }
+              }
+            val oldHash = vchAsHash(beforeVc.ref.hash)
+            val oldLen = beforeVc.ref.len
+            val reRequested =
+              match after.pendingUpgrade {
+                | None => false
+                | Some(pair) => pair._1.ref == beforeVc.ref
+              }
+            not(activated) or
+              not(svc.hasReferencer(oldHash, oldLen, para_id)) or
+              beforeVc.pinned or
+              reRequested or
+              solicitedSet.contains((para_id, oldHash, oldLen))
           }
-        val oldHash = vchAsHash(before.validationCode.ref.hash)
-        val oldLen = before.validationCode.ref.len
-        val reRequested =
-          match after.pendingUpgrade {
-            | None => false
-            | Some(pair) => pair._1.ref == before.validationCode.ref
-          }
-        not(activated) or
-          not(svc.hasReferencer(oldHash, oldLen, para_id)) or
-          before.validationCode.pinned or
-          reRequested or
-          solicitedSet.contains((para_id, oldHash, oldLen))
+        }
       }
     })
 
@@ -284,7 +295,10 @@ module invariants {
           else {
             val pi = prevSvc.paraInfo(ok.paraId)
             val matchesActive =
-              ok.validationCode == pi.validationCode.ref
+              match pi.validationCode {
+                | None => false
+                | Some(vc) => ok.validationCode == vc.ref
+              }
             val reapable =
               match pi.pendingUpgrade {
                 | None => false

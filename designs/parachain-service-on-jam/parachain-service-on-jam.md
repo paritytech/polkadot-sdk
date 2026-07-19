@@ -261,8 +261,8 @@ enum InsufficientBalanceReason {
 }
 
 enum AccumulateLog {
-    /// The work digest's `validation_code_hash` matches neither
-    /// `ParaInfo.validation_code.hash` nor the pending upgrade's code hash.
+    /// The work digest's `validation_code_hash` matches neither the active
+    /// `ParaInfo.validation_code` nor the pending upgrade's code hash.
     /// This is the authoritative validation-code check (Refine does not
     /// perform it). See §5.1 step 3.
     InvalidCodeHash { hash: ValidationCodeHash },
@@ -330,8 +330,9 @@ struct ValidationCode {
 struct ParaInfo {
     /// Current head data (output of last included block).
     head_data: HeadData,
-    /// Currently active validation code.
-    validation_code: ValidationCode,
+    /// Currently active validation code, or `None` for a freshly-registered
+    /// parachain. See §6.
+    validation_code: Option<ValidationCode>,
     /// Pending code upgrade, if any: the new validation code and the
     /// deadline timeslot after which the upgrade is rejected. See §5.2.
     pending_upgrade: Option<(ValidationCode, Timeslot)>,
@@ -690,10 +691,11 @@ change, and it never reaches the steps below. Otherwise:
    and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
    before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
-5. **Validation code check**: This is the authoritative check. Verify the work
-   result's `validation_code_hash` matches either `ParaInfo.validation_code.hash` or
-   the pending upgrade's code hash. If it matches neither, the candidate is rejected and
-   an `AccumulateLog::InvalidCodeHash { hash }` event is emitted for this work package.
+ 5. **Validation code check**: This is the authoritative check. Verify the work
+   result's `validation_code_hash` matches either the active
+   `ParaInfo.validation_code` hash or the pending upgrade's
+   code hash. If it matches neither, the candidate is rejected and an
+   `AccumulateLog::InvalidCodeHash { hash }` event is emitted for this work package.
 6. **Head data update + code upgrade check**: Writes the new `head_data` from the
    work digest into `ParaInfo` for the parachain and immediately checks whether the
    candidate was validated with the pending new PVF code. If so, activate the new
@@ -1149,8 +1151,8 @@ whose last included block cannot be built on, or swapping in a new PVF outside t
 upgrade lifecycle:
 
 - `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
-- `parachain_set_validation_code(para_id, new_hash, new_len)` overwrites
-  `ParaInfo.validation_code.hash`, solicits `new_hash`, and clears any
+- `parachain_set_validation_code(para_id, new_hash, new_len)` sets
+  `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
   `pending_upgrade`. `used_state_balance` grows by `preimage_footprint(new_len)`
   to hold the new validation code. The displaced validation codes (the old active
   code and any pending code) are released via the normal `forget` step (§6.1).

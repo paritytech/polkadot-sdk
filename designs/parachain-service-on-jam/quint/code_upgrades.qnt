@@ -62,7 +62,8 @@ module code_upgrades {
         | None => false
         | Some(pair) => pair._1.ref.hash == newHash
       }
-    if (newHash == pi.validationCode.ref.hash) {
+    val activeHash = pi.validationCode.optionMap(vc => vc.ref.hash)
+    if (activeHash == Some(newHash)) {
       // Can't "upgrade" to the code already running — no-op.
       { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else if (isSamePending) {
@@ -181,7 +182,10 @@ module code_upgrades {
         { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
       } else {
         val released =
-          releaseCodeIfNotPinned(s, para_id, pi.validationCode.ref, pi.validationCode.pinned, now)
+          match pi.validationCode {
+            | Some(vc) => releaseCodeIfNotPinned(s, para_id, vc.ref, vc.pinned, now)
+            | None => { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
+          }
         val pi2 = released.state.paraInfo(para_id)
         {
           ...released,
@@ -191,7 +195,7 @@ module code_upgrades {
               para_id,
               { ...pi2,
                 // The pending code becomes active, carrying its extra bit.
-                validationCode: { ref: pair._1.ref, pinned: pair._1.pinned },
+                validationCode: Some({ ref: pair._1.ref, pinned: pair._1.pinned }),
                 pendingUpgrade: None
               }
             )

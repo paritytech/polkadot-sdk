@@ -135,6 +135,20 @@ module types {
     | None => l
   }
 
+  /// `Option.map`: apply `f` to the wrapped value, or propagate `None`.
+  pure def optionMap(opt: Option[a], f: a => b): Option[b] =
+  match opt {
+    | Some(e) => Some(f(e))
+    | None => None
+  }
+
+  /// `Option`'s value or a default when `None`.
+  pure def optionGetOr(opt: Option[a], fallback: a): a =
+  match opt {
+    | Some(e) => e
+    | None => fallback
+  }
+
   /// `Some(e)` -> singleton `{e}`; `None` -> empty set.
   pure def optionToSet(opt: Option[a]): Set[a] =
   match opt {
