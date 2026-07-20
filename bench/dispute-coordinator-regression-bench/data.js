@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784324193126,
+  "lastUpdate": 1784536201847,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c9879a5e3eeda1e8938ae7f6d06ec8df0a7a7da9",
-          "message": "[pallet-revive] add tracing for selfdestruct (#10244)\n\nAdd tracing for selfdestruct\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-20T13:28:49Z",
-          "tree_id": "5ca7c5d68e95fdf24f2e1d8610f63cc59797ce2c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c9879a5e3eeda1e8938ae7f6d06ec8df0a7a7da9"
-        },
-        "date": 1763651025142,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002677118279999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008774409409999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005117776569999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002638351909999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1ef4a0725686464a3b492bfa66af698ee098fd5",
+          "message": "pallet-revive: validate eth_feeHistory reward percentiles (#12547)\n\n## Summary\n\n`eth_feeHistory` did not validate the requested reward percentiles.\nOut-of-range values were silently clamped to `0..=100`, and unsorted\nlists were accepted, so a malformed request returned approximated\nresults instead of an error.\n\nAs in go-ethereum (`errInvalidPercentile`), each reward percentile must\nlie within `0.0..=100.0` and the list must be strictly increasing;\notherwise the request is now rejected with `-32000`, matching geth's\nbehavior.\n\n## Changes\n\n- Add a `validate_reward_percentiles` helper and reject invalid\npercentiles at the `eth_feeHistory` handler before any approximation.\n- Unit test covering in-range/increasing (accepted), out-of-range, and\nnon-increasing (rejected) cases.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc --lib --\nvalidate_reward_percentiles` passes.\n- `cargo +nightly fmt` and `cargo clippy` clean.",
+          "timestamp": "2026-07-20T06:40:57Z",
+          "tree_id": "de829ab75eedf7ad021265e9511d6c8b8abc96e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1ef4a0725686464a3b492bfa66af698ee098fd5"
+        },
+        "date": 1784536169577,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010261718189999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009755273599999968,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00257744947,
             "unit": "seconds"
           }
         ]
