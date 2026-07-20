@@ -39,7 +39,7 @@ use crate::{
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
 		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT,
-		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE, MAX_PROMOTION_ATTEMPTS,
+		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE, MAX_PROMOTION_ATTEMPTS, MAX_RECIPIENTS,
 	},
 };
 use codec::{Decode, Encode};
@@ -113,11 +113,22 @@ impl HopDataPool {
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
 	) -> Result<Self, HopError> {
-		if rate_limit_cfg.enabled && rate_limit_cfg.bandwidth_burst < MAX_DATA_SIZE {
-			return Err(HopError::InvalidConfig(format!(
-				"bandwidth_burst ({}) must be at least MAX_DATA_SIZE ({})",
-				rate_limit_cfg.bandwidth_burst, MAX_DATA_SIZE,
-			)));
+		if rate_limit_cfg.enabled {
+			let min_burst = entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize);
+			if rate_limit_cfg.bandwidth_burst < min_burst {
+				return Err(HopError::InvalidConfig(format!(
+					"bandwidth_burst ({}) must be at least {} \
+					(entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS))",
+					rate_limit_cfg.bandwidth_burst, min_burst,
+				)));
+			}
+			if rate_limit_cfg.global_bandwidth_burst < min_burst {
+				return Err(HopError::InvalidConfig(format!(
+					"global_bandwidth_burst ({}) must be at least {} \
+					(entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS))",
+					rate_limit_cfg.global_bandwidth_burst, min_burst,
+				)));
+			}
 		}
 
 		// Create shard directories (256 each for blobs/ and meta/).
@@ -914,7 +925,7 @@ fn saturating_release(counter: &AtomicU64, accounted: u64) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::types::{Recipient, MAX_RECIPIENTS};
+	use crate::types::Recipient;
 	use sp_core::{crypto::Pair, ed25519, sr25519};
 	use sp_runtime::MultiSigner;
 	use tempfile::TempDir;
@@ -2105,17 +2116,15 @@ mod tests {
 	fn test_rate_limit_rejects_burst_overflow() {
 		let dir = TempDir::new().unwrap();
 		// submit_burst=2 so the 3rd request is rate-limited by submit count.
-		// bandwidth_burst must be >= MAX_DATA_SIZE to pass config validation;
-		// the 3-byte test payloads spend a negligible slice of it so the
-		// rejection comes from the request bucket, not the bandwidth bucket.
+		let min_burst = entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize);
 		let cfg = RateLimitConfig {
 			enabled: true,
 			submit_rate_per_min: 60,
 			submit_burst: 2,
-			bandwidth_per_min: MAX_DATA_SIZE * 60,
-			bandwidth_burst: MAX_DATA_SIZE,
-			global_bandwidth_per_min: 1_000_000_000,
-			global_bandwidth_burst: 1_000_000_000,
+			bandwidth_per_min: min_burst * 60,
+			bandwidth_burst: min_burst,
+			global_bandwidth_per_min: min_burst * 60,
+			global_bandwidth_burst: min_burst,
 			max_tracked_senders: 1_000_000,
 		};
 		let pool =
