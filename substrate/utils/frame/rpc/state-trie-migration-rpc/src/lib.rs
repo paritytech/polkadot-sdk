@@ -195,8 +195,10 @@ fn error_into_rpc_err(err: impl std::fmt::Display) -> ErrorObjectOwned {
 mod tests {
 	use super::*;
 
-	use sp_core::storage::{well_known_keys, StateVersion};
-	use sp_core::Blake2Hasher;
+	use sp_core::{
+		storage::{well_known_keys, StateVersion},
+		Blake2Hasher,
+	};
 	use sp_state_machine::new_in_mem;
 
 	fn assert_migration_status_panic_safe<H, B>(
