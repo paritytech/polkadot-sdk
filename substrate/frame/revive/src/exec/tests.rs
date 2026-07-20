@@ -3281,7 +3281,7 @@ fn cold_hot_transient_skips_access_list() {
 fn cold_hot_3level_commit_then_revert_drops_committed() {
 	// root → A → grandchild. Grandchild commits a touch into A; A then reverts,
 	// dropping it. The next grandchild call must see the slot cold again.
-	let grandchild_code_hash = MockLoader::insert(Call, |ctx, _| {
+	let django_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key = Key::Fix([99; 32]);
 		assert!(
 			is_cold_touch(ctx.ext, &key),
@@ -3302,7 +3302,7 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&DJANGO, grandchild_code_hash);
+		place_contract(&DJANGO, django_code_hash);
 		place_contract(&BOB, a_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
@@ -3311,9 +3311,7 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 
 #[test]
 fn cold_hot_call_target_warms_across_calls() {
-	// The second call to the same target prices its account state, contract
-	// metadata, and code as hot.
-	let child_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+	let bob_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
@@ -3348,7 +3346,7 @@ fn cold_hot_call_target_warms_across_calls() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_code_hash);
+		place_contract(&BOB, bob_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
 	});
@@ -3356,14 +3354,10 @@ fn cold_hot_call_target_warms_across_calls() {
 
 #[test]
 fn cold_hot_depth_denied_call_leaves_target_cold() {
-	// A call denied by the depth limit never builds a frame, so it never warms
-	// the target: a retry still prices it cold. This diverges from EIP-2929
-	// (which warms the address even on a failed call) in the overcharge-safe
-	// direction, and is the intended behavior.
 	parameter_types! {
 		static ReachedBottom: bool = false;
 	}
-	let target_ch = MockLoader::insert(Call, |_, _| exec_success());
+	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 	let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 		// Recurse into self until the depth limit denies the call.
 		let r = ctx.ext.call(
@@ -3377,7 +3371,6 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 		ReachedBottom::mutate(|reached_bottom| {
 			if *reached_bottom {
-				// Unwinding the stack: the self-call succeeds here.
 				assert_matches!(r, Ok(_));
 				return;
 			}
@@ -3395,7 +3388,6 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 				"a fresh target starts cold",
 			);
 
-			// Calling a fresh target at max depth is denied before a frame is built.
 			assert_eq!(
 				ctx.ext.call(
 					&Default::default(),
@@ -3430,7 +3422,7 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 	ExtBuilder::default().build().execute_with(|| {
 		set_balance(&BOB, 1);
 		place_contract(&BOB, recurse_ch);
-		place_contract(&DJANGO, target_ch);
+		place_contract(&DJANGO, django_code_hash);
 		let origin = Origin::from_account_id(ALICE);
 		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
 		let result = MockStack::run_call(
@@ -3447,54 +3439,58 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 #[test]
 fn cold_hot_delegate_call_leaves_target_account_cold() {
-	// A delegate call reads only the target's contract metadata and code, so
-	// a later plain call to the same target still prices the account state
-	// cold.
-	let child_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+	let bob_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(ctx.ext.delegate_call(&CallResources::NoLimits, BOB_ADDR, vec![]), Ok(_));
-		let after = ctx.ext.access_list_metrics();
+		let after_delegate = ctx.ext.access_list_metrics();
 		assert_eq!(
-			after.cold - before.cold,
+			after_delegate.cold - before.cold,
 			3,
 			"delegate call: contract info + code metadata + code blob touch cold",
 		);
-		assert_eq!(after.hot, before.hot, "delegate call adds no hot touches");
+		assert_eq!(after_delegate.hot, before.hot, "delegate call adds no hot touches");
+
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::DelegateCall { target: BOB_ADDR }),
-			StateAccessKind::DelegateCall { contract_info: Warmth::Hot }
+			ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			),
+			Ok(_)
 		);
-		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
-			StateAccessKind::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Hot },
-			"delegate call warms contract metadata but not account state",
+		assert_eq!(
+			ctx.ext.access_list_metrics().cold - after_delegate.cold,
+			1,
+			"plain call adds only the account; delegate already warmed metadata and code",
 		);
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_code_hash);
+		place_contract(&BOB, bob_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }
 
 #[test]
-fn cold_hot_reverted_caller_drops_target_warmth_but_keeps_own() {
-	// B calls DJANGO and then reverts: DJANGO's warmth (touched while B ran)
-	// is dropped, while B's own warmth (touched by root before B ran)
-	// persists — the caller's touch of a target survives the target's revert.
-	let grandchild_code_hash = MockLoader::insert(Call, |_, _| exec_success());
+fn cold_hot_caller_touch_outlives_callee_revert() {
+	// A caller's touch of a target outlives the target's revert; only the touches
+	// the reverted frame made itself are dropped.
+	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
-	let b_code_hash = MockLoader::insert(Call, |ctx, _| {
+	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		Err("revert B".into())
 	});
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let _ = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
 			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
 			StateAccessKind::Call {
@@ -3512,42 +3508,10 @@ fn cold_hot_reverted_caller_drops_target_warmth_but_keeps_own() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&DJANGO, grandchild_code_hash);
-		place_contract(&BOB, b_code_hash);
+		place_contract(&DJANGO, django_code_hash);
+		place_contract(&BOB, bob_code_hash);
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
-	});
-}
-
-#[test]
-fn cold_hot_call_to_plain_account_warms_target() {
-	// Calling an address without code still warms its account state and the
-	// contract-info absence proof; no code entry is added.
-	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let plain_account = H160::from_low_u64_be(0x777);
-		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: plain_account }),
-			StateAccessKind::Call {
-				account: Warmth::Cold { .. },
-				contract_info: Warmth::Cold { .. }
-			}
-		);
-		let before = ctx.ext.access_list_metrics();
-
-		assert_matches!(run_child_call(ctx.ext, &plain_account, vec![]), Ok(_));
-		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: plain_account }),
-			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
-			"a call to a plain account warms it",
-		);
-		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.cold - before.cold, 2, "account + contract info; no code entry");
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, root_code_hash);
-		run_root_call(BOB_ADDR, vec![]);
 	});
 }
 
@@ -3578,13 +3542,11 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 
 #[test]
 fn cold_hot_first_frame_warms_entry_target() {
-	// The first frame's touches are seeded at stack creation, so a reentrant
-	// self-call prices hot.
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
 			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
 			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
-			"the entry target's entries are seeded by the first frame",
+			"the entry target is pre-warmed by the first frame",
 		);
 		exec_success()
 	});
@@ -3596,26 +3558,39 @@ fn cold_hot_first_frame_warms_entry_target() {
 }
 
 #[test]
-fn cold_hot_code_loads_cold_after_target_warmed_as_plain_account() {
-	// Warm an address as a plain account (no code loaded), then place code there,
-	// so the next call sees account and contract info hot but the code cold.
+fn cold_hot_plain_account_warms_then_code_loads_cold() {
+	// A plain-account call warms account state and contract info, not code. After
+	// code is added, a repeat call reads account and contract info hot, code cold.
 	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
+		assert_matches!(
+			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
+			StateAccessKind::Call {
+				account: Warmth::Cold { .. },
+				contract_info: Warmth::Cold { .. }
+			},
+			"an uncalled target starts cold",
+		);
+
+		// DJANGO has no code yet: the call warms account + contract info only.
+		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
 			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
 			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
-			"the plain-account call warmed account and contract info",
+			"a call to a plain account warms it",
 		);
+		let after_plain = ctx.ext.access_list_metrics();
+		assert_eq!(after_plain.cold - before.cold, 2, "account + contract info; no code entry");
 
+		// Place code, then call again: account and contract info stay hot (read by
+		// the first call), while the newly added code loads cold.
 		place_contract(&DJANGO, django_code_hash);
-
-		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
-		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.hot - before.hot, 2, "account + contract info are already hot");
-		assert_eq!(after.cold - before.cold, 2, "code metadata + blob load",);
+		let after_coded = ctx.ext.access_list_metrics();
+		assert_eq!(after_coded.hot - after_plain.hot, 2, "account + contract info are already hot");
+		assert_eq!(after_coded.cold - after_plain.cold, 2, "code metadata + blob load");
 		exec_success()
 	});
 

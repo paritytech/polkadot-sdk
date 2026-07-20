@@ -559,12 +559,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Warmth of the state items `access` reads.
 	fn peek_access(&self, access: StateAccess) -> StateAccessKind;
 
-	/// Base cost of a call opcode. Peeks the warmth; the entries are touched
-	/// when the frame is built, so peek and touch see the same state.
-	fn call_base_cost(&self, callee: H160, delegate: bool) -> RuntimeCosts {
-		RuntimeCosts::CallBase(self.peek_access(StateAccess::new(callee, delegate)))
-	}
-
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }

@@ -17,6 +17,7 @@
 
 use crate::{
 	Pallet, RuntimeCosts,
+	access_list::StateAccess,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
 		Ext,
@@ -84,7 +85,8 @@ pub fn charge_call_gas<'a, E: Ext>(
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
-			let cost = interpreter.ext.call_base_cost(callee, scheme.is_delegate_call());
+			let access = StateAccess::new(callee, scheme.is_delegate_call());
+			let cost = RuntimeCosts::CallBase(interpreter.ext.peek_access(access));
 			interpreter.ext.charge_or_halt(cost)?;
 
 			interpreter
