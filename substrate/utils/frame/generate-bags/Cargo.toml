@@ -17,8 +17,18 @@ frame-election-provider-support = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
+pallet-staking-async = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 
 # third party
 chrono = { workspace = true }
 num-format = { workspace = true }
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-staking-async/try-runtime",
+	"pallet-staking/try-runtime",
+]
