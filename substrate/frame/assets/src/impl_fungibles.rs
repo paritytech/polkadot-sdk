@@ -226,6 +226,11 @@ impl<T: Config<I>, I: 'static> fungibles::Create<T::AccountId> for Pallet<T, I> 
 		is_sufficient: bool,
 		min_balance: Self::Balance,
 	) -> DispatchResult {
+		// Not gated on `ForceOrigin`, unlike the `force_create` call, so the id must follow
+		// `AssetIdAllocator`.
+		if let Some(next_id) = T::AssetIdAllocator::next() {
+			ensure!(id == next_id, Error::<T, I>::BadAssetId);
+		}
 		Self::do_force_create(id, admin, is_sufficient, min_balance)
 	}
 }

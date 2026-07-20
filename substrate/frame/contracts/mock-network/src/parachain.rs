@@ -130,7 +130,7 @@ impl pallet_assets::Config for Runtime {
 	type RemoveItemsLimit = RemoveItemsLimit;
 	type AssetIdParameter = AssetIdForAssets;
 	type CallbackHandle = ();
-	type AssetIdSequencer = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

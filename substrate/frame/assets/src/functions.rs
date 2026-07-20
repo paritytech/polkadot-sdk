@@ -782,9 +782,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		);
 		ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
-		// Keep the auto-increment sequence consistent with this forced id, so it never later
-		// collides. No-op when auto-increment is disabled or the id is below the current next id.
-		T::AssetIdSequencer::advance_from(&id).map_err(|_| Error::<T, I>::NextAssetIdOverflow)?;
+		// Allocate the forced id, so it can never be handed out again.
+		T::AssetIdAllocator::advance_from(&id)
+			.map_err(|_| Error::<T, I>::AssetIdAllocationFailed)?;
 		Self::deposit_event(Event::ForceCreated { asset_id: id, owner: owner.clone() });
 		Ok(())
 	}

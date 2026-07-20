@@ -316,7 +316,7 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
-	type AssetIdSequencer = ();
+	type AssetIdAllocator = ();
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]

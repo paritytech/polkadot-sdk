@@ -163,7 +163,7 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &asset_id.clone().into()).unwrap();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
-		// Measure the sequence advance where auto-increment is enabled.
+		// Set `NextAssetId` so the `AutoIncAssetId` write is measured.
 		let next_id: T::AssetId = asset_id.clone().into();
 		NextAssetId::<T, I>::put(next_id);
 	}: _<T::RuntimeOrigin>(origin, asset_id.clone(), caller_lookup, 1u32.into())
@@ -175,7 +175,7 @@ benchmarks_instance_pallet! {
 		let asset_id = default_asset_id::<T, I>();
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		// Measure the sequence advance where auto-increment is enabled.
+		// Set `NextAssetId` so the `AutoIncAssetId` write is measured.
 		let next_id: T::AssetId = asset_id.clone().into();
 		NextAssetId::<T, I>::put(next_id);
 	}: _(SystemOrigin::Root, asset_id.clone(), caller_lookup, true, 1u32.into())

@@ -105,7 +105,7 @@ impl Config for Test {
 	type Freezer = TestFreezer;
 	type Holder = TestHolder;
 	type CallbackHandle = AssetsCallbackHandle;
-	type AssetIdSequencer = AutoIncAssetId<Test>;
+	type AssetIdAllocator = AutoIncAssetId<Test>;
 	type ReserveData = u128;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetsBenchmarkHelper;

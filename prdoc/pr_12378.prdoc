@@ -4,12 +4,14 @@ doc:
 - audience: Runtime Dev
   description: |-
     `force_create` no longer requires the asset id to equal `NextAssetId`: a `ForceOrigin` may
-    create an asset with any id not currently in use, and when auto-increment is active the sequence
-    is advanced past the chosen id so it can never later collide. Auto-increment is now configured
-    explicitly via the new `Config::AssetIdSequencer` (`AutoIncAssetId` to enable, `()` to disable),
+    create an asset with any id not currently in use, and the id is then marked as allocated so it
+    can never later collide. Asset id allocation is now configured explicitly via the new
+    `Config::AssetIdAllocator` (`AutoIncAssetId` for auto-incrementing ids, `()` for none),
     replacing the implicit `NextAssetId`-is-`Some` plus `AutoIncAssetId` callback mechanism.
+    Only the `force_create` call is relaxed; `fungibles::Create::create` is not gated on
+    `ForceOrigin` and still requires the id the allocator dictates.
 
-    Migration: set `AssetIdSequencer` on each `pallet-assets` `Config`. Use `AutoIncAssetId<Runtime, I>`
+    Migration: set `AssetIdAllocator` on each `pallet-assets` `Config`. Use `AutoIncAssetId<Runtime, I>`
     where `CallbackHandle` previously used it (and drop it from `CallbackHandle`); otherwise `()`.
     Configs deriving `TestDefaultConfig` inherit `()`.
 

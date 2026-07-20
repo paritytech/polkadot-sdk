@@ -2306,7 +2306,26 @@ fn force_create_arbitrary_id_is_inert_without_auto_increment() {
 }
 
 #[test]
-fn advancing_the_sequence_past_the_id_space_overflows() {
+fn fungibles_create_must_follow_the_allocator() {
+	build_and_execute(|| {
+		use frame_support::traits::fungibles::Create;
+
+		pallet::NextAssetId::<Test>::put(5);
+
+		// Not gated on `ForceOrigin`, so a non-sequential id is rejected.
+		assert_noop!(<Assets as Create<_>>::create(0, 1, false, 1), Error::<Test>::BadAssetId);
+		assert!(!Asset::<Test>::contains_key(0));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(5));
+
+		// The sequential id is accepted and advances the allocator.
+		assert_ok!(<Assets as Create<_>>::create(5, 1, false, 1));
+		assert!(Asset::<Test>::contains_key(5));
+		assert_eq!(pallet::NextAssetId::<Test>::get(), Some(6));
+	});
+}
+
+#[test]
+fn allocating_past_the_id_space_fails() {
 	build_and_execute(|| {
 		Balances::make_free_balance_be(&1, 100);
 
@@ -2314,14 +2333,14 @@ fn advancing_the_sequence_past_the_id_space_overflows() {
 		pallet::NextAssetId::<Test>::put(u32::MAX);
 		assert_noop!(
 			Assets::force_create(RuntimeOrigin::root(), u32::MAX, 1, false, 1),
-			Error::<Test>::NextAssetIdOverflow
+			Error::<Test>::AssetIdAllocationFailed
 		);
 		assert!(!Asset::<Test>::contains_key(u32::MAX));
 
 		// The sequential `create` path overflows the same way.
 		assert_noop!(
 			Assets::create(RuntimeOrigin::signed(1), u32::MAX, 1, 1),
-			Error::<Test>::NextAssetIdOverflow
+			Error::<Test>::AssetIdAllocationFailed
 		);
 	});
 }
