@@ -157,6 +157,9 @@ pub enum EthRpcError {
 	/// The maximum number of concurrently installed filters has been reached.
 	#[error("filter limit reached")]
 	TooManyFilters,
+	/// The requested `eth_feeHistory` reward percentiles are invalid.
+	#[error("{0}")]
+	InvalidRewardPercentiles(String),
 }
 
 impl From<EthRpcError> for ErrorObjectOwned {
@@ -174,6 +177,7 @@ impl From<EthRpcError> for ErrorObjectOwned {
 			EthRpcError::InvalidTransaction |
 			EthRpcError::FilterNotFound |
 			EthRpcError::TooManyFilters |
+			EthRpcError::InvalidRewardPercentiles(_) |
 			EthRpcError::TransactionTypeNotSupported(_) => CALL_EXECUTION_FAILED_CODE,
 		};
 		Self::owned::<String>(code, message, None)
@@ -583,6 +587,25 @@ impl EthRpcServer for EthRpcServerImpl {
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult> {
 		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
+
+		// As in go-ethereum, a request for fewer than one block returns an empty result rather
+		// than an error, before any percentile validation.
+		if block_count == 0 {
+			return Ok(FeeHistoryResult {
+				oldest_block: U256::zero(),
+				base_fee_per_gas: vec![],
+				gas_used_ratio: vec![],
+				reward: vec![],
+			});
+		}
+
+		// Reject malformed percentiles up front, as go-ethereum does, instead of silently
+		// clamping or approximating them at the wrong bucket.
+		if let Some(percentiles) = reward_percentiles.as_deref() {
+			validate_reward_percentiles(percentiles)
+				.map_err(EthRpcError::InvalidRewardPercentiles)?;
+		}
+
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
 	}
