@@ -27,7 +27,7 @@ use crate::{
 	},
 	SubscriptionTaskExecutor,
 };
-use codec::Decode;
+use codec::DecodeAll;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
 	core::async_trait, types::SubscriptionId, ConnectionId, Extensions, PendingSubscriptionSink,
@@ -193,7 +193,7 @@ where
 	}
 
 	fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error> {
-		let statement = Statement::decode(&mut &encoded[..])
+		let statement = Statement::decode_all(&mut &encoded[..])
 			.map_err(|e| Error::InvalidParam(format!("Error decoding statement: {e}")))?;
 		let submit_result = self.store.submit(statement, StatementSource::Local);
 		SubmitOutcome::from_submit_result(submit_result)

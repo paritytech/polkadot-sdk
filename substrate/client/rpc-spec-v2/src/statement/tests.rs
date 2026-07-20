@@ -17,7 +17,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	error::rpc_spec_v2::INVALID_SUBSCRIPTION, StatementSpec, StatementSpecApiServer, SubmitOutcome,
+	error::{
+		json_rpc_spec::INVALID_PARAM_ERROR, rpc_spec_v2::INVALID_SUBSCRIPTION,
+	},
+	StatementSpec, StatementSpecApiServer, SubmitOutcome,
 };
 use codec::Encode;
 use jsonrpsee::{core::server::Subscription as RpcSubscription, MethodsError, RpcModule};
@@ -290,6 +293,26 @@ async fn submit_then_subscribe_replays_and_then_lives() {
 		},
 		other => panic!("expected NewStatements, got {other:?}"),
 	}
+}
+
+#[tokio::test]
+async fn submit_rejects_trailing_bytes_after_a_statement() {
+	let (rpc, _store_dir) = make_server();
+	let mut invalid_encoding = signed_statement(1, &[]).encode();
+	invalid_encoding.push(0);
+
+	let err = rpc
+		.call::<_, SubmitOutcome>(
+			"statement_unstable_submit",
+			(Bytes::from(invalid_encoding),),
+		)
+		.await
+		.expect_err("trailing bytes must make the SCALE encoding invalid");
+	let object = match err {
+		MethodsError::JsonRpc(error) => error,
+		other => panic!("expected ErrorObject, got {other:?}"),
+	};
+	assert_eq!(object.code(), INVALID_PARAM_ERROR);
 }
 
 #[tokio::test]
