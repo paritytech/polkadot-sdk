@@ -1005,10 +1005,11 @@ pub mod pallet {
 
 			// Warm up the pallet account.
 			System::<T>::account_exists(&Pallet::<T>::account_id());
-			// Account for the fixed part of the costs incurred in `on_finalize`, plus the worst-case
-			// drain of the outside-of-frame log buffer (bounded by `MaxOutsideFrameLogs`). The
-			// buffer is filled during the block's extrinsics, after `on_initialize` runs, so the
-			// count is unknown here and the cap is reserved conservatively.
+			// Account for the fixed part of the costs incurred in `on_finalize`, plus the
+			// worst-case drain of the outside-of-frame log buffer (bounded by
+			// `MaxOutsideFrameLogs`). The buffer is filled during the block's extrinsics, after
+			// `on_initialize` runs, so the count is unknown here and the cap is reserved
+			// conservatively.
 			<T as Config>::WeightInfo::on_finalize_block_fixed().saturating_add(
 				<T as Config>::WeightInfo::on_finalize_block_per_outside_frame_log()
 					.saturating_mul(<T as Config>::MaxOutsideFrameLogs::get().into()),

@@ -3727,14 +3727,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the `on_finalize` drain of the outside-of-frame log buffer, scaling with the number
-	/// of buffered logs `n`.
+	/// Benchmark the `on_finalize` drain of the outside-of-frame log buffer, scaling with the
+	/// number of buffered logs `n`.
 	///
 	/// Each buffered log is drained with an `OutsideFrameLogs::take` (a distinct storage key) and
-	/// folded into the synthetic transaction's receipt (RLP + bloom). Unlike `on_finalize_per_event`
-	/// this isolates that path with no real transaction present, and — being `pov_mode = Measured` —
-	/// captures the per-log **proof size** the take incurs, which the reservation in `on_initialize`
-	/// (`MaxOutsideFrameLogs` × the marginal) depends on.
+	/// folded into the synthetic transaction's receipt (RLP + bloom). Unlike
+	/// `on_finalize_per_event` this isolates that path with no real transaction present, and —
+	/// being `pov_mode = Measured` — captures the per-log **proof size** the take incurs, which
+	/// the reservation in `on_initialize` (`MaxOutsideFrameLogs` × the marginal) depends on.
 	///
 	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
 	/// data word.
@@ -3747,7 +3747,8 @@ mod benchmarks {
 		let _ = Pallet::<T>::on_initialize(current_block);
 
 		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
-		let topics = vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
 		let data = vec![0x44u8; 32];
 
 		// Buffer n outside-of-frame logs. No ethereum context is active, so each is captured into

@@ -466,8 +466,8 @@ impl ReceiptExtractor {
 	}
 
 	/// Rebuild the block's synthetic transaction payload and its hash. Must reproduce the exact
-	/// bytes the runtime committed, hence the shared [`pallet_revive::evm::synthetic_log_transaction`]
-	/// keyed by chain id and block number.
+	/// bytes the runtime committed, hence the shared
+	/// [`pallet_revive::evm::synthetic_log_transaction`] keyed by chain id and block number.
 	fn synthetic_tx(&self, eth_block_number: U256) -> (Vec<u8>, H256) {
 		let payload = pallet_revive::evm::synthetic_log_transaction(
 			eth_block_number,
@@ -555,15 +555,16 @@ impl ReceiptExtractor {
 		let block_events = block.events().fetch().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching events for block #{substrate_block_number}: {err:?}");
 		})?;
-		let (reverted_extrinsics, mut logs_by_extrinsic, outside_frame_logs) = extract_revive_events(
-			&block_events,
-			substrate_block_number,
-			eth_block_number,
-			eth_block_hash,
-			|idx| eth_tx_by_index.get(&idx).map(|(_, hash, _)| *hash),
-			synthetic_tx_hash,
-			synthetic_tx_index,
-		);
+		let (reverted_extrinsics, mut logs_by_extrinsic, outside_frame_logs) =
+			extract_revive_events(
+				&block_events,
+				substrate_block_number,
+				eth_block_number,
+				eth_block_hash,
+				|idx| eth_tx_by_index.get(&idx).map(|(_, hash, _)| *hash),
+				synthetic_tx_hash,
+				synthetic_tx_index,
+			);
 
 		let mut receipts: Vec<_> = eth_tx_by_index
 			.into_iter()
@@ -631,11 +632,8 @@ impl ReceiptExtractor {
 		})?;
 
 		// Split off the synthetic transaction's trailing gas entry, if present.
-		let synthetic_gas_info = if receipt_data.len() == extrinsics.len() + 1 {
-			receipt_data.pop()
-		} else {
-			None
-		};
+		let synthetic_gas_info =
+			if receipt_data.len() == extrinsics.len() + 1 { receipt_data.pop() } else { None };
 
 		// Sanity check we received enough data from the pallet revive.
 		if receipt_data.len() != extrinsics.len() {
@@ -666,13 +664,14 @@ impl ReceiptExtractor {
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let (extrinsics, synthetic_gas_info) = self.get_block_extrinsics(block).await?;
-		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> = extrinsics
-			.into_iter()
-			.map(|(call, receipt_gas_info, extrinsic_index)| {
-				let hash = H256(keccak_256(&call.payload));
-				(extrinsic_index, (call, hash, receipt_gas_info))
-			})
-			.collect();
+		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> =
+			extrinsics
+				.into_iter()
+				.map(|(call, receipt_gas_info, extrinsic_index)| {
+					let hash = H256(keccak_256(&call.payload));
+					(extrinsic_index, (call, hash, receipt_gas_info))
+				})
+				.collect();
 
 		let synthetic_tx_index = eth_tx_by_index.keys().max().map_or(0, |max| max + 1);
 		let is_synthetic = transaction_index == synthetic_tx_index && synthetic_gas_info.is_some();
@@ -692,15 +691,16 @@ impl ReceiptExtractor {
 		let block_events = block.events().fetch().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching events for block #{substrate_block_number}: {err:?}");
 		})?;
-		let (reverted_extrinsics, mut logs_by_extrinsic, outside_frame_logs) = extract_revive_events(
-			&block_events,
-			substrate_block_number,
-			eth_block_number,
-			eth_block_hash,
-			|idx| eth_tx_by_index.get(&idx).map(|(_, hash, _)| *hash),
-			synthetic_tx_hash,
-			synthetic_tx_index,
-		);
+		let (reverted_extrinsics, mut logs_by_extrinsic, outside_frame_logs) =
+			extract_revive_events(
+				&block_events,
+				substrate_block_number,
+				eth_block_number,
+				eth_block_hash,
+				|idx| eth_tx_by_index.get(&idx).map(|(_, hash, _)| *hash),
+				synthetic_tx_hash,
+				synthetic_tx_index,
+			);
 
 		if is_synthetic {
 			return self.build_synthetic_receipt(
@@ -712,9 +712,8 @@ impl ReceiptExtractor {
 			);
 		}
 
-		let (eth_call, transaction_hash, receipt_gas_info) = eth_tx_by_index
-			.remove(&transaction_index)
-			.expect("presence checked above; qed");
+		let (eth_call, transaction_hash, receipt_gas_info) =
+			eth_tx_by_index.remove(&transaction_index).expect("presence checked above; qed");
 		let reverted = reverted_extrinsics.contains(&transaction_index);
 		let logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 		self.decode_transaction_and_build_receipt(
@@ -1027,10 +1026,15 @@ mod tests {
 		let synthetic_hash = H256::from([0x99; 32]);
 		// The tx-hash closure returns `Some` only for extrinsic 7 (not present), so extrinsic 5 is
 		// treated as non-eth.
-		let (reverts, logs, outside_frame) =
-			extract_revive_events(&events, 0, U256::zero(), H256::zero(), |idx| {
-				(idx == 7).then_some(H256::zero())
-			}, synthetic_hash, 3);
+		let (reverts, logs, outside_frame) = extract_revive_events(
+			&events,
+			0,
+			U256::zero(),
+			H256::zero(),
+			|idx| (idx == 7).then_some(H256::zero()),
+			synthetic_hash,
+			3,
+		);
 
 		assert!(reverts.is_empty());
 		assert!(logs.is_empty());
@@ -1061,13 +1065,20 @@ mod tests {
 			.push_event(frame_system::Phase::ApplyExtrinsic(2), emitted_by(H160::from([0xcc; 20])))
 			.build();
 
-		let (reverts, logs, outside_frame) =
-			extract_revive_events(&events, 0, U256::zero(), H256::zero(), |idx| match idx {
+		let (reverts, logs, outside_frame) = extract_revive_events(
+			&events,
+			0,
+			U256::zero(),
+			H256::zero(),
+			|idx| match idx {
 				0 => Some(tx0),
 				1 => Some(tx1),
 				2 => Some(tx2),
 				_ => None,
-			}, H256::zero(), 3);
+			},
+			H256::zero(),
+			3,
+		);
 
 		assert!(outside_frame.is_empty());
 		assert_eq!(reverts, [1usize].into_iter().collect::<HashSet<_>>());

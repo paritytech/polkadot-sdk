@@ -1425,7 +1425,7 @@ async fn test_outside_of_frame_log_served_via_synthetic_tx() -> anyhow::Result<(
 				("ref_time".to_string(), subxt::dynamic::Value::u128(100_000_000_000)),
 				("proof_size".to_string(), subxt::dynamic::Value::u128(5_000_000)),
 			]),
-			subxt::dynamic::Value::u128(u128::MAX),              // storage_deposit_limit
+			subxt::dynamic::Value::u128(u128::MAX), // storage_deposit_limit
 			subxt::dynamic::Value::from_bytes(Vec::<u8>::new()), // data
 		],
 	);
@@ -1436,7 +1436,9 @@ async fn test_outside_of_frame_log_served_via_synthetic_tx() -> anyhow::Result<(
 	let mut progress = signed.submit_and_watch().await?;
 	let in_block = loop {
 		match progress.next().await {
-			Some(Ok(TxStatus::InBestBlock(b))) | Some(Ok(TxStatus::InFinalizedBlock(b))) => break b,
+			Some(Ok(TxStatus::InBestBlock(b))) | Some(Ok(TxStatus::InFinalizedBlock(b))) => {
+				break b;
+			},
 			Some(Ok(_)) => {},
 			Some(Err(e)) => return Err(anyhow!("Revive::call watch error: {e}")),
 			None => return Err(anyhow!("Revive::call: stream ended without inclusion")),
