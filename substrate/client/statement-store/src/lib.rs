@@ -934,10 +934,10 @@ impl Store {
 			let column = migrate_config.columns.len() as u8;
 			new_column_options.btree_index = matches!(
 				column,
-				col::INDEX_BY_TOPIC
-					| col::INDEX_BY_DEC_KEY
-					| col::INDEX_EVICTED
-					| col::ADMISSION_SEQ
+				col::INDEX_BY_TOPIC |
+					col::INDEX_BY_DEC_KEY |
+					col::INDEX_EVICTED |
+					col::ADMISSION_SEQ
 			);
 			parity_db::Db::add_column(&mut migrate_config, new_column_options)
 				.map_err(|e| Error::Db(e.to_string()))?;
@@ -2029,7 +2029,8 @@ impl StatementStore for Store {
 			let mut submit_index = self.submit_index.write();
 
 			let outcome =
-				match submit_index.insert(hash, &statement, &account_id, &validation, current_time) {
+				match submit_index.insert(hash, &statement, &account_id, &validation, current_time)
+				{
 					Ok(outcome) => outcome,
 					Err(reason) => {
 						self.metrics.report(|metrics| {
@@ -2112,7 +2113,8 @@ impl StatementStore for Store {
 			// Read the body under the submit-index lock: a concurrent first-time submit could
 			// otherwise commit the statement between the read and `make_expired`, and its
 			// read-index entries would never be cleared.
-			let admission_seq = submit_index.entries.get(hash).and_then(|entry| entry.admission_seq);
+			let admission_seq =
+				submit_index.entries.get(hash).and_then(|entry| entry.admission_seq);
 			let statement =
 				match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 					Some(encoded) => Statement::decode(&mut encoded.as_slice()).ok(),
@@ -2262,9 +2264,10 @@ impl StatementStoreSubscriptionApi for Store {
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Avoid overlap between the subscribe-time snapshot and live delivery using a sequence-number
-		// watermark. Under the submit-index write lock, atomically with respect to sequence assignment,
-		// capture the current boundary `W` and enqueue the subscription registration tagged with `W`.
+		// Avoid overlap between the subscribe-time snapshot and live delivery using a
+		// sequence-number watermark. Under the submit-index write lock, atomically with respect
+		// to sequence assignment, capture the current boundary `W` and enqueue the subscription
+		// registration tagged with `W`.
 		let (subscription_sender, subscription_stream, watermark) = {
 			let mut submit_index = self.submit_index.write();
 			let watermark = submit_index.begin_scan();
@@ -2352,8 +2355,8 @@ impl Store {
 				.read()
 				.entries
 				.get(&hash)
-				.and_then(|entry| entry.admission_seq)
-				== Some(seq);
+				.and_then(|entry| entry.admission_seq) ==
+				Some(seq);
 			if !is_current {
 				cursor = next_cursor;
 				continue;
