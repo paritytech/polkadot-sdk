@@ -18,7 +18,6 @@
 
 use super::*;
 use crate::bitswap::api::StreamEvent;
-use multihash_codetable::{Code, MultihashDigest};
 use jsonrpsee::{
 	core::client::{ClientT, Subscription, SubscriptionClientT},
 	rpc_params,
@@ -147,8 +146,11 @@ impl sp_consensus::SyncOracle for MockSyncOracle {
 	}
 }
 
-// Hash codes come from `multihash_codetable::Code` (the same source the impl validates against),
-// so there are no magic multihash numbers to keep in sync here.
+// Standard multihash codes.
+// See <https://github.com/multiformats/multicodec/blob/master/table.csv>
+const SHA2_256: u64 = 0x12;
+const BLAKE2B_256: u64 = 0xb220;
+const KECCAK_256: u64 = 0x1b;
 
 /// `dag-pb` multicodec — used for the CID `codec` field in test CIDs.
 /// See <https://github.com/multiformats/multicodec/blob/master/table.csv>.
@@ -157,34 +159,45 @@ const DAG_PB_CODEC: u64 = 0x70;
 const RAW_CODEC: u64 = 0x55;
 
 /// Create a CIDv1 string from a 32-byte hash digest, using the `dag-pb` codec.
-fn make_cid_v1(code: Code, digest: &[u8; 32]) -> String {
+fn make_cid_v1(code: u64, digest: &[u8; 32]) -> String {
 	make_cid_v1_with_codec(DAG_PB_CODEC, code, digest)
 }
 
 /// Create a CIDv1 string with an explicit multicodec.
-fn make_cid_v1_with_codec(codec: u64, hash_code: Code, digest: &[u8; 32]) -> String {
-	let mh = hash_code.wrap(digest).expect("32-byte digest fits Multihash<64>");
-	cid::Cid::new_v1(codec, mh).to_string()
+fn make_cid_v1_with_codec(codec: u64, hash_code: u64, digest: &[u8; 32]) -> String {
+	let mh = cid::multihash::Multihash::<64>::wrap(hash_code, digest)
+		.expect("32 bytes fits in Multihash<32>");
+	let c = cid::Cid::new_v1(codec, mh);
+	c.to_string()
 }
 
 /// Create a CIDv0 string.
 fn make_cid_v0() -> String {
 	// CIDv0 is a bare base58btc-encoded multihash (SHA2-256)
-	let mh = Code::Sha2_256.wrap(&[0u8; 32]).expect("32-byte digest fits Multihash<64>");
-	cid::Cid::new_v0(mh).expect("SHA2-256 is valid for CIDv0").to_string()
+	let digest = [0u8; 32];
+	let mh = cid::multihash::Multihash::<64>::wrap(SHA2_256, &digest)
+		.expect("32 bytes fits in Multihash<32>");
+	let c = cid::Cid::new_v0(mh).expect("SHA2-256 is valid for CIDv0");
+	c.to_string()
 }
 
 /// Create a CIDv1 with a non-32-byte digest.
 fn make_cid_v1_short_digest() -> String {
-	let mh = Code::Blake2b256.wrap(&[0u8; 16]).expect("16-byte digest fits Multihash<64>");
-	cid::Cid::new_v1(DAG_PB_CODEC, mh).to_string()
+	let digest = [0u8; 16];
+	let mh = cid::multihash::Multihash::<64>::wrap(BLAKE2B_256, &digest)
+		.expect("16 bytes fits in Multihash<64>");
+	let c = cid::Cid::new_v1(DAG_PB_CODEC, mh);
+	c.to_string()
 }
 
 /// Create a CIDv1 string with unsupported multihash code.
 fn make_cid_v1_unsupported_hash_function() -> String {
-	// sha3-256 is not in the bitswap-supported set (sha2-256 / blake2b-256 / keccak-256).
-	let mh = Code::Sha3_256.wrap(&[0u8; 32]).expect("32-byte digest fits Multihash<64>");
-	cid::Cid::new_v1(DAG_PB_CODEC, mh).to_string()
+	let digest = [0u8; 32];
+	// 0x16 = sha3-256, not in the supported set.
+	let mh = cid::multihash::Multihash::<64>::wrap(0x16, &digest)
+		.expect("32 bytes fits in Multihash<64>");
+	let c = cid::Cid::new_v1(DAG_PB_CODEC, mh);
+	c.to_string()
 }
 
 async fn setup(
@@ -207,8 +220,8 @@ async fn setup(
 }
 
 /// Insert a chunk into the mock client and return its CID.
-fn store_chunk(mock_client: &MockClient, data: Vec<u8>, hash_code: Code) -> String {
-	let digest = if hash_code == Code::Blake2b256 {
+fn store_chunk(mock_client: &MockClient, data: Vec<u8>, hash_code: u64) -> String {
+	let digest = if hash_code == BLAKE2B_256 {
 		sp_crypto_hashing::blake2_256(&data)
 	} else {
 		sp_crypto_hashing::sha2_256(&data)
@@ -220,7 +233,7 @@ fn store_chunk(mock_client: &MockClient, data: Vec<u8>, hash_code: Code) -> Stri
 /// Build a CID for a payload that is *not* stored in the mock client.
 fn unknown_cid(seed: u8) -> String {
 	let digest = [seed; 32];
-	make_cid_v1(Code::Blake2b256, &digest)
+	make_cid_v1(BLAKE2B_256, &digest)
 }
 
 // ------------------------------------------------------------------
@@ -235,7 +248,7 @@ async fn valid_cid_data_found_sha256() {
 	let digest = sp_crypto_hashing::sha2_256(&data);
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
-	let cid_str = make_cid_v1(Code::Sha2_256, &digest);
+	let cid_str = make_cid_v1(SHA2_256, &digest);
 	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
 	assert_eq!(result, crate::hex_string(&data));
@@ -249,7 +262,7 @@ async fn valid_cid_data_found_blake2b() {
 	let digest = sp_crypto_hashing::blake2_256(&data);
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
-	let cid_str = make_cid_v1(Code::Blake2b256, &digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
 	assert_eq!(result, crate::hex_string(&data));
@@ -263,7 +276,7 @@ async fn valid_cid_data_found_keccak256() {
 	let digest = sp_crypto_hashing::keccak_256(&data);
 	mock_client.insert_transaction(H256::from(digest), data.clone());
 
-	let cid_str = make_cid_v1(Code::Keccak256, &digest);
+	let cid_str = make_cid_v1(KECCAK_256, &digest);
 	let result: String = ws_client.request("bitswap_v1_get", rpc_params![cid_str]).await.unwrap();
 
 	assert_eq!(result, crate::hex_string(&data));
@@ -274,7 +287,7 @@ async fn valid_cid_not_found_not_syncing() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
 	let digest = [42u8; 32];
-	let cid_str = make_cid_v1(Code::Blake2b256, &digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 	let err = ws_client
 		.request::<String, _>("bitswap_v1_get", rpc_params![cid_str])
 		.await
@@ -288,7 +301,7 @@ async fn valid_cid_not_found_major_syncing() {
 	let (ws_client, _handle, _mock_client) = setup(true).await;
 
 	let digest = [42u8; 32];
-	let cid_str = make_cid_v1(Code::Blake2b256, &digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 	let err = ws_client
 		.request::<String, _>("bitswap_v1_get", rpc_params![cid_str])
 		.await
@@ -355,7 +368,7 @@ async fn unstable_get_alias_returns_same_payload() {
 	let data = vec![0xDE, 0xAD, 0xBE, 0xEF];
 	let digest = sp_crypto_hashing::blake2_256(&data);
 	mock_client.insert_transaction(H256::from(digest), data.clone());
-	let cid_str = make_cid_v1(Code::Blake2b256, &digest);
+	let cid_str = make_cid_v1(BLAKE2B_256, &digest);
 
 	let via_unstable: String = ws_client
 		.request("bitswap_unstable_get", rpc_params![cid_str.clone()])
@@ -450,9 +463,9 @@ async fn stream_happy_path_emits_every_cid() {
 	// parallel resolver) lands. Assert set-membership instead.
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
-	let cid_a = store_chunk(&mock_client, vec![1u8], Code::Blake2b256);
-	let cid_b = store_chunk(&mock_client, vec![2u8], Code::Blake2b256);
-	let cid_c = store_chunk(&mock_client, vec![3u8], Code::Blake2b256);
+	let cid_a = store_chunk(&mock_client, vec![1u8], BLAKE2B_256);
+	let cid_b = store_chunk(&mock_client, vec![2u8], BLAKE2B_256);
+	let cid_c = store_chunk(&mock_client, vec![3u8], BLAKE2B_256);
 	let cids = vec![cid_a.clone(), cid_b.clone(), cid_c.clone()];
 
 	let mut sub: Subscription<StreamEvent> = ws_client
@@ -485,7 +498,7 @@ async fn stream_happy_path_emits_every_cid() {
 async fn stream_mixed_batch() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
-	let cid_ok = store_chunk(&mock_client, vec![1u8, 2, 3], Code::Blake2b256);
+	let cid_ok = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
 	let cid_missing = unknown_cid(0x33);
 	let cid_invalid = "still-not-a-cid".to_string();
 
@@ -509,7 +522,7 @@ async fn stream_during_sync_emits_cached_hits_and_per_cid_backoff() {
 
 	// During sync: subscription opens; cached chunks emit as StreamItem, missing chunks
 	// emit per-CID FailRetryBackoff. No top-level rejection.
-	let cid_in_db = store_chunk(&mock_client, vec![1u8, 2, 3], Code::Blake2b256);
+	let cid_in_db = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
 	let cid_missing = unknown_cid(0xBB);
 
 	let mut sub: Subscription<StreamEvent> = ws_client
@@ -550,7 +563,7 @@ async fn stream_over_limit_rejects_subscription() {
 #[tokio::test]
 async fn stream_duplicate_valid_cids_rejects_subscription() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
-	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], Code::Blake2b256);
+	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
 
 	let err = ws_client
 		.subscribe::<StreamEvent, _>(
@@ -573,8 +586,8 @@ async fn stream_duplicate_digest_different_codec_rejects_subscription() {
 	let (ws_client, _handle, _mock_client) = setup(false).await;
 
 	let digest = [0xAB; 32];
-	let cid_dag_pb = make_cid_v1(Code::Blake2b256, &digest);
-	let cid_raw = make_cid_v1_with_codec(RAW_CODEC, Code::Blake2b256, &digest);
+	let cid_dag_pb = make_cid_v1(BLAKE2B_256, &digest);
+	let cid_raw = make_cid_v1_with_codec(RAW_CODEC, BLAKE2B_256, &digest);
 	assert_ne!(cid_dag_pb, cid_raw, "test precondition: codec change must alter the CID string");
 
 	let err = ws_client
@@ -653,7 +666,7 @@ async fn stream_drop_does_not_panic_server() {
 	// `sink.send().await.is_err()` early-return path in the handler.
 	let mut cids = Vec::new();
 	for i in 0..32u8 {
-		cids.push(store_chunk(&mock_client, vec![i, i, i, i], Code::Blake2b256));
+		cids.push(store_chunk(&mock_client, vec![i, i, i, i], BLAKE2B_256));
 	}
 
 	let mut sub: Subscription<StreamEvent> = ws_client
@@ -682,7 +695,7 @@ async fn stream_drop_does_not_panic_server() {
 async fn stream_event_wire_shape_matches_spec() {
 	let (ws_client, _handle, mock_client) = setup(false).await;
 
-	let cid_ok = store_chunk(&mock_client, vec![0x68, 0x69], Code::Blake2b256);
+	let cid_ok = store_chunk(&mock_client, vec![0x68, 0x69], BLAKE2B_256);
 	let cid_missing = unknown_cid(0xEE);
 
 	// Subscribe with `serde_json::Value` so we see the raw wire shape.
