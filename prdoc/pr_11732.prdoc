@@ -19,6 +19,14 @@ doc:
     the dispatch weight of signed extrinsics in `GetDispatchInfo::get_dispatch_info`, so it is
     reflected in fees and block-weight accounting without any per-runtime configuration.
 
+    ## Runtime migration note
+
+    When upgrading runtimes to this polkadot-sdk version (including fellowship runtimes), **re-benchmark
+    `ExtrinsicBaseWeight`** with `benchmark overhead`, using `--extrinsic-subtract-weight` and passing
+    the same `--signature-weight` (and `--extension-weight`, if non-zero) as charged at runtime. If
+    `ExtrinsicBaseWeight` is not updated, signed extrinsics will charge signature verification weight
+    twice: once via the old inflated base weight and again via `SignatureWeight`.
+
 crates:
 - name: frame-benchmarking-cli
   bump: minor
