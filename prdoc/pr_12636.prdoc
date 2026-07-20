@@ -1,7 +1,7 @@
 title: 'pallet-revive: implement eth_getBlockReceipts'
 
 doc:
-- audience: Node Dev
+- audience: Runtime Dev
   description: |-
     The `pallet-revive` Ethereum JSON-RPC server did not implement `eth_getBlockReceipts`, a
     standard `execution-apis` method that returns every transaction receipt in a block in a
@@ -11,4 +11,4 @@ doc:
 
 crates:
 - name: pallet-revive-eth-rpc
-  bump: minor
+  bump: major

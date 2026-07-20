@@ -833,48 +833,45 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// Verifies that `eth_getBlockReceipts` returns every receipt of a block, that querying the same
+/// block by number and by hash yields the same receipts, and that an unknown block returns `null`.
 async fn test_get_block_receipts() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let deploy_tx = TransactionRequest::default()
+		.from(from)
+		.input(AlloyBytes::from(bytecode).into())
+		.create();
 
-	// Send a transaction to produce a block that contains at least one receipt.
-	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
-	let value = U256::from(5_000_000_000_000u128);
-	let tx = TransactionBuilder::new(client.clone())
-		.value(value)
-		.input(bytes.to_vec())
-		.send()
-		.await?;
+	// Act
+	let receipt = provider.send_transaction(deploy_tx).await?.get_receipt().await?;
+	let block_number = receipt.block_number.expect("Mined receipt has a block number");
+	let block_hash = receipt.block_hash.expect("Mined receipt has a block hash");
 
-	let receipt = tx.wait_for_receipt().await?;
-	let block_number = receipt.block_number;
-	let ethereum_block_hash = receipt.block_hash;
-
-	// The block's receipts, fetched by number and by hash, refer to the same set.
-	let by_number = client
-		.get_block_receipts(BlockId::number(block_number.as_u64()))
+	let by_number = provider
+		.get_block_receipts(BlockId::number(block_number))
 		.await?
 		.expect("Block should have receipts");
-	let by_hash = client
-		.get_block_receipts(BlockId::hash(B256::from(ethereum_block_hash.0)))
+	let by_hash = provider
+		.get_block_receipts(BlockId::hash(block_hash))
 		.await?
 		.expect("Block should have receipts");
+	let missing = provider.get_block_receipts(BlockId::hash(B256::from([0x42u8; 32]))).await?;
 
-	let hashes_by_number: Vec<H256> = by_number.iter().map(|r| r.transaction_hash).collect();
-	let hashes_by_hash: Vec<H256> = by_hash.iter().map(|r| r.transaction_hash).collect();
+	// Assert
+	let hashes_by_number = by_number.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	let hashes_by_hash = by_hash.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
 	assert_eq!(hashes_by_number, hashes_by_hash, "Receipts by number and by hash should match");
-
-	// They include the sent transaction and all belong to the queried block.
 	assert!(
 		by_number.iter().any(|r| r.transaction_hash == receipt.transaction_hash),
 		"Block receipts should include the sent transaction"
 	);
 	assert!(
-		by_number.iter().all(|r| r.block_hash == ethereum_block_hash),
+		by_number.iter().all(|r| r.block_hash == Some(block_hash)),
 		"All receipts should belong to the queried block"
 	);
-
-	// A non-existent block returns null rather than an error.
-	let missing = client.get_block_receipts(BlockId::hash(B256::from([0x42u8; 32]))).await?;
 	assert!(missing.is_none(), "Receipts for a non-existent block should be null");
 
 	Ok(())
