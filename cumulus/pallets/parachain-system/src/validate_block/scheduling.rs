@@ -72,16 +72,14 @@ pub struct ValidatedScheduling {
 	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
 
-/// Validate V3 scheduling from the two-sided V3 flag and the candidate extension.
+/// Validate V3 scheduling (shape only; signature verification is the caller's job).
 ///
-/// V3 is in effect only when `v3_enabled_on_para` (the `V3_SCHEDULING_ENABLED` const) **and**
-/// `relay_feature_on` (the relay `CandidateReceiptV3` feature, read from committed relay state so
-/// validators agree deterministically) are both true — mirroring the collator. While the relay
-/// feature is off, the collator legitimately builds V2, which we must accept rather than stall.
+/// V3 is in effect only when both `v3_enabled_on_para` (the `V3_SCHEDULING_ENABLED` const) and
+/// `relay_feature_on` (the relay `CandidateReceiptV3` feature) are true. While the relay feature is
+/// off the collator legitimately builds V2, so we accept it rather than stall.
 ///
-/// Returns `None` for the V1/V2 path (including that V2 fallback), `Some` for a valid V3 candidate.
-/// Panics on mismatches: a V3 extension when V3 is not in effect, or a V2 candidate when it is (a
-/// downgrade — nothing else validates scheduling for a V3 parachain).
+/// Returns `None` for the V1/V2 path, `Some` for a valid V3 candidate; panics on a version mismatch
+/// (see the arms below).
 ///
 /// Only validates the proof *shape*; signature verification is the caller's responsibility.
 pub fn validate_v3_scheduling(
@@ -98,7 +96,8 @@ pub fn validate_v3_scheduling(
 			None
 		},
 		(false, _, Some(_)) => {
-			// Parachain has not enabled V3 but a V3 extension arrived: collators/runtime out of sync.
+			// Parachain has not enabled V3 but a V3 extension arrived: collators/runtime out of
+			// sync.
 			panic!(
 				"V3 extension present but V3 scheduling is disabled on the parachain. \
                 Ensure collators and runtime are in sync."
@@ -110,8 +109,9 @@ pub fn validate_v3_scheduling(
 			None
 		},
 		(true, false, Some(_)) => {
-			// Relay feature off yet a V3 extension arrived: the relay rejects V3 descriptors while
-			// the feature is off (`check_version_acceptance`), so this cannot happen honestly.
+			// Relay feature off yet a V3 extension arrived. Strict-superset defence: the relay
+			// re-checks version acceptance at inclusion (`check_version_acceptance`), so this arm
+			// is only reachable by a candidate the relay would reject anyway.
 			panic!(
 				"V3 extension present but the relay chain `CandidateReceiptV3` feature is \
                 disabled. The relay chain should not produce V3 candidates before enabling it."
@@ -717,7 +717,9 @@ mod tests {
 	}
 
 	#[test]
-	#[should_panic(expected = "V3 extension present but V3 scheduling is disabled on the parachain")]
+	#[should_panic(
+		expected = "V3 extension present but V3 scheduling is disabled on the parachain"
+	)]
 	fn v3_disabled_with_extension_panics() {
 		let ext = ValidationParamsExtension::V3 {
 			relay_parent: RelayHash::default(),

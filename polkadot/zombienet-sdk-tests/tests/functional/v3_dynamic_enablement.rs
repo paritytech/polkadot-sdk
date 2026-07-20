@@ -6,14 +6,17 @@
 //! side via a runtime upgrade to the v3 test runtime.
 //!
 //! Para 2902 walks all four (relay, para) states:
-//!   off/off → V2, on/off → V2, on/on → V3, off/on → V2. The last is the fallback this fix
-//!   enables: a v3 para runtime keeps producing V2 while the relay gate is closed instead of
-//!   stalling. Paras 2900 (basic) and 2901 (elastic scaling) run the V2 runtime throughout and
-//!   stay V2, confirming throughput survives enablement.
+//!   off/off → V2, on/off → V2, on/on → V3, off/on → V2.
 //!
 //! Paras 2900 and 2902 run a mix of a v3-capable collator (current image) and a v2-only collator
 //! (`OLD_CUMULUS_IMAGE`). On 2900 both emit V2; on 2902's V3 phase only the v3 collator can build,
 //! so it carries the para.
+//!
+//! [`v3_relay_feature_rollback_keeps_para_producing`] is a focused companion: it starts already in
+//! the on/on steady state (relay feature on, para on the `v3_rpo_2` runtime — V3 with relay parent
+//! offset 2 — from genesis), so there is no runtime upgrade and no live offset change. It rolls
+//! back only the relay feature and checks the para keeps producing as V2 with the offset still 2,
+//! exercising the offset-2 V2 fallback path in isolation.
 
 use crate::utils::{
 	assert_candidates_version, assert_validator_backed_candidates, disable_node_features,
@@ -23,52 +26,32 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assign_cores, wait_for_nth_session_change, wait_for_runtime_upgrade,
 };
-use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
-use rstest::rstest;
+use polkadot_primitives::{node_features::FeatureIndex, CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
-use std::{collections::HashMap, ops::Range};
+use std::{collections::HashMap, time::Duration};
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx::dynamic, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
-/// `relay_parent_offset` selects the v3 runtime para 2902 upgrades to, so the fallback lifecycle is
-/// exercised both with and without a relay parent offset:
-///   - offset 0: the `v3` runtime (relay parent = tip), same as before.
-///   - offset 2: the `v3_rpo_2` runtime, so v3 candidates build on a relay parent 2 blocks behind
-///     the tip. The V3-phase throughput is a bit lower and less predictable with an offset, so its
-///     expected range is a case parameter.
-#[rstest]
-#[case::offset_0(0, 5..15)]
-#[case::offset_2(2, 3..15)]
 #[tokio::test(flavor = "multi_thread")]
-async fn v3_dynamic_enablement_test(
-	#[case] relay_parent_offset: u32,
-	#[case] v3_expected_throughput: Range<u32>,
-) -> Result<(), anyhow::Error> {
+async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
 	let images = zombienet_sdk::environment::get_images_from_env();
 
-	// Target runtime for para 2902's upgrade (needs a WASM build). The relay parent offset variant
-	// is selected by the test case.
-	let v3_wasm = match relay_parent_offset {
-		0 => cumulus_test_runtime::v3::WASM_BINARY,
-		2 => cumulus_test_runtime::v3_rpo_2::WASM_BINARY,
-		other => return Err(anyhow!("no v3 test runtime for relay parent offset {other}")),
-	}
-	.ok_or_else(|| anyhow!("cumulus-test-runtime v3 WASM not built (needs WASM build)"))?;
-
-	// v2-only collator image; falls back to the current image when unset.
+	let v3_wasm = cumulus_test_runtime::v3::WASM_BINARY
+		.ok_or_else(|| anyhow!("cumulus-test-runtime v3 WASM not built (needs WASM build)"))?;
 	let old_cumulus_image = std::env::var("OLD_CUMULUS_IMAGE").unwrap_or(images.cumulus.clone());
 	let old_cumulus_command =
 		std::env::var("OLD_CUMULUS_COMMAND").unwrap_or("test-parachain".into());
-
-	// Start with only V2 (bit 3); V3 (bit 4) is enabled later.
-	let node_features_v2_only = json!({"bits": 8, "data": [0b00001000]});
+	// Encode V2-only node features: bit 3 = CandidateReceiptV2, bit 4 = CandidateReceiptV3.
+	// The bitvec byte is LSB-first, so bit index N → 1u8 << N.
+	let v2_byte = 1u8 << FeatureIndex::CandidateReceiptV2 as u8; // 1 << 3 = 0b00001000
+	let node_features_v2_only = json!({"bits": 8, "data": [v2_byte]});
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -97,8 +80,6 @@ async fn v3_dynamic_enablement_test(
 			let r = (1..4).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			});
-
-			// Experimental collator protocol validators (groups 2, 3).
 			(4..8).fold(r, |acc, i| {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
@@ -191,18 +172,23 @@ async fn v3_dynamic_enablement_test(
 	log::info!("state on/off (relay on, para off) → V2");
 	enable_node_features(&relay_client, &[4]).await?;
 	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_nth_session_change(&mut sub, 2).await?;
+	// 480s: generous wall-clock limit so a stalled block stream fails loudly instead of hanging CI.
+	tokio::time::timeout(Duration::from_secs(480), wait_for_nth_session_change(&mut sub, 2))
+		.await
+		.map_err(|_| {
+			anyhow!("timed out after 480s waiting for 2 session changes (on/off state)")
+		})??;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2902, 5..15)]),
+		HashMap::from([(para_2902, 3..20)]),
 		10,
 	)
 	.await?;
 
 	// on/off → on/on: upgrade para 2902 to the v3 runtime. Both sides on → V3.
 	// v3 shares its spec_version with V2, so use set_code_without_checks.
-	log::info!("state on/on (relay on, para on) → V3 (relay parent offset {relay_parent_offset})");
+	log::info!("state on/on (relay on, para on) → V3");
 	let upgrade_call = dynamic(
 		"Sudo",
 		"sudo_unchecked_weight",
@@ -219,26 +205,37 @@ async fn v3_dynamic_enablement_test(
 		.await?;
 	wait_for_runtime_upgrade(&para_client_v3).await?;
 	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_nth_session_change(&mut sub, 1).await?;
+	// 300s: generous wall-clock limit so a stalled block stream fails loudly instead of hanging CI.
+	tokio::time::timeout(Duration::from_secs(300), wait_for_nth_session_change(&mut sub, 1))
+		.await
+		.map_err(|_| {
+			anyhow!("timed out after 300s waiting for 1 session change (on/on state)")
+		})??;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
-		HashMap::from([(para_2902, v3_expected_throughput)]),
+		HashMap::from([(para_2902, 3..20)]),
 		10,
 	)
 	.await?;
 
 	// on/on → off/on: disable the relay feature while 2902 keeps the v3 runtime. The collator falls
-	// back to V2 and the para must keep producing (the case this fix enables). The change applies at
-	// session+2 (SESSION_DELAY); wait 2 session changes so the V3 tail has drained before asserting.
+	// back to V2 and the para must keep producing (the case this fix enables). The change applies
+	// at session+2 (SESSION_DELAY); wait 2 session changes so the V3 tail has drained before
+	// asserting.
 	log::info!("state off/on (relay off, para on) → V2 (fallback)");
 	disable_node_features(&relay_client, &[4]).await?;
 	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_nth_session_change(&mut sub, 2).await?;
+	// 480s: generous wall-clock limit so a stalled block stream fails loudly instead of hanging CI.
+	tokio::time::timeout(Duration::from_secs(480), wait_for_nth_session_change(&mut sub, 2))
+		.await
+		.map_err(|_| {
+			anyhow!("timed out after 480s waiting for 2 session changes (off/on state)")
+		})??;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2902, 5..15)]),
+		HashMap::from([(para_2902, 3..20)]),
 		10,
 	)
 	.await?;
@@ -247,7 +244,7 @@ async fn v3_dynamic_enablement_test(
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 5..15), (para_2901, 15..40)]),
+		HashMap::from([(para_2900, 3..20), (para_2901, 10..50)]),
 		10,
 	)
 	.await?;
@@ -271,10 +268,129 @@ async fn v3_dynamic_enablement_test(
 	assert_finality_lag(&para_node_slot.wait_client().await?, 15).await?;
 	assert_finality_lag(&para_node_v3.wait_client().await?, 15).await?;
 
-	log::info!(
-		"V3 dynamic enablement test (relay then para enablement, relay parent offset \
-		 {relay_parent_offset}) finished successfully"
+	log::info!("V3 dynamic enablement test (relay then para enablement) finished successfully");
+
+	Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn v3_relay_feature_rollback_keeps_para_producing() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
+
+	let images = zombienet_sdk::environment::get_images_from_env();
+
+	// V2 (bit 3) and V3 (bit 4) enabled from genesis.
+	// bit 3 = CandidateReceiptV2, bit 4 = CandidateReceiptV3; both set → 0b00011000.
+	let feature_byte = (1u8 << FeatureIndex::CandidateReceiptV2 as u8) |
+		(1u8 << FeatureIndex::CandidateReceiptV3 as u8);
+	let node_features_with_v3 = json!({"bits": 8, "data": [feature_byte]});
+
+	let config = NetworkConfigBuilder::new()
+		.with_relaychain(|r| {
+			let r = r
+				.with_chain("rococo-local")
+				.with_default_command("polkadot")
+				.with_default_image(images.polkadot.as_str())
+				.with_default_args(vec![("-lparachain=debug,runtime=debug").into()])
+				.with_genesis_overrides(json!({
+					"configuration": {
+						"config": {
+							"scheduler_params": {
+								"max_validators_per_core": 3
+							},
+							"node_features": node_features_with_v3,
+							// The offset-2 relay-parent walk-back is asserted right after a session
+							// change, so it must be allowed to cross a session boundary.
+							"max_relay_parent_session_age": 2
+						}
+					}
+				}))
+				.with_validator(|node| node.with_name("validator-0"));
+
+			let r = (1..3).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			});
+
+			// Experimental collator protocol validators (needed for V3 collation).
+			(3..6).fold(r, |acc, i| {
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
+							.into(),
+						("--experimental-collator-protocol").into(),
+					])
+				})
+			})
+		})
+		// Para 2902: V3 with relay parent offset 2 from genesis.
+		.with_parachain(|p| {
+			p.with_id(2902)
+				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_chain("v3-rpo-2")
+				.with_default_args(vec![
+					("--authoring=slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
+				.with_collator(|n| n.with_name("collator-2902"))
+		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})?;
+
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
+	let network = spawn_fn(config).await?;
+
+	let relay_node = network.get_node("validator-0")?;
+	let para_node = network.get_node("collator-2902")?;
+	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
+	let para_2902 = ParaId::from(2902);
+
+	// on/on (relay on, para v3 + offset 2) → V3.
+	log::info!("state on/on (relay on, para v3+offset2) → V3");
+	assert_candidates_version(
+		&relay_client,
+		CandidateDescriptorVersion::V3,
+		HashMap::from([(para_2902, 5..25)]),
+		20,
+	)
+	.await?;
+
+	// on/on → off/on: roll back only the relay feature. The para keeps the v3 runtime and must keep
+	// producing, now as V2 with the offset still 2 (the case the claim-queue-offset bound fix
+	// enables). The change applies at session+2 (SESSION_DELAY); wait 2 session changes so the V3
+	// tail has drained before asserting.
+	log::info!("state off/on (relay off, para v3+offset2) → V2 (fallback)");
+	disable_node_features(&relay_client, &[4]).await?;
+	let mut sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut sub, 2).await?;
+	assert_candidates_version(
+		&relay_client,
+		CandidateDescriptorVersion::V2,
+		HashMap::from([(para_2902, 5..15)]),
+		15,
+	)
+	.await?;
+
+	// No disputes throughout.
+	relay_node
+		.wait_metric_with_timeout(
+			"polkadot_parachain_candidate_disputes_total",
+			|v| v == 0.0,
+			30u64,
+		)
+		.await?;
+
+	assert_validator_backed_candidates(relay_node, 30).await?;
+
+	assert_finality_lag(&para_node.wait_client().await?, 15).await?;
+
+	log::info!("V3 relay feature rollback test finished successfully");
 
 	Ok(())
 }

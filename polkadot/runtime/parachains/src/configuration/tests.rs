@@ -512,6 +512,14 @@ fn non_root_cannot_set_config() {
 fn verify_externally_accessible() {
 	// This test verifies that the value can be accessed through the well known keys and the
 	// host configuration decodes into the abridged version.
+	//
+	// A FAILURE of this test means the positional field layout of `HostConfiguration` has
+	// diverged from the prefix that `AbridgedHostConfiguration` expects. Because parachains
+	// SCALE-decode `AbridgedHostConfiguration` directly from the `ACTIVE_CONFIG` blob on every
+	// mandatory `set_validation_data` inherent, any such divergence breaks active-config
+	// decoding for every parachain that has not yet upgraded to a matching runtime. Any
+	// relay-side change that causes this test to fail requires a coordinated parachain runtime
+	// migration and must not be shipped casually.
 
 	use polkadot_primitives::{
 		node_features::FeatureIndex, well_known_keys, AbridgedHostConfiguration, NodeFeatures,

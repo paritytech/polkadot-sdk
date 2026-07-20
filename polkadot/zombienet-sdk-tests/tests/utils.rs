@@ -71,25 +71,6 @@ pub async fn disable_node_features(
 
 /// Sets the given `node_features` bits to `enabled` via a single sudo batched `set_node_feature`
 /// extrinsic.
-///
-/// # Timing: the change only takes effect two sessions later
-///
-/// The extrinsic is submitted at some arbitrary block in the middle of the current session `N`.
-/// The next session `N+1` is essentially already "in flight": validators derive session-scoped
-/// consensus data at/around session boundaries (validator sets and group assignments,
-/// approval-assignment keys, scheduling), and pieces of `N+1` are already determined by the time
-/// the change lands mid-`N`. If the change applied at `N+1`, different validators could have
-/// computed `N+1`'s parameters at different moments relative to the change — some with the old
-/// config, some with the new.
-///
-/// Deferring to `N+2` guarantees the change lands at a clean session boundary that no validator has
-/// started preparing yet, so every validator applies it atomically and agrees on the active config
-/// for that session from its very first block. That's the "at least one full session has passed"
-/// the relay `configuration` pallet's `SESSION_DELAY` refers to: whatever partial session `N`
-/// remained plus the whole of `N+1` acts as the buffer.
-///
-/// Callers asserting behaviour that depends on the new value must therefore wait ~2 session changes
-/// (e.g. `wait_for_nth_session_change(.., 2)`) after this returns.
 async fn set_node_features(
 	client: &OnlineClient<PolkadotConfig>,
 	feature_bits: &[u8],

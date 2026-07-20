@@ -945,12 +945,11 @@ impl From<ValidityError> for u8 {
 /// Abridged version of `HostConfiguration` (from the `Configuration` parachains host runtime
 /// module) meant to be used by a parachain or PDK such as cumulus.
 ///
-/// # Layout contract
-///
-/// Parachains decode this from a prefix of the relay's full `HostConfiguration` (`ACTIVE_CONFIG`).
-/// SCALE is positional, so every field must match `HostConfiguration`'s leading fields in order and
-/// encoding, up to `node_features`; new `HostConfiguration` fields must be appended *after* it. The
-/// relay's `verify_externally_accessible` test guards this and must be updated in lockstep.
+/// These fields MUST stay a positional prefix of the relay `HostConfiguration<BlockNumber>` (same
+/// order and types): parachains SCALE-decode this struct from the `ACTIVE_CONFIG` blob on every
+/// block. Reordering or changing any field up to and including `node_features` breaks decoding for
+/// un-upgraded parachains (halting them until a runtime upgrade). Guarded by the
+/// `verify_externally_accessible` test in the configuration pallet.
 #[derive(Clone, Encode, Decode, Debug, Default, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct AbridgedHostConfiguration {
@@ -982,8 +981,6 @@ pub struct AbridgedHostConfiguration {
 	pub validation_upgrade_delay: BlockNumber,
 	/// Asynchronous backing parameters.
 	pub async_backing_params: AsyncBackingParams,
-	// Fields below extend the original prefix (which ended at `async_backing_params`) to reach
-	// `node_features`; they mirror `HostConfiguration` verbatim (see the layout contract).
 	/// The maximum POV block size, in bytes.
 	pub max_pov_size: u32,
 	/// The maximum size of a message that can be put in a downward message queue.
@@ -1032,8 +1029,7 @@ pub struct AbridgedHostConfiguration {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
-	/// Node features enablement. This is the last field mirrored from `HostConfiguration`; it
-	/// carries, among others, the `CandidateReceiptV3` bit used to gate V3 scheduling.
+	/// Node features enablement, including the `CandidateReceiptV3` gate.
 	pub node_features: NodeFeatures,
 }
 

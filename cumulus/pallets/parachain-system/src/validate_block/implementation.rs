@@ -172,9 +172,6 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	// V3 is in effect only when the parachain const AND the relay feature are on; otherwise the
-	// collator legitimately builds V2 and we accept it rather than stall. Short-circuit so non-V3
-	// parachains never read the relay feature.
 	let relay_feature_on = PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
 		read_relay_v3_feature_enabled::<B, PSC>(&block_data, relay_parent_storage_root);
 

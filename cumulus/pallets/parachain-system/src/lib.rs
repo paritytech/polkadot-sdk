@@ -629,19 +629,26 @@ pub mod pallet {
 
 			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
 			//
-			// With V3: the collator looks up the claim queue at the scheduling parent
-			// (fresh tip), so the max offset is just the `max_claim_queue_offset()`.
-			// Without V3: the collator looks up at the relay parent which is offset
-			// behind the tip, so the effective max includes relay_parent_offset.
+			// The bound `max_claim_queue_offset() + relay_parent_offset` is applied
+			// unconditionally as an intentional upper bound across both scheduling regimes:
+			//   - V3 dynamically active (para const on AND relay `CandidateReceiptV3` feature on):
+			//     the tighter bound `max_claim_queue_offset()` is enforced against the signed
+			//     scheduling payload in `validate_block/scheduling.rs`; a healthy V3 collator
+			//     emitting an offset above that is caught there (or by the relay's own
+			//     `check_version_acceptance`), not here.
+			//   - V2 fallback (const off OR relay feature off, e.g. during a relay rollback): the
+			//     collator looks up the claim queue at the relay parent, which is
+			//     `relay_parent_offset` behind the tip, so the wider bound is the correct cap.
+			//
+			// `on_initialize` runs before the relay state proof is read, so it cannot observe
+			// whether V3 is dynamically active. Applying the wider bound unconditionally is a
+			// cheap defence-in-depth sanity check that never rejects a legitimate candidate.
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					let mut max_allowed_offset = Self::max_claim_queue_offset();
-					if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
-						max_allowed_offset = max_allowed_offset
-							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>())
-					}
+					let max_allowed_offset = Self::max_claim_queue_offset()
+						.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>());
 					assert!(
 						core_info.claim_queue_offset.0 <= max_allowed_offset,
 						"claim_queue_offset {} exceeds maximum allowed {}",
@@ -715,19 +722,21 @@ pub mod pallet {
 			.expect("Invalid relay chain state proof");
 
 			// Relay parent offset validation:
-			// When V3 scheduling is disabled: validate relay_parent_descendants (old mechanism)
-			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
-			// happens in validate_block with header chain from PVF params
+			// V3 is *dynamically* active only when the para const
+			// `T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED` is on AND the relay
+			// `CandidateReceiptV3` feature is on (read from the relay state proof). When V3 is
+			// NOT dynamically active (const off OR relay feature off, e.g. the V2 fallback
+			// during a relay rollback) the old relay-parent-descendant validation stays active.
+			// When V3 IS dynamically active the descendant check is skipped; scheduling
+			// validation happens in validate_block/scheduling.rs via the header chain in the
+			// PVF params.
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
-			// Two-sided: V3 is in effect only when the para const AND the relay feature are on, so
-			// the descendant check stays active while the relay feature is off. Short-circuit so
-			// non-V3 parachains skip the read.
-			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
+			let v3_dynamically_active = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
 				relay_state_proof
 					.read_relay_v3_feature_enabled()
 					.expect("Invalid host configuration in relay chain state proof");
 
-			if expected_rp_descendants_num > 0 && !v3_enabled {
+			if expected_rp_descendants_num > 0 && !v3_dynamically_active {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
