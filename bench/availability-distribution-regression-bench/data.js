@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784536078171,
+  "lastUpdate": 1784547861535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8a034ca6018d8659308d3f0200222457cc46dc58",
-          "message": "net/peerset: Optimize substream opening duration for `SetReservedPeers` (#10362)\n\nWhile triaging the Versi-net, I've discovered that the connection\nbetween collators and validators sometimes takes less than 20ms, while\nat other times it takes more than 500ms.\n\nIn both cases, the validators are already connected to a different\nprotocol. Therefore, opening and negotiating substreams must be almost\ninstant.\n\nThe slot timer of the peerset artificially introduces the delay:\n- The `SetReservedPeers` is received by the peerset. At this step, the\npeerset propagated the `closedSubstream` to signal that it wants to\ndisconnect previously reserved peers.\n- At the next slot allocation timer tick (after 1s), the newly added\nreserved peers are requested to be connected\n\nThis can introduce an artificial delay of up to 1s, which is\nunnecessary.\n\nTo mitigate this behavior, this PR:\n- Transforms the ` enum PeersetNotificationCommand` into a structure.\nEffectively, the peerset can specify directly to close some substreams\nand open other substreams\n- Upon receiving the `SetReservedPeers` command, peers are moved into\nthe `Opening` state and the request is propagated to the litep2p to open\nsubstreams.\n- The behavior of the slot allocation timer remains identical. This is\nneeded to capture the following edge cases:\n- The reserved peer of the `SetReservedPeers` is not disconnected, but\nbackoff / pending closing.\n  - The reserved peer is banned\n\ncc @paritytech/networking \n\nDetected during versi-net triaging of elastic scaling:\nhttps://github.com/paritytech/polkadot-sdk/issues/10310#issuecomment-3543395157\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-24T10:21:48Z",
-          "tree_id": "4a84522ee6543d4dc767a45d6a0dfe20a7db385b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8a034ca6018d8659308d3f0200222457cc46dc58"
-        },
-        "date": 1763984178336,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00718219492,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15744739152666679,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01297459309333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022530208759999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02302976429333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e02e990c00c5d028eaf0213b1593a08a249d4f89",
+          "message": "[pallet-revive] Reject re-entrant CREATE2 at an in-construction address (#12645)\n\nFixes #12639 by rejecting a nested instantiate whose target address is\nalready being constructed by an ancestor frame, closing the re-entrant\n`CREATE2` collision that let two constructors run for one account and\npermanently leaked its consumer/refcount and storage deposit.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-20T09:26:38Z",
+          "tree_id": "551d14fe362afa802102d8d2072a0aa281a83df2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e02e990c00c5d028eaf0213b1593a08a249d4f89"
+        },
+        "date": 1784547829870,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02286283754666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009826815620000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14777878380000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007229314079999997,
             "unit": "seconds"
           }
         ]
