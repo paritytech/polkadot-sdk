@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784536036876,
+  "lastUpdate": 1784547821404,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e588acf5e12b14c68331d2e08afe7c12d6671df9",
-          "message": "pallet-revive: add DebugSetting for bypassing eip-3607 (#10387)\n\nOnly works for contract accounts, not precompiles.\nThis is needed so that test nodes like anvil can send transactions from\ncontract accounts, a widely-used feature in tests\n\nNeeded for https://github.com/paritytech/foundry-polkadot/pull/423",
-          "timestamp": "2025-11-24T13:52:50Z",
-          "tree_id": "60ed8cd8e2ccbb73ceb16405548c0f1817a4f756",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e588acf5e12b14c68331d2e08afe7c12d6671df9"
-        },
-        "date": 1763996386243,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.319386053033336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20465473706666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.305514449933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e02e990c00c5d028eaf0213b1593a08a249d4f89",
+          "message": "[pallet-revive] Reject re-entrant CREATE2 at an in-construction address (#12645)\n\nFixes #12639 by rejecting a nested instantiate whose target address is\nalready being constructed by an ancestor frame, closing the re-entrant\n`CREATE2` collision that let two constructors run for one account and\npermanently leaked its consumer/refcount and storage deposit.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-20T09:26:38Z",
+          "tree_id": "551d14fe362afa802102d8d2072a0aa281a83df2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e02e990c00c5d028eaf0213b1593a08a249d4f89"
+        },
+        "date": 1784547789739,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14388421763333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.178656531666665,
             "unit": "seconds"
           }
         ]
