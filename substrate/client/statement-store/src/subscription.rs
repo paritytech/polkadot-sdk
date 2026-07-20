@@ -1392,8 +1392,6 @@ mod tests {
 			},
 		}
 
-		// The same hash can be admitted again after removal and purge. Its new sequence represents
-		// a distinct admission and must produce another live event.
 		subscriptions.notify_matching_filters(2, &statement);
 		assert!(matches!(
 			rx.try_recv(),
