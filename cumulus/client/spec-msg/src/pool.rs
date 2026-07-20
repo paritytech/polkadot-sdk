@@ -32,7 +32,9 @@
 //! (payload + inclusion proof for the inherent; frontier + tree proof for
 //! the lift), keyed by their read-context leaf count — the consumption
 //! record's `end.leaf_count` is how the assembler finds the read a block
-//! acted on.
+//! acted on. Reads are handed to at most one *live* block; a hand-out to a
+//! block that never lands is reconciled back to handable state against the
+//! authoring parent's applied register view (see [`SpecMsgPool::build_inherent`]).
 //!
 //! Nothing in here is trusted beyond what verification proved: the pool
 //! stores only what [`crate::verify`] derived, tagged with the root it was
@@ -43,12 +45,13 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
+use codec::DecodeAll;
 use parking_lot::Mutex;
 
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
-	hash_leaf, MMRExtensionProof, MmrFrontier, MmrInclusionProof, RequiresLift, SpecHasher,
-	SpecMsgInherentData, StreamId, StreamsRoot, TreeInclusionProof, LEAF_VERSION,
+	hash_leaf, MMRExtensionProof, MmrFrontier, MmrInclusionProof, Register, RequiresLift,
+	SpecHasher, SpecMsgInherentData, StreamId, StreamsRoot, TreeInclusionProof, LEAF_VERSION,
 };
 use polkadot_core_primitives::Hash;
 
@@ -188,6 +191,48 @@ struct RegisterReads {
 	reads: BTreeMap<u64, RegisterRead>,
 	/// Context count of the newest read not yet handed to a block.
 	fresh: Option<u64>,
+	/// Context count of a read handed to exactly one block whose landing is
+	/// not yet confirmed — reconciled against the authoring parent's applied
+	/// register view at the next hand-out opportunity
+	/// ([`Self::reconcile_handed`]).
+	handed: Option<u64>,
+}
+
+impl RegisterReads {
+	/// Reconciles the outstanding hand-out (if any) against the authoring
+	/// parent's applied register view — the same non-destructive fork
+	/// discipline the channel cursors get: a hand-out whose information the
+	/// parent state reflects landed on the branch being built on and stays
+	/// consumed; one it does not reflect was handed to a block that never
+	/// made it here (dropped, unincluded or reorged away) and returns to
+	/// handable state — unless a newer read superseded it meanwhile.
+	///
+	/// Reflection is judged on the register's monotonic fields (`up_to`,
+	/// `version`, plus the close latch): `grant` is advisory and
+	/// non-monotonic, so by value it cannot distinguish "not yet applied"
+	/// from "superseded by a newer read" — a dropped grant-only change
+	/// simply waits for the next root's refresh, the pre-existing cadence.
+	fn reconcile_handed(&mut self, parent: Option<&Register>) {
+		let Some(context) = self.handed.take() else { return };
+		let landed = match self.reads.get(&context) {
+			// Evicted by newer reads — nothing left worth re-handing.
+			None => true,
+			Some(read) => match Register::decode_all(&mut read.payload.as_slice()) {
+				// The runtime rejects undecodable reads (`BadRegister`), so
+				// one can never be reflected: abandon it rather than re-hand
+				// it to every block forever.
+				Err(_) => true,
+				Ok(handed) => parent.map_or(false, |parent| {
+					parent.up_to >= handed.up_to &&
+						parent.version >= handed.version &&
+						(parent.closed || !handed.closed)
+				}),
+			},
+		};
+		if !landed && self.fresh.map_or(true, |fresh| fresh <= context) {
+			self.fresh = Some(context);
+		}
+	}
 }
 
 #[derive(Default)]
@@ -283,6 +328,9 @@ impl SpecMsgPool {
 			if registers.fresh == Some(oldest) {
 				registers.fresh = None;
 			}
+			if registers.handed == Some(oldest) {
+				registers.handed = None;
+			}
 		}
 	}
 
@@ -326,21 +374,27 @@ impl SpecMsgPool {
 	///
 	/// `channel_cursors` are the consumed channel streams with the runtime's
 	/// resume cursor at the authoring parent (`consumed_streams()`);
-	/// `register_streams` the ack streams to read (`out_channels()` keys).
-	/// What is handed over is the contiguous continuation from the cursor,
-	/// within `budget`. Handing is non-destructive: the authoring parent may
-	/// sit on a fork that never survives, so payloads its ancestors consumed
-	/// stay pooled for the branches that did not (see [`Self::prune_channel`]).
+	/// `register_streams` the ack streams to read, each with the parent's
+	/// applied register view (`out_channels()` keys and values). What is
+	/// handed over is the contiguous continuation from the cursor, within
+	/// `budget`. Handing is non-destructive: the authoring parent may sit on
+	/// a fork that never survives, so payloads its ancestors consumed stay
+	/// pooled for the branches that did not (see [`Self::prune_channel`]).
 	///
 	/// Only material bound to the source's current target root is handed
 	/// over — the guarantee that lift assembly for the resulting block
 	/// succeeds from local material and converges per source. Register
-	/// reads are additionally handed at most once (a new included root
-	/// refreshes them).
+	/// reads are additionally handed to at most one live block: before a
+	/// read is handed, the stream's outstanding hand-out (if any) is
+	/// reconciled against the parent's applied register view
+	/// ([`RegisterReads::reconcile_handed`]) — a hand-out the parent state
+	/// reflects landed and stays consumed, one it does not reflect was
+	/// handed to a block that never made it onto this branch and becomes
+	/// handable again. A new included root refreshes reads as before.
 	pub fn build_inherent(
 		&self,
 		channel_cursors: &[(ParaId, StreamId, u64)],
-		register_streams: &[(ParaId, StreamId)],
+		register_streams: &[(ParaId, StreamId, Option<Register>)],
 		budget: InherentBudget,
 	) -> SpecMsgInherentData {
 		let mut sources = self.sources.lock();
@@ -389,13 +443,14 @@ impl SpecMsgPool {
 			data.messages.push((*source, *stream, payloads));
 		}
 
-		for (source, stream) in register_streams {
+		for (source, stream, parent_view) in register_streams {
 			if data.messages.len() + data.register_reads.len() >= budget.max_streams {
 				break;
 			}
 			let Some(pool) = sources.get_mut(source) else { continue };
 			let target = pool.target;
 			let Some(registers) = pool.registers.get_mut(stream) else { continue };
+			registers.reconcile_handed(parent_view.as_ref());
 			let Some(context) = registers.fresh else { continue };
 			let Some(read) = registers.reads.get(&context) else { continue };
 			if target != Some(read.root) {
@@ -408,6 +463,7 @@ impl SpecMsgPool {
 				read.inclusion.clone(),
 			));
 			registers.fresh = None;
+			registers.handed = Some(context);
 		}
 
 		data

@@ -16,6 +16,7 @@ async-channel = { workspace = true }
 async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
+futures-timer = { workspace = true }
 mmr-lib = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 thiserror = { workspace = true }

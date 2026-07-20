@@ -5162,6 +5162,7 @@ dependencies = [
  "cumulus-primitives-spec-messaging",
  "cumulus-relay-chain-interface",
  "futures",
+ "futures-timer",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-ckb-merkle-mountain-range",

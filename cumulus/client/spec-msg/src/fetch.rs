@@ -33,9 +33,14 @@
 //!
 //! A completed round marks `root` as the source's lift target; the inherent
 //! provider hands over only target-bound material, which is what guarantees
-//! the lift assembler succeeds from local material. Failed rounds are
-//! simply retried on the next trigger — fetching is root-keyed and
-//! idempotent.
+//! the lift assembler succeeds from local material. A failed round is
+//! retried under the SAME root with bounded exponential backoff
+//! ([`MAX_ROUND_RETRIES`] / [`ROUND_RETRY_DELAY`]) — a quiet sender offers
+//! no next root, so waiting for one would turn a single transient failure
+//! into an indefinite stall. Fetching is root-keyed and idempotent, so
+//! retries are always safe; a fresh included root supersedes a scheduled
+//! retry and resets the budget. Rounds that cannot profit from a retry
+//! (an empty peer set, local errors) wait for the next trigger instead.
 //!
 //! This node-side pre-verification protects the collator from building on
 //! bad p2p data; consensus-level enforcement is the PVF's lift check
@@ -44,8 +49,9 @@
 //! consumed or lifted, and keeping it out of the pool avoids poisoning the
 //! contiguous runs on abandoned forks.
 
-use std::sync::Arc;
+use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc, time::Duration};
 
+use futures::{stream::FuturesUnordered, StreamExt};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -58,7 +64,7 @@ use cumulus_primitives_spec_messaging::{
 
 use crate::{
 	exchange::{exchange_once, ExchangeError, ExchangeNetwork, SourcePeers},
-	monitor::RelayProvidesEvent,
+	monitor::{RelayProvidesEvent, SourceProvides},
 	pool::{ChannelBinding, PoolError, RegisterRead, SpecMsgPool},
 	verify::{verify_event_response, verify_messages_response, VerifiedEvent, VerifiedMessages},
 	LOG_TARGET,
@@ -74,7 +80,33 @@ pub const FETCH_CHUNK_BYTES: u32 = 512 * 1024;
 /// continues where this one stopped).
 const MAX_CHUNKS_PER_ROUND: usize = 4_096;
 
-/// Errors of one fetch round. All are retried on the next trigger.
+/// In-root retry budget: how many times one included root's failed round is
+/// re-run before the source waits for its next trigger. A fresh included
+/// root supersedes any scheduled retry and resets the budget; so does a
+/// completed round. The budget keeps a quiet sender (no new `Provides`)
+/// from stalling a source indefinitely on one transient failure, while the
+/// bound guarantees no retry storm outlives the failure.
+const MAX_ROUND_RETRIES: u32 = 4;
+
+/// Backoff before the first in-root retry; doubles per attempt
+/// ([`retry_delay`]) up to [`ROUND_RETRY_DELAY_CAP`].
+const ROUND_RETRY_DELAY: Duration = Duration::from_secs(2);
+
+/// Upper bound on the in-root retry backoff.
+const ROUND_RETRY_DELAY_CAP: Duration = Duration::from_secs(16);
+
+/// The backoff before in-root retry `attempt` (1-based): exponential from
+/// [`ROUND_RETRY_DELAY`], capped at [`ROUND_RETRY_DELAY_CAP`].
+fn retry_delay(attempt: u32) -> Duration {
+	// The shift is clamped: the cap is reached long before the type's width
+	// matters.
+	let factor = 1u32 << attempt.saturating_sub(1).min(16);
+	ROUND_RETRY_DELAY.saturating_mul(factor).min(ROUND_RETRY_DELAY_CAP)
+}
+
+/// Errors of one fetch round. Retryable ones ([`RoundError::retryable`])
+/// are re-run in place with bounded backoff; the rest wait for the next
+/// trigger.
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
 	/// Every candidate peer failed or was discarded.
@@ -310,25 +342,126 @@ pub async fn run_spec_msg_fetcher<Block, Client, Network>(
 	Client::Api: SpecMsgApi<Block>,
 	Network: ExchangeNetwork,
 {
-	while let Ok(event) = events.recv().await {
-		let provides = match event {
-			RelayProvidesEvent::Included(provides) => provides,
-			// Prefetch hints are a post-MVP latency win; see the module
-			// docs for why the MVP pool holds included-bound material only.
-			RelayProvidesEvent::Pending(_) => continue,
+	run_fetch_rounds(
+		events,
+		|provides| fetch_included(para_id, &*parachain, &network, &*peers, &pool, provides),
+		futures_timer::Delay::new,
+	)
+	.await
+}
+
+/// A failed round's scheduled in-root retry (see [`run_fetch_rounds`]).
+struct PendingRetry {
+	/// The trigger being retried — same source, same root.
+	provides: SourceProvides,
+	/// The 1-based retry attempt this entry will run.
+	attempt: u32,
+	/// Tags the backoff timer armed for this entry: a firing timer whose
+	/// tag no longer matches was superseded (newer root or reschedule) and
+	/// is ignored.
+	generation: u64,
+}
+
+/// Drives fetch rounds from monitor events with bounded in-root retries —
+/// the generic core of [`run_spec_msg_fetcher`]. `round` runs one round for
+/// a trigger; `sleep` provides the backoff timer (injected for tests).
+///
+/// Rounds and retries run sequentially on this one task. Due backoff timers
+/// are polled before the event channel so retry scheduling is deterministic;
+/// the ordering is immaterial for correctness — rounds are root-keyed and
+/// idempotent, and an event superseding a scheduled retry does so whenever
+/// it is received before the timer fires.
+async fn run_fetch_rounds<Round, RoundFut, Sleep, SleepFut>(
+	events: async_channel::Receiver<RelayProvidesEvent>,
+	mut round: Round,
+	sleep: Sleep,
+) where
+	Round: FnMut(SourceProvides) -> RoundFut,
+	RoundFut: Future<Output = Result<(), RoundError>>,
+	Sleep: Fn(Duration) -> SleepFut,
+	SleepFut: Future<Output = ()> + Send + 'static,
+{
+	let mut events = events.fuse();
+	let mut pending: HashMap<ParaId, PendingRetry> = HashMap::new();
+	let mut timers: FuturesUnordered<Pin<Box<dyn Future<Output = (ParaId, u64)> + Send>>> =
+		FuturesUnordered::new();
+	let mut generation: u64 = 0;
+
+	loop {
+		let (provides, attempt) = futures::select_biased! {
+			due = timers.select_next_some() => {
+				let (source, timer_generation) = due;
+				match pending.get(&source) {
+					Some(retry) if retry.generation == timer_generation => {
+						let retry = pending.remove(&source).expect("entry just matched; qed");
+						(retry.provides, retry.attempt)
+					},
+					// The timer was superseded by a newer root or a
+					// rescheduled retry.
+					_ => continue,
+				}
+			},
+			event = events.next() => match event {
+				Some(RelayProvidesEvent::Included(provides)) => {
+					// A fresh included root supersedes the source's
+					// scheduled retry and resets its budget.
+					pending.remove(&provides.source);
+					(provides, 0)
+				},
+				// Prefetch hints are a post-MVP latency win; see the module
+				// docs for why the MVP pool holds included-bound material
+				// only.
+				Some(RelayProvidesEvent::Pending(_)) => continue,
+				None => break,
+			},
 		};
 
-		if let Err(error) =
-			fetch_included(para_id, &*parachain, &network, &*peers, &pool, &provides).await
-		{
+		let error = match round(provides.clone()).await {
+			Ok(()) => continue,
+			Err(error) => error,
+		};
+		if !error.retryable() {
 			tracing::warn!(
 				target: LOG_TARGET,
 				?error,
 				source = %u32::from(provides.source),
 				root = ?provides.root,
-				"Fetch round failed; retrying on the next included root",
+				"Fetch round failed; waiting for the next trigger",
 			);
+			continue;
 		}
+		if attempt >= MAX_ROUND_RETRIES {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?error,
+				source = %u32::from(provides.source),
+				root = ?provides.root,
+				retries = MAX_ROUND_RETRIES,
+				"Fetch round failed; in-root retries exhausted, waiting for the next included root",
+			);
+			continue;
+		}
+		let attempt = attempt + 1;
+		let delay = retry_delay(attempt);
+		tracing::warn!(
+			target: LOG_TARGET,
+			?error,
+			source = %u32::from(provides.source),
+			root = ?provides.root,
+			attempt,
+			max = MAX_ROUND_RETRIES,
+			?delay,
+			"Fetch round failed; retrying under the same root",
+		);
+		generation += 1;
+		let source = provides.source;
+		pending.insert(source, PendingRetry { provides, attempt, generation });
+		let timer = sleep(delay);
+		let tag = generation;
+		timers.push(Box::pin(async move {
+			timer.await;
+			(source, tag)
+		}));
 	}
 }
 
@@ -342,6 +475,23 @@ enum RoundError {
 	Fetch(#[from] FetchError),
 }
 
+impl RoundError {
+	/// Whether an in-root retry can plausibly succeed: transient transport
+	/// and peer failures can, and so can a chunk-bound cutoff (the retry
+	/// resumes where the round stopped). Local errors (runtime api, pool
+	/// contract) cannot, nor can an empty peer set — backoff conjures no
+	/// peers, so the source gives up until a trigger arrives.
+	fn retryable(&self) -> bool {
+		match self {
+			Self::Api(_) => false,
+			Self::Fetch(FetchError::Pool(_)) => false,
+			Self::Fetch(FetchError::Exchange(ExchangeError::NoPeers)) => false,
+			Self::Fetch(FetchError::Exchange(_)) => true,
+			Self::Fetch(FetchError::ChunkBound) => true,
+		}
+	}
+}
+
 /// Resolves what to fetch from the own runtime and runs the round.
 async fn fetch_included<Block, Client>(
 	para_id: ParaId,
@@ -349,7 +499,7 @@ async fn fetch_included<Block, Client>(
 	network: &impl ExchangeNetwork,
 	peers: &dyn SourcePeers,
 	pool: &SpecMsgPool,
-	provides: &crate::monitor::SourceProvides,
+	provides: SourceProvides,
 ) -> Result<(), RoundError>
 where
 	Block: BlockT,
@@ -430,7 +580,7 @@ mod tests {
 	};
 	use cumulus_primitives_spec_messaging::test_utils::StreamFixture;
 	use futures::executor::block_on;
-	use parking_lot::RwLock;
+	use parking_lot::{Mutex, RwLock};
 	use sc_network::PeerId;
 	use std::collections::HashMap;
 
@@ -513,7 +663,7 @@ mod tests {
 		// The register head read was fetched and verified alongside; the
 		// pooled proof pins the head's placement.
 		let data =
-			pool.build_inherent(&[], &[(source(), ack(RECEIVER))], InherentBudget::default());
+			pool.build_inherent(&[], &[(source(), ack(RECEIVER), None)], InherentBudget::default());
 		let (_, _, payload, proof) = &data.register_reads[0];
 		assert_eq!(*payload, crate::test_support::payload(&ack(RECEIVER), 17));
 		let leaf = cumulus_primitives_spec_messaging::hash_leaf::<
@@ -624,5 +774,232 @@ mod tests {
 		));
 		assert!(matches!(result, Err(FetchError::Exchange(ExchangeError::NoPeers))));
 		assert_eq!(pool.target(source()), None);
+	}
+
+	fn included(root: StreamsRoot) -> RelayProvidesEvent {
+		RelayProvidesEvent::Included(SourceProvides {
+			source: source(),
+			root,
+			relay_block: Default::default(),
+		})
+	}
+
+	/// A transient round failure, as the retry loop classifies errors.
+	fn transient() -> RoundError {
+		RoundError::Fetch(FetchError::Exchange(ExchangeError::Network("transient".into())))
+	}
+
+	#[test]
+	fn transient_round_failures_retry_within_the_current_root() {
+		let (mut network, root) = serving_archive(2, 2);
+		let flaky = PeerId::random();
+		network.behavior.insert(flaky, PeerBehavior::RefuseFirst(1));
+		let registry = registry_with(&[flaky]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root)).expect("channel is open");
+		sender.close();
+
+		let (network, registry, pool) = (&network, &registry, &pool);
+		let delays = Mutex::new(Vec::new());
+		block_on(run_fetch_rounds(
+			events,
+			|provides| async move {
+				fetch_source(
+					network,
+					registry,
+					pool,
+					provides.source,
+					provides.root,
+					&[(stream, 0)],
+					&[],
+					SMALL_CHUNK,
+				)
+				.await
+				.map_err(RoundError::from)
+			},
+			|delay| {
+				delays.lock().push(delay);
+				futures::future::ready(())
+			},
+		));
+
+		// The transient refusal cost exactly one in-root retry — the whole
+		// backlog landed and the target was marked WITHOUT a second
+		// included root.
+		assert_eq!(pool.pooled_payloads(source(), &stream), 4);
+		assert_eq!(pool.target(source()), Some(root));
+		assert_eq!(*delays.lock(), vec![ROUND_RETRY_DELAY]);
+		// A transport refusal is not misbehavior: the peer stays registered.
+		assert_eq!(registry.peers(source()), vec![flaky]);
+	}
+
+	#[test]
+	fn retry_budget_exhausts_and_a_new_root_resets_it() {
+		let root1 = StreamsRoot(polkadot_core_primitives::Hash::repeat_byte(1));
+		let root2 = StreamsRoot(polkadot_core_primitives::Hash::repeat_byte(2));
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root1)).expect("channel is open");
+		sender.try_send(included(root2)).expect("channel is open");
+		sender.close();
+
+		let calls = Mutex::new(Vec::new());
+		let delays = Mutex::new(Vec::new());
+		block_on(run_fetch_rounds(
+			events,
+			|provides| {
+				calls.lock().push(provides.root);
+				futures::future::ready(Err(transient()))
+			},
+			|delay| {
+				delays.lock().push(delay);
+				futures::future::ready(())
+			},
+		));
+
+		// Each root ran once plus MAX_ROUND_RETRIES in-root retries: the
+		// exhausted budget stopped the retrying (no busy loop — nothing ran
+		// again until the next event), and the next root reset it.
+		let runs = 1 + MAX_ROUND_RETRIES as usize;
+		let expected: Vec<StreamsRoot> = std::iter::repeat(root1)
+			.take(runs)
+			.chain(std::iter::repeat(root2).take(runs))
+			.collect();
+		assert_eq!(*calls.lock(), expected);
+		// The backoff is exponential from ROUND_RETRY_DELAY and capped.
+		let backoff: Vec<Duration> = [2, 4, 8, 16].map(Duration::from_secs).to_vec();
+		assert_eq!(*backoff.last().expect("non-empty; qed"), ROUND_RETRY_DELAY_CAP);
+		assert_eq!(*delays.lock(), [backoff.clone(), backoff].concat());
+	}
+
+	#[test]
+	fn a_new_root_supersedes_a_scheduled_retry() {
+		let root1 = StreamsRoot(polkadot_core_primitives::Hash::repeat_byte(1));
+		let root2 = StreamsRoot(polkadot_core_primitives::Hash::repeat_byte(2));
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root1)).expect("channel is open");
+		sender.try_send(included(root2)).expect("channel is open");
+		sender.close();
+
+		let calls = Mutex::new(Vec::new());
+		block_on(run_fetch_rounds(
+			events,
+			|provides| {
+				calls.lock().push(provides.root);
+				let fail = provides.root == root1;
+				async move {
+					if fail {
+						Err(transient())
+					} else {
+						Ok(())
+					}
+				}
+			},
+			// Backoff timers that never fire: the fresh included root must
+			// supersede the scheduled retry, not wait behind it — and the
+			// loop must still terminate on channel close.
+			|_| futures::future::pending(),
+		));
+
+		assert_eq!(*calls.lock(), vec![root1, root2]);
+	}
+
+	#[test]
+	fn no_peers_gives_up_until_the_next_trigger() {
+		let (network, root) = serving_archive(2, 2);
+		let registry = PeerRegistry::default();
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root)).expect("channel is open");
+		sender.close();
+
+		let (network, registry, pool) = (&network, &registry, &pool);
+		let calls = Mutex::new(0u32);
+		let delays = Mutex::new(Vec::<Duration>::new());
+		block_on(run_fetch_rounds(
+			events,
+			|provides| {
+				*calls.lock() += 1;
+				async move {
+					fetch_source(
+						network,
+						registry,
+						pool,
+						provides.source,
+						provides.root,
+						&[(stream, 0)],
+						&[],
+						SMALL_CHUNK,
+					)
+					.await
+					.map_err(RoundError::from)
+				}
+			},
+			|delay| {
+				delays.lock().push(delay);
+				futures::future::ready(())
+			},
+		));
+
+		// An empty peer set is never retried — backoff conjures no peers;
+		// the source waits for its next trigger.
+		assert_eq!(*calls.lock(), 1);
+		assert!(delays.lock().is_empty());
+		assert_eq!(pool.target(source()), None);
+	}
+
+	#[test]
+	fn poisoned_rounds_discard_the_peer_and_retries_stop_at_no_peers() {
+		let (mut network, root) = serving_archive(2, 2);
+		let poison = PeerId::random();
+		network.behavior.insert(poison, PeerBehavior::Poison);
+		let registry = registry_with(&[poison]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root)).expect("channel is open");
+		sender.close();
+
+		let (network, registry, pool) = (&network, &registry, &pool);
+		let calls = Mutex::new(0u32);
+		let delays = Mutex::new(Vec::new());
+		block_on(run_fetch_rounds(
+			events,
+			|provides| {
+				*calls.lock() += 1;
+				async move {
+					fetch_source(
+						network,
+						registry,
+						pool,
+						provides.source,
+						provides.root,
+						&[(stream, 0)],
+						&[],
+						SMALL_CHUNK,
+					)
+					.await
+					.map_err(RoundError::from)
+				}
+			},
+			|delay| {
+				delays.lock().push(delay);
+				futures::future::ready(())
+			},
+		));
+
+		// Verification failure discarded the peer within the first run (a
+		// retry never re-contacts it)...
+		assert!(registry.peers(source()).is_empty());
+		assert_eq!(network.hits.lock().iter().filter(|hit| **hit == poison).count(), 1);
+		// ...and the first retry found no peers left and gave up: exactly
+		// one backoff, two runs, no busy loop.
+		assert_eq!(*delays.lock(), vec![ROUND_RETRY_DELAY]);
+		assert_eq!(*calls.lock(), 2);
 	}
 }

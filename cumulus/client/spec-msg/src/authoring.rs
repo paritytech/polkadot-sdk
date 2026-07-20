@@ -58,7 +58,7 @@ use sp_runtime::traits::Block as BlockT;
 use cumulus_primitives_core::{relay_chain::UMPSignal, ParaId, SpecMsgApi};
 use cumulus_primitives_spec_messaging::{
 	build_requires, ConsumedStream, ConsumptionRecord, Interval, LiftError, LiftsBySource,
-	MmrFrontier, RequiresLift, SpecMsgInherentData, StreamId, StreamsRoot,
+	MmrFrontier, Register, RequiresLift, SpecMsgInherentData, StreamId, StreamsRoot,
 };
 
 use crate::{
@@ -110,12 +110,17 @@ where
 			})
 		})
 		.collect();
-	let registers: Vec<(ParaId, StreamId)> = out_channels
-		.keys()
-		.map(|channel| {
+	// The parent's applied register view rides along: it is what the pool
+	// reconciles outstanding read hand-outs against — a hand-out the view
+	// reflects landed on this branch, one it does not was handed to a block
+	// that never made it and is re-handed.
+	let registers: Vec<(ParaId, StreamId, Option<Register>)> = out_channels
+		.iter()
+		.map(|(channel, state)| {
 			(
 				channel.peer,
 				StreamId::Ack { recipient: para_id, domain: channel.domain, num: channel.num },
+				state.register,
 			)
 		})
 		.collect();
@@ -533,12 +538,16 @@ mod tests {
 			pool.build_inherent(&[(source(), stream, 0)], &[], InherentBudget::default());
 		assert_eq!(from_zero.messages, vec![(source(), stream, all_payloads(&stream, 10))]);
 
-		// Register reads are handed at most once per verified read.
+		// Register reads are handed to at most one live block. This
+		// fixture's ack payloads do not decode as `Register`s (the runtime
+		// would reject them as `BadRegister`), so reconciliation abandons
+		// the hand-out instead of re-handing it to every block forever; the
+		// drop-aware re-hand of decodable reads has its own tests below.
 		let data =
-			pool.build_inherent(&[], &[(source(), ack(RECEIVER))], InherentBudget::default());
+			pool.build_inherent(&[], &[(source(), ack(RECEIVER), None)], InherentBudget::default());
 		assert_eq!(data.register_reads.len(), 1);
 		let again =
-			pool.build_inherent(&[], &[(source(), ack(RECEIVER))], InherentBudget::default());
+			pool.build_inherent(&[], &[(source(), ack(RECEIVER), None)], InherentBudget::default());
 		assert!(again.is_empty());
 
 		// Material not bound to the source's current target is withheld —
@@ -555,6 +564,147 @@ mod tests {
 		let beyond = pool.build_inherent(&[(source(), stream, 12)], &[], InherentBudget::default());
 		assert!(beyond.is_empty());
 		assert_eq!(pool.pooled_payloads(source(), &stream), 0);
+	}
+
+	/// A register value as the peer's pallet publishes it on the ack stream.
+	fn register(up_to: u64) -> Register {
+		Register {
+			version: 0,
+			up_to: cumulus_primitives_spec_messaging::MessagePosition(up_to),
+			grant: cumulus_primitives_spec_messaging::WindowGrant::default(),
+			closed: false,
+		}
+	}
+
+	/// Appends sender block `number` carrying exactly one ack leaf — the
+	/// encoded `register` — and returns the new head root.
+	fn publish_register(network: &MockExchange, number: u32, register: Register) -> StreamsRoot {
+		network
+			.archive
+			.write()
+			.import_block_at(
+				block_hash(number),
+				block_hash(number - 1),
+				number,
+				vec![(ack(RECEIVER), vec![register.encode()])],
+				1_000 + number as u64,
+			)
+			.expect("extends the tip")
+			.expect("the block carries sends")
+	}
+
+	/// An archive-served pool over one published register (`register(1)` at
+	/// block 1), fetched to the head: reconciliation decodes real register
+	/// payloads. Returns `(network, registry, pool, root)`.
+	fn fetched_register_pool() -> (MockExchange, PeerRegistry, SpecMsgPool, StreamsRoot) {
+		let (_aux, archive) = new_archive();
+		let honest = PeerId::random();
+		let network = MockExchange {
+			archive: RwLock::new(archive),
+			behavior: HashMap::from([(honest, PeerBehavior::Honest)]),
+			hits: Default::default(),
+		};
+		let root = publish_register(&network, 1, register(1));
+		let registry = PeerRegistry::default();
+		registry.set_peers(source(), vec![honest]);
+		let pool = SpecMsgPool::default();
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root,
+			&[],
+			&[ack(RECEIVER)],
+			1024 * 1024,
+		))
+		.expect("fetch round succeeds");
+		(network, registry, pool, root)
+	}
+
+	#[test]
+	fn dropped_register_hand_outs_are_re_handed_landed_ones_stay_consumed() {
+		let (network, registry, pool, _root) = fetched_register_pool();
+		let stream = ack(RECEIVER);
+		let budget = InherentBudget::default();
+
+		// The read goes to exactly one block...
+		let handed = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(handed.register_reads.len(), 1);
+
+		// ...but that block never landed (dropped, unincluded, reorged
+		// away): the next build against the UNCHANGED parent state — whose
+		// applied view never absorbed the read — re-hands it, the
+		// non-destructive discipline of the channel cursors extended to
+		// hand-once reads.
+		let reauthor = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(reauthor.register_reads, handed.register_reads);
+
+		// The re-author landed: the parent's applied view reflects the read
+		// now, so it stays consumed — never re-handed after landing.
+		let landed = Some(register(1));
+		assert!(pool.build_inherent(&[], &[(source(), stream, landed)], budget).is_empty());
+		assert!(pool.build_inherent(&[], &[(source(), stream, landed)], budget).is_empty());
+
+		// A fresh register under a new included root re-arms the stream as
+		// before...
+		let root2 = publish_register(&network, 2, register(2));
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root2,
+			&[],
+			&[ack(RECEIVER)],
+			1024 * 1024,
+		))
+		.expect("refresh round succeeds");
+		let handed = pool.build_inherent(&[], &[(source(), stream, landed)], budget);
+		assert_eq!(handed.register_reads.len(), 1);
+
+		// ...and a parent already AHEAD of that hand-out (another collator's
+		// block consumed an even newer read we never pooled) confirms it
+		// just the same: stale information is never re-handed.
+		let ahead = Some(register(3));
+		assert!(pool.build_inherent(&[], &[(source(), stream, ahead)], budget).is_empty());
+	}
+
+	#[test]
+	fn superseded_register_hand_outs_yield_to_the_newer_read() {
+		let (network, registry, pool, _root) = fetched_register_pool();
+		let stream = ack(RECEIVER);
+		let budget = InherentBudget::default();
+
+		// Read #1 goes to a block that will never land...
+		let first = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(first.register_reads.len(), 1);
+
+		// ...and before any reconciliation a newer root delivers read #2.
+		let root2 = publish_register(&network, 2, register(2));
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root2,
+			&[],
+			&[ack(RECEIVER)],
+			1024 * 1024,
+		))
+		.expect("refresh round succeeds");
+
+		// The dropped hand-out is not resurrected over the newer read: the
+		// next block gets read #2 (whose watermark subsumes #1's) — once.
+		let second = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(second.register_reads.len(), 1);
+		assert_ne!(second.register_reads, first.register_reads);
+		let (_, _, payload, _) = &second.register_reads[0];
+		assert_eq!(*payload, register(2).encode());
+
+		// And a dropped #2 re-hands #2, never #1.
+		let reauthor = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(reauthor.register_reads, second.register_reads);
 	}
 
 	#[test]

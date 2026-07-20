@@ -240,6 +240,9 @@ mod test_support {
 			Poison,
 			/// Refuses everything at the transport level.
 			Refuse,
+			/// Refuses the first `n` requests at the transport level, then
+			/// serves faithfully — the transient-failure double.
+			RefuseFirst(u32),
 		}
 
 		/// Routes exchange requests to mock peers over one archive.
@@ -259,8 +262,16 @@ mod test_support {
 			) -> Result<Vec<u8>, ExchangeError> {
 				self.hits.lock().push(peer);
 				let behavior = self.behavior.get(&peer).copied().unwrap_or(PeerBehavior::Refuse);
-				if behavior == PeerBehavior::Refuse {
-					return Err(ExchangeError::Network("refused".into()));
+				match behavior {
+					PeerBehavior::Refuse => return Err(ExchangeError::Network("refused".into())),
+					PeerBehavior::RefuseFirst(refusals) => {
+						// `hits` already contains the current attempt.
+						let attempts = self.hits.lock().iter().filter(|hit| **hit == peer).count();
+						if attempts <= refusals as usize {
+							return Err(ExchangeError::Network("refused".into()));
+						}
+					},
+					PeerBehavior::Honest | PeerBehavior::Poison => (),
 				}
 				let request = ExchangeRequest::decode_all(&mut &request[..])
 					.expect("tests send valid requests");
