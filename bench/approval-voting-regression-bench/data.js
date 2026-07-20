@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784536119565,
+  "lastUpdate": 1784547901603,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f66f240a47f7ece64936487734ecfe44b6ef5999",
-          "message": "Enable force debug in revive dev node (#10383)\n\nThis change ensures that all types that implement `RuntimeDebug` are\nfully displayed in log output of the revive dev node, instead of just\nshowing `<wasm:stripped>`.\n\nUnfortunately, the trait `RuntimeDebugNoBound`, that we also use\nfrequently in pallet-revive, is not affected and will still output\n`<wasm:stripped>` (it does not check for the `force-debug` feature flag,\ninstead it only fully outputs values when either one of the features\n`std` or `try_runtime` is enabled – this is something we implement as a\ngeneral change).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-21T15:51:45Z",
-          "tree_id": "5eddbb2be51e810d4f82f211c1b93b4d6eddf0b2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66f240a47f7ece64936487734ecfe44b6ef5999"
-        },
-        "date": 1763745058795,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.27,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4296153728500002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019304620000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.540639350379992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.523930060650001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019213810000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019213810000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.498143178340001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5799444453400002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.681705763010727,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019304620000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005826852410000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5407452769799983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.962434163809991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000023132790000000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e02e990c00c5d028eaf0213b1593a08a249d4f89",
+          "message": "[pallet-revive] Reject re-entrant CREATE2 at an in-construction address (#12645)\n\nFixes #12639 by rejecting a nested instantiate whose target address is\nalready being constructed by an ancestor frame, closing the re-entrant\n`CREATE2` collision that let two constructors run for one account and\npermanently leaked its consumer/refcount and storage deposit.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-20T09:26:38Z",
+          "tree_id": "551d14fe362afa802102d8d2072a0aa281a83df2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e02e990c00c5d028eaf0213b1593a08a249d4f89"
+        },
+        "date": 1784547869850,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.65795582805996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005265832400000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.657199782689999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3513232153999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.617913094420002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001842429,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.627468722949998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001800182,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.5942712110199997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8045139691799627,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.415645846362884,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001800182,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001842429,
             "unit": "seconds"
           }
         ]
