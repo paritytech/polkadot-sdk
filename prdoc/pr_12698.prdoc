@@ -1,0 +1,20 @@
+title: '[RWF] `polkadot-gossip-support`: Fix Orphaned Authority Mappings'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #12604
+
+    ## Description
+
+    In `handle_connect_disconnect`, when a duplicate `PeerConnected` event arrived for an already-connected peer, the handler overwrote `connected_peers[peer_id]` with the new authority set but never removed the previous authorities from `connected_authorities`.
+
+    ## Fix
+
+    `handle_connect_disconnect` now removes the peer's previous authority mappings from `connected_authorities` before applying a new `PeerConnected` mapping, matching the pattern already used in `update_authority_ids`.
+
+    ## Testing
+
+    Added a regression test that sends two `PeerConnected` events for the same `PeerId` with different authority sets and asserts `connected_authorities`/`connected_peers` remain consistent afterwards.
+crates:
+- name: polkadot-gossip-support
+  bump: patch
