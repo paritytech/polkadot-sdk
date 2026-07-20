@@ -7,7 +7,6 @@ doc:
 
     A length check against `H::LENGTH` now runs before the copy. Mismatched roots return `Err`, which the RPC handler maps to a normal error response.
 
-    Closes #12610
 crates:
 - name: substrate-state-trie-migration-rpc
   bump: patch
