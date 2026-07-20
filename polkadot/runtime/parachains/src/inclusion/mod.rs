@@ -386,9 +386,7 @@ const LOG_TARGET: &str = "runtime::inclusion";
 ///
 /// Sized per the design (`W = 128`): W must cover the authoring→backing→inclusion pipeline
 /// *including elastic-scaling bursts* (up to ~36 sender blocks / 18 s at 500 ms block time), with
-/// ample slack. Cost is `W × 32 B` per sender (~4 KB), ~800 KB relay-wide at 200 parachains. The
-/// design makes W governance-adjustable via a `HostConfiguration` field; kept a `const` for the MVP
-/// (revisit if per-network tuning is needed).
+/// ample slack. Cost is `W × 32 B` per sender (~4 KB), ~800 KB relay-wide at 200 parachains.
 pub const MAX_PROVIDES_WINDOW_SIZE: u32 = 128;
 
 /// The reason that a candidate's outputs were rejected for.
@@ -941,12 +939,10 @@ impl<T: Config> Pallet<T> {
 
 		// Record the sender's committed `StreamsRoot` into its provides window so a later
 		// receiver's `requires` can match it. One-phase (inclusion tier):
-		// requires are matched only at `sanitize_backed_candidates`; a dispute revert unwinds a
-		// reverted sender together with any receiver that consumed it via the node's state-revert
-		// (see `RecentProvides`), so there is no explicit eviction and no enactment-time re-check
-		// (that would be the hook for the speculative / optimistic tiers). A candidate carrying
-		// `provides` is only ever included with the feature enabled (the feature-off case is
-		// dropped at sanitize), so recording here needs no separate feature gate.
+		// requires are matched only at `sanitize_backed_candidates`; a candidate carrying
+		// `provides` reaches enactment only after passing sanitize with the feature enabled
+		// (the feature-off case is dropped at sanitize), so recording here needs no separate
+		// feature gate.
 		if let Some(root) = provides {
 			Self::record_provides(receipt.descriptor.para_id(), root);
 		}
