@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784536201847,
+  "lastUpdate": 1784547981658,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "04f79fb22ac3b5f4ee6efda2f223dea797ba6299",
-          "message": "[pallet-revive] update evm create benchmark (#10366)\n\nAdd a benchmark for the EVM CREATE instruction.\n\nWe are currently reusing the `seal_instantiate` benchmark from PVM\ninstantiation, which is incorrect because instantiating an EVM contract\ntakes different arguments and follows a different code path than\ncreating a PVM contract.\n\nThis benchmark performs the following steps:\n\n- Generates init bytecode of size i, optionally including a balance with\ndust.\n- Executes the init code that triggers a single benchmark opcode\nreturning a runtime code of the maximum allowed size\n(qrevm::primitives::eip170::MAX_CODE_SIZE`).\n\n\nAlso fix the order of the weight function arguments, they were wrong\ncausing the weight to be much bigger that what it should be\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-20T17:56:56Z",
-          "tree_id": "4b3256e9544cca66d3ebcc141cd56ab1f9d5824a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/04f79fb22ac3b5f4ee6efda2f223dea797ba6299"
-        },
-        "date": 1763666551817,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005012693119999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026342954900000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008589665869999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00257744947,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e02e990c00c5d028eaf0213b1593a08a249d4f89",
+          "message": "[pallet-revive] Reject re-entrant CREATE2 at an in-construction address (#12645)\n\nFixes #12639 by rejecting a nested instantiate whose target address is\nalready being constructed by an ancestor frame, closing the re-entrant\n`CREATE2` collision that let two constructors run for one account and\npermanently leaked its consumer/refcount and storage deposit.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-20T09:26:38Z",
+          "tree_id": "551d14fe362afa802102d8d2072a0aa281a83df2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e02e990c00c5d028eaf0213b1593a08a249d4f89"
+        },
+        "date": 1784547950318,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009611075419999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010313146489999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024958385500000015,
             "unit": "seconds"
           }
         ]
