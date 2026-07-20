@@ -17,7 +17,8 @@
 
 //! # Peg Stability Module (PSM) Pallet
 //!
-//! Instantiable Peg Stability Modules (PSMs). Each PSM enables 1:1 swaps between an internal stablecoin and one or more approved external stablecoins, typically to maintain a peg.
+//! Instantiable Peg Stability Modules (PSMs). Each PSM enables 1:1 swaps between an internal
+//! stablecoin and one or more approved external stablecoins, typically to maintain a peg.
 //!
 //! ## Pallet API
 //!
