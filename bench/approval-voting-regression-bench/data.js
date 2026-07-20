@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784324110824,
+  "lastUpdate": 1784536119565,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c073c5c2194cea49c2c5534b932b851ad439b2b",
-          "message": "Remove \"SolutionImprovementThreshold\" logic (#10340)\n\nFixes [9119](https://github.com/paritytech/polkadot-sdk/issues/9119)\n\nThe threshold mechanism used by the \"election-provider-multi-block\"\nverifier pallet is no longer relevant because there is no more queued\nsolution to compare against during the initial verification and\nsubseuquently, solutions are processed in the order of decreasing score,\nwith the first one being chosen in all cases.\n\n---------\n\nSigned-off-by: Andrei Trandafir <andrei.trandafir@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-21T12:32:28Z",
-          "tree_id": "fd0d9e57fb48396a0b8fb70632d0b114bdc95eeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c073c5c2194cea49c2c5534b932b851ad439b2b"
-        },
-        "date": 1763734043755,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63627.23,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001751144,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5593530155599997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018944700000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5336379261699995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001751144,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005930290960000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5703263653200006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.006778409010017,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7028430449708516,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018944700000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.690583462940008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43692149128999447,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5776359646299998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.6218678877500023,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1ef4a0725686464a3b492bfa66af698ee098fd5",
+          "message": "pallet-revive: validate eth_feeHistory reward percentiles (#12547)\n\n## Summary\n\n`eth_feeHistory` did not validate the requested reward percentiles.\nOut-of-range values were silently clamped to `0..=100`, and unsorted\nlists were accepted, so a malformed request returned approximated\nresults instead of an error.\n\nAs in go-ethereum (`errInvalidPercentile`), each reward percentile must\nlie within `0.0..=100.0` and the list must be strictly increasing;\notherwise the request is now rejected with `-32000`, matching geth's\nbehavior.\n\n## Changes\n\n- Add a `validate_reward_percentiles` helper and reject invalid\npercentiles at the `eth_feeHistory` handler before any approximation.\n- Unit test covering in-range/increasing (accepted), out-of-range, and\nnon-increasing (rejected) cases.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc --lib --\nvalidate_reward_percentiles` passes.\n- `cargo +nightly fmt` and `cargo clippy` clean.",
+          "timestamp": "2026-07-20T06:40:57Z",
+          "tree_id": "de829ab75eedf7ad021265e9511d6c8b8abc96e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1ef4a0725686464a3b492bfa66af698ee098fd5"
+        },
+        "date": 1784536087249,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.02999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.64353546825,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.666931664470001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8081187797399736,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020044,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6347085865500013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.774745555049972,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023132790000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3811018182199954,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020044,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.458573007562917,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6352715677500016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005077670070000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023132790000000003,
             "unit": "seconds"
           }
         ]
