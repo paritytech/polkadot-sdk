@@ -670,7 +670,7 @@ pub mod v4_collation {
 			para_id: ParaId,
 			/// Descriptor version for the candidate.
 			candidates_descriptor_version: CandidateDescriptorVersion,
-			/// Ordered list of candidates.
+			/// Candidates ordered by age; the list may have gaps.
 			candidates: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
 		},
 	}

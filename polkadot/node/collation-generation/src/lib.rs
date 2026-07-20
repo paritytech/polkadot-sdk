@@ -36,18 +36,18 @@
 //!   V2 descriptors where `relay_parent == scheduling_parent`.
 //! - **Used by**: Test collators (adder, undying)
 //!
-//! ## 2. `SubmitCollation` message (full-featured interface)
+//! ## 2. `SubmitSegment` message (full-featured interface)
 //!
-//! Collations are submitted directly via [`CollationGenerationMessage::SubmitCollation`].
-//! The collator is responsible for building the collation and deciding when to submit.
+//! Collations are submitted directly via [`CollationGenerationMessage::SubmitSegment`]. A segment
+//! is one or more collations that share a scheduling parent and target core; the collator builds
+//! them and decides when to submit.
 //!
-//! - **Trigger**: Explicit `SubmitCollation` message from the collator
-//! - **Flow**: Collator builds collation externally → sends `SubmitCollationParams` → subsystem
-//!   constructs receipt
-//! - **V3 support**: Can specify `scheduling_parent` in [`SubmitCollationParams`] to create V3
-//!   candidate descriptors. This enables low-latency collation where the scheduling context (which
-//!   relay block determined core assignment) differs from the relay parent (the block the parablock
-//!   actually builds on).
+//! - **Trigger**: Explicit `SubmitSegment` message from the collator
+//! - **Flow**: Collator builds collation externally → sends `SubmitSegmentParams` → subsystem
+//!   constructs one receipt per collation and distributes them in order
+//! - **Descriptor version**: Selected explicitly via `candidates_descriptor_version`. `V3` enables
+//!   low-latency collation where the scheduling context (which relay block determined core
+//!   assignment) differs from the relay parent (the block the parablock actually builds on).
 //! - **Used by**: Production collators (cumulus slot-based, lookahead)
 //!
 //! # Candidate Descriptor Versions
@@ -72,15 +72,15 @@
 //!    - Construct candidate receipt and distribute via
 //!      [`CollatorProtocolMessage::DistributeSegment`]
 //!
-//! On `SubmitCollation`:
+//! On `SubmitSegment`:
 //!
 //! 1. Validate the subsystem is initialized
-//! 2. Fetch validation data, claim queue, session info
-//! 3. Construct candidate receipt (V2 or V3 based on `scheduling_parent`)
-//! 4. Distribute via [`CollatorProtocolMessage::DistributeSegment`]
+//! 2. Fetch claim queue and session info for the scheduling parent
+//! 3. Construct one candidate receipt per collation (V2 or V3 per `candidates_descriptor_version`)
+//! 4. Distribute the segment via [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! [`CollatorFn`]: polkadot_node_primitives::CollatorFn
-//! [`SubmitCollationParams`]: polkadot_node_primitives::SubmitCollationParams
+//! [`SubmitSegmentParams`]: polkadot_node_primitives::SubmitSegmentParams
 //! [`CommittedCandidateReceiptV2`]: polkadot_primitives::CommittedCandidateReceiptV2
 
 #![deny(missing_docs)]
@@ -90,7 +90,7 @@ use error::{Error, Result};
 use futures::{channel::oneshot, future::FutureExt, select};
 use polkadot_node_primitives::{
 	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
-	SegmentCollation, SubmitCollationParams, SubmitSegmentParams, MAX_SEGMENT_LEN,
+	SegmentCollation, SubmitSegmentParams, MAX_SEGMENT_LEN,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -198,15 +198,6 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
-				msg: CollationGenerationMessage::SubmitCollation(params),
-			}) => {
-				if let Err(err) = self.handle_submit_collation(params, ctx).await {
-					gum::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
-				}
-
-				false
-			},
-			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitSegment(params),
 			}) => {
 				if let Err(err) = self.handle_submit_segment(params, ctx).await {
@@ -225,66 +216,6 @@ impl CollationGenerationSubsystem {
 				true
 			},
 		}
-	}
-
-	async fn handle_submit_collation<Context>(
-		&mut self,
-		params: SubmitCollationParams,
-		ctx: &mut Context,
-	) -> Result<()> {
-		let Some(config) = &self.config else {
-			return Err(Error::SubmittedBeforeInit);
-		};
-		let _timer = self.metrics.time_submit_collation();
-
-		let SubmitCollationParams {
-			relay_parent,
-			collation,
-			validation_code_hash,
-			result_sender,
-			core_index,
-			scheduling_parent,
-			session_index,
-			validation_data,
-		} = params;
-
-		// For V2 descriptors, scheduling_parent is None and relay_parent serves both roles.
-		let scheduling_parent_or_relay = scheduling_parent.unwrap_or(relay_parent);
-		let claim_queue =
-			request_claim_queue(scheduling_parent_or_relay, ctx.sender()).await.await??;
-
-		let scheduling_session =
-			request_session_index_for_child(scheduling_parent_or_relay, ctx.sender())
-				.await
-				.await??;
-
-		let session_info = self
-			.session_info_cache
-			.get(scheduling_parent_or_relay, scheduling_session, ctx.sender())
-			.await?;
-		let collation = PreparedCollation {
-			collation,
-			relay_parent,
-			para_id: config.para_id,
-			validation_data,
-			validation_code_hash,
-			n_validators: session_info.n_validators,
-			core_index,
-			session_index,
-			scheduling_session,
-		};
-
-		construct_and_distribute_receipt(
-			collation,
-			ctx.sender(),
-			result_sender,
-			&mut self.metrics,
-			&transpose_claim_queue(claim_queue),
-			scheduling_parent,
-		)
-		.await?;
-
-		Ok(())
 	}
 
 	async fn handle_submit_segment<Context>(

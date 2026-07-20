@@ -88,7 +88,7 @@ pub enum Protocol {
 	CollationFetchingV1,
 	/// Protocol for fetching collations from collators when async backing is enabled.
 	CollationFetchingV2,
-	/// Protocol for fetching collations from collators when low latency is enabled.
+	/// Protocol for fetching collations from collators by output head data hash.
 	CollationFetchingV3,
 	/// Protocol for fetching seconded PoVs from validators of the same group.
 	PoVFetchingV1,

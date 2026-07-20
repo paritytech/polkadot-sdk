@@ -323,8 +323,8 @@ impl CollationManager {
 
 	/// Accept an advertisement of any protocol version, stored uniformly as a segment: V1 is
 	/// an empty-entries segment, V2/V3 a length-1 by-hash segment, V4 a length-N segment of
-	/// hashless fingerprints. A stored segment is ONE fetch entitlement; which entry gets
-	/// fetched is decided at fetch time, and launching the fetch consumes the whole segment.
+	/// fingerprints that carry no candidate hash. A stored segment is ONE fetch entitlement:
+	/// launching resolves which entry to use and consumes the whole segment.
 	///
 	/// Duplicate rules are claim-shape-driven, preserving the old per-version behavior
 	/// exactly: a hash is a complete claim identity, so an already-fetched or in-flight
@@ -384,7 +384,7 @@ impl CollationManager {
 			[ProspectiveCandidate::ByHash { candidate_hash, .. }] => {
 				let advertisement = segment
 					.as_advertisement(peer_id, scheduling_parent)
-					.expect("single-entry segment always has a ticket; qed");
+					.expect("single-entry segment always has an advertisement; qed");
 				if per_sp.fetched_collations.contains_key(candidate_hash) {
 					return Err(AdvertisementError::Duplicate);
 				}
@@ -409,29 +409,14 @@ impl CollationManager {
 			_ => None,
 		};
 
-		// Rate-limit counter bumps even for advertisements we end up rejecting, so a peer
-		// can't spam past their cap. A length-N segment counts as ONE: one entitlement.
-		let peer_ads = per_sp.peer_advertisements.entry(peer_id).or_default();
-		peer_ads.total += 1;
-		if peer_ads.total > available_slots {
-			return Err(AdvertisementError::PeerLimitReached);
-		}
-		// Byte-dedup against currently stored segments only (consumed segments are gone, so
-		// a re-advertisement after launch is accepted as a fresh entitlement).
-		if peer_ads.live_segments().any(|(_segment_index, stored_segment)| {
-			segment.descriptor_version == stored_segment.descriptor_version &&
-				segment.entries == stored_segment.entries
-		}) {
-			return Err(AdvertisementError::Duplicate);
-		}
-
+		per_sp.can_keep_segment(&segment, available_slots, peer_id)?;
 		if let Some(advertisement) = &maybe_advertisement {
 			if !backing_allows_seconding(sender, advertisement).await {
 				return Err(AdvertisementError::BlockedByBacking);
 			}
 		}
 
-		peer_ads.segments.push(segment);
+		per_sp.add_segment(segment, peer_id);
 		Ok(())
 	}
 
@@ -918,7 +903,7 @@ impl CollationManager {
 				.live_segments()
 				.filter(move |(_segment_index, segment)| segment.para_id == para_id)
 				.filter_map(move |(idx, segment)| {
-					// Single-claim shapes synthesize their ticket; a multi-entry V4
+					// Single-claim shapes synthesize their advertisement; a multi-entry V4
 					// segment gets the TIP as its interim resolution — replaced by the
 					// fetch-time selection walk later
 					let advertisement = segment
@@ -1391,6 +1376,29 @@ impl PerSchedulingParent {
 		self.peer_advertisements.remove(peer_id);
 	}
 
+	/// Whether `segment` may be kept; Bumps the rate-limit counter (`PeerAdvertisements::total`)
+	/// even on rejection — by design, so a peer can't spam past their cap with bad advertisements.
+	fn can_keep_segment(
+		&mut self,
+		segment: &StoredSegment,
+		max_assignments: usize,
+		peer_id: PeerId,
+	) -> std::result::Result<(), AdvertisementError> {
+		// Rate-limit counter bumps even for advertisements we end up rejecting, so a peer
+		// can't spam past their cap. A length-N segment counts as ONE: one entitlement.
+		let peer_ads = self.peer_advertisements.entry(peer_id).or_default();
+		peer_ads.total += 1;
+		if peer_ads.total > max_assignments {
+			return Err(AdvertisementError::PeerLimitReached);
+		}
+		peer_ads.check_for_duplicates(segment)?;
+		Ok(())
+	}
+
+	fn add_segment(&mut self, segment: StoredSegment, peer_id: PeerId) {
+		self.peer_advertisements.entry(peer_id).or_default().segments.push(segment);
+	}
+
 	#[cfg(test)]
 	fn add_advertisement(&mut self, advertisement: Advertisement, received_at: Instant) {
 		self.peer_advertisements
@@ -1423,6 +1431,21 @@ impl PeerAdvertisements {
 	fn sweep_consumed(&mut self) {
 		self.segments.retain(|segment| !segment.consumed);
 	}
+
+	fn check_for_duplicates(
+		&self,
+		segment: &StoredSegment,
+	) -> std::result::Result<(), AdvertisementError> {
+		// Byte-dedup against currently stored segments only (consumed segments are gone, so
+		// a re-advertisement after launch is accepted as a fresh entitlement).
+		if self.live_segments().any(|(_segment_index, stored_segment)| {
+			segment.descriptor_version == stored_segment.descriptor_version &&
+				segment.entries == stored_segment.entries
+		}) {
+			return Err(AdvertisementError::Duplicate);
+		}
+		Ok(())
+	}
 }
 
 struct StoredSegment {
@@ -1436,10 +1459,10 @@ struct StoredSegment {
 }
 
 impl StoredSegment {
-	/// The `Advertisement` ticket this segment stands for — only meaningful for the
+	/// The `Advertisement` this segment stands for — only meaningful for the
 	/// single-claim shapes (V1's empty entries, V2/V3's one by-hash entry). A multi-entry
 	/// segment has no single advertisement: which entry gets fetched is the planner's
-	/// fetch-time decision, and its ticket is built from the resolved entry there.
+	/// fetch-time decision, and the advertisement is built from the resolved entry there.
 	fn as_advertisement(&self, peer_id: PeerId, scheduling_parent: Hash) -> Option<Advertisement> {
 		(self.entries.len() <= 1).then(|| Advertisement {
 			scheduling_parent,

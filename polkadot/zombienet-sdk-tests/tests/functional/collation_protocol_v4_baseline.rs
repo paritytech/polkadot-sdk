@@ -12,6 +12,9 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
+/// Baseline end-to-end test for the V4 collation protocol: with an all-experimental validator
+/// set, the V4 collator distributes segments, every validator receives them, and the para keeps
+/// producing blocks.
 #[tokio::test(flavor = "multi_thread")]
 async fn v4_collation_protocol_baseline() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
