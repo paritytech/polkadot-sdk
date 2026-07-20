@@ -28,6 +28,7 @@ use sc_rpc::{
 	dev::{Dev, DevApiServer},
 	statement::{StatementApiServer, StatementStore},
 };
+use sc_rpc_spec_v2::statement::{StatementSpec, StatementSpecApiServer};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -79,7 +80,10 @@ where
 			module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 			module.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
 			if let Some(statement_store) = statement_store {
-				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
+				module.merge(
+					StatementStore::new(statement_store.clone(), spawn_handle.clone()).into_rpc(),
+				)?;
+				module.merge(StatementSpec::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			if let Some(hop_pool) = hop_pool {
 				module.merge(HopRpcServer::new(hop_pool, client.clone()).into_rpc())?;

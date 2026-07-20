@@ -76,6 +76,7 @@ members = [
 	"cumulus/client/relay-chain-minimal-node",
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
+	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
@@ -133,6 +134,8 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/yet-another-parachain",
+	"cumulus/parachains/utils/generate-bags",
+	"cumulus/parachains/utils/remote-ext-tests/bags-list",
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-omni-node/lib",
 	"cumulus/polkadot-parachain",
@@ -231,8 +234,6 @@ members = [
 	"polkadot/runtime/westend/bridge-primitives",
 	"polkadot/runtime/westend/constants",
 	"polkadot/statement-table",
-	"polkadot/utils/generate-bags",
-	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/utils/remote-ext-tests/psm",
 	"polkadot/xcm",
 	"polkadot/xcm/docs",
@@ -309,6 +310,7 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
+	"substrate/client/storage-chain-sync",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
@@ -760,6 +762,7 @@ color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.4", default-features = false }
 console = { version = "0.15.8" }
+const-crypto = { version = "0.3.0", default-features = false }
 const-hex = { version = "1.10.0", default-features = false }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
@@ -776,6 +779,7 @@ cumulus-client-network = { path = "cumulus/client/network", default-features = f
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
+cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
@@ -1284,6 +1288,7 @@ sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
 sc-statement-store = { default-features = false, path = "substrate/client/statement-store" }
+sc-storage-chain-sync = { default-features = false, path = "substrate/client/storage-chain-sync" }
 sc-storage-monitor = { path = "substrate/client/storage-monitor", default-features = false }
 sc-sync-state-rpc = { path = "substrate/client/sync-state-rpc", default-features = false }
 sc-sysinfo = { path = "substrate/client/sysinfo", default-features = false }
@@ -1424,9 +1429,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.44", default-features = false }
-subxt-metadata = { version = "0.44", default-features = false }
-subxt-signer = { version = "0.44" }
+subxt = { version = "0.50", default-features = false }
+subxt-metadata = { version = "0.50", default-features = false }
+subxt-signer = { version = "0.50" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1500,9 +1505,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.9" }
-zombienet-orchestrator = { version = "0.4.9" }
-zombienet-sdk = { version = "0.4.9" }
+zombienet-configuration = { version = "0.4.13" }
+zombienet-orchestrator = { version = "0.4.13" }
+zombienet-sdk = { version = "0.4.13" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
