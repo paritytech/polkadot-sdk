@@ -16,8 +16,8 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
-	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
+	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, FilterManager,
+	LOG_TARGET, PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	client::{Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect},
 };
@@ -402,7 +402,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let rpc_runtime = create_rpc_runtime(rpc_config.max_connections)
 		.map_err(|e| anyhow::anyhow!("Failed to create RPC runtime: {}", e))?;
 
-	let rpc_api = rpc_module(is_dev, client.clone(), allow_unprotected_txs)?;
+	// Share one filter registry between the RPC handlers and the background task that periodically
+	// evicts expired and no-longer-applicable filters.
+	let filter_registry = FilterManager::new();
+	let rpc_api =
+		rpc_module(is_dev, client.clone(), allow_unprotected_txs, filter_registry.clone())?;
 	let rpc_server_handle = start_rpc_servers(
 		&rpc_config,
 		prometheus_registry,
@@ -411,6 +415,17 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rpc_runtime,
 		None,
 	)?;
+
+	// Periodically evict abandoned and no-longer-applicable polling filters.
+	let cleanup_client = client.clone();
+	task_manager.spawn_essential_handle().spawn(
+		"eth-rpc-filter-cleanup",
+		None,
+		filter_registry.run_cleanup(move || {
+			let client = cleanup_client.clone();
+			async move { client.block_number().await.ok() }
+		}),
+	);
 
 	task_manager
 		.spawn_essential_handle()
@@ -446,8 +461,10 @@ fn rpc_module(
 	is_dev: bool,
 	client: Client,
 	allow_unprotected_txs: bool,
+	filter_registry: FilterManager,
 ) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
+		.with_filter_registry(filter_registry)
 		.with_accounts(if is_dev {
 			vec![
 				crate::Account::from(subxt_signer::eth::dev::alith()),

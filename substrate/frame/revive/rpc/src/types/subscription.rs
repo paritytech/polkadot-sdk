@@ -139,6 +139,29 @@ impl LogsSubscriptionFilter {
 		}
 	}
 
+	/// Builds a matcher from an `eth_newFilter` [`Filter`], so a polling log filter selects
+	/// streamed logs with the same address/topics logic used for `eth_subscribe`.
+	pub fn from_filter(filter: &Filter) -> Self {
+		let addresses = (!filter.address.is_empty()).then(|| {
+			filter
+				.address
+				.iter()
+				.map(|address| H160::from_slice(address.as_slice()))
+				.collect()
+		});
+		let topics = filter.topics.iter().any(|topic| !topic.is_empty()).then(|| {
+			let mut resolved_topics: [Option<BTreeSet<H256>>; 4] = [None, None, None, None];
+			for (index, topic) in filter.topics.iter().enumerate() {
+				if !topic.is_empty() {
+					resolved_topics[index] =
+						Some(topic.iter().map(|hash| H256::from_slice(hash.as_slice())).collect());
+				}
+			}
+			resolved_topics
+		});
+		Self { addresses, topics }
+	}
+
 	/// Checks if a certain log matches this filter.
 	pub fn matches(&self, log: &Log) -> bool {
 		// Check the emitter address. If it doesn't match, then we return.

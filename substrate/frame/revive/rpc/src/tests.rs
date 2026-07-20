@@ -691,8 +691,50 @@ fn is_empty_filter_results(results: &FilterResults) -> bool {
 	}
 }
 
+/// Poll `eth_getFilterChanges` until it yields at least one log, or fail after a bounded wait: a
+/// streamed log may not have reached the filter the instant its receipt becomes available.
+async fn poll_until_logs<C: EthRpcClient + Send + Sync>(
+	client: &C,
+	filter_id: U256,
+) -> anyhow::Result<Vec<Log>> {
+	for _ in 0..40 {
+		match client.get_filter_changes(filter_id).await? {
+			FilterResults::Logs(logs) if !logs.is_empty() => return Ok(logs),
+			FilterResults::Logs(_) => {},
+			other => {
+				return Err(anyhow!("Expected Logs from eth_getFilterChanges, got: {other:?}"));
+			},
+		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+	}
+	Err(anyhow!("filter reported no logs within the timeout"))
+}
+
+/// Poll `eth_getFilterChanges` until it yields at least one block hash, or fail after a bounded
+/// wait.
+async fn poll_until_hashes<C: EthRpcClient + Send + Sync>(
+	client: &C,
+	filter_id: U256,
+) -> anyhow::Result<Vec<H256>> {
+	for _ in 0..40 {
+		match client.get_filter_changes(filter_id).await? {
+			FilterResults::Hashes(hashes) if !hashes.is_empty() => return Ok(hashes),
+			FilterResults::Hashes(_) => {},
+			other => {
+				return Err(anyhow!("Expected Hashes from eth_getFilterChanges, got: {other:?}"));
+			},
+		}
+		tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+	}
+	Err(anyhow!("block filter reported no hashes within the timeout"))
+}
+
 /// Exercise the polling filter API end to end: `eth_newFilter`, `eth_getFilterChanges`,
 /// `eth_getFilterLogs`, `eth_newBlockFilter` and `eth_uninstallFilter`.
+///
+/// The polling API and `eth_subscribe` are fed by the same block/log broadcast channels, so a log
+/// filter reports only logs from blocks imported after it was installed; its `fromBlock`/`toBlock`
+/// bound only the historical `eth_getFilterLogs` replay.
 async fn test_filter_lifecycle() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
@@ -708,6 +750,13 @@ async fn test_filter_lifecycle() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
+	// Install a log filter scoped to this (uniquely addressed) contract *before* emitting, so the
+	// event streams to it. `fromBlock` is earliest so `eth_getFilterLogs` replays its history.
+	let filter = Filter::new()
+		.from_block(BlockNumberOrTag::Earliest)
+		.address(AlloyAddress::from_slice(contract_address.as_ref()));
+	let filter_id = client.new_filter(filter).await?;
+
 	// Emit a single event.
 	let value = U256::from(1_000_000_000_000u128);
 	let tx = TransactionBuilder::new(client.clone())
@@ -717,17 +766,8 @@ async fn test_filter_lifecycle() -> anyhow::Result<()> {
 		.await?;
 	let emit_receipt = tx.wait_for_receipt().await?;
 
-	// A log filter scoped to this (uniquely addressed) contract, starting at the emit block.
-	let filter = Filter::new()
-		.from_block(emit_receipt.block_number.as_u64())
-		.address(AlloyAddress::from_slice(contract_address.as_ref()));
-	let filter_id = client.new_filter(filter).await?;
-
-	// The first poll returns the emitted log.
-	let logs = match client.get_filter_changes(filter_id).await? {
-		FilterResults::Logs(logs) => logs,
-		other => return Err(anyhow!("Expected Logs from eth_getFilterChanges, got: {other:?}")),
-	};
+	// The filter streams the freshly emitted log.
+	let logs = poll_until_logs(client.as_ref(), filter_id).await?;
 	assert_eq!(logs.len(), 1, "filter should report exactly the one emitted log");
 	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
 	assert_eq!(logs[0].address, contract_address);
@@ -735,14 +775,18 @@ async fn test_filter_lifecycle() -> anyhow::Result<()> {
 	assert_eq!(logs[0].topics[0], event_signature);
 	assert_eq!(logs[0].transaction_hash, emit_receipt.transaction_hash);
 
-	// `eth_getFilterLogs` replays the full range and returns the same log.
-	let all_logs = match client.get_filter_logs(filter_id).await? {
-		FilterResults::Logs(logs) => logs,
-		other => return Err(anyhow!("Expected Logs from eth_getFilterLogs, got: {other:?}")),
-	};
-	assert_eq!(all_logs, logs, "getFilterLogs should replay the same log");
+	// `eth_getFilterLogs` replays the contract's history and returns a plain vector of logs.
+	let all_logs = client.get_filter_logs(filter_id).await?;
+	assert!(
+		all_logs.iter().any(|log| log.transaction_hash == emit_receipt.transaction_hash),
+		"getFilterLogs should include the emitted log"
+	);
+	assert!(
+		all_logs.iter().all(|log| log.address == contract_address),
+		"getFilterLogs should only return logs from the filtered address"
+	);
 
-	// A second poll has no new logs, as the cursor advanced past the emit block.
+	// A second poll has no new logs, since the previous changes were already drained.
 	let empty = client.get_filter_changes(filter_id).await?;
 	assert!(is_empty_filter_results(&empty), "a second poll should be empty, got: {empty:?}");
 
@@ -761,7 +805,7 @@ async fn test_filter_lifecycle() -> anyhow::Result<()> {
 	};
 	assert_eq!(call.message(), "filter not found");
 
-	// A block filter reports the hashes of blocks added after it was installed.
+	// A block filter reports the hashes of blocks imported after it was installed.
 	let block_filter_id = client.new_block_filter().await?;
 	let tx = TransactionBuilder::new(client.clone())
 		.value(value)
@@ -769,12 +813,8 @@ async fn test_filter_lifecycle() -> anyhow::Result<()> {
 		.send()
 		.await?;
 	tx.wait_for_receipt().await?;
-	let block_hashes = match client.get_filter_changes(block_filter_id).await? {
-		FilterResults::Hashes(hashes) => hashes,
-		other => return Err(anyhow!("Expected Hashes from a block filter, got: {other:?}")),
-	};
-	assert!(!block_hashes.is_empty(), "block filter should report the newly produced block");
-	let newest = block_hashes.last().expect("non-empty checked above");
+	let block_hashes = poll_until_hashes(client.as_ref(), block_filter_id).await?;
+	let newest = block_hashes.last().expect("non-empty checked in the poll helper");
 	assert!(
 		client.get_block_by_hash(*newest, false).await?.is_some(),
 		"a reported block hash should resolve to a real block"

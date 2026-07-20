@@ -109,14 +109,16 @@ pub trait EthRpc {
 	#[method(name = "eth_newBlockFilter")]
 	async fn new_block_filter(&self) -> RpcResult<U256>;
 
-	/// Polls the filter with the given id, returning the logs (for a log filter) or block hashes
-	/// (for a block filter) that occurred since the last poll.
+	/// Polls the filter with the given id, returning what changed since the last poll: matching
+	/// logs for a log filter, or block hashes for a block filter. The result is a union of the two
+	/// (`FilterResults`) because the id alone does not tell the caller which kind it is, mirroring
+	/// `eth_getFilterChanges`, which returns either shape.
 	#[method(name = "eth_getFilterChanges")]
 	async fn get_filter_changes(&self, filter_id: U256) -> RpcResult<FilterResults>;
 
 	/// Returns all logs matching the log filter with the given id, over its full range.
 	#[method(name = "eth_getFilterLogs")]
-	async fn get_filter_logs(&self, filter_id: U256) -> RpcResult<FilterResults>;
+	async fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<Log>>;
 
 	/// Uninstalls the filter with the given id. Returns `true` if the filter existed.
 	#[method(name = "eth_uninstallFilter")]

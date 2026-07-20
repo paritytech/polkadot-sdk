@@ -1,7 +1,7 @@
 title: 'pallet-revive: implement the eth_newFilter polling filter API'
 
 doc:
-- audience: Node Dev
+- audience: Runtime Dev
   description: |-
     The `pallet-revive` Ethereum JSON-RPC server only offered `eth_subscribe` (a WebSocket push
     API) for watching logs and new blocks, leaving the standard HTTP polling filter family
@@ -17,13 +17,20 @@ doc:
     - `eth_getFilterLogs`: return all logs matching a log filter over its full range.
     - `eth_uninstallFilter`: remove a filter.
 
-    Filters are pull-based: each one only remembers the next block to report from, and the log
-    lookup reuses the existing `eth_getLogs` machinery. Ids are unpredictable (128-bit random) so
-    a client cannot enumerate or tamper with filters it does not own, and a filter that is not
-    polled within five minutes is evicted, mirroring go-ethereum and bounding memory use.
+    The polling filters and `eth_subscribe` are driven by the same block and log broadcast
+    channels, so both APIs report the same events and cannot diverge. A polling filter owns its
+    channel and drains it on each `eth_getFilterChanges`; a filter's `fromBlock`/`toBlock` bound
+    only the historical `eth_getFilterLogs` replay, which reuses the existing `eth_getLogs`
+    machinery.
+
+    Memory is bounded on two axes: the number of installed filters is capped, and each filter
+    holds only a broadcast cursor into the shared, fixed-capacity ring buffer rather than its own
+    growing backlog. Ids are unpredictable (128-bit random) so a client cannot enumerate or tamper
+    with filters it does not own, and a background task evicts filters not polled within five
+    minutes as well as log filters whose fixed `toBlock` the chain has passed.
     `eth_newPendingTransactionFilter` is intentionally out of scope, as the server does not expose
     a pending-transaction pool (the same reason `eth_subscribe` has no `newPendingTransactions`).
 
 crates:
 - name: pallet-revive-eth-rpc
-  bump: minor
+  bump: major
