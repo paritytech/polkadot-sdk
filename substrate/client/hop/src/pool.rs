@@ -113,20 +113,34 @@ impl HopDataPool {
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
 	) -> Result<Self, HopError> {
+		let min_capacity = entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize);
+		if max_size < min_capacity {
+			return Err(HopError::InvalidConfig(format!(
+				"max_size ({}) must be at least {} \
+				(entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS))",
+				max_size, min_capacity,
+			)));
+		}
+		if max_user_size < min_capacity {
+			return Err(HopError::InvalidConfig(format!(
+				"max_user_size ({}) must be at least {} \
+				(entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS))",
+				max_user_size, min_capacity,
+			)));
+		}
 		if rate_limit_cfg.enabled {
-			let min_burst = entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize);
-			if rate_limit_cfg.bandwidth_burst < min_burst {
+			if rate_limit_cfg.bandwidth_burst < min_capacity {
 				return Err(HopError::InvalidConfig(format!(
 					"bandwidth_burst ({}) must be at least {} \
 					(entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS))",
-					rate_limit_cfg.bandwidth_burst, min_burst,
+					rate_limit_cfg.bandwidth_burst, min_capacity,
 				)));
 			}
-			if rate_limit_cfg.global_bandwidth_burst < min_burst {
+			if rate_limit_cfg.global_bandwidth_burst < min_capacity {
 				return Err(HopError::InvalidConfig(format!(
 					"global_bandwidth_burst ({}) must be at least {} \
 					(entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS))",
-					rate_limit_cfg.global_bandwidth_burst, min_burst,
+					rate_limit_cfg.global_bandwidth_burst, min_capacity,
 				)));
 			}
 		}
