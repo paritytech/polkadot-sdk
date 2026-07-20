@@ -17,9 +17,8 @@
 use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
-	OutsideFrameLogCount, OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit,
-	Weight,
-	dispatch_result,
+	OutsideFrameLogCount, OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData,
+	StorageDeposit, Weight, dispatch_result,
 	evm::{
 		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
 		burn_with_dust,

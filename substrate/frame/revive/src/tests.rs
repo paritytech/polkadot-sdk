@@ -807,7 +807,8 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		// committed `block.transactions` entry matches. Guards the emit path (nonce = block number,
 		// chain id, trie ordering) against the reconstructor.
 		let chain_id = <Test as crate::Config>::ChainId::get();
-		let reconstructed = crate::evm::synthetic_log_transaction(U256::from(1), U256::from(chain_id));
+		let reconstructed =
+			crate::evm::synthetic_log_transaction(U256::from(1), U256::from(chain_id));
 		assert_eq!(hashes[0], H256(keccak_256(&reconstructed)));
 	});
 }
