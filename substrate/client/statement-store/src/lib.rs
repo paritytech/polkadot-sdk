@@ -78,15 +78,64 @@ use std::{
 	sync::{Arc, Weak},
 	time::{Duration, Instant},
 };
-use subscription::ReplaySnapshotProvider;
 pub use subscription::{
 	AddFilterError, MultiFilterEventStream, MultiFilterSubscriptionApi,
 	MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi, SubscriptionHandle,
 	MAX_FILTERS_PER_SUBSCRIPTION,
 };
+use subscription::{ReplayBatch, ReplaySnapshotProvider, REPLAY_CHUNK_RAW_BYTES};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 2;
+
+const MIGRATION_COMMIT_CHUNK: usize = 100_000;
+
+type DbOperation = (u8, Vec<u8>, Option<Vec<u8>>);
+
+struct MigrationBatch<'a> {
+	db: &'a parity_db::Db,
+	operations: Vec<DbOperation>,
+	committed: usize,
+}
+
+impl<'a> MigrationBatch<'a> {
+	fn new(db: &'a parity_db::Db) -> Self {
+		Self { db, operations: Vec::new(), committed: 0 }
+	}
+
+	fn push(&mut self, operation: DbOperation) -> Result<()> {
+		self.operations.push(operation);
+		self.flush_if_full()
+	}
+
+	fn extend(&mut self, operations: impl IntoIterator<Item = DbOperation>) -> Result<()> {
+		self.operations.extend(operations);
+		self.flush_if_full()
+	}
+
+	fn flush_if_full(&mut self) -> Result<()> {
+		if self.operations.len() >= MIGRATION_COMMIT_CHUNK {
+			self.flush()?;
+		}
+		Ok(())
+	}
+
+	fn flush(&mut self) -> Result<()> {
+		if self.operations.is_empty() {
+			return Ok(());
+		}
+		let operations = std::mem::take(&mut self.operations);
+		let count = operations.len();
+		self.db.commit(operations).map_err(|error| Error::Db(error.to_string()))?;
+		self.committed += count;
+		Ok(())
+	}
+
+	fn finish(mut self) -> Result<usize> {
+		self.flush()?;
+		Ok(self.committed)
+	}
+}
 
 const LOG_TARGET: &str = "statement-store";
 
@@ -134,8 +183,9 @@ mod col {
 	pub const INDEX_BY_TOPIC: u8 = 3;
 	pub const INDEX_BY_DEC_KEY: u8 = 4;
 	pub const INDEX_EVICTED: u8 = 5;
+	pub const ADMISSION_SEQ: u8 = 6;
 
-	pub const COUNT: u8 = 6;
+	pub const COUNT: u8 = 7;
 }
 
 const INDEX_EMPTY_VALUE: &[u8] = &[];
@@ -383,12 +433,18 @@ impl QueryIndex {
 	}
 }
 
+struct SubmitEntry {
+	account: AccountId,
+	expiry: Expiry,
+	data_len: usize,
+	admission_seq: Option<u64>,
+}
+
 /// Index for submit operations (constraint checking, entries, accounts).
 #[derive(Default)]
 struct SubmitIndex {
-	/// Statement hash → (account, expiry/priority, data size); the authoritative set of stored
-	/// statements.
-	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
+	/// Statement hash → submit metadata; the authoritative set of stored statements.
+	entries: HashMap<Hash, SubmitEntry>,
 	/// Per-account tracking (priority-ordered hashes, channels, size) for quota enforcement.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	/// Accounts still pending an expiry/limit check by `enforce_limits`.
@@ -468,30 +524,31 @@ enum Eviction {
 }
 
 impl ReplaySnapshotProvider for Weak<Store> {
-	fn with_snapshot_hashes(
-		&self,
-		filter: &OptimizedTopicFilter,
-		enqueue: &mut dyn FnMut(Vec<Hash>),
-	) -> Result<()> {
+	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
-		store.with_snapshot_hashes(filter, enqueue)
+		store.register_replay(enqueue)
 	}
 
-	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+	fn replay_batch(
+		&self,
+		filter: &OptimizedTopicFilter,
+		cursor: u64,
+		watermark: u64,
+	) -> Result<ReplayBatch> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
-		store.statement_by_hash(hash)
+		store.replay_batch(filter, cursor, watermark)
 	}
 }
 
 /// What [`SubmitIndex::insert`] evicted to make room for a new statement.
 struct InsertOutcome {
-	/// All hashes removed from the index. Their bodies must be deleted and their read-index
-	/// entries cleared.
-	evicted: HashSet<Hash>,
+	/// All hashes removed from the index and their admission sequences. Their bodies and on-disk
+	/// indexes must be deleted.
+	evicted: Vec<(Hash, u64)>,
 	/// The subset of `evicted` that is banned from re-acceptance, with its purge deadline. These
 	/// must be recorded in the on-disk evicted journal.
 	banned: Vec<(Hash, u64)>,
@@ -543,15 +600,12 @@ impl SubmitIndex {
 		SubmitIndex { config, ..Default::default() }
 	}
 
-	/// Assigns and returns the next store sequence number for `hash`, recording it in `recent_seqs`
-	/// while a snapshot scan is active.
-	fn note_seq(&mut self, hash: Hash) -> u64 {
-		let seq = self.next_seq;
-		self.next_seq += 1;
+	/// Records a sequence number after its statement and admission entries commit atomically.
+	fn note_seq(&mut self, hash: Hash, seq: u64) {
+		self.next_seq = seq.saturating_add(1);
 		if !self.active_scan_floors.is_empty() {
 			self.recent_seqs.insert(hash, seq);
 		}
-		seq
 	}
 
 	/// Registers a subscription snapshot scan and returns its watermark.
@@ -584,9 +638,18 @@ impl SubmitIndex {
 		}
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		admission_seq: Option<u64>,
+	) {
 		let expiry = Expiry(statement.expiry());
-		self.entries.insert(hash, (account, expiry, statement.data_len()));
+		self.entries.insert(
+			hash,
+			SubmitEntry { account, expiry, data_len: statement.data_len(), admission_seq },
+		);
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -599,10 +662,11 @@ impl SubmitIndex {
 	}
 
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> Option<Eviction> {
-		if let Some((account, expiry, len)) = self.entries.remove(hash) {
-			self.total_size -= len;
-			let eviction = if current_time < expiry.get_expiration_timestamp_secs() {
-				let purge_at = expiry
+		if let Some(entry) = self.entries.remove(hash) {
+			self.total_size -= entry.data_len;
+			let eviction = if current_time < entry.expiry.get_expiration_timestamp_secs() {
+				let purge_at = entry
+					.expiry
 					.get_expiration_timestamp_secs()
 					.min(current_time.saturating_add(self.config.purge_after_sec));
 				self.evicted_count += 1;
@@ -611,9 +675,9 @@ impl SubmitIndex {
 				Eviction::Removed
 			};
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
-				self.accounts.entry(account)
+				self.accounts.entry(entry.account)
 			{
-				let key = PriorityKey { hash: *hash, expiry };
+				let key = PriorityKey { hash: *hash, expiry: entry.expiry };
 				if let Some((channel, len)) = account_rec.get_mut().by_priority.remove(&key) {
 					account_rec.get_mut().data_size -= len;
 					if let Some(channel) = channel {
@@ -746,14 +810,19 @@ impl SubmitIndex {
 			return Err(RejectionReason::StoreFull);
 		}
 
+		let mut removed = Vec::with_capacity(evicted.len());
 		let mut banned = Vec::new();
 		for h in &evicted {
+			let admission_seq = self.entries.get(h).and_then(|entry| entry.admission_seq);
 			if let Some(Eviction::Banned(purge_at)) = self.make_expired(h, current_time) {
 				banned.push((*h, purge_at));
 			}
+			if let Some(admission_seq) = admission_seq {
+				removed.push((*h, admission_seq));
+			}
 		}
-		self.insert_new(hash, *account, statement);
-		Ok(InsertOutcome { evicted, banned })
+		self.insert_new(hash, *account, statement, Some(self.next_seq));
+		Ok(InsertOutcome { evicted: removed, banned })
 	}
 }
 
@@ -862,7 +931,14 @@ impl Store {
 		while migrate_config.columns.len() < col::COUNT as usize {
 			// `add_column` takes the options by value, so build a fresh one each iteration.
 			let mut new_column_options = parity_db::ColumnOptions::default();
-			new_column_options.btree_index = true;
+			let column = migrate_config.columns.len() as u8;
+			new_column_options.btree_index = matches!(
+				column,
+				col::INDEX_BY_TOPIC
+					| col::INDEX_BY_DEC_KEY
+					| col::INDEX_EVICTED
+					| col::ADMISSION_SEQ
+			);
 			parity_db::Db::add_column(&mut migrate_config, new_column_options)
 				.map_err(|e| Error::Db(e.to_string()))?;
 		}
@@ -877,7 +953,9 @@ impl Store {
 		statement_col.ref_counted = false;
 		statement_col.preimage = true;
 		statement_col.uniform = true;
-		for c in [col::INDEX_BY_TOPIC, col::INDEX_BY_DEC_KEY, col::INDEX_EVICTED] {
+		for c in
+			[col::INDEX_BY_TOPIC, col::INDEX_BY_DEC_KEY, col::INDEX_EVICTED, col::ADMISSION_SEQ]
+		{
 			db_config.columns[c as usize].btree_index = true;
 		}
 		parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))
@@ -921,10 +999,11 @@ impl Store {
 	fn populate(&self, migrate_index: bool) -> Result<()> {
 		// Holding both locks here is fine: this runs at startup before any statements are
 		// processed, so there is no contention.
-		let migration_ops = {
+		let migrated_entries = {
 			let mut submit_index = self.submit_index.write();
 			let mut query_index = self.query_index.write();
-			let mut migration_ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
+			let mut migration = MigrationBatch::new(&self.db);
+			let mut migration_error = None;
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
@@ -936,10 +1015,26 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							submit_index.insert_new(hash, account_id, &statement);
+							let admission_seq = if migrate_index {
+								let seq = submit_index.next_seq;
+								submit_index.next_seq = submit_index.next_seq.saturating_add(1);
+								Some(seq)
+							} else {
+								None
+							};
+							submit_index.insert_new(hash, account_id, &statement, admission_seq);
 							query_index.note_initial(&statement);
-							if migrate_index {
-								migration_ops.extend(statement_index_ops(&hash, &statement, true));
+							if let Some(seq) = admission_seq {
+								let mut operations = statement_index_ops(&hash, &statement, true);
+								operations.push((
+									col::ADMISSION_SEQ,
+									seq.to_be_bytes().to_vec(),
+									Some(hash.to_vec()),
+								));
+								if let Err(error) = migration.extend(operations) {
+									migration_error = Some(error);
+									return false;
+								}
 							}
 						} else {
 							log::debug!(
@@ -952,6 +1047,34 @@ impl Store {
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
+			if let Some(error) = migration_error.take() {
+				return Err(error);
+			}
+			if !migrate_index {
+				let mut iter =
+					self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+				iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+				while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+					let seq = u64::from_be_bytes(
+						key.try_into()
+							.map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+					);
+					let hash: Hash = value
+						.as_slice()
+						.try_into()
+						.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
+					let Some(entry) = submit_index.entries.get_mut(&hash) else {
+						continue;
+					};
+					if entry.admission_seq.replace(seq).is_some() {
+						return Err(Error::Db("Duplicate admission sequence for statement".into()));
+					}
+					submit_index.next_seq = submit_index.next_seq.max(seq.saturating_add(1));
+				}
+				if submit_index.entries.values().any(|entry| entry.admission_seq.is_none()) {
+					return Err(Error::Db("Statement is missing an admission sequence".into()));
+				}
+			}
 			let mut evicted_count = 0usize;
 			self.db
 				.iter_column_while(col::EXPIRED, |item| {
@@ -968,27 +1091,28 @@ impl Store {
 						if migrate_index {
 							let purge_at =
 								timestamp.saturating_add(submit_index.config.purge_after_sec);
-							migration_ops.push((
+							let operation = (
 								col::INDEX_EVICTED,
 								evicted_index_key(purge_at, &hash),
 								Some(INDEX_EMPTY_VALUE.to_vec()),
-							));
+							);
+							if let Err(error) = migration.push(operation) {
+								migration_error = Some(error);
+								return false;
+							}
 						}
 					}
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
+			if let Some(error) = migration_error {
+				return Err(error);
+			}
 			submit_index.evicted_count = evicted_count;
-			migration_ops
+			migration.finish()?
 		};
 
 		if migrate_index {
-			// Commit the rebuilt index in bounded chunks, then mark the database as migrated.
-			const MIGRATION_CHUNK: usize = 100_000;
-			let total = migration_ops.len();
-			for chunk in migration_ops.chunks(MIGRATION_CHUNK) {
-				self.db.commit(chunk.iter().cloned()).map_err(|e| Error::Db(e.to_string()))?;
-			}
 			self.db
 				.commit([(
 					col::META,
@@ -999,7 +1123,7 @@ impl Store {
 			log::info!(
 				target: LOG_TARGET,
 				"Migrated statement store read index to the on-disk format ({} entries)",
-				total
+				migrated_entries
 			);
 		}
 
@@ -1905,8 +2029,7 @@ impl StatementStore for Store {
 			let mut submit_index = self.submit_index.write();
 
 			let outcome =
-				match submit_index.insert(hash, &statement, &account_id, &validation, current_time)
-				{
+				match submit_index.insert(hash, &statement, &account_id, &validation, current_time) {
 					Ok(outcome) => outcome,
 					Err(reason) => {
 						self.metrics.report(|metrics| {
@@ -1916,13 +2039,16 @@ impl StatementStore for Store {
 					},
 				};
 
+			let seq = submit_index.next_seq;
 			let mut commit = Vec::new();
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			commit.push((col::ADMISSION_SEQ, seq.to_be_bytes().to_vec(), Some(hash.to_vec())));
 			commit.extend(statement_index_ops(&hash, &statement, true));
 
 			let mut evicted_statements = Vec::new();
-			for h in &outcome.evicted {
+			for (h, admission_seq) in &outcome.evicted {
 				commit.push((col::STATEMENTS, h.to_vec(), None));
+				commit.push((col::ADMISSION_SEQ, admission_seq.to_be_bytes().to_vec(), None));
 				match self.db.get(col::STATEMENTS, h) {
 					Ok(Some(encoded)) => {
 						if let Ok(evicted_statement) = Statement::decode(&mut encoded.as_slice()) {
@@ -1960,7 +2086,7 @@ impl StatementStore for Store {
 				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
-			let seq = submit_index.note_seq(hash);
+			submit_index.note_seq(hash, seq);
 			(evicted_statements, seq)
 		}; // Release submit index lock
 		{
@@ -1986,6 +2112,7 @@ impl StatementStore for Store {
 			// Read the body under the submit-index lock: a concurrent first-time submit could
 			// otherwise commit the statement between the read and `make_expired`, and its
 			// read-index entries would never be cleared.
+			let admission_seq = submit_index.entries.get(hash).and_then(|entry| entry.admission_seq);
 			let statement =
 				match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
 					Some(encoded) => Statement::decode(&mut encoded.as_slice()).ok(),
@@ -1994,6 +2121,13 @@ impl StatementStore for Store {
 			match submit_index.make_expired(hash, current_time) {
 				Some(eviction) => {
 					let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
+					if let Some(admission_seq) = admission_seq {
+						commit.push((
+							col::ADMISSION_SEQ,
+							admission_seq.to_be_bytes().to_vec(),
+							None,
+						));
+					}
 					if let Some(statement) = &statement {
 						commit.extend(statement_index_ops(hash, statement, false));
 					}
@@ -2044,7 +2178,8 @@ impl StatementStore for Store {
 			let mut commit = Vec::new();
 			let mut removed_statements = Vec::new();
 			for hash in &hashes {
-				// Read the body before deleting it, to clear its query-index entries.
+				let admission_seq =
+					submit_index.entries.get(hash).and_then(|entry| entry.admission_seq);
 				let statement = match self.db.get(col::STATEMENTS, hash) {
 					Ok(Some(encoded)) => Statement::decode(&mut encoded.as_slice()).ok(),
 					Ok(None) => None,
@@ -2060,6 +2195,13 @@ impl StatementStore for Store {
 				};
 				if let Some(eviction) = submit_index.make_expired(hash, current_time) {
 					commit.push((col::STATEMENTS, hash.to_vec(), None));
+					if let Some(admission_seq) = admission_seq {
+						commit.push((
+							col::ADMISSION_SEQ,
+							admission_seq.to_be_bytes().to_vec(),
+							None,
+						));
+					}
 					if let Eviction::Banned(purge_at) = eviction {
 						commit.push((
 							col::EXPIRED,
@@ -2120,9 +2262,9 @@ impl StatementStoreSubscriptionApi for Store {
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Exactly-once delivery via a sequence-number watermark. Under the submit-index write lock
-		// we atomically (a) capture the current sequence boundary `W` and (b) register the
-		// subscription with `W` as its watermark.
+		// Avoid overlap between the subscribe-time snapshot and live delivery using a sequence-number
+		// watermark. Under the submit-index write lock, atomically with respect to sequence assignment,
+		// capture the current boundary `W` and enqueue the subscription registration tagged with `W`.
 		let (subscription_sender, subscription_stream, watermark) = {
 			let mut submit_index = self.submit_index.write();
 			let watermark = submit_index.begin_scan();
@@ -2166,34 +2308,81 @@ impl StatementStoreSubscriptionApi for Store {
 }
 
 impl Store {
-	fn with_snapshot_hashes(
-		&self,
-		filter: &OptimizedTopicFilter,
-		enqueue: &mut dyn FnMut(Vec<Hash>),
-	) -> Result<()> {
-		// Hold the submit-index read lock across both the on-disk index scan and the `AddFilter`
-		// enqueue. `submit` assigns the statement's sequence number and commits its body under the
-		// write lock and only notifies matchers afterwards, so with the read lock held here every
-		// statement is either already committed (and therefore visible to the scan below) or its
-		// `NewStatement` notification is enqueued after the `AddFilter` message and matched live.
-		// Statements that end up in both are deduplicated by hash on the matcher side. The lock
-		// order (`submit_index` → `query_index`, taken briefly inside `iterate_with`) matches
-		// `populate`.
-		let _guard = self.submit_index.read();
-		let mut snapshot_hashes = Vec::new();
-		let mut seen = HashSet::new();
-		self.iterate_with(None, filter, |hash| {
-			if seen.insert(*hash) {
-				snapshot_hashes.push(*hash);
-			}
-			Ok(())
-		})?;
-		enqueue(snapshot_hashes);
-		Ok(())
+	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
+		// Enqueue registration while holding the same lock that assigns submit sequence numbers.
+		// Every post-watermark live notification is therefore ordered after that registration.
+		let submit_index = self.submit_index.write();
+		let watermark = submit_index.next_seq;
+		Ok(enqueue(watermark).then_some(watermark))
 	}
 
-	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
-		self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))
+	fn replay_batch(
+		&self,
+		filter: &OptimizedTopicFilter,
+		mut cursor: u64,
+		watermark: u64,
+	) -> Result<ReplayBatch> {
+		let mut statements = Vec::new();
+		let mut chunk_bytes = 0usize;
+		let mut batch_limit_reached = false;
+		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&cursor.to_be_bytes()).map_err(|e| Error::Db(e.to_string()))?;
+
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let seq = u64::from_be_bytes(
+				key.try_into().map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+			);
+			if seq >= watermark {
+				cursor = watermark;
+				break;
+			}
+			let hash: Hash = value
+				.as_slice()
+				.try_into()
+				.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
+			let next_cursor = seq.saturating_add(1);
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				cursor = next_cursor;
+				continue;
+			};
+			let is_current = self
+				.submit_index
+				.read()
+				.entries
+				.get(&hash)
+				.and_then(|entry| entry.admission_seq)
+				== Some(seq);
+			if !is_current {
+				cursor = next_cursor;
+				continue;
+			}
+			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
+				cursor = next_cursor;
+				continue;
+			};
+			if !filter.matches(&statement) {
+				cursor = next_cursor;
+				continue;
+			}
+			if !statements.is_empty() && chunk_bytes + encoded.len() > REPLAY_CHUNK_RAW_BYTES {
+				batch_limit_reached = true;
+				break;
+			}
+			chunk_bytes += encoded.len();
+			statements.push(encoded);
+			cursor = next_cursor;
+			if chunk_bytes >= REPLAY_CHUNK_RAW_BYTES {
+				batch_limit_reached = true;
+				break;
+			}
+		}
+
+		if !batch_limit_reached && cursor < watermark {
+			cursor = watermark;
+		}
+		Ok(ReplayBatch { statements, cursor, done: cursor >= watermark })
 	}
 }
 
@@ -2244,8 +2433,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, OptimizedTopicFilter, Proof,
+		RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -2582,6 +2771,70 @@ mod tests {
 	}
 
 	#[test]
+	fn removed_admission_tail_is_reused_after_restart() {
+		let (store, temp) = test_store();
+		let first = signed_statement(10);
+		let second = signed_statement(11);
+		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(second.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &0u64.to_be_bytes()).unwrap(),
+			Some(first.hash().to_vec())
+		);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(),
+			Some(second.hash().to_vec())
+		);
+		store.remove(&second.hash()).unwrap();
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &0u64.to_be_bytes()).unwrap(),
+			Some(first.hash().to_vec())
+		);
+		assert_eq!(store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(), None);
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(store.submit_index.read().next_seq, 1);
+
+		let third = signed_statement(12);
+		assert_eq!(store.submit(third.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(),
+			Some(third.hash().to_vec())
+		);
+	}
+
+	#[test]
+	fn admission_cursor_replays_only_current_matching_admissions() {
+		let (store, _temp) = test_store();
+		let matching = signed_statement_with_topics(20, &[topic(1)], None);
+		let non_matching = signed_statement_with_topics(21, &[topic(2)], None);
+		let removed = signed_statement_with_topics(22, &[topic(1)], None);
+		assert_eq!(store.submit(matching.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(non_matching, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(removed.clone(), StatementSource::Network), SubmitResult::New);
+		store.remove(&removed.hash()).unwrap();
+
+		let replay = store
+			.replay_batch(&OptimizedTopicFilter::MatchAny([topic(1)].into_iter().collect()), 0, 3)
+			.unwrap();
+		assert_eq!(replay.statements, vec![matching.encode()]);
+		assert_eq!(replay.cursor, 3);
+		assert!(replay.done);
+	}
+
+	#[test]
 	fn migrates_v1_database_to_on_disk_index() {
 		sp_tracing::init_for_tests();
 		let temp = tempfile::Builder::new().tempdir().expect("Error creating test dir");
@@ -2633,7 +2886,7 @@ mod tests {
 		};
 
 		// Re-open through the store: it must add the index columns, rebuild them from the bodies,
-		// rebuild the evicted journal from EXPIRED, and bump the version to 2.
+		// rebuild the evicted journal and admission sequence, and bump the database version.
 		let store = open(&path);
 
 		// Bodies survived.
@@ -2647,6 +2900,14 @@ mod tests {
 		assert!(store.index_has_topic(&topic(2), &h_addressed));
 		assert!(store.index_has_dec_key(&Some(dec_key(9)), &h_addressed));
 		assert!(store.index_has_dec_key(&None, &h_broadcast));
+		let mut admitted = std::collections::HashSet::new();
+		let mut iter = store.db.iter(col::ADMISSION_SEQ).unwrap();
+		iter.seek_to_first().unwrap();
+		while let Some((_key, value)) = iter.next().unwrap() {
+			admitted.insert(value.as_slice().try_into().expect("admission hash is 32 bytes"));
+		}
+		assert_eq!(admitted, std::collections::HashSet::from([h_addressed, h_broadcast]));
+		assert_eq!(store.submit_index.read().next_seq, 2);
 
 		// And it answers queries: only the broadcast matches topic 1 with no key, only the
 		// addressed statement matches topic 1 for key 9.
@@ -3694,9 +3955,9 @@ mod tests {
 
 		// Directly insert into index, bypassing `submit`'s allowance check
 		{
-			let mut submit_index = store.submit_index.write();
-			for s in [&s1, &s2, &s3, &s4, &s5] {
-				submit_index.insert_new(s.hash(), account(4), s);
+			let mut index = store.submit_index.write();
+			for (seq, statement) in [&s1, &s2, &s3, &s4, &s5].into_iter().enumerate() {
+				index.insert_new(statement.hash(), account(4), statement, Some(seq as u64));
 			}
 		}
 
@@ -3735,9 +3996,9 @@ mod tests {
 
 		// Directly insert statements for account with no allowance
 		{
-			let mut submit_index = store.submit_index.write();
-			submit_index.insert_new(h1, account(0), &s1);
-			submit_index.insert_new(h2, account(0), &s2);
+			let mut index = store.submit_index.write();
+			index.insert_new(h1, account(0), &s1, Some(0));
+			index.insert_new(h2, account(0), &s2, Some(1));
 		}
 
 		assert_eq!(store.submit_index.read().entries.len(), 2);
@@ -3770,9 +4031,9 @@ mod tests {
 
 		// Directly insert both statements (total 1200 bytes > 1000 limit)
 		{
-			let mut submit_index = store.submit_index.write();
-			submit_index.insert_new(h1, account(2), &s1);
-			submit_index.insert_new(h2, account(2), &s2);
+			let mut index = store.submit_index.write();
+			index.insert_new(s1.hash(), account(2), &s1, Some(0));
+			index.insert_new(s2.hash(), account(2), &s2, Some(1));
 		}
 
 		assert_eq!(store.submit_index.read().total_size, 1200);
@@ -4235,6 +4496,35 @@ mod tests {
 				events.push(event);
 			}
 			events
+		}
+
+		#[test]
+		fn replay_watermark_excludes_later_admissions() {
+			let (store, _dir) = test_store();
+			let before = signed_statement(1);
+			let after = signed_statement(2);
+			assert_eq!(store.submit(before.clone(), StatementSource::Local), SubmitResult::New);
+
+			let mut watermark = None;
+			assert!(store
+				.register_replay(&mut |captured| {
+					watermark = Some(captured);
+					true
+				})
+				.unwrap()
+				.is_some());
+			assert_eq!(store.submit(after.clone(), StatementSource::Local), SubmitResult::New);
+
+			let replay =
+				store.replay_batch(&OptimizedTopicFilter::Any, 0, watermark.unwrap()).unwrap();
+			let hashes: HashSet<_> = replay
+				.statements
+				.iter()
+				.map(|encoded| Statement::decode(&mut encoded.as_slice()).unwrap().hash())
+				.collect();
+			assert!(replay.done);
+			assert!(hashes.contains(&before.hash()));
+			assert!(!hashes.contains(&after.hash()));
 		}
 
 		#[tokio::test]
