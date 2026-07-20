@@ -1310,7 +1310,7 @@ fn reentrant_instantiate_at_same_address_is_rejected() {
 				);
 				if n == 2 {
 					if let Err(err) = &result {
-						*second_instantiate_error.borrow_mut() = Some(err.error.clone());
+						*second_instantiate_error.borrow_mut() = Some(err.error);
 					}
 				}
 			}
