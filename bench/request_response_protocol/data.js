@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784535039959,
+  "lastUpdate": 1784544904155,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -109187,6 +109187,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2524422530,
             "range": "± 16724529",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e02e990c00c5d028eaf0213b1593a08a249d4f89",
+          "message": "[pallet-revive] Reject re-entrant CREATE2 at an in-construction address (#12645)\n\nFixes #12639 by rejecting a nested instantiate whose target address is\nalready being constructed by an ancestor frame, closing the re-entrant\n`CREATE2` collision that let two constructors run for one account and\npermanently leaked its consumer/refcount and storage deposit.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-20T09:26:38Z",
+          "tree_id": "551d14fe362afa802102d8d2072a0aa281a83df2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e02e990c00c5d028eaf0213b1593a08a249d4f89"
+        },
+        "date": 1784544867876,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18983931,
+            "range": "± 96364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19128679,
+            "range": "± 99955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20800651,
+            "range": "± 300739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25461905,
+            "range": "± 79683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59660786,
+            "range": "± 1150049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 383106761,
+            "range": "± 5998516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2694421984,
+            "range": "± 75022779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 15896871,
+            "range": "± 178398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16033665,
+            "range": "± 75902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16646915,
+            "range": "± 178528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20712366,
+            "range": "± 141126",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60714988,
+            "range": "± 408053",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 365485519,
+            "range": "± 5267628",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2560516760,
+            "range": "± 13584501",
             "unit": "ns/iter"
           }
         ]
