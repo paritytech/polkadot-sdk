@@ -100,7 +100,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_002,
+	// Bumped from 1_003_002 (released stable2606 YAP) so the V3-enabled wasm can
+	// be applied as a runtime upgrade over the released V2 YAP running at genesis
+	// (parachain upgrades require a strictly greater spec_version).
+	spec_version: 1_003_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
