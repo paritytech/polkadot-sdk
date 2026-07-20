@@ -1180,17 +1180,13 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 /// Speculative-messaging admission check for one candidate. Returns `true` to keep the candidate:
 ///
-/// - **feature off** — drop it if it carries any `Provides`/`Requires` UMP signal (migration
-///   safety: otherwise its `Provides` would seed the window with no matching performed);
+/// - **feature off** — drop it if it carries any `Provides`/`Requires` UMP signal (fail-closed);
 /// - **feature on** — drop it if its `Requires` set is not fully present in the relay-side provides
 ///   window (every `(source, StreamsRoot)` must be in that source's `RecentProvides`);
 /// - otherwise keep it. A malformed UMP-signal set is treated as no speculative signals (rejected
 ///   separately by `check_descriptor_version_and_signals`).
 ///
-/// Matches against the *stored* window only — a `Requires` is satisfiable by a sender already
-/// enacted into the ring, not by a co-arriving same-relay-block sender. The design's virtually
-/// extended window (and the atomic enactment dependencies it needs) is only required for the
-/// live / speculative tier (same-relay-block co-arrival), so it is omitted here.
+/// Matches the *stored* window only (inclusion tier) — not co-arriving same-relay-block senders.
 fn check_speculative_messaging<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	speculative_enabled: bool,
