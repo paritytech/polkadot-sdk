@@ -133,11 +133,6 @@ where
 		let sync_oracle = self.sync_oracle.clone();
 
 		let fut = async move {
-			// TODO: per-CID `FailRetryBackoff` is correct for misses during sync, but a
-			// smarter implementation would attempt a peer-side Bitswap fetch and write
-			// the result back to the local DB. Needs a coherence story for concurrent
-			// writes during major sync.
-
 			let cids_len = cids.len();
 			log::trace!(target: LOG_TARGET, "bitswap_unstable_stream open cids={cids_len}");
 
