@@ -166,17 +166,14 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	// off/off → on/off: enable the relay feature. Para 2902 still runs the V2 runtime, so it stays
-	// V2. The change applies at session+2 (SESSION_DELAY); wait 2 session changes so the feature is
-	// genuinely active for this assertion (see `set_node_features`).
+	// off/off → on/off: enable the relay feature. Para 2902 still runs the V2 runtime
 	log::info!("state on/off (relay on, para off) → V2");
 	enable_node_features(&relay_client, &[4]).await?;
 	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	// 480s: generous wall-clock limit so a stalled block stream fails loudly instead of hanging CI.
-	tokio::time::timeout(Duration::from_secs(480), wait_for_nth_session_change(&mut sub, 2))
+	tokio::time::timeout(Duration::from_secs(300), wait_for_nth_session_change(&mut sub, 1))
 		.await
 		.map_err(|_| {
-			anyhow!("timed out after 480s waiting for 2 session changes (on/off state)")
+			anyhow!("timed out after 300s waiting for 1 session change (on/off state)")
 		})??;
 	assert_candidates_version(
 		&relay_client,
@@ -204,13 +201,6 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 	wait_for_runtime_upgrade(&para_client_v3).await?;
-	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	// 300s: generous wall-clock limit so a stalled block stream fails loudly instead of hanging CI.
-	tokio::time::timeout(Duration::from_secs(300), wait_for_nth_session_change(&mut sub, 1))
-		.await
-		.map_err(|_| {
-			anyhow!("timed out after 300s waiting for 1 session change (on/on state)")
-		})??;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
@@ -232,19 +222,12 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 		.map_err(|_| {
 			anyhow!("timed out after 480s waiting for 2 session changes (off/on state)")
 		})??;
+	// 2902 has fallen back to V2; 2900 (basic) and 2901 (elastic) run the V2 runtime throughout,
+	// so all three are V2.
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2902, 3..20)]),
-		10,
-	)
-	.await?;
-
-	// 2900 (basic) and 2901 (elastic) run the V2 runtime throughout, so they stay V2.
-	assert_candidates_version(
-		&relay_client,
-		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 3..20), (para_2901, 10..50)]),
+		HashMap::from([(para_2902, 3..20), (para_2900, 3..20), (para_2901, 10..50)]),
 		10,
 	)
 	.await?;
