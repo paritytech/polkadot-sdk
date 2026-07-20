@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784324068422,
+  "lastUpdate": 1784536078171,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f66f240a47f7ece64936487734ecfe44b6ef5999",
-          "message": "Enable force debug in revive dev node (#10383)\n\nThis change ensures that all types that implement `RuntimeDebug` are\nfully displayed in log output of the revive dev node, instead of just\nshowing `<wasm:stripped>`.\n\nUnfortunately, the trait `RuntimeDebugNoBound`, that we also use\nfrequently in pallet-revive, is not affected and will still output\n`<wasm:stripped>` (it does not check for the `force-debug` feature flag,\ninstead it only fully outputs values when either one of the features\n`std` or `try_runtime` is enabled – this is something we implement as a\ngeneral change).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-21T15:51:45Z",
-          "tree_id": "5eddbb2be51e810d4f82f211c1b93b4d6eddf0b2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66f240a47f7ece64936487734ecfe44b6ef5999"
-        },
-        "date": 1763745026449,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007342777519999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15979270038000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013251021319999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022954600280000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14888946597333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1ef4a0725686464a3b492bfa66af698ee098fd5",
+          "message": "pallet-revive: validate eth_feeHistory reward percentiles (#12547)\n\n## Summary\n\n`eth_feeHistory` did not validate the requested reward percentiles.\nOut-of-range values were silently clamped to `0..=100`, and unsorted\nlists were accepted, so a malformed request returned approximated\nresults instead of an error.\n\nAs in go-ethereum (`errInvalidPercentile`), each reward percentile must\nlie within `0.0..=100.0` and the list must be strictly increasing;\notherwise the request is now rejected with `-32000`, matching geth's\nbehavior.\n\n## Changes\n\n- Add a `validate_reward_percentiles` helper and reject invalid\npercentiles at the `eth_feeHistory` handler before any approximation.\n- Unit test covering in-range/increasing (accepted), out-of-range, and\nnon-increasing (rejected) cases.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc --lib --\nvalidate_reward_percentiles` passes.\n- `cargo +nightly fmt` and `cargo clippy` clean.",
+          "timestamp": "2026-07-20T06:40:57Z",
+          "tree_id": "de829ab75eedf7ad021265e9511d6c8b8abc96e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1ef4a0725686464a3b492bfa66af698ee098fd5"
+        },
+        "date": 1784536045728,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1480204600733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01011113262666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007606959773333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02302976429333333,
             "unit": "seconds"
           }
         ]
