@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784323176832,
+  "lastUpdate": 1784535039959,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -109079,6 +109079,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2513228056,
             "range": "± 35856557",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1ef4a0725686464a3b492bfa66af698ee098fd5",
+          "message": "pallet-revive: validate eth_feeHistory reward percentiles (#12547)\n\n## Summary\n\n`eth_feeHistory` did not validate the requested reward percentiles.\nOut-of-range values were silently clamped to `0..=100`, and unsorted\nlists were accepted, so a malformed request returned approximated\nresults instead of an error.\n\nAs in go-ethereum (`errInvalidPercentile`), each reward percentile must\nlie within `0.0..=100.0` and the list must be strictly increasing;\notherwise the request is now rejected with `-32000`, matching geth's\nbehavior.\n\n## Changes\n\n- Add a `validate_reward_percentiles` helper and reject invalid\npercentiles at the `eth_feeHistory` handler before any approximation.\n- Unit test covering in-range/increasing (accepted), out-of-range, and\nnon-increasing (rejected) cases.\n\n## Testing\n\n- `cargo test -p pallet-revive-eth-rpc --lib --\nvalidate_reward_percentiles` passes.\n- `cargo +nightly fmt` and `cargo clippy` clean.",
+          "timestamp": "2026-07-20T06:40:57Z",
+          "tree_id": "de829ab75eedf7ad021265e9511d6c8b8abc96e1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1ef4a0725686464a3b492bfa66af698ee098fd5"
+        },
+        "date": 1784535005963,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18710778,
+            "range": "± 100712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18779976,
+            "range": "± 203219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20103257,
+            "range": "± 113077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24685539,
+            "range": "± 286792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57405489,
+            "range": "± 1058409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 334156321,
+            "range": "± 3696069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2537607799,
+            "range": "± 57763570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 15591362,
+            "range": "± 201530",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15802113,
+            "range": "± 246602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16369178,
+            "range": "± 157631",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 20790197,
+            "range": "± 204674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58297098,
+            "range": "± 989505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 344508463,
+            "range": "± 5396991",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2524422530,
+            "range": "± 16724529",
             "unit": "ns/iter"
           }
         ]
