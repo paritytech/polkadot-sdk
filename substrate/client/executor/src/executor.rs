@@ -34,7 +34,8 @@ use codec::Encode;
 use sc_executor_common::{
 	runtime_blob::RuntimeBlob,
 	wasm_runtime::{
-		AllocationStats, HeapAllocStrategy, WasmInstance, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY,
+		AllocationStats, HeapAllocStrategy, TimedWasmInstance, WasmInstance, WasmModule,
+		DEFAULT_HEAP_ALLOC_STRATEGY,
 	},
 };
 use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
@@ -368,10 +369,55 @@ where
 		}
 	}
 
-	/// Same as [`CodeExecutor::call`], but interrupts execution once `timeout` has elapsed,
-	/// failing with [`Error::ExecutionTimeout`].
+	/// Execute the given closure `f` with a fresh timed instance of the latest runtime (based on
+	/// `runtime_code`), whose calls are interrupted once their timeout elapses.
 	///
-	/// Runs on a fresh, non-pooled instance of the runtime's timed counterpart; may block until
+	/// May block until the timed module is available — it may still be compiling in the
+	/// background.
+	///
+	/// # Safety
+	///
+	/// `instance` and `ext` are given as `AssertUnwindSafe` to the closure. The instance is fresh
+	/// and dropped after the call, so a `panic!` cannot poison any state. `ext` is already
+	/// implicitly handled as unwind safe, as we store it in a global variable while executing the
+	/// native runtime.
+	fn with_timed_instance<R, F>(
+		&self,
+		runtime_code: &RuntimeCode,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R>
+	where
+		F: FnOnce(
+			AssertUnwindSafe<&mut dyn TimedWasmInstance>,
+			Option<&RuntimeVersion>,
+			AssertUnwindSafe<&mut dyn Externalities>,
+		) -> Result<Result<R>>,
+	{
+		match self.cache.with_timed_instance::<H, _, _>(
+			runtime_code,
+			ext,
+			self.method,
+			heap_alloc_strategy,
+			self.allow_missing_host_functions,
+			|instance, version, ext| {
+				let instance = AssertUnwindSafe(instance);
+				let ext = AssertUnwindSafe(ext);
+				f(instance, version, ext)
+			},
+		)? {
+			Ok(r) => r,
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Call a given method in the runtime, interrupting execution once `timeout` has elapsed.
+	///
+	/// Returns the result (either the output data or an execution error). The error result of
+	/// [`Error::ExecutionTimeout`] indicates the timeout has been reached.
+	///
+	/// Runs on a fresh, non-pooled instance of the runtime's timed counterpart. May block until
 	/// that counterpart finishes compiling in the background.
 	///
 	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
@@ -388,7 +434,7 @@ where
 		tracing::trace!(
 			target: "executor",
 			%method,
-			"Executing timed function",
+			"Executing function with timeout",
 		);
 
 		let on_chain_heap_alloc_strategy = if self.ignore_onchain_heap_pages {
@@ -406,26 +452,16 @@ where
 			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
 		};
 
-		match self.cache.with_timed_instance::<H, _, _>(
+		self.with_timed_instance(
 			runtime_code,
 			ext,
-			self.method,
 			heap_alloc_strategy,
-			self.allow_missing_host_functions,
-			|instance, _on_chain_version, ext| {
-				// The instance is dropped after the call, so a `panic!` cannot poison any state.
-				// `ext` is already implicitly handled as unwind safe, as we store it in a global
-				// variable while executing the runtime.
-				let mut instance = AssertUnwindSafe(instance);
-				let mut ext = AssertUnwindSafe(ext);
+			|mut instance, _on_chain_version, mut ext| {
 				with_externalities_safe(&mut **ext, move || {
 					instance.call_with_timeout(method, data, timeout)
 				})
 			},
-		)? {
-			Ok(r) => r,
-			Err(e) => Err(e),
-		}
+		)
 	}
 
 	/// Perform a call into the given runtime.

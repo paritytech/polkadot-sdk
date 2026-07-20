@@ -58,8 +58,8 @@ impl TimedWasmModule for InstancePre {
 }
 
 impl TimedWasmInstance for Instance {
-	/// WARNING: PolkaVM has no execution-interruption mechanism (no epochs, no gas metering, no
-	/// step mode), so the timeout is IGNORED and the call runs unbounded.
+	/// WARNING: PolkaVM has no execution-interruption mechanism, so the timeout is IGNORED
+	/// and the call runs unbounded.
 	fn call_with_timeout(
 		&mut self,
 		method: &str,
@@ -301,10 +301,6 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 	Ok(())
 }
 
-/// Create a runtime from the given program `blob`.
-///
-/// The concrete [`InstancePre`] is returned (rather than a boxed trait object) so that the caller
-/// can box the same cheaply-cloned object as both [`WasmModule`] and [`TimedWasmModule`].
 pub fn create_runtime<H>(blob: &polkavm::ProgramBlob) -> Result<InstancePre, WasmError>
 where
 	H: HostFunctions,

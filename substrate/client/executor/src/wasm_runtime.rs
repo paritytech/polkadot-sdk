@@ -68,17 +68,19 @@ struct VersionedRuntimeId {
 	wasm_method: WasmExecutionMethod,
 }
 
-/// Timed counterpart of a cached runtime.
+/// Timed counterpart of a cached runtime's module.
 ///
 /// Filled synchronously for engines whose modules are timed-callable as-is (PolkaVM — same
 /// compile, uncapped), by a background compile thread for wasmtime (separate epoch-interruption
 /// compile). Always eventually set, so [`OnceLock::wait`] cannot hang.
-type TimedRuntimeSlot = Arc<OnceLock<Result<Box<dyn TimedWasmModule>, WasmError>>>;
+type TimedModuleSlot = Arc<OnceLock<Result<Box<dyn TimedWasmModule>, WasmError>>>;
 
 /// A Wasm runtime object along with its cached runtime version.
 struct VersionedRuntime {
 	/// Shared runtime that can spawn instances.
 	module: Box<dyn WasmModule>,
+	/// Timed counterpart of the module.
+	timed_module: TimedModuleSlot,
 	/// Runtime version according to `Core_version` if any.
 	version: Option<RuntimeVersion>,
 
@@ -86,9 +88,6 @@ struct VersionedRuntime {
 	//       for `wasmtime` is gone, as this only makes sense with that particular strategy.
 	/// Cached instance pool.
 	instances: Vec<Mutex<Option<Box<dyn WasmInstance>>>>,
-
-	/// Timed counterpart of the runtime.
-	timed: TimedRuntimeSlot,
 }
 
 impl VersionedRuntime {
@@ -186,7 +185,7 @@ impl VersionedRuntime {
 			&mut dyn Externalities,
 		) -> Result<R, Error>,
 	{
-		let module = self.timed.wait().as_ref().map_err(|e| Error::from(e.clone()))?;
+		let module = self.timed_module.wait().as_ref().map_err(|e| Error::from(e.clone()))?;
 		let mut instance = module.new_instance(heap_alloc_strategy)?;
 
 		f(&mut *instance, self.version.as_ref(), ext)
@@ -448,7 +447,7 @@ fn create_wasm_runtime_with_timed<H>(
 	blob: RuntimeBlob,
 	allow_missing_func_imports: bool,
 	cache_path: Option<&Path>,
-) -> Result<(Box<dyn WasmModule>, TimedRuntimeSlot), WasmError>
+) -> Result<(Box<dyn WasmModule>, TimedModuleSlot), WasmError>
 where
 	H: HostFunctions,
 {
@@ -479,23 +478,23 @@ where
 		cache_path,
 	)?;
 
-	let timed: TimedRuntimeSlot = Arc::new(OnceLock::new());
-	match wasm_method {
-		WasmExecutionMethod::Compiled { instantiation_strategy } => spawn_timed_compilation::<H>(
-			timed_blob,
-			// Reusing `cache_path` is safe: wasmtime keys on-disk artifacts on the full config,
-			// including the epoch-interruption flag forced by `create_timed_runtime`.
-			wasmtime_config(
-				heap_alloc_strategy,
-				instantiation_strategy,
-				allow_missing_func_imports,
-				cache_path,
-			),
-			timed.clone(),
-		),
-	}
+	let timed_module: TimedModuleSlot = Arc::new(OnceLock::new());
+	let WasmExecutionMethod::Compiled { instantiation_strategy } = wasm_method;
 
-	Ok((runtime, timed))
+	spawn_timed_compilation::<H>(
+		timed_blob,
+		// Reusing `cache_path` is safe: wasmtime keys on-disk artifacts on the full config,
+		// including the epoch-interruption flag forced by `create_timed_runtime`.
+		wasmtime_config(
+			heap_alloc_strategy,
+			instantiation_strategy,
+			allow_missing_func_imports,
+			cache_path,
+		),
+		timed_module.clone(),
+	);
+
+	Ok((runtime, timed_module))
 }
 
 /// Compile the timed counterpart of a wasmtime runtime in a detached background thread,
@@ -506,7 +505,7 @@ where
 fn spawn_timed_compilation<H>(
 	blob: RuntimeBlob,
 	config: sc_executor_wasmtime::Config,
-	slot: TimedRuntimeSlot,
+	slot: TimedModuleSlot,
 ) where
 	H: HostFunctions,
 {
@@ -632,7 +631,7 @@ where
 	// runtime.
 	let mut version = read_embedded_version(&blob)?;
 
-	let (runtime, timed) = create_wasm_runtime_with_timed::<H>(
+	let (runtime, timed_module) = create_wasm_runtime_with_timed::<H>(
 		wasm_method,
 		heap_alloc_strategy,
 		blob,
@@ -666,7 +665,7 @@ where
 	let mut instances = Vec::with_capacity(max_instances);
 	instances.resize_with(max_instances, || Mutex::new(None));
 
-	Ok(VersionedRuntime { module: runtime, version, instances, timed })
+	Ok(VersionedRuntime { module: runtime, timed_module, version, instances })
 }
 
 #[cfg(test)]
