@@ -1,6 +1,6 @@
 ## Cumulus on JAM — collator-side implementation scope
 
-The parachain-service document [1] describes the in-core (Refine/PVF) and on-chain (Accumulate)
+The parachain-service document [\[1\]](#ref-1) describes the in-core (Refine/PVF) and on-chain (Accumulate)
 logic of the Parachain Service, the PoV/work-item format and how parachain state lives in JAM
 state. It does not cover the collator side.
 
@@ -13,8 +13,8 @@ Bold names mark the identified work domains.
 
 ### 1. **JAM node interface** (counterpart of `RelayChainInterface`)
 - Add a `JamNodeInterface` alongside `RelayChainInterface` (parallel backends through the
-  transition, see 12), backed by **JIP-2 Node RPC** [4] (implementation-agnostic standard;
-  polkajam's `NodeInterface` [2] implements it): `bestBlock`/`finalizedBlock` + subscriptions,
+  transition, see 12), backed by **JIP-2 Node RPC** [\[4\]](#ref-4) (implementation-agnostic standard;
+  polkajam's `NodeInterface` [\[2\]](#ref-2) implements it): `bestBlock`/`finalizedBlock` + subscriptions,
   `parent`, `stateRoot`, `serviceValue`/subscription (→ para head & service state),
   `servicePreimage`, `submitWorkPackage(Bundle)`, `workPackageStatus`/subscription,
   `workReport`, `fetchSegments`, `submitPreimage`, `parameters` (all GP constants),
@@ -33,7 +33,7 @@ Bold names mark the identified work domains.
   (`parameters().recent_block_count`).
 - New: track coretime assignment + authorizer pool/queue per core; pick an anchor among recent
   JAM blocks whose timeslot maps to our collator index; drive the build timer from JAM's fixed
-  6s timeslots. Based on [1] §7.1 — explicitly a demonstration sketch, so anchor/slot-claiming
+  6s timeslots. Based on [\[1\]](#ref-1) §7.1 — explicitly a demonstration sketch, so anchor/slot-claiming
   rules are open design pending authorizer finalization.
 - AURA remap (runtime + node in lockstep): `can_build_upon`/`AuraUnincludedSegmentApi` and
   aura-ext `FixedVelocityConsensusHook` compare against the relay slot — must compare against
@@ -48,14 +48,14 @@ Bold names mark the identified work domains.
 
 ### 3. **Work package building & submission**
 - WP builder module: assemble work item (validation_code_hash + PoV as extrinsic data
-  [1] §3.2) + authorization token; import/export segments only if messaging uses DA (see 16).
+  [\[1\]](#ref-1) §3.2) + authorization token; import/export segments only if messaging uses DA (see 16).
 - No candidate receipt on JAM: descriptor, commitments and erasure coding are not collator
   concerns — the availability spec (erasure/segment roots) is computed by guarantors when
   building the work report; the collator submits only the bundle.
 - PoV compression: zstd today — decide if the WP extrinsic carries compressed PoV and who
   decompresses (Refine gas cost).
 - Submission: JIP-2 `submitWorkPackage(core, package, extrinsics)`; the node routes to the
-  assigned guarantors over JAMNP (CE-133 style; polkajam also has proxy fallback [3]) — phase
+  assigned guarantors over JAMNP (CE-133 style; polkajam also has proxy fallback [\[3\]](#ref-3)) — phase
   1 = submit via RPC to a (trusted) JAM node; direct JAMNP submission from the collator later.
 - Post-submission tracking: JIP-2 `workPackageStatus` (Reportable → Reported → Ready; no
   Accumulated status by design — accumulation observed via `subscribeServiceValue`) replaces
@@ -70,7 +70,7 @@ Bold names mark the identified work domains.
 ### 4. **Authorization token & collator keys**
 - `CollatorPair` is replaced by a key in the collator-set trie committed on the Coretime chain:
   membership Merkle proof + signature over the WP hash per submission. Token/config shapes
-  follow [1] §7.1 — a demonstration sketch; open design pending authorizer finalization.
+  follow [\[1\]](#ref-1) §7.1 — a demonstration sketch; open design pending authorizer finalization.
 - Authoritative set + root are owned by the parachain runtime + Coretime chain; the node only
   reconstructs the trie locally to produce its own proof. Keystore integration needed (today
   the collator key is generated ad hoc by the relay-node builder, not the keystore).
@@ -106,13 +106,13 @@ Bold names mark the identified work domains.
 - **bootnodes**: RFC-0008 discovery via relay DHT → JAM-DHT equivalent or static bootnodes.
 
 ### 8. **Inherent & host functions (inputs)**
-- Drop the relay-state-proof inherent; the PVF reads its inputs in-core. **Open [1] gap**:
+- Drop the relay-state-proof inherent; the PVF reads its inputs in-core. **Open [\[1\]](#ref-1) gap**:
   §4.3 exposes only preimage-by-hash lookups and the refine context — there is no generic
-  service-state read (para head, KV) host call; [1] says state arrives "through the
-  validation inputs" without defining the mechanism. Needs resolution on the [1] side.
+  service-state read (para head, KV) host call; [\[1\]](#ref-1) says state arrives "through the
+  validation inputs" without defining the mechanism. Needs resolution on the [\[1\]](#ref-1) side.
 - PVD remap: `relay_parent_number`/`storage_root` checks → refine-context anchor timeslot +
   posterior state root (thin adapter in `validate_validation_data`).
-- Code-upgrade signaling: go-ahead/restriction read from the relay proof → [1] §5.2 lifecycle
+- Code-upgrade signaling: go-ahead/restriction read from the relay proof → [\[1\]](#ref-1) §5.2 lifecycle
   (parachain-system change).
 - The inherent also carries DMP/HRMP message contents — inbound payloads move off-chain,
   transport per 16; descoped with messaging.
@@ -139,7 +139,7 @@ Bold names mark the identified work domains.
   JAM-service-blob output for a parachain PVF, not greenfield tooling.
 - `validate_block` rework: the entry point no longer returns a `ValidationResult` — outputs
   (head data, upward messages, code upgrade...) are emitted via host calls during Refine
-  ([1] §4.2/§4.3; `set_parent_head_hash`/`set_head` mandatory). Plus the host-function
+  ([\[1\]](#ref-1) §4.2/§4.3; `set_parent_head_hash`/`set_head` mandatory). Plus the host-function
   override stack: trie recorder + proof-size accounting (the `storage_proof_size` host fn /
   `StorageWeightReclaim` survive — proof size stays the DA weight dimension under PVM), and
   the hashmap-randomness seed (today the relay storage root → anchor state root).
@@ -154,7 +154,7 @@ Bold names mark the identified work domains.
 ### 13. **Onboarding / genesis tooling**
 - `export-genesis-head`/`export-genesis-wasm` produce artifacts for the relay registrar today;
   define the operator-side JAM flow (genesis head + PVF preimage → Coretime/service
-  registration, [1] §6.2). solo-to-para cutover pallet rides the same signals.
+  registration, [\[1\]](#ref-1) §6.2). solo-to-para cutover pallet rides the same signals.
 
 ### 14. **Dev & test environment**
 - Dev mode fabricates relay state (`MockValidationDataInherentDataProvider`, synthesized
@@ -168,14 +168,14 @@ Bold names mark the identified work domains.
   (`parachain_block_backed_duration` etc.).
 
 ### 16. **Messaging** — descoped for phase 1 (solo-chain semantics: no DMP/HRMP/XCMP).
-- Messaging on JAM is an open design. **Speculative Messaging** [5] (relay-era HRMP
-  replacement; the design [1] §8.2 references) prepares the ground: pallet, XCM router,
+- Messaging on JAM is an open design. **Speculative Messaging** [\[5\]](#ref-5) (relay-era HRMP
+  replacement; the design [\[1\]](#ref-1) §8.2 references) prepares the ground: pallet, XCM router,
   para p2p payload transport and runtime verification survive a port.
 - Its relay-anchored layer must be redesigned for CRJA: commitment signals → Refine side
   effects + service state, settlement → Accumulate-time check, and the latency-tier model
   re-evaluated (no same-block settlement on JAM).
 
-### Open questions toward [1]
+### Open questions toward the parachain-service design
 - Service-state read mechanism for the PVF ("validation inputs" — undefined; see 8).
 - Authorizer design finalization (§7.1 is a demonstration sketch; blocks 2 and 4).
 - Whether an anchor-offset policy (`RelayParentOffset` analog) needs in-core enforcement,
@@ -193,8 +193,9 @@ Bold names mark the identified work domains.
 - **Phase 3**: messaging (see 16).
 
 ### refs
-[1] [parachain-service-on-jam.md](https://github.com/paritytech/polkadot-sdk/blob/mku-cumulus-on-jam-doc/designs/parachain-service-on-jam/parachain-service-on-jam.md)
-[2] polkajam [`NodeInterface`](https://github.com/paritytech/polkajam/blob/main/crates/node/src/node/interface/mod.rs), [wp_status_tracker.rs](https://github.com/paritytech/polkajam/blob/main/crates/node/src/node/interface/wp_status_tracker.rs)
-[3] polkajam [work_package_submitter.rs](https://github.com/paritytech/polkajam/blob/main/crates/node/src/chain/guarantors/work_package_submitter.rs)
-[4] [JIP-2 (Node RPC)](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-2.md)
-[5] [Speculative Messaging: End To End Flow](https://docs.google.com/document/d/1P5d9lcvahDQproAGSEP55PdhKjIGBEoPtjXumYc_fCU); polkadot-sdk PRs [#10449](https://github.com/paritytech/polkadot-sdk/pull/10449), [#12226](https://github.com/paritytech/polkadot-sdk/pull/12226)
+
+- <a id="ref-1"></a>\[1\] [parachain-service-on-jam.md](https://github.com/paritytech/polkadot-sdk/blob/mku-cumulus-on-jam-doc/designs/parachain-service-on-jam/parachain-service-on-jam.md)
+- <a id="ref-2"></a>\[2\] polkajam [`NodeInterface`](https://github.com/paritytech/polkajam/blob/main/crates/node/src/node/interface/mod.rs), [wp_status_tracker.rs](https://github.com/paritytech/polkajam/blob/main/crates/node/src/node/interface/wp_status_tracker.rs)
+- <a id="ref-3"></a>\[3\] polkajam [work_package_submitter.rs](https://github.com/paritytech/polkajam/blob/main/crates/node/src/chain/guarantors/work_package_submitter.rs)
+- <a id="ref-4"></a>\[4\] [JIP-2 (Node RPC)](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-2.md)
+- <a id="ref-5"></a>\[5\] [Speculative Messaging: End To End Flow](https://docs.google.com/document/d/1P5d9lcvahDQproAGSEP55PdhKjIGBEoPtjXumYc_fCU); polkadot-sdk PRs [#10449](https://github.com/paritytech/polkadot-sdk/pull/10449), [#12226](https://github.com/paritytech/polkadot-sdk/pull/12226)
