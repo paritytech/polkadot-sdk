@@ -85,8 +85,14 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().balance(address).unvalidated();
-					at_block.runtime_apis().call(payload).await.map(|balance| balance.0).map_err(Into::into)
+					let payload =
+						subxt_client::runtime_apis().revive_api().balance(address).unvalidated();
+					at_block
+						.runtime_apis()
+						.call(payload)
+						.await
+						.map(|balance| balance.0)
+						.map_err(Into::into)
 				}
 			},
 			|_| {
@@ -125,7 +131,11 @@ impl VersionAwareRuntimeApi {
 						.revive_api()
 						.get_storage(contract_address, key)
 						.unvalidated();
-					at_block.runtime_apis().call(payload).await?.map_err(|_| ClientError::ContractNotFound)
+					at_block
+						.runtime_apis()
+						.call(payload)
+						.await?
+						.map_err(|_| ClientError::ContractNotFound)
 				}
 			},
 			|_| {
@@ -196,9 +206,10 @@ impl VersionAwareRuntimeApi {
 							timestamp_override,
 							state_overrides: None,
 						};
-						let payload = subxt_client::runtime_apis().revive_api().eth_estimate_gas_versioned(
-							EstimateGasVersionedInputPayload::from(input).into(),
-						);
+						let payload =
+							subxt_client::runtime_apis().revive_api().eth_estimate_gas_versioned(
+								EstimateGasVersionedInputPayload::from(input).into(),
+							);
 						at_block
 							.runtime_apis()
 							.call(payload)
@@ -246,9 +257,10 @@ impl VersionAwareRuntimeApi {
 							perform_balance_checks: true,
 							state_overrides,
 						};
-						let payload = subxt_client::runtime_apis().revive_api().eth_transact_versioned(
-							TransactVersionedInputPayload::from(input).into(),
-						);
+						let payload =
+							subxt_client::runtime_apis().revive_api().eth_transact_versioned(
+								TransactVersionedInputPayload::from(input).into(),
+							);
 						at_block
 							.runtime_apis()
 							.call(payload)
@@ -300,8 +312,10 @@ impl VersionAwareRuntimeApi {
 				let at_block = self.at_block.clone();
 				Some(
 					async move {
-						let payload =
-							subxt_client::runtime_apis().revive_api().eth_transact(tx.into()).unvalidated();
+						let payload = subxt_client::runtime_apis()
+							.revive_api()
+							.eth_transact(tx.into())
+							.unvalidated();
 						at_block
 							.runtime_apis()
 							.call(payload)
@@ -323,8 +337,14 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().nonce(address).unvalidated();
-					at_block.runtime_apis().call(payload).await.map(|nonce| nonce.into()).map_err(Into::into)
+					let payload =
+						subxt_client::runtime_apis().revive_api().nonce(address).unvalidated();
+					at_block
+						.runtime_apis()
+						.call(payload)
+						.await
+						.map(|nonce| nonce.into())
+						.map_err(Into::into)
 				}
 			},
 			|_| {
@@ -356,8 +376,14 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().gas_price().unvalidated();
-					at_block.runtime_apis().call(payload).await.map(|gas_price| gas_price.0).map_err(Into::into)
+					let payload =
+						subxt_client::runtime_apis().revive_api().gas_price().unvalidated();
+					at_block
+						.runtime_apis()
+						.call(payload)
+						.await
+						.map(|gas_price| gas_price.0)
+						.map_err(Into::into)
 				}
 			},
 			|_| {
@@ -388,17 +414,24 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().block_gas_limit().unvalidated();
-					at_block.runtime_apis().call(payload).await.map(|gas_limit| gas_limit.0).map_err(Into::into)
+					let payload =
+						subxt_client::runtime_apis().revive_api().block_gas_limit().unvalidated();
+					at_block
+						.runtime_apis()
+						.call(payload)
+						.await
+						.map(|gas_limit| gas_limit.0)
+						.map_err(Into::into)
 				}
 			},
 			|_| {
 				let at_block = self.at_block.clone();
 				async move {
 					let input = BlockGasLimitInputPayloadV1;
-					let payload = subxt_client::runtime_apis().revive_api().block_gas_limit_versioned(
-						BlockGasLimitVersionedInputPayload::from(input).into(),
-					);
+					let payload =
+						subxt_client::runtime_apis().revive_api().block_gas_limit_versioned(
+							BlockGasLimitVersionedInputPayload::from(input).into(),
+						);
 					at_block
 						.runtime_apis()
 						.call(payload)
@@ -420,7 +453,8 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().block_author().unvalidated();
+					let payload =
+						subxt_client::runtime_apis().revive_api().block_author().unvalidated();
 					at_block.runtime_apis().call(payload).await.map_err(Into::into)
 				}
 			},
@@ -596,9 +630,10 @@ impl VersionAwareRuntimeApi {
 							config: tracer_type,
 							state_overrides,
 						};
-						let payload = subxt_client::runtime_apis().revive_api().trace_call_versioned(
-							TraceCallVersionedInputPayload::from(input).into(),
-						);
+						let payload =
+							subxt_client::runtime_apis().revive_api().trace_call_versioned(
+								TraceCallVersionedInputPayload::from(input).into(),
+							);
 						at_block
 							.runtime_apis()
 							.call(payload)
@@ -651,7 +686,8 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().code(address).unvalidated();
+					let payload =
+						subxt_client::runtime_apis().revive_api().code(address).unvalidated();
 					at_block.runtime_apis().call(payload).await.map_err(Into::into)
 				}
 			},
@@ -683,8 +719,14 @@ impl VersionAwareRuntimeApi {
 			|| {
 				let at_block = self.at_block.clone();
 				async move {
-					let payload = subxt_client::runtime_apis().revive_api().eth_block().unvalidated();
-					at_block.runtime_apis().call(payload).await.map(|block| block.0).map_err(Into::into)
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_block().unvalidated();
+					at_block
+						.runtime_apis()
+						.call(payload)
+						.await
+						.map(|block| block.0)
+						.map_err(Into::into)
 				}
 			},
 			|_| {
@@ -729,9 +771,10 @@ impl VersionAwareRuntimeApi {
 				let at_block = self.at_block.clone();
 				async move {
 					let input = BlockHashInputPayloadV1 { block_number: number };
-					let payload = subxt_client::runtime_apis().revive_api().eth_block_hash_versioned(
-						BlockHashVersionedInputPayload::from(input).into(),
-					);
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_block_hash_versioned(
+							BlockHashVersionedInputPayload::from(input).into(),
+						);
 					at_block
 						.runtime_apis()
 						.call(payload)
@@ -769,9 +812,10 @@ impl VersionAwareRuntimeApi {
 				let at_block = self.at_block.clone();
 				async move {
 					let input = ReceiptDataInputPayloadV1;
-					let payload = subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
-						ReceiptDataVersionedInputPayload::from(input).into(),
-					);
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
+							ReceiptDataVersionedInputPayload::from(input).into(),
+						);
 					at_block
 						.runtime_apis()
 						.call(payload)
