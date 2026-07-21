@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784547861535,
+  "lastUpdate": 1784629995914,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e588acf5e12b14c68331d2e08afe7c12d6671df9",
-          "message": "pallet-revive: add DebugSetting for bypassing eip-3607 (#10387)\n\nOnly works for contract accounts, not precompiles.\nThis is needed so that test nodes like anvil can send transactions from\ncontract accounts, a widely-used feature in tests\n\nNeeded for https://github.com/paritytech/foundry-polkadot/pull/423",
-          "timestamp": "2025-11-24T13:52:50Z",
-          "tree_id": "60ed8cd8e2ccbb73ceb16405548c0f1817a4f756",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e588acf5e12b14c68331d2e08afe7c12d6671df9"
-        },
-        "date": 1763996418318,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15797080166000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022510395700000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013079196186666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007308234226666654,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007229314079999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8630d5bb8d26e61fce0bbcab43ddaa8d62f1cd0a",
+          "message": "`staking-async`: include the unlock era in the Unbonded event (#12630)\n\nresolves #12578\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-07-21T08:52:36Z",
+          "tree_id": "ce8a4d5fd6f643e82231aa0231b38786b4a98c1d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8630d5bb8d26e61fce0bbcab43ddaa8d62f1cd0a"
+        },
+        "date": 1784629964602,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02279972703333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007859261766666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14810883368666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00999041405333333,
             "unit": "seconds"
           }
         ]
