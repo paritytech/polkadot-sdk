@@ -101,6 +101,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 		CandidateDescriptorVersion::V2,
 		HashMap::from([(ParaId::from(3000), 40..51)]),
 		50,
+		None,
 	)
 	.await?;
 

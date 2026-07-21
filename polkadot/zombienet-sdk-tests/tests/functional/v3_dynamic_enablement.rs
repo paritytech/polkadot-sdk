@@ -24,16 +24,20 @@ use crate::utils::{
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assign_cores, wait_for_nth_session_change, wait_for_runtime_upgrade,
+	assert_finality_lag, assign_cores, current_session_index, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::{node_features::FeatureIndex, CandidateDescriptorVersion, Id as ParaId};
 use serde_json::json;
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx::dynamic, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
+
+/// Relay config changes (node features included) enact `SESSION_DELAY` sessions after the session
+/// they are applied in. Mirrors `polkadot_runtime_parachains::shared::SESSION_DELAY`.
+const SESSION_DELAY: u32 = 2;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
@@ -80,7 +84,7 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 			let r = (1..4).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			});
-			(4..8).fold(r, |acc, i| {
+			(4..10).fold(r, |acc, i| {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lparachain=debug,runtime=debug,parachain::collator-protocol=trace")
@@ -161,25 +165,24 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 5..15), (para_2901, 15..40), (para_2902, 5..15)]),
+		HashMap::from([(para_2900, 7..11), (para_2901, 17..31), (para_2902, 7..11)]),
 		10,
+		None,
 	)
 	.await?;
 
 	// off/off → on/off: enable the relay feature. Para 2902 still runs the V2 runtime
 	log::info!("state on/off (relay on, para off) → V2");
 	enable_node_features(&relay_client, &[4]).await?;
-	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	tokio::time::timeout(Duration::from_secs(300), wait_for_nth_session_change(&mut sub, 1))
-		.await
-		.map_err(|_| {
-			anyhow!("timed out after 300s waiting for 1 session change (on/off state)")
-		})??;
+	let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
+	// 2902 is still on the V2 runtime, so it stays V2 once the feature is enacted. Anchoring here
+	// also guarantees the feature is active before the on/on step upgrades the para to v3.
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2902, 3..20)]),
+		HashMap::from([(para_2900, 7..11), (para_2901, 17..31), (para_2902, 7..11)]),
 		10,
+		Some(enactment_session),
 	)
 	.await?;
 
@@ -204,31 +207,24 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
-		HashMap::from([(para_2902, 3..20)]),
+		HashMap::from([(para_2902, 7..11)]),
 		10,
+		None,
 	)
 	.await?;
 
-	// on/on → off/on: disable the relay feature while 2902 keeps the v3 runtime. The collator falls
-	// back to V2 and the para must keep producing (the case this fix enables). The change applies
-	// at session+2 (SESSION_DELAY); wait 2 session changes so the V3 tail has drained before
-	// asserting.
+	// on/on → off/on: disable the relay feature while 2902 keeps the v3 runtime. It must fall back
+	// to V2 and keep producing (the case this fix enables); anchor to the enactment session so the
+	// V3 tail is skipped. All three paras are V2 here.
 	log::info!("state off/on (relay off, para on) → V2 (fallback)");
 	disable_node_features(&relay_client, &[4]).await?;
-	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	// 480s: generous wall-clock limit so a stalled block stream fails loudly instead of hanging CI.
-	tokio::time::timeout(Duration::from_secs(480), wait_for_nth_session_change(&mut sub, 2))
-		.await
-		.map_err(|_| {
-			anyhow!("timed out after 480s waiting for 2 session changes (off/on state)")
-		})??;
-	// 2902 has fallen back to V2; 2900 (basic) and 2901 (elastic) run the V2 runtime throughout,
-	// so all three are V2.
+	let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2902, 3..20), (para_2900, 3..20), (para_2901, 10..50)]),
+		HashMap::from([(para_2900, 7..11), (para_2901, 17..31), (para_2902, 7..11)]),
 		10,
+		Some(enactment_session),
 	)
 	.await?;
 
@@ -242,14 +238,14 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	assert_validator_backed_candidates(relay_node, 30).await?;
-	for i in 4..=7 {
+	for i in 4..=9 {
 		let node = network.get_node(format!("validator-{i}"))?;
 		assert_validator_backed_candidates(node, 30).await?;
 	}
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
 	assert_finality_lag(&para_node_slot.wait_client().await?, 15).await?;
-	assert_finality_lag(&para_node_v3.wait_client().await?, 15).await?;
+	assert_finality_lag(&para_node_v3.wait_client().await?, 6).await?;
 
 	log::info!("V3 dynamic enablement test (relay then para enablement) finished successfully");
 
@@ -341,22 +337,22 @@ async fn v3_relay_feature_rollback_keeps_para_producing() -> Result<(), anyhow::
 		CandidateDescriptorVersion::V3,
 		HashMap::from([(para_2902, 5..25)]),
 		20,
+		None,
 	)
 	.await?;
 
 	// on/on → off/on: roll back only the relay feature. The para keeps the v3 runtime and must keep
-	// producing, now as V2 with the offset still 2 (the case the claim-queue-offset bound fix
-	// enables). The change applies at session+2 (SESSION_DELAY); wait 2 session changes so the V3
-	// tail has drained before asserting.
+	// producing as V2 with the offset still 2 (the case the claim-queue-offset bound fix enables).
+	// Anchor to the enactment session so the V3 tail is skipped.
 	log::info!("state off/on (relay off, para v3+offset2) → V2 (fallback)");
 	disable_node_features(&relay_client, &[4]).await?;
-	let mut sub = relay_client.blocks().subscribe_finalized().await?;
-	wait_for_nth_session_change(&mut sub, 2).await?;
+	let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
 		HashMap::from([(para_2902, 5..15)]),
 		15,
+		Some(enactment_session),
 	)
 	.await?;
 

@@ -216,55 +216,64 @@ pub async fn assert_candidates_version(
 	expected_version: CandidateDescriptorVersion,
 	expected_ranges: HashMap<ParaId, Range<u32>>,
 	max_blocks: u32,
+	min_session_index: Option<u32>,
 ) -> Result<(), anyhow::Error> {
-	assert_para_throughput_with(relay_client, max_blocks, expected_ranges, |receipt| {
-		let para_id = receipt.descriptor.para_id();
-		let version = receipt.descriptor.version();
-		log::info!(
-			"Para {} candidate backed: version={:?}, \
+	assert_para_throughput_with(
+		relay_client,
+		max_blocks,
+		expected_ranges,
+		min_session_index,
+		|receipt| {
+			let para_id = receipt.descriptor.para_id();
+			let version = receipt.descriptor.version();
+			log::info!(
+				"Para {} candidate backed: version={:?}, \
 			 relay_parent={:?}, \
 			 session_index={:?}, \
 			 scheduling_parent={:?}",
-			para_id,
-			version,
-			receipt.descriptor.relay_parent(),
-			receipt.descriptor.session_index(),
-			receipt.descriptor.scheduling_parent(),
-		);
-
-		if version != expected_version {
-			return Err(anyhow!(
-				"Para {para_id} candidate has version {:?}, expected {:?}",
+				para_id,
 				version,
-				expected_version,
-			));
-		}
+				receipt.descriptor.relay_parent(),
+				receipt.descriptor.session_index(),
+				receipt.descriptor.scheduling_parent(),
+			);
 
-		if expected_version == CandidateDescriptorVersion::V2 {
-			if receipt.descriptor.session_index().is_none() {
-				return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
-			}
-			if receipt.descriptor.relay_parent() != receipt.descriptor.scheduling_parent() {
+			if version != expected_version {
 				return Err(anyhow!(
-					"Para {para_id} V2 candidate has scheduling_parent={:?} \
-					 != relay_parent={:?}",
-					receipt.descriptor.scheduling_parent(),
-					receipt.descriptor.relay_parent(),
+					"Para {para_id} candidate has version {:?}, expected {:?}",
+					version,
+					expected_version,
 				));
 			}
-		}
 
-		if expected_version == CandidateDescriptorVersion::V3 {
-			if receipt.descriptor.session_index().is_none() {
-				return Err(anyhow!("Para {para_id} V3 candidate has session_index=None"));
+			if expected_version == CandidateDescriptorVersion::V2 {
+				if receipt.descriptor.session_index().is_none() {
+					return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
+				}
+				if receipt.descriptor.relay_parent() != receipt.descriptor.scheduling_parent() {
+					return Err(anyhow!(
+						"Para {para_id} V2 candidate has scheduling_parent={:?} \
+					 != relay_parent={:?}",
+						receipt.descriptor.scheduling_parent(),
+						receipt.descriptor.relay_parent(),
+					));
+				}
 			}
-			if receipt.descriptor.scheduling_session().is_none() {
-				return Err(anyhow!("Para {para_id} V3 candidate hash scheduling_session=None"));
-			}
-		}
 
-		Ok(true)
-	})
+			if expected_version == CandidateDescriptorVersion::V3 {
+				if receipt.descriptor.session_index().is_none() {
+					return Err(anyhow!("Para {para_id} V3 candidate has session_index=None"));
+				}
+				if receipt.descriptor.scheduling_session().is_none() {
+					return Err(anyhow!(
+						"Para {para_id} V3 candidate hash scheduling_session=None"
+					));
+				}
+			}
+
+			Ok(true)
+		},
+	)
 	.await
 }
 

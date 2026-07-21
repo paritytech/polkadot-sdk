@@ -66,6 +66,8 @@ where
 {
 	let first_block = block_data.blocks().first().expect("Parachain block data has no blocks");
 
+	// `set_validation_data` is a mandatory inherent, so it sits at the very front of the extrinsic
+	// list; this scan hits it within the first few items and returns immediately.
 	for xt in first_block.extrinsics() {
 		let Ok(xt) = xt else { continue };
 		if let Some(crate::Call::set_validation_data { data, .. }) = xt.call().is_sub_type() {

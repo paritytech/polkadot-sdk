@@ -627,41 +627,6 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
-			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
-			//
-			// The bound `max_claim_queue_offset() + relay_parent_offset` is applied
-			// unconditionally as an intentional upper bound across both scheduling regimes:
-			//   - V3 dynamically active (para const on AND relay `CandidateReceiptV3` feature on):
-			//     the tighter bound `max_claim_queue_offset()` is enforced against the signed
-			//     scheduling payload in `validate_block/scheduling.rs`; a healthy V3 collator
-			//     emitting an offset above that is caught there (or by the relay's own
-			//     `check_version_acceptance`), not here.
-			//   - V2 fallback (const off OR relay feature off, e.g. during a relay rollback): the
-			//     collator looks up the claim queue at the relay parent, which is
-			//     `relay_parent_offset` behind the tip, so the wider bound is the correct cap.
-			//
-			// `on_initialize` runs before the relay state proof is read, so it cannot observe
-			// whether V3 is dynamically active. Applying the wider bound unconditionally is a
-			// cheap defence-in-depth sanity check that never rejects a legitimate candidate.
-			match CumulusDigestItem::core_info_exists_at_max_once(
-				&frame_system::Pallet::<T>::digest(),
-			) {
-				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					let max_allowed_offset = Self::max_claim_queue_offset()
-						.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>());
-					assert!(
-						core_info.claim_queue_offset.0 <= max_allowed_offset,
-						"claim_queue_offset {} exceeds maximum allowed {}",
-						core_info.claim_queue_offset.0,
-						max_allowed_offset,
-					);
-				},
-				CoreInfoExistsAtMaxOnce::NotFound => {},
-				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
-					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
-				},
-			}
-
 			weight
 		}
 	}
@@ -749,6 +714,31 @@ pub mod pallet {
 						error: {err:?}"
 					);
 				};
+			}
+
+			// Ensure the `CoreInfo` digest exists at most once and bound `claim_queue_offset`. On the
+			// v2 fallback the collator looks up at the relay parent, so the bound widens by
+			// `relay_parent_offset`; under active v3 it looks up at the (fresh) scheduling parent.
+			match CumulusDigestItem::core_info_exists_at_max_once(
+				&frame_system::Pallet::<T>::digest(),
+			) {
+				CoreInfoExistsAtMaxOnce::Once(core_info) => {
+					let mut max_allowed_offset = Self::max_claim_queue_offset();
+					if !v3_dynamically_active {
+						max_allowed_offset = max_allowed_offset
+							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>());
+					}
+					assert!(
+						core_info.claim_queue_offset.0 <= max_allowed_offset,
+						"claim_queue_offset {} exceeds maximum allowed {}",
+						core_info.claim_queue_offset.0,
+						max_allowed_offset,
+					);
+				},
+				CoreInfoExistsAtMaxOnce::NotFound => {},
+				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
+					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				},
 			}
 
 			// Update the desired maximum capacity according to the consensus hook.
