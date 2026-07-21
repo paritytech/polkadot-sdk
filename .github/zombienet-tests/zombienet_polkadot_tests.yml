@@ -235,6 +235,18 @@
   runner-type: "default"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
+  additional-setup: |
+    BIN_DIR="$(pwd)/bin_old"
+    mkdir -p $BIN_DIR
+    echo "downloading test-parachain as test-parachain-old in $BIN_DIR"
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/test-parachain-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/test-parachain
+    chmod 755 $BIN_DIR/test-parachain-old
+    ls -ltr $BIN_DIR
+    export PATH=$BIN_DIR:$PATH
+    echo "PATH=$PATH" >> $GITHUB_ENV
+  additional-env:
+    OLD_CUMULUS_IMAGE: "docker.io/paritypr/test-parachain:master-187cddde"
+    OLD_CUMULUS_COMMAND: "test-parachain-old"
 
 - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
   test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"
