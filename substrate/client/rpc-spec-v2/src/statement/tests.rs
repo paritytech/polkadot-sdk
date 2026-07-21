@@ -17,9 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	error::{
-		json_rpc_spec::INVALID_PARAM_ERROR, rpc_spec_v2::INVALID_SUBSCRIPTION,
-	},
+	error::{json_rpc_spec::INVALID_PARAM_ERROR, rpc_spec_v2::INVALID_SUBSCRIPTION},
 	StatementSpec, StatementSpecApiServer, SubmitOutcome,
 };
 use codec::Encode;
@@ -302,10 +300,7 @@ async fn submit_rejects_trailing_bytes_after_a_statement() {
 	invalid_encoding.push(0);
 
 	let err = rpc
-		.call::<_, SubmitOutcome>(
-			"statement_unstable_submit",
-			(Bytes::from(invalid_encoding),),
-		)
+		.call::<_, SubmitOutcome>("statement_unstable_submit", (Bytes::from(invalid_encoding),))
 		.await
 		.expect_err("trailing bytes must make the SCALE encoding invalid");
 	let object = match err {
