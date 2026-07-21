@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StateAccessWarmth, Warmth},
+	access_list::{CallWarmth, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -136,7 +136,7 @@ pub enum RuntimeCosts {
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
 	TakeStorage { len: u32, kind: ContractStorageKind },
 	/// Base weight of a call-family opcode.
-	CallBase(StateAccessWarmth),
+	CallBase(CallWarmth),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -399,7 +399,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				StateAccessWarmth::Call { account, contract_info } => cold_hot_base::<T>(
+				CallWarmth::Call { account, contract_info } => cold_hot_base::<T>(
 					&[account, contract_info],
 					3, // probes: address mapping, system account, contract info
 					CostPair {
@@ -407,7 +407,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 						hot: T::WeightInfo::seal_call_hot,
 					},
 				),
-				StateAccessWarmth::DelegateCall { contract_info } => cold_hot_base::<T>(
+				CallWarmth::DelegateCall { contract_info } => cold_hot_base::<T>(
 					&[contract_info],
 					1, // probe: the callee's contract info
 					CostPair {
@@ -516,15 +516,15 @@ mod tests {
 		let cold_revertible = Warmth::Cold { revertible: true };
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
-		let all_hot = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
+		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
 			account: hot,
 			contract_info: hot,
 		}));
-		let all_cold = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
+		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
 			account: cold,
 			contract_info: cold,
 		}));
-		let mixed = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
+		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
 			account: cold,
 			contract_info: hot,
 		}));
@@ -537,7 +537,7 @@ mod tests {
 		assert!(all_cold.proof_size() > 0, "cold call pays proof size: {all_cold:?}");
 		assert!(mixed.proof_size() > 0, "any cold item prices the full cold base: {mixed:?}",);
 
-		let revertible = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
+		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
 			account: cold_revertible,
 			contract_info: cold,
 		}));
@@ -546,12 +546,10 @@ mod tests {
 			"a revertible cold touch prepays the rollback: rev={revertible:?} cold={all_cold:?}",
 		);
 
-		let delegate_hot = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::DelegateCall {
-			contract_info: hot,
-		}));
-		let delegate_cold = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::DelegateCall {
-			contract_info: cold,
-		}));
+		let delegate_hot =
+			weight_of(RuntimeCosts::CallBase(CallWarmth::DelegateCall { contract_info: hot }));
+		let delegate_cold =
+			weight_of(RuntimeCosts::CallBase(CallWarmth::DelegateCall { contract_info: cold }));
 		assert!(
 			delegate_cold.ref_time() >= delegate_hot.ref_time(),
 			"cold delegate call must not be cheaper than hot: cold={delegate_cold:?} hot={delegate_hot:?}",

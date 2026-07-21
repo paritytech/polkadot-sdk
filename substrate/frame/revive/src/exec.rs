@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, ContractStorageKind, Error, Event, ImmutableData,
 	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateAccessWarmth},
+	access_list::{AccessEntry, AccessList, CallKind, CallWarmth, CodeLoadWarmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -554,8 +554,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Non-mutating sibling of `touch_storage_access`.
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> ContractStorageKind;
 
-	/// Warmth of the state items `access` reads.
-	fn warmth_of(&self, access: StateAccess) -> StateAccessWarmth;
+	/// Warmth of the state items this call reads.
+	fn call_warmth_of(&self, kind: CallKind) -> CallWarmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1093,15 +1093,15 @@ where
 				//
 				// Precompiles are not warmed. Reuse the `precompile` lookup for
 				// a plain call; a delegate call reuses its own.
-				let (access, target_is_precompile) = match &delegated_call {
-					None => (StateAccess::Call { target: address }, precompile.is_some()),
+				let (kind, target_is_precompile) = match &delegated_call {
+					None => (CallKind::Call { target: address }, precompile.is_some()),
 					Some(delegated) => (
-						StateAccess::DelegateCall { target: delegated.callee },
+						CallKind::DelegateCall { target: delegated.callee },
 						delegate_precompile.is_some(),
 					),
 				};
 				if !target_is_precompile {
-					access_list.warm(access);
+					access_list.warm_call(kind);
 				}
 
 				// which contract info to load is unaffected by the fact if this
@@ -1944,10 +1944,10 @@ where
 		self.block_number = block_number;
 	}
 
-	/// Touches the access-list entries `access` reads, plus the code, as if the call already ran.
+	/// Touches the access-list entries the call reads, plus the code, as if the call already ran.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn touch_call_target(&mut self, access: StateAccess, code_hash: H256) {
-		self.access_list.warm(access);
+	pub(crate) fn touch_call_target(&mut self, kind: CallKind, code_hash: H256) {
+		self.access_list.warm_call(kind);
 		self.access_list.warm_code(code_hash);
 	}
 
@@ -2688,8 +2688,8 @@ where
 		)
 	}
 
-	fn warmth_of(&self, access: StateAccess) -> StateAccessWarmth {
-		self.access_list.warmth_of(access)
+	fn call_warmth_of(&self, kind: CallKind) -> CallWarmth {
+		self.access_list.call_warmth_of(kind)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

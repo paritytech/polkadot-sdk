@@ -149,38 +149,37 @@ impl CodeLoadWarmth {
 	}
 }
 
-/// A call-family opcode's state access, tracked by the access list. Storage
-/// opcodes touch [`AccessEntry::Storage`] directly and are not modelled here.
-pub enum StateAccess {
+/// A call-family opcode (Call/DelegateCall).
+pub enum CallKind {
 	Call { target: H160 },
 	DelegateCall { target: H160 },
 }
 
-impl StateAccess {
-	/// The state access of a call or delegate call.
+impl CallKind {
+	/// Builds a [`CallKind`] from the given address and delegate flag.
 	pub fn new(target: H160, delegate: bool) -> Self {
 		if delegate { Self::DelegateCall { target } } else { Self::Call { target } }
 	}
 
-	/// Maps `warmth_of` over each state item this access reads and collects
-	/// the results into a [`StateAccessWarmth`].
-	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateAccessWarmth {
+	/// Maps `warmth_of` over each state item this call reads and collects
+	/// the results into a [`CallWarmth`].
+	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> CallWarmth {
 		match self {
-			Self::Call { target } => StateAccessWarmth::Call {
+			Self::Call { target } => CallWarmth::Call {
 				account: warmth_of(AccessEntry::Account { address: target }),
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
-			Self::DelegateCall { target } => StateAccessWarmth::DelegateCall {
+			Self::DelegateCall { target } => CallWarmth::DelegateCall {
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
 		}
 	}
 }
 
-/// Warmth of the read state items, one variant per [`StateAccess`] opcode.
+/// Warmth of the state items a [`CallKind`] reads, one variant per opcode.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
-pub enum StateAccessWarmth {
+pub enum CallWarmth {
 	/// A call reads the target's account state and contract metadata.
 	Call { account: Warmth, contract_info: Warmth },
 	/// A delegate call runs in the caller's context and reads only the
@@ -342,18 +341,17 @@ impl AccessList {
 		kind
 	}
 
-	/// Warms every state item `access` reads, returning its warmth. Keeps the
-	/// per-entry `touch` an `AccessList` detail: callers speak opcodes.
-	pub fn warm(&mut self, access: StateAccess) -> StateAccessWarmth {
-		access.expand(|entry| self.touch(entry))
+	/// Warms every state item this call reads, returning its warmth.
+	pub fn warm_call(&mut self, kind: CallKind) -> CallWarmth {
+		kind.expand(|entry| self.touch(entry))
 	}
 
-	/// Non-mutating sibling of [`warm`](Self::warm): the warmth without registering.
-	pub fn warmth_of(&self, access: StateAccess) -> StateAccessWarmth {
-		access.expand(|entry| self.peek(&entry))
+	/// Non-mutating sibling of [`warm_call`](Self::warm_call): the warmth without registering.
+	pub fn call_warmth_of(&self, kind: CallKind) -> CallWarmth {
+		kind.expand(|entry| self.peek(&entry))
 	}
 
-	/// Registers the two entries a code load reads, returning their warmth.
+	/// Warms the two entries a code load reads, returning their warmth.
 	pub fn warm_code(&mut self, hash: H256) -> CodeLoadWarmth {
 		CodeLoadWarmth {
 			info: self.touch(AccessEntry::CodeInfo { hash }),
@@ -486,8 +484,8 @@ mod tests {
 		// The set is below the cap, so peek prices both call entries revertible
 		// cold: it cannot see that touching the first entry fills the cap.
 		assert_eq!(
-			al.warmth_of(StateAccess::Call { target }),
-			StateAccessWarmth::Call {
+			al.call_warmth_of(CallKind::Call { target }),
+			CallWarmth::Call {
 				account: Warmth::Cold { revertible: true },
 				contract_info: Warmth::Cold { revertible: true },
 			},
@@ -496,8 +494,8 @@ mod tests {
 
 		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
 		assert_eq!(
-			al.warm(StateAccess::Call { target }),
-			StateAccessWarmth::Call {
+			al.warm_call(CallKind::Call { target }),
+			CallWarmth::Call {
 				account: Warmth::Cold { revertible: true },
 				contract_info: Warmth::cold_non_revertible(),
 			},
