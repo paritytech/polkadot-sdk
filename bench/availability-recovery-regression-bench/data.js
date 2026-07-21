@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784547821404,
+  "lastUpdate": 1784629956244,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "38abd89401c6f15f0a6a5c62becd096917875499",
-          "message": "[Release|CI/CD] Combine Promote rc to final, Publish debian, Publish RPM and Publish docker pipelines (#10274)\n\nhttps://github.com/paritytech/devops/issues/3830\n\n---------\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
-          "timestamp": "2025-11-24T14:49:09Z",
-          "tree_id": "e9f6ea4bd65ba3cd3e8cc360f946a1bf5e2340dd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38abd89401c6f15f0a6a5c62becd096917875499"
-        },
-        "date": 1764000487974,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19937569279999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.277129993233334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.178656531666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8630d5bb8d26e61fce0bbcab43ddaa8d62f1cd0a",
+          "message": "`staking-async`: include the unlock era in the Unbonded event (#12630)\n\nresolves #12578\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-07-21T08:52:36Z",
+          "tree_id": "ce8a4d5fd6f643e82231aa0231b38786b4a98c1d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8630d5bb8d26e61fce0bbcab43ddaa8d62f1cd0a"
+        },
+        "date": 1784629925264,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.332533075899999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12999707806666666,
             "unit": "seconds"
           }
         ]
