@@ -73,7 +73,7 @@ pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
 pub const MAX_ACCESS_LIST_BYTES: u32 =
 	MAX_ACCESS_LIST_ENTRIES.saturating_mul(MAX_ACCESS_LIST_ENTRY_BYTES) as u32;
 
-/// Storage slot identifier for an access-list entry.
+/// The storage key of an [`AccessEntry::Storage`] entry.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum Slot {
 	/// Fixed 32-byte storage key.
@@ -110,14 +110,14 @@ impl From<&Key> for Slot {
 pub enum Warmth {
 	/// Entry is in the access list.
 	Hot,
-	/// Entry is not in the access list; when `revertible` is true, the touch
-	/// journals the entry under the open frame, so a `rollback_frame` drops
-	/// it and the entry becomes cold again.
+	/// Entry is not in the access list; when `revertible` is true, the touch is
+	/// tied to the current frame, so a `rollback_frame` drops it and the entry
+	/// becomes cold again.
 	Cold { revertible: bool },
 }
 
 impl Warmth {
-	pub fn cold_nonrevertible() -> Self {
+	pub fn cold_non_revertible() -> Self {
 		Self::Cold { revertible: false }
 	}
 
@@ -125,6 +125,7 @@ impl Warmth {
 		matches!(self, Self::Hot)
 	}
 
+	/// Converts a cold touch to non-revertible.
 	pub fn non_revertible(self) -> Self {
 		match self {
 			Self::Hot => Self::Hot,
@@ -143,33 +144,13 @@ pub struct CodeLoadWarmth {
 }
 
 impl CodeLoadWarmth {
-	pub fn cold_nonrevertible() -> Self {
-		Self { info: Warmth::cold_nonrevertible(), blob: Warmth::cold_nonrevertible() }
+	pub fn cold_non_revertible() -> Self {
+		Self { info: Warmth::cold_non_revertible(), blob: Warmth::cold_non_revertible() }
 	}
 }
 
-/// Classification of a storage access for pricing.
-#[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Clone, Copy, Debug)]
-pub enum StorageAccessKind {
-	/// Persistent storage, tracked by the access list.
-	Persistent(Warmth),
-	/// Transient storage, not tracked by the access list.
-	Transient,
-}
-
-impl StorageAccessKind {
-	/// See [`Warmth::non_revertible`].
-	pub fn non_revertible(self) -> Self {
-		match self {
-			Self::Persistent(warmth) => Self::Persistent(warmth.non_revertible()),
-			Self::Transient => Self::Transient,
-		}
-	}
-}
-
-/// A state access of an opcode, tracked by the access list.
-#[derive(Clone, Copy)]
+/// A call-family opcode's state access, tracked by the access list. Storage
+/// opcodes touch [`AccessEntry::Storage`] directly and are not modelled here.
 pub enum StateAccess {
 	Call { target: H160 },
 	DelegateCall { target: H160 },
@@ -182,14 +163,14 @@ impl StateAccess {
 	}
 
 	/// Maps `warmth_of` over each state item this access reads and collects
-	/// the results into a [`StateAccessKind`].
-	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateAccessKind {
+	/// the results into a [`StateAccessWarmth`].
+	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateAccessWarmth {
 		match self {
-			Self::Call { target } => StateAccessKind::Call {
+			Self::Call { target } => StateAccessWarmth::Call {
 				account: warmth_of(AccessEntry::Account { address: target }),
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
-			Self::DelegateCall { target } => StateAccessKind::DelegateCall {
+			Self::DelegateCall { target } => StateAccessWarmth::DelegateCall {
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
 		}
@@ -199,7 +180,7 @@ impl StateAccess {
 /// Warmth of the read state items, one variant per [`StateAccess`] opcode.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
-pub enum StateAccessKind {
+pub enum StateAccessWarmth {
 	/// A call reads the target's account state and contract metadata.
 	Call { account: Warmth, contract_info: Warmth },
 	/// A delegate call runs in the caller's context and reads only the
@@ -221,7 +202,7 @@ pub struct AccessListMetrics {
 /// One entry per distinct state item accessed in the current transaction.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum AccessEntry {
-	/// Account-level state of `address`.
+	/// Account at `address`: both `System::Account` and `OriginalAccount`.
 	Account { address: H160 },
 	/// A contract storage slot. Field order is `slot, address` so comparison
 	/// decides on `slot` first, the most-discriminating field in the typical
@@ -240,11 +221,13 @@ pub enum AccessEntry {
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
 /// set, a flat journal of insertions, and journal-index checkpoints.
 ///
-/// # Safety invariant
+/// A reverting frame rolls back every entry it touched, regardless of whether
+/// the touch happened before or after its charge:
 ///
-/// Storage opcodes touch before charging, so reverts must roll back the
-/// touches the reverted frame made; otherwise an out-of-gas at the charge
-/// would leave the entry warm without its cold cost ever being paid.
+/// - Touch before charge: an out-of-gas at the charge must not leave the entry warm without its
+///   cold cost ever being paid.
+/// - Charge before touch: a reverting frame discards the warmth it added (EIP-2929 revert
+///   semantics).
 
 #[derive(Default)]
 pub struct AccessList {
@@ -306,18 +289,6 @@ impl AccessList {
 		}
 	}
 
-	/// Non-mutating sibling of [`touch`](Self::touch): the `Warmth` a touch
-	/// of this entry would return.
-	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
-		if self.accessed.contains(entry) {
-			Warmth::Hot
-		} else if self.is_full() {
-			Warmth::cold_nonrevertible()
-		} else {
-			Warmth::Cold { revertible: self.in_nested_frame() }
-		}
-	}
-
 	/// Whether the set is at the entry cap.
 	fn is_full(&self) -> bool {
 		self.accessed.len() >= MAX_ACCESS_LIST_ENTRIES
@@ -326,6 +297,18 @@ impl AccessList {
 	/// Whether a nested-frame checkpoint is open.
 	fn in_nested_frame(&self) -> bool {
 		!self.checkpoints.is_empty()
+	}
+
+	/// Non-mutating sibling of [`touch`](Self::touch): the `Warmth` a touch
+	/// of this entry would return.
+	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
+		if self.accessed.contains(entry) {
+			Warmth::Hot
+		} else if self.is_full() {
+			Warmth::cold_non_revertible()
+		} else {
+			Warmth::Cold { revertible: self.in_nested_frame() }
+		}
 	}
 
 	/// Register the entry, returning its warmth **before** this touch: the
@@ -359,26 +342,27 @@ impl AccessList {
 		kind
 	}
 
-	/// Touches each state item read by `access` and returns its warmth.
-	pub fn touch_access(&mut self, access: StateAccess) -> StateAccessKind {
+	/// Warms every state item `access` reads, returning its warmth. Keeps the
+	/// per-entry `touch` an `AccessList` detail: callers speak opcodes.
+	pub fn warm(&mut self, access: StateAccess) -> StateAccessWarmth {
 		access.expand(|entry| self.touch(entry))
 	}
 
-	/// Non-mutating sibling of [`touch_access`](Self::touch_access).
-	pub fn peek_access(&self, access: StateAccess) -> StateAccessKind {
+	/// Non-mutating sibling of [`warm`](Self::warm): the warmth without registering.
+	pub fn warmth_of(&self, access: StateAccess) -> StateAccessWarmth {
 		access.expand(|entry| self.peek(&entry))
 	}
 
-	/// Registers the two state items a code load reads, returning their warmth.
-	pub fn touch_code(&mut self, hash: H256) -> CodeLoadWarmth {
+	/// Registers the two entries a code load reads, returning their warmth.
+	pub fn warm_code(&mut self, hash: H256) -> CodeLoadWarmth {
 		CodeLoadWarmth {
 			info: self.touch(AccessEntry::CodeInfo { hash }),
 			blob: self.touch(AccessEntry::CodeBlob { hash }),
 		}
 	}
 
-	/// Non-mutating sibling of [`touch_code`](Self::touch_code).
-	pub fn peek_code(&self, hash: H256) -> CodeLoadWarmth {
+	/// Non-mutating sibling of [`warm_code`](Self::warm_code).
+	pub fn code_warmth_of(&self, hash: H256) -> CodeLoadWarmth {
 		CodeLoadWarmth {
 			info: self.peek(&AccessEntry::CodeInfo { hash }),
 			blob: self.peek(&AccessEntry::CodeBlob { hash }),
@@ -502,8 +486,8 @@ mod tests {
 		// The set is below the cap, so peek prices both call entries revertible
 		// cold: it cannot see that touching the first entry fills the cap.
 		assert_eq!(
-			al.peek_access(StateAccess::Call { target }),
-			StateAccessKind::Call {
+			al.warmth_of(StateAccess::Call { target }),
+			StateAccessWarmth::Call {
 				account: Warmth::Cold { revertible: true },
 				contract_info: Warmth::Cold { revertible: true },
 			},
@@ -512,10 +496,10 @@ mod tests {
 
 		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
 		assert_eq!(
-			al.touch_access(StateAccess::Call { target }),
-			StateAccessKind::Call {
+			al.warm(StateAccess::Call { target }),
+			StateAccessWarmth::Call {
 				account: Warmth::Cold { revertible: true },
-				contract_info: Warmth::cold_nonrevertible(),
+				contract_info: Warmth::cold_non_revertible(),
 			},
 			"touch journals only the first entry before the cap fills",
 		);

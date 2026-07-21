@@ -24,8 +24,8 @@ use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
-		CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateAccessKind,
-		Warmth,
+		CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess,
+		StateAccessWarmth, Warmth,
 	},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
@@ -209,7 +209,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_nonrevertible())
+	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_non_revertible())
 }
 
 #[test]
@@ -3045,7 +3045,7 @@ fn delegatecall_tracer_reports_correct_addresses() {
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 	matches!(
 		ext.touch_storage_access(false, key),
-		StorageAccessKind::Persistent(Warmth::Cold { .. })
+		ContractStorageKind::Persistent(Warmth::Cold { .. })
 	)
 }
 
@@ -3194,7 +3194,7 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
 			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+			ContractStorageKind::Persistent(Warmth::Cold { revertible: true }),
 			"a cold touch in a nested frame is revertible",
 		);
 		exec_success()
@@ -3203,7 +3203,7 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
 			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			ContractStorageKind::Persistent(Warmth::Cold { revertible: false }),
 			"a cold touch in the root frame is not revertible",
 		);
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
@@ -3228,13 +3228,13 @@ fn cold_hot_past_cap_touch_is_not_revertible() {
 			slot[..4].copy_from_slice(&i.to_le_bytes());
 			assert_matches!(
 				ctx.ext.touch_storage_access(false, &Key::Fix(slot)),
-				StorageAccessKind::Persistent(Warmth::Cold { revertible: true })
+				ContractStorageKind::Persistent(Warmth::Cold { revertible: true })
 			);
 		}
 		// A further distinct slot is past the cap: cold but not revertible.
 		assert_matches!(
 			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32])),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			ContractStorageKind::Persistent(Warmth::Cold { revertible: false }),
 			"past-cap touch is cold but not revertible",
 		);
 		exec_success()
@@ -3259,12 +3259,12 @@ fn cold_hot_transient_skips_access_list() {
 
 		// `transient: true` classifies as `Transient` without touching the access list.
 		let kind = ctx.ext.touch_storage_access(true, &key);
-		assert!(matches!(kind, StorageAccessKind::Transient));
+		assert!(matches!(kind, ContractStorageKind::Transient));
 
 		// The same key is still cold in the persistent access list.
 		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
 		assert!(
-			matches!(persistent_kind, StorageAccessKind::Persistent(Warmth::Cold { .. })),
+			matches!(persistent_kind, ContractStorageKind::Persistent(Warmth::Cold { .. })),
 			"transient access must not warm the persistent access list",
 		);
 
@@ -3315,8 +3315,8 @@ fn cold_hot_call_target_warms_across_calls() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
-			StateAccessKind::Call {
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessWarmth::Call {
 				account: Warmth::Cold { .. },
 				contract_info: Warmth::Cold { .. }
 			},
@@ -3326,8 +3326,8 @@ fn cold_hot_call_target_warms_across_calls() {
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
-			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"account state and contract metadata are hot after the first call",
 		);
 		let mid = ctx.ext.access_list_metrics();
@@ -3380,8 +3380,8 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 			let before = ctx.ext.access_list_metrics();
 			assert_matches!(
-				ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
-				StateAccessKind::Call {
+				ctx.ext.warmth_of(StateAccess::Call { target: DJANGO_ADDR }),
+				StateAccessWarmth::Call {
 					account: Warmth::Cold { .. },
 					contract_info: Warmth::Cold { .. }
 				},
@@ -3407,8 +3407,8 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 				"the denied call warms nothing",
 			);
 			assert_matches!(
-				ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
-				StateAccessKind::Call {
+				ctx.ext.warmth_of(StateAccess::Call { target: DJANGO_ADDR }),
+				StateAccessWarmth::Call {
 					account: Warmth::Cold { .. },
 					contract_info: Warmth::Cold { .. }
 				},
@@ -3492,16 +3492,16 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
-			StateAccessKind::Call {
+			ctx.ext.warmth_of(StateAccess::Call { target: DJANGO_ADDR }),
+			StateAccessWarmth::Call {
 				account: Warmth::Cold { .. },
 				contract_info: Warmth::Cold { .. }
 			},
 			"B's revert drops the warmth of targets B touched",
 		);
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
-			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"the caller's touch of B persists even though B reverted",
 		);
 		exec_success()
@@ -3544,8 +3544,8 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: BOB_ADDR }),
-			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR }),
+			StateAccessWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"the entry target is pre-warmed by the first frame",
 		);
 		exec_success()
@@ -3565,8 +3565,8 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
-			StateAccessKind::Call {
+			ctx.ext.warmth_of(StateAccess::Call { target: DJANGO_ADDR }),
+			StateAccessWarmth::Call {
 				account: Warmth::Cold { .. },
 				contract_info: Warmth::Cold { .. }
 			},
@@ -3577,8 +3577,8 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.peek_access(StateAccess::Call { target: DJANGO_ADDR }),
-			StateAccessKind::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.warmth_of(StateAccess::Call { target: DJANGO_ADDR }),
+			StateAccessWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"a call to a plain account warms it",
 		);
 		let after_plain = ctx.ext.access_list_metrics();

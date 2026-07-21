@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StateAccessKind, StorageAccessKind, Warmth},
+	access_list::{StateAccessWarmth, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -35,6 +35,27 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// u64 works for approximations because Weight is a very small unit compared to
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
+
+/// Classification of a storage access for pricing: persistent (tracked by the
+/// access list, so priced by its warmth) or transient (not tracked, own bench).
+#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone, Copy, Debug)]
+pub enum ContractStorageKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
+	/// Transient storage, not tracked by the access list.
+	Transient,
+}
+
+impl ContractStorageKind {
+	/// See [`Warmth::non_revertible`].
+	pub fn non_revertible(self) -> Self {
+		match self {
+			Self::Persistent(warmth) => Self::Persistent(warmth.non_revertible()),
+			Self::Transient => Self::Transient,
+		}
+	}
+}
 
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
@@ -105,17 +126,17 @@ pub enum RuntimeCosts {
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
-	SetStorage { new_bytes: u32, old_bytes: u32, kind: StorageAccessKind },
+	SetStorage { new_bytes: u32, old_bytes: u32, kind: ContractStorageKind },
 	/// Weight of the `clearStorage` precompile / `seal_clear_transient_storage`.
-	ClearStorage { len: u32, kind: StorageAccessKind },
+	ClearStorage { len: u32, kind: ContractStorageKind },
 	/// Weight of the `containsStorage` precompile / `seal_contains_transient_storage`.
-	ContainsStorage { len: u32, kind: StorageAccessKind },
+	ContainsStorage { len: u32, kind: ContractStorageKind },
 	/// Weight of `seal_get_storage` / `seal_get_transient_storage`.
-	GetStorage { len: u32, kind: StorageAccessKind },
+	GetStorage { len: u32, kind: ContractStorageKind },
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
-	TakeStorage { len: u32, kind: StorageAccessKind },
+	TakeStorage { len: u32, kind: ContractStorageKind },
 	/// Base weight of a call-family opcode.
-	CallBase(StateAccessKind),
+	CallBase(StateAccessWarmth),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -224,16 +245,16 @@ impl RuntimeCosts {
 
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
-		kind: StorageAccessKind,
+		kind: ContractStorageKind,
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
-			StorageAccessKind::Persistent(warmth) => {
+			ContractStorageKind::Persistent(warmth) => {
 				cold_hot_base::<T>(&[warmth], 1, CostPair { cold, hot }) // probe: the slot
 			},
-			StorageAccessKind::Transient => transient(),
+			ContractStorageKind::Transient => transient(),
 		}
 	}
 }
@@ -378,7 +399,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				StateAccessKind::Call { account, contract_info } => cold_hot_base::<T>(
+				StateAccessWarmth::Call { account, contract_info } => cold_hot_base::<T>(
 					&[account, contract_info],
 					3, // probes: address mapping, system account, contract info
 					CostPair {
@@ -386,7 +407,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 						hot: T::WeightInfo::seal_call_hot,
 					},
 				),
-				StateAccessKind::DelegateCall { contract_info } => cold_hot_base::<T>(
+				StateAccessWarmth::DelegateCall { contract_info } => cold_hot_base::<T>(
 					&[contract_info],
 					1, // probe: the callee's contract info
 					CostPair {
@@ -446,11 +467,11 @@ mod tests {
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
-		let cold = StorageAccessKind::Persistent(Warmth::cold_nonrevertible());
-		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot = StorageAccessKind::Persistent(Warmth::Hot);
+		let cold = ContractStorageKind::Persistent(Warmth::cold_non_revertible());
+		let cold_revertible = ContractStorageKind::Persistent(Warmth::Cold { revertible: true });
+		let hot = ContractStorageKind::Persistent(Warmth::Hot);
 
-		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
+		let with_kind = |kind: ContractStorageKind| -> Vec<RuntimeCosts> {
 			vec![
 				RuntimeCosts::GetStorage { len, kind },
 				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
@@ -491,19 +512,19 @@ mod tests {
 	#[test]
 	fn call_base_cold_hot_pricing() {
 		let hot = Warmth::Hot;
-		let cold = Warmth::cold_nonrevertible();
+		let cold = Warmth::cold_non_revertible();
 		let cold_revertible = Warmth::Cold { revertible: true };
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
-		let all_hot = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+		let all_hot = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
 			account: hot,
 			contract_info: hot,
 		}));
-		let all_cold = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+		let all_cold = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
 			account: cold,
 			contract_info: cold,
 		}));
-		let mixed = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+		let mixed = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
 			account: cold,
 			contract_info: hot,
 		}));
@@ -516,7 +537,7 @@ mod tests {
 		assert!(all_cold.proof_size() > 0, "cold call pays proof size: {all_cold:?}");
 		assert!(mixed.proof_size() > 0, "any cold item prices the full cold base: {mixed:?}",);
 
-		let revertible = weight_of(RuntimeCosts::CallBase(StateAccessKind::Call {
+		let revertible = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::Call {
 			account: cold_revertible,
 			contract_info: cold,
 		}));
@@ -525,9 +546,10 @@ mod tests {
 			"a revertible cold touch prepays the rollback: rev={revertible:?} cold={all_cold:?}",
 		);
 
-		let delegate_hot =
-			weight_of(RuntimeCosts::CallBase(StateAccessKind::DelegateCall { contract_info: hot }));
-		let delegate_cold = weight_of(RuntimeCosts::CallBase(StateAccessKind::DelegateCall {
+		let delegate_hot = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::DelegateCall {
+			contract_info: hot,
+		}));
+		let delegate_cold = weight_of(RuntimeCosts::CallBase(StateAccessWarmth::DelegateCall {
 			contract_info: cold,
 		}));
 		assert!(

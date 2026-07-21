@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{StorageAccessKind, Warmth},
+	access_list::Warmth,
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
@@ -64,7 +64,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
+	vm::{CodeInfo, ContractStorageKind, RuntimeCosts, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1115,7 +1115,7 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+						kind: ContractStorageKind::Persistent(Warmth::Cold { revertible: true }),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
@@ -1890,7 +1890,7 @@ impl<T: Config> Pallet<T> {
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
-						access_list::CodeLoadWarmth::cold_nonrevertible(),
+						access_list::CodeLoadWarmth::cold_non_revertible(),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

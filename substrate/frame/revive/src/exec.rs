@@ -17,11 +17,9 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{
-		AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateAccessKind, StorageAccessKind,
-	},
+	CodeRemoved, Config, ContractInfo, ContractStorageKind, Error, Event, ImmutableData,
+	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
+	access_list::{AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateAccessWarmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -548,16 +546,16 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
+	/// the [`ContractStorageKind`]: hot if `key` was already accessed, cold
 	/// otherwise. When `transient` is true, skips the access list and returns
 	/// the `Transient` variant.
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> ContractStorageKind;
 
 	/// Non-mutating sibling of `touch_storage_access`.
-	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> ContractStorageKind;
 
 	/// Warmth of the state items `access` reads.
-	fn peek_access(&self, access: StateAccess) -> StateAccessKind;
+	fn warmth_of(&self, access: StateAccess) -> StateAccessWarmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1103,7 +1101,7 @@ where
 					),
 				};
 				if !target_is_precompile {
-					access_list.touch_access(access);
+					access_list.warm(access);
 				}
 
 				// which contract info to load is unaffected by the fact if this
@@ -1155,9 +1153,9 @@ where
 						};
 						// Touch only after the charge succeeds, so a failed load
 						// leaves nothing warm.
-						let code_warmth = access_list.peek_code(info.code_hash);
+						let code_warmth = access_list.code_warmth_of(info.code_hash);
 						let executable = E::from_storage(info.code_hash, meter, code_warmth)?;
-						access_list.touch_code(info.code_hash);
+						access_list.warm_code(info.code_hash);
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1173,9 +1171,9 @@ where
 							.code_hash;
 						// Touch only after the charge succeeds, so a failed load
 						// leaves nothing warm.
-						let code_warmth = access_list.peek_code(code_hash);
+						let code_warmth = access_list.code_warmth_of(code_hash);
 						let executable = E::from_storage(code_hash, meter, code_warmth)?;
-						access_list.touch_code(code_hash);
+						access_list.warm_code(code_hash);
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};
@@ -1949,8 +1947,8 @@ where
 	/// Touches the access-list entries `access` reads, plus the code, as if the call already ran.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn touch_call_target(&mut self, access: StateAccess, code_hash: H256) {
-		self.access_list.touch_access(access);
-		self.access_list.touch_code(code_hash);
+		self.access_list.warm(access);
+		self.access_list.warm_code(code_hash);
 	}
 
 	/// Per-transaction access list metrics (testing).
@@ -2165,9 +2163,9 @@ where
 				Code::Existing(hash) => {
 					// Touch only after the charge succeeds, so a failed load
 					// leaves nothing warm.
-					let code_warmth = self.access_list.peek_code(*hash);
+					let code_warmth = self.access_list.code_warmth_of(*hash);
 					let executable = E::from_storage(*hash, self.frame_meter_mut(), code_warmth)?;
-					self.access_list.touch_code(*hash);
+					self.access_list.warm_code(*hash);
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},
@@ -2670,28 +2668,28 @@ where
 		)
 	}
 
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> ContractStorageKind {
 		if transient {
-			return StorageAccessKind::Transient;
+			return ContractStorageKind::Transient;
 		}
 		let address = self.address();
-		StorageAccessKind::Persistent(
+		ContractStorageKind::Persistent(
 			self.access_list.touch(AccessEntry::Storage { address, slot: key.into() }),
 		)
 	}
 
-	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> ContractStorageKind {
 		if transient {
-			return StorageAccessKind::Transient;
+			return ContractStorageKind::Transient;
 		}
 		let address = self.address();
-		StorageAccessKind::Persistent(
+		ContractStorageKind::Persistent(
 			self.access_list.peek(&AccessEntry::Storage { address, slot: key.into() }),
 		)
 	}
 
-	fn peek_access(&self, access: StateAccess) -> StateAccessKind {
-		self.access_list.peek_access(access)
+	fn warmth_of(&self, access: StateAccess) -> StateAccessWarmth {
+		self.access_list.warmth_of(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

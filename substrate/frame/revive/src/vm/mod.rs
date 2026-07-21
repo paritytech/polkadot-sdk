@@ -22,7 +22,7 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::RuntimeCosts;
+pub use runtime_costs::{ContractStorageKind, RuntimeCosts};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
@@ -182,7 +182,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken {
 		code_len,
 		code_type: BytecodeType::Pvm,
-		warmth: CodeLoadWarmth::cold_nonrevertible(),
+		warmth: CodeLoadWarmth::cold_non_revertible(),
 	})
 }
 
@@ -441,7 +441,7 @@ mod tests {
 		};
 
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
-			let cold = weight_of(code_type, CodeLoadWarmth::cold_nonrevertible());
+			let cold = weight_of(code_type, CodeLoadWarmth::cold_non_revertible());
 			let hot = weight_of(code_type, CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::Hot });
 			let cold_revertible = weight_of(
 				code_type,
@@ -473,7 +473,7 @@ mod tests {
 			// load must still bill the full cold base.
 			let info_only = weight_of(
 				code_type,
-				CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::cold_nonrevertible() },
+				CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::cold_non_revertible() },
 			);
 			assert!(
 				info_only.proof_size() > hot.proof_size(),

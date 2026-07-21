@@ -282,7 +282,7 @@ impl CallType {
 	/// Base cost of the call.
 	fn cost(&self, ext: &impl Ext, callee: &sp_core::H160) -> RuntimeCosts {
 		let access = StateAccess::new(*callee, matches!(self, CallType::DelegateCall));
-		RuntimeCosts::CallBase(ext.peek_access(access))
+		RuntimeCosts::CallBase(ext.warmth_of(access))
 	}
 }
 

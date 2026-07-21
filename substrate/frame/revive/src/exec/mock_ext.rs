@@ -256,27 +256,19 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn touch_storage_access(
-		&mut self,
-		_transient: bool,
-		_key: &Key,
-	) -> crate::access_list::StorageAccessKind {
+	fn touch_storage_access(&mut self, _transient: bool, _key: &Key) -> crate::ContractStorageKind {
 		panic!("MockExt::touch_storage_access")
 	}
 
-	fn peek_storage_access(
-		&self,
-		_transient: bool,
-		_key: &Key,
-	) -> crate::access_list::StorageAccessKind {
+	fn peek_storage_access(&self, _transient: bool, _key: &Key) -> crate::ContractStorageKind {
 		panic!("MockExt::peek_storage_access")
 	}
 
-	fn peek_access(
+	fn warmth_of(
 		&self,
 		_opcode: crate::access_list::StateAccess,
-	) -> crate::access_list::StateAccessKind {
-		panic!("MockExt::peek_access")
+	) -> crate::access_list::StateAccessWarmth {
+		panic!("MockExt::warmth_of")
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {

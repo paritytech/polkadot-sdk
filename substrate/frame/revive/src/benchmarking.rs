@@ -2674,7 +2674,7 @@ mod benchmarks {
 			blob = ContractBlob::<T>::from_storage(
 				code_hash,
 				&mut meter,
-				CodeLoadWarmth::cold_nonrevertible(),
+				CodeLoadWarmth::cold_non_revertible(),
 			);
 		}
 		assert!(blob.is_ok(), "loading the code of an existing contract must succeed");
