@@ -176,9 +176,6 @@ where
 		match state.add_filter(topic_filter) {
 			Ok(filter_id) => Ok(AddFilterResponse::Ok(filter_id_to_string(filter_id))),
 			Err(AddFilterError::LimitReached) => Ok(AddFilterResponse::limit_reached()),
-			Err(AddFilterError::InvalidFilter) => Err(Error::InvalidParam(
-				"`matchAll` topic filter must contain between 1 and 4 topics".into(),
-			)),
 			Err(AddFilterError::Stopped) => {
 				Err(Error::InternalError("statement subscription matcher stopped".into()))
 			},
