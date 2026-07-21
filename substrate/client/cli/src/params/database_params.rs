@@ -18,6 +18,7 @@
 
 use crate::arg_enums::Database;
 use clap::Args;
+use std::path::{Path, PathBuf};
 
 /// Parameters for database
 #[derive(Debug, Clone, PartialEq, Args)]
@@ -29,6 +30,14 @@ pub struct DatabaseParams {
 	/// Limit the memory the database cache can use.
 	#[arg(long = "db-cache", value_name = "MiB")]
 	pub database_cache_size: Option<usize>,
+
+	/// Directory for the indexed-transaction column when using the RocksDB backend.
+	///
+	/// Places that column's data under this path (e.g. a separate, cheaper volume) instead
+	/// of the main database directory. Must stay consistent across restarts. Only used by
+	/// chains that index transaction data (transaction storage).
+	#[arg(long, value_name = "PATH")]
+	pub transaction_storage_path: Option<PathBuf>,
 }
 
 impl DatabaseParams {
@@ -40,5 +49,10 @@ impl DatabaseParams {
 	/// Limit the memory the database cache can use.
 	pub fn database_cache_size(&self) -> Option<usize> {
 		self.database_cache_size
+	}
+
+	/// Directory for the indexed-transaction column (RocksDB only).
+	pub fn transaction_storage_path(&self) -> Option<&Path> {
+		self.transaction_storage_path.as_deref()
 	}
 }
