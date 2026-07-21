@@ -1003,15 +1003,13 @@ pub struct AbridgedHostConfiguration {
 	pub executor_params: ExecutorParams,
 	/// How long to keep code on-chain, in blocks.
 	pub code_retention_period: BlockNumber,
-	/// The maximum number of validators to use for parachain consensus, period. `None` means no
-	/// maximum.
+	/// The maximum number of validators to use for parachain consensus. `None` means no maximum.
 	pub max_validators: Option<u32>,
 	/// The amount of sessions to keep for disputes.
 	pub dispute_period: SessionIndex,
 	/// How long after dispute conclusion to accept statements.
 	pub dispute_post_conclusion_acceptance_period: BlockNumber,
-	/// The amount of consensus slots that must pass between submitting an assignment and
-	/// submitting an approval vote before a validator is considered a no-show.
+	/// The number of consensus slots before an un-approved assignment counts as a no-show.
 	pub no_show_slots: u32,
 	/// The number of delay tranches in total.
 	pub n_delay_tranches: u32,
@@ -1021,13 +1019,11 @@ pub struct AbridgedHostConfiguration {
 	pub needed_approvals: u32,
 	/// The number of samples to do of the `RelayVRFModulo` approval assignment criterion.
 	pub relay_vrf_modulo_samples: u32,
-	/// The maximum number of sessions an active PVF pre-checking vote may observe before it is
-	/// automatically rejected.
+	/// The maximum number of sessions a PVF pre-checking vote may observe before it is rejected.
 	pub pvf_voting_ttl: SessionIndex,
 	/// The lower bound number of blocks an upgrade can be scheduled.
 	pub minimum_validation_upgrade_delay: BlockNumber,
-	/// The minimum number of valid backing statements required to consider a parachain candidate
-	/// backable.
+	/// The minimum number of valid backing statements required to consider a candidate backable.
 	pub minimum_backing_votes: u32,
 	/// Node features enablement, including the `CandidateReceiptV3` gate.
 	pub node_features: NodeFeatures,

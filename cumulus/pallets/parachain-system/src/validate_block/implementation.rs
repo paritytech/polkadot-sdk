@@ -174,7 +174,10 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	let relay_feature_on = PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
+	// V3 is *dynamically* active only when the para const `V3_SCHEDULING_ENABLED` is on AND the
+	// relay `CandidateReceiptV3` feature is on (read from the committed state proof). This mirrors
+	// the `v3_dynamically_active` value computed in `set_validation_data` (see `lib.rs`).
+	let v3_dynamically_active = PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
 		read_relay_v3_feature_enabled::<B, PSC>(&block_data, relay_parent_storage_root);
 
 	// V3 scheduling validation (chain-shape only). Signature verification of
@@ -182,7 +185,7 @@ where
 	// stays out of the pure shape check.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
 		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
-		relay_feature_on,
+		v3_dynamically_active,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),
