@@ -127,7 +127,12 @@ pub enum FetchError {
 ///
 /// Register reads are best-effort: an unpublished register is refused at
 /// the transport level, indistinguishable from a failure — neither may
-/// poison the round.
+/// poison the round. Channel streams nothing was ever proven for (cursor 0,
+/// no pooled run) get the same tolerance — a never-written stream is
+/// unservable under every root until the source's first send, and refusing
+/// it must not block the register reads that complete the handshake — but
+/// their failure still fails the (completed) round so the bounded in-root
+/// retry covers the transient cases.
 pub async fn fetch_source(
 	network: &impl ExchangeNetwork,
 	peers: &dyn SourcePeers,
@@ -139,12 +144,42 @@ pub async fn fetch_source(
 	chunk_bytes: u32,
 ) -> Result<(), FetchError> {
 	let (mut leaves, mut bytes) = (0u64, 0u64);
+	let mut deferred: Option<FetchError> = None;
 	for (stream, cursor) in channels {
-		let (stream_leaves, stream_bytes) =
-			fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
-				.await?;
-		leaves += stream_leaves;
-		bytes += stream_bytes;
+		match fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
+			.await
+		{
+			Ok((stream_leaves, stream_bytes)) => {
+				leaves += stream_leaves;
+				bytes += stream_bytes;
+			},
+			// A consumed stream nothing was ever proven for (cursor 0, no
+			// pooled run) may simply have never been written: the archive
+			// cannot prove an empty stream under a root, so the server
+			// refuses at the transport level — indistinguishable from a
+			// transient failure, and persistent for every root predating
+			// the source's first send (the accept-before-open handshake
+			// window). Such a stream must not poison the round: the
+			// register reads below are what completes the handshake, and
+			// aborting here can deadlock the channel when the source stays
+			// otherwise idle (no new root ever retriggers). The failure is
+			// still reported after the round for the bounded in-root retry,
+			// which covers the genuinely transient cases (archiver lag).
+			Err(error @ FetchError::Exchange(ExchangeError::Network(_)))
+				if *cursor == 0 && pool.resume(source, stream).is_none() =>
+			{
+				tracing::debug!(
+					target: LOG_TARGET,
+					%error,
+					source = %u32::from(source),
+					?stream,
+					"Channel stream not served (never-written stream, or refusal); \
+					 continuing the round",
+				);
+				deferred.get_or_insert(error);
+			},
+			Err(error) => return Err(error),
+		}
 	}
 
 	let mut register_reads = 0usize;
@@ -181,7 +216,13 @@ pub async fn fetch_source(
 			"Fetch round completed",
 		);
 	}
-	Ok(())
+	// The round is complete — everything fetched is bound to `root` and
+	// handable — but an unserved fresh stream is still reported: the caller
+	// retries in-root (bounded), which is what recovers the transient cases.
+	match deferred {
+		Some(error) => Err(error),
+		None => Ok(()),
+	}
 }
 
 /// Fetches one channel stream's backlog under `root`, chunked and resumed
@@ -791,6 +832,103 @@ mod tests {
 		// Refusals are protocol behavior (unservable requests), not
 		// misbehavior: the peer stays registered.
 		assert_eq!(registry.peers(source()), vec![refusing, honest]);
+	}
+
+	#[test]
+	fn never_written_streams_do_not_poison_the_round() {
+		// The peer's ack stream is published, but its channel stream to us
+		// was never written: the archive cannot serve it under any root
+		// (both failed runs, e.g. 13:57:54: "stream has no entry under the
+		// named root"). The round must still pool the register read — it is
+		// what completes the handshake — and mark the lift target; the
+		// unserved stream is reported for the bounded in-root retry only.
+		let (_aux, mut archive) = new_archive();
+		let roots = import_blocks(&mut archive, &[ack(RECEIVER)], 1, 1, 1_000);
+		let root = *roots.last().expect("a block was imported");
+		let honest = PeerId::random();
+		let network = MockExchange {
+			archive: RwLock::new(archive),
+			behavior: HashMap::from([(honest, PeerBehavior::Honest)]),
+			hits: Default::default(),
+		};
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+
+		let result = block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root,
+			&[(channel(RECEIVER), 0)],
+			&[ack(RECEIVER)],
+			SMALL_CHUNK,
+		));
+
+		// Reported (retryable) — but the round completed regardless:
+		assert!(matches!(result, Err(FetchError::Exchange(ExchangeError::Network(_)))));
+		assert_eq!(pool.target(source()), Some(root));
+		// ...and the register read is pooled and handable.
+		let data =
+			pool.build_inherent(&[], &[(source(), ack(RECEIVER), None)], InherentBudget::default());
+		assert_eq!(data.register_reads.len(), 1);
+		// The refusal is protocol behavior, not misbehavior.
+		assert_eq!(registry.peers(source()), vec![honest]);
+	}
+
+	#[test]
+	fn failures_on_streams_with_pooled_history_stay_round_fatal() {
+		let (mut network, root) = serving_archive(2, 2);
+		let honest = PeerId::random();
+		network.behavior.insert(honest, PeerBehavior::Honest);
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root,
+			&[(stream, 0)],
+			&[],
+			SMALL_CHUNK,
+		))
+		.expect("first round succeeds");
+		assert_eq!(pool.target(source()), Some(root));
+
+		// The sender advances (a new root) but the peer now refuses: a
+		// stream WITH pooled history is a hard failure — the round must not
+		// complete and the target must not move to a root nothing was
+		// re-bound under.
+		let new_root = {
+			let mut archive = network.archive.write();
+			archive
+				.import_block_at(
+					block_hash(3),
+					block_hash(2),
+					3,
+					vec![(stream, vec![payload(&stream, 4)])],
+					1_003,
+				)
+				.expect("extends the tip")
+				.expect("the block carries sends")
+		};
+		network.behavior.insert(honest, PeerBehavior::Refuse);
+
+		let result = block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			new_root,
+			&[(stream, 0)],
+			&[],
+			SMALL_CHUNK,
+		));
+		assert!(matches!(result, Err(FetchError::Exchange(ExchangeError::Network(_)))));
+		assert_eq!(pool.target(source()), Some(root));
 	}
 
 	#[test]
