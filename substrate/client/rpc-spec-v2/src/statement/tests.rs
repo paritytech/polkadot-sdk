@@ -336,6 +336,25 @@ async fn add_filter_rejects_match_any_topic_filter() {
 }
 
 #[tokio::test]
+async fn add_filter_rejects_empty_match_all_topic_filter() {
+	let (rpc, _store_dir) = make_server();
+	let sub = subscribe(&rpc).await;
+	let sub_id = sub_id_string(&sub);
+	let filter = TopicFilter::MatchAll(Default::default());
+
+	let err = rpc
+		.call::<_, super::AddFilterResponse>("statement_unstable_add_filter", (sub_id, filter))
+		.await
+		.expect_err("empty matchAll must be rejected");
+	let object = match err {
+		MethodsError::JsonRpc(error) => error,
+		other => panic!("expected ErrorObject, got {other:?}"),
+	};
+	assert_eq!(object.code(), INVALID_PARAM_ERROR);
+	drop(sub);
+}
+
+#[tokio::test]
 async fn remove_filter_frees_rpc_filter_capacity() {
 	let (rpc, _store_dir) = make_server();
 	let sub = subscribe(&rpc).await;

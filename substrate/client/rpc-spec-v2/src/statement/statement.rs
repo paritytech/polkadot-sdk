@@ -74,6 +74,9 @@ fn connection_id(ext: &Extensions) -> ConnectionId {
 
 fn validate_topic_filter(filter: TopicFilter) -> Result<OptimizedTopicFilter, Error> {
 	match &filter {
+		TopicFilter::MatchAll(topics) if topics.is_empty() => Err(Error::InvalidParam(
+			"`matchAll` topic filter must contain between 1 and 4 topics".to_string(),
+		)),
 		TopicFilter::MatchAny(_) => Err(Error::InvalidParam(
 			"`matchAny` topic filter is not supported by statement_unstable_add_filter; \
 			 use `\"any\"` or `{\"matchAll\": [...]}` instead"
@@ -173,6 +176,9 @@ where
 		match state.add_filter(topic_filter) {
 			Ok(filter_id) => Ok(AddFilterResponse::Ok(filter_id_to_string(filter_id))),
 			Err(AddFilterError::LimitReached) => Ok(AddFilterResponse::limit_reached()),
+			Err(AddFilterError::InvalidFilter) => Err(Error::InvalidParam(
+				"`matchAll` topic filter must contain between 1 and 4 topics".into(),
+			)),
 			Err(AddFilterError::Stopped) => {
 				Err(Error::InternalError("statement subscription matcher stopped".into()))
 			},
