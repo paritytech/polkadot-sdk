@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784630071669,
+  "lastUpdate": 1784633646358,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c073c5c2194cea49c2c5534b932b851ad439b2b",
-          "message": "Remove \"SolutionImprovementThreshold\" logic (#10340)\n\nFixes [9119](https://github.com/paritytech/polkadot-sdk/issues/9119)\n\nThe threshold mechanism used by the \"election-provider-multi-block\"\nverifier pallet is no longer relevant because there is no more queued\nsolution to compare against during the initial verification and\nsubseuquently, solutions are processed in the order of decreasing score,\nwith the first one being chosen in all cases.\n\n---------\n\nSigned-off-by: Andrei Trandafir <andrei.trandafir@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-21T12:32:28Z",
-          "tree_id": "fd0d9e57fb48396a0b8fb70632d0b114bdc95eeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c073c5c2194cea49c2c5534b932b851ad439b2b"
-        },
-        "date": 1763734071097,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034253067536000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04421522159799995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03976142750000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8574f19ca8eeb5f004e90a99876d9d773bba6bf3",
+          "message": "[pallet-revive] Version the Remaining Runtime API Functions (#12536)\n\n# Description\n\nThis PR closes #11924 and #11928 and versions the final remaining\nruntime API functions in pallet-revive, fully deprecating the old\nunversioned runtime API in favor of the new versioned runtime API\nfunctions.\n\nAdditionally, this PR adds an\n`unversioned_runtime_api_functions_are_unchanged_by_versioning` test\nwhich is an important test which asserts that every single type which\ncan be seen in the unversioned runtime API functions is identical to the\nnew versioned types in terms of encoding such that if we encode an old\nunversioned type we can decode as a new versioned type and vice versa.\nThis is made possible through the schema available in the metadata which\nallows us to check a pre-versioning schema against a post-versioning\nschema. This test is implemented as a very very simple walker which\nwalks the schema in lock-step and checks that the schema of the\npre-versioning types matches that of the post-versioning types. Yes, the\ncode for this test is slightly long, but it's very simple. The moment\nyou see that lots of the code length is due to us wanting to preserve\nthe paths (for printing in assertion messages), you can see that the\ntest is quite simple.\n\nAside from the above, and as mentioned at the start, this PR also\nversioned the remaining runtime API functions. In the process, I\ncombined some runtime API functions into a single versioned runtime API\nfunction. For example, `eth_transact` and `eth_transact_with_config`\nhave been combined into a single `eth_transact_versioned` since\n`eth_transact_with_config` was added as way to version the\n`eth_transact` runtime API function. Same was done to the `trace_call`\nand the `trace_call_with_config` in that they've been combined into a\nsingle versioned runtime API function.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-21T09:45:38Z",
+          "tree_id": "10c7a603cd30572fa00f69a8441afd1ae1a1d8f2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8574f19ca8eeb5f004e90a99876d9d773bba6bf3"
+        },
+        "date": 1784633613451,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.10799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039732449467999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08480463134399989,
             "unit": "seconds"
           }
         ]
