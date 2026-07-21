@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784547941303,
+  "lastUpdate": 1784630071669,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "abe05daf56d3af1611de7d6478e0cd1a23a789d9",
-          "message": "pallet-revive benchmark opcode fix (#10380)\n\nBenchmark opcode was using the invalid opcode instead of defining a new\none.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-21T12:04:04Z",
-          "tree_id": "b795e978bf9e8e168204ddc92dbe05efd8a94eae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/abe05daf56d3af1611de7d6478e0cd1a23a789d9"
-        },
-        "date": 1763731803791,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034414587659999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04437591735999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08709830429199997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "runcomet",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8630d5bb8d26e61fce0bbcab43ddaa8d62f1cd0a",
+          "message": "`staking-async`: include the unlock era in the Unbonded event (#12630)\n\nresolves #12578\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-07-21T08:52:36Z",
+          "tree_id": "ce8a4d5fd6f643e82231aa0231b38786b4a98c1d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8630d5bb8d26e61fce0bbcab43ddaa8d62f1cd0a"
+        },
+        "date": 1784630041861,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.098,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.085964741746,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03976142750000001,
             "unit": "seconds"
           }
         ]
