@@ -1,4 +1,4 @@
-# Cumulus on JAM — collator-side implementation scope
+## Cumulus on JAM — collator-side implementation scope
 
 The parachain-service document [1] describes the in-core (Refine/PVF) and on-chain (Accumulate)
 logic of the Parachain Service, the PoV/work-item format and how parachain state lives in JAM
@@ -11,7 +11,7 @@ Purpose of this document:
 
 Bold names mark the identified work domains.
 
-## 1. **JAM node interface** (counterpart of `RelayChainInterface`)
+### 1. **JAM node interface** (counterpart of `RelayChainInterface`)
 - Add a `JamNodeInterface` alongside `RelayChainInterface` (parallel backends through the
   transition, see 12), backed by **JIP-2 Node RPC** [4] (implementation-agnostic standard;
   polkajam's `NodeInterface` [2] implements it): `bestBlock`/`finalizedBlock` + subscriptions,
@@ -24,7 +24,7 @@ Bold names mark the identified work domains.
   service-state reads. JIP-2 has no state-proof or guarantor-assignment queries — by design
   (in-core reads; node-side submission routing).
 
-## 2. **Scheduling: core / slot / anchor selection**
+### 2. **Scheduling: core / slot / anchor selection**
 - Claim-queue polling, `determine_core` and the core-selector machinery (incl. the `CoreInfo`
   header digest) have no JAM counterpart — cores come from coretime assignment. Multi-core /
   elastic scaling works as today: one WP per assigned core, cross-core ordering via GP-native
@@ -46,7 +46,7 @@ Bold names mark the identified work domains.
 - slot_based becomes the default authoring path (lookahead — build per imported relay block —
   has no natural JAM analog).
 
-## 3. **Work package building & submission**
+### 3. **Work package building & submission**
 - WP builder module: assemble work item (validation_code_hash + PoV as extrinsic data
   [1] §3.2) + authorization token; import/export segments only if messaging uses DA (see 16).
 - No candidate receipt on JAM: descriptor, commitments and erasure coding are not collator
@@ -67,7 +67,7 @@ Bold names mark the identified work domains.
   `SlotBasedBlockImport` provides a block+proof channel for this (unimplemented consumer,
   [polkadot-sdk#6495](https://github.com/paritytech/polkadot-sdk/issues/6495)).
 
-## 4. **Authorization token & collator keys**
+### 4. **Authorization token & collator keys**
 - `CollatorPair` is replaced by a key in the collator-set trie committed on the Coretime chain:
   membership Merkle proof + signature over the WP hash per submission. Token/config shapes
   follow [1] §7.1 — a demonstration sketch; open design pending authorizer finalization.
@@ -75,14 +75,14 @@ Bold names mark the identified work domains.
   reconstructs the trie locally to produce its own proof. Keystore integration needed (today
   the collator key is generated ad hoc by the relay-node builder, not the keystore).
 
-## 5. **Parent selection & pipelining** (replaces `find_parent_for_building`)
+### 5. **Parent selection & pipelining** (replaces `find_parent_for_building`)
 - Today: included head from `persisted_validation_data` + pending-availability candidates.
   New: para head from service state + in-flight WPs (reported/ready, not yet accumulated) —
   extra RPC/state need beyond "para head at block".
 - Unincluded segment semantics must be mapped to JAM's guarantee→availability→accumulate
   latency (block velocity / pipelining — open design question).
 
-## 6. **Consensus driving: fork choice & finality following**
+### 6. **Consensus driving: fork choice & finality following**
 - Parachain best/finalized blocks are set purely from relay streams (`run_parachain_consensus`,
   `ParachainBlockImport` forced fork choice, `LevelMonitor`). Re-derive from JAM: best = head
   at JAM best block, finalized = head at JAM finalized block; define behavior across JAM
@@ -92,7 +92,7 @@ Bold names mark the identified work domains.
   `CumulusDigestItem::RelayParent`; written by parachain-system, read by the node) → a
   JAM-anchor identifier digest, reworked on both sides.
 
-## 7. **Parachain networking: consequences of no collator protocol**
+### 7. **Parachain networking: consequences of no collator protocol**
 - Collations are not advertised/fetched; validators get data via WP submission + JAM DA.
   There is also no validator→collator feedback channel — collation fate is tracked purely by
   chain observation (see 3).
@@ -105,7 +105,7 @@ Bold names mark the identified work domains.
   degraded full-node sync in phase 1.
 - **bootnodes**: RFC-0008 discovery via relay DHT → JAM-DHT equivalent or static bootnodes.
 
-## 8. **Inherent & host functions (inputs)**
+### 8. **Inherent & host functions (inputs)**
 - Drop the relay-state-proof inherent; the PVF reads its inputs in-core. **Open [1] gap**:
   §4.3 exposes only preimage-by-hash lookups and the refine context — there is no generic
   service-state read (para head, KV) host call; [1] says state arrives "through the
@@ -117,7 +117,7 @@ Bold names mark the identified work domains.
 - The inherent also carries DMP/HRMP message contents — inbound payloads move off-chain,
   transport per 16; descoped with messaging.
 
-## 9. **Runtime time base** (relay block number / slot as the clock)
+### 9. **Runtime time base** (relay block number / slot as the clock)
 - One new JAM-timeslot `BlockNumberProvider` (mirror of `RelaychainDataProvider`) + mechanical
   `type BlockNumberProvider` swaps in parachain runtime configs (vesting, scheduler,
   governance, proxy, staking-async, broker...; mostly downstream work — relay block number and
@@ -126,11 +126,11 @@ Bold names mark the identified work domains.
   the import-queue `AuraVerifier` inherent checks on non-authoring nodes;
   `CheckAssociatedRelayNumber` (monotonic relay-parent ordering) → anchor-timeslot ordering.
 
-## 10. **Block building: limits**
+### 10. **Block building: limits**
 - Building itself unchanged; max PoV size stays. The real work is PVM gas vs.
   weights (opens the benchmarking pandora jar).
 
-## 11. **PVM executor & tooling**
+### 11. **PVM executor & tooling**
 - Soft proposal: keep the WASM executor for block building in phase 1 — technically the PoV
   generated by WASM and PVM shall be exactly the same, so this could save some time when
   crafting the PoC. PVM executor for collation building then lands in phase 2.
@@ -145,29 +145,29 @@ Bold names mark the identified work domains.
   the hashmap-randomness seed (today the relay storage root → anchor state root).
 - smoldot: needs PVM integration (light clients).
 
-## 12. **Node CLI & configuration**
+### 12. **Node CLI & configuration**
 - Relay chain and JAM must be supported **in parallel** in the same binary — long transition
   period, no separate branch. JAM is a new backend selected via config/flags ("point at a
   JAM node") next to the existing relay machinery (`RelayChainCli`, `-- [relay-chain-args]`,
   `--relay-chain-rpc-urls`), not a replacement.
 
-## 13. **Onboarding / genesis tooling**
+### 13. **Onboarding / genesis tooling**
 - `export-genesis-head`/`export-genesis-wasm` produce artifacts for the relay registrar today;
   define the operator-side JAM flow (genesis head + PVF preimage → Coretime/service
   registration, [1] §6.2). solo-to-para cutover pallet rides the same signals.
 
-## 14. **Dev & test environment**
+### 14. **Dev & test environment**
 - Dev mode fabricates relay state (`MockValidationDataInherentDataProvider`, synthesized
   go-ahead) → mock-JAM-state provider; `cumulus/test/service` boots a real polkadot node →
   JAM test harness; validate-block benches build on `RelayStateSproofBuilder`; zombienet
   topologies are all relay+para → JAM-network equivalents.
 
-## 15. **Observability**
+### 15. **Observability**
 - Parachain informant + prometheus metrics derive from relay `candidate_events`
   (backed/included/timed-out) — re-derive from WP status/accumulation, incl. metric semantics
   (`parachain_block_backed_duration` etc.).
 
-## 16. **Messaging** — descoped for phase 1 (solo-chain semantics: no DMP/HRMP/XCMP).
+### 16. **Messaging** — descoped for phase 1 (solo-chain semantics: no DMP/HRMP/XCMP).
 - Messaging on JAM is an open design. **Speculative Messaging** [5] (relay-era HRMP
   replacement; the design [1] §8.2 references) prepares the ground: pallet, XCM router,
   para p2p payload transport and runtime verification survive a port.
@@ -175,7 +175,7 @@ Bold names mark the identified work domains.
   effects + service state, settlement → Accumulate-time check, and the latency-tier model
   re-evaluated (no same-block settlement on JAM).
 
-## Open questions toward [1]
+### Open questions toward [1]
 - Service-state read mechanism for the PVF ("validation inputs" — undefined; see 8).
 - Authorizer design finalization (§7.1 is a demonstration sketch; blocks 2 and 4).
 - Whether an anchor-offset policy (`RelayParentOffset` analog) needs in-core enforcement,
@@ -183,7 +183,7 @@ Bold names mark the identified work domains.
 - Multi-core / elastic scaling: confirm Accumulate assumes nothing about ≤1 candidate per
   para per block; ordering via WP prerequisites.
 
-## Phases (draft)
+### Phases (draft)
 - **Phase 1**: WASM PVF; JAM node via JIP-2 RPC (interface, submission, status tracking);
   scheduling/token/parent-selection/consensus-following reworked; runtime time base;
   CLI/config + onboarding flow + minimal dev/test env; no messaging; substrate p2p sync only
@@ -192,7 +192,7 @@ Bold names mark the identified work domains.
   pre-connect; DA-based recovery/sync; observability polish; smoldot.
 - **Phase 3**: messaging (see 16).
 
-## refs
+### refs
 [1] [parachain-service-on-jam.md](https://github.com/paritytech/polkadot-sdk/blob/mku-cumulus-on-jam-doc/designs/parachain-service-on-jam/parachain-service-on-jam.md)
 [2] polkajam [`NodeInterface`](https://github.com/paritytech/polkajam/blob/main/crates/node/src/node/interface/mod.rs), [wp_status_tracker.rs](https://github.com/paritytech/polkajam/blob/main/crates/node/src/node/interface/wp_status_tracker.rs)
 [3] polkajam [work_package_submitter.rs](https://github.com/paritytech/polkajam/blob/main/crates/node/src/chain/guarantors/work_package_submitter.rs)
