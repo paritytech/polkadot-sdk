@@ -221,6 +221,11 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(T::MAX_VESTING_SCHEDULES > 0, "`MaxVestingSchedules` must be greater than 0");
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	/// Information regarding the vesting of a given account.
@@ -706,6 +711,25 @@ impl<T: Config> Pallet<T> {
 		);
 
 		Ok((schedules, locked_now))
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Invariants that must hold before and after every state transition of this pallet.
+	///
+	/// The vesting lock is not checked against the schedules, since `LockableCurrency` exposes no
+	/// way to read the current lock amount.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (_who, schedules) in Vesting::<T>::iter() {
+			ensure!(!schedules.is_empty(), "Vesting entry must never be empty");
+			ensure!(
+				schedules.iter().all(|s| s.is_valid()),
+				"Every stored vesting schedule must be valid"
+			);
+		}
+
+		Ok(())
 	}
 }
 
