@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784629050478,
+  "lastUpdate": 1784632500013,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -195647,6 +195647,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2283497959,
             "range": "± 76203401",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8574f19ca8eeb5f004e90a99876d9d773bba6bf3",
+          "message": "[pallet-revive] Version the Remaining Runtime API Functions (#12536)\n\n# Description\n\nThis PR closes #11924 and #11928 and versions the final remaining\nruntime API functions in pallet-revive, fully deprecating the old\nunversioned runtime API in favor of the new versioned runtime API\nfunctions.\n\nAdditionally, this PR adds an\n`unversioned_runtime_api_functions_are_unchanged_by_versioning` test\nwhich is an important test which asserts that every single type which\ncan be seen in the unversioned runtime API functions is identical to the\nnew versioned types in terms of encoding such that if we encode an old\nunversioned type we can decode as a new versioned type and vice versa.\nThis is made possible through the schema available in the metadata which\nallows us to check a pre-versioning schema against a post-versioning\nschema. This test is implemented as a very very simple walker which\nwalks the schema in lock-step and checks that the schema of the\npre-versioning types matches that of the post-versioning types. Yes, the\ncode for this test is slightly long, but it's very simple. The moment\nyou see that lots of the code length is due to us wanting to preserve\nthe paths (for printing in assertion messages), you can see that the\ntest is quite simple.\n\nAside from the above, and as mentioned at the start, this PR also\nversioned the remaining runtime API functions. In the process, I\ncombined some runtime API functions into a single versioned runtime API\nfunction. For example, `eth_transact` and `eth_transact_with_config`\nhave been combined into a single `eth_transact_versioned` since\n`eth_transact_with_config` was added as way to version the\n`eth_transact` runtime API function. Same was done to the `trace_call`\nand the `trace_call_with_config` in that they've been combined into a\nsingle versioned runtime API function.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-21T09:45:38Z",
+          "tree_id": "10c7a603cd30572fa00f69a8441afd1ae1a1d8f2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8574f19ca8eeb5f004e90a99876d9d773bba6bf3"
+        },
+        "date": 1784632466641,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4780300,
+            "range": "± 47380",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 304346,
+            "range": "± 2674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4912804,
+            "range": "± 29854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 375117,
+            "range": "± 3717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5815131,
+            "range": "± 77795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 905967,
+            "range": "± 7644",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11170930,
+            "range": "± 100981",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4917848,
+            "range": "± 87537",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46863879,
+            "range": "± 589941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40471406,
+            "range": "± 389276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 414474464,
+            "range": "± 3375102",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 329159337,
+            "range": "± 3172199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2800074187,
+            "range": "± 16874156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2512664039,
+            "range": "± 19320455",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3415702,
+            "range": "± 35619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1702152,
+            "range": "± 6965",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3483679,
+            "range": "± 29297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1757638,
+            "range": "± 5607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4170185,
+            "range": "± 20304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2147356,
+            "range": "± 12625",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8624715,
+            "range": "± 85983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5379354,
+            "range": "± 33369",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37826927,
+            "range": "± 312039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38768383,
+            "range": "± 633543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 348277955,
+            "range": "± 1793603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 294381941,
+            "range": "± 2996988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2767440512,
+            "range": "± 44975204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2561493940,
+            "range": "± 94551390",
             "unit": "ns/iter"
           }
         ]
