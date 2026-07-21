@@ -515,6 +515,20 @@ async fn process_incoming_peer_message<Sender, B>(
 				);
 				return;
 			}
+
+			// A zero-len cycle is impossible for an honest block.
+			if candidates.iter().any(|fingerprint| {
+				fingerprint.parent_head_data_hash == fingerprint.output_head_data_hash
+			}) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received a segment advertisement with a zero-length cycle",
+				);
+				return;
+			}
+
 			let entries = candidates
 				.iter()
 				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {

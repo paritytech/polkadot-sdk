@@ -211,8 +211,8 @@ async fn run_iteration<Context>(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) => {
 					answer_prospective_validation_data_request(ctx, view, request, tx).await
 				},
-				ProspectiveParachainsMessage::GetKnownOutputHeads(para_id, tx) => {
-					answer_get_known_output_heads(view, para_id, tx).await
+				ProspectiveParachainsMessage::GetKnownOutputHeads(para_ids, tx) => {
+					answer_get_known_output_heads(view, para_ids, tx).await
 				},
 			},
 		}
@@ -1097,14 +1097,17 @@ async fn answer_prospective_validation_data_request<Context>(
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn answer_get_known_output_heads(
 	view: &View,
-	para_id: ParaId,
-	tx: oneshot::Sender<HashSet<Hash>>,
+	para_ids: Vec<ParaId>,
+	tx: oneshot::Sender<HashMap<ParaId, HashSet<Hash>>>,
 ) {
-	let mut known = HashSet::new();
+	let mut known: HashMap<ParaId, HashSet<Hash>> =
+		para_ids.iter().map(|p| (*p, HashSet::new())).collect();
 	for leaf in view.active_leaves.iter() {
 		if let Some(per_sp) = view.per_scheduling_parent.get(leaf) {
-			if let Some(per_para) = per_sp.fragment_chains.get(&para_id) {
-				known.extend(per_para.known_output_heads());
+			for para_id in &para_ids {
+				if let Some(per_para) = per_sp.fragment_chains.get(para_id) {
+					known.entry(*para_id).or_default().extend(per_para.known_output_heads());
+				}
 			}
 		}
 	}

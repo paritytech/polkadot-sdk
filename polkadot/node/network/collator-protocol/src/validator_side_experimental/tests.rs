@@ -64,7 +64,7 @@ use sp_consensus_babe::digests::{PreDigest, SecondaryPlainPreDigest};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	ops::DerefMut,
 	sync::{Arc, Mutex},
 	time::Duration,
@@ -207,6 +207,7 @@ struct TestState {
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
 	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
+	pp_known_output_heads: HashMap<ParaId, HashSet<Hash>>,
 }
 
 impl Default for TestState {
@@ -316,6 +317,7 @@ impl Default for TestState {
 			keystore,
 			node_features,
 			slot_overrides: HashMap::default(),
+			pp_known_output_heads: HashMap::default(),
 		}
 	}
 }
@@ -494,6 +496,17 @@ impl TestState {
 						.map(|(i, cq)| (i, cq.into_iter().collect()))
 						.collect()))
 						.unwrap();
+				},
+				AllMessages::ProspectiveParachains(
+					ProspectiveParachainsMessage::GetKnownOutputHeads(para_ids, tx),
+				) => {
+					let response = para_ids
+						.iter()
+						.map(|p| {
+							(*p, self.pp_known_output_heads.get(p).cloned().unwrap_or_default())
+						})
+						.collect();
+					tx.send(response).unwrap();
 				},
 				other => {
 					if had_buffered_msg {
@@ -3802,7 +3815,7 @@ async fn v4_one_fetch_per_segment() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent,
-		prospective_candidate: Some(v4_entry(fps.last().unwrap())),
+		prospective_candidate: Some(v4_entry(fps.first().unwrap())),
 		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 	};
 
@@ -3830,13 +3843,14 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 
 	let fps: Vec<_> = (0xc1..=0xc2).map(|s| v4_fingerprint(s, get_hash(9))).collect();
 	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
-	let tip_adv = Advertisement {
+	let mut tip_adv = Advertisement {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent,
-		prospective_candidate: Some(v4_entry(fps.last().unwrap())),
+		prospective_candidate: Some(v4_entry(fps.first().unwrap())),
 		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 	};
+	let second_adv = Advertisement { prospective_candidate: Some(v4_entry(&fps[1])), ..tip_adv };
 
 	test_state
 		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
@@ -3849,13 +3863,15 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 	test_state
 		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
-	assert_eq!(state.segments(), [(scheduling_parent, peer_id, entries)].into());
+	assert_eq!(state.segments(), [(scheduling_parent, peer_id, entries.clone())].into());
 
-	// But its synthesized advertisement equals the in-flight one, so it cannot double-launch.
+	// 0xc1 is in flight: the walk advances past it and launches 0xc2 - the same
+	// entry is never double-launched, but the segment IS spent.
 	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_no_messages().await;
+	test_state.assert_collation_request(second_adv).await;
+	assert!(state.segments().is_empty());
 
-	// The in-flight fetch fails: the re-advertised segment is the retry.
+	// The 0xc1 fetch fails. Nothing stored remains, so nothing retries on its own
 	state
 		.handle_fetched_collation(
 			&mut sender,
@@ -3867,6 +3883,35 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 			),
 		)
 		.await;
+	test_state.assert_no_messages().await;
+	assert!(state.segments().is_empty());
+
+	// Activate new leaf so we can submit more segments
+	let leaf_info = test_state.rp_info.get(&get_hash(11)).unwrap().clone();
+	test_state.rp_info.insert(
+		get_hash(12),
+		RelayParentInfo {
+			number: 12,
+			parent: get_parent_hash(12),
+			session_index: leaf_info.session_index,
+			claim_queue: {
+				let mut cq = leaf_info.claim_queue.clone();
+				cq.insert(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()]);
+				cq
+			},
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+	test_state.activate_leaf(&mut state, 12).await;
+
+	// Recovery: a re-advertisement AFTER the failure. 0xc1 is no longer in flight
+	// nor fetched, so the walk resolves it again — the retry.
+	test_state
+		.send_v4_segment(&mut state, peer_id, get_hash(11), fps.clone(), 100.into())
+		.await;
+	assert_eq!(state.segments(), [(get_hash(11), peer_id, entries)].into());
+
+	tip_adv.scheduling_parent = get_hash(11);
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(tip_adv).await;
 	assert!(state.segments().is_empty());
