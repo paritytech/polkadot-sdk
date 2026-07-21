@@ -549,13 +549,13 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// the [`ContractStorageKind`]: hot if `key` was already accessed, cold
 	/// otherwise. When `transient` is true, skips the access list and returns
 	/// the `Transient` variant.
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> ContractStorageKind;
+	fn warm_storage_slot(&mut self, transient: bool, key: &Key) -> ContractStorageKind;
 
-	/// Non-mutating sibling of `touch_storage_access`.
-	fn peek_storage_access(&self, transient: bool, key: &Key) -> ContractStorageKind;
+	/// Non-mutating sibling of `warm_storage_slot`.
+	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind;
 
 	/// Warmth of the state items this call reads.
-	fn call_warmth_of(&self, kind: CallKind) -> CallWarmth;
+	fn call_warmth(&self, kind: CallKind) -> CallWarmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1153,7 +1153,7 @@ where
 						};
 						// Touch only after the charge succeeds, so a failed load
 						// leaves nothing warm.
-						let code_warmth = access_list.code_warmth_of(info.code_hash);
+						let code_warmth = access_list.code_warmth(info.code_hash);
 						let executable = E::from_storage(info.code_hash, meter, code_warmth)?;
 						access_list.warm_code(info.code_hash);
 						ExecutableOrPrecompile::Executable(executable)
@@ -1171,7 +1171,7 @@ where
 							.code_hash;
 						// Touch only after the charge succeeds, so a failed load
 						// leaves nothing warm.
-						let code_warmth = access_list.code_warmth_of(code_hash);
+						let code_warmth = access_list.code_warmth(code_hash);
 						let executable = E::from_storage(code_hash, meter, code_warmth)?;
 						access_list.warm_code(code_hash);
 						ExecutableOrPrecompile::Executable(executable)
@@ -2163,7 +2163,7 @@ where
 				Code::Existing(hash) => {
 					// Touch only after the charge succeeds, so a failed load
 					// leaves nothing warm.
-					let code_warmth = self.access_list.code_warmth_of(*hash);
+					let code_warmth = self.access_list.code_warmth(*hash);
 					let executable = E::from_storage(*hash, self.frame_meter_mut(), code_warmth)?;
 					self.access_list.warm_code(*hash);
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
@@ -2668,7 +2668,7 @@ where
 		)
 	}
 
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> ContractStorageKind {
+	fn warm_storage_slot(&mut self, transient: bool, key: &Key) -> ContractStorageKind {
 		if transient {
 			return ContractStorageKind::Transient;
 		}
@@ -2678,7 +2678,7 @@ where
 		)
 	}
 
-	fn peek_storage_access(&self, transient: bool, key: &Key) -> ContractStorageKind {
+	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind {
 		if transient {
 			return ContractStorageKind::Transient;
 		}
@@ -2688,8 +2688,8 @@ where
 		)
 	}
 
-	fn call_warmth_of(&self, kind: CallKind) -> CallWarmth {
-		self.access_list.call_warmth_of(kind)
+	fn call_warmth(&self, kind: CallKind) -> CallWarmth {
+		self.access_list.call_warmth(kind)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

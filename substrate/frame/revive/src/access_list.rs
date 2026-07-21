@@ -67,7 +67,7 @@ pub const MAX_ACCESS_LIST_ENTRIES: usize = 2_048;
 /// sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
 /// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. Rounded up to 512
 /// for headroom.
-pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
+const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
 
 /// Worst-case total memory the access list can hold per transaction.
 pub const MAX_ACCESS_LIST_BYTES: u32 =
@@ -150,6 +150,7 @@ impl CodeLoadWarmth {
 }
 
 /// A call-family opcode (Call/DelegateCall).
+#[derive(Clone, Copy, Debug)]
 pub enum CallKind {
 	Call { target: H160 },
 	DelegateCall { target: H160 },
@@ -163,7 +164,7 @@ impl CallKind {
 
 	/// Maps `warmth_of` over each state item this call reads and collects
 	/// the results into a [`CallWarmth`].
-	pub fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> CallWarmth {
+	fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> CallWarmth {
 		match self {
 			Self::Call { target } => CallWarmth::Call {
 				account: warmth_of(AccessEntry::Account { address: target }),
@@ -347,7 +348,7 @@ impl AccessList {
 	}
 
 	/// Non-mutating sibling of [`warm_call`](Self::warm_call): the warmth without registering.
-	pub fn call_warmth_of(&self, kind: CallKind) -> CallWarmth {
+	pub fn call_warmth(&self, kind: CallKind) -> CallWarmth {
 		kind.expand(|entry| self.peek(&entry))
 	}
 
@@ -360,7 +361,7 @@ impl AccessList {
 	}
 
 	/// Non-mutating sibling of [`warm_code`](Self::warm_code).
-	pub fn code_warmth_of(&self, hash: H256) -> CodeLoadWarmth {
+	pub fn code_warmth(&self, hash: H256) -> CodeLoadWarmth {
 		CodeLoadWarmth {
 			info: self.peek(&AccessEntry::CodeInfo { hash }),
 			blob: self.peek(&AccessEntry::CodeBlob { hash }),
@@ -374,7 +375,7 @@ impl AccessList {
 
 	/// Returns the number of open checkpoints.
 	#[cfg(test)]
-	pub fn frame_depth(&self) -> usize {
+	fn frame_depth(&self) -> usize {
 		self.checkpoints.len()
 	}
 }
@@ -484,7 +485,7 @@ mod tests {
 		// The set is below the cap, so peek prices both call entries revertible
 		// cold: it cannot see that touching the first entry fills the cap.
 		assert_eq!(
-			al.call_warmth_of(CallKind::Call { target }),
+			al.call_warmth(CallKind::Call { target }),
 			CallWarmth::Call {
 				account: Warmth::Cold { revertible: true },
 				contract_info: Warmth::Cold { revertible: true },

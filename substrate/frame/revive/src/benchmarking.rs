@@ -1828,7 +1828,7 @@ mod benchmarks {
 		);
 
 		// Add the key to access list so the op's touch is hot.
-		runtime.ext().touch_storage_access(false, &key);
+		runtime.ext().warm_storage_slot(false, &key);
 
 		let result;
 		#[block]
@@ -1881,7 +1881,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.warm_storage_slot(false, &key);
 
 		let result;
 		#[block]
@@ -1944,7 +1944,7 @@ mod benchmarks {
 			key.hash(),
 		);
 
-		runtime.ext().touch_storage_access(false, &key);
+		runtime.ext().warm_storage_slot(false, &key);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -1998,7 +1998,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.warm_storage_slot(false, &key);
 
 		let result;
 		#[block]
@@ -2048,7 +2048,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.warm_storage_slot(false, &key);
 
 		let result;
 		#[block]

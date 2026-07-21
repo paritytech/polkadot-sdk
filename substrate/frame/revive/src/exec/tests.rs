@@ -3043,7 +3043,7 @@ fn delegatecall_tracer_reports_correct_addresses() {
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 	matches!(
-		ext.touch_storage_access(false, key),
+		ext.warm_storage_slot(false, key),
 		ContractStorageKind::Persistent(Warmth::Cold { .. })
 	)
 }
@@ -3192,7 +3192,7 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
+			ctx.ext.warm_storage_slot(false, &Key::Fix(SLOT)),
 			ContractStorageKind::Persistent(Warmth::Cold { revertible: true }),
 			"a cold touch in a nested frame is revertible",
 		);
@@ -3201,7 +3201,7 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
+			ctx.ext.warm_storage_slot(false, &Key::Fix(SLOT)),
 			ContractStorageKind::Persistent(Warmth::Cold { revertible: false }),
 			"a cold touch in the root frame is not revertible",
 		);
@@ -3226,13 +3226,13 @@ fn cold_hot_past_cap_touch_is_not_revertible() {
 			let mut slot = [0u8; 32];
 			slot[..4].copy_from_slice(&i.to_le_bytes());
 			assert_matches!(
-				ctx.ext.touch_storage_access(false, &Key::Fix(slot)),
+				ctx.ext.warm_storage_slot(false, &Key::Fix(slot)),
 				ContractStorageKind::Persistent(Warmth::Cold { revertible: true })
 			);
 		}
 		// A further distinct slot is past the cap: cold but not revertible.
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32])),
+			ctx.ext.warm_storage_slot(false, &Key::Fix([0xFF; 32])),
 			ContractStorageKind::Persistent(Warmth::Cold { revertible: false }),
 			"past-cap touch is cold but not revertible",
 		);
@@ -3257,11 +3257,11 @@ fn cold_hot_transient_skips_access_list() {
 		let key = Key::Fix([42; 32]);
 
 		// `transient: true` classifies as `Transient` without touching the access list.
-		let kind = ctx.ext.touch_storage_access(true, &key);
+		let kind = ctx.ext.warm_storage_slot(true, &key);
 		assert!(matches!(kind, ContractStorageKind::Transient));
 
 		// The same key is still cold in the persistent access list.
-		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
+		let persistent_kind = ctx.ext.storage_slot_warmth(false, &key);
 		assert!(
 			matches!(persistent_kind, ContractStorageKind::Persistent(Warmth::Cold { .. })),
 			"transient access must not warm the persistent access list",
@@ -3314,7 +3314,7 @@ fn cold_hot_call_target_warms_across_calls() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: BOB_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: BOB_ADDR }),
 			CallWarmth::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
 			"an uncalled target starts cold",
 		);
@@ -3322,7 +3322,7 @@ fn cold_hot_call_target_warms_across_calls() {
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: BOB_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: BOB_ADDR }),
 			CallWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"account state and contract metadata are hot after the first call",
 		);
@@ -3376,7 +3376,7 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 			let before = ctx.ext.access_list_metrics();
 			assert_matches!(
-				ctx.ext.call_warmth_of(CallKind::Call { target: DJANGO_ADDR }),
+				ctx.ext.call_warmth(CallKind::Call { target: DJANGO_ADDR }),
 				CallWarmth::Call {
 					account: Warmth::Cold { .. },
 					contract_info: Warmth::Cold { .. }
@@ -3403,7 +3403,7 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 				"the denied call warms nothing",
 			);
 			assert_matches!(
-				ctx.ext.call_warmth_of(CallKind::Call { target: DJANGO_ADDR }),
+				ctx.ext.call_warmth(CallKind::Call { target: DJANGO_ADDR }),
 				CallWarmth::Call {
 					account: Warmth::Cold { .. },
 					contract_info: Warmth::Cold { .. }
@@ -3488,12 +3488,12 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: DJANGO_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: DJANGO_ADDR }),
 			CallWarmth::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
 			"B's revert drops the warmth of targets B touched",
 		);
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: BOB_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: BOB_ADDR }),
 			CallWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"the caller's touch of B persists even though B reverted",
 		);
@@ -3537,7 +3537,7 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: BOB_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: BOB_ADDR }),
 			CallWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"the entry target is pre-warmed by the first frame",
 		);
@@ -3558,7 +3558,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: DJANGO_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: DJANGO_ADDR }),
 			CallWarmth::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
 			"an uncalled target starts cold",
 		);
@@ -3567,7 +3567,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.call_warmth_of(CallKind::Call { target: DJANGO_ADDR }),
+			ctx.ext.call_warmth(CallKind::Call { target: DJANGO_ADDR }),
 			CallWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"a call to a plain account warms it",
 		);
