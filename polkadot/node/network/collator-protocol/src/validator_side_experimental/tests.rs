@@ -5261,7 +5261,7 @@ async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 #[tokio::test]
 // The PP snapshot is the knowledge that OUTLIVES the fetched-set: A is fetched and seconded
 // at SP1, then enough leaves activate that SP1 leaves the view and A's `fetched_collations`
-// entry dies with it. Gates 1-2 are then empty for A by construction.
+// entry dies with it.
 //
 // Control arm (false): snapshot unseeded — the seconded candidate is REFETCHED, proving the
 // fetched-set knowledge really expired. Treatment arm (true): PP reports A (as production PP
