@@ -2106,7 +2106,7 @@ fn reclaim_bounty_funds_fails_when_bounty_still_active() {
 		// Bounty is in Funded state (still exists in storage).
 		assert_noop!(
 			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0),
-			Error::<Test>::UnexpectedStatus
+			Error::<Test>::BountyStillActive
 		);
 	});
 }
@@ -2120,7 +2120,7 @@ fn reclaim_bounty_funds_fails_when_bounty_in_proposed_state() {
 		// Bounty is in Proposed state (still exists in storage).
 		assert_noop!(
 			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0),
-			Error::<Test>::UnexpectedStatus
+			Error::<Test>::BountyStillActive
 		);
 	});
 }
@@ -2137,7 +2137,7 @@ fn reclaim_bounty_funds_fails_when_bounty_in_curator_proposed_state() {
 		// Bounty is in CuratorProposed state.
 		assert_noop!(
 			Bounties::reclaim_bounty_funds(RuntimeOrigin::signed(1), 0),
-			Error::<Test>::UnexpectedStatus
+			Error::<Test>::BountyStillActive
 		);
 	});
 }

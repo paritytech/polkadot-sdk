@@ -34,7 +34,7 @@ fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
 }
 
 fn minimum_balance<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
-	let minimum_balance = <T::Currency as Currency<T::AccountId>>::minimum_balance();
+	let minimum_balance = T::Currency::minimum_balance();
 
 	if minimum_balance.is_zero() {
 		1u32.into()
