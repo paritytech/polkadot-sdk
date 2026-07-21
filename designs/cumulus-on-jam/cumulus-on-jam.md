@@ -1,4 +1,4 @@
-# Cumulus on JAM — collator-side scope (seed, v03)
+# Cumulus on JAM — collator-side implementation scope
 
 The parachain-service document [1] describes the in-core (Refine/PVF) and on-chain (Accumulate)
 logic of the Parachain Service, the PoV/work-item format and how parachain state lives in JAM
