@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Ethereum Typed Transaction types
-use super::Byte;
+use crate::common::Byte;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use paste::paste;
 use rlp::Decodable;
@@ -116,7 +116,12 @@ transaction_type!(TypeEip1559, 2);
 transaction_type!(TypeEip4844, 3);
 transaction_type!(TypeEip7702, 4);
 
-#[test]
-fn transaction_type() {
-	assert_eq!(TYPE_EIP2930, 1u8);
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn transaction_type() {
+		assert_eq!(TYPE_EIP2930, 1u8);
+	}
 }
