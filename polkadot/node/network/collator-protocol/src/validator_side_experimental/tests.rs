@@ -33,6 +33,7 @@ use polkadot_node_network_protocol::{
 	request_response::{
 		outgoing::RequestError, v1::CollationFetchingResponse, Recipient, Requests, ResponseSender,
 	},
+	v4_collation::CandidateFingerprint,
 	OurView,
 };
 use polkadot_node_primitives::{
@@ -5041,3 +5042,476 @@ async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
+
+#[tokio::test]
+// A is fetched SUCCESSFULLY at SP1; the segment [A, B] arrives (resubmitted)
+// at SP2 after the next leaf activates. The walk skips A because it is in the
+// fetched set.
+async fn v4_resubmission_at_new_sp_skips_fetched_entry() {
+	let mut test_state = TestState::default();
+	let (mut state, _db, sp_1) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+	let leaf_info = test_state.rp_info.get(&get_hash(11)).unwrap().clone();
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let relay_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		sp_1,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let fp_a = CandidateFingerprint {
+		output_head_data_hash: ccr.descriptor.para_head(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		relay_parent,
+	};
+	let fp_b = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xb2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		relay_parent,
+	};
+
+	// Fetch A successfully at SP1.
+	test_state
+		.send_v4_segment(&mut state, peer_id, sp_1, vec![fp_a.clone()], 100.into())
+		.await;
+	let adv_a = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent: sp_1,
+		prospective_candidate: Some(v4_entry(&fp_a)),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv_a).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv_a, ccr.to_plain(), None, relay_parent)
+		.await;
+
+	// Next leaf activates; the resubmitted segment [A, B] arrives at SP2.
+	let sp_2 = get_hash(11);
+	test_state.rp_info.insert(
+		get_hash(12),
+		RelayParentInfo {
+			number: 12,
+			parent: get_parent_hash(12),
+			session_index: leaf_info.session_index,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+	test_state.activate_leaf(&mut state, 12).await;
+	test_state
+		.send_v4_segment(&mut state, peer_id, sp_2, vec![fp_a.clone(), fp_b.clone()], 100.into())
+		.await;
+
+	// Selection skips fetched A and resolves B.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent: sp_2,
+			prospective_candidate: Some(v4_entry(&fp_b)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
+	assert!(state.segments().is_empty());
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Advance past IN-FLIGHT: peer 1's [A] launches and its fetch stays unconcluded; peer 2's
+// [A, B], picked in a later pass, sees in-flight A through the known-set and resolves B.
+async fn v4_walk_advances_past_in_flight_fetch() {
+	let mut test_state = TestState::default();
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_1 = PeerId::random();
+	let peer_2 = PeerId::random();
+	for peer in [peer_1, peer_2] {
+		state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer, 100.into()).await;
+	}
+
+	let fp_a = v4_fingerprint(0xa1, get_hash(9));
+	let fp_b = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xa2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		relay_parent: get_hash(9),
+	};
+
+	let fetch_target = |peer_id, fp: &CandidateFingerprint| Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(v4_entry(fp)),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+
+	// Peer 1's [A] launches; the fetch is left unconcluded — A is in flight.
+	test_state
+		.send_v4_segment(&mut state, peer_1, scheduling_parent, vec![fp_a.clone()], 100.into())
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(fetch_target(peer_1, &fp_a)).await;
+
+	// Peer 2's [A, B]: the walk advances past in-flight A and resolves B.
+	test_state
+		.send_v4_segment(
+			&mut state,
+			peer_2,
+			scheduling_parent,
+			vec![fp_a.clone(), fp_b.clone()],
+			100.into(),
+		)
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(fetch_target(peer_2, &fp_b)).await;
+	assert!(state.segments().is_empty());
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// output heads prospective-parachains reports through the GetKnownOutputHeads snapshot
+// are skipped by the walk; a segment whose every entry is PP-known is consumed without
+// a launch and disappears from the live view.
+async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
+	let fp_a = v4_fingerprint(0xa1, get_hash(9));
+	let fp_b = protocol_v4::CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xa2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		relay_parent: get_hash(9),
+	};
+
+	// PP knows A: the walk skips it and resolves B.
+	{
+		let mut test_state = TestState::default();
+		test_state
+			.pp_known_output_heads
+			.insert(100.into(), [fp_a.output_head_data_hash].into());
+		let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+		let mut sender = test_state.sender.clone();
+
+		let peer_id = PeerId::random();
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state
+			.send_v4_segment(
+				&mut state,
+				peer_id,
+				scheduling_parent,
+				vec![fp_a.clone(), fp_b.clone()],
+				100.into(),
+			)
+			.await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state
+			.assert_collation_request(Advertisement {
+				peer_id,
+				para_id: 100.into(),
+				scheduling_parent,
+				prospective_candidate: Some(v4_entry(&fp_b)),
+				advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+			})
+			.await;
+	}
+
+	// PP knows both: all-blocked, consumed without a launch.
+	{
+		let mut test_state = TestState::default();
+		test_state
+			.pp_known_output_heads
+			.insert(100.into(), [fp_a.output_head_data_hash, fp_b.output_head_data_hash].into());
+		let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+		let mut sender = test_state.sender.clone();
+
+		let peer_id = PeerId::random();
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state
+			.send_v4_segment(
+				&mut state,
+				peer_id,
+				scheduling_parent,
+				vec![fp_a.clone(), fp_b.clone()],
+				100.into(),
+			)
+			.await;
+		assert_eq!(state.segments().len(), 1);
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_no_messages().await;
+		assert!(state.segments().is_empty());
+	}
+}
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+#[tokio::test]
+// The PP snapshot is the knowledge that OUTLIVES the fetched-set: A is fetched and seconded
+// at SP1, then enough leaves activate that SP1 leaves the view and A's `fetched_collations`
+// entry dies with it. Gates 1-2 are then empty for A by construction.
+//
+// Control arm (false): snapshot unseeded — the seconded candidate is REFETCHED, proving the
+// fetched-set knowledge really expired. Treatment arm (true): PP reports A (as production PP
+// would, having introduced it at seconding) — the snapshot alone blocks the refetch and the
+// walk resolves B.
+async fn v4_seconded_head_blocked_after_fetched_entry_expires(#[case] pp_reports_a: bool) {
+	let mut test_state = TestState::default();
+	let (mut state, _db, sp_1) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+	let leaf_info = test_state.rp_info.get(&get_hash(11)).unwrap().clone();
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let relay_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		sp_1,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let fp_a = CandidateFingerprint {
+		output_head_data_hash: ccr.descriptor.para_head(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		relay_parent,
+	};
+	let fp_b = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xb2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		relay_parent,
+	};
+
+	// Fetch and second A at SP1.
+	test_state
+		.send_v4_segment(&mut state, peer_id, sp_1, vec![fp_a.clone()], 100.into())
+		.await;
+	let adv_a = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent: sp_1,
+		prospective_candidate: Some(v4_entry(&fp_a)),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv_a).await;
+	test_state
+		.handle_fetched_collation(&mut state, adv_a, ccr.to_plain(), None, relay_parent)
+		.await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V4, ccr, sp_1)
+		.await;
+
+	if pp_reports_a {
+		// As production PP would: A was introduced at seconding, so every
+		// subsequent refresh reports it.
+		test_state
+			.pp_known_output_heads
+			.insert(100.into(), [fp_a.output_head_data_hash].into());
+	}
+
+	// Two more leaves: SP1 leaves the view and A's fetched entry dies with it.
+	// Gates 1-2 are now empty for A; only the (possibly seeded) snapshot remains.
+	for number in [12u32, 13] {
+		test_state.rp_info.insert(
+			get_hash(number),
+			RelayParentInfo {
+				number,
+				parent: get_parent_hash(number),
+				session_index: leaf_info.session_index,
+				claim_queue: leaf_info.claim_queue.clone(),
+				assigned_core: leaf_info.assigned_core,
+			},
+		);
+		test_state.activate_leaf(&mut state, number).await;
+	}
+
+	let sp_3 = get_hash(12);
+	test_state
+		.send_v4_segment(&mut state, peer_id, sp_3, vec![fp_a.clone(), fp_b.clone()], 100.into())
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	// With PP reporting A the walk resolves B; without it the knowledge is truly
+	// gone and A — an already-seconded candidate — gets refetched. The control
+	// arm is what makes the treatment arm's B attributable to the snapshot and
+	// nothing else (it proves the fetched-set entry really expired).
+	let expected = if pp_reports_a { &fp_b } else { &fp_a };
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent: sp_3,
+			prospective_candidate: Some(v4_entry(expected)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// The mixed-version transitional gap, a V3 peer advertises candidate B by hash while a V4
+// peer's segment resolves B by output head — the two are mutually blind pre-fetch, so B is
+// fetched twice during the overlap. The system tolerates the duplicate, and once the by-hash
+// fetch concludes (output heads are recorded for EVERY protocol version), the walk converges:
+//  a re-advertised segment resolves C, never B again.
+async fn v4_mixed_version_double_fetch_converges() {
+	let fp_a = v4_fingerprint(0xa1, get_hash(9));
+
+	let mut test_state = TestState::default();
+	// A is already PP-known so the V4 segment resolves B on its first pick.
+	test_state
+		.pp_known_output_heads
+		.insert(100.into(), [fp_a.output_head_data_hash].into());
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+	let leaf_info = test_state.rp_info.get(&get_hash(11)).unwrap().clone();
+
+	let v3_peer = PeerId::random();
+	let v4_peer = PeerId::random();
+	state.handle_peer_connected(&mut sender, v3_peer, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, v3_peer, 100.into()).await;
+	state.handle_peer_connected(&mut sender, v4_peer, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, v4_peer, 100.into()).await;
+
+	// The real para block B, advertised by hash by the V3 peer…
+	let relay_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		v3_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let by_hash_adv = Advertisement {
+		peer_id: v3_peer,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
+			candidate_hash: ccr.to_plain().hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		}),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	test_state.handle_advertisement(&mut state, by_hash_adv).await;
+
+	// …and by output head inside the V4 peer's segment [A, B, C].
+	let fp_b = CandidateFingerprint {
+		output_head_data_hash: ccr.descriptor.para_head(),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		relay_parent,
+	};
+	let fp_c = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xc3),
+		parent_head_data_hash: fp_b.output_head_data_hash,
+		relay_parent,
+	};
+	let segment = vec![fp_a.clone(), fp_b.clone(), fp_c.clone()];
+	test_state
+		.send_v4_segment(&mut state, v4_peer, scheduling_parent, segment.clone(), 100.into())
+		.await;
+
+	// One pass launches BOTH fetches of B: the by-hash ticket carries no output head and
+	// the hash-based checks cannot see the V4 ticket — the documented two-sided blindness.
+	let v4_b_adv = Advertisement {
+		peer_id: v4_peer,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(v4_entry(&fp_b)),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_requests([by_hash_adv, v4_b_adv].into()).await;
+
+	// The by-hash fetch concludes successfully; the V4 duplicate fails. B's output head is
+	// now durably in the fetched-set.
+	test_state
+		.handle_fetched_collation(&mut state, by_hash_adv, ccr.to_plain(), None, relay_parent)
+		.await;
+	state
+		.handle_fetched_collation(
+			&mut sender,
+			(
+				v4_b_adv,
+				Err(CollationFetchError::Request(RequestError::NetworkError(
+					RequestFailure::NotConnected,
+				))),
+			),
+		)
+		.await;
+	test_state.assert_no_messages().await;
+
+	// Convergence: a re-advertised segment resolves C — A is PP-known, B is fetched.
+	test_state
+		.send_v4_segment(&mut state, v4_peer, scheduling_parent, segment, 100.into())
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id: v4_peer,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(v4_entry(&fp_c)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// A segment carrying a zero-length cycle (an entry whose parent and output heads are equal)
+// is rejected at the wire: nothing is stored, and — because rejection happens before the
+// rate-limit counter — the peer's cap is untouched, so a subsequent valid segment from the
+// same peer is accepted.
+async fn v4_zero_length_cycle_segment_rejected_at_wire() {
+	let mut test_state = TestState::default();
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let self_loop = protocol_v4::CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xaa),
+		parent_head_data_hash: Hash::repeat_byte(0xaa),
+		relay_parent: get_hash(9),
+	};
+	let fp_ok = v4_fingerprint(0xb1, get_hash(9));
+
+	test_state
+		.send_v4_segment(
+			&mut state,
+			peer_id,
+			scheduling_parent,
+			vec![fp_ok.clone(), self_loop],
+			100.into(),
+		)
+		.await;
+	assert!(state.segments().is_empty());
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// The rejection consumed no cap: a valid segment from the same peer is accepted.
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, vec![fp_ok.clone()], 100.into())
+		.await;
+	assert_eq!(state.segments(), [(scheduling_parent, peer_id, vec![v4_entry(&fp_ok)])].into());
+}
