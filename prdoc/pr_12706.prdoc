@@ -1,0 +1,9 @@
+title: Statement RPC: reject invalid inputs
+doc:
+- audience: Node Dev
+  description: |-
+    The unstable statement RPC now returns `-32602` for SCALE-encoded statements with trailing
+    bytes and empty `matchAll` filters. Use `"any"` to match every statement.
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
