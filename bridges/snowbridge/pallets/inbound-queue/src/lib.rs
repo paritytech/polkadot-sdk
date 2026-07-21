@@ -297,7 +297,8 @@ pub mod pallet {
 			.min(owed);
 			if !amount.is_zero() {
 				// Best effort attempt to reward relayer if there are funds available.
-				let _ = T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve);
+				let _ =
+					T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve);
 			}
 
 			// Attempt to send XCM to a dest parachain
