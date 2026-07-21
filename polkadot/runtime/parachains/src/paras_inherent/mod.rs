@@ -425,6 +425,10 @@ impl<T: Config> Pallet<T> {
 			all_weight_after
 		};
 
+		// Whether the chain was already frozen before importing this block's disputes — used below
+		// to detect a fresh freeze transition for the speculative-messaging provides window.
+		let was_frozen = T::DisputesHandler::is_frozen();
+
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
 		// dispute; so the input here must be reasonably bounded,
 		// which is guaranteed by the checks and weight limitation above.
@@ -440,8 +444,14 @@ impl<T: Config> Pallet<T> {
 
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
 
-		// Speculative messaging: no provides-window eviction here — a dispute revert is rolled back
-		// by the node's state-revert (see `inclusion::RecentProvides`).
+		// Speculative messaging: on a *freeze* transition — a concluded-invalid dispute against a
+		// finalized candidate the node can't revert — clear the whole provides window. Otherwise the
+		// invalid sender's `StreamsRoot` survives `force_unfreeze` (no rollback) and a later
+		// `requires` could match it. The fork-revert path needs nothing here: the node's state-revert
+		// unwinds the writes with the abandoned branch (see `inclusion::RecentProvides`).
+		if !was_frozen && T::DisputesHandler::is_frozen() {
+			inclusion::Pallet::<T>::clear_provides();
+		}
 
 		if T::DisputesHandler::is_frozen() {
 			// Relay chain freeze, at this point we will not include any parachain blocks.
