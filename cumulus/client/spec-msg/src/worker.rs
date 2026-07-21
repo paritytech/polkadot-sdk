@@ -155,12 +155,22 @@ where
 
 	for (block_hash, block_header) in to_import.into_iter().rev() {
 		let sends = client.runtime_api().outbound_messages(block_hash)?;
-		archive.write().import_block(
+		let streams = sends.iter().filter(|(_, payloads)| !payloads.is_empty()).count();
+		let leaves: usize = sends.iter().map(|(_, payloads)| payloads.len()).sum();
+		let root = archive.write().import_block(
 			block_hash,
 			*block_header.parent_hash(),
 			*block_header.number(),
 			sends,
 		)?;
+		tracing::debug!(
+			target: LOG_TARGET,
+			number = ?block_header.number(),
+			streams,
+			leaves,
+			?root,
+			"Archived own block",
+		);
 	}
 
 	// Retention: channel payloads below the peers' confirmation watermarks

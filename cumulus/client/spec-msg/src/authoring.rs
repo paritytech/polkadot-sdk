@@ -125,7 +125,32 @@ where
 		})
 		.collect();
 
-	pool.build_inherent(&channel_cursors, &registers, budget)
+	let data = pool.build_inherent(&channel_cursors, &registers, budget);
+	if !data.is_empty() {
+		let bytes: usize = data
+			.messages
+			.iter()
+			.map(|(_, _, payloads)| payloads.iter().map(Vec::len).sum::<usize>())
+			.sum();
+		let targets: Vec<(u32, Option<StreamsRoot>)> = data
+			.messages
+			.iter()
+			.map(|(source, ..)| *source)
+			.chain(data.register_reads.iter().map(|(source, ..)| *source))
+			.collect::<std::collections::BTreeSet<ParaId>>()
+			.into_iter()
+			.map(|source| (u32::from(source), pool.target(source)))
+			.collect();
+		tracing::info!(
+			target: LOG_TARGET,
+			messages = data.messages.len(),
+			register_reads = data.register_reads.len(),
+			bytes,
+			?targets,
+			"Inherent handed to the block",
+		);
+	}
+	data
 }
 
 /// Why the candidate's lifts could not be assembled. Loud by design: a
@@ -209,6 +234,15 @@ where
 	}
 	let lifts = assemble_from_records(pool, &records)?;
 	let requires = build_requires(&records, &lifts).map_err(AssembleError::Synthesis)?;
+	if let Some(set) = &requires {
+		tracing::info!(
+			target: LOG_TARGET,
+			sources = lifts.len(),
+			lift_bytes = lifts.encoded_size(),
+			targets = ?set,
+			"Lifts attached to the collation",
+		);
+	}
 	Ok((lifts, requires.map(|set| UMPSignal::Requires(set).encode())))
 }
 

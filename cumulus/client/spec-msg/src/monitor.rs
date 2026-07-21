@@ -364,8 +364,17 @@ where
 	let relay_block = header.hash();
 	for source in sources {
 		// The inclusion-tier trigger: roots newly present in the source's ring.
+		let bootstrap = tracker.sources.get(&source).map_or(true, |state| !state.bootstrapped);
 		let ring = read_recent_provides(relay_chain, relay_block, source).await?;
 		for included in tracker.note_ring(source, &ring, relay_block) {
+			tracing::info!(
+				target: LOG_TARGET,
+				source = %u32::from(source),
+				root = ?included.root,
+				?relay_block,
+				bootstrap,
+				"Included root offered to the fetcher",
+			);
 			events
 				.send(RelayProvidesEvent::Included(included))
 				.await

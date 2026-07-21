@@ -55,7 +55,7 @@ use cumulus_primitives_spec_messaging::{
 };
 use polkadot_core_primitives::Hash;
 
-use crate::nodes::HistoricNodes;
+use crate::{nodes::HistoricNodes, LOG_TARGET};
 
 /// How many verified register head reads are retained per ack stream: the
 /// newest read feeds the next block, the older ones remain addressable for
@@ -314,6 +314,17 @@ impl SpecMsgPool {
 	/// Stores one verified register head read (newest-wins per context;
 	/// older contexts are retained for lift assembly, bounded).
 	pub fn note_register(&self, source: ParaId, stream: StreamId, read: RegisterRead) {
+		if let Ok(register) = Register::decode_all(&mut read.payload.as_slice()) {
+			tracing::info!(
+				target: LOG_TARGET,
+				source = %u32::from(source),
+				?stream,
+				version = register.version,
+				up_to = register.up_to.0,
+				grant = ?register.grant,
+				"Register read verified and stored",
+			);
+		}
 		let mut sources = self.sources.lock();
 		let registers = sources.entry(source).or_default().registers.entry(stream).or_default();
 		let context = read.frontier.leaf_count;

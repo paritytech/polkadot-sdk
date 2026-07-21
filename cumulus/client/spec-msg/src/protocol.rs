@@ -44,7 +44,7 @@ use parking_lot::RwLock;
 use sc_client_api::AuxStore;
 use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse},
-	NetworkBackend,
+	NetworkBackend, PeerId,
 };
 use sp_runtime::traits::Block as BlockT;
 
@@ -112,7 +112,7 @@ impl<Block: BlockT<Hash = Hash>, AUX: AuxStore> SpecMsgRequestHandler<Block, AUX
 	pub async fn run(mut self) {
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
-			let result = self.handle_request(&payload);
+			let result = self.handle_request(&peer, &payload);
 			if let Err(()) = &result {
 				tracing::debug!(target: LOG_TARGET, ?peer, "Refused exchange request");
 			}
@@ -126,19 +126,39 @@ impl<Block: BlockT<Hash = Hash>, AUX: AuxStore> SpecMsgRequestHandler<Block, AUX
 
 	/// One request in, one encoded response (or a bare refusal) out — pure
 	/// function of the request against the archive.
-	fn handle_request(&self, payload: &[u8]) -> Result<Vec<u8>, ()> {
+	fn handle_request(&self, peer: &PeerId, payload: &[u8]) -> Result<Vec<u8>, ()> {
 		let request = ExchangeRequest::decode_all(&mut &payload[..]).map_err(|_| ())?;
 		let archive = self.archive.read();
 		match request {
 			ExchangeRequest::Messages(request) => archive
 				.serve_messages(&request)
-				.map(|response| ExchangeResponse::Messages(response).encode())
+				.map(|response| {
+					let bytes: usize = response.payloads.iter().map(Vec::len).sum();
+					tracing::debug!(
+						target: LOG_TARGET,
+						?peer,
+						?request,
+						payloads = response.payloads.len(),
+						bytes,
+						"Served messages request",
+					);
+					ExchangeResponse::Messages(response).encode()
+				})
 				.map_err(|error| {
 					tracing::debug!(target: LOG_TARGET, %error, ?request, "Messages request");
 				}),
 			ExchangeRequest::Event(request) => archive
 				.serve_event(&request)
-				.map(|response| ExchangeResponse::Event(response).encode())
+				.map(|response| {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?peer,
+						?request,
+						bytes = response.payload.len(),
+						"Served event request",
+					);
+					ExchangeResponse::Event(response).encode()
+				})
 				.map_err(|error| {
 					tracing::debug!(target: LOG_TARGET, %error, ?request, "Event request");
 				}),
@@ -172,8 +192,9 @@ mod tests {
 		let direct = archive.serve_messages(&request).expect("serves under the head root");
 
 		let handler = handler(archive);
+		let peer = PeerId::random();
 		let encoded = handler
-			.handle_request(&ExchangeRequest::Messages(request).encode())
+			.handle_request(&peer, &ExchangeRequest::Messages(request).encode())
 			.expect("same request over the wire serves too");
 		assert_eq!(
 			ExchangeResponse::decode_all(&mut &encoded[..]).expect("valid encoding"),
@@ -181,13 +202,16 @@ mod tests {
 		);
 
 		// Garbage and unservable requests are bare refusals.
-		assert_eq!(handler.handle_request(b"not a request"), Err(()));
+		assert_eq!(handler.handle_request(&peer, b"not a request"), Err(()));
 		let unknown = MessagesRequest {
 			stream,
 			start: MessagePosition(0),
 			under: StreamsRoot(Hash::repeat_byte(0xAA)),
 			max_bytes: 0,
 		};
-		assert_eq!(handler.handle_request(&ExchangeRequest::Messages(unknown).encode()), Err(()));
+		assert_eq!(
+			handler.handle_request(&peer, &ExchangeRequest::Messages(unknown).encode()),
+			Err(())
+		);
 	}
 }

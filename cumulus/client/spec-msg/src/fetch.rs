@@ -138,29 +138,55 @@ pub async fn fetch_source(
 	registers: &[StreamId],
 	chunk_bytes: u32,
 ) -> Result<(), FetchError> {
+	let (mut leaves, mut bytes) = (0u64, 0u64);
 	for (stream, cursor) in channels {
-		fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
-			.await?;
+		let (stream_leaves, stream_bytes) =
+			fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
+				.await?;
+		leaves += stream_leaves;
+		bytes += stream_bytes;
 	}
 
+	let mut register_reads = 0usize;
 	for stream in registers {
-		if let Err(error) = fetch_register(network, peers, pool, source, root, *stream).await {
-			tracing::debug!(
+		match fetch_register(network, peers, pool, source, root, *stream).await {
+			Ok(()) => register_reads += 1,
+			Err(error) => tracing::debug!(
 				target: LOG_TARGET,
 				%error,
 				source = %u32::from(source),
 				?stream,
 				"Register head read not served (unpublished register, or no peer)",
-			);
+			),
 		}
 	}
 
 	pool.complete_round(source, root);
+	if leaves == 0 && register_reads == 0 {
+		tracing::debug!(
+			target: LOG_TARGET,
+			source = %u32::from(source),
+			?root,
+			"Fetch round completed (nothing new)",
+		);
+	} else {
+		tracing::info!(
+			target: LOG_TARGET,
+			source = %u32::from(source),
+			?root,
+			streams = channels.len(),
+			leaves,
+			bytes,
+			register_reads,
+			"Fetch round completed",
+		);
+	}
 	Ok(())
 }
 
 /// Fetches one channel stream's backlog under `root`, chunked and resumed
-/// from `base + received`, into the pool.
+/// from `base + received`, into the pool. Returns the round's newly
+/// received `(leaves, payload bytes)`.
 async fn fetch_channel_stream(
 	network: &impl ExchangeNetwork,
 	peers: &dyn SourcePeers,
@@ -170,7 +196,7 @@ async fn fetch_channel_stream(
 	stream: StreamId,
 	cursor: u64,
 	chunk_bytes: u32,
-) -> Result<(), FetchError> {
+) -> Result<(u64, u64), FetchError> {
 	// Resume from the pooled run where it covers the runtime cursor; a
 	// stale or absent run restarts trust-free from the cursor (the
 	// response's verified `start_peaks` seed the new run's base).
@@ -180,6 +206,7 @@ async fn fetch_channel_stream(
 		None => (cursor, None),
 	};
 
+	let (mut leaves, mut bytes) = (0u64, 0u64);
 	for _ in 0..MAX_CHUNKS_PER_ROUND {
 		let request = MessagesRequest {
 			stream,
@@ -189,6 +216,8 @@ async fn fetch_channel_stream(
 		};
 		let (verified, response) =
 			request_messages(network, peers, source, &request, own.as_ref()).await?;
+		leaves += response.payloads.len() as u64;
+		bytes += response.payloads.iter().map(|payload| payload.len() as u64).sum::<u64>();
 
 		let base = own.clone().unwrap_or_else(|| MmrFrontier {
 			leaf_count: response.base.0,
@@ -206,9 +235,17 @@ async fn fetch_channel_stream(
 		};
 		let caught_up = verified.end.leaf_count >= verified.head;
 		pool.note_chunk(source, stream, base, response.payloads, verified.end.clone(), binding)?;
+		tracing::debug!(
+			target: LOG_TARGET,
+			source = %u32::from(source),
+			?stream,
+			received = verified.end.leaf_count,
+			head = verified.head,
+			"Fetched chunk",
+		);
 
 		if caught_up {
-			return Ok(());
+			return Ok((leaves, bytes));
 		}
 		start = verified.end.leaf_count;
 		own = Some(verified.end);
