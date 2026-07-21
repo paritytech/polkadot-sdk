@@ -1,0 +1,24 @@
+title: 'pallet-proxy: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Description
+
+    Adds a `try_state` hook to `pallet-proxy`, wired through a new `do_try_state` function, so the pallet participates in runtime wide `try_state` checks (issue #239). The checks run under the `try-runtime` feature and are exercised after every unit test.
+
+    The following invariants are asserted over storage:
+
+    * Every stored `Proxies` entry is non empty. All code paths that empty the list remove the whole entry, so an empty entry can never be persisted.
+    * Every stored `Proxies` list is strictly sorted in ascending order and therefore free of duplicates, matching the `binary_search` based insertion in `add_proxy_delegate` that lookups rely on.
+    * Every stored `Announcements` entry is non empty, for the same reason as `Proxies`.
+
+    Deposit amounts are deliberately not asserted against the current deposit parameters, because stored deposits become stale until poked whenever those parameters change, so equality is not an invariant. Reserved balances are likewise not asserted, because a pure proxy holds its deposit on the creator account rather than on the stored key, which is not recoverable from storage alone.
+
+    ## Integration
+
+    No action required for downstream users. The change is additive and gated behind the `try-runtime` feature. There is no storage migration and no change to dispatchable signatures or weights.
+
+crates:
+- name: pallet-proxy
+  bump: minor

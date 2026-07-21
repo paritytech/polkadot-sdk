@@ -42,7 +42,14 @@ use frame::{
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
+
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
+
+/// The system block number, as opposed to the [`Config::BlockNumberProvider`] one used by
+/// [`BlockNumberFor`].
+type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -673,6 +680,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -1040,5 +1055,29 @@ impl<T: Config> Pallet<T> {
 				delay: proxy_def.delay,
 			});
 		});
+	}
+}
+
+#[cfg(feature = "try-runtime")]
+impl<T: Config> Pallet<T> {
+	/// Invariants that must hold before and after every state transition of this pallet.
+	///
+	/// Deposits are not checked: stored deposits go stale (until poked) when the `*Deposit*`
+	/// parameters change, and a pure proxy holds its deposit on the creator, not the stored key.
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		// Empty entries are always removed; `Proxies` is kept sorted (hence duplicate-free) by
+		// the `binary_search` insertion in `add_proxy_delegate`.
+		for (_, (proxies, _)) in Proxies::<T>::iter() {
+			ensure!(!proxies.is_empty(), "Proxies entry must never be empty");
+			ensure!(
+				proxies.windows(2).all(|w| w[0] < w[1]),
+				"Proxies must be strictly sorted and duplicate-free"
+			);
+		}
+		for (_, (pending, _)) in Announcements::<T>::iter() {
+			ensure!(!pending.is_empty(), "Announcements entry must never be empty");
+		}
+
+		Ok(())
 	}
 }

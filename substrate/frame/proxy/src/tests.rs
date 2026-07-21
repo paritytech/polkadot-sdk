@@ -151,6 +151,17 @@ pub fn new_test_ext() -> TestState {
 	ext
 }
 
+/// Run `test` in a fresh externality, then assert the pallet invariants hold.
+///
+/// The `do_try_state` check only runs under the `try-runtime` feature.
+fn new_test_ext_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		#[cfg(feature = "try-runtime")]
+		Proxy::do_try_state().expect("All invariants must hold after each test");
+	});
+}
+
 fn last_events(n: usize) -> Vec<RuntimeEvent> {
 	frame_system::Pallet::<Test>::events()
 		.into_iter()
@@ -171,7 +182,7 @@ fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 
 #[test]
 fn announcement_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		System::assert_last_event(
 			ProxyEvent::ProxyAdded {
@@ -213,7 +224,7 @@ fn announcement_works() {
 
 #[test]
 fn remove_announcement_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
@@ -232,7 +243,7 @@ fn remove_announcement_works() {
 
 #[test]
 fn reject_announcement_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
@@ -253,7 +264,7 @@ fn reject_announcement_works() {
 
 #[test]
 fn announcer_must_be_proxy() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_noop!(
 			Proxy::announce(RuntimeOrigin::signed(2), 1, H256::zero()),
 			Error::<Test>::NotProxy
@@ -263,7 +274,7 @@ fn announcer_must_be_proxy() {
 
 #[test]
 fn calling_proxy_doesnt_remove_announcement() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 
 		let call = Box::new(call_transfer(6, 1));
@@ -280,7 +291,7 @@ fn calling_proxy_doesnt_remove_announcement() {
 
 #[test]
 fn delayed_requires_pre_announcement() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 1));
 		let call = Box::new(call_transfer(6, 1));
 		let e = Error::<Test>::Unannounced;
@@ -296,7 +307,7 @@ fn delayed_requires_pre_announcement() {
 
 #[test]
 fn proxy_announced_removes_announcement_and_returns_deposit() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
 		let call = Box::new(call_transfer(6, 1));
@@ -317,7 +328,7 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 
 #[test]
 fn filtering_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		Balances::make_free_balance_be(&1, 1000);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::JustTransfer, 0));
@@ -438,7 +449,7 @@ fn filtering_works() {
 
 #[test]
 fn add_remove_proxies_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_noop!(
 			Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0),
@@ -512,7 +523,7 @@ fn add_remove_proxies_works() {
 
 #[test]
 fn cannot_add_proxy_without_balance() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(5), 2);
 		assert_noop!(
@@ -524,7 +535,7 @@ fn cannot_add_proxy_without_balance() {
 
 #[test]
 fn proxying_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
 
@@ -564,7 +575,7 @@ fn proxying_works() {
 
 #[test]
 fn pure_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		Balances::make_free_balance_be(&1, 11); // An extra one for the ED.
 		assert_ok!(Proxy::create_pure(RuntimeOrigin::signed(1), ProxyType::Any, 0, 0));
 		let anon = Proxy::pure_account(&1, &ProxyType::Any, 0, None);
@@ -640,7 +651,7 @@ fn pure_works() {
 
 #[test]
 fn poke_deposit_works_for_proxy_deposits() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Add a proxy and check initial deposit
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -668,7 +679,7 @@ fn poke_deposit_works_for_proxy_deposits() {
 
 #[test]
 fn poke_deposit_works_for_announcement_deposits() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Setup proxy and make announcement
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -705,7 +716,7 @@ fn poke_deposit_works_for_announcement_deposits() {
 
 #[test]
 fn poke_deposit_charges_fee_when_deposit_unchanged() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Add a proxy and check initial deposit
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -746,7 +757,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 
 #[test]
 fn poke_deposit_handles_insufficient_balance() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Setup with account that has minimal balance
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
 		let initial_deposit = Balances::reserved_balance(5);
@@ -767,7 +778,7 @@ fn poke_deposit_handles_insufficient_balance() {
 
 #[test]
 fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Setup both proxy and announcement for the same account
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -862,7 +873,7 @@ fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 
 #[test]
 fn poke_deposit_fails_for_unsigned_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin,);
 	});
 }
