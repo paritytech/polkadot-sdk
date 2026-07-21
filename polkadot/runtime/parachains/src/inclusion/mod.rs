@@ -362,9 +362,10 @@ pub mod pallet {
 	/// Per-sender window of recently-committed `StreamsRoot`s for speculative messaging. Newest
 	/// entry last, at most [`MAX_PROVIDES_WINDOW_SIZE`] entries. A receiver's `requires` root
 	/// matches when it is present in the referenced source's window. Bare ring (no block tag): a
-	/// dispute revert is rolled back by the node's state-revert, so there is no explicit on-chain
-	/// eviction. A sender's window is dropped in full when it offboards (see
-	/// `initializer_on_new_session`), so it does not linger after the para is gone.
+	/// fork-revert dispute is unwound by the node's state-revert (no per-entry eviction); a *freeze*
+	/// (finalized-invalid candidate the node can't revert) clears the whole map on the freeze
+	/// transition (see `paras_inherent`), so an invalid root can't outlive `force_unfreeze`. A
+	/// sender's window is dropped in full when it offboards (see `initializer_on_new_session`).
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> = StorageMap<
 		_,
@@ -979,8 +980,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Record a sender's committed `StreamsRoot` into its provides window at enactment, trimming to
-	/// [`MAX_PROVIDES_WINDOW_SIZE`] (drop-oldest). A dispute revert is handled by the node's
-	/// state-revert (see [`RecentProvides`]); there is no explicit eviction.
+	/// [`MAX_PROVIDES_WINDOW_SIZE`] (drop-oldest). A fork-revert is handled by the node's
+	/// state-revert; a freeze clears the whole map (see [`clear_provides`]). No per-entry eviction.
+	///
+	/// [`clear_provides`]: Self::clear_provides
 	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
 		RecentProvides::<T>::mutate(source, |window| {
 			// Drop oldest entries until there is room for one more within the window.
@@ -990,6 +993,17 @@ impl<T: Config> Pallet<T> {
 			// `window.len() < MAX_PROVIDES_WINDOW_SIZE`, so the push fits.
 			let _ = window.try_push(root);
 		});
+	}
+
+	/// Clear every sender's provides window — called on a dispute-induced **freeze** transition
+	/// (see `paras_inherent`). A finalized-invalid candidate cannot be reverted, so its committed
+	/// `StreamsRoot` would otherwise survive `force_unfreeze` (no rollback) and match a later
+	/// `requires`. Clearing the whole ring is safe here: a freeze only happens in the can't-revert
+	/// case, no candidates are included while frozen, and windows self-refill as senders re-provide
+	/// after unfreeze. The fork-revert path needs nothing — the node's state-revert unwinds the
+	/// writes with the abandoned branch.
+	pub(crate) fn clear_provides() {
+		let _ = RecentProvides::<T>::clear(u32::MAX, None);
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {

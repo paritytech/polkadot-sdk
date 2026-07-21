@@ -3282,4 +3282,20 @@ mod speculative_provides_window {
 			assert!(!RecentProvides::<Test>::get(staying).is_empty());
 		});
 	}
+
+	#[test]
+	fn clear_provides_empties_every_window() {
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			// Seed several senders' windows.
+			for src in 1..=3u32 {
+				ParaInclusion::record_provides(ParaId::from(src), sr(src as u8));
+			}
+			assert!((1..=3u32).all(|src| !RecentProvides::<Test>::get(ParaId::from(src)).is_empty()));
+
+			// A freeze transition clears the whole map (see `paras_inherent`).
+			ParaInclusion::clear_provides();
+
+			assert!((1..=3u32).all(|src| RecentProvides::<Test>::get(ParaId::from(src)).is_empty()));
+		});
+	}
 }
