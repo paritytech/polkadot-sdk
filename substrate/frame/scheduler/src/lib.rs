@@ -457,15 +457,9 @@ pub mod pallet {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	impl<T: Config> Pallet<T> {
-		/// Ensure the correctness of the state of this pallet.
+		/// Invariant: every [`Lookup`] entry resolves to a matching named task in [`Agenda`].
 		///
-		/// Invariant: every [`Lookup`] entry points to an existing, `Some` named task in [`Agenda`]
-		/// whose id matches the lookup key. This guarantees that named operations (cancel,
-		/// reschedule and retry by name) always resolve to the right task.
-		///
-		/// Note the reverse does not hold and is therefore not asserted: a postponed or overweight
-		/// named task may temporarily sit in the agenda without a lookup entry, since
-		/// `service_task` removes the lookup entry before attempting to dispatch.
+		/// The reverse does not hold: a task may sit in the agenda without a lookup entry.
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			for (name, (when, index)) in Lookup::<T>::iter() {
 				let agenda = Agenda::<T>::get(when);
