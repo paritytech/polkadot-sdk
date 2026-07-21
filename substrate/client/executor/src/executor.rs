@@ -375,6 +375,9 @@ where
 	/// May block until the timed module is available — it may still be compiling in the
 	/// background.
 	///
+	/// The closure `f` is expected to catch any `panic!` during the call and return it as
+	/// `Err(_)` (see [`with_externalities_safe`]).
+	///
 	/// # Safety
 	///
 	/// `instance` and `ext` are given as `AssertUnwindSafe` to the closure. The instance is fresh
