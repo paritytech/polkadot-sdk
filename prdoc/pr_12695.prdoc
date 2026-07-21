@@ -1,0 +1,16 @@
+title: Handle relay v3→v2 scheduling rollback for v3-capable parachains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      If the relay chain rolls back the `CandidateReceiptV3` node feature, a v3-capable parachain
+      falls back to producing v2 candidates. The parachain-system runtime now derives "v3 active"
+      dynamically from the para constant and the relay feature read from the committed state proof:
+      when the feature is off it accepts v2 candidates and keeps the relay-parent-descendant check
+      active. The claim-queue-offset bound now depends on that dynamic state: `max_claim_queue_offset()`
+      when v3 is active, plus `relay_parent_offset` on the v2 fallback so the fallback lookup is
+      accepted and the parachain keeps producing instead of stalling.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: patch

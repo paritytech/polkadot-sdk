@@ -716,8 +716,8 @@ pub mod pallet {
 				};
 			}
 
-			// Ensure the `CoreInfo` digest exists at most once and bound `claim_queue_offset`. On the
-			// v2 fallback the collator looks up at the relay parent, so the bound widens by
+			// Ensure the `CoreInfo` digest exists at most once and bound `claim_queue_offset`. On
+			// the v2 fallback the collator looks up at the relay parent, so the bound widens by
 			// `relay_parent_offset`; under active v3 it looks up at the (fresh) scheduling parent.
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
