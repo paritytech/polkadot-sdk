@@ -205,8 +205,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#55 id=55 data-nosnippet>55</a>	</span><span class="kw">pub </span>timestamp: U256,
 <a href=#56 id=56 data-nosnippet>56</a>}
 <a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a><span class="kw">impl </span>From&lt;Block&gt; <span class="kw">for </span>BlockHeader {
-<a href=#59 id=59 data-nosnippet>59</a>	<span class="kw">fn </span>from(block: Block) -&gt; <span class="self">Self </span>{
+<a href=#58 id=58 data-nosnippet>58</a><span class="kw">impl </span>From&lt;BlockV1&gt; <span class="kw">for </span>BlockHeader {
+<a href=#59 id=59 data-nosnippet>59</a>	<span class="kw">fn </span>from(block: BlockV1) -&gt; <span class="self">Self </span>{
 <a href=#60 id=60 data-nosnippet>60</a>		<span class="self">Self </span>{
 <a href=#61 id=61 data-nosnippet>61</a>			number: block.number,
 <a href=#62 id=62 data-nosnippet>62</a>			hash: block.hash,

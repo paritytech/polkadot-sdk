@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["block","state_overrides","transaction"]};
+window.SIDEBAR_ITEMS = {"mod":["block","transaction"]};

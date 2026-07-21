@@ -165,7 +165,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
 <a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
 <a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use crate</span>::{ClientError, FeeHistoryResult, ReceiptInfo, client::SubstrateBlockNumber};
-<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>pallet_revive::evm::Block;
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>pallet_revive_types::runtime_api::BlockV1;
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>sp_core::U256;
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 <a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>tokio::sync::RwLock;
@@ -232,7 +232,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#82 id=82 data-nosnippet>82</a>
 <a href=#83 id=83 data-nosnippet>83</a><span class="kw">impl </span>FeeHistoryProvider {
 <a href=#84 id=84 data-nosnippet>84</a>	<span class="doccomment">/// Update the fee history cache with the given block and receipts.
-<a href=#85 id=85 data-nosnippet>85</a>	</span><span class="kw">pub async fn </span>update_fee_history(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span>Block, receipts: <span class="kw-2">&amp;</span>[ReceiptInfo]) {
+<a href=#85 id=85 data-nosnippet>85</a>	</span><span class="kw">pub async fn </span>update_fee_history(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span>BlockV1, receipts: <span class="kw-2">&amp;</span>[ReceiptInfo]) {
 <a href=#86 id=86 data-nosnippet>86</a>		<span class="comment">// Evenly spaced percentile list from 0.0 to 100.0 with a 0.5 resolution.
 <a href=#87 id=87 data-nosnippet>87</a>		// This means we cache 200 percentile points.
 <a href=#88 id=88 data-nosnippet>88</a>		// Later in request handling we will approximate by rounding percentiles that
@@ -349,7 +349,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#199 id=199 data-nosnippet>199</a>
 <a href=#200 id=200 data-nosnippet>200</a><span class="attr">#[tokio::test]
 <a href=#201 id=201 data-nosnippet>201</a></span><span class="kw">async fn </span>test_update_fee_history() {
-<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">let </span>block = Block {
+<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">let </span>block = BlockV1 {
 <a href=#203 id=203 data-nosnippet>203</a>		number: U256::from(<span class="number">200u64</span>),
 <a href=#204 id=204 data-nosnippet>204</a>		base_fee_per_gas: U256::from(<span class="number">1000u64</span>),
 <a href=#205 id=205 data-nosnippet>205</a>		gas_used: U256::from(<span class="number">600u64</span>),

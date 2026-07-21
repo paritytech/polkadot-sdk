@@ -799,95 +799,100 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#649 id=649 data-nosnippet>649</a>			<span class="kw">let </span>raw_tx = alloy_core::hex::decode(tx).unwrap();
 <a href=#650 id=650 data-nosnippet>650</a>			<span class="kw">let </span>tx = TransactionSigned::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
 <a href=#651 id=651 data-nosnippet>651</a>			<span class="macro">assert_eq!</span>(tx.signed_payload(), raw_tx);
-<a href=#652 id=652 data-nosnippet>652</a>			<span class="kw">let </span>expected_tx = serde_json::from_str(json).unwrap();
-<a href=#653 id=653 data-nosnippet>653</a>			<span class="macro">assert_eq!</span>(tx, expected_tx);
-<a href=#654 id=654 data-nosnippet>654</a>		}
-<a href=#655 id=655 data-nosnippet>655</a>	}
-<a href=#656 id=656 data-nosnippet>656</a>
-<a href=#657 id=657 data-nosnippet>657</a>	<span class="attr">#[test]
-<a href=#658 id=658 data-nosnippet>658</a>	</span><span class="kw">fn </span>encode_decode_7702_tx_works() {
-<a href=#659 id=659 data-nosnippet>659</a>		<span class="kw">let </span>tx = TransactionSigned::Transaction7702Signed(Transaction7702Signed {
-<a href=#660 id=660 data-nosnippet>660</a>			transaction_7702_unsigned: Transaction7702Unsigned {
-<a href=#661 id=661 data-nosnippet>661</a>				chain_id: U256::from(<span class="number">1</span>),
-<a href=#662 id=662 data-nosnippet>662</a>				nonce: U256::zero(),
-<a href=#663 id=663 data-nosnippet>663</a>				max_priority_fee_per_gas: U256::zero(),
-<a href=#664 id=664 data-nosnippet>664</a>				max_fee_per_gas: U256::from(<span class="number">1</span>),
-<a href=#665 id=665 data-nosnippet>665</a>				gas: U256::from(<span class="number">0x1e241</span>),
-<a href=#666 id=666 data-nosnippet>666</a>				to: <span class="string">"0x095e7baea6a6c7c4c2dfeb977efac326af552d87"</span>.parse().unwrap(),
-<a href=#667 id=667 data-nosnippet>667</a>				value: U256::zero(),
-<a href=#668 id=668 data-nosnippet>668</a>				input: Bytes(<span class="macro">vec!</span>[]),
-<a href=#669 id=669 data-nosnippet>669</a>				access_list: <span class="macro">vec!</span>[AccessListEntry {
-<a href=#670 id=670 data-nosnippet>670</a>					address: H160::from_low_u64_be(<span class="number">1</span>),
-<a href=#671 id=671 data-nosnippet>671</a>					storage_keys: <span class="macro">vec!</span>[H256::zero()],
-<a href=#672 id=672 data-nosnippet>672</a>				}],
-<a href=#673 id=673 data-nosnippet>673</a>				authorization_list: <span class="macro">vec!</span>[AuthorizationListEntry {
-<a href=#674 id=674 data-nosnippet>674</a>					chain_id: U256::from(<span class="number">1</span>),
-<a href=#675 id=675 data-nosnippet>675</a>					address: H160::from_low_u64_be(<span class="number">42</span>),
-<a href=#676 id=676 data-nosnippet>676</a>					nonce: U256::zero(),
-<a href=#677 id=677 data-nosnippet>677</a>					y_parity: U256::zero(),
-<a href=#678 id=678 data-nosnippet>678</a>					r: U256::from(<span class="number">1</span>),
-<a href=#679 id=679 data-nosnippet>679</a>					s: U256::from(<span class="number">2</span>),
-<a href=#680 id=680 data-nosnippet>680</a>				}],
-<a href=#681 id=681 data-nosnippet>681</a>				r#type: TypeEip7702 {},
-<a href=#682 id=682 data-nosnippet>682</a>			},
-<a href=#683 id=683 data-nosnippet>683</a>			y_parity: U256::zero(),
-<a href=#684 id=684 data-nosnippet>684</a>			r: U256::from(<span class="number">1</span>),
-<a href=#685 id=685 data-nosnippet>685</a>			s: U256::from(<span class="number">2</span>),
-<a href=#686 id=686 data-nosnippet>686</a>			v: <span class="prelude-val">None</span>,
-<a href=#687 id=687 data-nosnippet>687</a>		});
-<a href=#688 id=688 data-nosnippet>688</a>
-<a href=#689 id=689 data-nosnippet>689</a>		<span class="kw">let </span>encoded = tx.signed_payload();
-<a href=#690 id=690 data-nosnippet>690</a>		<span class="kw">let </span>decoded = TransactionSigned::decode(<span class="kw-2">&amp;</span>encoded).unwrap();
-<a href=#691 id=691 data-nosnippet>691</a>		<span class="macro">assert_eq!</span>(tx, decoded);
-<a href=#692 id=692 data-nosnippet>692</a>	}
+<a href=#652 id=652 data-nosnippet>652</a>			<span class="kw">let </span>expected_tx =
+<a href=#653 id=653 data-nosnippet>653</a>				serde_json::from_str::&lt;pallet_revive_types::runtime_api::TransactionSignedV1&gt;(json)
+<a href=#654 id=654 data-nosnippet>654</a>					.unwrap();
+<a href=#655 id=655 data-nosnippet>655</a>			<span class="macro">assert_eq!</span>(
+<a href=#656 id=656 data-nosnippet>656</a>				pallet_revive_types::runtime_api::TransactionSignedV1::from(tx),
+<a href=#657 id=657 data-nosnippet>657</a>				expected_tx
+<a href=#658 id=658 data-nosnippet>658</a>			);
+<a href=#659 id=659 data-nosnippet>659</a>		}
+<a href=#660 id=660 data-nosnippet>660</a>	}
+<a href=#661 id=661 data-nosnippet>661</a>
+<a href=#662 id=662 data-nosnippet>662</a>	<span class="attr">#[test]
+<a href=#663 id=663 data-nosnippet>663</a>	</span><span class="kw">fn </span>encode_decode_7702_tx_works() {
+<a href=#664 id=664 data-nosnippet>664</a>		<span class="kw">let </span>tx = TransactionSigned::Transaction7702Signed(Transaction7702Signed {
+<a href=#665 id=665 data-nosnippet>665</a>			transaction_7702_unsigned: Transaction7702Unsigned {
+<a href=#666 id=666 data-nosnippet>666</a>				chain_id: U256::from(<span class="number">1</span>),
+<a href=#667 id=667 data-nosnippet>667</a>				nonce: U256::zero(),
+<a href=#668 id=668 data-nosnippet>668</a>				max_priority_fee_per_gas: U256::zero(),
+<a href=#669 id=669 data-nosnippet>669</a>				max_fee_per_gas: U256::from(<span class="number">1</span>),
+<a href=#670 id=670 data-nosnippet>670</a>				gas: U256::from(<span class="number">0x1e241</span>),
+<a href=#671 id=671 data-nosnippet>671</a>				to: <span class="string">"0x095e7baea6a6c7c4c2dfeb977efac326af552d87"</span>.parse().unwrap(),
+<a href=#672 id=672 data-nosnippet>672</a>				value: U256::zero(),
+<a href=#673 id=673 data-nosnippet>673</a>				input: Bytes(<span class="macro">vec!</span>[]),
+<a href=#674 id=674 data-nosnippet>674</a>				access_list: <span class="macro">vec!</span>[AccessListEntry {
+<a href=#675 id=675 data-nosnippet>675</a>					address: H160::from_low_u64_be(<span class="number">1</span>),
+<a href=#676 id=676 data-nosnippet>676</a>					storage_keys: <span class="macro">vec!</span>[H256::zero()],
+<a href=#677 id=677 data-nosnippet>677</a>				}],
+<a href=#678 id=678 data-nosnippet>678</a>				authorization_list: <span class="macro">vec!</span>[AuthorizationListEntry {
+<a href=#679 id=679 data-nosnippet>679</a>					chain_id: U256::from(<span class="number">1</span>),
+<a href=#680 id=680 data-nosnippet>680</a>					address: H160::from_low_u64_be(<span class="number">42</span>),
+<a href=#681 id=681 data-nosnippet>681</a>					nonce: U256::zero(),
+<a href=#682 id=682 data-nosnippet>682</a>					y_parity: U256::zero(),
+<a href=#683 id=683 data-nosnippet>683</a>					r: U256::from(<span class="number">1</span>),
+<a href=#684 id=684 data-nosnippet>684</a>					s: U256::from(<span class="number">2</span>),
+<a href=#685 id=685 data-nosnippet>685</a>				}],
+<a href=#686 id=686 data-nosnippet>686</a>				r#type: TypeEip7702 {},
+<a href=#687 id=687 data-nosnippet>687</a>			},
+<a href=#688 id=688 data-nosnippet>688</a>			y_parity: U256::zero(),
+<a href=#689 id=689 data-nosnippet>689</a>			r: U256::from(<span class="number">1</span>),
+<a href=#690 id=690 data-nosnippet>690</a>			s: U256::from(<span class="number">2</span>),
+<a href=#691 id=691 data-nosnippet>691</a>			v: <span class="prelude-val">None</span>,
+<a href=#692 id=692 data-nosnippet>692</a>		});
 <a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a>	<span class="attr">#[test]
-<a href=#695 id=695 data-nosnippet>695</a>	</span><span class="kw">fn </span>dummy_signed_payload_works() {
-<a href=#696 id=696 data-nosnippet>696</a>		<span class="kw">let </span>tx: TransactionUnsigned = TransactionLegacyUnsigned {
-<a href=#697 id=697 data-nosnippet>697</a>			chain_id: <span class="prelude-val">Some</span>(<span class="number">596</span>.into()),
-<a href=#698 id=698 data-nosnippet>698</a>			gas: U256::from(<span class="number">21000</span>),
-<a href=#699 id=699 data-nosnippet>699</a>			nonce: U256::from(<span class="number">1</span>),
-<a href=#700 id=700 data-nosnippet>700</a>			gas_price: U256::from(<span class="string">"0x640000006a"</span>),
-<a href=#701 id=701 data-nosnippet>701</a>			to: <span class="prelude-val">Some</span>(Account::from(subxt_signer::eth::dev::baltathar()).address()),
-<a href=#702 id=702 data-nosnippet>702</a>			value: U256::from(<span class="number">123123</span>),
-<a href=#703 id=703 data-nosnippet>703</a>			input: Bytes(<span class="macro">vec!</span>[]),
-<a href=#704 id=704 data-nosnippet>704</a>			r#type: TypeLegacy,
-<a href=#705 id=705 data-nosnippet>705</a>		}
-<a href=#706 id=706 data-nosnippet>706</a>		.into();
-<a href=#707 id=707 data-nosnippet>707</a>
-<a href=#708 id=708 data-nosnippet>708</a>		<span class="kw">let </span>dummy_signed_payload = tx.clone().dummy_signed_payload();
-<a href=#709 id=709 data-nosnippet>709</a>		<span class="kw">let </span>payload = Account::default().sign_transaction(tx).signed_payload();
-<a href=#710 id=710 data-nosnippet>710</a>		<span class="macro">assert_eq!</span>(dummy_signed_payload.len(), payload.len());
-<a href=#711 id=711 data-nosnippet>711</a>	}
+<a href=#694 id=694 data-nosnippet>694</a>		<span class="kw">let </span>encoded = tx.signed_payload();
+<a href=#695 id=695 data-nosnippet>695</a>		<span class="kw">let </span>decoded = TransactionSigned::decode(<span class="kw-2">&amp;</span>encoded).unwrap();
+<a href=#696 id=696 data-nosnippet>696</a>		<span class="macro">assert_eq!</span>(tx, decoded);
+<a href=#697 id=697 data-nosnippet>697</a>	}
+<a href=#698 id=698 data-nosnippet>698</a>
+<a href=#699 id=699 data-nosnippet>699</a>	<span class="attr">#[test]
+<a href=#700 id=700 data-nosnippet>700</a>	</span><span class="kw">fn </span>dummy_signed_payload_works() {
+<a href=#701 id=701 data-nosnippet>701</a>		<span class="kw">let </span>tx: TransactionUnsigned = TransactionLegacyUnsigned {
+<a href=#702 id=702 data-nosnippet>702</a>			chain_id: <span class="prelude-val">Some</span>(<span class="number">596</span>.into()),
+<a href=#703 id=703 data-nosnippet>703</a>			gas: U256::from(<span class="number">21000</span>),
+<a href=#704 id=704 data-nosnippet>704</a>			nonce: U256::from(<span class="number">1</span>),
+<a href=#705 id=705 data-nosnippet>705</a>			gas_price: U256::from(<span class="string">"0x640000006a"</span>),
+<a href=#706 id=706 data-nosnippet>706</a>			to: <span class="prelude-val">Some</span>(Account::from(subxt_signer::eth::dev::baltathar()).address()),
+<a href=#707 id=707 data-nosnippet>707</a>			value: U256::from(<span class="number">123123</span>),
+<a href=#708 id=708 data-nosnippet>708</a>			input: Bytes(<span class="macro">vec!</span>[]),
+<a href=#709 id=709 data-nosnippet>709</a>			r#type: TypeLegacy,
+<a href=#710 id=710 data-nosnippet>710</a>		}
+<a href=#711 id=711 data-nosnippet>711</a>		.into();
 <a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>	<span class="attr">#[test]
-<a href=#714 id=714 data-nosnippet>714</a>	</span><span class="kw">fn </span>rlp_codec_is_compatible_with_ethereum() {
-<a href=#715 id=715 data-nosnippet>715</a>		<span class="comment">// RLP encoded transactions
-<a href=#716 id=716 data-nosnippet>716</a>		</span><span class="kw">let </span>test_cases = [
-<a href=#717 id=717 data-nosnippet>717</a>			<span class="comment">// Legacy
-<a href=#718 id=718 data-nosnippet>718</a>			</span><span class="string">"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808025a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"</span>,
-<a href=#719 id=719 data-nosnippet>719</a>			<span class="comment">// EIP-2930
-<a href=#720 id=720 data-nosnippet>720</a>			</span><span class="string">"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"</span>,
-<a href=#721 id=721 data-nosnippet>721</a>			<span class="comment">// EIP-1559
-<a href=#722 id=722 data-nosnippet>722</a>			</span><span class="string">"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"</span>,
-<a href=#723 id=723 data-nosnippet>723</a>			<span class="comment">// EIP4844
-<a href=#724 id=724 data-nosnippet>724</a>			</span><span class="string">"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b"</span>,
-<a href=#725 id=725 data-nosnippet>725</a>		];
-<a href=#726 id=726 data-nosnippet>726</a>
-<a href=#727 id=727 data-nosnippet>727</a>		<span class="kw">for </span>hex_tx <span class="kw">in </span>test_cases {
-<a href=#728 id=728 data-nosnippet>728</a>			<span class="kw">let </span>rlp_encoded_tx = alloy_core::hex::decode(hex_tx).unwrap();
-<a href=#729 id=729 data-nosnippet>729</a>
-<a href=#730 id=730 data-nosnippet>730</a>			<span class="comment">// RLP decode using this implementation
-<a href=#731 id=731 data-nosnippet>731</a>			</span><span class="kw">let </span>tx_revive = TransactionSigned::decode(<span class="kw-2">&amp;</span>rlp_encoded_tx).unwrap();
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>			<span class="comment">// RLP encode using this implementation
-<a href=#734 id=734 data-nosnippet>734</a>			</span><span class="kw">let </span>rlp_encoded_revive = tx_revive.signed_payload();
-<a href=#735 id=735 data-nosnippet>735</a>
-<a href=#736 id=736 data-nosnippet>736</a>			<span class="comment">// Verify round-trip: our encoding should decode back to the same transaction
-<a href=#737 id=737 data-nosnippet>737</a>			</span><span class="macro">assert_eq!</span>(rlp_encoded_tx, rlp_encoded_revive);
-<a href=#738 id=738 data-nosnippet>738</a>		}
-<a href=#739 id=739 data-nosnippet>739</a>	}
-<a href=#740 id=740 data-nosnippet>740</a>}
+<a href=#713 id=713 data-nosnippet>713</a>		<span class="kw">let </span>dummy_signed_payload = tx.clone().dummy_signed_payload();
+<a href=#714 id=714 data-nosnippet>714</a>		<span class="kw">let </span>payload = Account::default().sign_transaction(tx).signed_payload();
+<a href=#715 id=715 data-nosnippet>715</a>		<span class="macro">assert_eq!</span>(dummy_signed_payload.len(), payload.len());
+<a href=#716 id=716 data-nosnippet>716</a>	}
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a>	<span class="attr">#[test]
+<a href=#719 id=719 data-nosnippet>719</a>	</span><span class="kw">fn </span>rlp_codec_is_compatible_with_ethereum() {
+<a href=#720 id=720 data-nosnippet>720</a>		<span class="comment">// RLP encoded transactions
+<a href=#721 id=721 data-nosnippet>721</a>		</span><span class="kw">let </span>test_cases = [
+<a href=#722 id=722 data-nosnippet>722</a>			<span class="comment">// Legacy
+<a href=#723 id=723 data-nosnippet>723</a>			</span><span class="string">"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808025a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"</span>,
+<a href=#724 id=724 data-nosnippet>724</a>			<span class="comment">// EIP-2930
+<a href=#725 id=725 data-nosnippet>725</a>			</span><span class="string">"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"</span>,
+<a href=#726 id=726 data-nosnippet>726</a>			<span class="comment">// EIP-1559
+<a href=#727 id=727 data-nosnippet>727</a>			</span><span class="string">"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"</span>,
+<a href=#728 id=728 data-nosnippet>728</a>			<span class="comment">// EIP4844
+<a href=#729 id=729 data-nosnippet>729</a>			</span><span class="string">"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b"</span>,
+<a href=#730 id=730 data-nosnippet>730</a>		];
+<a href=#731 id=731 data-nosnippet>731</a>
+<a href=#732 id=732 data-nosnippet>732</a>		<span class="kw">for </span>hex_tx <span class="kw">in </span>test_cases {
+<a href=#733 id=733 data-nosnippet>733</a>			<span class="kw">let </span>rlp_encoded_tx = alloy_core::hex::decode(hex_tx).unwrap();
+<a href=#734 id=734 data-nosnippet>734</a>
+<a href=#735 id=735 data-nosnippet>735</a>			<span class="comment">// RLP decode using this implementation
+<a href=#736 id=736 data-nosnippet>736</a>			</span><span class="kw">let </span>tx_revive = TransactionSigned::decode(<span class="kw-2">&amp;</span>rlp_encoded_tx).unwrap();
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>			<span class="comment">// RLP encode using this implementation
+<a href=#739 id=739 data-nosnippet>739</a>			</span><span class="kw">let </span>rlp_encoded_revive = tx_revive.signed_payload();
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a>			<span class="comment">// Verify round-trip: our encoding should decode back to the same transaction
+<a href=#742 id=742 data-nosnippet>742</a>			</span><span class="macro">assert_eq!</span>(rlp_encoded_tx, rlp_encoded_revive);
+<a href=#743 id=743 data-nosnippet>743</a>		}
+<a href=#744 id=744 data-nosnippet>744</a>	}
+<a href=#745 id=745 data-nosnippet>745</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

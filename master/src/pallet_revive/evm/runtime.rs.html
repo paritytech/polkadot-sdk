@@ -656,7 +656,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#506 id=506 data-nosnippet>506</a>			<span class="self">Self</span>::fund_account(<span class="kw-2">&amp;</span>account);
 <a href=#507 id=507 data-nosnippet>507</a>
 <a href=#508 id=508 data-nosnippet>508</a>			<span class="kw">let </span>dry_run =
-<a href=#509 id=509 data-nosnippet>509</a>				<span class="kw">crate</span>::Pallet::&lt;Test&gt;::dry_run_eth_transact(<span class="self">self</span>.tx.clone(), Default::default());
+<a href=#509 id=509 data-nosnippet>509</a>				<span class="kw">crate</span>::Pallet::&lt;Test&gt;::dry_run_eth_transact(<span class="self">self</span>.tx.clone(), <span class="prelude-val">None</span>, <span class="bool-val">true</span>, <span class="prelude-val">None</span>);
 <a href=#510 id=510 data-nosnippet>510</a>			<span class="self">self</span>.tx.gas_price = <span class="prelude-val">Some</span>(&lt;Pallet&lt;Test&gt;&gt;::evm_base_fee());
 <a href=#511 id=511 data-nosnippet>511</a>
 <a href=#512 id=512 data-nosnippet>512</a>			<span class="kw">match </span>dry_run {

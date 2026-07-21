@@ -280,15 +280,15 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#130 id=130 data-nosnippet>130</a>		bloom.into()
 <a href=#131 id=131 data-nosnippet>131</a>	}
 <a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a>	<span class="doccomment">/// Create a new [`TransactionInfo`] from a receipt and a signed transaction.
-<a href=#134 id=134 data-nosnippet>134</a>	</span><span class="kw">pub fn </span>transaction_info(<span class="kw-2">&amp;</span><span class="self">self</span>, transaction_signed: TransactionSigned) -&gt; TransactionInfo {
-<a href=#135 id=135 data-nosnippet>135</a>		TransactionInfo {
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="doccomment">/// Create a new [`TransactionInfoV1`] from a receipt and a signed transaction.
+<a href=#134 id=134 data-nosnippet>134</a>	</span><span class="kw">pub fn </span>transaction_info(<span class="kw-2">&amp;</span><span class="self">self</span>, transaction_signed: TransactionSigned) -&gt; TransactionInfoV1 {
+<a href=#135 id=135 data-nosnippet>135</a>		TransactionInfoV1 {
 <a href=#136 id=136 data-nosnippet>136</a>			block_hash: <span class="self">self</span>.block_hash,
 <a href=#137 id=137 data-nosnippet>137</a>			block_number: <span class="self">self</span>.block_number,
 <a href=#138 id=138 data-nosnippet>138</a>			from: <span class="self">self</span>.from,
 <a href=#139 id=139 data-nosnippet>139</a>			hash: <span class="self">self</span>.transaction_hash,
 <a href=#140 id=140 data-nosnippet>140</a>			transaction_index: <span class="self">self</span>.transaction_index,
-<a href=#141 id=141 data-nosnippet>141</a>			transaction_signed,
+<a href=#141 id=141 data-nosnippet>141</a>			transaction_signed: transaction_signed.into(),
 <a href=#142 id=142 data-nosnippet>142</a>		}
 <a href=#143 id=143 data-nosnippet>143</a>	}
 <a href=#144 id=144 data-nosnippet>144</a>}
