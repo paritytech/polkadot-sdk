@@ -3242,10 +3242,12 @@ mod speculative_provides_window {
 				MAX_PROVIDES_WINDOW_SIZE as usize
 			);
 			// The 3 oldest roots were dropped; roots from index 3 onward are retained.
-			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1000, 0)])));
-			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1000, 2)])));
-			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 3)])));
-			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, (total - 1) as u8)])));
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 0)])).is_err());
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 2)])).is_err());
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1000, 3)])).is_ok());
+			assert!(
+				ParaInclusion::requires_satisfied(&requires(&[(1000, (total - 1) as u8)])).is_ok()
+			);
 		});
 	}
 
@@ -3256,13 +3258,19 @@ mod speculative_provides_window {
 			ParaInclusion::record_provides(a, sr(0xA));
 			ParaInclusion::record_provides(b, sr(0xB));
 			// Both sources present with the right roots → satisfied.
-			assert!(ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xB)])));
-			// Wrong root for a present source → not satisfied.
-			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xC)])));
-			// Unknown source → not satisfied.
-			assert!(!ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (3, 0xB)])));
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xB)])).is_ok());
+			// Wrong root for a present source → Err names that (source, root).
+			assert_eq!(
+				ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (2, 0xC)])),
+				Err((ParaId::from(2), sr(0xC))),
+			);
+			// Unknown source → Err names it.
+			assert_eq!(
+				ParaInclusion::requires_satisfied(&requires(&[(1, 0xA), (3, 0xB)])),
+				Err((ParaId::from(3), sr(0xB))),
+			);
 			// Empty requires → trivially satisfied.
-			assert!(ParaInclusion::requires_satisfied(&requires(&[])));
+			assert!(ParaInclusion::requires_satisfied(&requires(&[])).is_ok());
 		});
 	}
 
@@ -3290,7 +3298,9 @@ mod speculative_provides_window {
 			for src in 1..=3u32 {
 				ParaInclusion::record_provides(ParaId::from(src), sr(src as u8));
 			}
-			assert!((1..=3u32).all(|src| !RecentProvides::<Test>::get(ParaId::from(src)).is_empty()));
+			assert!(
+				(1..=3u32).all(|src| !RecentProvides::<Test>::get(ParaId::from(src)).is_empty())
+			);
 
 			// A freeze transition clears the whole map (see `paras_inherent`).
 			ParaInclusion::clear_provides();
