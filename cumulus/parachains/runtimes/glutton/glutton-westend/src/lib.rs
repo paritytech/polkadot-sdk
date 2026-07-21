@@ -104,7 +104,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	authoring_version: 1,
-	spec_version: 1_024_001,
+	// Bumped from 1_024_001 (released stable2606 glutton-westend) so the
+	// V3-enabled wasm can be applied as a runtime upgrade over the released V2
+	// glutton running at genesis (parachain upgrades require a strictly greater
+	// spec_version).
+	spec_version: 1_024_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
