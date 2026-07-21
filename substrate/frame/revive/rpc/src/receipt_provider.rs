@@ -141,10 +141,10 @@ pub trait BlockInfo {
 
 impl BlockInfo for SubstrateBlock {
 	fn hash(&self) -> H256 {
-		SubstrateBlock::hash(self)
+		self.block_hash()
 	}
 	fn number(&self) -> SubstrateBlockNumber {
-		SubstrateBlock::number(self)
+		self.block_number()
 	}
 }
 
@@ -222,10 +222,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::Number(block_number) => {
-				let Ok(block_number) = u32::try_from(*block_number) else {
-					return false;
-				};
-				self.receipt_extractor.is_before_first_evm_block(block_number)
+				self.receipt_extractor.is_before_first_evm_block(*block_number)
 			},
 			BlockNumberOrTag::Latest |
 			BlockNumberOrTag::Finalized |
@@ -262,7 +259,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			match self.block_provider.block_by_number(block_number).await.ok().flatten() {
 				Some(block) => self
 					.receipt_extractor
-					.get_ethereum_block_hash(&block.hash(), block_number as u64)
+					.get_ethereum_block_hash(&block.hash(), block_number)
 					.await
 					.is_some(),
 				None => false,
@@ -1553,7 +1550,7 @@ mod tests {
 		};
 
 		// Insert the log
-		let block = MockBlockInfo { hash: substrate_hash, number: block_number as u32 };
+		let block = MockBlockInfo { hash: substrate_hash, number: block_number };
 		let receipts = vec![(
 			TransactionSigned::default(),
 			ReceiptInfo {
@@ -1745,7 +1742,7 @@ mod tests {
 		// The oldest block (1) should have been evicted, keeping blocks 2..=MAX+1.
 		assert!(!map.contains_key(&1));
 		assert!(map.contains_key(&2));
-		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u32 + 1)));
+		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u64 + 1)));
 		drop(map);
 
 		// All blocks are still in the DB.
@@ -1820,7 +1817,7 @@ mod tests {
 
 		let mut tx_offset = 0;
 		for (i, (n_tx, n_logs)) in cases.into_iter().enumerate() {
-			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u32 + 1 };
+			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u64 + 1 };
 			let ethereum_hash = make_hash(i, 0xff);
 			let receipts = make_receipts(tx_offset, n_tx, n_logs);
 			tx_offset += n_tx;
@@ -1895,7 +1892,7 @@ mod tests {
 		let mut block_mappings = Vec::new();
 
 		for i in 0..n_blocks {
-			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u32 + 1 };
+			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u64 + 1 };
 			let ethereum_hash = make_hash(i, 0xBB);
 			let receipts = make_receipts(i * n_tx_per_block, n_tx_per_block, n_logs_per_receipt);
 			provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
