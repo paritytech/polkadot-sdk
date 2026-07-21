@@ -245,7 +245,7 @@ where
 		// stragglers built on pre-enactment relay parents.
 		if let Some(min_session) = min_session_index {
 			receipts.retain(|receipt| {
-				receipt.descriptor.session_index().map_or(false, |s| s >= min_session)
+				receipt.descriptor.session_index().is_some_and(|s| s >= min_session)
 			});
 		}
 

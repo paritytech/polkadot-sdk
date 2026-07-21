@@ -13,4 +13,4 @@ doc:
 
 crates:
   - name: cumulus-pallet-parachain-system
-    bump: patch
+    bump: minor
