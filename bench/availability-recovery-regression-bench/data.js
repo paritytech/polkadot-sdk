@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784629956244,
+  "lastUpdate": 1784633519259,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca",
-          "message": "`ExecuteBlock` split up seal verification and actual execution (#10396)\n\n`ExecuteBlock` exposes the `execute_block` function that is used by\n`validate_block` to execute a block. In case auf AuRa the block\nexecution includes the verification of the seal and the removal of the\nseal. To verify the seal, the block executor needs to load the current\nauthority set. The problem is that when we have storage proof reclaim\nenabled and the host function is used in `on_initialize` before\n`pallet_aura_ext::on_initialize` (this is where we fetch the authority\nset to ensure it appears in the proof) is called, it leads to\n`validate_block` returning a different size and thus, breaking the\nblock. To solve this issue `ExecuteBlock` is now split into seal\nverification and execution of the verified block. In `validate_block`\nthe seal verification is then run outside of the block execution, not\nleading to the issues of reporting different proof sizes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-24T22:43:33Z",
-          "tree_id": "7ebf393a60e410bf7c41c63117735fb7fad49aeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca"
-        },
-        "date": 1764028971336,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19918908663333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.324755172,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12999707806666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8574f19ca8eeb5f004e90a99876d9d773bba6bf3",
+          "message": "[pallet-revive] Version the Remaining Runtime API Functions (#12536)\n\n# Description\n\nThis PR closes #11924 and #11928 and versions the final remaining\nruntime API functions in pallet-revive, fully deprecating the old\nunversioned runtime API in favor of the new versioned runtime API\nfunctions.\n\nAdditionally, this PR adds an\n`unversioned_runtime_api_functions_are_unchanged_by_versioning` test\nwhich is an important test which asserts that every single type which\ncan be seen in the unversioned runtime API functions is identical to the\nnew versioned types in terms of encoding such that if we encode an old\nunversioned type we can decode as a new versioned type and vice versa.\nThis is made possible through the schema available in the metadata which\nallows us to check a pre-versioning schema against a post-versioning\nschema. This test is implemented as a very very simple walker which\nwalks the schema in lock-step and checks that the schema of the\npre-versioning types matches that of the post-versioning types. Yes, the\ncode for this test is slightly long, but it's very simple. The moment\nyou see that lots of the code length is due to us wanting to preserve\nthe paths (for printing in assertion messages), you can see that the\ntest is quite simple.\n\nAside from the above, and as mentioned at the start, this PR also\nversioned the remaining runtime API functions. In the process, I\ncombined some runtime API functions into a single versioned runtime API\nfunction. For example, `eth_transact` and `eth_transact_with_config`\nhave been combined into a single `eth_transact_versioned` since\n`eth_transact_with_config` was added as way to version the\n`eth_transact` runtime API function. Same was done to the `trace_call`\nand the `trace_call_with_config` in that they've been combined into a\nsingle versioned runtime API function.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-21T09:45:38Z",
+          "tree_id": "10c7a603cd30572fa00f69a8441afd1ae1a1d8f2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8574f19ca8eeb5f004e90a99876d9d773bba6bf3"
+        },
+        "date": 1784633485726,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.189048506733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13387407953333333,
             "unit": "seconds"
           }
         ]
