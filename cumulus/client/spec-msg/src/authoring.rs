@@ -705,6 +705,83 @@ mod tests {
 	}
 
 	#[test]
+	fn hand_outs_reflected_only_by_abandoned_descendants_are_re_handed() {
+		let (_network, _registry, pool, _root) = fetched_register_pool();
+		let stream = ack(RECEIVER);
+		let budget = InherentBudget::default();
+
+		// The read goes to block X (built on a parent that applied nothing)...
+		let handed = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(handed.register_reads.len(), 1);
+
+		// ...and the collator chains ahead of backing: a build on X itself
+		// sees the read reflected and correctly hands nothing — but X has
+		// not landed anywhere except its own branch.
+		let on_descendant = Some(register(1));
+		assert!(pool.build_inherent(&[], &[(source(), stream, on_descendant)], budget).is_empty());
+
+		// X's whole branch is abandoned (never backed): authoring returns to
+		// the original parent, whose applied view reflects nothing. The read
+		// MUST be re-handed — judging "landed" from a doomed descendant and
+		// forgetting the hand-out is the run-3 register-watermark stall
+		// (A#125 carried the read, A#126 was built on it, both died at the
+		// 14:04:24 session boundary and the re-author went out empty).
+		let reauthor = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(reauthor.register_reads, handed.register_reads);
+
+		// Once a branch that reflects the read is extended (it truly
+		// landed), it stays consumed there.
+		assert!(pool.build_inherent(&[], &[(source(), stream, on_descendant)], budget).is_empty());
+	}
+
+	#[test]
+	fn refreshed_reads_are_not_rehanded_to_branches_that_reflect_them() {
+		let (network, registry, pool, _root) = fetched_register_pool();
+		let stream = ack(RECEIVER);
+		let budget = InherentBudget::default();
+
+		// Hand the read and land it: the parent's applied view reflects it.
+		let handed = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(handed.register_reads.len(), 1);
+		let landed = Some(register(1));
+		assert!(pool.build_inherent(&[], &[(source(), stream, landed)], budget).is_empty());
+
+		// A refresh round under a newer root re-verifies the SAME head read
+		// (the ack stream did not grow — same context, new binding root).
+		let root2 = {
+			let mut archive = network.archive.write();
+			archive
+				.import_block_at(
+					block_hash(2),
+					block_hash(1),
+					2,
+					vec![(channel(RECEIVER), vec![b"data".to_vec()])],
+					1_002,
+				)
+				.expect("extends the tip")
+				.expect("the block carries sends")
+		};
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root2,
+			&[],
+			&[ack(RECEIVER)],
+			1024 * 1024,
+		))
+		.expect("refresh round succeeds");
+
+		// The refreshed read carries no new information for a branch that
+		// already applied it: nothing is handed there...
+		assert!(pool.build_inherent(&[], &[(source(), stream, landed)], budget).is_empty());
+		// ...while a branch that never applied it still gets it.
+		let elsewhere = pool.build_inherent(&[], &[(source(), stream, None)], budget);
+		assert_eq!(elsewhere.register_reads.len(), 1);
+	}
+
+	#[test]
 	fn superseded_register_hand_outs_yield_to_the_newer_read() {
 		let (network, registry, pool, _root) = fetched_register_pool();
 		let stream = ack(RECEIVER);

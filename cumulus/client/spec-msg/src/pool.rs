@@ -203,9 +203,21 @@ impl RegisterReads {
 	/// parent's applied register view — the same non-destructive fork
 	/// discipline the channel cursors get: a hand-out whose information the
 	/// parent state reflects landed on the branch being built on and stays
-	/// consumed; one it does not reflect was handed to a block that never
-	/// made it here (dropped, unincluded or reorged away) and returns to
+	/// consumed *there*; one it does not reflect was handed to a block not
+	/// on this branch (dropped, unincluded or reorged away) and returns to
 	/// handable state — unless a newer read superseded it meanwhile.
+	///
+	/// The hand-out marker is deliberately KEPT when the parent reflects the
+	/// read: the parent itself may be an unincluded block of a branch that is
+	/// later abandoned wholesale — the collator chains proposals ahead of
+	/// backing, so "my parent applied it" proves landing on *this branch*
+	/// only, never on chain. Consuming the marker on that verdict loses the
+	/// hand-out for every other branch: exactly the run-3 watermark stall
+	/// (the read of B's `up_to = 3` register was handed to A#125, a build on
+	/// A#125 itself judged it landed, and when the branch died the re-author
+	/// had nothing left to hand — and no new source root ever re-triggered).
+	/// A hand-out is only forgotten when its read is evicted by newer ones
+	/// or can never be reflected (undecodable payload).
 	///
 	/// Reflection is judged on the register's monotonic fields (`up_to`,
 	/// `version`, plus the close latch): `grant` is advisory and
@@ -213,23 +225,32 @@ impl RegisterReads {
 	/// from "superseded by a newer read" — a dropped grant-only change
 	/// simply waits for the next root's refresh, the pre-existing cadence.
 	fn reconcile_handed(&mut self, parent: Option<&Register>) {
-		let Some(context) = self.handed.take() else { return };
-		let landed = match self.reads.get(&context) {
+		let Some(context) = self.handed else { return };
+		let Some(read) = self.reads.get(&context) else {
 			// Evicted by newer reads — nothing left worth re-handing.
-			None => true,
-			Some(read) => match Register::decode_all(&mut read.payload.as_slice()) {
-				// The runtime rejects undecodable reads (`BadRegister`), so
-				// one can never be reflected: abandon it rather than re-hand
-				// it to every block forever.
-				Err(_) => true,
-				Ok(handed) => parent.map_or(false, |parent| {
-					parent.up_to >= handed.up_to &&
-						parent.version >= handed.version &&
-						(parent.closed || !handed.closed)
-				}),
-			},
+			self.handed = None;
+			return;
 		};
-		if !landed && self.fresh.map_or(true, |fresh| fresh <= context) {
+		let Ok(handed) = Register::decode_all(&mut read.payload.as_slice()) else {
+			// The runtime rejects undecodable reads (`BadRegister`), so one
+			// can never be reflected: abandon it rather than re-hand it to
+			// every block forever.
+			self.handed = None;
+			return;
+		};
+		let reflected = parent.map_or(false, |parent| {
+			parent.up_to >= handed.up_to &&
+				parent.version >= handed.version &&
+				(parent.closed || !handed.closed)
+		});
+		if reflected {
+			// Landed on this branch: hand nothing here — not even a refresh
+			// of the same read under a newer root, which carries no new
+			// information for a branch that already applied it.
+			if self.fresh == Some(context) {
+				self.fresh = None;
+			}
+		} else if self.fresh.map_or(true, |fresh| fresh <= context) {
 			self.fresh = Some(context);
 		}
 	}
