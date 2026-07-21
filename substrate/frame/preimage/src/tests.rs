@@ -500,9 +500,6 @@ fn store_preimage_bound_too_large_errors() {
 #[test]
 fn ensure_updated_works() {
 	#![allow(deprecated)]
-	// This test injects legacy `StatusFor` entries via `insert_old_unrequested`, which record a
-	// preimage without storing its bytes. That state is unreachable through the pallet's own calls,
-	// so it deliberately does not run the `do_try_state` invariant checks.
 	new_test_ext().execute_with(|| {
 		let alice = 2;
 
