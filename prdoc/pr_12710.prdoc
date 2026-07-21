@@ -1,0 +1,10 @@
+title: 'pallet-proxy: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `try_state` hook to `pallet-proxy` (issue #239), run under the `try-runtime` feature and after every unit test. It asserts that stored `Proxies` and `Announcements` entries are never empty, and that each `Proxies` list is strictly sorted and duplicate free. Deposits and reserves are intentionally not asserted, since stored deposits go stale until poked when the deposit parameters change, and a pure proxy holds its deposit on the creator rather than on the stored key. The change is additive with no migration or weight changes.
+
+crates:
+- name: pallet-proxy
+  bump: minor
