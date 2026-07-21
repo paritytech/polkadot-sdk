@@ -91,6 +91,39 @@ mod fetch_next_on_invalid {
 	}
 }
 
+mod fetch_timeout {
+	use crate::common::{
+		builders::{Candidate, ProtocolVersion::V2},
+		harness::CollatorSut,
+		world::{activated_world, WorldExt as _},
+	};
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
+
+	const PARA: ParaId = ParaId::new(2000);
+
+	#[crate::sim_test]
+	fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let leaf = w.leaf();
+
+		let candidate = Candidate::for_para_at(PARA, leaf);
+		let head_hash = candidate.receipt.descriptor.para_head();
+
+		let peer_a = w.declared_peer(PARA, V2);
+		let peer_b = w.declared_peer(PARA, V2);
+		for peer in [&peer_a, &peer_b] {
+			w.base.sim.send(peer.advertise(leaf, Some(candidate.hash()), Some(head_hash)));
+		}
+
+		let (first_peer, _, _) = w.expect_any_fetch();
+		let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
+
+		// Don't respond. `expect_fetch_to` drives the clock to the subsystem's per-fetch abandon
+		// timer, after which the fetch falls back to the other peer.
+		let _ = w.expect_fetch_to(other_peer);
+	}
+}
+
 mod single_fetch_per_relay_parent {
 	use crate::common::{
 		builders::ProtocolVersion::V1,

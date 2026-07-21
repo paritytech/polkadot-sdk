@@ -160,8 +160,8 @@ fn dummy_candidate_v3(
 
 /// A distinct V4 wire fingerprint per seed. The hashes only need to be unique and stable —
 /// nothing in the accept path interprets them.
-fn v4_fingerprint(seed: u8, relay_parent: Hash) -> protocol_v4::CandidateFingerprint {
-	protocol_v4::CandidateFingerprint {
+fn v4_fingerprint(seed: u8, relay_parent: Hash) -> CandidateFingerprint {
+	CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(seed),
 		parent_head_data_hash: Hash::repeat_byte(seed.wrapping_add(0x80)),
 		relay_parent,
@@ -169,7 +169,7 @@ fn v4_fingerprint(seed: u8, relay_parent: Hash) -> protocol_v4::CandidateFingerp
 }
 
 /// The stored-entry twin of a wire fingerprint.
-fn v4_entry(fp: &protocol_v4::CandidateFingerprint) -> ProspectiveCandidate {
+fn v4_entry(fp: &CandidateFingerprint) -> ProspectiveCandidate {
 	ProspectiveCandidate::ByOutputHead {
 		output_head_data_hash: fp.output_head_data_hash,
 		parent_head_data_hash: fp.parent_head_data_hash,
@@ -703,7 +703,7 @@ impl TestState {
 		state: &mut State<B>,
 		peer_id: PeerId,
 		scheduling_parent: Hash,
-		fingerprints: Vec<protocol_v4::CandidateFingerprint>,
+		fingerprints: Vec<CandidateFingerprint>,
 		para_id: ParaId,
 	) {
 		let mut sender = self.sender.clone();
@@ -3420,13 +3420,10 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 	);
 	let output_head_data_hash = ccr.descriptor.para_head();
 	let parent_head_data_hash = dummy_pvd().parent_head.hash();
-	let candidates = vec![protocol_v4::CandidateFingerprint {
-		output_head_data_hash,
-		parent_head_data_hash,
-		relay_parent,
-	}]
-	.try_into()
-	.unwrap();
+	let candidates =
+		vec![CandidateFingerprint { output_head_data_hash, parent_head_data_hash, relay_parent }]
+			.try_into()
+			.unwrap();
 	// The advertisement the subsystem is expected to construct from the segment.
 	let adv = Advertisement {
 		peer_id,
@@ -3501,11 +3498,8 @@ async fn v4_first_advertisement_implicitly_declares() {
 	);
 	let output_head_data_hash = ccr.descriptor.para_head();
 	let parent_head_data_hash = dummy_pvd().parent_head.hash();
-	let fingerprints = vec![protocol_v4::CandidateFingerprint {
-		output_head_data_hash,
-		parent_head_data_hash,
-		relay_parent,
-	}];
+	let fingerprints =
+		vec![CandidateFingerprint { output_head_data_hash, parent_head_data_hash, relay_parent }];
 
 	// An advertisement from an unconnected peer cannot declare anything and is dropped.
 	test_state
@@ -5186,7 +5180,7 @@ async fn v4_walk_advances_past_in_flight_fetch() {
 // a launch and disappears from the live view.
 async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 	let fp_a = v4_fingerprint(0xa1, get_hash(9));
-	let fp_b = protocol_v4::CandidateFingerprint {
+	let fp_b = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xa2),
 		parent_head_data_hash: fp_a.output_head_data_hash,
 		relay_parent: get_hash(9),
@@ -5489,7 +5483,7 @@ async fn v4_zero_length_cycle_segment_rejected_at_wire() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
-	let self_loop = protocol_v4::CandidateFingerprint {
+	let self_loop = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xaa),
 		parent_head_data_hash: Hash::repeat_byte(0xaa),
 		relay_parent: get_hash(9),
