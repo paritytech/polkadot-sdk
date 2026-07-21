@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784630033400,
+  "lastUpdate": 1784633604078,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e588acf5e12b14c68331d2e08afe7c12d6671df9",
-          "message": "pallet-revive: add DebugSetting for bypassing eip-3607 (#10387)\n\nOnly works for contract accounts, not precompiles.\nThis is needed so that test nodes like anvil can send transactions from\ncontract accounts, a widely-used feature in tests\n\nNeeded for https://github.com/paritytech/foundry-polkadot/pull/423",
-          "timestamp": "2025-11-24T13:52:50Z",
-          "tree_id": "60ed8cd8e2ccbb73ceb16405548c0f1817a4f756",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e588acf5e12b14c68331d2e08afe7c12d6671df9"
-        },
-        "date": 1763996450603,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63636.71,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020837260000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.483984577030001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4684378021,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020837260000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5139377104300014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9904655792199955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.349721833029994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4599377926199977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022874740000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.702274810970841,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00569660293,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022874740000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4272617686999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.6884576564,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8574f19ca8eeb5f004e90a99876d9d773bba6bf3",
+          "message": "[pallet-revive] Version the Remaining Runtime API Functions (#12536)\n\n# Description\n\nThis PR closes #11924 and #11928 and versions the final remaining\nruntime API functions in pallet-revive, fully deprecating the old\nunversioned runtime API in favor of the new versioned runtime API\nfunctions.\n\nAdditionally, this PR adds an\n`unversioned_runtime_api_functions_are_unchanged_by_versioning` test\nwhich is an important test which asserts that every single type which\ncan be seen in the unversioned runtime API functions is identical to the\nnew versioned types in terms of encoding such that if we encode an old\nunversioned type we can decode as a new versioned type and vice versa.\nThis is made possible through the schema available in the metadata which\nallows us to check a pre-versioning schema against a post-versioning\nschema. This test is implemented as a very very simple walker which\nwalks the schema in lock-step and checks that the schema of the\npre-versioning types matches that of the post-versioning types. Yes, the\ncode for this test is slightly long, but it's very simple. The moment\nyou see that lots of the code length is due to us wanting to preserve\nthe paths (for printing in assertion messages), you can see that the\ntest is quite simple.\n\nAside from the above, and as mentioned at the start, this PR also\nversioned the remaining runtime API functions. In the process, I\ncombined some runtime API functions into a single versioned runtime API\nfunction. For example, `eth_transact` and `eth_transact_with_config`\nhave been combined into a single `eth_transact_versioned` since\n`eth_transact_with_config` was added as way to version the\n`eth_transact` runtime API function. Same was done to the `trace_call`\nand the `trace_call_with_config` in that they've been combined into a\nsingle versioned runtime API function.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-21T09:45:38Z",
+          "tree_id": "10c7a603cd30572fa00f69a8441afd1ae1a1d8f2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8574f19ca8eeb5f004e90a99876d9d773bba6bf3"
+        },
+        "date": 1784633570820,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63560.36000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001997707,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6542234906400033,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005123486809999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.930765400989978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.72126305128,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002105319,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6675198925399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.464834295622797,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.392482331939992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.691071236890002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001997707,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7990819108899815,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002105319,
             "unit": "seconds"
           }
         ]
