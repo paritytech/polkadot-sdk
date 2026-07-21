@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784629090179,
+  "lastUpdate": 1784632542820,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -109403,6 +109403,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2524648449,
             "range": "± 32464434",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8574f19ca8eeb5f004e90a99876d9d773bba6bf3",
+          "message": "[pallet-revive] Version the Remaining Runtime API Functions (#12536)\n\n# Description\n\nThis PR closes #11924 and #11928 and versions the final remaining\nruntime API functions in pallet-revive, fully deprecating the old\nunversioned runtime API in favor of the new versioned runtime API\nfunctions.\n\nAdditionally, this PR adds an\n`unversioned_runtime_api_functions_are_unchanged_by_versioning` test\nwhich is an important test which asserts that every single type which\ncan be seen in the unversioned runtime API functions is identical to the\nnew versioned types in terms of encoding such that if we encode an old\nunversioned type we can decode as a new versioned type and vice versa.\nThis is made possible through the schema available in the metadata which\nallows us to check a pre-versioning schema against a post-versioning\nschema. This test is implemented as a very very simple walker which\nwalks the schema in lock-step and checks that the schema of the\npre-versioning types matches that of the post-versioning types. Yes, the\ncode for this test is slightly long, but it's very simple. The moment\nyou see that lots of the code length is due to us wanting to preserve\nthe paths (for printing in assertion messages), you can see that the\ntest is quite simple.\n\nAside from the above, and as mentioned at the start, this PR also\nversioned the remaining runtime API functions. In the process, I\ncombined some runtime API functions into a single versioned runtime API\nfunction. For example, `eth_transact` and `eth_transact_with_config`\nhave been combined into a single `eth_transact_versioned` since\n`eth_transact_with_config` was added as way to version the\n`eth_transact` runtime API function. Same was done to the `trace_call`\nand the `trace_call_with_config` in that they've been combined into a\nsingle versioned runtime API function.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-21T09:45:38Z",
+          "tree_id": "10c7a603cd30572fa00f69a8441afd1ae1a1d8f2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8574f19ca8eeb5f004e90a99876d9d773bba6bf3"
+        },
+        "date": 1784632509513,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 17933014,
+            "range": "± 65555",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 18340571,
+            "range": "± 71885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 19675011,
+            "range": "± 64178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24265585,
+            "range": "± 229636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 55534512,
+            "range": "± 393334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 329966066,
+            "range": "± 5300797",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2448013220,
+            "range": "± 63833086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 14989883,
+            "range": "± 184830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 15084180,
+            "range": "± 231956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 15500125,
+            "range": "± 199718",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 19893632,
+            "range": "± 185714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 54818923,
+            "range": "± 626749",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 325219230,
+            "range": "± 4415062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2449640248,
+            "range": "± 42490801",
             "unit": "ns/iter"
           }
         ]
