@@ -362,10 +362,11 @@ pub mod pallet {
 	/// Per-sender window of recently-committed `StreamsRoot`s for speculative messaging. Newest
 	/// entry last, at most [`MAX_PROVIDES_WINDOW_SIZE`] entries. A receiver's `requires` root
 	/// matches when it is present in the referenced source's window. Bare ring (no block tag): a
-	/// fork-revert dispute is unwound by the node's state-revert (no per-entry eviction); a *freeze*
-	/// (finalized-invalid candidate the node can't revert) clears the whole map on the freeze
-	/// transition (see `paras_inherent`), so an invalid root can't outlive `force_unfreeze`. A
-	/// sender's window is dropped in full when it offboards (see `initializer_on_new_session`).
+	/// fork-revert dispute is unwound by the node's state-revert (no per-entry eviction); a
+	/// *freeze* (finalized-invalid candidate the node can't revert) clears the whole map on the
+	/// freeze transition (see `paras_inherent`), so an invalid root can't outlive
+	/// `force_unfreeze`. A sender's window is dropped in full when it offboards (see
+	/// `initializer_on_new_session`).
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> = StorageMap<
 		_,
@@ -970,13 +971,18 @@ impl<T: Config> Pallet<T> {
 		RecentProvides::<T>::get(source).iter().rev().any(|committed| committed == root)
 	}
 
-	/// Whether every `(source, StreamsRoot)` in `requires` is present in that source's provides
-	/// window — the relay-side match a receiver candidate must pass to be included.
-	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> bool {
+	/// Match `requires` against the relay-side provides windows — the check a receiver candidate
+	/// must pass to be included. `Ok(())` if every `(source, StreamsRoot)` is present in that
+	/// source's window; otherwise `Err` with the first unmatched `(source, root)`, so the caller
+	/// can log exactly why the candidate was dropped.
+	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> Result<(), (ParaId, StreamsRoot)> {
 		// Does one `RecentProvides` read per required source (≤ `MAX_SOURCES_PER_BLOCK` = 128).
-		requires
-			.iter()
-			.all(|(source, expected)| Self::provides_contains(*source, expected))
+		for (source, expected) in requires.iter() {
+			if !Self::provides_contains(*source, expected) {
+				return Err((*source, *expected));
+			}
+		}
+		Ok(())
 	}
 
 	/// Record a sender's committed `StreamsRoot` into its provides window at enactment, trimming to

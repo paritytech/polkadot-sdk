@@ -445,10 +445,11 @@ impl<T: Config> Pallet<T> {
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
 
 		// Speculative messaging: on a *freeze* transition — a concluded-invalid dispute against a
-		// finalized candidate the node can't revert — clear the whole provides window. Otherwise the
-		// invalid sender's `StreamsRoot` survives `force_unfreeze` (no rollback) and a later
-		// `requires` could match it. The fork-revert path needs nothing here: the node's state-revert
-		// unwinds the writes with the abandoned branch (see `inclusion::RecentProvides`).
+		// finalized candidate the node can't revert — clear the whole provides window. Otherwise
+		// the invalid sender's `StreamsRoot` survives `force_unfreeze` (no rollback) and a later
+		// `requires` could match it. The fork-revert path needs nothing here: the node's
+		// state-revert unwinds the writes with the abandoned branch (see
+		// `inclusion::RecentProvides`).
 		if !was_frozen && T::DisputesHandler::is_frozen() {
 			inclusion::Pallet::<T>::clear_provides();
 		}
@@ -1219,12 +1220,14 @@ fn check_speculative_messaging<T: crate::inclusion::Config>(
 	}
 
 	if let Some(requires) = signals.requires() {
-		if !crate::inclusion::Pallet::<T>::requires_satisfied(requires) {
+		if let Err((source, root)) = crate::inclusion::Pallet::<T>::requires_satisfied(requires) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Dropping candidate {:?} for para {:?}: requires not in provides window.",
+				"Dropping candidate {:?} for para {:?}: requires root {:?} not in source {:?}'s provides window.",
 				candidate.candidate().hash(),
 				candidate.descriptor().para_id(),
+				root,
+				source,
 			);
 			return false;
 		}
