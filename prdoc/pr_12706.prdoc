@@ -1,4 +1,4 @@
-title: Statement RPC: reject invalid inputs
+title: 'Statement RPC: reject invalid inputs'
 doc:
 - audience: Node Dev
   description: |-
