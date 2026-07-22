@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	CompileStatus, DestroyError, ExecError, InstanceId, InstantiateError, MemoryError, ModuleError,
-	ModuleId, SyscallSymbol,
+	DestroyError, ExecError, InstanceId, InstantiateError, MemoryError, ModuleError, ModuleId,
+	SyscallSymbol,
 };
 use core::mem;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -133,41 +133,6 @@ impl TryFrom<i64> for ModuleId {
 	type Error = ();
 	fn try_from(value: i64) -> Result<Self, Self::Error> {
 		u32::try_from(value).map(ModuleId::from).map_err(|_| ())
-	}
-}
-
-/// Result of a successful `compile_*` host function call.
-///
-/// Pairs the produced [`ModuleId`] with a [`CompileStatus`] so the runtime can tell whether
-/// the call hit the in-extension cache (cheap) or required a fresh compile (expensive).
-///
-/// Wire encoding (packed into the `i64` return value):
-/// - low 32 bits hold the `ModuleId`
-/// - bits 32-39 hold the [`CompileStatus`] discriminant (`u8`)
-/// - bits 40-62 are reserved for future packed fields
-/// - the result space stays disjoint from the negative range used by [`ModuleError`].
-pub struct CompiledModule {
-	pub id: ModuleId,
-	pub status: CompileStatus,
-}
-
-impl IntoI64 for CompiledModule {
-	const MAX: i64 = (1i64 << 40) - 1;
-}
-
-impl From<CompiledModule> for i64 {
-	fn from(m: CompiledModule) -> Self {
-		let status = u8::from(m.status) as i64;
-		(status << 32) | (u32::from(m.id) as i64)
-	}
-}
-
-impl TryFrom<i64> for CompiledModule {
-	type Error = ();
-	fn try_from(value: i64) -> Result<Self, Self::Error> {
-		let id = ModuleId::from(value as u32);
-		let status = CompileStatus::try_from((value >> 32) as u8).map_err(|_| ())?;
-		Ok(Self { id, status })
 	}
 }
 
@@ -337,21 +302,18 @@ impl TryFrom<i64> for VoidResult {
 pub trait Virtualization {
 	/// Compile the given program bytes into a module.
 	///
-	/// If `identifier` is `Some` and a module is already cached under it, no compilation
-	/// occurs and the returned [`CompiledModule`] carries [`CompileStatus::Cached`].
-	/// Otherwise the bytes are compiled, cached under `identifier` if supplied, and the
-	/// returned [`CompiledModule`] carries [`CompileStatus::Compiled`].
+	/// The bytes are compiled and, if `identifier` is `Some`, cached under it so a later
+	/// [`lookup`] with the same `identifier` reuses the result. This always compiles: a caller
+	/// that wants to skip recompiling an already-cached module must [`lookup`] first and only
+	/// call this on a miss. Pre-looking-up here would just duplicate that lookup.
 	///
-	/// The contained `module_id` can be passed to [`instantiate`] to create instances.
-	fn compile_from_bytes(
+	/// The returned `module_id` can be passed to [`instantiate`] to create instances.
+	fn compile(
 		&mut self,
 		program: PassFatPointerAndRead<&[u8]>,
 		identifier: PassFatPointerAndReadOption<&[u8]>,
-	) -> ConvertAndReturnAs<
-		Result<CompiledModule, ModuleError>,
-		RIIntResult<CompiledModule, ModuleError>,
-		i64,
-	> {
+	) -> ConvertAndReturnAs<Result<ModuleId, ModuleError>, RIIntResult<ModuleId, ModuleError>, i64>
+	{
 		use sp_externalities::ExternalitiesExt as _;
 		use std::sync::Once;
 		static WARN_ONCE: Once = Once::new();
@@ -364,24 +326,9 @@ pub trait Virtualization {
 			);
 		});
 
-		// Cache lookup first when an identifier is supplied.
-		if let Some(identifier) = identifier {
-			let cache_result = self
-				.extension::<crate::VirtManagerExt>()
-				.expect("VirtManagerExt not registered in externalities")
-				.lookup(identifier);
-			match cache_result {
-				Ok(id) => return Ok(CompiledModule { id, status: CompileStatus::Cached }),
-				Err(ModuleError::NotCached) => {},
-				Err(err) => return Err(err),
-			}
-		}
-
-		let id = self
-			.extension::<crate::VirtManagerExt>()
+		self.extension::<crate::VirtManagerExt>()
 			.expect("VirtManagerExt not registered in externalities")
-			.compile_from_bytes(program, identifier)?;
-		Ok(CompiledModule { id, status: CompileStatus::Compiled })
+			.compile(program, identifier)
 	}
 
 	/// Look up a previously compiled module by `identifier`.
@@ -398,57 +345,6 @@ pub trait Virtualization {
 		self.extension::<crate::VirtManagerExt>()
 			.expect("VirtManagerExt not registered in externalities")
 			.lookup(identifier)
-	}
-
-	/// Compile a module whose program bytes live at `storage_key`.
-	///
-	/// Returns a [`CompiledModule`] carrying [`CompileStatus::Cached`] if a module is already
-	/// cached under `storage_key`. On a cache miss, loads the program bytes from storage at
-	/// `storage_key`, compiles them, caches the result under that same key, and returns a
-	/// [`CompiledModule`] carrying [`CompileStatus::Compiled`]. Pass an empty `child_trie`
-	/// to read from the main state trie.
-	fn compile_from_storage_key(
-		&mut self,
-		storage_key: PassFatPointerAndRead<&[u8]>,
-		child_trie: PassFatPointerAndRead<&[u8]>,
-	) -> ConvertAndReturnAs<
-		Result<CompiledModule, ModuleError>,
-		RIIntResult<CompiledModule, ModuleError>,
-		i64,
-	> {
-		use sp_externalities::ExternalitiesExt as _;
-
-		// Try the in-memory cache first.
-		let cache_result = self
-			.extension::<crate::VirtManagerExt>()
-			.expect("VirtManagerExt not registered in externalities")
-			.lookup(storage_key);
-
-		match cache_result {
-			Ok(id) => return Ok(CompiledModule { id, status: CompileStatus::Cached }),
-			Err(ModuleError::NotCached) => {},
-			Err(err) => return Err(err),
-		}
-
-		// Cache miss — load from storage.
-		let code = if child_trie.is_empty() {
-			self.storage(storage_key)
-		} else {
-			let child_info = sp_storage::ChildInfo::new_default(child_trie);
-			self.child_storage(&child_info, storage_key)
-		};
-
-		let code = match code {
-			Some(code) => code,
-			None => return Err(ModuleError::NotFound),
-		};
-
-		// Compile and cache under the storage key so the next lookup hits.
-		let id = self
-			.extension::<crate::VirtManagerExt>()
-			.expect("VirtManagerExt not registered in externalities")
-			.compile_from_bytes(&code, Some(storage_key))?;
-		Ok(CompiledModule { id, status: CompileStatus::Compiled })
 	}
 
 	/// Create a new instance from a compiled module.
@@ -556,9 +452,10 @@ pub trait VirtManagerBackend: Send + 'static {
 	///
 	/// If `identifier` is `Some`, the compiled module is retained in the per-extension cache
 	/// keyed by that opaque byte slice so a later [`lookup`] with the same bytes can reuse it.
+	/// Always compiles and never pre-looks-up, so the caller controls cache reuse via [`lookup`].
 	///
 	/// [`lookup`]: VirtManagerBackend::lookup
-	fn compile_from_bytes(
+	fn compile(
 		&mut self,
 		program: &[u8],
 		identifier: Option<&[u8]>,

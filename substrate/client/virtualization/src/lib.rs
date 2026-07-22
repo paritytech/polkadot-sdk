@@ -20,30 +20,90 @@
 //!
 //! Provides the concrete [`VirtManager`] that drives `polkavm` to compile, instantiate
 //! and execute programs on behalf of the runtime. Register it with the externalities via
-//! [`sp_virtualization::VirtManagerExt::new`].
+//! [`sp_virtualization::VirtManagerExt::new`], or use the [`default_extension`] helper
+//! and [`ExtensionsFactory`] convenience types defined below.
 
 use polkavm::{
 	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
-	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
+	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg, SandboxKind,
 };
+use sp_externalities::Extensions;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_virtualization::{
 	DestroyError, ExecBuffer, ExecError, ExecStatus, InstanceId, InstantiateError, MemoryError,
-	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, LOG_TARGET,
+	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, VirtManagerExt,
 };
 use std::{
 	collections::HashMap,
 	sync::{Arc, LazyLock},
+	time::Instant,
 };
 
-/// This is the single PolkaVM engine we use for everything.
+const LOG_TARGET: &str = "virtualization";
+
+/// Build a fresh [`VirtManagerExt`] backed by a default [`VirtManager`].
 ///
-/// By using a common engine we allow PolkaVM to use caching. This caching is important
-/// to reduce startup costs. This is even the case when instances use different code.
+/// Use this where you would otherwise hand-roll
+/// `VirtManagerExt::new(VirtManager::default())`, for example when registering the
+/// extension directly on a `TestExternalities` or an `Extensions` set.
+pub fn default_extension() -> VirtManagerExt {
+	VirtManagerExt::new(VirtManager::default())
+}
+
+/// An [`sc_client_api::execution_extensions::ExtensionsFactory`] that registers a fresh
+/// [`VirtManagerExt`] (backed by a default [`VirtManager`]) for every runtime call.
+///
+/// Plug this into a client via
+/// `client.execution_extensions().set_extensions_factory(ExtensionsFactory)`.
+/// [`VirtManagerExt`] cannot implement `Default` (its backend lives in this crate, and
+/// `sp-virtualization` is intentionally backend-free), so the stock
+/// [`sc_client_api::execution_extensions::ExtensionBeforeBlock`] helper cannot be used.
+#[derive(Default)]
+pub struct ExtensionsFactory;
+
+impl<Block: BlockT> sc_client_api::execution_extensions::ExtensionsFactory<Block>
+	for ExtensionsFactory
+{
+	fn extensions_for(&self, _: Block::Hash, _: NumberFor<Block>) -> Extensions {
+		let mut exts = Extensions::new();
+		exts.register(default_extension());
+		exts
+	}
+}
+
+/// Maximum number of virtualization instances alive at once.
+///
+/// Each live instance reserves its guest address space and memory, so the number alive at once
+/// must be bounded. One instance is live per nested contract frame, so the bound is the maximum
+/// contract call-stack depth and must stay `>=` any consumer's maximum call depth (the deepest
+/// today is pallet-revive with `CALL_STACK_DEPTH + 1`, currently 26).
+/// [`VirtManager::instantiate`] enforces it
+/// as a hard cap, returning `InstantiateError::TooManyInstances` once that many instances are
+/// live.
+const MAX_LIVE_INSTANCES: usize = 30;
+
+/// The single, process-global PolkaVM engine used for everything.
+///
+/// A common engine lets PolkaVM amortise startup costs across instances, even when those
+/// instances run different code. `LazyLock` guarantees it is built exactly once per process.
 static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
-	let mut config = Config::from_env().expect("Invalid config.");
-	config.set_worker_count(10);
+	let start = Instant::now();
+
+	// Deliberately not `Config::from_env()`: the engine configuration affects execution
+	// semantics and must not be changeable through the environment.
+	let mut config = Config::new();
 	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
-	Engine::new(&config).expect("Failed to initialize PolkaVM.")
+	// Hardcode the generic sandbox, which executes guest code inline in-process: no worker
+	// processes to spawn, warm or nest namespaces for, so the host process model (in particular
+	// the PVF's fork-per-job execute path and its CPU-time timeout) stays untouched. This trades
+	// away the isolation of the Linux sandbox, which is acceptable while the JIT backend is an
+	// experimental opt-in and is exactly what `set_allow_experimental` acknowledges.
+	config.set_sandbox(Some(SandboxKind::Generic));
+	config.set_allow_experimental(true);
+	let engine = Engine::new(&config).expect("Failed to initialize PolkaVM.");
+
+	log::info!(target: LOG_TARGET, "PolkaVM engine initialized in {:?}", start.elapsed());
+	engine
 });
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
@@ -117,24 +177,13 @@ struct ManagedInstance {
 /// NOTE: The per-instance `cache` deduplicates modules within the lifetime of one
 /// `VirtManager` (i.e. one externalities extension, i.e. one block). Cross-block
 /// reuse is deferred to PolkaVM's built-in on-disk persistent cache.
+#[derive(Default)]
 pub struct VirtManager {
 	instances: HashMap<InstanceId, ManagedInstance>,
 	modules: HashMap<ModuleId, Arc<CompiledModule>>,
 	cache: HashMap<Vec<u8>, Arc<CompiledModule>>,
 	instance_counter: u32,
 	module_counter: u32,
-}
-
-impl Default for VirtManager {
-	fn default() -> Self {
-		Self {
-			instances: HashMap::new(),
-			modules: HashMap::new(),
-			cache: HashMap::new(),
-			instance_counter: 0,
-			module_counter: 0,
-		}
-	}
 }
 
 impl VirtManager {
@@ -248,11 +297,12 @@ impl VirtManager {
 }
 
 impl VirtManagerBackend for VirtManager {
-	fn compile_from_bytes(
+	fn compile(
 		&mut self,
 		program: &[u8],
 		identifier: Option<&[u8]>,
 	) -> Result<ModuleId, ModuleError> {
+		let start = Instant::now();
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module =
@@ -266,6 +316,12 @@ impl VirtManagerBackend for VirtManager {
 				},
 			})?;
 		let compiled = Arc::new(CompiledModule::new(module)?);
+		log::debug!(
+			target: LOG_TARGET,
+			"compiled {}-byte module in {:?}",
+			program.len(),
+			start.elapsed(),
+		);
 
 		let module_id = self.next_module_id();
 
@@ -285,12 +341,19 @@ impl VirtManagerBackend for VirtManager {
 	}
 
 	fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
+		if self.instances.len() >= MAX_LIVE_INSTANCES {
+			log::error!(target: LOG_TARGET, "live-instance limit ({MAX_LIVE_INSTANCES}) reached");
+			return Err(InstantiateError::TooManyInstances);
+		}
+
 		let compiled = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?.clone();
 
+		let start = Instant::now();
 		let instance = compiled.module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
 		})?;
+		log::debug!(target: LOG_TARGET, "instantiated module in {:?}", start.elapsed());
 
 		let instance_id = self.next_instance_id();
 
@@ -370,21 +433,40 @@ mod tests {
 		let key: &[u8] = b"some-key";
 
 		let mut a = VirtManager::default();
-		a.compile_from_bytes(program, Some(key)).unwrap();
+		a.compile(program, Some(key)).unwrap();
 		assert!(matches!(a.lookup(key), Ok(_)));
 
 		let mut b = VirtManager::default();
 		assert!(matches!(b.lookup(key), Err(ModuleError::NotCached)));
 	}
 
-	/// Passing `None` to `compile_from_bytes` must not populate the cache.
+	/// Passing `None` to `compile` must not populate the cache.
 	#[test]
-	fn compile_from_bytes_none_skips_cache() {
+	fn compile_none_skips_cache() {
 		let program = sp_virtualization_test_fixture::binary();
 		let key: &[u8] = b"would-be-key";
 
 		let mut m = VirtManager::default();
-		m.compile_from_bytes(program, None).unwrap();
+		m.compile(program, None).unwrap();
 		assert!(matches!(m.lookup(key), Err(ModuleError::NotCached)));
+	}
+
+	/// `instantiate` refuses once [`MAX_LIVE_INSTANCES`] instances are live, and accepts again
+	/// once one of them is destroyed.
+	#[test]
+	fn instantiate_enforces_live_instance_cap() {
+		let program = sp_virtualization_test_fixture::binary();
+
+		let mut m = VirtManager::default();
+		let module_id = m.compile(program, None).unwrap();
+
+		let ids: Vec<_> = (0..MAX_LIVE_INSTANCES)
+			.map(|_| m.instantiate(module_id).expect("instantiation below the cap succeeds"))
+			.collect();
+
+		assert!(matches!(m.instantiate(module_id), Err(InstantiateError::TooManyInstances)));
+
+		m.destroy(ids[0]).unwrap();
+		assert!(m.instantiate(module_id).is_ok());
 	}
 }
