@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, ContractStorageKind, Error, Event, ImmutableData,
 	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, CallKind, CallWarmth, CodeLoadWarmth},
+	access_list::{AccessEntry, AccessList, CallStateAccess, CallWarmth, CodeLoadWarmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -555,7 +555,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind;
 
 	/// Warmth of the state items this call reads.
-	fn call_warmth(&self, kind: CallKind) -> CallWarmth;
+	fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1093,15 +1093,15 @@ where
 				//
 				// Precompiles are not warmed. Reuse the `precompile` lookup for
 				// a plain call; a delegate call reuses its own.
-				let (kind, target_is_precompile) = match &delegated_call {
-					None => (CallKind::Call { target: address }, precompile.is_some()),
+				let (call_access, target_is_precompile) = match &delegated_call {
+					None => (CallStateAccess::Normal { target: address }, precompile.is_some()),
 					Some(delegated) => (
-						CallKind::DelegateCall { target: delegated.callee },
+						CallStateAccess::Delegate { target: delegated.callee },
 						delegate_precompile.is_some(),
 					),
 				};
 				if !target_is_precompile {
-					access_list.warm_call(kind);
+					access_list.warm_call(call_access);
 				}
 
 				// which contract info to load is unaffected by the fact if this
@@ -1946,8 +1946,8 @@ where
 
 	/// Touches the access-list entries the call reads, plus the code, as if the call already ran.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn touch_call_target(&mut self, kind: CallKind, code_hash: H256) {
-		self.access_list.warm_call(kind);
+	pub(crate) fn touch_call_target(&mut self, call_access: CallStateAccess, code_hash: H256) {
+		self.access_list.warm_call(call_access);
 		self.access_list.warm_code(code_hash);
 	}
 
@@ -2688,8 +2688,8 @@ where
 		)
 	}
 
-	fn call_warmth(&self, kind: CallKind) -> CallWarmth {
-		self.access_list.call_warmth(kind)
+	fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth {
+		self.access_list.call_warmth(call_access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

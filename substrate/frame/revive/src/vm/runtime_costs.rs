@@ -373,13 +373,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				CallWarmth::Call { account, contract_info } => cold_hot_weight::<T>(
+				CallWarmth::Normal { account, contract_info } => cold_hot_weight::<T>(
 					&[account, contract_info],
 					AccessEntry::ACCOUNT_READS + AccessEntry::CONTRACT_INFO_READS,
 					|| T::WeightInfo::seal_call(0, 0, 0),
 					T::WeightInfo::seal_call_hot,
 				),
-				CallWarmth::DelegateCall { contract_info } => cold_hot_weight::<T>(
+				CallWarmth::Delegate { contract_info } => cold_hot_weight::<T>(
 					&[contract_info],
 					AccessEntry::CONTRACT_INFO_READS,
 					T::WeightInfo::seal_delegate_call,
@@ -486,15 +486,15 @@ mod tests {
 		let cold_revertible = Warmth::Cold { revertible: true };
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
-		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
+		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
 			account: hot,
 			contract_info: hot,
 		}));
-		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
+		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
 			account: cold,
 			contract_info: cold,
 		}));
-		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
+		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
 			account: cold,
 			contract_info: hot,
 		}));
@@ -507,7 +507,7 @@ mod tests {
 		assert!(all_cold.proof_size() > 0, "cold call pays proof size: {all_cold:?}");
 		assert!(mixed.proof_size() > 0, "any cold item prices the full cold base: {mixed:?}",);
 
-		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Call {
+		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
 			account: cold_revertible,
 			contract_info: cold,
 		}));
@@ -517,9 +517,9 @@ mod tests {
 		);
 
 		let delegate_hot =
-			weight_of(RuntimeCosts::CallBase(CallWarmth::DelegateCall { contract_info: hot }));
+			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { contract_info: hot }));
 		let delegate_cold =
-			weight_of(RuntimeCosts::CallBase(CallWarmth::DelegateCall { contract_info: cold }));
+			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { contract_info: cold }));
 		assert!(
 			delegate_cold.ref_time() >= delegate_hot.ref_time(),
 			"cold delegate call must not be cheaper than hot: cold={delegate_cold:?} hot={delegate_hot:?}",

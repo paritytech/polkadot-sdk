@@ -170,43 +170,43 @@ impl CodeLoadWarmth {
 	}
 }
 
-/// A call-family opcode (Call/DelegateCall).
+/// A call-family operation (normal or delegate).
 #[derive(Clone, Copy, Debug)]
-pub enum CallKind {
-	Call { target: H160 },
-	DelegateCall { target: H160 },
+pub enum CallStateAccess {
+	Normal { target: H160 },
+	Delegate { target: H160 },
 }
 
-impl CallKind {
-	/// Builds a [`CallKind`] from the given address and delegate flag.
+impl CallStateAccess {
+	/// Builds a [`CallStateAccess`] from the given address and delegate flag.
 	pub fn new(target: H160, delegate: bool) -> Self {
-		if delegate { Self::DelegateCall { target } } else { Self::Call { target } }
+		if delegate { Self::Delegate { target } } else { Self::Normal { target } }
 	}
 
 	/// Maps `warmth_of` over each state item this call reads and collects
 	/// the results into a [`CallWarmth`].
 	fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> CallWarmth {
 		match self {
-			Self::Call { target } => CallWarmth::Call {
+			Self::Normal { target } => CallWarmth::Normal {
 				account: warmth_of(AccessEntry::Account { address: target }),
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
-			Self::DelegateCall { target } => CallWarmth::DelegateCall {
+			Self::Delegate { target } => CallWarmth::Delegate {
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
 		}
 	}
 }
 
-/// Warmth of the state items a [`CallKind`] reads, one variant per opcode.
+/// Warmth of the state items a [`CallStateAccess`] reads, one variant per opcode.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
-	/// A call reads the target's account state and contract metadata.
-	Call { account: Warmth, contract_info: Warmth },
+	/// A normal call reads the target's account state and contract metadata.
+	Normal { account: Warmth, contract_info: Warmth },
 	/// A delegate call runs in the caller's context and reads only the
 	/// target's contract metadata.
-	DelegateCall { contract_info: Warmth },
+	Delegate { contract_info: Warmth },
 }
 
 /// Snapshot of per-transaction access-list counters.
@@ -373,13 +373,13 @@ impl AccessList {
 	}
 
 	/// Warms every state item this call reads, returning its warmth.
-	pub fn warm_call(&mut self, kind: CallKind) -> CallWarmth {
-		kind.expand(|entry| self.touch(entry))
+	pub fn warm_call(&mut self, call_access: CallStateAccess) -> CallWarmth {
+		call_access.expand(|entry| self.touch(entry))
 	}
 
 	/// Non-mutating sibling of [`warm_call`](Self::warm_call): the warmth without registering.
-	pub fn call_warmth(&self, kind: CallKind) -> CallWarmth {
-		kind.expand(|entry| self.peek(&entry))
+	pub fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth {
+		call_access.expand(|entry| self.peek(&entry))
 	}
 
 	/// Warms the two entries a code load reads, returning their warmth.
@@ -529,8 +529,8 @@ mod tests {
 		// The set is below the cap, so peek prices both call entries revertible
 		// cold: it cannot see that touching the first entry fills the cap.
 		assert_eq!(
-			al.call_warmth(CallKind::Call { target }),
-			CallWarmth::Call {
+			al.call_warmth(CallStateAccess::Normal { target }),
+			CallWarmth::Normal {
 				account: Warmth::Cold { revertible: true },
 				contract_info: Warmth::Cold { revertible: true },
 			},
@@ -539,8 +539,8 @@ mod tests {
 
 		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
 		assert_eq!(
-			al.warm_call(CallKind::Call { target }),
-			CallWarmth::Call {
+			al.warm_call(CallStateAccess::Normal { target }),
+			CallWarmth::Normal {
 				account: Warmth::Cold { revertible: true },
 				contract_info: Warmth::cold_non_revertible(),
 			},

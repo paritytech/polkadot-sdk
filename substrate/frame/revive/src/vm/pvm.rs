@@ -21,7 +21,7 @@ pub mod env;
 
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
-	access_list::CallKind,
+	access_list::CallStateAccess,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -279,10 +279,9 @@ enum CallType {
 }
 
 impl CallType {
-	/// Base cost of the call.
 	fn cost(&self, ext: &impl Ext, callee: &sp_core::H160) -> RuntimeCosts {
-		let kind = CallKind::new(*callee, matches!(self, CallType::DelegateCall));
-		RuntimeCosts::CallBase(ext.call_warmth(kind))
+		let call_access = CallStateAccess::new(*callee, matches!(self, CallType::DelegateCall));
+		RuntimeCosts::CallBase(ext.call_warmth(call_access))
 	}
 }
 
@@ -493,7 +492,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
 		if value_len > max_size {
-			// A peek registers nothing, so no rollback is owed: strip the prepayment.
+			// A peek registers nothing, so no rollback is owed.
 			let access_kind = self.ext.storage_slot_warmth(transient, &key).non_revertible();
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,

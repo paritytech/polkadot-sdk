@@ -20,7 +20,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, CallKind, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES},
+	access_list::{
+		AccessEntry, AccessList, CallStateAccess, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
+	},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -267,7 +269,7 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 			let (mut ext, _) = setup.ext();
-			ext.touch_call_target(CallKind::new(callee_contract.address, $delegate), code_hash);
+			ext.touch_call_target(CallStateAccess::new(callee_contract.address, $delegate), code_hash);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};
