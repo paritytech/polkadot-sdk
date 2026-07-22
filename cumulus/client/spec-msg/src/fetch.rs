@@ -40,7 +40,10 @@
 //! into an indefinite stall. Fetching is root-keyed and idempotent, so
 //! retries are always safe; a fresh included root supersedes a scheduled
 //! retry and resets the budget. Rounds that cannot profit from a retry
-//! (an empty peer set, local errors) wait for the next trigger instead.
+//! (an empty peer set, local errors) wait for the next trigger instead —
+//! and a round whose only failures are never-written-stream refusals is
+//! not a failed round at all (see [`fetch_source`]): retrying those under
+//! the same root is provably futile, recovery rides the next included root.
 //!
 //! This node-side pre-verification protects the collator from building on
 //! bad p2p data; consensus-level enforcement is the PVF's lift check
@@ -130,9 +133,11 @@ pub enum FetchError {
 /// poison the round. Channel streams nothing was ever proven for (cursor 0,
 /// no pooled run) get the same tolerance — a never-written stream is
 /// unservable under every root until the source's first send, and refusing
-/// it must not block the register reads that complete the handshake — but
-/// their failure still fails the (completed) round so the bounded in-root
-/// retry covers the transient cases.
+/// it must not block the register reads that complete the handshake. Such
+/// refusals are tolerated outright (`debug!`) and never fail the round: the
+/// stream's emptiness under `root` is persistent, so an in-root retry is
+/// provably futile, and the first send that makes the stream servable
+/// arrives with a fresh included root — the round's natural next trigger.
 pub async fn fetch_source(
 	network: &impl ExchangeNetwork,
 	peers: &dyn SourcePeers,
@@ -144,7 +149,6 @@ pub async fn fetch_source(
 	chunk_bytes: u32,
 ) -> Result<(), FetchError> {
 	let (mut leaves, mut bytes) = (0u64, 0u64);
-	let mut deferred: Option<FetchError> = None;
 	for (stream, cursor) in channels {
 		match fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
 			.await
@@ -162,9 +166,12 @@ pub async fn fetch_source(
 			// window). Such a stream must not poison the round: the
 			// register reads below are what completes the handshake, and
 			// aborting here can deadlock the channel when the source stays
-			// otherwise idle (no new root ever retriggers). The failure is
-			// still reported after the round for the bounded in-root retry,
-			// which covers the genuinely transient cases (archiver lag).
+			// otherwise idle (no new root ever retriggers). Nor is the
+			// failure reported after the round: an in-root retry can never
+			// serve what no root proves, and the first send that makes the
+			// stream servable arrives with a fresh included root — the
+			// round's natural next trigger. (The cost: a source whose
+			// archiver lags its own first send also waits for that root.)
 			Err(error @ FetchError::Exchange(ExchangeError::Network(_)))
 				if *cursor == 0 && pool.resume(source, stream).is_none() =>
 			{
@@ -174,9 +181,8 @@ pub async fn fetch_source(
 					source = %u32::from(source),
 					?stream,
 					"Channel stream not served (never-written stream, or refusal); \
-					 continuing the round",
+					 continuing the round — recovery rides the next included root",
 				);
-				deferred.get_or_insert(error);
 			},
 			Err(error) => return Err(error),
 		}
@@ -217,12 +223,13 @@ pub async fn fetch_source(
 		);
 	}
 	// The round is complete — everything fetched is bound to `root` and
-	// handable — but an unserved fresh stream is still reported: the caller
-	// retries in-root (bounded), which is what recovers the transient cases.
-	match deferred {
-		Some(error) => Err(error),
-		None => Ok(()),
-	}
+	// handable. Unserved never-written streams were tolerated above and are
+	// NOT reported: returning them here would feed the bounded in-root
+	// retry, and every such retry re-runs a round that is futile by design
+	// (same-millisecond "completed"/"failed; retrying" pairs, re-issuing
+	// the register reads each time) while consuming the budget a genuinely
+	// transient failure may later need.
+	Ok(())
 }
 
 /// Fetches one channel stream's backlog under `root`, chunked and resumed
@@ -841,7 +848,8 @@ mod tests {
 		// (both failed runs, e.g. 13:57:54: "stream has no entry under the
 		// named root"). The round must still pool the register read — it is
 		// what completes the handshake — and mark the lift target; the
-		// unserved stream is reported for the bounded in-root retry only.
+		// unserved stream is tolerated outright and the round succeeds (an
+		// in-root retry could never serve it).
 		let (_aux, mut archive) = new_archive();
 		let roots = import_blocks(&mut archive, &[ack(RECEIVER)], 1, 1, 1_000);
 		let root = *roots.last().expect("a block was imported");
@@ -865,8 +873,9 @@ mod tests {
 			SMALL_CHUNK,
 		));
 
-		// Reported (retryable) — but the round completed regardless:
-		assert!(matches!(result, Err(FetchError::Exchange(ExchangeError::Network(_)))));
+		// The refusal-only round is a success — nothing is reported for the
+		// in-root retry — and the round completed:
+		assert!(result.is_ok());
 		assert_eq!(pool.target(source()), Some(root));
 		// ...and the register read is pooled and handable.
 		let data =
@@ -967,14 +976,49 @@ mod tests {
 	#[test]
 	fn transient_round_failures_retry_within_the_current_root() {
 		let (mut network, root) = serving_archive(2, 2);
-		let flaky = PeerId::random();
-		network.behavior.insert(flaky, PeerBehavior::RefuseFirst(1));
-		let registry = registry_with(&[flaky]);
+		let honest = PeerId::random();
+		network.behavior.insert(honest, PeerBehavior::Honest);
+		let registry = registry_with(&[honest]);
 		let pool = SpecMsgPool::default();
 		let stream = channel(RECEIVER);
 
+		// Seed pooled history under the first root: the in-root retry is for
+		// transient failures on history-bearing streams (a never-written
+		// stream's refusal completes the round without one instead).
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root,
+			&[(stream, 0)],
+			&[],
+			SMALL_CHUNK,
+		))
+		.expect("seed round succeeds");
+		assert_eq!(pool.pooled_payloads(source(), &stream), 4);
+
+		// The sender advances, and the (fresh) peer refuses the new root's
+		// round once — a genuinely transient failure — before serving.
+		let new_root = {
+			let mut archive = network.archive.write();
+			archive
+				.import_block_at(
+					block_hash(3),
+					block_hash(2),
+					3,
+					vec![(stream, vec![payload(&stream, 4)])],
+					1_003,
+				)
+				.expect("extends the tip")
+				.expect("the block carries sends")
+		};
+		let flaky = PeerId::random();
+		network.behavior.insert(flaky, PeerBehavior::RefuseFirst(1));
+		registry.set_peers(source(), vec![flaky]);
+
 		let (sender, events) = async_channel::unbounded();
-		sender.try_send(included(root)).expect("channel is open");
+		sender.try_send(included(new_root)).expect("channel is open");
 		sender.close();
 
 		let (network, registry, pool) = (&network, &registry, &pool);
@@ -1001,14 +1045,90 @@ mod tests {
 			},
 		));
 
-		// The transient refusal cost exactly one in-root retry — the whole
-		// backlog landed and the target was marked WITHOUT a second
-		// included root.
-		assert_eq!(pool.pooled_payloads(source(), &stream), 4);
-		assert_eq!(pool.target(source()), Some(root));
+		// The transient refusal cost exactly one in-root retry — the new
+		// leaf landed and the target moved WITHOUT a second included root.
+		assert_eq!(pool.pooled_payloads(source(), &stream), 5);
+		assert_eq!(pool.target(source()), Some(new_root));
 		assert_eq!(*delays.lock(), vec![ROUND_RETRY_DELAY]);
 		// A transport refusal is not misbehavior: the peer stays registered.
 		assert_eq!(registry.peers(source()), vec![flaky]);
+	}
+
+	#[test]
+	fn never_written_refusals_do_not_schedule_in_root_retries() {
+		// The handshake window (soak run 1, 13:55:18/13:55:20): the source
+		// published its ack register one block before its first channel send,
+		// so the round under the ack root finds a never-written channel
+		// stream. Such a round completes without scheduling an in-root retry
+		// or consuming its budget — every retry under that root is futile by
+		// design — and recovery arrives with the next included root, the one
+		// carrying the first send.
+		let (_aux, mut archive) = new_archive();
+		let roots = import_blocks(&mut archive, &[ack(RECEIVER)], 1, 1, 1_000);
+		let handshake_root = *roots.last().expect("a block was imported");
+		let stream = channel(RECEIVER);
+		let send_root = archive
+			.import_block_at(
+				block_hash(2),
+				block_hash(1),
+				2,
+				vec![(stream, vec![payload(&stream, 0)])],
+				1_002,
+			)
+			.expect("extends the tip")
+			.expect("the block carries sends");
+		let honest = PeerId::random();
+		let network = MockExchange {
+			archive: RwLock::new(archive),
+			behavior: HashMap::from([(honest, PeerBehavior::Honest)]),
+			hits: Default::default(),
+		};
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(handshake_root)).expect("channel is open");
+		sender.try_send(included(send_root)).expect("channel is open");
+		sender.close();
+
+		let (network, registry, pool) = (&network, &registry, &pool);
+		let calls = Mutex::new(Vec::new());
+		let delays = Mutex::new(Vec::<Duration>::new());
+		block_on(run_fetch_rounds(
+			events,
+			|provides| {
+				calls.lock().push(provides.root);
+				async move {
+					fetch_source(
+						network,
+						registry,
+						pool,
+						provides.source,
+						provides.root,
+						&[(stream, 0)],
+						&[ack(RECEIVER)],
+						SMALL_CHUNK,
+					)
+					.await
+					.map_err(RoundError::from)
+				}
+			},
+			|delay| {
+				delays.lock().push(delay);
+				futures::future::ready(())
+			},
+		));
+
+		// Each root ran exactly once: no retry timer, no budget consumed.
+		assert_eq!(*calls.lock(), vec![handshake_root, send_root]);
+		assert!(delays.lock().is_empty());
+		// The handshake round still pooled the register read (and marked its
+		// target), and the next included root recovered the first send.
+		assert_eq!(pool.pooled_payloads(source(), &stream), 1);
+		assert_eq!(pool.target(source()), Some(send_root));
+		let data =
+			pool.build_inherent(&[], &[(source(), ack(RECEIVER), None)], InherentBudget::default());
+		assert_eq!(data.register_reads.len(), 1);
 	}
 
 	#[test]
