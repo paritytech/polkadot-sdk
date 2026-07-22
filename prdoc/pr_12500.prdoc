@@ -15,11 +15,10 @@ doc:
 
     The execution timeout is plumbed through to the client execution-proof path serving
     light-client requests: new `sp_core::traits::TimedCodeExecutor` trait (implemented by
-    `WasmExecutor`), a `timeout: Option<Duration>` parameter on `CallExecutor::prove_execution`
-    and the sp-state-machine `prove_execution` / `prove_execution_on_trie_backend` functions
-    (with the executor bound tightened to `TimedCodeExecutor`), and a new
-    `ClientConfig::execution_timeout` supplying the value at `Client::execution_proof`. It
-    defaults to `None`, i.e. execution-proof requests stay uncapped until configured.
+    `WasmExecutor`), and a per-call `timeout: Option<Duration>` parameter on
+    `ProofProvider::execution_proof`, `CallExecutor::prove_execution` and the
+    sp-state-machine `prove_execution` / `prove_execution_on_trie_backend` functions (with
+    the executor bound tightened to `TimedCodeExecutor`). `None` means uncapped, as before.
 crates:
 - name: sc-executor
   bump: minor
@@ -37,5 +36,5 @@ crates:
   bump: major
 - name: sc-service
   bump: major
-- name: frame-benchmarking-cli
+- name: sc-network-light
   bump: patch

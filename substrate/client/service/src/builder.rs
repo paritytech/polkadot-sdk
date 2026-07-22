@@ -281,7 +281,6 @@ where
 				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
 				enable_import_proof_recording,
-				execution_timeout: None,
 			},
 		)?;
 

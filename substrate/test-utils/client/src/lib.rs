@@ -45,7 +45,6 @@ use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
 	sync::Arc,
-	time::Duration,
 };
 
 /// A genesis storage initialization trait.
@@ -73,7 +72,6 @@ pub struct TestClientBuilder<Block: BlockT, ExecutorDispatch, Backend: 'static, 
 	enable_offchain_indexing_api: bool,
 	enable_import_proof_recording: bool,
 	no_genesis: bool,
-	execution_timeout: Option<Duration>,
 }
 
 impl<Block: BlockT, ExecutorDispatch, G: GenesisInit> Default
@@ -122,7 +120,6 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 			enable_offchain_indexing_api: false,
 			no_genesis: false,
 			enable_import_proof_recording: false,
-			execution_timeout: None,
 		}
 	}
 
@@ -180,12 +177,6 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		self
 	}
 
-	/// Set the wall-clock time limit for runtime calls serving execution-proof requests.
-	pub fn set_execution_timeout(mut self, timeout: Duration) -> Self {
-		self.execution_timeout = Some(timeout);
-		self
-	}
-
 	/// Build the test client with the given native executor.
 	pub fn build_with_executor<RuntimeApi>(
 		self,
@@ -220,7 +211,6 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 			enable_import_proof_recording: self.enable_import_proof_recording,
 			offchain_indexing_api: self.enable_offchain_indexing_api,
 			no_genesis: self.no_genesis,
-			execution_timeout: self.execution_timeout,
 			..Default::default()
 		};
 

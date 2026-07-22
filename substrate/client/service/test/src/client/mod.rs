@@ -2347,12 +2347,12 @@ fn finalize_after_best_block_updates_best() {
 
 #[test]
 fn execution_proof_works() {
-	// The default test client has no execution timeout configured — the uncapped path.
+	// The uncapped path: no execution timeout.
 	let client = substrate_test_runtime_client::new();
 
 	// The method must read storage for the recorded proof to be non-empty.
 	let (result, proof) = client
-		.execution_proof(client.chain_info().genesis_hash, "TestAPI_get_block_number", &[])
+		.execution_proof(client.chain_info().genesis_hash, "TestAPI_get_block_number", &[], None)
 		.unwrap();
 
 	assert!(!result.is_empty());
@@ -2363,11 +2363,16 @@ fn execution_proof_works() {
 fn execution_proof_with_generous_timeout_works() {
 	// A generous timeout must not interfere: the call is routed through the timed path
 	// (including waiting for the background compilation of the timed runtime) and succeeds.
-	let client = TestClientBuilder::new().set_execution_timeout(Duration::from_secs(60)).build();
+	let client = substrate_test_runtime_client::new();
 
 	// The method must read storage for the recorded proof to be non-empty.
 	let (result, proof) = client
-		.execution_proof(client.chain_info().genesis_hash, "TestAPI_get_block_number", &[])
+		.execution_proof(
+			client.chain_info().genesis_hash,
+			"TestAPI_get_block_number",
+			&[],
+			Some(Duration::from_secs(60)),
+		)
 		.unwrap();
 
 	assert!(!result.is_empty());
@@ -2376,12 +2381,12 @@ fn execution_proof_with_generous_timeout_works() {
 
 #[test]
 fn execution_proof_timeout_interrupts_runtime_call() {
+	let client = substrate_test_runtime_client::new();
 	let timeout = Duration::from_millis(300);
-	let client = TestClientBuilder::new().set_execution_timeout(timeout).build();
 
 	let started = Instant::now();
 	let error = client
-		.execution_proof(client.chain_info().genesis_hash, "TestAPI_spin", &[])
+		.execution_proof(client.chain_info().genesis_hash, "TestAPI_spin", &[], Some(timeout))
 		.unwrap_err();
 
 	assert!(started.elapsed() >= timeout);

@@ -361,8 +361,7 @@ mod execution {
 
 	/// Prove execution using the given state backend, overlayed changes, and call executor.
 	///
-	/// `timeout` bounds the wall-clock execution time of the runtime call, `None` means
-	/// unbounded.
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	pub fn prove_execution<B, H, Exec>(
 		backend: &mut B,
 		overlay: &mut OverlayedChanges<H>,
@@ -396,8 +395,7 @@ mod execution {
 	/// to the backing store, such as the disk.
 	/// Execution proof is the set of all 'touched' storage DBValues from the backend.
 	///
-	/// `timeout` bounds the wall-clock execution time of the runtime call, `None` means
-	/// unbounded.
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	///
 	/// On an error, no prospective changes are written to the overlay.
 	///

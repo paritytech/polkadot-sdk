@@ -89,8 +89,7 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 
 	/// Prove the execution of the given `method`.
 	///
-	/// `timeout` bounds the wall-clock execution time of the runtime call — a safeguard for
-	/// serving untrusted (light-client) requests. `None` means unbounded.
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	///
 	/// No changes are made.
 	fn prove_execution(
