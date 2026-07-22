@@ -1225,8 +1225,12 @@ where
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) =
-			LightClientRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone());
+		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
+			&protocol_id,
+			fork_id,
+			client.clone(),
+			net_config.network_config.light_request_execution_timeout,
+		);
 		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
 		protocol_config
 	};

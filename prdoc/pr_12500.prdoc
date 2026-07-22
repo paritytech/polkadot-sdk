@@ -1,6 +1,6 @@
 title: 'Timed runtime calls with execution timeouts via wasmtime epoch interruption'
 doc:
-- audience: Node Dev
+- audience: [Node Dev, Node Operator]
   description: |-
     Adds `create_timed_runtime` / `WasmtimeTimedRuntime` / `WasmtimeTimedInstance` (behind new
     `TimedWasmModule` / `TimedWasmInstance` traits) — wasm runtimes compiled with wasmtime
@@ -19,6 +19,13 @@ doc:
     `ProofProvider::execution_proof`, `CallExecutor::prove_execution` and the
     sp-state-machine `prove_execution` / `prove_execution_on_trie_backend` functions (with
     the executor bound tightened to `TimedCodeExecutor`). `None` means uncapped, as before.
+
+    The light-client request handler now caps the execution time of runtime calls serving
+    remote-call requests, bounding the CPU an (untrusted) light client can consume per
+    request. The limit is configured by the new `--light-request-execution-timeout-ms` flag
+    (default 3000, `0` disables; stored in
+    `NetworkConfiguration::light_request_execution_timeout`) and is available on parachain /
+    omni-node CLIs as well. Requests exceeding the limit are answered with an empty proof.
 crates:
 - name: sc-executor
   bump: minor
@@ -37,4 +44,8 @@ crates:
 - name: sc-service
   bump: major
 - name: sc-network-light
-  bump: patch
+  bump: major
+- name: sc-network
+  bump: major
+- name: sc-cli
+  bump: major
