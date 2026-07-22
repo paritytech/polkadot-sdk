@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784748384400,
+  "lastUpdate": 1784754030160,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8a034ca6018d8659308d3f0200222457cc46dc58",
-          "message": "net/peerset: Optimize substream opening duration for `SetReservedPeers` (#10362)\n\nWhile triaging the Versi-net, I've discovered that the connection\nbetween collators and validators sometimes takes less than 20ms, while\nat other times it takes more than 500ms.\n\nIn both cases, the validators are already connected to a different\nprotocol. Therefore, opening and negotiating substreams must be almost\ninstant.\n\nThe slot timer of the peerset artificially introduces the delay:\n- The `SetReservedPeers` is received by the peerset. At this step, the\npeerset propagated the `closedSubstream` to signal that it wants to\ndisconnect previously reserved peers.\n- At the next slot allocation timer tick (after 1s), the newly added\nreserved peers are requested to be connected\n\nThis can introduce an artificial delay of up to 1s, which is\nunnecessary.\n\nTo mitigate this behavior, this PR:\n- Transforms the ` enum PeersetNotificationCommand` into a structure.\nEffectively, the peerset can specify directly to close some substreams\nand open other substreams\n- Upon receiving the `SetReservedPeers` command, peers are moved into\nthe `Opening` state and the request is propagated to the litep2p to open\nsubstreams.\n- The behavior of the slot allocation timer remains identical. This is\nneeded to capture the following edge cases:\n- The reserved peer of the `SetReservedPeers` is not disconnected, but\nbackoff / pending closing.\n  - The reserved peer is banned\n\ncc @paritytech/networking \n\nDetected during versi-net triaging of elastic scaling:\nhttps://github.com/paritytech/polkadot-sdk/issues/10310#issuecomment-3543395157\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-11-24T10:21:48Z",
-          "tree_id": "4a84522ee6543d4dc767a45d6a0dfe20a7db385b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8a034ca6018d8659308d3f0200222457cc46dc58"
-        },
-        "date": 1763984244401,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034382047741999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04431160718199997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08623610323799989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1d75337a4f800c921a830e2a39dc4ea754f2481",
+          "message": "[pallet-bounties]: add `reclaim_bounty_funds` to reclaim stranded funds from closed bounty accounts (#11045)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/10996\n\nThis PR adds a permissionless `reclaim_bounty_funds` extrinsic that\nmoves funds stranded in a closed bounty's account back to the treasury,\none asset per call (`None` for the native token, `Some(asset_kind)` for\na named fungible), using `transfer_all` semantics, free on success and\npaid on a no-op to prevent griefing\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>",
+          "timestamp": "2026-07-22T19:16:27Z",
+          "tree_id": "129f837c4ca1c97470a713acc5eeddb55aeb4f29",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1d75337a4f800c921a830e2a39dc4ea754f2481"
+        },
+        "date": 1784753997777,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12400000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08159413126599996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040012081570000003,
             "unit": "seconds"
           }
         ]
