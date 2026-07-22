@@ -577,6 +577,12 @@ pub mod pallet {
 						status: AssetStatus::Live,
 					},
 				);
+				// Fire `created` so callback state (e.g. the precompile asset-index map) is seeded
+				// for genesis assets, matching runtime creation.
+				assert!(
+					T::CallbackHandle::created(id, owner).is_ok(),
+					"asset creation callback failed at genesis"
+				);
 			}
 
 			for (id, name, symbol, decimals) in &self.metadata {
