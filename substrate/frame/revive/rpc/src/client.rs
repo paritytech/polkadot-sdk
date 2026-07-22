@@ -793,7 +793,7 @@ impl Client {
 
 	/// Get all transaction receipts for the given block.
 	///
-	/// Returns `None` if the block does not exist, matching `eth_getBlockReceipts`.
+	/// Returns `None` if the block does not exist.
 	pub async fn block_receipts(
 		&self,
 		at: BlockId,
