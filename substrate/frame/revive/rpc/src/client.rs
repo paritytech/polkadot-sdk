@@ -202,7 +202,7 @@ impl ClientError {
 	pub(crate) fn recorded_unavailable_reason(&self) -> Option<RecordedUnavailable> {
 		const METHOD_NOT_FOUND: i32 = -32601;
 
-		let ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(e)) = self else {
+		let ClientError::RpcError(subxt::rpcs::Error::User(e)) = self else {
 			return None;
 		};
 		match e.code {
@@ -1103,10 +1103,7 @@ impl Client {
 				let block = self.tracing_block(block_hash).await?;
 				let parent_hash = block.header.parent_hash;
 				let runtime_api = self.runtime_api(parent_hash).await?;
-				runtime_api
-					.trace_tx(block, transaction_index as u32, config)
-					.await
-					.map(Some)
+				runtime_api.trace_tx(block, transaction_index as u32, config).await.map(Some)
 			},
 		)
 		.await?;
@@ -1309,10 +1306,10 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 mod tests {
 	use super::*;
 	use sc_rpc_api::state::error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE;
-	use subxt::ext::subxt_rpcs::UserError;
+	use subxt::rpcs::UserError;
 
 	fn rpc_user_error(code: i32) -> ClientError {
-		ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(UserError {
+		ClientError::RpcError(subxt::rpcs::Error::User(UserError {
 			code,
 			message: "..".to_string(),
 			data: None,
