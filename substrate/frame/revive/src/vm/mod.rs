@@ -27,7 +27,7 @@ pub use runtime_costs::{ContractStorageKind, RuntimeCosts};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::CodeLoadWarmth,
+	access_list::{AccessEntry, CodeLoadWarmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -139,7 +139,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		let length_cost = |bench: fn(u32) -> Weight| bench(self.code_len).saturating_sub(bench(0));
 		let base_weight = runtime_costs::cold_hot_base::<T>(
 			&[self.warmth.info, self.warmth.blob],
-			2, // overlay probes: `CodeInfoOf` and `PristineCode`
+			AccessEntry::CODE_INFO_READS + AccessEntry::CODE_BLOB_READS,
 			runtime_costs::CostPair {
 				cold: || {
 					// The code_load ref_time is tracked by the base weight.

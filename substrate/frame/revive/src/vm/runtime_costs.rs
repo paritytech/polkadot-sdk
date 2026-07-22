@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{CallWarmth, Warmth},
+	access_list::{AccessEntry, CallWarmth, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -252,7 +252,7 @@ impl RuntimeCosts {
 	) -> Weight {
 		match kind {
 			ContractStorageKind::Persistent(warmth) => {
-				cold_hot_base::<T>(&[warmth], 1, CostPair { cold, hot }) // probe: the slot
+				cold_hot_base::<T>(&[warmth], AccessEntry::STORAGE_READS, CostPair { cold, hot })
 			},
 			ContractStorageKind::Transient => transient(),
 		}
@@ -289,18 +289,17 @@ pub(crate) struct CostPair<Cold, Hot> {
 }
 
 /// Base weight for an opcode reading one state item per entry in
-/// `item_warmths`, priced by each item's warmth. `overlay_probes` is the
-/// count of overlay traversals the hot path performs in place of a trie read.
+/// `item_warmths`, priced by each item's warmth.
 pub(crate) fn cold_hot_base<T: Config>(
 	item_warmths: &[Warmth],
-	overlay_probes: u64,
+	state_reads: u64,
 	costs: CostPair<impl FnOnce() -> Weight, impl FnOnce() -> Weight>,
 ) -> Weight {
 	// An empty slice prices cold.
 	let opcode_weight =
 		if !item_warmths.is_empty() && item_warmths.iter().all(|warmth| warmth.is_hot()) {
 			(costs.hot)().saturating_add(
-				RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(overlay_probes),
+				RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(state_reads),
 			)
 		} else {
 			(costs.cold)()
@@ -401,7 +400,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallBase(access_kind) => match access_kind {
 				CallWarmth::Call { account, contract_info } => cold_hot_base::<T>(
 					&[account, contract_info],
-					3, // probes: address mapping, system account, contract info
+					AccessEntry::ACCOUNT_READS + AccessEntry::CONTRACT_INFO_READS,
 					CostPair {
 						cold: || T::WeightInfo::seal_call(0, 0, 0),
 						hot: T::WeightInfo::seal_call_hot,
@@ -409,7 +408,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				),
 				CallWarmth::DelegateCall { contract_info } => cold_hot_base::<T>(
 					&[contract_info],
-					1, // probe: the callee's contract info
+					AccessEntry::CONTRACT_INFO_READS,
 					CostPair {
 						cold: T::WeightInfo::seal_delegate_call,
 						hot: T::WeightInfo::seal_delegate_call_hot,

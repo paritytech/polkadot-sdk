@@ -217,6 +217,15 @@ pub enum AccessEntry {
 	CodeBlob { hash: H256 },
 }
 
+impl AccessEntry {
+	// Number of state reads per entry.
+	pub(crate) const ACCOUNT_READS: u64 = 2; // address map + `System::Account`
+	pub(crate) const CONTRACT_INFO_READS: u64 = 1;
+	pub(crate) const STORAGE_READS: u64 = 1;
+	pub(crate) const CODE_INFO_READS: u64 = 1;
+	pub(crate) const CODE_BLOB_READS: u64 = 1;
+}
+
 /// Per-transaction access list with per-frame rollback support. Layout
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
 /// set, a flat journal of insertions, and journal-index checkpoints.
@@ -383,6 +392,20 @@ impl AccessList {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn every_entry_has_a_read_count() {
+		fn reads(entry: &AccessEntry) -> u64 {
+			match entry {
+				AccessEntry::Account { .. } => AccessEntry::ACCOUNT_READS,
+				AccessEntry::Storage { .. } => AccessEntry::STORAGE_READS,
+				AccessEntry::ContractInfo { .. } => AccessEntry::CONTRACT_INFO_READS,
+				AccessEntry::CodeInfo { .. } => AccessEntry::CODE_INFO_READS,
+				AccessEntry::CodeBlob { .. } => AccessEntry::CODE_BLOB_READS,
+			}
+		}
+		let _ = reads;
+	}
 
 	#[test]
 	fn nested_commit_then_parent_rollback_drops_all() {
