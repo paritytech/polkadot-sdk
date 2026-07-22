@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784633688637,
+  "lastUpdate": 1784748425695,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f66f240a47f7ece64936487734ecfe44b6ef5999",
-          "message": "Enable force debug in revive dev node (#10383)\n\nThis change ensures that all types that implement `RuntimeDebug` are\nfully displayed in log output of the revive dev node, instead of just\nshowing `<wasm:stripped>`.\n\nUnfortunately, the trait `RuntimeDebugNoBound`, that we also use\nfrequently in pallet-revive, is not affected and will still output\n`<wasm:stripped>` (it does not check for the `force-debug` feature flag,\ninstead it only fully outputs values when either one of the features\n`std` or `try_runtime` is enabled – this is something we implement as a\ngeneral change).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2025-11-21T15:51:45Z",
-          "tree_id": "5eddbb2be51e810d4f82f211c1b93b4d6eddf0b2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66f240a47f7ece64936487734ecfe44b6ef5999"
-        },
-        "date": 1763745124138,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026676002899999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008738028089999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005129552899999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009875233639999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e6d971ff0166131ddbf6d7bd4a2fe48f7c5924a",
+          "message": "Update polkavm to 0.35 (#12523)\n\nBump the workspace polkavm, polkavm-common, polkavm-derive and\npolkavm-linker pins from 0.33 to 0.35.\n\nThe pallet-revive uapi and fixtures crates pinned\npolkavm-derive/polkavm-linker directly instead of using the workspace\ndependency, so they had drifted behind. Switch them to `{ workspace =\ntrue }` so they track the workspace pin.\n`contracts_not_buildable/sbrk.rs` was removed because sbrk no longer\nexists in `polkavm-derive`.",
+          "timestamp": "2026-07-22T16:57:11Z",
+          "tree_id": "46a88e7d1f8d3e14b298afedc385f8c715c5f5c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e6d971ff0166131ddbf6d7bd4a2fe48f7c5924a"
+        },
+        "date": 1784748393749,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025250215299999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011217891189999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009890260139999987,
             "unit": "seconds"
           }
         ]
