@@ -543,9 +543,9 @@ impl CollationManager {
 				);
 
 				let advertisement = match outcome {
-					Either::Left(Some(adv)) => adv,
-					Either::Left(None) => continue,
-					Either::Right(delay) => {
+					PickOutcome::Fetch(adv) => adv,
+					PickOutcome::Nothing => continue,
+					PickOutcome::Delayed(delay) => {
 						maybe_min_delay = Some(
 							maybe_min_delay
 								.map_or(delay, |min: Duration| std::cmp::min(min, delay)),
@@ -932,14 +932,17 @@ impl CollationManager {
 		item: &RankedSegment,
 		para_id: ParaId,
 		known: &HashSet<Hash>,
-	) -> Option<Advertisement> {
-		let segment = self
+	) -> Resolution {
+		let Some(segment) = self
 			.per_scheduling_parent
-			.get(&item.scheduling_parent)?
-			.peer_advertisements
-			.get(&item.peer_id)?
-			.segments
-			.get(item.segment_index)?;
+			.get(&item.scheduling_parent)
+			.and_then(|per_scheduling_parent| {
+				per_scheduling_parent.peer_advertisements.get(&item.peer_id)
+			})
+			.and_then(|peer_ads| peer_ads.segments.get(item.segment_index))
+		else {
+			return Resolution::Exhausted;
+		};
 		match segment.entries.first() {
 			Some(ProspectiveCandidate::ByOutputHead { .. }) => {
 				let known_by_pp = self.para_knowledge.get(&para_id);
@@ -954,15 +957,19 @@ impl CollationManager {
 						!known.contains(&output_head_hash) &&
 							!known_by_pp.is_some_and(|pp| pp.contains(&output_head_hash))
 					})
-					.map(|entry| Advertisement {
-						scheduling_parent: item.scheduling_parent,
-						para_id,
-						peer_id: item.peer_id,
-						prospective_candidate: Some(entry),
-						advertised_descriptor_version: segment.descriptor_version,
+					.map_or(Resolution::Exhausted, |entry| {
+						Resolution::Launch(Advertisement {
+							scheduling_parent: item.scheduling_parent,
+							para_id,
+							peer_id: item.peer_id,
+							prospective_candidate: Some(entry),
+							advertised_descriptor_version: segment.descriptor_version,
+						})
 					})
 			},
-			_ => segment.as_advertisement(item.peer_id, item.scheduling_parent),
+			_ => segment
+				.as_advertisement(item.peer_id, item.scheduling_parent)
+				.map_or(Resolution::Exhausted, Resolution::Launch),
 		}
 	}
 
@@ -1047,24 +1054,13 @@ impl CollationManager {
 		}))
 	}
 
-	/// Picks the best (= highest-scored, earliest, in that order) advertisement for `para_id`
-	/// among `candidate_sps`, with delay arithmetic relative to each SP's activation.
-	///
-	/// Returns:
-	/// - `Either::Left(Some(adv))` if a fetchable advertisement was found,
-	/// - `Either::Left(None)` if there are no eligible advertisements,
-	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
-	///   to its scheduling parent's activation time.
-	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
-		&mut self,
-		now: Instant,
+	fn rank_segments<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+		&self,
 		para_id: ParaId,
 		candidate_sps: impl Iterator<Item = Hash>,
-		known: &HashSet<Hash>,
-		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Either<Option<Advertisement>, Duration> {
-		let ranked: BTreeSet<RankedSegment> = candidate_sps
+	) -> BTreeSet<RankedSegment> {
+		candidate_sps
 			.filter_map(|scheduling_parent| {
 				let activated_at = self.per_scheduling_parent.get(&scheduling_parent)?.activated_at;
 				Some(self.eligible_segments(scheduling_parent, para_id).filter_map(
@@ -1081,8 +1077,27 @@ impl CollationManager {
 				))
 			})
 			.flatten()
-			.collect();
+			.collect()
+	}
 
+	/// Picks the best (= highest-scored, earliest, in that order) advertisement for `para_id`
+	/// among `candidate_sps`, with delay arithmetic relative to each SP's activation.
+	///
+	/// Returns:
+	/// - `PickOutcome::Fetch(adv)` if a fetchable advertisement was found,
+	/// - `PickOutcome::Nothing` if no eligible segment resolved to a fetch target,
+	/// - `PickOutcome::Delayed(d)` if the best-ranked segment still has remaining fetch delay
+	///   relative to its scheduling parent's activation time.
+	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+		&mut self,
+		now: Instant,
+		para_id: ParaId,
+		candidate_sps: impl Iterator<Item = Hash>,
+		known: &HashSet<Hash>,
+		highest_rep_of_para: Score,
+		connected_rep_query_fn: &RepQueryFn,
+	) -> PickOutcome {
+		let ranked = self.rank_segments(para_id, candidate_sps, connected_rep_query_fn);
 		// `Ord` is custom: descending by score, so first = best.
 		for item in ranked {
 			let delay = Self::calculate_delay(item.score, highest_rep_of_para);
@@ -1100,7 +1115,7 @@ impl CollationManager {
 					?remaining,
 					"Best advertisement is fetch-delayed; will fetch once the delay elapses",
 				);
-				return Either::Right(remaining);
+				return PickOutcome::Delayed(remaining);
 			}
 			gum::debug!(
 				target: LOG_TARGET,
@@ -1111,16 +1126,31 @@ impl CollationManager {
 				?delay,
 				"Delay elapsed; picking fetch target from the winning segment."
 			);
-			let maybe_fetch_target = self.resolve_segment(&item, para_id, &known);
-			self.consume_segment(&item.scheduling_parent, &item.peer_id, item.segment_index);
-
-			match maybe_fetch_target {
-				Some(fetch_target) => return Either::Left(Some(fetch_target)),
-				// all-blocked -> fall through to next-ranked
-				None => continue,
+			match self.resolve_segment(&item, para_id, known) {
+				Resolution::Launch(fetch_target) => {
+					self.consume_segment(
+						&item.scheduling_parent,
+						&item.peer_id,
+						item.segment_index,
+					);
+					return PickOutcome::Fetch(fetch_target);
+				},
+				Resolution::Exhausted => {
+					self.consume_segment(
+						&item.scheduling_parent,
+						&item.peer_id,
+						item.segment_index,
+					);
+					continue;
+				},
 			}
 		}
-		Either::Left(None)
+		gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				"No fetchable advertisement for a free claim-queue slot",
+		);
+		PickOutcome::Nothing
 	}
 
 	async fn get_our_core<Sender: CollatorProtocolSenderTrait>(
@@ -1376,6 +1406,25 @@ impl FetchedCollation {
 
 		Ok(())
 	}
+}
+
+/// Outcome of resolving a picked segment to a fetch target.
+enum Resolution {
+	/// The fetch target minted from the picked segment.
+	Launch(Advertisement),
+	/// V4 only: every entry blocked - spend the fetch
+	/// entitlement without a launch, fall through to the
+	/// next ranked segment
+	Exhausted,
+}
+
+/// Outcome of a pick
+#[derive(Debug, PartialEq)]
+enum PickOutcome {
+	Fetch(Advertisement),
+	/// Best-ranked segment is still fetch delayed
+	Delayed(Duration),
+	Nothing,
 }
 
 /// A stored segment as ranked by the fetch planner. Resolution to a fetch target happens
@@ -1982,7 +2031,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(None)
+				PickOutcome::Nothing
 			);
 		}
 
@@ -2006,7 +2055,7 @@ mod tests {
 					score(100), // highest_rep == peer's score, so delay = 0
 					&get_rep,
 				),
-				Either::Left(Some(make_adv(peer_a)))
+				PickOutcome::Fetch(make_adv(peer_a))
 			);
 		}
 
@@ -2032,7 +2081,7 @@ mod tests {
 				&get_rep,
 			);
 
-			assert_eq!(result, Either::Right(MAX_FETCH_DELAY));
+			assert_eq!(result, PickOutcome::Delayed(MAX_FETCH_DELAY));
 		}
 
 		// Multiple advertisements - picks highest score.
@@ -2069,7 +2118,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(Some(make_adv(peer_b)))
+				PickOutcome::Fetch(make_adv(peer_b))
 			);
 		}
 
@@ -2096,7 +2145,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(Some(make_adv(peer_b)))
+				PickOutcome::Fetch(make_adv(peer_b))
 			);
 		}
 
@@ -2120,7 +2169,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(None)
+				PickOutcome::Nothing
 			);
 		}
 
@@ -2139,7 +2188,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(None)
+				PickOutcome::Nothing
 			);
 		}
 
@@ -2171,7 +2220,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(Some(make_adv(peer_a)))
+				PickOutcome::Fetch(make_adv(peer_a))
 			);
 		}
 
@@ -2198,7 +2247,7 @@ mod tests {
 				&get_rep,
 			);
 
-			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 4 * 3));
+			assert_eq!(result, PickOutcome::Delayed(MAX_FETCH_DELAY / 4 * 3));
 		}
 	}
 
@@ -2297,7 +2346,7 @@ mod tests {
 					Score::new(100),
 					&get_rep,
 				),
-				Either::Left(Some(v4_ticket(scheduling_parent, para_id, peer_id, entries[0])))
+				PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_id, entries[0]))
 			);
 			// Picked ⇒ consumed: the segment is spent on the launch.
 			assert!(manager.segments().is_empty());
@@ -2318,7 +2367,7 @@ mod tests {
 					Score::new(100),
 					&get_rep,
 				),
-				Either::Left(Some(v4_ticket(scheduling_parent, para_id, peer_id, entries[1])))
+				PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_id, entries[1]))
 			);
 		}
 	}
@@ -2358,7 +2407,7 @@ mod tests {
 				Score::new(100),
 				&get_rep,
 			),
-			Either::Left(Some(v4_ticket(scheduling_parent, para_id, peer_lo, free_entry)))
+			PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_lo, free_entry))
 		);
 		// Both spent: the all-blocked one by deletion, the winner by launch.
 		assert!(manager.segments().is_empty());
@@ -2390,7 +2439,7 @@ mod tests {
 					Score::new(100),
 					&get_rep,
 				),
-				Either::Left(Some(v4_ticket(scheduling_parent, para_id, peer_id, entries[1])))
+				PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_id, entries[1]))
 			);
 		}
 
@@ -2411,7 +2460,7 @@ mod tests {
 					Score::new(100),
 					&get_rep,
 				),
-				Either::Left(None)
+				PickOutcome::Nothing
 			);
 			assert!(manager.segments().is_empty());
 		}
