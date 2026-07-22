@@ -35,9 +35,9 @@ pub trait EthRpc {
 	#[method(name = "eth_call")]
 	async fn call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockId>,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> RpcResult<Bytes>;
 
 	/// Returns the chain ID of the current network.
@@ -49,7 +49,7 @@ pub trait EthRpc {
 	#[method(name = "eth_estimateGas")]
 	async fn estimate_gas(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256>;
 
@@ -67,7 +67,7 @@ pub trait EthRpc {
 		&self,
 		block_hash: H256,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>>;
+	) -> RpcResult<Option<BlockV1>>;
 
 	/// Returns information about a block by number.
 	#[method(name = "eth_getBlockByNumber")]
@@ -75,7 +75,7 @@ pub trait EthRpc {
 		&self,
 		block: BlockNumberOrTag,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>>;
+	) -> RpcResult<Option<BlockV1>>;
 
 	/// Returns the number of transactions in a block from a block matching the given block hash.
 	#[method(name = "eth_getBlockTransactionCountByHash")]
@@ -114,7 +114,7 @@ pub trait EthRpc {
 		&self,
 		block_hash: H256,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>>;
+	) -> RpcResult<Option<TransactionInfoV1>>;
 
 	/// Returns information about a transaction by block number and transaction index position.
 	#[method(name = "eth_getTransactionByBlockNumberAndIndex")]
@@ -122,14 +122,14 @@ pub trait EthRpc {
 		&self,
 		block: BlockNumberOrTag,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>>;
+	) -> RpcResult<Option<TransactionInfoV1>>;
 
 	/// Returns the information about a transaction requested by transaction hash.
 	#[method(name = "eth_getTransactionByHash")]
 	async fn get_transaction_by_hash(
 		&self,
 		transaction_hash: H256,
-	) -> RpcResult<Option<TransactionInfo>>;
+	) -> RpcResult<Option<TransactionInfoV1>>;
 
 	/// Returns the number of transactions sent from an address.
 	#[method(name = "eth_getTransactionCount")]
@@ -153,7 +153,7 @@ pub trait EthRpc {
 
 	/// Signs and submits a transaction.
 	#[method(name = "eth_sendTransaction")]
-	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256>;
+	async fn send_transaction(&self, transaction: GenericTransactionV1) -> RpcResult<H256>;
 
 	/// Returns an object with data about the sync status or false.
 	#[method(name = "eth_syncing")]

@@ -27,7 +27,8 @@ use jsonrpsee::{
 };
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
-	ExecutionTracerConfigV1, ReceiptGasInfoV1, TraceV1, TracerTypeV1,
+	BlockV1, ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1,
+	TraceV1, TracerTypeV1, TransactionInfoV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
@@ -135,6 +136,9 @@ pub enum EthRpcError {
 	/// Received an invalid transaction
 	#[error("Invalid transaction {0:?}")]
 	TransactionTypeNotSupported(Byte),
+	/// The requested `eth_feeHistory` reward percentiles are invalid.
+	#[error("{0}")]
+	InvalidRewardPercentiles(String),
 }
 
 impl From<EthRpcError> for ErrorObjectOwned {
@@ -150,6 +154,7 @@ impl From<EthRpcError> for ErrorObjectOwned {
 			EthRpcError::InvalidSignature |
 			EthRpcError::AccountNotFound(_) |
 			EthRpcError::InvalidTransaction |
+			EthRpcError::InvalidRewardPercentiles(_) |
 			EthRpcError::TransactionTypeNotSupported(_) => CALL_EXECUTION_FAILED_CODE,
 		};
 		Self::owned::<String>(code, message, None)
@@ -191,7 +196,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	/// search with some simple heuristics to find the smallest gas limit for the transaction.
 	async fn estimate_gas(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		log::trace!(target: LOG_TARGET, "estimate_gas transaction={transaction:?} block={block:?}");
@@ -217,9 +222,9 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: Option<BlockId>,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> RpcResult<Bytes> {
 		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block).await?;
@@ -302,7 +307,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(hash)
 	}
 
-	async fn send_transaction(&self, mut transaction: GenericTransaction) -> RpcResult<H256> {
+	async fn send_transaction(&self, mut transaction: GenericTransactionV1) -> RpcResult<H256> {
 		log::debug!(target: LOG_TARGET, "{transaction:#?}");
 
 		let Some(from) = transaction.from else {
@@ -332,7 +337,9 @@ impl EthRpcServer for EthRpcServerImpl {
 			transaction.chain_id = Some(self.chain_id().await?);
 		}
 
-		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
+		let tx = GenericTransaction::from(transaction)
+			.try_into_unsigned()
+			.map_err(|_| EthRpcError::InvalidTransaction)?;
 		let payload = account.sign_transaction(tx).signed_payload();
 		self.send_raw_transaction(Bytes(payload)).await
 	}
@@ -341,7 +348,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block_hash: H256,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>> {
+	) -> RpcResult<Option<BlockV1>> {
 		let Some(block) = self.client.block_by_ethereum_hash(&block_hash).await? else {
 			return Ok(None);
 		};
@@ -386,7 +393,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block_number: BlockNumberOrTag,
 		hydrated_transactions: bool,
-	) -> RpcResult<Option<Block>> {
+	) -> RpcResult<Option<BlockV1>> {
 		let Some(block) = self.client.block_by_number_or_tag(&block_number).await? else {
 			return Ok(None);
 		};
@@ -457,7 +464,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block_hash: H256,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let Some(substrate_block_hash) = self.client.resolve_substrate_hash(&block_hash).await
 		else {
 			return Ok(None);
@@ -473,7 +480,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		&self,
 		block: BlockNumberOrTag,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let Some(block) = self.client.block_by_number_or_tag(&block).await? else {
 			return Ok(None);
 		};
@@ -487,7 +494,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn get_transaction_by_hash(
 		&self,
 		transaction_hash: H256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
 		let signed_tx = self.client.signed_tx_by_hash(&transaction_hash).await;
 		if let (Some(receipt), Some(signed_tx)) = (receipt, signed_tx) {
@@ -518,6 +525,25 @@ impl EthRpcServer for EthRpcServerImpl {
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult> {
 		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
+
+		// As in go-ethereum, a request for fewer than one block returns an empty result rather
+		// than an error, before any percentile validation.
+		if block_count == 0 {
+			return Ok(FeeHistoryResult {
+				oldest_block: U256::zero(),
+				base_fee_per_gas: vec![],
+				gas_used_ratio: vec![],
+				reward: vec![],
+			});
+		}
+
+		// Reject malformed percentiles up front, as go-ethereum does, instead of silently
+		// clamping or approximating them at the wrong bucket.
+		if let Some(percentiles) = reward_percentiles.as_deref() {
+			validate_reward_percentiles(percentiles)
+				.map_err(EthRpcError::InvalidRewardPercentiles)?;
+		}
+
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
 	}
@@ -563,7 +589,7 @@ impl EthRpcServerImpl {
 		&self,
 		substrate_block_hash: H256,
 		transaction_index: U256,
-	) -> RpcResult<Option<TransactionInfo>> {
+	) -> RpcResult<Option<TransactionInfoV1>> {
 		let Some(receipt) = self
 			.client
 			.receipt_by_hash_and_index(

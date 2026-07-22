@@ -21,10 +21,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig},
 };
 use futures::{StreamExt, TryFutureExt, stream};
-use pallet_revive::{
-	DryRunConfig, EthTransactInfo, TracingConfig,
-	evm::{Block as EthBlock, GenericTransaction, H160, StateOverrideSet, U256},
-};
+use pallet_revive::evm::{H160, U256};
 use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
@@ -80,7 +77,7 @@ impl RuntimeApi {
 	/// of the gas limit.
 	pub async fn estimate_gas(
 		&self,
-		tx: GenericTransaction,
+		tx: GenericTransactionV1,
 		block: BlockId,
 	) -> Result<U256, ClientError> {
 		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
@@ -97,7 +94,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_estimate_gas(
 						tx.clone().into(),
-						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
+						DryRunConfigV1 { timestamp_override, ..Default::default() }.into(),
 					)
 					.unvalidated();
 				self.at_block.runtime_apis().call(payload).await.map(|value| value.map(|value| value.0))
@@ -108,7 +105,7 @@ impl RuntimeApi {
 					.revive_api()
 					.eth_transact_with_config(
 						tx.clone().into(),
-						DryRunConfig::default().with_timestamp_override(timestamp_override).into(),
+						DryRunConfigV1 { timestamp_override, ..Default::default() }.into(),
 					)
 					.unvalidated();
 				self.at_block
@@ -153,18 +150,16 @@ impl RuntimeApi {
 		Err(ClientError::NoEstimationMethodSucceeded)
 	}
 
-	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
+	/// Dry run a transaction and returns the [`EthTransactInfoV1`] for the transaction.
 	pub async fn dry_run(
 		&self,
-		tx: GenericTransaction,
+		tx: GenericTransactionV1,
 		block: BlockId,
-		state_overrides: Option<StateOverrideSet>,
-	) -> Result<EthTransactInfo<Balance>, ClientError> {
+		state_overrides: Option<StateOverrideSetV1>,
+	) -> Result<EthTransactInfoV1<Balance>, ClientError> {
 		let timestamp_override = block.is_pending().then(|| Timestamp::current().as_millis());
 
-		let config = DryRunConfig::default()
-			.with_timestamp_override(timestamp_override)
-			.with_state_overrides(state_overrides);
+		let config = DryRunConfigV1 { timestamp_override, state_overrides, ..Default::default() };
 
 		let payload = subxt_client::runtime_apis()
 			.revive_api()
@@ -300,12 +295,12 @@ impl RuntimeApi {
 	/// for backwards compatibility with older runtimes.
 	pub async fn trace_call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		tracer_type: TracerTypeV1,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> Result<TraceV1, ClientError> {
 		let result = if let Some(overrides) = state_overrides {
-			let config = TracingConfig::new().with_state_overrides(overrides);
+			let config = TracingConfigV1 { state_overrides: Some(overrides) };
 			let payload = subxt_client::runtime_apis()
 				.revive_api()
 				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())
@@ -333,7 +328,7 @@ impl RuntimeApi {
 	}
 
 	/// Get the current Ethereum block.
-	pub async fn eth_block(&self) -> Result<EthBlock, ClientError> {
+	pub async fn eth_block(&self) -> Result<BlockV1, ClientError> {
 		let payload = subxt_client::runtime_apis().revive_api().eth_block().unvalidated();
 		let block = self.at_block.runtime_apis().call(payload).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block not found, err: {err:?}");

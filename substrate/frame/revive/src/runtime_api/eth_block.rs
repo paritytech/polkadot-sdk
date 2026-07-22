@@ -15,10 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod byte;
-mod serde_helpers;
-mod type_id;
+use pallet_revive_types::runtime_api::*;
 
-pub use byte::*;
-pub use serde_helpers::*;
-pub use type_id::*;
+use crate::evm::Block;
+
+pub struct BlockInputPayload;
+
+impl From<BlockVersionedInputPayload> for BlockInputPayload {
+	fn from(value: BlockVersionedInputPayload) -> Self {
+		match value {
+			BlockVersionedInputPayload::V1(payload) => payload.into(),
+		}
+	}
+}
+
+impl From<BlockInputPayloadV1> for BlockInputPayload {
+	fn from(_value: BlockInputPayloadV1) -> Self {
+		Self
+	}
+}
+
+pub struct BlockOutputPayload {
+	pub block: Block,
+}
+
+impl From<BlockOutputPayload> for BlockOutputPayloadV1 {
+	fn from(value: BlockOutputPayload) -> Self {
+		Self { block: value.block.into() }
+	}
+}
