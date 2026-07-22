@@ -178,7 +178,7 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 
 	fn deactivate(amount: Self::Balance) {
 		InactiveIssuance::<T, I>::mutate(|b| {
-			// InactiveIssuance cannot be greater than TotalIssuance.
+			// Cap newly deactivated issuance at the current TotalIssuance.
 			*b = b.saturating_add(amount).min(TotalIssuance::<T, I>::get());
 		});
 	}
