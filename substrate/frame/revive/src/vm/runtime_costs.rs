@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{AccessEntry, CallWarmth, Warmth},
+	access_list::{AccessEntry, CallWarmth, ContractStorageKind, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -35,27 +35,6 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// u64 works for approximations because Weight is a very small unit compared to
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
-
-/// Classification of a storage access for pricing: persistent (tracked by the
-/// access list, so priced by its warmth) or transient (not tracked, own bench).
-#[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Clone, Copy, Debug)]
-pub enum ContractStorageKind {
-	/// Persistent storage, priced by its access-list warmth.
-	Persistent(Warmth),
-	/// Transient storage, not tracked by the access list.
-	Transient,
-}
-
-impl ContractStorageKind {
-	/// See [`Warmth::non_revertible`].
-	pub fn non_revertible(self) -> Self {
-		match self {
-			Self::Persistent(warmth) => Self::Persistent(warmth.non_revertible()),
-			Self::Transient => Self::Transient,
-		}
-	}
-}
 
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]

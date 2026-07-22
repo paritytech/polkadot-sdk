@@ -134,6 +134,27 @@ impl Warmth {
 	}
 }
 
+/// How a storage access is priced. `Persistent` carries its access-list warmth;
+/// `Transient` has no warmth, so every access costs the same.
+#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone, Copy, Debug)]
+pub enum ContractStorageKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
+	/// Transient storage, not tracked by the access list.
+	Transient,
+}
+
+impl ContractStorageKind {
+	/// See [`Warmth::non_revertible`].
+	pub fn non_revertible(self) -> Self {
+		match self {
+			Self::Persistent(warmth) => Self::Persistent(warmth.non_revertible()),
+			Self::Transient => Self::Transient,
+		}
+	}
+}
+
 /// Warmth of the two state items a code load reads.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CodeLoadWarmth {

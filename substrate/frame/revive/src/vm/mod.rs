@@ -22,7 +22,7 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::{ContractStorageKind, RuntimeCosts};
+pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
