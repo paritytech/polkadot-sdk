@@ -51,18 +51,18 @@ doc:
     \ replay vs. propagate)."
 crates:
 - name: sc-tracing
-  bump: major
+  bump: minor
 - name: cumulus-client-service
-  bump: major
+  bump: minor
 - name: sc-rpc-api
   bump: major
 - name: sc-rpc
   bump: major
 - name: pallet-revive-eth-rpc
-  bump: major
+  bump: patch
 - name: pallet-revive
-  bump: major
+  bump: patch
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
