@@ -178,8 +178,11 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 
 	fn deactivate(amount: Self::Balance) {
 		InactiveIssuance::<T, I>::mutate(|b| {
-			// Cap newly deactivated issuance at the current TotalIssuance.
-			*b = b.saturating_add(amount).min(TotalIssuance::<T, I>::get());
+			let active = TotalIssuance::<T, I>::get().saturating_sub(*b);
+			// Only cap the delta and don't re-cap the existing inactive issuance.
+			let increase = amount.min(active);
+
+			*b = b.saturating_add(increase);
 		});
 	}
 
