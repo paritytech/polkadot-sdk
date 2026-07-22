@@ -306,6 +306,8 @@ pub enum CollatorProtocolMessage {
 		candidates_descriptor_version: CandidateDescriptorVersion,
 		/// Ordered segment entries to distribute.
 		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
+		/// Id of the parachain the candidates are for
+		para_id: ParaId,
 	},
 	/// Get a network bridge update.
 	#[from]

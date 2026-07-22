@@ -1069,23 +1069,41 @@ async fn process_msg<Context>(
 			core_index,
 			candidates_descriptor_version,
 			candidates,
+			para_id,
 		} => {
-			let Some(id) = state.collating_on else {
-				gum::warn!(target: LOG_TARGET, "DistributeSegment while not collating on any");
-				return Ok(());
-			};
-			gum::info!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
-			let _ = state.metrics.time_collation_distribution("distribute");
-			distribute_segment(
-				ctx,
-				state,
-				id,
-				scheduling_parent,
-				core_index,
-				candidates_descriptor_version,
-				candidates,
-			)
-			.await?;
+			match state.collating_on {
+				Some(id) if para_id != id => {
+					// If the ParaId of a collation requested to be distributed does not match
+					// the one we expect, we ignore the message.
+					gum::warn!(
+						target: LOG_TARGET,
+						%para_id,
+						collating_on = %id,
+						"DistributeSegment for unexpected para_id",
+					);
+				},
+				Some(id) => {
+					gum::info!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
+					let _ = state.metrics.time_collation_distribution("distribute");
+					distribute_segment(
+						ctx,
+						state,
+						id,
+						scheduling_parent,
+						core_index,
+						candidates_descriptor_version,
+						candidates,
+					)
+					.await?;
+				},
+				None => {
+					gum::warn!(
+						target: LOG_TARGET,
+						%para_id,
+						"DistributeSegment message while not collating on any",
+					);
+				},
+			}
 		},
 		NetworkBridgeUpdate(event) => {
 			// We should count only this shoulder in the histogram, as other shoulders are just

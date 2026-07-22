@@ -310,7 +310,7 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 }
 
 /// Result of [`distribute_collation`]
-struct DistributeCollation {
+struct DistributedCollation {
 	candidate: CandidateReceipt,
 	pov_block: PoV,
 }
@@ -428,7 +428,8 @@ async fn distribute_segment_with_receipts(
 	scheduling_parent: Hash,
 	core_index: CoreIndex,
 	candidates_descriptor_version: CandidateDescriptorVersion,
-) -> Vec<DistributeCollation> {
+	para_id: ParaId,
+) -> Vec<DistributedCollation> {
 	let candidates: Vec<SegmentEntry> = items
 		.iter()
 		.map(|(receipt, pov, parent_head_data_hash)| SegmentEntry {
@@ -447,13 +448,14 @@ async fn distribute_segment_with_receipts(
 			core_index,
 			candidates_descriptor_version,
 			candidates,
+			para_id,
 		},
 	)
 	.await;
 	check_connected_to_validators(virtual_overseer, expected_connected).await;
 	items
 		.into_iter()
-		.map(|(candidate, pov_block, _)| DistributeCollation { candidate, pov_block })
+		.map(|(candidate, pov_block, _)| DistributedCollation { candidate, pov_block })
 		.collect()
 }
 
@@ -466,7 +468,7 @@ async fn distribute_segment(
 	scheduling_parent: Hash,
 	core_index: CoreIndex,
 	len: usize,
-) -> Vec<DistributeCollation> {
+) -> Vec<DistributedCollation> {
 	let mut items = vec![];
 	for i in 0..len {
 		let increaser = i as u8;
@@ -493,6 +495,7 @@ async fn distribute_segment(
 		scheduling_parent,
 		core_index,
 		CandidateDescriptorVersion::V3,
+		test_state.para_id,
 	)
 	.await
 }

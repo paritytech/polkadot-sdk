@@ -410,6 +410,7 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 				head_c,
 				CoreIndex(0),
 				CandidateDescriptorVersion::V2,
+				test_state.para_id,
 			)
 			.await
 			.into_iter()
@@ -489,6 +490,7 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 						result_sender: None,
 					}])
 					.unwrap(),
+					para_id: test_state.para_id,
 				},
 			)
 			.await;
@@ -569,6 +571,7 @@ fn distribute_collation_up_to_limit() {
 					head_b,
 					CoreIndex(0),
 					CandidateDescriptorVersion::V2,
+					test_state.para_id,
 				)
 				.await
 				.into_iter()
@@ -600,6 +603,7 @@ fn distribute_collation_up_to_limit() {
 						result_sender: None,
 					}])
 					.unwrap(),
+					para_id: test_state.para_id,
 				},
 			)
 			.await;
@@ -640,6 +644,7 @@ fn distribute_collation_up_to_limit() {
 						result_sender: None,
 					}])
 					.unwrap(),
+					para_id: test_state.para_id,
 				},
 			)
 			.await;
@@ -727,6 +732,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 				head_b,
 				CoreIndex(0),
 				CandidateDescriptorVersion::V2,
+				test_state.para_id,
 			)
 			.await
 			.into_iter()
@@ -864,6 +870,7 @@ fn advertise_and_send_collation_by_hash() {
 					head_b,
 					CoreIndex(0),
 					CandidateDescriptorVersion::V2,
+					test_state.para_id,
 				)
 				.await
 				.into_iter()

@@ -646,6 +646,7 @@ impl Collator {
 									core_index: *core_index,
 									candidates_descriptor_version: CandidateDescriptorVersion::V2,
 									candidates,
+									para_id,
 								},
 								"Collator",
 							)

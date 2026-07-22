@@ -270,7 +270,7 @@ impl CollationGenerationSubsystem {
 				session_index,
 				scheduling_session,
 			};
-			let entry = construct_receipt(
+			let entry = construct_segment_entry(
 				collation,
 				result_sender,
 				&mut self.metrics,
@@ -291,6 +291,7 @@ impl CollationGenerationSubsystem {
 				core_index: params.core_index,
 				candidates_descriptor_version: params.candidates_descriptor_version,
 				candidates,
+				para_id: config.para_id,
 			})
 			.await;
 		Ok(())
@@ -586,7 +587,7 @@ struct PreparedCollation {
 }
 
 /// Construct a `SegmentEntry` from a prepared collation, including its candidate receipt and PoV.
-fn construct_receipt(
+fn construct_segment_entry(
 	collation: PreparedCollation,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
@@ -723,13 +724,14 @@ async fn construct_and_distribute_receipt(
 			(parent, CandidateDescriptorVersion::V3)
 		});
 	let core_index = collation.core_index;
+	let para_id = collation.para_id;
 	let SegmentEntry {
 		candidate_receipt,
 		parent_head_data_hash,
 		pov,
 		parent_head_data,
 		result_sender,
-	} = construct_receipt(
+	} = construct_segment_entry(
 		collation,
 		result_sender,
 		metrics,
@@ -753,6 +755,7 @@ async fn construct_and_distribute_receipt(
 			core_index,
 			candidates_descriptor_version,
 			candidates,
+			para_id,
 		})
 		.await;
 
