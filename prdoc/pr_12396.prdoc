@@ -1,0 +1,30 @@
+title: "Collator protocol V4: validator-side segment handling (experimental)"
+doc:
+- audience: Node Dev
+  description: |-
+    Implements handling of V4 segment advertisements in the experimental validator side
+    of the collator protocol (`validator_side_experimental`; the legacy validator side
+    does not support V4).
+
+    A stored segment is a single fetch entitlement, consumed when a fetch is launched.
+    Resolution happens at fetch time: entries are walked oldest-first and the first
+    output head that is not already fetched, not in flight, and not known to
+    prospective-parachains (including heads that would cycle the fragment chain) is
+    requested; a segment whose entries are all blocked is dropped without launching a
+    fetch. Because fingerprints are stable across candidate resubmission, this
+    deduplicates re-advertised parachain blocks by content. Byte-identical stored
+    segments from the same peer are rejected, while re-advertising after the previous
+    segment's fetch launched grants a fresh entitlement. V1–V3 advertisement handling
+    is unchanged.
+
+    Adds `ProspectiveParachainsMessage::GetKnownOutputHeads`: a batched request
+    returning, per para, the output heads of all held candidates plus the best chain's
+    parent head hashes, unioned across active leaves. The validator side refreshes this
+    snapshot at leaf activation and consults it in the fetch-time walk.
+crates:
+- name: polkadot-collator-protocol
+  bump: minor
+- name: polkadot-node-core-prospective-parachains
+  bump: minor
+- name: polkadot-node-subsystem-types
+  bump: major

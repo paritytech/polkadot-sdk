@@ -14,6 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Segment-based collation management for the experimental validator side.
+//!
+//! Every advertisement is stored as a segment: V1 an empty-entries segment, V2/V3 a
+//! single by-hash entry, V4 an age-ordered list of by-output-head fingerprints. A
+//! stored segment is one fetch entitlement. The planner fills claim-queue positions
+//! back-to-front, ranking the live segments for each position's para by collator
+//! reputation, then earliest arrival. The picked segment is resolved to a fetch target
+//! at fetch time: entries are walked oldest-first and the first entry that is not
+//! blocked is launched. An entry is blocked when its output head is already fetched
+//! (para-wide, across in-view scheduling parents), in flight, or known to prospective
+//! parachains (whose snapshot unions candidate output heads with best-chain parent
+//! heads, so an entry that would cycle the chain is blocked too).
+//!
+//! Launching consumes the picked segment, win or lose: if every entry is blocked, the
+//! segment is consumed without a launch and the position falls through to the
+//! next-ranked one. Consumption sets a flag; memory is reclaimed by a sweep at the top
+//! of `note_fetched`, and consumed segments are invisible to every reader via
+//! `live_segments`.
+//!
+//! The prospective-parachains record (`para_knowledge`) is replaced wholesale at leaf
+//! activation and topped up with each candidate we second. Accepted staleness: up to
+//! one block for other validators' candidates.
+
 use crate::{
 	extract_leaf_scheduling_info, is_scheduling_parent_valid,
 	validator_side::{
