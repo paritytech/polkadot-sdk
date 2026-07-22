@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784633604078,
+  "lastUpdate": 1784748343721,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "38abd89401c6f15f0a6a5c62becd096917875499",
-          "message": "[Release|CI/CD] Combine Promote rc to final, Publish debian, Publish RPM and Publish docker pipelines (#10274)\n\nhttps://github.com/paritytech/devops/issues/3830\n\n---------\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
-          "timestamp": "2025-11-24T14:49:09Z",
-          "tree_id": "e9f6ea4bd65ba3cd3e8cc360f946a1bf5e2340dd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38abd89401c6f15f0a6a5c62becd096917875499"
-        },
-        "date": 1764000555223,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63632.36000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001840205,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001840205,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.364708920949997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005846267610000011,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.485217061459999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001909174,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4426599842899988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.499763945609999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44771990002999756,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001909174,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.722660019861187,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4815731534699994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.001928608480005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.00002105319,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e6d971ff0166131ddbf6d7bd4a2fe48f7c5924a",
+          "message": "Update polkavm to 0.35 (#12523)\n\nBump the workspace polkavm, polkavm-common, polkavm-derive and\npolkavm-linker pins from 0.33 to 0.35.\n\nThe pallet-revive uapi and fixtures crates pinned\npolkavm-derive/polkavm-linker directly instead of using the workspace\ndependency, so they had drifted behind. Switch them to `{ workspace =\ntrue }` so they track the workspace pin.\n`contracts_not_buildable/sbrk.rs` was removed because sbrk no longer\nexists in `polkavm-derive`.",
+          "timestamp": "2026-07-22T16:57:11Z",
+          "tree_id": "46a88e7d1f8d3e14b298afedc385f8c715c5f5c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e6d971ff0166131ddbf6d7bd4a2fe48f7c5924a"
+        },
+        "date": 1784748312403,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.44,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020139020000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.636315688990001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002244813,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.662592769090001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020139020000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6103285791300004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3676110865099913,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.706812748129963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6307106241899993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7938113824499681,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.42114571155251,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005442617769999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002244813,
             "unit": "seconds"
           }
         ]
