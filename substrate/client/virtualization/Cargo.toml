@@ -16,7 +16,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { workspace = true }
-polkavm = { workspace = true }
+polkavm = { workspace = true, features = ["generic-sandbox"] }
+sc-client-api = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 sp-virtualization = { workspace = true, default-features = true }
 
 [dev-dependencies]

@@ -44,6 +44,8 @@ use parachains_common_types::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
+#[cfg(revive_jit)]
+use sc_client_api::ExecutorProvider;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
@@ -279,6 +281,11 @@ pub(crate) trait BaseNodeSpec {
 				Default::default(),
 			)?;
 		let client = Arc::new(client);
+
+		#[cfg(revive_jit)]
+		client
+			.execution_extensions()
+			.set_extensions_factory(sc_virtualization::ExtensionsFactory);
 
 		let telemetry_worker_handle = telemetry.as_ref().map(|(worker, _)| worker.handle());
 

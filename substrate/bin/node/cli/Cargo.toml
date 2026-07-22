@@ -122,6 +122,7 @@ polkadot-sdk = { features = [
 	"sc-transaction-pool",
 	"sc-transaction-pool-api",
 	"sc-utils",
+	"sc-virtualization",
 	"sp-blockchain",
 	"sp-consensus",
 	"sp-core-hashing",

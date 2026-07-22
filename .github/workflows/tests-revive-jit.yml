@@ -1,0 +1,100 @@
+name: pallet-revive JIT tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  test-pallet-revive-jit:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings --cfg revive_jit"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: script
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          forklift cargo nextest run \
+            -p pallet-revive \
+            --features runtime-benchmarks \
+            --locked \
+            --release \
+            --no-fail-fast \
+            --retries 0 \
+            --cargo-quiet
+
+  test-pvf-revive-jit:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+      # needed for tests that use unshare syscall (PVF prepare-worker sandbox)
+      options: --privileged
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings --cfg revive_jit"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: script
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          # The integration suite rebuilds the prepare/execute worker binaries at
+          # test runtime; that nested `cargo build` inherits RUSTFLAGS, so the
+          # workers pick up `--cfg revive_jit` and register the virtualization
+          # host functions. This exercises that wiring end-to-end.
+          forklift cargo nextest run \
+            -p polkadot-node-core-pvf \
+            --features ci-only-tests \
+            --locked \
+            --release \
+            --no-fail-fast \
+            --retries 0 \
+            --cargo-quiet
+
+  confirm-required-test-revive-jit-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All pallet-revive JIT tests passed
+    needs:
+      - test-pallet-revive-jit
+      - test-pvf-revive-jit
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "### Good job! All the required jobs passed" >> $GITHUB_STEP_SUMMARY
+          fi

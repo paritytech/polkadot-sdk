@@ -151,20 +151,6 @@ impl AsRef<[u8]> for SyscallSymbol {
 	}
 }
 
-/// Status returned by the `compile_*` host functions.
-///
-/// Lets the caller distinguish a cheap cache hit from a fresh compile so it can
-/// charge weight accordingly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
-#[repr(u8)]
-pub enum CompileStatus {
-	/// Module was already in the per-extension cache; no compilation occurred.
-	Cached = 0,
-	/// Module was freshly compiled (and, for [`Module::from_storage_key`], the
-	/// program bytes were read from storage).
-	Compiled = 1,
-}
-
 /// Errors that can be emitted when compiling a program into a module.
 #[derive(TryFromPrimitive, IntoPrimitive, strum::EnumCount, Debug, PartialEq, Eq)]
 #[repr(i32)]
@@ -173,8 +159,6 @@ pub enum ModuleError {
 	InvalidImage = -1,
 	/// No module with the given identifier has been compiled yet.
 	NotCached = -2,
-	/// No code was found at the supplied storage key.
-	NotFound = -3,
 }
 
 /// Errors that can be emitted when instantiating a new virtualization instance.
@@ -185,6 +169,12 @@ pub enum InstantiateError {
 	InvalidImage = -1,
 	/// The supplied `module_id` was invalid or the module was not found.
 	InvalidModule = -2,
+	/// The maximum number of simultaneously live instances has been reached.
+	///
+	/// Each live instance pins backend resources (its guest address space and memory), so their
+	/// number is bounded; another instance can be created once one of the live ones is
+	/// destroyed.
+	TooManyInstances = -3,
 }
 
 /// Errors that can be emitted when executing a new virtualization instance.
