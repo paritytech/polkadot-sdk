@@ -136,43 +136,36 @@ impl CodeLoadToken {
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		let length_cost = |bench: fn(u32) -> Weight| bench(self.code_len).saturating_sub(bench(0));
-		let base_weight = runtime_costs::cold_hot_base::<T>(
+		let len_weight_of =
+			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
+
+		let load_weight = runtime_costs::cold_hot_weight::<T>(
 			&[self.warmth.info, self.warmth.blob],
 			AccessEntry::CODE_INFO_READS + AccessEntry::CODE_BLOB_READS,
-			runtime_costs::CostPair {
-				cold: || {
-					// The code_load ref_time is tracked by the base weight.
-					let code_load_proof = T::WeightInfo::code_load().set_ref_time(0);
-					code_load_proof.saturating_add(match self.code_type {
-						BytecodeType::Pvm => {
-							length_cost(T::WeightInfo::call_with_pvm_code_per_byte)
-						},
-						BytecodeType::Evm => {
-							length_cost(T::WeightInfo::call_with_evm_code_per_byte)
-						},
-					})
-				},
-				hot: || match self.code_type {
-					BytecodeType::Pvm => {
-						length_cost(T::WeightInfo::call_with_pvm_code_per_byte_hot)
-					},
-					BytecodeType::Evm => {
-						length_cost(T::WeightInfo::call_with_evm_code_per_byte_hot)
-					},
-				},
+			|| {
+				// The code_load ref_time is tracked by the base weight.
+				let code_load_proof = T::WeightInfo::code_load().set_ref_time(0);
+				code_load_proof.saturating_add(match self.code_type {
+					BytecodeType::Pvm => len_weight_of(T::WeightInfo::call_with_pvm_code_per_byte),
+					BytecodeType::Evm => len_weight_of(T::WeightInfo::call_with_evm_code_per_byte),
+				})
+			},
+			|| match self.code_type {
+				BytecodeType::Pvm => len_weight_of(T::WeightInfo::call_with_pvm_code_per_byte_hot),
+				BytecodeType::Evm => len_weight_of(T::WeightInfo::call_with_evm_code_per_byte_hot),
 			},
 		);
+
 		match self.code_type {
 			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
 			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
 			// instructions here. Let's consider this as a safety margin.
-			BytecodeType::Pvm => base_weight.saturating_add(
+			BytecodeType::Pvm => load_weight.saturating_add(
 				T::WeightInfo::basic_block_compilation(1)
 					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
 					.set_proof_size(0),
 			),
-			BytecodeType::Evm => base_weight,
+			BytecodeType::Evm => load_weight,
 		}
 	}
 }
@@ -469,16 +462,15 @@ mod tests {
 				 rev={cold_revertible:?} non={cold:?}",
 			);
 
-			// An `EXTCODESIZE`-style touch warms only the metadata; the blob
-			// load must still bill the full cold base.
+			// A mix of hot and cold items still prices cold.
 			let info_only = weight_of(
 				code_type,
 				CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::cold_non_revertible() },
 			);
-			assert!(
-				info_only.proof_size() > hot.proof_size(),
-				"a cold blob prices the cold base even with hot metadata: \
-				 info_only={info_only:?} all_hot={hot:?}",
+			assert_eq!(
+				info_only.proof_size(),
+				cold.proof_size(),
+				"a cold blob prices cold even when info is hot: info_only={info_only:?} cold={cold:?}",
 			);
 		}
 	}

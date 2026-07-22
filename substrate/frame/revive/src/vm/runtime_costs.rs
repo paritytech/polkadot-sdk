@@ -114,7 +114,7 @@ pub enum RuntimeCosts {
 	GetStorage { len: u32, kind: ContractStorageKind },
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
 	TakeStorage { len: u32, kind: ContractStorageKind },
-	/// Base weight of a call-family opcode.
+	/// Base weight of a call-family operation.
 	CallBase(CallWarmth),
 	/// Weight of calling a precompile.
 	PrecompileBase,
@@ -222,6 +222,30 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
+	/// Bookkeeping weight of one access-list touch, plus the prepaid rollback
+	/// for a revertible cold insert.
+	fn access_list_overhead<T: Config>(warmth: Warmth) -> Weight {
+		let touch_cost =
+			|bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
+		match warmth {
+			Warmth::Cold { revertible } => {
+				let cost = touch_cost(
+					T::WeightInfo::access_list_touch_cold_full,
+					T::WeightInfo::access_list_touch_cold_empty,
+				);
+				if revertible {
+					cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
+				} else {
+					cost
+				}
+			},
+			Warmth::Hot => touch_cost(
+				T::WeightInfo::access_list_touch_hot_full,
+				T::WeightInfo::access_list_touch_hot_single_element,
+			),
+		}
+	}
+
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
 		kind: ContractStorageKind,
@@ -231,61 +255,33 @@ impl RuntimeCosts {
 	) -> Weight {
 		match kind {
 			ContractStorageKind::Persistent(warmth) => {
-				cold_hot_base::<T>(&[warmth], AccessEntry::STORAGE_READS, CostPair { cold, hot })
+				cold_hot_weight::<T>(&[warmth], AccessEntry::STORAGE_READS, cold, hot)
 			},
 			ContractStorageKind::Transient => transient(),
 		}
 	}
 }
 
-/// Bookkeeping weight of one access-list touch, plus the prepaid rollback
-/// for a revertible cold insert.
-pub(crate) fn access_list_overhead<T: Config>(warmth: Warmth) -> Weight {
-	let touch_cost = |bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
-	match warmth {
-		Warmth::Cold { revertible } => {
-			let cost = touch_cost(
-				T::WeightInfo::access_list_touch_cold_full,
-				T::WeightInfo::access_list_touch_cold_empty,
-			);
-			if revertible {
-				cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
-			} else {
-				cost
-			}
-		},
-		Warmth::Hot => touch_cost(
-			T::WeightInfo::access_list_touch_hot_full,
-			T::WeightInfo::access_list_touch_hot_single_element,
-		),
-	}
-}
-
-/// Cold and hot benches of a warmth-priced base; named so call sites cannot swap them.
-pub(crate) struct CostPair<Cold, Hot> {
-	pub cold: Cold,
-	pub hot: Hot,
-}
-
-/// Base weight for an opcode reading one state item per entry in
-/// `item_warmths`, priced by each item's warmth.
-pub(crate) fn cold_hot_base<T: Config>(
+/// Computes the weight of an operation, given the warmth of each state item it reads.
+/// Prices hot only if every item is hot;
+pub(crate) fn cold_hot_weight<T: Config>(
 	item_warmths: &[Warmth],
 	state_reads: u64,
-	costs: CostPair<impl FnOnce() -> Weight, impl FnOnce() -> Weight>,
+	cold: impl FnOnce() -> Weight,
+	hot: impl FnOnce() -> Weight,
 ) -> Weight {
 	// An empty slice prices cold.
-	let opcode_weight =
+	let operation_weight =
 		if !item_warmths.is_empty() && item_warmths.iter().all(|warmth| warmth.is_hot()) {
-			(costs.hot)().saturating_add(
+			hot().saturating_add(
 				RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(state_reads),
 			)
 		} else {
-			(costs.cold)()
+			cold()
 		};
-	// Add each touched item's access-list overhead on top of the opcode cost.
-	item_warmths.iter().fold(opcode_weight, |weight, warmth| {
-		weight.saturating_add(access_list_overhead::<T>(*warmth))
+	// Add each touched item's access-list overhead on top of the operation cost.
+	item_warmths.iter().fold(operation_weight, |weight, warmth| {
+		weight.saturating_add(RuntimeCosts::access_list_overhead::<T>(*warmth))
 	})
 }
 
@@ -377,21 +373,17 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				CallWarmth::Call { account, contract_info } => cold_hot_base::<T>(
+				CallWarmth::Call { account, contract_info } => cold_hot_weight::<T>(
 					&[account, contract_info],
 					AccessEntry::ACCOUNT_READS + AccessEntry::CONTRACT_INFO_READS,
-					CostPair {
-						cold: || T::WeightInfo::seal_call(0, 0, 0),
-						hot: T::WeightInfo::seal_call_hot,
-					},
+					|| T::WeightInfo::seal_call(0, 0, 0),
+					T::WeightInfo::seal_call_hot,
 				),
-				CallWarmth::DelegateCall { contract_info } => cold_hot_base::<T>(
+				CallWarmth::DelegateCall { contract_info } => cold_hot_weight::<T>(
 					&[contract_info],
 					AccessEntry::CONTRACT_INFO_READS,
-					CostPair {
-						cold: T::WeightInfo::seal_delegate_call,
-						hot: T::WeightInfo::seal_delegate_call_hot,
-					},
+					T::WeightInfo::seal_delegate_call,
+					T::WeightInfo::seal_delegate_call_hot,
 				),
 			},
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
