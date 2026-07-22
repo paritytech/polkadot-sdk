@@ -1125,10 +1125,10 @@ pub mod pallet {
 				// Evaluates `maybe_dust`, which is `Some` containing the dust to be dropped, iff
 				// some dust should be dropped.
 				//
-				// We should never be dropping if reserved is non-zero. Reserved being non-zero
-				// should imply that we have a consumer ref, so this is economically safe.
+				// We should never be dropping if there are either reserves or freezes since that
+				// implies a consumer ref.
 				let ed = Self::ed();
-				let maybe_dust = if account.free < ed && account.reserved.is_zero() {
+				let maybe_dust = if account.free < ed && !does_consume {
 					if account.free.is_zero() {
 						None
 					} else {
