@@ -21,8 +21,8 @@ codec = { features = [
 	"derive",
 	"max-encoded-len",
 ], optional = true, workspace = true }
-const-crypto = { version = "0.3.0", default-features = false }
-hex-literal = { version = "0.4.1", default-features = false }
+const-crypto = { workspace = true }
+hex-literal = { workspace = true }
 pallet-revive-proc-macro = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 
