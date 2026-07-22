@@ -114,7 +114,6 @@ async fn v3_mixed_validators_disputes() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-3000")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-
 	log::info!("Waiting for V3 candidates to be backed by the v3 backing group");
 	assert_candidates_version(
 		&relay_client,
@@ -155,7 +154,7 @@ async fn v3_mixed_validators_disputes() -> Result<(), anyhow::Error> {
 		}
 		blocks_checked += 1;
 
-			if blocks_checked >= 50 {
+		if blocks_checked >= 50 {
 			break;
 		}
 	}

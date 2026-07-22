@@ -283,3 +283,26 @@
   additional-env:
     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
     OLD_POLKADOT_COMMAND: "polkadot-old"
+
+- job-name: "zombienet-polkadot-functional-v3-old-validator-dispute-storm"
+  test-filter: "functional::v3_old_validator_dispute_storm::v3_old_validator_dispute_storm"
+  runner-type: "default"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+  additional-setup: |
+    BIN_DIR="$(pwd)/bin_old"
+    mkdir -p $BIN_DIR
+    echo "downloading polkadot as polkadot-old in $BIN_DIR"
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
+    chmod 755 $BIN_DIR/polkadot-old
+    for bin in polkadot-execute-worker polkadot-prepare-worker; do
+      echo "downloading $bin in $BIN_DIR"
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
+      chmod 755 $BIN_DIR/$bin
+    done
+    ls -ltr $BIN_DIR
+    export PATH=$BIN_DIR:$PATH
+    echo "PATH=$PATH" >> $GITHUB_ENV
+  additional-env:
+    OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+    OLD_POLKADOT_COMMAND: "polkadot-old"
