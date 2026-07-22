@@ -188,6 +188,37 @@ fn regression_transfer_allow_death_dusting_frozen_account_desyncs_freezes() {
 	});
 }
 
+/// Thawing the last freeze of an account dusted below the ED must not leak the
+/// dust from `TotalIssuance` (`update_freezes` discards `maybe_dust`).
+#[test]
+fn regression_thaw_dusting_sub_ed_account_leaks_issuance() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+		let alice = 0;
+
+		Balances::set_balance(&alice, 100);
+		TotalIssuance::<Test>::put(100);
+		// This provider makes the withdraw below work
+		let _ = System::inc_providers(&alice);
+		assert_ok!(Balances::set_freeze(&TestId::Foo, &alice, 30));
+
+		// `Force` slash ignores the freeze: free -> 5 (< ED), kept alive by the freeze.
+		let credit = <Balances as fungible::Balanced<_>>::withdraw(
+			&alice,
+			95,
+			Precision::Exact,
+			Preservation::Expendable,
+			Fortitude::Force,
+		)
+		.unwrap();
+		drop(credit);
+
+		// Thawing the last freeze dusts the 5 free units; the dust must be burned.
+		assert_ok!(Balances::thaw(&TestId::Foo, &alice));
+		ensure_ti_valid();
+	});
+}
+
 #[cfg(feature = "try-runtime")]
 #[test]
 fn try_state_works() {

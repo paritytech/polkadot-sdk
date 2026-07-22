@@ -164,6 +164,10 @@ impl ExtBuilder {
 		self.reentrant_dust_action = Some(ReentrantDustAction::Hold(account));
 		self
 	}
+	pub fn reentrant_dust_freeze(mut self, account: u64) -> Self {
+		self.reentrant_dust_action = Some(ReentrantDustAction::Freeze(account));
+		self
+	}
 	#[cfg(feature = "try-runtime")]
 	pub fn auto_try_state(self, auto_try_state: bool) -> Self {
 		AutoTryState::set(auto_try_state);
@@ -224,6 +228,7 @@ impl ExtBuilder {
 #[derive(Clone, Copy)]
 enum ReentrantDustAction {
 	Hold(u64),
+	Freeze(u64),
 }
 
 parameter_types! {
@@ -241,6 +246,10 @@ impl OnUnbalanced<CreditOf<Test, ()>> for DustTrap {
 					.expect("reentrant mint should succeed");
 				<Balances as fungible::MutateHold<_>>::hold(&TestId::Bar, &account, 7)
 					.expect("reentrant hold should succeed");
+			},
+			Some(ReentrantDustAction::Freeze(account)) => {
+				<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Bar, &account, 7)
+					.expect("reentrant freeze should succeed");
 			},
 			None => {},
 		}

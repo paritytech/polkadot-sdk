@@ -23,7 +23,7 @@ use frame_support::traits::tokens::{
 	Precision::{BestEffort, Exact},
 	Preservation::{Expendable, Protect},
 };
-use fungible::{Balanced, InspectHold, Mutate, MutateHold};
+use fungible::{Balanced, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold};
 
 #[test]
 fn reentrant_dust_handler_hold_is_not_overwritten() {
@@ -42,6 +42,30 @@ fn reentrant_dust_handler_hold_is_not_overwritten() {
 
 			assert_eq!(Balances::balance_on_hold(&TestId::Bar, &alice), 7);
 			assert_eq!(Balances::total_balance_on_hold(&alice), 7);
+			ensure_ti_valid();
+		});
+}
+
+#[test]
+fn reentrant_dust_handler_freeze_is_not_overwritten() {
+	let alice = 1;
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.reentrant_dust_freeze(alice)
+		.build_and_execute_with(|| {
+			Balances::set_balance(&alice, 100);
+			TotalIssuance::<Test>::put(100);
+			let _ = System::inc_providers(&alice);
+			assert_ok!(Balances::set_freeze(&TestId::Foo, &alice, 30));
+
+			let credit =
+				<Balances as fungible::Balanced<_>>::withdraw(&alice, 95, Exact, Expendable, Force)
+					.unwrap();
+			drop(credit);
+			assert_ok!(Balances::thaw(&TestId::Foo, &alice));
+
+			assert_eq!(Balances::balance_frozen(&TestId::Bar, &alice), 7);
+			assert_eq!(get_test_account_data(alice).frozen, 7);
 			ensure_ti_valid();
 		});
 }

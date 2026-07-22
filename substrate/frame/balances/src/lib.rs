@@ -1230,15 +1230,17 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			})?;
-			if maybe_dust.is_some() {
-				Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
-				defensive!("caused unexpected dusting/balance update.");
-			}
+
 			if freezes.is_empty() {
 				Freezes::<T, I>::remove(who);
 			} else {
 				Freezes::<T, I>::insert(who, freezes);
 			}
+
+			if let Some(dust) = maybe_dust {
+				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
+			}
+
 			if prev_frozen > after_frozen {
 				let amount = prev_frozen.saturating_sub(after_frozen);
 				Self::deposit_event(Event::Thawed { who: who.clone(), amount });
