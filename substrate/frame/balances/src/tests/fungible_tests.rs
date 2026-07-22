@@ -119,6 +119,24 @@ fn unbalanced_trait_set_total_issuance_works() {
 }
 
 #[test]
+fn inactive_issuance_survives_reverted_rescind() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		Balances::deactivate(80);
+		assert_eq!(Balances::active_issuance(), 20);
+
+		let debt = <Balances as fungible::Balanced<_>>::rescind(30);
+		assert_eq!(Balances::total_issuance(), 70);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), 80);
+
+		drop(debt);
+		assert_eq!(Balances::total_issuance(), 100);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), 80);
+		assert_eq!(Balances::active_issuance(), 20);
+	});
+}
+
+#[test]
 fn unbalanced_trait_decrease_balance_simple_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		// An Account that starts at 100

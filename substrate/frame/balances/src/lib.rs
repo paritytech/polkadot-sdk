@@ -471,6 +471,10 @@ pub mod pallet {
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
+	///
+	/// This is not guaranteed to be less than or equal to [`TotalIssuance`]. Total issuance may be
+	/// reduced independently of this value, including while a reversible imbalance is outstanding.
+	/// Active issuance is therefore derived using saturating subtraction.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
