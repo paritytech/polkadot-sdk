@@ -532,7 +532,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.await
 	}
 
-	/// Fetch all receipts for the given block, resolving the ethereum block hash internally.
+	/// Fetch all receipts for the given block.
 	pub async fn block_receipts(
 		&self,
 		block: &SubstrateBlock,
