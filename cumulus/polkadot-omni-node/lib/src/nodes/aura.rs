@@ -756,9 +756,10 @@ where
 						vec![]
 					};
 					// The `specmsg0` messaging inherent from the verified
-					// pool; empty data provides nothing at all.
-					let spec_msg_inherent = spec_msg_pool
-						.map(|pool| {
+					// pool (in-flight fetch rounds get a bounded grace
+					// window first); empty data provides nothing at all.
+					let spec_msg_inherent = match spec_msg_pool {
+						Some(pool) => {
 							inherent_data_at::<Block, _>(
 								para_id,
 								&*client_clone,
@@ -766,8 +767,10 @@ where
 								parent,
 								InherentBudget::default(),
 							)
-						})
-						.unwrap_or_default();
+							.await
+						},
+						None => Default::default(),
+					};
 					Ok((storage_proof, spec_msg_inherent))
 				}
 			},
@@ -929,9 +932,10 @@ where
 							vec![]
 						};
 						// The `specmsg0` messaging inherent from the verified
-						// pool; empty data provides nothing at all.
-						let spec_msg_inherent = spec_msg_pool
-							.map(|pool| {
+						// pool (in-flight fetch rounds get a bounded grace
+						// window first); empty data provides nothing at all.
+						let spec_msg_inherent = match spec_msg_pool {
+							Some(pool) => {
 								inherent_data_at::<Block, _>(
 									para_id,
 									&*client_clone,
@@ -939,8 +943,10 @@ where
 									parent,
 									InherentBudget::default(),
 								)
-							})
-							.unwrap_or_default();
+								.await
+							},
+							None => Default::default(),
+						};
 						Ok((storage_proof, spec_msg_inherent))
 					}
 				},

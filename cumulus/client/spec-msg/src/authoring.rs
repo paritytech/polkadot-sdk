@@ -32,6 +32,12 @@
 //! the authoring inherent data — an empty pool puts no data at all, and the
 //! block simply carries no spec-msg inherent.
 //!
+//! Before snapshotting the pool, [`inherent_data_at`] grants any in-flight
+//! fetch round a bounded grace window ([`ROUND_GRACE_WINDOW`]): the fetcher
+//! and the proposer race off the same relay-chain import, and losing the
+//! race by milliseconds costs the delivery a full receiver block. Idle —
+//! no round in flight — the wait is free.
+//!
 //! # Lifts
 //!
 //! [`assemble_lifts`] builds one [`RequiresLift`] per stream the candidate's
@@ -49,7 +55,7 @@
 //! public data, so re-running the assembler against the then-current pool
 //! regenerates them for the *unchanged* blocks.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use codec::Encode;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -66,10 +72,21 @@ use crate::{
 	LOG_TARGET,
 };
 
+/// How long [`inherent_data_at`] waits for an in-flight fetch round before
+/// snapshotting the pool. Rounds complete in ~15–40 ms on loopback and the
+/// soak runs lost the race by 2–5 ms, so the window is generous for the
+/// case it exists for while spending at most an eighth of the ~2 s
+/// authoring budget when a round is genuinely slow or hung.
+pub const ROUND_GRACE_WINDOW: Duration = Duration::from_millis(250);
+
 /// Builds the messaging inherent data for a block on `parent` from the
 /// verified pool. Returns empty data — which provides nothing — when the
 /// runtime does not participate, an API call fails, or nothing is pooled.
-pub fn inherent_data_at<Block, Client>(
+///
+/// When a fetch round is in flight it is granted [`ROUND_GRACE_WINDOW`] to
+/// complete before the pool is read; with no round in flight the pool is
+/// read immediately (see [`SpecMsgPool::wait_for_in_flight_rounds`]).
+pub async fn inherent_data_at<Block, Client>(
 	para_id: ParaId,
 	client: &Client,
 	pool: &SpecMsgPool,
@@ -81,6 +98,7 @@ where
 	Client: ProvideRuntimeApi<Block>,
 	Client::Api: SpecMsgApi<Block>,
 {
+	pool.wait_for_in_flight_rounds(ROUND_GRACE_WINDOW).await;
 	let api = client.runtime_api();
 	match api.has_api::<dyn SpecMsgApi<Block>>(parent) {
 		Ok(true) => (),

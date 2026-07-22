@@ -126,7 +126,9 @@ pub enum FetchError {
 /// Runs one fetch round for `source` under the included `root`: `channels`
 /// are the consumed channel streams with the runtime's resume cursors,
 /// `registers` the ack streams to head-read. On success the pool's lift
-/// target for the source is `root`.
+/// target for the source is `root`. For its whole duration the round is
+/// marked in flight in the pool, which is what authoring's bounded grace
+/// window keys on ([`SpecMsgPool::wait_for_in_flight_rounds`]).
 ///
 /// Register reads are best-effort: an unpublished register is refused at
 /// the transport level, indistinguishable from a failure — neither may
@@ -148,6 +150,9 @@ pub async fn fetch_source(
 	registers: &[StreamId],
 	chunk_bytes: u32,
 ) -> Result<(), FetchError> {
+	// In flight until this guard drops — completion, failure and cancellation
+	// alike; the drop wakes any authoring task waiting out the grace window.
+	let _round = pool.begin_round(source);
 	let (mut leaves, mut bytes) = (0u64, 0u64);
 	for (stream, cursor) in channels {
 		match fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
@@ -1245,6 +1250,9 @@ mod tests {
 		assert_eq!(*calls.lock(), 1);
 		assert!(delays.lock().is_empty());
 		assert_eq!(pool.target(source()), None);
+		// The failed round's in-flight marker was cleared: authoring's grace
+		// window has nothing to wait on during a retry backoff.
+		assert_eq!(pool.rounds_in_flight(), 0);
 	}
 
 	#[test]
@@ -1296,5 +1304,95 @@ mod tests {
 		// one backoff, two runs, no busy loop.
 		assert_eq!(*delays.lock(), vec![ROUND_RETRY_DELAY]);
 		assert_eq!(*calls.lock(), 2);
+	}
+
+	#[test]
+	fn authoring_grace_window_is_free_when_no_round_is_in_flight() {
+		// The common idle case: nothing in flight, the wait arms no timer
+		// and registers no waiter — a 30 s bound returning instantly is the
+		// proof the wait path was not taken.
+		let pool = SpecMsgPool::default();
+		let start = std::time::Instant::now();
+		block_on(pool.wait_for_in_flight_rounds(Duration::from_secs(30)));
+		assert!(start.elapsed() < Duration::from_secs(1));
+		assert_eq!(pool.rounds_in_flight(), 0);
+	}
+
+	#[test]
+	fn authoring_grace_window_picks_up_a_round_completing_within_the_bound() {
+		// The soak-run race (runs 1–2: 1 win / 8 losses, 2–5 ms margins):
+		// the proposer's pool snapshot lands while the round triggered by
+		// the same relay import is still in flight. With the round marked in
+		// flight the snapshot waits it out — well under the bound — and
+		// hands the material to the first eligible block.
+		let (mut network, root) = serving_archive(2, 2);
+		let honest = PeerId::random();
+		network.behavior.insert(honest, PeerBehavior::Honest);
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		// The trigger was observed and the round is starting...
+		let guard = pool.begin_round(source());
+		std::thread::scope(|scope| {
+			let (network, registry, pool) = (&network, &registry, &pool);
+			scope.spawn(move || {
+				// ...its material lands 20 ms after the proposer started
+				// waiting.
+				std::thread::sleep(Duration::from_millis(20));
+				block_on(fetch_source(
+					network,
+					registry,
+					pool,
+					source(),
+					root,
+					&[(stream, 0)],
+					&[ack(RECEIVER)],
+					SMALL_CHUNK,
+				))
+				.expect("round succeeds");
+				drop(guard);
+			});
+
+			let start = std::time::Instant::now();
+			block_on(pool.wait_for_in_flight_rounds(Duration::from_secs(30)));
+			// Woken by the round ending, not by the bound.
+			assert!(start.elapsed() < Duration::from_secs(10));
+			assert_eq!(pool.rounds_in_flight(), 0);
+			// The post-wait snapshot sees the completed round's material:
+			// target marked, backlog and register read handable.
+			assert_eq!(pool.target(source()), Some(root));
+			let data = pool.build_inherent(
+				&[(source(), stream, 0)],
+				&[(source(), ack(RECEIVER), None)],
+				InherentBudget::default(),
+			);
+			assert_eq!(data.messages.len(), 1);
+			assert_eq!(data.register_reads.len(), 1);
+		});
+	}
+
+	#[test]
+	fn authoring_grace_window_is_a_hard_bound_and_expires_stale_rounds() {
+		// A round that never completes: the wait returns at the bound with
+		// the pre-round pool view — authoring is never held hostage.
+		let pool = SpecMsgPool::default();
+		let bound = Duration::from_millis(100);
+		let start = std::time::Instant::now();
+		let _hung = pool.begin_round(source());
+		block_on(pool.wait_for_in_flight_rounds(bound));
+		let waited = start.elapsed();
+		assert!(waited >= bound);
+		assert!(waited < Duration::from_secs(5));
+		assert!(pool
+			.build_inherent(&[], &[(source(), ack(RECEIVER), None)], InherentBudget::default())
+			.is_empty());
+
+		// The hung round is now past its grant (the bound runs from the
+		// round's OWN start): a later proposal — the next relay parent, or
+		// another fork — does not wait on it at all.
+		let start = std::time::Instant::now();
+		block_on(pool.wait_for_in_flight_rounds(bound));
+		assert!(start.elapsed() < bound);
 	}
 }

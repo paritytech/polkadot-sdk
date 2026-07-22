@@ -42,10 +42,21 @@
 //! streams are append-only, so a run bound under an old included root stays
 //! a valid prefix under every newer one; the fetcher's next round under the
 //! newer root re-binds it.
+//!
+//! The pool also tracks which sources have a fetch round *in flight*
+//! ([`SpecMsgPool::begin_round`] / [`RoundGuard`]): the fetcher and the
+//! proposer both react to the same relay-chain import, and the proposer's
+//! pool snapshot usually beats a round completing milliseconds later.
+//! [`SpecMsgPool::wait_for_in_flight_rounds`] is the authoring side's
+//! bounded grace window over that marker.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	time::{Duration, Instant},
+};
 
 use codec::DecodeAll;
+use futures::{channel::oneshot, FutureExt};
 use parking_lot::Mutex;
 
 use cumulus_primitives_core::ParaId;
@@ -265,11 +276,39 @@ struct SourcePool {
 	registers: BTreeMap<StreamId, RegisterReads>,
 }
 
+/// The fetch rounds currently in flight, plus the authoring tasks waiting
+/// out the grace window for them
+/// ([`SpecMsgPool::wait_for_in_flight_rounds`]).
+#[derive(Default)]
+struct RoundsInFlight {
+	/// Sources with a running fetch round, by the round's start instant.
+	started: BTreeMap<ParaId, Instant>,
+	/// Woken (and drained) whenever any round ends — however it ends; every
+	/// waiter re-checks what is still in flight.
+	waiters: Vec<oneshot::Sender<()>>,
+}
+
 /// The verified pool shared between the fetch pipeline (writer), the
 /// inherent provider and the lift assembler (readers). See the module docs.
 #[derive(Default)]
 pub struct SpecMsgPool {
 	sources: Mutex<BTreeMap<ParaId, SourcePool>>,
+	rounds: Mutex<RoundsInFlight>,
+}
+
+/// The in-flight marker of one running fetch round, created by
+/// [`SpecMsgPool::begin_round`]. Dropping it — on completion, failure and
+/// cancellation alike — clears the marker and wakes every grace-window
+/// waiter ([`SpecMsgPool::wait_for_in_flight_rounds`]).
+pub struct RoundGuard<'a> {
+	pool: &'a SpecMsgPool,
+	source: ParaId,
+}
+
+impl Drop for RoundGuard<'_> {
+	fn drop(&mut self) {
+		self.pool.end_round(self.source);
+	}
 }
 
 impl SpecMsgPool {
@@ -370,6 +409,79 @@ impl SpecMsgPool {
 	/// the source now targets `root`.
 	pub fn complete_round(&self, source: ParaId, root: StreamsRoot) {
 		self.sources.lock().entry(source).or_default().target = Some(root);
+	}
+
+	/// Marks a fetch round of `source` as in flight until the returned guard
+	/// is dropped. While a round is in flight,
+	/// [`Self::wait_for_in_flight_rounds`] grants it a bounded grace window
+	/// before the inherent snapshot is taken.
+	pub fn begin_round(&self, source: ParaId) -> RoundGuard<'_> {
+		self.rounds.lock().started.insert(source, Instant::now());
+		RoundGuard { pool: self, source }
+	}
+
+	/// Clears `source`'s round-in-flight marker and wakes every grace-window
+	/// waiter to re-check (the [`RoundGuard`] drop path).
+	fn end_round(&self, source: ParaId) {
+		let mut rounds = self.rounds.lock();
+		rounds.started.remove(&source);
+		for waiter in rounds.waiters.drain(..) {
+			let _ = waiter.send(());
+		}
+	}
+
+	/// Waits for the in-flight fetch rounds to end, bounded by `bound` —
+	/// call before snapshotting the pool for a block's inherent.
+	///
+	/// The fetcher and the proposer both react to the same relay-chain
+	/// import notification, and the proposer's pool snapshot sits a handful
+	/// of milliseconds after it — a round completing just behind the
+	/// snapshot misses the first eligible block and rides the next one, +6 s
+	/// on a boundary-free path. The grace window closes that race: when a
+	/// round is in flight the snapshot waits for it (rounds complete in
+	/// ~15–40 ms on loopback), and when none is — the common idle case —
+	/// this returns immediately without arming a timer.
+	///
+	/// The bound is hard on two axes:
+	/// - the caller never waits longer than `bound` from entry, even if rounds keep starting or
+	///   never finish — on timeout the snapshot proceeds with whatever is pooled (the pre-grace
+	///   behavior);
+	/// - each round is granted `bound` from *its own start*, never from the wait's: a hung round
+	///   can only delay proposals overlapping its first `bound`, and authoring on a later relay
+	///   parent or another fork (whole seconds away) finds it expired and does not wait at all.
+	pub async fn wait_for_in_flight_rounds(&self, bound: Duration) {
+		let entered = Instant::now();
+		loop {
+			let (ended, remaining) = {
+				let mut rounds = self.rounds.lock();
+				let Some(deadline) = rounds.started.values().map(|started| *started + bound).max()
+				else {
+					return;
+				};
+				let remaining =
+					deadline.min(entered + bound).saturating_duration_since(Instant::now());
+				if remaining.is_zero() {
+					return;
+				}
+				// Registered under the same lock `end_round` takes: a round
+				// ending after this check always finds the waiter.
+				let (sender, receiver) = oneshot::channel();
+				rounds.waiters.push(sender);
+				(receiver, remaining)
+			};
+			let mut ended = ended.fuse();
+			let mut timeout = futures_timer::Delay::new(remaining).fuse();
+			futures::select_biased! {
+				// A round ended (or the pool went away): re-check.
+				_ = ended => (),
+				_ = timeout => return,
+			}
+		}
+	}
+
+	/// Diagnostic: number of fetch rounds currently marked in flight (tests).
+	pub fn rounds_in_flight(&self) -> usize {
+		self.rounds.lock().started.len()
 	}
 
 	/// The source's current lift target root.

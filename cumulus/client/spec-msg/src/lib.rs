@@ -84,6 +84,7 @@ pub mod worker;
 pub use archive::{ArchiveError, ServeError, SpecMsgArchive, SERVING_HORIZON};
 pub use authoring::{
 	assemble_collation, assemble_lifts, inherent_data_at, lift_assembler, AssembleError,
+	ROUND_GRACE_WINDOW,
 };
 pub use exchange::{ExchangeError, ExchangeNetwork, PeerRegistry, SourcePeers};
 pub use fetch::{fetch_source, run_spec_msg_fetcher, FetchError, FETCH_CHUNK_BYTES};
