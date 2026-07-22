@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784748343721,
+  "lastUpdate": 1784753988757,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca",
-          "message": "`ExecuteBlock` split up seal verification and actual execution (#10396)\n\n`ExecuteBlock` exposes the `execute_block` function that is used by\n`validate_block` to execute a block. In case auf AuRa the block\nexecution includes the verification of the seal and the removal of the\nseal. To verify the seal, the block executor needs to load the current\nauthority set. The problem is that when we have storage proof reclaim\nenabled and the host function is used in `on_initialize` before\n`pallet_aura_ext::on_initialize` (this is where we fetch the authority\nset to ensure it appears in the proof) is called, it leads to\n`validate_block` returning a different size and thus, breaking the\nblock. To solve this issue `ExecuteBlock` is now split into seal\nverification and execution of the verified block. In `validate_block`\nthe seal verification is then run outside of the block execution, not\nleading to the issues of reporting different proof sizes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-24T22:43:33Z",
-          "tree_id": "7ebf393a60e410bf7c41c63117735fb7fad49aeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca"
-        },
-        "date": 1764029037419,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63636.04,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4194245632200019,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001985152,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4850937484400006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001985152,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00556240821,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.346917675740002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.464811920000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5267736735299997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6835573029607867,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001889063,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001889063,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.452754101970002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9924972603699989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.00002244813,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1d75337a4f800c921a830e2a39dc4ea754f2481",
+          "message": "[pallet-bounties]: add `reclaim_bounty_funds` to reclaim stranded funds from closed bounty accounts (#11045)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/10996\n\nThis PR adds a permissionless `reclaim_bounty_funds` extrinsic that\nmoves funds stranded in a closed bounty's account back to the treasury,\none asset per call (`None` for the native token, `Some(asset_kind)` for\na named fungible), using `transfer_all` semantics, free on success and\npaid on a no-op to prevent griefing\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>",
+          "timestamp": "2026-07-22T19:16:27Z",
+          "tree_id": "129f837c4ca1c97470a713acc5eeddb55aeb4f29",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1d75337a4f800c921a830e2a39dc4ea754f2481"
+        },
+        "date": 1784753956293,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63569.64,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.466579990682802,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019064949999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019064949999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005063282739999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017239920000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8566960572899494,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.749517614619947,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6406277882200007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.613523723249999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.654303158670001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.627860009389998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017239920000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3514435950599997,
             "unit": "seconds"
           }
         ]
