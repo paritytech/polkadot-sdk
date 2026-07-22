@@ -178,19 +178,22 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
-		let response = match self.client.execution_proof(block, &request.method, &request.data) {
-			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
-			Err(e) => {
-				trace!(
-					"remote call request from {} ({} at {:?}) failed with: {}",
-					peer,
-					request.method,
-					request.block,
-					e,
-				);
-				schema::v1::light::RemoteCallResponse { proof: None }
-			},
-		};
+		let response =
+			match self.client.execution_proof(block, &request.method, &request.data, None) {
+				Ok((_, proof)) => {
+					schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) }
+				},
+				Err(e) => {
+					trace!(
+						"remote call request from {} ({} at {:?}) failed with: {}",
+						peer,
+						request.method,
+						request.block,
+						e,
+					);
+					schema::v1::light::RemoteCallResponse { proof: None }
+				},
+			};
 
 		Ok(schema::v1::light::Response {
 			response: Some(schema::v1::light::response::Response::RemoteCallResponse(response)),
