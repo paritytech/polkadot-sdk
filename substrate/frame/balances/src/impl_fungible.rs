@@ -325,7 +325,11 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 				Ok(())
 			})?;
 
-		Holds::<T, I>::insert(who, holds);
+		if holds.is_empty() {
+			Holds::<T, I>::remove(who)
+		} else {
+			Holds::<T, I>::insert(who, holds)
+		}
 
 		if let Some(dust) = maybe_dust {
 			<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
