@@ -1539,4 +1539,9 @@ impl FragmentChain {
 			.copied()
 			.collect()
 	}
+
+	/// Parent head-data hashes of the best chain candidates.
+	pub fn chain_parent_heads(&self) -> HashSet<Hash> {
+		self.chain.by_parent_head.keys().copied().collect()
+	}
 }

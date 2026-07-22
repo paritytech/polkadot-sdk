@@ -1568,8 +1568,6 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
-	/// Get the known output heads for a given list of parachain ids.
-	///
-	/// Returns a `HashSet` of output heads that are seconded for each para id.
+	/// Get each para's known output heads, plus its best-chain parent heads.
 	GetKnownOutputHeads(Vec<ParaId>, oneshot::Sender<HashMap<ParaId, HashSet<Hash>>>),
 }

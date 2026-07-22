@@ -1106,7 +1106,9 @@ async fn answer_get_known_output_heads(
 		if let Some(per_sp) = view.per_scheduling_parent.get(leaf) {
 			for para_id in &para_ids {
 				if let Some(per_para) = per_sp.fragment_chains.get(para_id) {
-					known.entry(*para_id).or_default().extend(per_para.known_output_heads());
+					let entry = known.entry(*para_id).or_default();
+					entry.extend(per_para.known_output_heads());
+					entry.extend(per_para.chain_parent_heads());
 				}
 			}
 		}
