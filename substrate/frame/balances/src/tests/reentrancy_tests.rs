@@ -20,10 +20,31 @@
 use super::*;
 use frame_support::traits::tokens::{
 	Fortitude::Force,
-	Precision::BestEffort,
+	Precision::{BestEffort, Exact},
 	Preservation::{Expendable, Protect},
 };
-use fungible::Balanced;
+use fungible::{Balanced, InspectHold, Mutate, MutateHold};
+
+#[test]
+fn reentrant_dust_handler_hold_is_not_overwritten() {
+	let alice = 1;
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.reentrant_dust_hold(alice)
+		.build_and_execute_with(|| {
+			Balances::set_balance(&alice, 100);
+			TotalIssuance::<Test>::put(100);
+			let _ = System::inc_providers(&alice);
+			assert_ok!(Balances::hold(&TestId::Foo, &alice, 50));
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 45));
+
+			assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Exact));
+
+			assert_eq!(Balances::balance_on_hold(&TestId::Bar, &alice), 7);
+			assert_eq!(Balances::total_balance_on_hold(&alice), 7);
+			ensure_ti_valid();
+		});
+}
 
 #[test]
 fn transfer_dust_removal_tst1_should_work() {

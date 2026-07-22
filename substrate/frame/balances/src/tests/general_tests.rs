@@ -113,6 +113,30 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 	});
 }
 
+/// Releasing the last hold from an account dusted below the ED must not leak the
+/// dust from `TotalIssuance` (`set_balance_on_hold` discards `maybe_dust`).
+#[test]
+fn regression_release_hold_below_ed_leaks_issuance() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+
+		let (alice, bob) = (0, 1);
+		Balances::set_balance(&alice, 100);
+		TotalIssuance::<Test>::put(100);
+
+		let _ = System::inc_providers(&alice);
+		assert_ok!(Balances::hold(&TestId::Foo, &alice, 50));
+
+		// free -> 5 (< ED), kept alive by the reserve.
+		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 45));
+
+		// Releasing the last hold dusts the 5 free units; the dust must be burned.
+		assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Precision::Exact));
+
+		ensure_ti_valid();
+	});
+}
+
 /// Dusting a frozen account (via a `Force` slash) must not desync `Freezes` from
 /// the account's `frozen` field.
 #[test]
