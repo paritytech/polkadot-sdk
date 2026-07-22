@@ -262,6 +262,8 @@ decl_runtime_apis! {
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool;
 		/// Write the given `value` under the given `key` into the storage and then optional panic.
 		fn write_key_value(key: Vec<u8>, value: Vec<u8>, panic: bool);
+		/// Spin in an infinite loop (for execution-timeout tests).
+		fn spin();
 	}
 }
 
@@ -678,6 +680,13 @@ impl_runtime_apis! {
 
 			if panic {
 				panic!("I'm just following my master");
+			}
+		}
+
+		fn spin() {
+			let mut i = 0u64;
+			loop {
+				i = core::hint::black_box(i).wrapping_add(1);
 			}
 		}
 	}

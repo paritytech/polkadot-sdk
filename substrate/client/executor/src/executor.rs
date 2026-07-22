@@ -38,7 +38,7 @@ use sc_executor_common::{
 		DEFAULT_HEAP_ALLOC_STRATEGY,
 	},
 };
-use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
+use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode, TimedCodeExecutor};
 use sp_version::{GetNativeVersion, NativeVersion, RuntimeVersion};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 
@@ -637,6 +637,24 @@ where
 	}
 }
 
+impl<H> TimedCodeExecutor for WasmExecutor<H>
+where
+	H: HostFunctions,
+{
+	fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		// Resolves to the inherent method of the same name.
+		self.call_with_execution_timeout(ext, runtime_code, method, data, context, timeout)
+	}
+}
+
 impl<H> RuntimeVersionOf for WasmExecutor<H>
 where
 	H: HostFunctions,
@@ -832,6 +850,23 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 			},
 		);
 		(result, used_native)
+	}
+}
+
+#[allow(deprecated)]
+impl<D: NativeExecutionDispatch + 'static> TimedCodeExecutor for NativeElseWasmExecutor<D> {
+	fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		// Timed calls always run wasm — a native call could not be interrupted.
+		self.wasm
+			.call_with_execution_timeout(ext, runtime_code, method, data, context, timeout)
 	}
 }
 

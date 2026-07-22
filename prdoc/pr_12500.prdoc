@@ -1,4 +1,4 @@
-title: 'sc-executor: timed runtime calls with execution timeouts via wasmtime epoch interruption'
+title: 'Timed runtime calls with execution timeouts via wasmtime epoch interruption'
 doc:
 - audience: Node Dev
   description: |-
@@ -12,6 +12,14 @@ doc:
     compiled in a background thread; timed calls block until it is ready and always run on a
     fresh, non-pooled instance. PolkaVM has no execution-interruption mechanism: timed calls
     share the untimed module and run uncapped, with a one-time startup warning.
+
+    The execution timeout is plumbed through to the client execution-proof path serving
+    light-client requests: new `sp_core::traits::TimedCodeExecutor` trait (implemented by
+    `WasmExecutor`), a `timeout: Option<Duration>` parameter on `CallExecutor::prove_execution`
+    and the sp-state-machine `prove_execution` / `prove_execution_on_trie_backend` functions
+    (with the executor bound tightened to `TimedCodeExecutor`), and a new
+    `ClientConfig::execution_timeout` supplying the value at `Client::execution_proof`. It
+    defaults to `None`, i.e. execution-proof requests stay uncapped until configured.
 crates:
 - name: sc-executor
   bump: minor
@@ -21,3 +29,13 @@ crates:
   bump: minor
 - name: sc-executor-polkavm
   bump: major
+- name: sp-core
+  bump: minor
+- name: sp-state-machine
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-service
+  bump: major
+- name: frame-benchmarking-cli
+  bump: patch

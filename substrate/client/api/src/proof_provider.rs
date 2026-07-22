@@ -43,6 +43,10 @@ pub trait ProofProvider<Block: BlockT> {
 	/// Execute a call to a contract on top of state in a block of given hash
 	/// AND returning execution proof.
 	///
+	/// On the full client the runtime call is capped in wall-clock execution time by the
+	/// configured execution timeout (if any), making it suitable for serving untrusted
+	/// (light-client) requests.
+	///
 	/// No changes are made.
 	fn execution_proof(
 		&self,

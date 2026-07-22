@@ -85,10 +85,11 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use super::call_executor::LocalCallExecutor;
-use sp_core::traits::CodeExecutor;
+use sp_core::traits::TimedCodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -168,6 +169,9 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Enable recording of storage proofs during block import
 	pub enable_import_proof_recording: bool,
+	/// Wall-clock time limit for a single runtime call serving untrusted (light-client)
+	/// execution-proof requests. `None` disables the limit.
+	pub execution_timeout: Option<Duration>,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -179,6 +183,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
 			enable_import_proof_recording: false,
+			execution_timeout: None,
 		}
 	}
 }
@@ -195,7 +200,7 @@ pub fn new_with_backend<B, E, Block, G, RA>(
 	config: ClientConfig<Block>,
 ) -> sp_blockchain::Result<Client<B, LocalCallExecutor<Block, B, E>, Block, RA>>
 where
-	E: CodeExecutor + sc_executor::RuntimeVersionOf,
+	E: TimedCodeExecutor + sc_executor::RuntimeVersionOf,
 	G: BuildGenesisBlock<
 		Block,
 		BlockImportOperation = <B as backend::Backend<Block>>::BlockImportOperation,
@@ -1244,7 +1249,8 @@ where
 		method: &str,
 		call_data: &[u8],
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		self.executor.prove_execution(hash, method, call_data)
+		self.executor
+			.prove_execution(hash, method, call_data, self.config.execution_timeout)
 	}
 
 	fn read_proof_collection(
