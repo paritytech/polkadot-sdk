@@ -19,9 +19,12 @@
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber, runtime_api::RuntimeApi},
+	block_info_provider::BlockInfo,
+	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
+	substrate_client::SubstrateClient,
 };
 use pallet_revive::evm::H256;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -90,10 +93,16 @@ struct BackwardSyncRange {
 	persist_first_evm_block: bool,
 }
 
-impl Client {
+impl<C: SubstrateClient, BP: BlockInfoProvider> Client<C, BP> {
 	/// Verify that the stored genesis hash matches the connected chain.
-	async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
-		let genesis_hash: H256 = self.api().genesis_hash();
+	pub(crate) async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
+		// Fetch block 0 (genesis) to use as the chain identity fingerprint.
+		let genesis_hash: H256 = self
+			.block_provider()
+			.block_by_number(0)
+			.await?
+			.ok_or(ClientError::BlockNotFound)?
+			.hash();
 
 		if let Some(checkpoint) =
 			self.receipt_provider().get_sync_label(ChainMetadata::Genesis).await?
@@ -111,24 +120,24 @@ impl Client {
 	/// Verify that a stored boundary block still exists on the finalized chain.
 	async fn verify_boundary(&self, checkpoint: &SyncCheckpoint) -> Result<(), ClientError> {
 		let num = checkpoint.block_number;
-		let hash = checkpoint.block_hash;
-		match (num, hash) {
-			(_, None) => {
+		match checkpoint.block_hash {
+			None => {
 				log::error!(target: LOG_TARGET,
 					"Boundary #{num}: missing stored hash");
 				Err(ClientError::SyncBoundaryMismatch)
 			},
-			(_, Some(stored_hash)) => {
-				let block = self.block_provider().block_by_number(num).await?.ok_or_else(|| {
-					log::error!(target: LOG_TARGET,
-						"Boundary #{num}: block not found on chain \
-						 (node may have pruned it — use an archive node with --eth-pruning archive)");
-					ClientError::SyncBoundaryMismatch
-				})?;
-				if block.block_hash() != stored_hash {
+			Some(stored_hash) => {
+				let block: Arc<BP::Block> =
+					self.block_provider().block_by_number(num).await?.ok_or_else(|| {
+						log::error!(target: LOG_TARGET,
+							"Boundary #{num}: block not found on chain \
+							 (node may have pruned it — use an archive node with --eth-pruning archive)");
+						ClientError::SyncBoundaryMismatch
+					})?;
+				if block.hash() != stored_hash {
 					log::error!(target: LOG_TARGET,
 						"Boundary #{num}: hash mismatch — stored {stored_hash:?}, \
-						 chain {:?}", block.block_hash());
+						 chain {:?}", block.hash());
 					return Err(ClientError::SyncBoundaryMismatch);
 				}
 				Ok(())
@@ -168,11 +177,9 @@ impl Client {
 
 	async fn sync_backward_inner(&self) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
-		let latest_finalized_block = self.latest_finalized_block().await;
-		let latest_finalized = SyncCheckpoint::new(
-			latest_finalized_block.block_number(),
-			latest_finalized_block.block_hash(),
-		);
+		let latest_finalized_block: Arc<BP::Block> = self.latest_finalized_block().await;
+		let latest_finalized =
+			SyncCheckpoint::new(latest_finalized_block.number(), latest_finalized_block.hash());
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
@@ -298,7 +305,7 @@ impl Client {
 
 		log::info!(target: LOG_TARGET, "⬇️ Backward sync: #{from} down to #{to}");
 
-		let mut block = self
+		let mut block: Arc<BP::Block> = self
 			.block_provider()
 			.block_by_number(from)
 			.await?
@@ -310,24 +317,20 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
-			let block_number = block.block_number();
-			let block_hash = block.block_hash();
+			let block_number = block.number();
+			let block_hash = block.hash();
 
-			let ethereum_hash = match RuntimeApi::new((*block).clone())
-				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
-				.await
-			{
-				Ok(h) => h,
-				Err(err) => {
-					log::error!(target: LOG_TARGET, "⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
-					break Err(err);
-				},
-			};
+			let ethereum_hash: Option<H256> = self
+				.backend
+				.eth_block_hash(block_hash, pallet_revive::evm::U256::from(block_number))
+				.await?;
 
 			match ethereum_hash {
 				Some(hash) => {
-					if let Err(err) =
-						self.receipt_provider().insert_block_receipts_past(&block, &hash).await
+					if let Err(err) = self
+						.receipt_provider()
+						.insert_block_receipts_past(block.as_ref(), &hash)
+						.await
 					{
 						log::error!(target: LOG_TARGET,
 							"⚠️ Insert failed for #{block_number}: {err:?}, stopping");
@@ -370,7 +373,7 @@ impl Client {
 			}
 
 			if block_number > to {
-				let parent_hash = block.block_header().await?.parent_hash;
+				let parent_hash = block.parent_hash();
 				match self
 					.block_provider()
 					.block_by_hash(&parent_hash)

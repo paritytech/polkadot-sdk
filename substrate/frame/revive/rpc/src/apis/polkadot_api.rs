@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Polkadot-specific JSON-RPC methods.
 
-use crate::*;
+use crate::{BlockInfoProvider, SubstrateClient, client::Client, *};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_runtime::Weight;
 
@@ -27,20 +27,29 @@ pub trait PolkadotRpc {
 	async fn post_dispatch_weight(&self, transaction_hash: H256) -> RpcResult<Option<Weight>>;
 }
 
-pub struct PolkadotRpcServerImpl {
-	client: client::Client,
+pub struct PolkadotRpcServerImpl<C: SubstrateClient, BP: BlockInfoProvider> {
+	client: Client<C, BP>,
 }
 
-impl PolkadotRpcServerImpl {
-	pub fn new(client: client::Client) -> Self {
+impl<C: SubstrateClient, BP: BlockInfoProvider> PolkadotRpcServerImpl<C, BP> {
+	pub fn new(client: Client<C, BP>) -> Self {
 		Self { client }
 	}
 }
 
 #[async_trait]
-impl PolkadotRpcServer for PolkadotRpcServerImpl {
+impl<C: SubstrateClient, BP: BlockInfoProvider> PolkadotRpcServer for PolkadotRpcServerImpl<C, BP> {
 	async fn post_dispatch_weight(&self, transaction_hash: H256) -> RpcResult<Option<Weight>> {
-		let weight = self.client.post_dispatch_weight(&transaction_hash).await;
-		Ok(weight)
+		let Some(receipt) = self.client.receipt(&transaction_hash).await else {
+			return Ok(None);
+		};
+		let Some(block_hash) = self.client.resolve_substrate_hash(&receipt.block_hash).await else {
+			return Ok(None);
+		};
+		Ok(self
+			.client
+			.backend
+			.extrinsic_post_dispatch_weight(block_hash, receipt.transaction_index.as_usize())
+			.await)
 	}
 }

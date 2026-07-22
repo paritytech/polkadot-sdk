@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Heatlh JSON-RPC methods.
 
-use crate::*;
+use crate::{BlockInfoProvider, SubstrateClient, client::Client, *};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_rpc_api::system::helpers::Health;
 
@@ -31,18 +31,20 @@ pub trait SystemHealthRpc {
 	async fn net_peer_count(&self) -> RpcResult<U64>;
 }
 
-pub struct SystemHealthRpcServerImpl {
-	client: client::Client,
+pub struct SystemHealthRpcServerImpl<C: SubstrateClient, BP: BlockInfoProvider> {
+	client: Client<C, BP>,
 }
 
-impl SystemHealthRpcServerImpl {
-	pub fn new(client: client::Client) -> Self {
+impl<C: SubstrateClient, BP: BlockInfoProvider> SystemHealthRpcServerImpl<C, BP> {
+	pub fn new(client: Client<C, BP>) -> Self {
 		Self { client }
 	}
 }
 
 #[async_trait]
-impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
+impl<C: SubstrateClient, BP: BlockInfoProvider> SystemHealthRpcServer
+	for SystemHealthRpcServerImpl<C, BP>
+{
 	async fn system_health(&self) -> RpcResult<Health> {
 		let (sync_state, health) =
 			tokio::try_join!(self.client.sync_state(), self.client.system_health())?;
@@ -57,7 +59,7 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 				"Client is out of sync. Current block: {}, latest cache block: {latest}",
 				sync_state.current_block,
 			);
-			return Err(ErrorCode::InternalError.into());
+			return Err(jsonrpsee::types::ErrorCode::InternalError.into());
 		}
 
 		Ok(Health {

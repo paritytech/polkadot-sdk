@@ -14,10 +14,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::{fs, process::Command};
+#[cfg(feature = "subxt")]
+use std::fs;
+use std::process::Command;
 
 fn main() {
 	generate_git_revision();
+	#[cfg(feature = "subxt")]
 	generate_metadata_file();
 }
 
@@ -52,6 +55,7 @@ fn generate_git_revision() {
 	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }
 
+#[cfg(feature = "subxt")]
 fn generate_metadata_file() {
 	let mut ext = sp_io::TestExternalities::new(Default::default());
 	ext.execute_with(|| {

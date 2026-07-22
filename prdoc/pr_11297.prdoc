@@ -1,0 +1,19 @@
+title: 'pallet-revive-eth-rpc: Introduce SubstrateClientT trait abstraction and Asset
+  Hub embedded RPC integration'
+doc:
+- audience: Node Dev
+  description: |-
+    closes https://github.com/paritytech/polkadot-sdk/issues/11221
+
+    Integrates the `pallet-revive` ETH RPC server directly into the Asset Hub (Omni) node. Introduces a `SubstrateClientT` trait that abstracts all Substrate node interactions, allowing `EthRpcServerImpl` to be generic over its backend. A new `NativeSubstrateClient` implementation backed by `sc_client_api` traits provides a direct in-process path with no `subxt` dependency on the hot path. The `SubxtClient` path is preserved unchanged for the standalone `eth-rpc` binary, and the `revive-dev-node` standalone binary is kept as-is for now. On the node side, the ETH RPC surface (`eth_*`/`debug_*`/`net_*`/`web3_*`) is registered by `BuildParachainRpcExtensions` in `polkadot-omni-node-lib` on the standard RPC port alongside existing parachain RPCs, and is enabled by default whenever the runtime exposes the `Revive` pallet (detected via runtime metadata).
+crates:
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: revive-dev-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: minor
+- name: sc-service
+  bump: major

@@ -40,6 +40,9 @@ frame-benchmarking-cli = { workspace = true, default-features = true }
 frame-support = { optional = true, workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
+pallet-revive = { workspace = true, default-features = true }
+pallet-revive-eth-rpc = { workspace = true, default-features = false }
+pallet-revive-types = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
@@ -115,6 +118,7 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 sc-consensus-aura = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -132,6 +136,8 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"pallet-revive-eth-rpc/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -142,6 +148,8 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-revive-eth-rpc/try-runtime",
+	"pallet-revive/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",

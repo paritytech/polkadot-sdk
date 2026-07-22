@@ -300,6 +300,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 	}
 }
 
+#[cfg(feature = "subxt")]
 #[test]
 fn test_dummy_payload_has_correct_len() {
 	let signer = Account::from(subxt_signer::eth::dev::ethan());

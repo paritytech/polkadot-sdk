@@ -149,8 +149,11 @@ impl FeeHistoryProvider {
 			});
 		};
 
-		let lowest = highest
-			.saturating_sub(SubstrateBlockNumber::from(block_count.saturating_sub(1)))
+		// When the requested newest block is older than our oldest cached block, clamp
+		// to the oldest available so callers always get at least one entry.
+		let effective_highest = highest.max(lowest_in_cache);
+		let lowest = effective_highest
+			.saturating_sub(block_count.saturating_sub(1))
 			.max(lowest_in_cache);
 
 		let mut response = FeeHistoryResult {
@@ -162,7 +165,7 @@ impl FeeHistoryProvider {
 
 		let rewards = &mut response.reward;
 		// Iterate over the requested block range.
-		for n in lowest..=highest {
+		for n in lowest..=effective_highest {
 			if let Some(block) = cache.get(&n) {
 				response.base_fee_per_gas.push(U256::from(block.base_fee));
 				response.gas_used_ratio.push(block.gas_used_ratio);

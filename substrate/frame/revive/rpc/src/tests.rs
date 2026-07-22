@@ -19,13 +19,14 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
+	BlockHeader, BlockInfo, BlockInfoProvider, BoundedOneOrMany, DbContext, DebugRpcClient,
 	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
-	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider,
+	block_sync::{ChainMetadata, SyncLabel},
 	cli::{self, CliCommand},
-	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
+	client::{Client, GapFillRequest, SubscriptionGapQueue},
 	example::TransactionBuilder,
-	subxt_client::{self, SrcChainConfig},
+	subxt_client::{self, SrcChainConfig, SubxtClient, connect},
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
@@ -2125,13 +2126,7 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// Connects to the same dev-node that [`SharedResources`] started, but uses its own
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
-async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
-	Ok(client)
-}
-
-async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+async fn create_sync_test_client() -> anyhow::Result<Client<SubxtClient, SubxtBlockInfoProvider>> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2139,6 +2134,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
 	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
 	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
+	let backend = SubxtClient::new(api, rpc_client, rpc).await?;
 
 	let pool = SqlitePoolOptions::new()
 		.max_connections(1)
@@ -2147,26 +2143,55 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
-	let receipt_provider = ReceiptProvider::new(
-		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
-		block_provider.clone(),
-		receipt_extractor,
-		None,
-	)
-	.await?;
+	let receipt_extractor = ReceiptExtractor::new_from_substrate_client(backend.clone(), None);
+	let db_ctx = DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER);
+	let receipt_provider =
+		ReceiptProvider::new(db_ctx, block_provider.clone(), receipt_extractor, None).await?;
 
-	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
-	let client = Client::new(
-		api,
-		rpc_client,
-		rpc,
+	let (subscription_gap_queue, _gap_fill_rx) = SubscriptionGapQueue::new();
+	let client = Client::from_backend(
+		backend,
 		block_provider,
 		receipt_provider,
 		true,
 		subscription_gap_queue,
-	)
-	.await?;
+	)?;
+	Ok(client)
+}
+
+/// Like [`create_sync_test_client`] but also returns the gap-fill receiver so that tests can
+/// drive [`Client::run_subscription_gap_filler`] manually.
+async fn create_sync_test_client_with_subscription_gap_queue()
+-> anyhow::Result<(Client<SubxtClient, SubxtBlockInfoProvider>, mpsc::Receiver<GapFillRequest>)> {
+	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
+
+	let node_url = SharedResources::node_rpc_url();
+	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
+	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
+	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
+	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
+	let backend = SubxtClient::new(api, rpc_client, rpc).await?;
+
+	let pool = SqlitePoolOptions::new()
+		.max_connections(1)
+		.idle_timeout(None)
+		.max_lifetime(None)
+		.connect_with(SqliteConnectOptions::new().in_memory(true))
+		.await?;
+
+	let receipt_extractor = ReceiptExtractor::new_from_substrate_client(backend.clone(), None);
+	let db_ctx = DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER);
+	let receipt_provider =
+		ReceiptProvider::new(db_ctx, block_provider.clone(), receipt_extractor, None).await?;
+
+	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
+	let client = Client::from_backend(
+		backend,
+		block_provider,
+		receipt_provider,
+		true,
+		subscription_gap_queue,
+	)?;
 	Ok((client, gap_fill_rx))
 }
 
@@ -2194,7 +2219,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	}
 
 	// Capture finalized before sync — Head will be set to this snapshot.
-	let finalized_before_sync = client.latest_finalized_block().await.block_number();
+	let finalized_before_sync = client.latest_finalized_block().await.number();
 
 	// Run the full backward sync.
 	client.sync_backward().await?;
@@ -2237,12 +2262,12 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 
 	// Block hash mappings should be queryable after sync.
 	let finalized = client.latest_finalized_block().await;
-	let substrate_hash = finalized.block_hash();
+	let substrate_hash = finalized.hash();
 	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
 	assert!(
 		ethereum_hash.is_some(),
 		"Finalized block #{} should have an ethereum hash mapping after sync",
-		finalized.block_number(),
+		finalized.number(),
 	);
 	assert_eq!(
 		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
@@ -2322,7 +2347,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	client.sync_backward().await?;
 
 	// Pick two blocks to simulate partial coverage: tail at 1/3, head at 2/3.
-	let chain_len = client.latest_finalized_block().await.block_number();
+	let chain_len = client.latest_finalized_block().await.number();
 
 	let tail_num = chain_len / 3;
 	let tail_block = client
@@ -2339,8 +2364,8 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.expect("Head block should exist");
 
 	// Overwrite both labels to simulate an interrupted sync with a partial range.
-	let interrupted_tail = SyncCheckpoint::new(tail_block.block_number(), tail_block.block_hash());
-	let interrupted_head = SyncCheckpoint::new(head_block.block_number(), head_block.block_hash());
+	let interrupted_tail = SyncCheckpoint::new(tail_block.number(), tail_block.hash());
+	let interrupted_head = SyncCheckpoint::new(head_block.number(), head_block.hash());
 
 	client
 		.receipt_provider()
@@ -2352,7 +2377,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.await?;
 
 	// Capture finalized before resume — Head will be set to this snapshot.
-	let finalized_before_resume = client.latest_finalized_block().await.block_number();
+	let finalized_before_resume = client.latest_finalized_block().await.number();
 
 	// Resume sync — fills top gap and bottom gap.
 	client.sync_backward().await?;
@@ -2425,7 +2450,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 		.await?;
 
 	// --- SyncBoundaryMismatch: corrupted Head hash ---
-	let chain_len = client.latest_finalized_block().await.block_number();
+	let chain_len = client.latest_finalized_block().await.number();
 	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
 		.receipt_provider()
@@ -2446,7 +2471,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	// First sync: snapshot the current chain state.
 	let client1 = create_sync_test_client().await?;
-	let finalized1 = client1.latest_finalized_block().await.block_number();
+	let finalized1 = client1.latest_finalized_block().await.number();
 
 	client1.sync_backward().await?;
 
@@ -2459,26 +2484,22 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 
 	client2.sync_backward().await?;
 	assert!(
-		finalized2.block_number() > finalized1,
+		finalized2.number() > finalized1,
 		"Second finalized #{} should be higher than first #{finalized1}",
-		finalized2.block_number(),
+		finalized2.number(),
 	);
 
 	// The new block should have an ethereum hash mapping in client2's DB.
 	assert!(
-		client2
-			.receipt_provider()
-			.get_ethereum_hash(&finalized2.block_hash())
-			.await
-			.is_some(),
+		client2.receipt_provider().get_ethereum_hash(&finalized2.hash()).await.is_some(),
 		"New finalized block #{} should be synced in client2",
-		finalized2.block_number(),
+		finalized2.number(),
 	);
 
 	log::debug!(
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
-		finalized2.block_number(),
+		finalized2.number(),
 		client2.receipt_provider().first_evm_block().unwrap_or(0),
 	);
 
@@ -3518,7 +3539,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// Query the chain directly; the sync_client's cached finalized block is stale
 	// because this client doesn't run subscriptions.
-	let new_finalized_number = sync_client.api().at_current_block().await?.block_number();
+	let new_finalized_number = sync_client.api().at_current_block().await?.block_number() as u32;
 	assert!(
 		new_finalized_number > head_after_sync,
 		"New finalized #{new_finalized_number} should be higher than synced head #{head_after_sync}"
@@ -3535,7 +3556,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(
 		sync_client
 			.receipt_provider()
-			.get_ethereum_hash(&unsynced_block.block_hash())
+			.get_ethereum_hash(&unsynced_block.hash())
 			.await
 			.is_none(),
 		"Block #{gap_block} should not be in DB before gap fill"
@@ -3566,7 +3587,7 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 	assert!(
 		sync_client
 			.receipt_provider()
-			.get_ethereum_hash(&unsynced_block.block_hash())
+			.get_ethereum_hash(&unsynced_block.hash())
 			.await
 			.is_some(),
 		"Block #{gap_block} should be in DB after gap fill"

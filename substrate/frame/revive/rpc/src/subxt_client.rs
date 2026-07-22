@@ -28,7 +28,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	),
 
 	substitute_type(
-		path = "sp_runtime::generic::block::Block<A, B, C, D, E>",
+		path = "sp_runtime::generic::block::Block<A, B>",
 		with = "::subxt::utils::Static<::sp_runtime::generic::Block<
 		::sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
 		::sp_runtime::OpaqueExtrinsic
@@ -630,3 +630,694 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 )]
 mod src_chain {}
 pub use src_chain::*;
+
+use crate::{
+	BlockId,
+	block_info_provider::{BlockInfo, BlockInfoProvider},
+	client::{Balance, ClientError, SubscriptionType, SubstrateBlockHash, SubstrateBlockNumber},
+	substrate_client::{NodeHealth, RawExtrinsic, SubmitResult, SubstrateClient},
+};
+use futures::TryStreamExt;
+use jsonrpsee::core::async_trait;
+use pallet_revive::evm::U256;
+use pallet_revive_types::runtime_api::{
+	BlockV1 as EthBlock, EthTransactInfoV1 as EthTransactInfo,
+	GenericTransactionV1 as GenericTransaction, ReceiptGasInfoV1,
+	StateOverrideSetV1 as StateOverrideSet, TraceV1, TracerTypeV1,
+};
+use sp_core::H256;
+use sp_weights::Weight;
+use std::{sync::Arc, time::Duration};
+use subxt::{
+	OnlineClient,
+	backend::{StreamOf, StreamOfResults},
+	client::OnlineClientAtBlock,
+	config::RpcConfigFor,
+	error::OnlineClientAtBlockError,
+	rpcs::{
+		RpcClient,
+		methods::{LegacyRpcMethods, legacy::TransactionStatus as SubxtTxStatus},
+		rpc_params,
+	},
+};
+use tokio::sync::RwLock;
+
+/// A handle to a substrate block at a specific height (subxt-backed).
+pub type SubstrateBlock = OnlineClientAtBlock<SrcChainConfig>;
+
+/// The substrate block header.
+pub type SubstrateBlockHeader = <SrcChainConfig as subxt::Config>::Header;
+
+fn system_health_from_subxt(h: subxt::rpcs::methods::legacy::SystemHealth) -> NodeHealth {
+	NodeHealth { peers: h.peers, is_syncing: h.is_syncing, should_have_peers: h.should_have_peers }
+}
+
+/// A lightweight block-info value returned by [`SubxtClient`].
+#[derive(Clone, Debug)]
+pub struct SubxtBlockInfo {
+	pub hash: SubstrateBlockHash,
+	pub number: SubstrateBlockNumber,
+	pub parent_hash: SubstrateBlockHash,
+}
+
+impl BlockInfo for SubxtBlockInfo {
+	fn hash(&self) -> H256 {
+		self.hash
+	}
+
+	fn number(&self) -> SubstrateBlockNumber {
+		self.number
+	}
+
+	fn parent_hash(&self) -> H256 {
+		self.parent_hash
+	}
+}
+
+/// Materialize a lightweight [`SubxtBlockInfo`] from a subxt block handle.
+///
+/// In subxt 0.50 a [`SubstrateBlock`] (`OnlineClientAtBlock`) is a lazy handle whose header is
+/// fetched asynchronously, so we snapshot the fields the generic client needs (which are exposed
+/// synchronously through the [`BlockInfo`] trait) up-front.
+async fn block_info_from_subxt(block: &SubstrateBlock) -> Result<SubxtBlockInfo, ClientError> {
+	let header = block.block_header().await?;
+	Ok(SubxtBlockInfo {
+		hash: block.block_hash(),
+		// The source runtime uses `u32` block numbers (see the metadata substitution above); subxt
+		// exposes them as `u64`, so narrow back to the native `SubstrateBlockNumber`.
+		number: header.number as SubstrateBlockNumber,
+		parent_hash: header.parent_hash,
+	})
+}
+
+/// The subxt-backed block info provider.
+#[derive(Clone)]
+pub struct SubxtBlockInfoProvider {
+	/// The latest block.
+	latest_block: Arc<RwLock<Arc<SubxtBlockInfo>>>,
+
+	/// The latest finalized block.
+	latest_finalized_block: Arc<RwLock<Arc<SubxtBlockInfo>>>,
+
+	/// The rpc client, used to fetch blocks not in the cache.
+	rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
+
+	/// The api client, used to fetch blocks not in the cache.
+	api: OnlineClient<SrcChainConfig>,
+}
+
+impl SubxtBlockInfoProvider {
+	pub async fn new(
+		api: OnlineClient<SrcChainConfig>,
+		rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
+	) -> Result<Self, ClientError> {
+		let block = api.at_current_block().await?;
+		let latest = Arc::new(block_info_from_subxt(&block).await?);
+		Ok(Self {
+			api,
+			rpc,
+			latest_block: Arc::new(RwLock::new(latest.clone())),
+			latest_finalized_block: Arc::new(RwLock::new(latest)),
+		})
+	}
+}
+
+#[async_trait]
+impl BlockInfoProvider for SubxtBlockInfoProvider {
+	type Block = SubxtBlockInfo;
+
+	async fn update_latest(&self, block: Arc<SubxtBlockInfo>, subscription_type: SubscriptionType) {
+		let mut latest = match subscription_type {
+			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
+			SubscriptionType::BestBlocks => self.latest_block.write().await,
+		};
+		*latest = block;
+	}
+
+	async fn latest_block(&self) -> Arc<SubxtBlockInfo> {
+		self.latest_block.read().await.clone()
+	}
+
+	async fn latest_finalized_block(&self) -> Arc<SubxtBlockInfo> {
+		self.latest_finalized_block.read().await.clone()
+	}
+
+	async fn block_by_number(
+		&self,
+		block_number: SubstrateBlockNumber,
+	) -> Result<Option<Arc<SubxtBlockInfo>>, ClientError> {
+		let latest = self.latest_block().await;
+		if block_number == latest.number() {
+			return Ok(Some(latest));
+		}
+
+		let latest_finalized = self.latest_finalized_block().await;
+		if block_number == latest_finalized.number() {
+			return Ok(Some(latest_finalized));
+		}
+
+		let Some(hash) = self.rpc.chain_get_block_hash(Some(block_number.into())).await? else {
+			return Ok(None);
+		};
+
+		match self.api.at_block(hash).await {
+			Ok(block) => Ok(Some(Arc::new(block_info_from_subxt(&block).await?))),
+			Err(
+				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
+				OnlineClientAtBlockError::BlockNotFound { .. },
+			) => Ok(None),
+			Err(err) => Err(err.into()),
+		}
+	}
+
+	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubxtBlockInfo>>, ClientError> {
+		let latest = self.latest_block().await;
+		if hash == &latest.hash() {
+			return Ok(Some(latest));
+		}
+
+		let latest_finalized = self.latest_finalized_block().await;
+		if hash == &latest_finalized.hash() {
+			return Ok(Some(latest_finalized));
+		}
+
+		match self.api.at_block(*hash).await {
+			Ok(block) => Ok(Some(Arc::new(block_info_from_subxt(&block).await?))),
+			Err(
+				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
+				OnlineClientAtBlockError::BlockNotFound { .. },
+			) => Ok(None),
+			Err(err) => Err(err.into()),
+		}
+	}
+}
+
+/// [`SubstrateClient`] implementation backed by a `subxt` WebSocket connection.
+#[derive(Clone)]
+pub struct SubxtClient {
+	pub(crate) api: OnlineClient<SrcChainConfig>,
+	pub(crate) rpc_client: RpcClient,
+	pub(crate) rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
+	pub(crate) chain_id: u64,
+	pub(crate) max_block_weight: Weight,
+	pub(crate) pallet_revive_index: u8,
+}
+
+impl SubxtClient {
+	pub async fn new(
+		api: OnlineClient<SrcChainConfig>,
+		rpc_client: RpcClient,
+		rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
+	) -> Result<Self, ClientError> {
+		let at_block = api.at_current_block().await?;
+
+		let chain_id = {
+			let query = constants().revive().chain_id().unvalidated();
+			at_block.constants().entry(query)?
+		};
+
+		let max_block_weight = {
+			let query = constants().system().block_weights().unvalidated();
+			let weights = at_block.constants().entry(query)?;
+			let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
+			max_block.0
+		};
+
+		let pallet_revive_index = at_block
+			.metadata()
+			.pallet_by_name("Revive")
+			.map(|p| p.call_index())
+			.unwrap_or_else(|| {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"Revive pallet not found in subxt metadata; \
+					 falling back to default pallet index 253."
+				);
+				253
+			});
+
+		Ok(Self { api, rpc_client, rpc, chain_id, max_block_weight, pallet_revive_index })
+	}
+}
+
+#[async_trait]
+impl SubstrateClient for SubxtClient {
+	type BlockInfo = SubxtBlockInfo;
+
+	fn chain_id(&self) -> u64 {
+		self.chain_id
+	}
+
+	fn max_block_weight(&self) -> Weight {
+		self.max_block_weight
+	}
+
+	async fn block_by_hash(
+		&self,
+		hash: &SubstrateBlockHash,
+	) -> Result<Option<SubxtBlockInfo>, ClientError> {
+		match self.api.at_block(*hash).await {
+			Ok(b) => Ok(Some(block_info_from_subxt(&b).await?)),
+			Err(
+				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
+				OnlineClientAtBlockError::BlockNotFound { .. },
+			) => Ok(None),
+			Err(e) => Err(e.into()),
+		}
+	}
+
+	async fn block_by_number(
+		&self,
+		number: SubstrateBlockNumber,
+	) -> Result<Option<SubxtBlockInfo>, ClientError> {
+		let Some(hash) = self.rpc.chain_get_block_hash(Some(number.into())).await? else {
+			return Ok(None);
+		};
+		self.block_by_hash(&hash).await
+	}
+
+	async fn latest_block(&self) -> Result<SubxtBlockInfo, ClientError> {
+		let block = self.api.at_current_block().await?;
+		block_info_from_subxt(&block).await
+	}
+
+	async fn latest_finalized_block(&self) -> Result<SubxtBlockInfo, ClientError> {
+		let hash = self.rpc.chain_get_finalized_head().await?;
+		let block = self.api.at_block(hash).await?;
+		block_info_from_subxt(&block).await
+	}
+
+	async fn dry_run(
+		&self,
+		block_hash: SubstrateBlockHash,
+		tx: GenericTransaction,
+		block: BlockId,
+		state_overrides: Option<StateOverrideSet>,
+	) -> Result<EthTransactInfo<Balance>, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?)
+			.dry_run(tx, block, state_overrides)
+			.await
+	}
+
+	async fn estimate_gas(
+		&self,
+		block_hash: SubstrateBlockHash,
+		tx: GenericTransaction,
+		block: BlockId,
+	) -> Result<U256, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?)
+			.estimate_gas(tx, block)
+			.await
+	}
+
+	async fn gas_price(&self, block_hash: SubstrateBlockHash) -> Result<U256, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?).gas_price().await
+	}
+
+	async fn balance(
+		&self,
+		block_hash: SubstrateBlockHash,
+		address: sp_core::H160,
+	) -> Result<U256, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?).balance(address).await
+	}
+
+	async fn nonce(
+		&self,
+		block_hash: SubstrateBlockHash,
+		address: sp_core::H160,
+	) -> Result<U256, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?).nonce(address).await
+	}
+
+	async fn code(
+		&self,
+		block_hash: SubstrateBlockHash,
+		address: sp_core::H160,
+	) -> Result<Vec<u8>, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?).code(address).await
+	}
+
+	async fn get_storage(
+		&self,
+		block_hash: SubstrateBlockHash,
+		address: sp_core::H160,
+		key: [u8; 32],
+	) -> Result<Option<Vec<u8>>, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?)
+			.get_storage(address, key)
+			.await
+	}
+
+	async fn eth_block(&self, block_hash: SubstrateBlockHash) -> Result<EthBlock, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?).eth_block().await
+	}
+
+	async fn eth_block_hash(
+		&self,
+		block_hash: SubstrateBlockHash,
+		number: U256,
+	) -> Result<Option<H256>, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?)
+			.eth_block_hash(number)
+			.await
+	}
+
+	async fn eth_receipt_data(
+		&self,
+		block_hash: SubstrateBlockHash,
+	) -> Result<Vec<ReceiptGasInfoV1>, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?).eth_receipt_data().await
+	}
+
+	async fn trace_block(
+		&self,
+		_block_hash: SubstrateBlockHash,
+		block: sp_runtime::generic::Block<
+			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+			sp_runtime::OpaqueExtrinsic,
+		>,
+		config: TracerTypeV1,
+	) -> Result<Vec<(u32, TraceV1)>, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		let parent = block.header.parent_hash;
+		RuntimeApi::new(self.api.at_block(parent).await?)
+			.trace_block(block, config)
+			.await
+	}
+
+	async fn trace_tx(
+		&self,
+		_block_hash: SubstrateBlockHash,
+		block: sp_runtime::generic::Block<
+			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+			sp_runtime::OpaqueExtrinsic,
+		>,
+		transaction_index: u32,
+		config: TracerTypeV1,
+	) -> Result<TraceV1, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		let parent = block.header.parent_hash;
+		RuntimeApi::new(self.api.at_block(parent).await?)
+			.trace_tx(block, transaction_index, config)
+			.await
+	}
+
+	async fn trace_call(
+		&self,
+		block_hash: SubstrateBlockHash,
+		transaction: GenericTransaction,
+		config: TracerTypeV1,
+		state_overrides: Option<StateOverrideSet>,
+	) -> Result<TraceV1, ClientError> {
+		use crate::client::runtime_api::RuntimeApi;
+		RuntimeApi::new(self.api.at_block(block_hash).await?)
+			.trace_call(transaction, config, state_overrides)
+			.await
+	}
+
+	async fn submit_extrinsic(&self, payload: Vec<u8>) -> Result<SubmitResult, ClientError> {
+		let call = tx().revive().eth_transact(payload);
+		let at_block = self.api.at_current_block().await?;
+		let ext = at_block.tx().create_unsigned(&call)?;
+
+		let sub = self
+			.rpc_client
+			.subscribe(
+				"author_submitAndWatchExtrinsic",
+				rpc_params![to_hex(ext.encoded())],
+				"author_unwatchExtrinsic",
+			)
+			.await?;
+
+		let mut stream: StreamOfResults<SubxtTxStatus<SubstrateBlockHash>> =
+			StreamOf::new(Box::pin(sub.map_err(|e| e.into())));
+
+		tokio::time::timeout(std::time::Duration::from_secs(5), async {
+			if let Some(status) = stream.next().await {
+				let subxt_status: SubxtTxStatus<SubstrateBlockHash> =
+					status.map_err(ClientError::from)?;
+				let pool_status = subxt_tx_status_to_submit_result(subxt_status);
+
+				match pool_status {
+					SubmitResult::Usurped(_) | SubmitResult::Dropped | SubmitResult::Invalid => {
+						return Err(ClientError::SubmitError(crate::client::SubmitError::from(
+							pool_status,
+						)));
+					},
+					other => return Ok(other),
+				}
+			}
+			Err(ClientError::SubmitError(crate::client::SubmitError::StreamEnded))
+		})
+		.await
+		.map_err(|_| ClientError::Timeout)?
+	}
+
+	async fn sync_state(
+		&self,
+	) -> Result<sc_rpc::system::SyncState<SubstrateBlockNumber>, ClientError> {
+		let sync_state: sc_rpc::system::SyncState<SubstrateBlockNumber> =
+			self.rpc_client.request("system_syncState", Default::default()).await?;
+		Ok(sync_state)
+	}
+
+	async fn system_health(&self) -> Result<NodeHealth, ClientError> {
+		Ok(system_health_from_subxt(self.rpc.system_health().await?))
+	}
+
+	async fn get_automine(&self) -> bool {
+		self.rpc_client
+			.request::<bool>("getAutomine", rpc_params![])
+			.await
+			.unwrap_or(false)
+	}
+
+	async fn subscribe_blocks(
+		&self,
+		subscription_type: SubscriptionType,
+	) -> Result<tokio::sync::mpsc::Receiver<SubxtBlockInfo>, ClientError> {
+		let mut block_stream = match subscription_type {
+			SubscriptionType::BestBlocks => self.api.stream_best_blocks().await,
+			SubscriptionType::FinalizedBlocks => self.api.stream_blocks().await,
+		}?;
+
+		let (tx, rx) = tokio::sync::mpsc::channel(crate::client::NOTIFIER_CAPACITY);
+		tokio::spawn(async move {
+			while let Some(block) = block_stream.next().await {
+				let block = match block {
+					Ok(b) => b,
+					Err(err) => {
+						let err = subxt::Error::from(err);
+						if err.is_disconnected_will_reconnect() {
+							log::warn!(
+								target: crate::LOG_TARGET,
+								"RPC connection lost ({subscription_type:?}): {err:?}"
+							);
+							continue;
+						}
+						log::error!(
+							target: crate::LOG_TARGET,
+							"block subscription failed ({subscription_type:?}): {err:?}"
+						);
+						break;
+					},
+				};
+
+				let block = match block.at().await {
+					Ok(b) => b,
+					Err(err) => {
+						log::error!(
+							target: crate::LOG_TARGET,
+							"failed to resolve block ({subscription_type:?}): {err:?}"
+						);
+						continue;
+					},
+				};
+				let info = match block_info_from_subxt(&block).await {
+					Ok(info) => info,
+					Err(err) => {
+						log::error!(
+							target: crate::LOG_TARGET,
+							"failed to build block info ({subscription_type:?}): {err:?}"
+						);
+						continue;
+					},
+				};
+
+				if tx.send(info).await.is_err() {
+					break;
+				}
+			}
+		});
+
+		Ok(rx)
+	}
+
+	async fn signed_block(
+		&self,
+		block_hash: SubstrateBlockHash,
+	) -> Result<
+		sp_runtime::generic::Block<
+			sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+			sp_runtime::OpaqueExtrinsic,
+		>,
+		ClientError,
+	> {
+		let signed: sp_runtime::generic::SignedBlock<
+			sp_runtime::generic::Block<
+				sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+				sp_runtime::OpaqueExtrinsic,
+			>,
+		> = self.rpc_client.request("chain_getBlock", rpc_params![block_hash]).await?;
+		Ok(signed.block)
+	}
+
+	async fn block_extrinsics(
+		&self,
+		block_hash: SubstrateBlockHash,
+	) -> Result<Vec<RawExtrinsic>, ClientError> {
+		let block = self.api.at_block(block_hash).await?;
+		let extrinsics = block.extrinsics().fetch().await?;
+		extrinsics
+			.iter()
+			.enumerate()
+			.map(|(index, ext)| {
+				let ext = ext?;
+				Ok(RawExtrinsic { payload: ext.bytes().to_vec(), index })
+			})
+			.collect()
+	}
+
+	async fn block_events(
+		&self,
+		block_hash: SubstrateBlockHash,
+	) -> Result<Option<crate::receipt_extractor::BlockEvents>, ClientError> {
+		use revive::events::{ContractEmitted, EthExtrinsicRevert};
+		use subxt::events::{DecodeAsEvent as _, Phase};
+
+		let block = match self.api.at_block(block_hash).await {
+			Ok(b) => b,
+			Err(
+				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
+				OnlineClientAtBlockError::BlockNotFound { .. },
+			) => return Ok(None),
+			Err(e) => return Err(e.into()),
+		};
+
+		let extrinsics = block.extrinsics().fetch().await?;
+		let num_extrinsics = extrinsics.iter().count();
+		let events = block.events().fetch().await?;
+
+		let mut block_events: crate::receipt_extractor::BlockEvents = (0..num_extrinsics)
+			.map(|_| crate::receipt_extractor::ExtrinsicEvents { success: true, logs: vec![] })
+			.collect();
+
+		for event_result in events.iter() {
+			let event = match event_result {
+				Ok(e) => e,
+				Err(_) => continue,
+			};
+
+			let extrinsic_idx = match event.phase() {
+				Phase::ApplyExtrinsic(idx) => idx as usize,
+				_ => continue,
+			};
+
+			if extrinsic_idx >= block_events.len() {
+				continue;
+			}
+
+			let pallet_name = event.pallet_name();
+			let event_name = event.event_name();
+
+			if EthExtrinsicRevert::is_event(pallet_name, event_name) {
+				block_events[extrinsic_idx].success = false;
+			} else if ContractEmitted::is_event(pallet_name, event_name) {
+				if let Some(Ok(evt)) = event.decode_fields_as::<ContractEmitted>() {
+					block_events[extrinsic_idx].logs.push((
+						evt.contract,
+						evt.topics,
+						Some(evt.data),
+					));
+				}
+			}
+		}
+
+		Ok(Some(block_events))
+	}
+
+	async fn extrinsic_post_dispatch_weight(
+		&self,
+		block_hash: SubstrateBlockHash,
+		extrinsic_index: usize,
+	) -> Option<sp_weights::Weight> {
+		use system::events::ExtrinsicSuccess;
+		let block = self.api.at_block(block_hash).await.ok()?;
+		let extrinsics = block.extrinsics().fetch().await.ok()?;
+		let ext = extrinsics.iter().nth(extrinsic_index)?.ok()?;
+		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>()?.ok()?;
+		Some(event.dispatch_info.weight.0)
+	}
+
+	fn pallet_revive_index(&self) -> u8 {
+		self.pallet_revive_index
+	}
+}
+
+fn to_hex(bytes: impl AsRef<[u8]>) -> String {
+	format!("0x{}", hex::encode(bytes.as_ref()))
+}
+
+fn subxt_tx_status_to_submit_result(s: SubxtTxStatus<SubstrateBlockHash>) -> SubmitResult {
+	use sc_transaction_pool_api::TransactionStatus as Pool;
+	match s {
+		SubxtTxStatus::Future => Pool::Future,
+		SubxtTxStatus::Ready => Pool::Ready,
+		SubxtTxStatus::Broadcast(peers) => Pool::Broadcast(peers),
+		SubxtTxStatus::InBlock(hash) => Pool::InBlock((hash, 0)),
+		SubxtTxStatus::Retracted(hash) => Pool::Retracted(hash),
+		SubxtTxStatus::FinalityTimeout(hash) => Pool::FinalityTimeout(hash),
+		SubxtTxStatus::Finalized(hash) => Pool::Finalized((hash, 0)),
+		SubxtTxStatus::Usurped(hash) => Pool::Usurped(hash),
+		SubxtTxStatus::Dropped => Pool::Dropped,
+		SubxtTxStatus::Invalid => Pool::Invalid,
+	}
+}
+
+use subxt::rpcs::client::reconnecting_rpc_client::{
+	ExponentialBackoff, RpcClient as ReconnectingRpcClient,
+};
+
+pub async fn connect(
+	node_rpc_url: &str,
+	max_request_size: u32,
+	max_response_size: u32,
+) -> Result<
+	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	ClientError,
+> {
+	log::info!(target: crate::LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
+	let rpc_client = ReconnectingRpcClient::builder()
+		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
+		.max_request_size(max_request_size)
+		.max_response_size(max_response_size)
+		.build(node_rpc_url.to_string())
+		.await?;
+	let rpc_client = RpcClient::new(rpc_client);
+	log::info!(target: crate::LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
+
+	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
+	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
+	Ok((api, rpc_client, rpc))
+}

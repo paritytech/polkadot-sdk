@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "subxt")]
 use crate::{
 	BlockId, ClientError,
 	client::Balance,
@@ -25,6 +26,7 @@ use pallet_revive::evm::{H160, U256};
 use pallet_revive_types::runtime_api::*;
 use sp_core::H256;
 use sp_timestamp::Timestamp;
+#[cfg(feature = "subxt")]
 use subxt::{
 	client::OnlineClientAtBlock,
 	error::{BackendError, RpcError, RuntimeApiError},
@@ -34,11 +36,12 @@ use subxt::{
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
 /// A wrapper around the subxt Runtime API for a given block.
-#[derive(Clone)]
+#[cfg(feature = "subxt")]
 pub struct RuntimeApi {
 	at_block: OnlineClientAtBlock<SrcChainConfig>,
 }
 
+#[cfg(feature = "subxt")]
 impl RuntimeApi {
 	/// Create a new instance.
 	pub fn new(at_block: OnlineClientAtBlock<SrcChainConfig>) -> Self {
@@ -73,8 +76,7 @@ impl RuntimeApi {
 		Ok(result)
 	}
 
-	/// Estimates the minimum gas limit required for the transaction execution. Returns a [`U256`]
-	/// of the gas limit.
+	/// Estimate the gas for the given transaction.
 	pub async fn estimate_gas(
 		&self,
 		tx: GenericTransactionV1,
@@ -135,15 +137,12 @@ impl RuntimeApi {
 				Err(RuntimeApiError::MethodNotFound { method_name, .. }) => {
 					log::debug!(target: LOG_TARGET, "Method {method_name:?} not found falling back");
 				},
-				// Hit when the target block's runtime wasm doesn't export the method:
-				// `sc-executor` returns "Exported method <name> is not found" (see
-				// `substrate/client/executor/wasmtime/src/instance_wrapper.rs`).
 				Err(RuntimeApiError::CannotCallApi(BackendError::Rpc(RpcError::ClientError(
 					RpcsError::User(UserError { message, .. }),
 				)))) if message.contains("is not found") => {
 					log::debug!(target: LOG_TARGET, "{message:?} not found falling back")
 				},
-				Err(err) => return Err(subxt::Error::from(err).into()),
+				Err(err) => return Err(err.into()),
 			}
 		}
 
@@ -172,33 +171,28 @@ impl RuntimeApi {
 			.call(payload)
 			.or_else(|err| async {
 				match err {
-					// This will be hit if subxt metadata does not contain the new method.
+					// This will be hit if subxt metadata (subxt uses the latest finalized block
+					// metadata when the eth-rpc starts) does not contain the new method
 					RuntimeApiError::MethodNotFound { method_name, .. } => {
 						log::debug!(target: LOG_TARGET, "Method {method_name:?} not found falling back to eth_transact");
-						let payload = subxt_client::runtime_apis()
-							.revive_api()
-							.eth_transact(tx.into())
-							.unvalidated();
+						let payload =
+							subxt_client::runtime_apis().revive_api().eth_transact(tx.into()).unvalidated();
 						self.at_block.runtime_apis().call(payload).await
 					},
-					// Hit when the target block's runtime predates `eth_transact_with_config`:
-					// `sc-executor` returns "Exported method <name> is not found" (see
-					// `substrate/client/executor/wasmtime/src/instance_wrapper.rs`).
+					// This will be hit if we are trying to hit a block where the runtime did not
+					// have this new runtime `eth_transact_with_config` defined
 					RuntimeApiError::CannotCallApi(BackendError::Rpc(RpcError::ClientError(
 						RpcsError::User(UserError { ref message, .. }),
 					))) if message.contains("eth_transact_with_config is not found") => {
 						log::debug!(target: LOG_TARGET, "{message:?} not found falling back to eth_transact");
-						let payload = subxt_client::runtime_apis()
-							.revive_api()
-							.eth_transact(tx.into())
-							.unvalidated();
+						let payload =
+							subxt_client::runtime_apis().revive_api().eth_transact(tx.into()).unvalidated();
 						self.at_block.runtime_apis().call(payload).await
 					},
 					e => Err(e),
 				}
 			})
-			.await
-			.map_err(subxt::Error::from)?;
+			.await?;
 
 		match result {
 			Err(err) => {
@@ -222,20 +216,6 @@ impl RuntimeApi {
 		let payload = subxt_client::runtime_apis().revive_api().gas_price().unvalidated();
 		let gas_price = self.at_block.runtime_apis().call(payload).await?;
 		Ok(*gas_price)
-	}
-
-	/// Convert a weight to a fee.
-	pub async fn block_gas_limit(&self) -> Result<U256, ClientError> {
-		let payload = subxt_client::runtime_apis().revive_api().block_gas_limit().unvalidated();
-		let gas_limit = self.at_block.runtime_apis().call(payload).await?;
-		Ok(*gas_limit)
-	}
-
-	/// Get the miner address
-	pub async fn block_author(&self) -> Result<H160, ClientError> {
-		let payload = subxt_client::runtime_apis().revive_api().block_author().unvalidated();
-		let author = self.at_block.runtime_apis().call(payload).await?;
-		Ok(author)
 	}
 
 	/// Get the trace for the given transaction index in the given block.

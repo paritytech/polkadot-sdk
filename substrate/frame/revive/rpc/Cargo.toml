@@ -19,11 +19,50 @@ exclude-from-umbrella = true
 name = "eth-rpc"
 path = "src/main.rs"
 
+[[example]]
+name = "tx-types"
+required-features = ["subxt"]
+
+[[example]]
+name = "transfer"
+required-features = ["subxt"]
+
+[[example]]
+name = "extrinsic"
+required-features = ["subxt"]
+
+[[example]]
+name = "remark-extrinsic"
+required-features = ["subxt"]
+
+[features]
+default = ["subxt"]
+subxt = [
+	"dep:revive-dev-runtime",
+	"dep:sp-io",
+	"dep:subxt",
+	"dep:subxt-signer",
+]
+try-runtime = [
+	"frame-system/try-runtime",
+	"pallet-revive/try-runtime",
+	"revive-dev-runtime?/try-runtime",
+	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
+	"revive-dev-runtime?/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+
 [dependencies]
 alloy-rpc-types = { workspace = true, default-features = true, features = [
 	"trace",
 ] }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true }
@@ -38,15 +77,18 @@ pallet-revive-types = { workspace = true, features = ["std"] }
 prometheus-endpoint = { workspace = true, default-features = true }
 rlp = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
-serde = { workspace = true, default-features = true, features = [
-	"alloc",
-	"derive",
-] }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true }
+sp-api = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
@@ -54,13 +96,14 @@ sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
-subxt = { workspace = true, default-features = true, features = [
-	"reconnecting-rpc-client",
-] }
-subxt-signer = { workspace = true, features = ["unstable-eth"] }
+subxt-metadata = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { workspace = true }
+
+# Optional
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"], optional = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"], optional = true }
 
 [dev-dependencies]
 alloy-network = { workspace = true, default-features = true }
@@ -77,10 +120,10 @@ pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }
 revive-dev-runtime = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
 tempfile = { workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }
-revive-dev-runtime = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+revive-dev-runtime = { optional = true, workspace = true, default-features = true }
+sp-io = { optional = true, workspace = true, default-features = true }

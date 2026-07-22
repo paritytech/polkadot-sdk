@@ -346,6 +346,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
+		Self::Block,
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
 		Store,
 	>;
@@ -573,6 +574,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
+				let network = network.clone();
+				let sync_service = sync_service.clone();
 				let hop_pool = hop_pool.clone();
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
@@ -582,6 +585,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						statement_store.clone(),
 						hop_pool.clone(),
 						spawn_handle.clone(),
+						network.clone(),
+						sync_service.clone(),
 					)
 				})
 			};

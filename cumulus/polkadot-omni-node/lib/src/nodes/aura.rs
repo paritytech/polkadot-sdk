@@ -54,6 +54,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
+use pallet_revive_eth_rpc::native_client::ReviveRuntimeApiT;
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
@@ -194,11 +195,12 @@ where
 impl<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport> NodeSpec
 	for AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
 where
-	Block: NodeBlock,
+	Block: NodeBlock<BoundedNumber = u32>,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ ReviveRuntimeApiT<Block, u64>,
 	AuraId: AuraIdT + Sync + Send + 'static,
 	StartConsensus: self::StartConsensus<
 			Block,
@@ -440,6 +442,8 @@ where
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
+			let network = network.clone();
+			let sync_service = sync_service.clone();
 			let hop_pool = hop_pool.clone();
 
 			Box::new(move |_| {
@@ -450,6 +454,8 @@ where
 					statement_store.clone(),
 					hop_pool.clone(),
 					spawn_handle.clone(),
+					network.clone(),
+					sync_service.clone(),
 				)?;
 				Ok(module)
 			})
@@ -583,13 +589,14 @@ pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(
 	extra_args: &NodeExtraArgs,
 ) -> Box<dyn DynNodeSpec>
 where
-	Block: NodeBlock,
+	Block: NodeBlock<BoundedNumber = u32>,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ TargetBlockRate<Block>
-		+ GetParachainInfo<Block>,
+		+ GetParachainInfo<Block>
+		+ ReviveRuntimeApiT<Block, u64>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {

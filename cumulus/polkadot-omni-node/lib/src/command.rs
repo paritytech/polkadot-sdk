@@ -63,7 +63,7 @@ pub fn new_aura_node_spec<Block>(
 	extra_args: &NodeExtraArgs,
 ) -> Box<dyn DynNodeSpec>
 where
-	Block: NodeBlock,
+	Block: NodeBlock<BoundedNumber = u32>,
 {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
@@ -91,8 +91,12 @@ fn new_node_spec(
 			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
 				new_aura_node_spec::<Block<u32>>(aura_id, extra_args)
 			},
-			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec::<Block<u64>>(aura_id, extra_args)
+			(BlockNumber::U64, Consensus::Aura(_)) => {
+				return Err(sc_cli::Error::Application(
+					"u64 block numbers are not supported when the ETH RPC (pallet-revive) \
+					 is enabled; the runtime must use u32 block numbers"
+						.into(),
+				))
 			},
 		},
 	})
