@@ -126,8 +126,11 @@ pub enum FetchError {
 /// Runs one fetch round for `source` under the included `root`: `channels`
 /// are the consumed channel streams with the runtime's resume cursors,
 /// `registers` the ack streams to head-read. On success the pool's lift
-/// target for the source is `root`. For its whole duration the round is
-/// marked in flight in the pool, which is what authoring's bounded grace
+/// target for the source is `root`. The round's in-flight marker
+/// ([`SpecMsgPool::begin_round`]) is the CALLER's job: the fetch loop marks
+/// the source at trigger receipt — ahead of the offer→round-entry hop this
+/// function sits behind — and holds the guard across the whole round (see
+/// [`run_spec_msg_fetcher`]), which is what authoring's bounded grace
 /// window keys on ([`SpecMsgPool::wait_for_in_flight_rounds`]).
 ///
 /// Register reads are best-effort: an unpublished register is refused at
@@ -150,9 +153,6 @@ pub async fn fetch_source(
 	registers: &[StreamId],
 	chunk_bytes: u32,
 ) -> Result<(), FetchError> {
-	// In flight until this guard drops — completion, failure and cancellation
-	// alike; the drop wakes any authoring task waiting out the grace window.
-	let _round = pool.begin_round(source);
 	let (mut leaves, mut bytes) = (0u64, 0u64);
 	for (stream, cursor) in channels {
 		match fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
@@ -435,6 +435,7 @@ pub async fn run_spec_msg_fetcher<Block, Client, Network>(
 	run_fetch_rounds(
 		events,
 		|provides| fetch_included(para_id, &*parachain, &network, &*peers, &pool, provides),
+		|source| pool.begin_round(source),
 		futures_timer::Delay::new,
 	)
 	.await
@@ -454,20 +455,36 @@ struct PendingRetry {
 
 /// Drives fetch rounds from monitor events with bounded in-root retries —
 /// the generic core of [`run_spec_msg_fetcher`]. `round` runs one round for
-/// a trigger; `sleep` provides the backoff timer (injected for tests).
+/// a trigger; `mark` marks the trigger's source in flight in the pool
+/// ([`SpecMsgPool::begin_round`]) the moment a trigger is acquired — at
+/// event receipt and at retry-timer fire alike, before the round future
+/// even exists — returning the guard held across the round; `sleep`
+/// provides the backoff timer (`mark` and `sleep` injected for tests).
+///
+/// Marking at trigger receipt instead of round entry is deliberate: the
+/// proposer's inherent snapshot can fire within ~1–5 ms of the monitor's
+/// offer, ahead of the offer→`fetch_source` hop (task wake plus runtime-api
+/// resolution), and an unmarked round cannot be awaited by the grace window
+/// ([`SpecMsgPool::wait_for_in_flight_rounds`]) — soak run 4's two residual
+/// first-attempt losses. The guard drops when the round returns — failures
+/// and cancellation included; a scheduled retry's backoff wait is
+/// deliberately not covered (authoring must never wait out a sleeping
+/// retry).
 ///
 /// Rounds and retries run sequentially on this one task. Due backoff timers
 /// are polled before the event channel so retry scheduling is deterministic;
 /// the ordering is immaterial for correctness — rounds are root-keyed and
 /// idempotent, and an event superseding a scheduled retry does so whenever
 /// it is received before the timer fires.
-async fn run_fetch_rounds<Round, RoundFut, Sleep, SleepFut>(
+async fn run_fetch_rounds<Round, RoundFut, Mark, Guard, Sleep, SleepFut>(
 	events: async_channel::Receiver<RelayProvidesEvent>,
 	mut round: Round,
+	mark: Mark,
 	sleep: Sleep,
 ) where
 	Round: FnMut(SourceProvides) -> RoundFut,
 	RoundFut: Future<Output = Result<(), RoundError>>,
+	Mark: Fn(ParaId) -> Guard,
 	Sleep: Fn(Duration) -> SleepFut,
 	SleepFut: Future<Output = ()> + Send + 'static,
 {
@@ -506,7 +523,15 @@ async fn run_fetch_rounds<Round, RoundFut, Sleep, SleepFut>(
 			},
 		};
 
-		let error = match round(provides.clone()).await {
+		// In flight from this very moment: the guard exists before the round
+		// future is constructed — no await, no task hop sits between the
+		// trigger and the marker — and drops when the round returns, however
+		// it returns.
+		let result = {
+			let _round = mark(provides.source);
+			round(provides.clone()).await
+		};
+		let error = match result {
 			Ok(()) => continue,
 			Err(error) => error,
 		};
@@ -1044,6 +1069,7 @@ mod tests {
 				.await
 				.map_err(RoundError::from)
 			},
+			|source| pool.begin_round(source),
 			|delay| {
 				delays.lock().push(delay);
 				futures::future::ready(())
@@ -1118,6 +1144,7 @@ mod tests {
 					.map_err(RoundError::from)
 				}
 			},
+			|source| pool.begin_round(source),
 			|delay| {
 				delays.lock().push(delay);
 				futures::future::ready(())
@@ -1153,6 +1180,7 @@ mod tests {
 				calls.lock().push(provides.root);
 				futures::future::ready(Err(transient()))
 			},
+			|_| (),
 			|delay| {
 				delays.lock().push(delay);
 				futures::future::ready(())
@@ -1197,6 +1225,7 @@ mod tests {
 					}
 				}
 			},
+			|_| (),
 			// Backoff timers that never fire: the fresh included root must
 			// supersede the scheduled retry, not wait behind it — and the
 			// loop must still terminate on channel close.
@@ -1239,6 +1268,7 @@ mod tests {
 					.map_err(RoundError::from)
 				}
 			},
+			|source| pool.begin_round(source),
 			|delay| {
 				delays.lock().push(delay);
 				futures::future::ready(())
@@ -1290,7 +1320,11 @@ mod tests {
 					.map_err(RoundError::from)
 				}
 			},
+			|source| pool.begin_round(source),
 			|delay| {
+				// The failed round's guard dropped before its backoff was
+				// armed: the wait is never marked in flight.
+				assert_eq!(pool.rounds_in_flight(), 0);
 				delays.lock().push(delay);
 				futures::future::ready(())
 			},
@@ -1304,6 +1338,138 @@ mod tests {
 		// one backoff, two runs, no busy loop.
 		assert_eq!(*delays.lock(), vec![ROUND_RETRY_DELAY]);
 		assert_eq!(*calls.lock(), 2);
+	}
+
+	#[test]
+	fn rounds_are_marked_in_flight_at_offer_receipt_not_round_entry() {
+		// The run-4 residual (2/11 first-attempt losses): the proposer's
+		// inherent snapshot can fire within ~1–5 ms of the monitor's offer —
+		// ahead of the offer→`fetch_source` hop (task wake plus runtime-api
+		// resolution) that used to create the in-flight marker, so the grace
+		// window had nothing to await. Marking now happens the moment the
+		// trigger is received: a snapshot racing ahead of the round's first
+		// real work (stretched here to an unmissable 20 ms) finds the marker,
+		// waits the round out and hands its material to the first block.
+		let (mut network, root) = serving_archive(2, 2);
+		let honest = PeerId::random();
+		network.behavior.insert(honest, PeerBehavior::Honest);
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root)).expect("channel is open");
+		sender.close();
+
+		let (network, registry, pool) = (&network, &registry, &pool);
+		let fetcher = run_fetch_rounds(
+			events,
+			|provides| async move {
+				// The round is in flight before any of its work has run...
+				assert_eq!(pool.rounds_in_flight(), 1);
+				futures_timer::Delay::new(Duration::from_millis(20)).await;
+				fetch_source(
+					network,
+					registry,
+					pool,
+					provides.source,
+					provides.root,
+					&[(stream, 0)],
+					&[ack(RECEIVER)],
+					SMALL_CHUNK,
+				)
+				.await
+				.map_err(RoundError::from)
+			},
+			|source| pool.begin_round(source),
+			|_| futures::future::ready(()),
+		);
+		// ...and the proposer, snapshotting right after the offer, wins.
+		let proposer = async {
+			pool.wait_for_in_flight_rounds(Duration::from_secs(30)).await;
+			assert_eq!(pool.rounds_in_flight(), 0);
+			assert_eq!(pool.target(source()), Some(root));
+			let data = pool.build_inherent(
+				&[(source(), stream, 0)],
+				&[(source(), ack(RECEIVER), None)],
+				InherentBudget::default(),
+			);
+			assert_eq!(data.messages.len(), 1);
+			assert_eq!(data.register_reads.len(), 1);
+		};
+		// `join` polls the fetcher first: the event is dequeued and marked in
+		// that same synchronous poll, before the proposer's wait starts.
+		block_on(futures::future::join(fetcher, proposer));
+	}
+
+	#[test]
+	fn retries_mark_the_round_in_flight_at_fire_time() {
+		// The retry path shares the receipt-time marking: a firing backoff
+		// timer re-marks the source before its round runs, while the backoff
+		// wait itself stays unmarked — the guard clears on round failure.
+		let pool = SpecMsgPool::default();
+		let root = StreamsRoot(polkadot_core_primitives::Hash::repeat_byte(1));
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root)).expect("channel is open");
+		sender.close();
+
+		let pool = &pool;
+		let marks = Mutex::new(0usize);
+		block_on(run_fetch_rounds(
+			events,
+			|_provides| {
+				// Every run — the first and each in-root retry — is already
+				// marked when its round future is created.
+				assert_eq!(pool.rounds_in_flight(), 1);
+				futures::future::ready(Err(transient()))
+			},
+			|source| {
+				*marks.lock() += 1;
+				pool.begin_round(source)
+			},
+			|_delay| {
+				// The failed round's guard dropped before its backoff was
+				// armed: authoring never waits out a sleeping retry.
+				assert_eq!(pool.rounds_in_flight(), 0);
+				futures::future::ready(())
+			},
+		));
+
+		// The first run plus every in-root retry was marked at fire time...
+		assert_eq!(*marks.lock(), 1 + MAX_ROUND_RETRIES as usize);
+		// ...and nothing stays marked once the budget is exhausted.
+		assert_eq!(pool.rounds_in_flight(), 0);
+	}
+
+	#[test]
+	fn dropping_the_fetcher_mid_round_clears_the_in_flight_marker() {
+		// A fetcher torn down mid-round (collator shutdown): the guard is
+		// held across the round await inside the fetch loop, so cancelling
+		// the task drops it — no authoring task keeps waiting on a round
+		// that can never end.
+		let pool = SpecMsgPool::default();
+		let root = StreamsRoot(polkadot_core_primitives::Hash::repeat_byte(1));
+		let (sender, events) = async_channel::unbounded();
+		sender.try_send(included(root)).expect("channel is open");
+
+		let mut fetcher = Box::pin(run_fetch_rounds(
+			events,
+			|_provides| futures::future::pending::<Result<(), RoundError>>(),
+			|source| pool.begin_round(source),
+			|_| futures::future::ready(()),
+		));
+		// One poll: the trigger is received and marked, and the round hangs.
+		block_on(async {
+			assert!(futures::poll!(fetcher.as_mut()).is_pending());
+		});
+		assert_eq!(pool.rounds_in_flight(), 1);
+
+		drop(fetcher);
+		assert_eq!(pool.rounds_in_flight(), 0);
+		// The drop woke the grace window: a subsequent wait is free again.
+		let start = std::time::Instant::now();
+		block_on(pool.wait_for_in_flight_rounds(Duration::from_secs(30)));
+		assert!(start.elapsed() < Duration::from_secs(1));
 	}
 
 	#[test]
@@ -1332,7 +1498,7 @@ mod tests {
 		let pool = SpecMsgPool::default();
 		let stream = channel(RECEIVER);
 
-		// The trigger was observed and the round is starting...
+		// The trigger was received — the fetch loop marks at receipt...
 		let guard = pool.begin_round(source());
 		std::thread::scope(|scope| {
 			let (network, registry, pool) = (&network, &registry, &pool);

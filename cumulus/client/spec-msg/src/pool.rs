@@ -46,9 +46,11 @@
 //! The pool also tracks which sources have a fetch round *in flight*
 //! ([`SpecMsgPool::begin_round`] / [`RoundGuard`]): the fetcher and the
 //! proposer both react to the same relay-chain import, and the proposer's
-//! pool snapshot usually beats a round completing milliseconds later.
-//! [`SpecMsgPool::wait_for_in_flight_rounds`] is the authoring side's
-//! bounded grace window over that marker.
+//! pool snapshot usually beats a round completing milliseconds later. The
+//! fetch loop marks the source the moment it receives the trigger — before
+//! any round work, so even a snapshot firing right off the relay import
+//! finds the marker — and [`SpecMsgPool::wait_for_in_flight_rounds`] is
+//! the authoring side's bounded grace window over it.
 
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -414,7 +416,10 @@ impl SpecMsgPool {
 	/// Marks a fetch round of `source` as in flight until the returned guard
 	/// is dropped. While a round is in flight,
 	/// [`Self::wait_for_in_flight_rounds`] grants it a bounded grace window
-	/// before the inherent snapshot is taken.
+	/// before the inherent snapshot is taken. Call at trigger receipt,
+	/// before any round work (see `crate::fetch`): an unmarked round cannot
+	/// be awaited, and the proposer's snapshot can fire within milliseconds
+	/// of the trigger.
 	pub fn begin_round(&self, source: ParaId) -> RoundGuard<'_> {
 		self.rounds.lock().started.insert(source, Instant::now());
 		RoundGuard { pool: self, source }
@@ -451,17 +456,47 @@ impl SpecMsgPool {
 	///   parent or another fork (whole seconds away) finds it expired and does not wait at all.
 	pub async fn wait_for_in_flight_rounds(&self, bound: Duration) {
 		let entered = Instant::now();
+		// 0 until the wait path is taken, then the number of sources with a
+		// round in flight when the wait started. The idle path stays
+		// log-free; a taken wait logs its start and how it ended — run-4
+		// validation of the window was inferential because it logged nothing.
+		let mut waited_on = 0usize;
 		loop {
 			let (ended, remaining) = {
 				let mut rounds = self.rounds.lock();
 				let Some(deadline) = rounds.started.values().map(|started| *started + bound).max()
 				else {
+					if waited_on > 0 {
+						tracing::debug!(
+							target: LOG_TARGET,
+							rounds = waited_on,
+							waited_ms = entered.elapsed().as_millis() as u64,
+							"Grace window over: in-flight fetch rounds completed",
+						);
+					}
 					return;
 				};
 				let remaining =
 					deadline.min(entered + bound).saturating_duration_since(Instant::now());
 				if remaining.is_zero() {
+					if waited_on > 0 {
+						tracing::debug!(
+							target: LOG_TARGET,
+							rounds = rounds.started.len(),
+							waited_ms = entered.elapsed().as_millis() as u64,
+							"Grace window over: bound expired with rounds still in flight",
+						);
+					}
 					return;
+				}
+				if waited_on == 0 {
+					waited_on = rounds.started.len();
+					tracing::debug!(
+						target: LOG_TARGET,
+						rounds = waited_on,
+						bound_ms = bound.as_millis() as u64,
+						"Waiting out the grace window for in-flight fetch rounds",
+					);
 				}
 				// Registered under the same lock `end_round` takes: a round
 				// ending after this check always finds the waiter.
@@ -474,7 +509,15 @@ impl SpecMsgPool {
 			futures::select_biased! {
 				// A round ended (or the pool went away): re-check.
 				_ = ended => (),
-				_ = timeout => return,
+				_ = timeout => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						rounds = self.rounds.lock().started.len(),
+						waited_ms = entered.elapsed().as_millis() as u64,
+						"Grace window over: bound expired with rounds still in flight",
+					);
+					return
+				},
 			}
 		}
 	}
