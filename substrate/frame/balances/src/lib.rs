@@ -1171,8 +1171,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be
-			// full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
+			// The consumer limit might be full, therefore we pass `true` into `mutate_account` to
+			// make sure this cannot fail.
 			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
@@ -1184,23 +1184,22 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			match res {
-				Ok((_, None)) => {
-					// expected -- all good.
-				},
-				Ok((_, Some(_dust))) => {
-					Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
-					defensive!("caused unexpected dusting/balance update.");
-				},
-				_ => {
+			let maybe_dust = match res {
+				Ok((_, maybe_dust)) => maybe_dust,
+				Err(_) => {
 					Self::deposit_event(Event::Unexpected(UnexpectedKind::FailedToMutateAccount));
 					defensive!("errored in mutate_account");
+					None
 				},
-			}
+			};
 
 			match locks.is_empty() {
 				true => Locks::<T, I>::remove(who),
 				false => Locks::<T, I>::insert(who, bounded_locks),
+			}
+
+			if let Some(dust) = maybe_dust {
+				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
 
 			if prev_frozen > after_frozen {
