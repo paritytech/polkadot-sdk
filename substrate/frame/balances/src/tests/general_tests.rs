@@ -20,15 +20,16 @@
 use crate::{
 	system::AccountInfo,
 	tests::{
-		ensure_ti_valid, get_test_account, Balances, ExtBuilder, System, Test, TestId, UseSystem,
+		ensure_ti_valid, get_test_account, get_test_account_data, Balances, ExtBuilder, System,
+		Test, TestId, UseSystem,
 	},
 	AccountData, ExtraFlags, TotalIssuance,
 };
 use frame_support::{
 	assert_noop, assert_ok, hypothetically,
 	traits::{
-		fungible::{Mutate, MutateHold},
-		tokens::Precision,
+		fungible::{self, InspectFreeze, Mutate, MutateFreeze, MutateHold},
+		tokens::{Fortitude, Precision, Preservation},
 	},
 };
 use sp_runtime::DispatchError;
@@ -109,6 +110,57 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 			assert_eq!(System::consumers(&alice), 1);
 			ensure_ti_valid();
 		});
+	});
+}
+
+/// Dusting a frozen account (via a `Force` slash) must not desync `Freezes` from
+/// the account's `frozen` field.
+#[test]
+fn regression_force_withdraw_dusting_frozen_account_desyncs_freezes() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+		let alice = 0;
+
+		Balances::set_balance(&alice, 100);
+		let _ = System::inc_providers(&alice); // survives being dusted below ED
+		assert_ok!(Balances::set_freeze(&TestId::Foo, &alice, 30));
+
+		// `Force` ignores the freeze: free drops to 5 (< ED), dusting the account.
+		let credit = <Balances as fungible::Balanced<_>>::withdraw(
+			&alice,
+			95,
+			Precision::Exact,
+			Preservation::Expendable,
+			Fortitude::Force,
+		)
+		.unwrap();
+		drop(credit);
+
+		assert!(
+			Balances::balance_frozen(&TestId::Foo, &alice) <= get_test_account_data(alice).frozen
+		);
+	});
+}
+
+/// Same freeze desync as above, but reachable by an unprivileged
+/// `transfer_allow_death`: a freeze smaller than the ED lets a plain transfer
+/// push free below the ED (but above the freeze) and dust the account.
+#[test]
+fn regression_transfer_allow_death_dusting_frozen_account_desyncs_freezes() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+		let (alice, bob) = (0, 1);
+
+		Balances::set_balance(&alice, 100);
+		let _ = System::inc_providers(&alice); // survives being dusted below ED
+		assert_ok!(Balances::set_freeze(&TestId::Foo, &alice, 5));
+
+		// Leaves free = 7: below ED (10) but at/above the freeze (5), so allowed.
+		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 93));
+
+		assert!(
+			Balances::balance_frozen(&TestId::Foo, &alice) <= get_test_account_data(alice).frozen
+		);
 	});
 }
 
