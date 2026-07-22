@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BountyStatus"],"mod":["migrations","pallet","weights"],"struct":["Bounty","TransferAllFungibles"],"trait":["ChildBountyManager","TransferAllAssets"],"type":["BountyIndex"]};
+window.SIDEBAR_ITEMS = {"enum":["BountyStatus"],"mod":["migrations","pallet","weights"],"struct":["Bounty","TransferAllFungibles","TransferFungible"],"trait":["ChildBountyManager","TransferAllAssets"],"type":["BountyIndex"]};

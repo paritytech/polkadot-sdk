@@ -533,12 +533,49 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#383 id=383 data-nosnippet>383</a>
 <a href=#384 id=384 data-nosnippet>384</a>		<span class="prelude-val">Ok</span>(())
 <a href=#385 id=385 data-nosnippet>385</a>	}
-<a href=#386 id=386 data-nosnippet>386</a>	<span class="macro">impl_benchmark_test_suite!</span>(
-<a href=#387 id=387 data-nosnippet>387</a>		Bounties,
-<a href=#388 id=388 data-nosnippet>388</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
-<a href=#389 id=389 data-nosnippet>389</a>		<span class="kw">crate</span>::tests::Test
-<a href=#390 id=390 data-nosnippet>390</a>	);
-<a href=#391 id=391 data-nosnippet>391</a>}
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a>	<span class="attr">#[benchmark]
+<a href=#388 id=388 data-nosnippet>388</a>	</span><span class="kw">fn </span>reclaim_bounty_funds() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#389 id=389 data-nosnippet>389</a>		setup_pot_account::&lt;T, I&gt;();
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a>		<span class="kw">let </span>(caller, <span class="kw">_</span>, <span class="kw">_</span>, value, reason) = setup_bounty::&lt;T, I&gt;(<span class="number">0</span>, T::MaximumReasonLength::get());
+<a href=#392 id=392 data-nosnippet>392</a>		Bounties::&lt;T, I&gt;::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)<span class="question-mark">?</span>;
+<a href=#393 id=393 data-nosnippet>393</a>		<span class="kw">let </span>bounty_id = BountyCount::&lt;T, I&gt;::get() - <span class="number">1</span>;
+<a href=#394 id=394 data-nosnippet>394</a>		<span class="kw">let </span>approve_origin =
+<a href=#395 id=395 data-nosnippet>395</a>			T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+<a href=#396 id=396 data-nosnippet>396</a>		Bounties::&lt;T, I&gt;::approve_bounty(approve_origin.clone(), bounty_id)<span class="question-mark">?</span>;
+<a href=#397 id=397 data-nosnippet>397</a>		set_block_number::&lt;T, I&gt;(T::SpendPeriod::get());
+<a href=#398 id=398 data-nosnippet>398</a>		Treasury::&lt;T, I&gt;::on_initialize(frame_system::Pallet::&lt;T&gt;::block_number());
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>		<span class="kw">let </span>bounty_account = Bounties::&lt;T, I&gt;::bounty_account_id(bounty_id);
+<a href=#401 id=401 data-nosnippet>401</a>		<span class="comment">// Drop the bounty record so its account counts as stale.
+<a href=#402 id=402 data-nosnippet>402</a>		</span><span class="kw">crate</span>::Bounties::&lt;T, I&gt;::remove(bounty_id);
+<a href=#403 id=403 data-nosnippet>403</a>		BountyDescriptions::&lt;T, I&gt;::remove(bounty_id);
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>		<span class="comment">// Mint all relevant assets into the bounty account so the benchmark exercises real
+<a href=#406 id=406 data-nosnippet>406</a>		// transfers instead of being a no-op for runtimes with non-trivial TransferAllAssets.
+<a href=#407 id=407 data-nosnippet>407</a>		</span>T::TransferAllAssets::ensure_successful(<span class="kw-2">&amp;</span>bounty_account);
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a>		<span class="macro">assert!</span>(
+<a href=#410 id=410 data-nosnippet>410</a>			!T::Currency::free_balance(<span class="kw-2">&amp;</span>bounty_account).is_zero(),
+<a href=#411 id=411 data-nosnippet>411</a>			<span class="string">"Bounty account should have a balance to reclaim"
+<a href=#412 id=412 data-nosnippet>412</a>		</span>);
+<a href=#413 id=413 data-nosnippet>413</a>
+<a href=#414 id=414 data-nosnippet>414</a>		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>		<span class="attr">#[extrinsic_call]
+<a href=#417 id=417 data-nosnippet>417</a>		</span><span class="kw">_</span>(RawOrigin::Signed(caller), bounty_id);
+<a href=#418 id=418 data-nosnippet>418</a>
+<a href=#419 id=419 data-nosnippet>419</a>		assert_last_event::&lt;T, I&gt;(Event::BountyFundsReclaimed { bounty_id }.into());
+<a href=#420 id=420 data-nosnippet>420</a>
+<a href=#421 id=421 data-nosnippet>421</a>		<span class="prelude-val">Ok</span>(())
+<a href=#422 id=422 data-nosnippet>422</a>	}
+<a href=#423 id=423 data-nosnippet>423</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#424 id=424 data-nosnippet>424</a>		Bounties,
+<a href=#425 id=425 data-nosnippet>425</a>		<span class="kw">crate</span>::tests::ExtBuilder::default().build(),
+<a href=#426 id=426 data-nosnippet>426</a>		<span class="kw">crate</span>::tests::Test
+<a href=#427 id=427 data-nosnippet>427</a>	);
+<a href=#428 id=428 data-nosnippet>428</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

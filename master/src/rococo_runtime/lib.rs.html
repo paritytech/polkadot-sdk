@@ -749,7 +749,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#599 id=599 data-nosnippet>599</a>	<span class="kw">type </span>MaximumReasonLength = MaximumReasonLength;
 <a href=#600 id=600 data-nosnippet>600</a>	<span class="kw">type </span>WeightInfo = weights::pallet_bounties::WeightInfo&lt;Runtime&gt;;
 <a href=#601 id=601 data-nosnippet>601</a>	<span class="kw">type </span>OnSlash = Treasury;
-<a href=#602 id=602 data-nosnippet>602</a>	<span class="kw">type </span>TransferAllAssets = ();
+<a href=#602 id=602 data-nosnippet>602</a>	<span class="kw">type </span>TransferAllAssets = pallet_bounties::TransferFungible&lt;AccountId, Balances&gt;;
 <a href=#603 id=603 data-nosnippet>603</a>}
 <a href=#604 id=604 data-nosnippet>604</a>
 <a href=#605 id=605 data-nosnippet>605</a><span class="macro">parameter_types!</span> {

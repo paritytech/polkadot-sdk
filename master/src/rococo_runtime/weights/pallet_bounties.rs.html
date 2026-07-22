@@ -414,7 +414,20 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#264 id=264 data-nosnippet>264</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">3</span>))
 <a href=#265 id=265 data-nosnippet>265</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
 <a href=#266 id=266 data-nosnippet>266</a>	}
-<a href=#267 id=267 data-nosnippet>267</a>}
+<a href=#267 id=267 data-nosnippet>267</a>	<span class="doccomment">/// Storage: `Bounties::Bounties` (r:1 w:0)
+<a href=#268 id=268 data-nosnippet>268</a>	/// Proof: `Bounties::Bounties` (`max_values`: None, `max_size`: Some(177), added: 2652, mode: `MaxEncodedLen`)
+<a href=#269 id=269 data-nosnippet>269</a>	/// Storage: `System::Account` (r:2 w:2)
+<a href=#270 id=270 data-nosnippet>270</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+<a href=#271 id=271 data-nosnippet>271</a>	</span><span class="kw">fn </span>reclaim_bounty_funds() -&gt; Weight {
+<a href=#272 id=272 data-nosnippet>272</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#273 id=273 data-nosnippet>273</a>		//  Measured:  `500`
+<a href=#274 id=274 data-nosnippet>274</a>		//  Estimated: `6196`
+<a href=#275 id=275 data-nosnippet>275</a>		// Minimum execution time: 40_000_000 picoseconds.
+<a href=#276 id=276 data-nosnippet>276</a>		</span>Weight::from_parts(<span class="number">40_000_000</span>, <span class="number">6196</span>)
+<a href=#277 id=277 data-nosnippet>277</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">3_u64</span>))
+<a href=#278 id=278 data-nosnippet>278</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">2_u64</span>))
+<a href=#279 id=279 data-nosnippet>279</a>	}
+<a href=#280 id=280 data-nosnippet>280</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
