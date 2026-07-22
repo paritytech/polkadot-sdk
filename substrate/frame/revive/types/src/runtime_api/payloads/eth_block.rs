@@ -15,10 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod byte;
-mod serde_helpers;
-mod type_id;
+use codec::{Decode, Encode};
+use derive_more::{From, TryInto};
+use scale_info::TypeInfo;
 
-pub use byte::*;
-pub use serde_helpers::*;
-pub use type_id::*;
+use crate::runtime_api::*;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct BlockInputPayloadV1;
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum BlockVersionedInputPayload {
+	V1(BlockInputPayloadV1),
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct BlockOutputPayloadV1 {
+	pub block: BlockV1,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
+pub enum BlockVersionedOutputPayload {
+	V1(BlockOutputPayloadV1),
+}

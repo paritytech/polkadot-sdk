@@ -25,9 +25,7 @@ use crate::{
 	cli::{self, CliCommand},
 	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
 	example::TransactionBuilder,
-	subxt_client::{
-		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
-	},
+	subxt_client::{self, SrcChainConfig},
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
@@ -45,10 +43,7 @@ use jsonrpsee::{
 };
 use pallet_revive::{
 	create1,
-	evm::{
-		Account, Block, GenericTransaction, H256, HashesOrTransactionInfos, TransactionUnsigned,
-		U256,
-	},
+	evm::{Account, H256, TransactionUnsigned, U256},
 	precompiles::alloy::{
 		self,
 		sol_types::{SolCall, SolConstructor, SolEvent, SolInterface},
@@ -56,9 +51,9 @@ use pallet_revive::{
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
-	CallTracerConfigV1, TraceBlockInputPayloadV1, TraceBlockInputPayloadV2,
-	TraceBlockVersionedInputPayload, TraceBlockVersionedOutputPayload, TraceV1, TraceV2,
-	TracerTypeV1,
+	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
+	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
+	TraceBlockVersionedOutputPayload, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -299,8 +294,8 @@ async fn verify_transactions_in_single_block(
 		.ok_or_else(|| anyhow!("Block {block_number} should exist"))?;
 
 	let block_tx_hashes = match &block.transactions {
-		HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
-		HashesOrTransactionInfos::TransactionInfos(infos) => {
+		HashesOrTransactionInfosV1::Hashes(hashes) => hashes.clone(),
+		HashesOrTransactionInfosV1::TransactionInfos(infos) => {
 			infos.iter().map(|info| info.hash).collect()
 		},
 	};
@@ -695,7 +690,7 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 		value,
 		None,
 		None,
-		Code::Upload(bytes),
+		CodeV1::Upload(bytes).into(),
 		data,
 		None,
 	);
@@ -712,6 +707,7 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 		.runtime_apis()
 		.call(payload)
 		.await?
+		.0
 		.result
 		.unwrap();
 
@@ -747,7 +743,7 @@ async fn get_evm_block_from_storage(
 	node_client: &OnlineClient<SrcChainConfig>,
 	node_rpc_client: &RpcClient,
 	block_number: U256,
-) -> anyhow::Result<Block> {
+) -> anyhow::Result<BlockV1> {
 	let block_hash: H256 = node_rpc_client
 		.request("chain_getBlockHash", rpc_params![block_number])
 		.await
@@ -794,10 +790,7 @@ async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
 		client.get_block_by_hash(block_hash, false).await?.expect("Block should exist");
 
 	assert!(
-		matches!(
-			evm_block_from_rpc_by_number.transactions,
-			pallet_revive::evm::HashesOrTransactionInfos::Hashes(_)
-		),
+		matches!(evm_block_from_rpc_by_number.transactions, HashesOrTransactionInfosV1::Hashes(_)),
 		"Block should not have hydrated transactions"
 	);
 
@@ -850,7 +843,7 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	let signed_tx = signer_copy.sign_transaction(unsigned_tx);
 	let expected_tx_info = receipt.transaction_info(signed_tx);
 
-	let tx_info = if let HashesOrTransactionInfos::TransactionInfos(tx_infos) =
+	let tx_info = if let HashesOrTransactionInfosV1::TransactionInfos(tx_infos) =
 		evm_block_from_rpc_by_number.transactions
 	{
 		tx_infos[0].clone()
@@ -1021,7 +1014,7 @@ async fn test_earliest_block_tag() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	let tx = GenericTransaction {
+	let tx = GenericTransactionV1 {
 		from: Some(account.address()),
 		to: Some(account.address()),
 		..Default::default()
@@ -1781,7 +1774,7 @@ async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<
 
 	// Act
 	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
-	let transaction = GenericTransaction {
+	let transaction = GenericTransactionV1 {
 		from: Some(account.address()),
 		input: test_function_selector.into(),
 		to: Some(contract_address),
@@ -1859,16 +1852,14 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 			0u128, // value
 			None,  // gas_limit
 			None,  // storage_deposit_limit
-			subxt_client::src_chain::runtime_types::pallet_revive::primitives::Code::Upload(
-				bytes.clone(),
-			),
+			CodeV1::Upload(bytes.clone()).into(),
 			vec![], // data (constructor args)
 			None,   // salt
 		))
 		.await;
 
 	assert!(dry_run_result.is_ok(), "Dry-run instantiate failed: {dry_run_result:?}");
-	let dry_run = dry_run_result.unwrap();
+	let dry_run = dry_run_result.unwrap().0;
 	let instantiate_result = dry_run.result.expect("Dry-run should succeed");
 
 	log::trace!(
@@ -1885,12 +1876,12 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 		.await?
 		.sign_and_submit_then_watch_default(
 			&subxt_client::tx().revive().instantiate_with_code(
-				0u128,                   // value
-				dry_run.weight_required, // weight_limit from dry-run
-				u128::MAX,               // storage_deposit_limit
-				bytes,                   // code
-				vec![],                  // data
-				None,                    // salt
+				0u128,                          // value
+				dry_run.weight_required.into(), // weight_limit from dry-run
+				u128::MAX,                      // storage_deposit_limit
+				bytes,                          // code
+				vec![],                         // data
+				None,                           // salt
 			),
 			&subxt_signer::sr25519::dev::alice(),
 		)
@@ -1926,7 +1917,7 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	let result = node_client.at_current_block().await?.runtime_apis().call(call_payload).await;
 
 	assert!(result.is_ok(), "Contract call failed: {result:?}");
-	let call_result = result.unwrap();
+	let call_result = result.unwrap().0;
 	let exec_result = call_result.result.expect("fib(3) should succeed");
 
 	let decoded = Fibonacci::fibCall::abi_decode_returns(&exec_result.data)
@@ -2096,7 +2087,7 @@ async fn test_gas_estimation_with_no_funds_no_gas_specified() -> anyhow::Result<
 
 	// Act
 	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
-	let transaction = GenericTransaction {
+	let transaction = GenericTransactionV1 {
 		from: Some(account.address()),
 		input: test_function_selector.into(),
 		to: Some(contract_address),
@@ -2296,7 +2287,7 @@ async fn test_gas_estimation_with_no_funds_and_with_gas_specified() -> anyhow::R
 
 	// Act
 	let test_function_selector = [0xf8, 0xa8, 0xfd, 0x6d].to_vec();
-	let transaction = GenericTransaction {
+	let transaction = GenericTransactionV1 {
 		from: Some(account.address()),
 		input: test_function_selector.into(),
 		to: Some(contract_address),
