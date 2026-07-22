@@ -2874,7 +2874,12 @@ mod revive_trace_reclaim {
 	use frame_support::dispatch::DispatchClass;
 	use frame_system::pallet_prelude::HeaderFor;
 	use pallet_revive::{
-		pallet_revive_types::runtime_api::TracerTypeV1, runtime_decl_for_revive_api::ReviveApiV2,
+		pallet_revive_types::runtime_api::{
+			TraceBlockInputPayloadV1, TraceBlockVersionedInputPayload,
+			TraceBlockVersionedOutputPayload, TraceTxInputPayloadV1, TraceTxVersionedInputPayload,
+			TraceTxVersionedOutputPayload, TraceV1, TracerTypeV1,
+		},
+		runtime_decl_for_revive_api::ReviveApiV2,
 	};
 	use pallet_revive_fixtures::compile_module;
 	use sp_core::H160;
@@ -2967,18 +2972,42 @@ mod revive_trace_reclaim {
 		TracerTypeV1::CallTracer(None)
 	}
 
+	fn trace_block(block: Block) -> usize {
+		let input = TraceBlockVersionedInputPayload::V1(TraceBlockInputPayloadV1 {
+			block,
+			config: tracer(),
+		});
+		let TraceBlockVersionedOutputPayload::V1(output) = Runtime::trace_block_versioned(input)
+		else {
+			panic!("v1 input must produce v1 output");
+		};
+		output.traces.len()
+	}
+
+	fn trace_tx(block: Block, tx_index: u32) -> Option<TraceV1> {
+		let input = TraceTxVersionedInputPayload::V1(TraceTxInputPayloadV1 {
+			block,
+			tx_index,
+			config: tracer(),
+		});
+		let TraceTxVersionedOutputPayload::V1(output) = Runtime::trace_tx_versioned(input) else {
+			panic!("v1 input must produce v1 output");
+		};
+		output.trace
+	}
+
 	#[test]
 	fn trace_block_drops_tail_trace_without_proof_recorder() {
-		let with_recorder = with_block(true, |b| Runtime::trace_block(b, tracer()).len());
-		let without = with_block(false, |b| Runtime::trace_block(b, tracer()).len());
+		let with_recorder = with_block(true, trace_block);
+		let without = with_block(false, trace_block);
 		assert_eq!(with_recorder, 2, "both calls traced with a recorder");
 		assert!(without < with_recorder, "tail trace dropped without a recorder");
 	}
 
 	#[test]
 	fn trace_tx_drops_tail_trace_without_proof_recorder() {
-		let with_recorder = with_block(true, |b| Runtime::trace_tx(b, 1, tracer()));
-		let without = with_block(false, |b| Runtime::trace_tx(b, 1, tracer()));
+		let with_recorder = with_block(true, |b| trace_tx(b, 1));
+		let without = with_block(false, |b| trace_tx(b, 1));
 		assert!(with_recorder.is_some(), "tail tx traced with a recorder");
 		assert!(without.is_none(), "tail tx trace dropped without a recorder");
 	}

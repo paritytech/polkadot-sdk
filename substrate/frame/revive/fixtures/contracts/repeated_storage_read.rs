@@ -15,14 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Reads one large persistent storage value `rounds` times.
+//! Reads a distinct persistent storage key each of `rounds` times.
 //!
-//! `proof_size` is charged per read (worst-case, without deduplication), so the *metered* cost
-//! grows linearly with `rounds`, while the *true* PoV is just that single key's trie nodes —
-//! counted once by a proof recorder. That over-charge is what a recorder reclaims; without one it
-//! accumulates, which is the revive trace-replay bug (the block tail hits `ExhaustsResources` on
-//! recorder-less replay). `get_storage` is an explicit host call, so the reads cannot be optimized
-//! away or hoisted out of the loop.
+//! Under per-transaction cold/hot access pricing only the first (cold) touch of a key bills the
+//! worst-case `proof_size`; repeats are hot and near-free. Using a fresh key every round keeps
+//! every read cold, so the *metered* cost grows linearly with `rounds`, while the *true* PoV is a
+//! handful of shared trie nodes — counted once by a proof recorder. That over-charge is what a
+//! recorder reclaims; without one it accumulates, which is the revive trace-replay bug (the block
+//! tail hits `ExhaustsResources` on recorder-less replay). `get_storage` is an explicit host
+//! call, so the reads cannot be optimized away or hoisted out of the loop.
 
 #![no_std]
 #![no_main]
@@ -47,8 +48,10 @@ pub extern "C" fn deploy() {
 pub extern "C" fn call() {
 	input!(rounds: u32,);
 
-	for _ in 0..rounds {
+	let mut key = KEY;
+	for i in 0..rounds {
+		key[..4].copy_from_slice(&i.to_le_bytes());
 		let out = unsafe { &mut &mut BUFFER[..] };
-		let _ = api::get_storage(StorageFlags::empty(), &KEY, out);
+		let _ = api::get_storage(StorageFlags::empty(), &key, out);
 	}
 }
