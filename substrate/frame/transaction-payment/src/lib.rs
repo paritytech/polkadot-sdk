@@ -404,9 +404,8 @@ pub mod pallet {
 		type OperationalFeeMultiplier: Get<u8>;
 
 		/// Refundable anti-spam surcharge on `Operational` transactions: an extra
-		/// `OperationalFeeSurcharge * inclusion_fee` (tip excluded) is withdrawn upfront and
-		/// refunded only if the dispatch succeeds, so failing operational spam forfeits it. `0`
-		/// (the default) disables it.
+		/// `OperationalFeeSurcharge * inclusion_fee` (tip excluded) charged upfront and refunded
+		/// only on dispatch success. `0` (default) disables it.
 		#[pallet::constant]
 		type OperationalFeeSurcharge: Get<u32>;
 
@@ -697,11 +696,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Compute the refundable anti-spam surcharge for a transaction (see
-	/// [`Config::OperationalFeeSurcharge`]).
-	///
-	/// Equals `OperationalFeeSurcharge * inclusion_fee` (tip excluded); `Zero` unless the
-	/// transaction is `Operational`, pays a fee, and the surcharge is enabled.
+	/// Refundable anti-spam surcharge for a transaction (see [`Config::OperationalFeeSurcharge`]):
+	/// `OperationalFeeSurcharge * inclusion_fee` (tip excluded), or `Zero` unless the transaction
+	/// is `Operational`, pays a fee, and the surcharge is enabled.
 	pub fn compute_operational_surcharge(
 		len: u32,
 		info: &DispatchInfoOf<T::RuntimeCall>,
@@ -714,7 +711,7 @@ impl<T: Config> Pallet<T> {
 		{
 			return Zero::zero();
 		}
-		// Tip excluded, so a tip cannot inflate the refundable part.
+		// Tip excluded so it can't inflate the refundable part.
 		let base_fee = Self::compute_fee(len, info, Zero::zero());
 		base_fee.saturating_mul(multiplier.into())
 	}
@@ -868,8 +865,8 @@ where
 	}
 
 	/// Check the payer can afford the fee plus any operational surcharge. Returns
-	/// `(fee_with_tip, surcharge)`: the regular fee (used for priority) and the refundable
-	/// surcharge additionally withdrawn before dispatch (see [`Config::OperationalFeeSurcharge`]).
+	/// `(fee_with_tip, surcharge)`: the fee (used for priority) and the refundable surcharge (see
+	/// [`Config::OperationalFeeSurcharge`]).
 	fn can_withdraw_fee(
 		&self,
 		who: &T::AccountId,
@@ -988,7 +985,7 @@ pub enum Val<T: Config> {
 		who: T::AccountId,
 		// transaction fee (including tip)
 		fee_with_tip: BalanceOf<T>,
-		// refundable operational surcharge, kept if the dispatch fails
+		// refundable operational surcharge, kept on dispatch failure
 		surcharge: BalanceOf<T>,
 	},
 	NoCharge,
@@ -1004,7 +1001,7 @@ pub enum Pre<T: Config> {
 		// implementation defined type that is passed into the post charge function
 		liquidity_info:
 			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-		// refundable operational surcharge, kept if the dispatch fails
+		// refundable operational surcharge, kept on dispatch failure
 		surcharge: BalanceOf<T>,
 	},
 	NoCharge {
@@ -1067,7 +1064,7 @@ where
 		let tip = self.0;
 		Ok((
 			ValidTransaction {
-				// Surcharge excluded from priority, so it can't boost spammy operational txs.
+				// Surcharge excluded from priority so it can't boost operational spam.
 				priority: Self::get_priority(info, len, tip, fee_with_tip),
 				..Default::default()
 			},
@@ -1086,8 +1083,7 @@ where
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
 			Val::Charge { tip, who, fee_with_tip, surcharge } => {
-				// Charge the fee plus the surcharge; the surcharge is refunded in
-				// `post_dispatch_details` if the dispatch succeeds.
+				// Charge fee plus surcharge; surcharge refunded in `post_dispatch_details` on success.
 				let total_with_tip = fee_with_tip.saturating_add(surcharge);
 				let (_total_with_tip, liquidity_info) =
 					self.withdraw_fee(&who, call, info, total_with_tip)?;
@@ -1113,8 +1109,7 @@ where
 				return Ok(refund);
 			},
 		};
-		// Refund the surcharge on success, keep it (add to the fee) on failure. See
-		// [`Config::OperationalFeeSurcharge`].
+		// Refund the surcharge on success, keep it (add to the fee) on failure.
 		let actual_fee_with_tip = {
 			let corrected = Pallet::<T>::compute_actual_fee(len as u32, info, &post_info, tip);
 			if result.is_err() {

@@ -393,7 +393,7 @@ where
 				let mut actual_post_info = *post_info;
 				actual_post_info.refund(unspent_weight);
 				pallet_transaction_payment::ChargeTransactionPayment::<T>::post_dispatch_details(
-					// This extension withdraws no operational surcharge, so none is kept/refunded.
+					// This extension withdraws no operational surcharge.
 					pallet_transaction_payment::Pre::Charge {
 						tip,
 						who,

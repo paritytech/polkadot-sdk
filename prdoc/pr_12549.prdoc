@@ -50,3 +50,19 @@ crates:
   bump: minor
 - name: polkadot-test-runtime
   bump: minor
+- name: pallet-asset-tx-payment
+  bump: patch
+- name: pallet-asset-conversion-tx-payment
+  bump: none
+- name: bridge-runtime-common
+  bump: none
+- name: pallet-bridge-relayers
+  bump: none
+- name: frame-executive
+  bump: none
+- name: pallet-balances
+  bump: none
+- name: pallet-meta-tx
+  bump: none
+- name: pallet-origin-restriction
+  bump: none
