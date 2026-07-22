@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784632542820,
+  "lastUpdate": 1784752991870,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -109511,6 +109511,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2449640248,
             "range": "± 42490801",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1d75337a4f800c921a830e2a39dc4ea754f2481",
+          "message": "[pallet-bounties]: add `reclaim_bounty_funds` to reclaim stranded funds from closed bounty accounts (#11045)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/10996\n\nThis PR adds a permissionless `reclaim_bounty_funds` extrinsic that\nmoves funds stranded in a closed bounty's account back to the treasury,\none asset per call (`None` for the native token, `Some(asset_kind)` for\na named fungible), using `transfer_all` semantics, free on success and\npaid on a no-op to prevent griefing\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>",
+          "timestamp": "2026-07-22T19:16:27Z",
+          "tree_id": "129f837c4ca1c97470a713acc5eeddb55aeb4f29",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1d75337a4f800c921a830e2a39dc4ea754f2481"
+        },
+        "date": 1784752959806,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21835310,
+            "range": "± 152040",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22470073,
+            "range": "± 218899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23787072,
+            "range": "± 196326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28985956,
+            "range": "± 182470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 71259243,
+            "range": "± 1482585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 464161775,
+            "range": "± 60638048",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3368055859,
+            "range": "± 103992219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19439939,
+            "range": "± 349163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19255212,
+            "range": "± 165872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19688872,
+            "range": "± 128887",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24909008,
+            "range": "± 158686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 71832125,
+            "range": "± 676164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 435321586,
+            "range": "± 6424163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3111082396,
+            "range": "± 22150282",
             "unit": "ns/iter"
           }
         ]
