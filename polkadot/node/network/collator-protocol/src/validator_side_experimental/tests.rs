@@ -28,6 +28,7 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use codec::Encode;
 use futures::channel::mpsc::UnboundedReceiver;
+use polkadot_node_clock::{Clock as _, MockClock};
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
@@ -207,6 +208,9 @@ struct TestState {
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
 	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
+	// Shared by the subsystem state and the mock header responder: a single, frozen time
+	// source so V3 scheduling-parent slot validation can't race a wall-clock slot boundary.
+	clock: Arc<MockClock>,
 }
 
 impl Default for TestState {
@@ -304,6 +308,11 @@ impl Default for TestState {
 
 		let mut node_features = NodeFeatures::EMPTY;
 		node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
+
+		// Seed away from slot 0 so tests can reference the previous slot without underflow.
+		let clock = Arc::new(MockClock::default());
+		clock.advance_secs(60);
+
 		Self {
 			session_info,
 			rp_info,
@@ -316,6 +325,7 @@ impl Default for TestState {
 			keystore,
 			node_features,
 			slot_overrides: HashMap::default(),
+			clock,
 		}
 	}
 }
@@ -410,7 +420,9 @@ impl TestState {
 				AllMessages::ChainApi(ChainApiMessage::BlockHeader(rp, tx)) => {
 					let slot = self.slot_overrides.get(&rp).copied().unwrap_or_else(|| {
 						sp_consensus_slots::Slot::from_timestamp(
-							sp_timestamp::Timestamp::current(),
+							sp_timestamp::Timestamp::new(
+								self.clock.duration_since_epoch().as_millis() as u64,
+							),
 							sp_consensus_slots::SlotDuration::from_millis(
 								polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
 							),
@@ -1060,6 +1072,7 @@ async fn make_state<B: Backend>(
 	let initial_leaf_number = test_state.rp_info.get(&initial_leaf_hash).unwrap().number;
 
 	let keystore = test_state.keystore.clone();
+	let clock = test_state.clock.clone();
 
 	let mut sender = test_state.sender.clone();
 
@@ -1102,19 +1115,15 @@ async fn make_state<B: Backend>(
 			&mut sender,
 			keystore,
 			new_leaf(initial_leaf_hash, initial_leaf_number),
-			polkadot_node_clock::system_clock(),
+			clock.clone(),
 		)
 		.await
 		.unwrap();
 
-		let peer_manager = PeerManager::startup(
-			db,
-			&mut sender,
-			collation_manager.assignments(),
-			polkadot_node_clock::system_clock(),
-		)
-		.await
-		.unwrap();
+		let peer_manager =
+			PeerManager::startup(db, &mut sender, collation_manager.assignments(), clock)
+				.await
+				.unwrap();
 
 		State::new(peer_manager, collation_manager, Metrics::default())
 	};
@@ -3989,8 +3998,10 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	let slot_duration = sp_consensus_slots::SlotDuration::from_millis(
 		polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
 	);
-	let current_slot =
-		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	let current_slot = sp_consensus_slots::Slot::from_timestamp(
+		sp_timestamp::Timestamp::new(test_state.clock.duration_since_epoch().as_millis() as u64),
+		slot_duration,
+	);
 	test_state
 		.slot_overrides
 		.insert(get_hash(10), sp_consensus_slots::Slot::from(*current_slot - 1));
