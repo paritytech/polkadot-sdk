@@ -115,6 +115,12 @@ pub unsafe fn execute_artifact(
 
 	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
 
+	// Required for `sp_virtualization` host functions invoked by JIT-built runtimes.
+	// The fresh `VirtManager` per call is intentional: PVF artifacts are not reused in a way
+	// that would benefit from a shared cache.
+	#[cfg(revive_jit)]
+	extensions.register(sc_virtualization::default_extension());
+
 	let mut ext = ValidationExternalities(extensions);
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
@@ -212,6 +218,21 @@ pub fn prepare(
 	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
 }
 
+/// JIT-only host functions wired in under `#[cfg(revive_jit)]`.
+///
+/// Parachain runtimes built with `--cfg revive_jit` import the `ext_virtualization_*`
+/// host functions for JIT contract execution. We include them so those candidates can be
+/// validated. The runtime reads the contract code from its own (witness-backed) storage and
+/// hands the bytes to the host `compile`, so no virtualization host function reaches for
+/// `ValidationExternalities`' storage, which would otherwise panic.
+///
+/// On a non-revive_jit build this resolves to `()`, which is a no-op
+/// `HostFunctions` impl per `sp_wasm_interface`.
+#[cfg(not(revive_jit))]
+type JitHostFunctions = ();
+#[cfg(revive_jit)]
+type JitHostFunctions = sp_virtualization::HostFunctions;
+
 /// Available host functions. We leave out:
 ///
 /// 1. storage related stuff (PVF doesn't have a notion of a persistent storage/trie)
@@ -226,6 +247,7 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
+	JitHostFunctions,
 );
 
 /// Host functions with ECC (elliptic curve cryptography) support.

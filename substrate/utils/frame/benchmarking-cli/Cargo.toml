@@ -73,7 +73,6 @@ sp-timestamp = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
-sp-virtualization = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
 subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }

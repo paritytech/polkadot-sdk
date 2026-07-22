@@ -20,6 +20,7 @@ sc-cli = { workspace = true, default-features = true }
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["rfc163"] }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
+sp-virtualization = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
