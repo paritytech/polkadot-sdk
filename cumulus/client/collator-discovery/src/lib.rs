@@ -177,52 +177,115 @@ where
 {
 	let metrics = prometheus_registry.as_ref().map(Metrics::register).transpose()?;
 
-	let (worker, authority_discovery_service) =
-		sc_authority_discovery::new_worker_and_service_with_config(
-			sc_authority_discovery::WorkerConfig {
-				publish_non_global_ips,
-				public_addresses,
-				strict_record_validation: true,
-				persisted_cache_directory,
-				..Default::default()
-			},
-			authority_discovery.clone(),
-			Arc::new(network.clone()),
-			dht_event_stream,
-			sc_authority_discovery::Role::PublishAndDiscover(keystore.clone()),
-			prometheus_registry,
-			spawn_handle.clone(),
-		);
+	spawn_handle
+		.clone()
+		.spawn("collator-discovery", Some("collator-discovery"), async move {
+			// Nothing starts before the runtime exposes `AuthorityDiscoveryApi`.
+			// The authority-discovery worker polls the API on every publish and
+			// query interval and ERROR-logs each miss (`Exported method
+			// AuthorityDiscoveryApi_authorities is not found`, every ~30-60s) on
+			// runtimes without the API, so the worker must sit behind the same
+			// gate the refresh loop always had — not just the refresh loop.
+			let mut dht_event_stream = dht_event_stream;
+			if !wait_for_authority_discovery_api::<Block, _, _>(&*client, &mut dht_event_stream)
+				.await
+			{
+				// The network shut down while we waited.
+				return;
+			}
 
-	// We could have spawned this task as essential, but we don't because the collators
-	// should be able to continue to build blocks without running this task.
-	spawn_handle.spawn(
-		"para-authority-discovery-worker",
-		Some("authority-discovery"),
-		worker.run(),
-	);
+			let (worker, authority_discovery_service) =
+				sc_authority_discovery::new_worker_and_service_with_config(
+					sc_authority_discovery::WorkerConfig {
+						publish_non_global_ips,
+						public_addresses,
+						strict_record_validation: true,
+						persisted_cache_directory,
+						..Default::default()
+					},
+					authority_discovery.clone(),
+					Arc::new(network.clone()),
+					dht_event_stream,
+					sc_authority_discovery::Role::PublishAndDiscover(keystore.clone()),
+					prometheus_registry,
+					spawn_handle.clone(),
+				);
 
-	log::info!(target: LOG_TARGET, "Starting collator discovery");
+			// We could have spawned this task as essential, but we don't because the collators
+			// should be able to continue to build blocks without running this task.
+			spawn_handle.spawn(
+				"para-authority-discovery-worker",
+				Some("authority-discovery"),
+				worker.run(),
+			);
 
-	spawn_handle.spawn(
-		"collator-discovery",
-		Some("collator-discovery"),
-		discovery_refresh_loop::<Block, Client, AD>(
-			config,
-			client,
-			authority_discovery,
-			network,
-			sync_service,
-			authority_discovery_service,
-			keystore,
-			metrics,
-		),
-	);
+			log::info!(target: LOG_TARGET, "Starting collator discovery");
+
+			discovery_refresh_loop::<Block, Client, AD>(
+				config,
+				client,
+				authority_discovery,
+				network,
+				sync_service,
+				authority_discovery_service,
+				keystore,
+				metrics,
+			)
+			.await;
+		});
 
 	Ok(())
 }
 
+/// Resolves `true` once the runtime at the finalized head exposes
+/// [`AuthorityDiscoveryApi`], polling every [`TRY_RERESOLVE_AUTHORITIES`];
+/// `false` when the DHT event stream ends first (network shutdown).
+///
+/// DHT events arriving while waiting are drained and discarded so the
+/// network's event buffer does not grow behind the not-yet-spawned worker.
+async fn wait_for_authority_discovery_api<Block, Client, DhtStream>(
+	client: &Client,
+	dht_event_stream: &mut DhtStream,
+) -> bool
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block>,
+	Client::Api: ApiExt<Block>,
+	DhtStream: futures::Stream<Item = DhtEvent> + Unpin,
+{
+	use futures::{FutureExt, StreamExt};
+	loop {
+		let at = client.info().finalized_hash;
+		let ad_enabled = client
+			.runtime_api()
+			.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
+			.unwrap_or(false);
+		log::trace!(
+			target: LOG_TARGET,
+			"AuthorityDiscoveryApi at {at:?}: {}",
+			if ad_enabled { "enabled" } else { "disabled" },
+		);
+		if ad_enabled {
+			return true;
+		}
+		let mut delay = Delay::new(TRY_RERESOLVE_AUTHORITIES).fuse();
+		loop {
+			futures::select! {
+				_ = delay => break,
+				event = dht_event_stream.next().fuse() => match event {
+					Some(_) => continue,
+					None => return false,
+				},
+			}
+		}
+	}
+}
+
 /// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
+///
+/// Only started once [`wait_for_authority_discovery_api`] has seen the
+/// runtime expose [`AuthorityDiscoveryApi`]; the API is assumed to remain
+/// available from then on.
 async fn discovery_refresh_loop<Block, Client, AD>(
 	config: CollatorDiscoveryConfig,
 	client: Arc<Client>,
@@ -242,24 +305,6 @@ async fn discovery_refresh_loop<Block, Client, AD>(
 
 	let local_peer_id = network.local_peer_id();
 	let mut state = LoopState::new();
-
-	// Wait for the runtime to expose `AuthorityDiscoveryApi`.
-	loop {
-		let at = client.info().finalized_hash;
-		let ad_enabled = client
-			.runtime_api()
-			.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
-			.unwrap_or(false);
-		log::trace!(
-			target: LOG_TARGET,
-			"AuthorityDiscoveryApi at {at:?}: {}",
-			if ad_enabled { "enabled" } else { "disabled" },
-		);
-		if ad_enabled {
-			break;
-		}
-		Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
-	}
 
 	// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
 	loop {
