@@ -117,7 +117,9 @@ python3 - "$WORKDIR/draft_outer.md" "$CHANGELOG_OUT/changelog_body.md" \
 import sys
 outer_path, fragment_path, out_path, marker = sys.argv[1:5]
 outer = open(outer_path, encoding="utf-8").read()
-fragment = open(fragment_path, encoding="utf-8").read().rstrip("\n")
+# Trailing newline: tera's include trimming can leave the next section heading
+# directly after the marker, and the fragment must not butt against it.
+fragment = open(fragment_path, encoding="utf-8").read().rstrip("\n") + "\n"
 assert marker in outer, "changelog marker vanished between render and substitution"
 open(out_path, "w", encoding="utf-8").write(outer.replace(marker, fragment, 1))
 PY

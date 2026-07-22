@@ -111,7 +111,7 @@ topics:
       - "parachains-common"
 
   - id: node
-    label: Node (Client)
+    label: Node
     patterns:
       - "sc-*"
       - "polkadot-node-*"

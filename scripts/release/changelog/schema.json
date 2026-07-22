@@ -7,6 +7,10 @@
 	"required": ["schema_version", "release", "topics", "changes"],
 	"additionalProperties": false,
 	"properties": {
+		"$schema": {
+			"description": "URL of this schema, pinned at the release tag the document was generated for.",
+			"type": "string"
+		},
 		"schema_version": {
 			"description": "Version of this data format. Bump on breaking format changes.",
 			"const": 1
