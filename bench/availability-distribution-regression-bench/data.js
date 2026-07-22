@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784633561777,
+  "lastUpdate": 1784748303275,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca",
-          "message": "`ExecuteBlock` split up seal verification and actual execution (#10396)\n\n`ExecuteBlock` exposes the `execute_block` function that is used by\n`validate_block` to execute a block. In case auf AuRa the block\nexecution includes the verification of the seal and the removal of the\nseal. To verify the seal, the block executor needs to load the current\nauthority set. The problem is that when we have storage proof reclaim\nenabled and the host function is used in `on_initialize` before\n`pallet_aura_ext::on_initialize` (this is where we fetch the authority\nset to ensure it appears in the proof) is called, it leads to\n`validate_block` returning a different size and thus, breaking the\nblock. To solve this issue `ExecuteBlock` is now split into seal\nverification and execution of the verified block. In `validate_block`\nthe seal verification is then run outside of the block execution, not\nleading to the issues of reporting different proof sizes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-24T22:43:33Z",
-          "tree_id": "7ebf393a60e410bf7c41c63117735fb7fad49aeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca"
-        },
-        "date": 1764029004421,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022653928986666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15757423902666678,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013207110413333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007490973233333316,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14737820135333338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e6d971ff0166131ddbf6d7bd4a2fe48f7c5924a",
+          "message": "Update polkavm to 0.35 (#12523)\n\nBump the workspace polkavm, polkavm-common, polkavm-derive and\npolkavm-linker pins from 0.33 to 0.35.\n\nThe pallet-revive uapi and fixtures crates pinned\npolkavm-derive/polkavm-linker directly instead of using the workspace\ndependency, so they had drifted behind. Switch them to `{ workspace =\ntrue }` so they track the workspace pin.\n`contracts_not_buildable/sbrk.rs` was removed because sbrk no longer\nexists in `polkavm-derive`.",
+          "timestamp": "2026-07-22T16:57:11Z",
+          "tree_id": "46a88e7d1f8d3e14b298afedc385f8c715c5f5c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e6d971ff0166131ddbf6d7bd4a2fe48f7c5924a"
+        },
+        "date": 1784748271650,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009947268600000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022972578586666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0075062562133333365,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14771947906666671,
             "unit": "seconds"
           }
         ]
