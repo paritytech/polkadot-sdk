@@ -218,7 +218,9 @@ impl ClientError {
 /// Why a node cannot service `state_callRecorded`; the variants differ in fallback log severity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RecordedUnavailable {
-	/// The node binary predates `state_callRecorded` (JSON-RPC method not found).
+	/// The node reports `state_callRecorded` as not found: the binary predates it, or unsafe
+	/// RPC methods are disabled (a denied unsafe call is deliberately indistinguishable from a
+	/// missing method on the wire).
 	MethodMissing,
 	/// The node registers no proof-size recorder (e.g. a solochain).
 	NoRecorder,
@@ -1059,7 +1061,11 @@ impl Client {
 
 		let traces: Vec<(u32, TraceV1)> = Self::recorded_or_fallback(
 			"trace_block",
-			self.state_call_recorded(block_hash, "ReviveApi_trace_block", config.clone().encode()),
+			self.state_call_recorded(
+				"ReviveApi_trace_block",
+				(&block, &config).encode(),
+				parent_hash,
+			),
 			|| async {
 				let runtime_api = self.runtime_api(parent_hash).await?;
 				runtime_api.trace_block(block, config).await
@@ -1091,19 +1097,20 @@ impl Client {
 			.find_transaction(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
+		let transaction_index = transaction_index as u32;
 
+		let block = self.tracing_block(block_hash).await?;
+		let parent_hash = block.header.parent_hash;
 		let trace: Option<TraceV1> = Self::recorded_or_fallback(
 			"trace_tx",
 			self.state_call_recorded(
-				block_hash,
 				"ReviveApi_trace_tx",
-				(transaction_index as u32, config.clone()).encode(),
+				(&block, &transaction_index, &config).encode(),
+				parent_hash,
 			),
 			|| async {
-				let block = self.tracing_block(block_hash).await?;
-				let parent_hash = block.header.parent_hash;
 				let runtime_api = self.runtime_api(parent_hash).await?;
-				runtime_api.trace_tx(block, transaction_index as u32, config).await.map(Some)
+				runtime_api.trace_tx(block, transaction_index, config).await.map(Some)
 			},
 		)
 		.await?;
@@ -1111,21 +1118,18 @@ impl Client {
 		trace.ok_or(ClientError::EthExtrinsicNotFound)
 	}
 
-	/// Invoke the node's `state_callRecorded` RPC: re-execute the block at `block_hash` through
-	/// the runtime API `method`, with a proof-size recorder registered, and decode the SCALE
-	/// result. The block is sourced node-side and prepended to `extra_args`.
+	/// Invoke the node's `state_callRecorded` RPC: run the runtime API `method` at the state of
+	/// `at`, with a proof-size recorder registered, and decode the SCALE result. `call_data` is
+	/// the complete SCALE-encoded argument list, exactly as for `state_call`.
 	async fn state_call_recorded<R: Decode>(
 		&self,
-		block_hash: H256,
 		method: &str,
-		extra_args: Vec<u8>,
+		call_data: Vec<u8>,
+		at: H256,
 	) -> Result<R, ClientError> {
 		let result: sp_core::Bytes = self
 			.rpc_client
-			.request(
-				"state_callRecorded",
-				rpc_params![block_hash, method, sp_core::Bytes(extra_args)],
-			)
+			.request("state_callRecorded", rpc_params![method, sp_core::Bytes(call_data), at])
 			.await?;
 		Ok(R::decode(&mut &result.0[..])?)
 	}
@@ -1148,8 +1152,9 @@ impl Client {
 				Some(RecordedUnavailable::MethodMissing) => {
 					log::warn!(
 						target: LOG_TARGET,
-						"{method}: node lacks `state_callRecorded` (version skew); falling back to \
-						 recorder-less replay — traces may be INCOMPLETE on PoV/parachain chains",
+						"{method}: node does not expose `state_callRecorded` (older binary, or \
+						 unsafe RPC methods disabled); falling back to recorder-less replay — \
+						 traces may be INCOMPLETE on PoV/parachain chains",
 					);
 					fallback().await
 				},

@@ -301,17 +301,20 @@ pub trait StateApi<Hash> {
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
-	/// Recorded-replay sibling of [`Self::trace_block`]: loads `block` by hash and re-executes it
-	/// from the parent state through the runtime API `method`, with a proof-size recorder
-	/// registered, returning the method's SCALE-encoded result. The recorder keeps proof-size
-	/// reclaim faithful so block-replaying APIs do not spuriously hit `ExhaustsResources`.
+	/// Recorded sibling of [`Self::call`]: call a method from the runtime API at a block's state,
+	/// with a proof-size recorder registered. The recorder keeps proof-size reclaim faithful, so
+	/// runtime APIs that replay a block (e.g. tracing) do not spuriously hit `ExhaustsResources`
+	/// on the block tail. The caller provides the complete SCALE-encoded arguments in `bytes`,
+	/// exactly as for [`Self::call`] — the node does not inspect or amend them.
 	///
-	/// `method`'s first argument must be the replayed block: it is sourced node-side and
-	/// SCALE-prepended to `extra_args` (the encoded tail of the arguments).
+	/// Only nodes that register a proof-recording execution hook (parachains) can service this
+	/// call; other nodes report [`Error::CallRecordedUnsupported`].
 	///
-	/// **Unsafe**: re-executes arbitrary historical blocks; only available on nodes that register a
-	/// proof-recording execution hook (parachains), and errors otherwise.
+	/// **Unsafe**: replaying a block through a runtime API costs up to a full block's execution
+	/// per call, bounded only by the runtime's own weight checks (cf. `state_traceBlock` and
+	/// `dev_getBlockStats`, which are unsafe for the same reason). A transitional method: an
+	/// in-node eth-rpc (see polkadot-sdk#11297) reaches the recording hook directly without it.
 	#[method(name = "state_callRecorded", blocking, with_extensions)]
-	fn call_recorded(&self, block: Hash, method: String, extra_args: Bytes)
+	fn call_recorded(&self, name: String, bytes: Bytes, hash: Option<Hash>)
 		-> Result<Bytes, Error>;
 }

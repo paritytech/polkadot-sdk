@@ -64,20 +64,18 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 	/// special tracing collectors.
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
 
-	/// Replay `block` by calling the runtime API `method`, with a proof-size recorder registered,
-	/// and return the SCALE-encoded result. `block` is SCALE-encoded and prepended to `extra_args`,
-	/// so `method`'s first argument must be the block being replayed. The recorder keeps
-	/// `StorageWeightReclaim` faithful during replay; without it the block tail spuriously hits
-	/// `ExhaustsResources`.
+	/// Call the runtime API `method` at the state of `at`, with a proof-size recorder registered,
+	/// and return the SCALE-encoded result. `call_data` is the complete SCALE-encoded argument
+	/// list, passed through verbatim. The recorder keeps `StorageWeightReclaim` faithful when the
+	/// call replays a block; without it the block tail spuriously hits `ExhaustsResources`.
 	///
 	/// The default implementation errors: nodes that do not record proof size (e.g. solochains) do
 	/// not need it.
 	fn call_recorded(
 		&self,
-		_orig_hash: Block::Hash,
-		_block: Block,
+		_at: Block::Hash,
 		_method: &str,
-		_extra_args: &[u8],
+		_call_data: &[u8],
 	) -> sp_blockchain::Result<Vec<u8>> {
 		Err(sp_blockchain::Error::Application(Box::new(CallRecordedUnsupported)))
 	}
@@ -114,11 +112,11 @@ where
 /// Tracing Block Result type alias
 pub type TraceBlockResult<T> = Result<T, Error>;
 
-/// Typed marker so [`BlockExecutor::call_recorded`] can recognise the "no recorder" default by type
-/// and map it to [`Error::CallRecordedUnsupported`].
+/// Typed marker returned by the default [`TracingExecuteBlock::call_recorded`], letting callers
+/// recognise "this node has no proof-recording hook" by downcast and map it to their own error.
 #[derive(Debug, thiserror::Error)]
 #[error("Recorded runtime calls are not supported by this node")]
-struct CallRecordedUnsupported;
+pub struct CallRecordedUnsupported;
 
 /// Tracing Block error
 #[derive(Debug, thiserror::Error)]
@@ -131,8 +129,6 @@ pub enum Error {
 	MissingBlockComponent(String),
 	#[error("Dispatch error: {0}")]
 	Dispatch(String),
-	#[error("Recorded runtime calls are not supported by this node")]
-	CallRecordedUnsupported,
 }
 
 struct BlockSubscriber {
@@ -359,24 +355,6 @@ where
 			spans,
 			events,
 		}))
-	}
-
-	/// Replay the block through runtime API `method` with a proof-size recorder registered, and
-	/// return the SCALE-encoded result. Unlike [`Self::trace_block`] no tracing subscriber is
-	/// installed; `extra_args` is appended after the node-sourced block to form the call arguments.
-	pub fn call_recorded(&self, method: &str, extra_args: &[u8]) -> TraceBlockResult<Vec<u8>> {
-		tracing::debug!(target: "state_tracing", "Recorded call `{method}` on block: {}", self.block);
-		let block = self.prepared_block()?;
-		self.execute_block.call_recorded(self.block, block, method, extra_args).map_err(
-			|e| match &e {
-				sp_blockchain::Error::Application(inner)
-					if inner.downcast_ref::<CallRecordedUnsupported>().is_some() =>
-				{
-					Error::CallRecordedUnsupported
-				},
-				_ => Error::Dispatch(format!("Failed recorded call `{method}`: {e:?}")),
-			},
-		)
 	}
 }
 

@@ -498,24 +498,24 @@ where
 
 	fn call_recorded(
 		&self,
-		block: Block::Hash,
+		block: Option<Block::Hash>,
 		method: String,
-		extra_args: Bytes,
+		call_data: Bytes,
 	) -> std::result::Result<Bytes, Error> {
-		sc_tracing::block::BlockExecutor::new(
-			self.client.clone(),
-			block,
-			None,
-			None,
-			None,
-			self.execute_block.clone(),
+		let at = self.block_or_best(block).map_err(client_err)?;
+		let execute_block = self.execute_block.as_ref().ok_or(Error::CallRecordedUnsupported)?;
+		execute_block.call_recorded(at, &method, &call_data.0).map(Into::into).map_err(
+			|e| match e {
+				sp_blockchain::Error::Application(ref inner)
+					if inner
+						.downcast_ref::<sc_tracing::block::CallRecordedUnsupported>()
+						.is_some() =>
+				{
+					Error::CallRecordedUnsupported
+				},
+				e => Error::Client(Box::new(e)),
+			},
 		)
-		.call_recorded(&method, &extra_args.0)
-		.map(Into::into)
-		.map_err(|e| match e {
-			sc_tracing::block::Error::CallRecordedUnsupported => Error::CallRecordedUnsupported,
-			e => invalid_block::<Block>(block, None, e.to_string()),
-		})
 	}
 }
 

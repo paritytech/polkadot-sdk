@@ -653,33 +653,23 @@ where
 
 	fn call_recorded(
 		&self,
-		orig_hash: Block::Hash,
-		block: Block,
+		at: Block::Hash,
 		method: &str,
-		extra_args: &[u8],
+		call_data: &[u8],
 	) -> sp_blockchain::Result<Vec<u8>> {
-		let parent_hash = *block.header().parent_hash();
-		let parent_number = self
+		let number = self
 			.client
-			.number(parent_hash)?
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{parent_hash:?}")))?;
+			.number(at)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{at:?}")))?;
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
-		let proof_size_ext = load_proof_size_recording(&*self.client, orig_hash)?.map_or_else(
-			|| ProofSizeExt::new(storage_proof_recorder.clone()),
-			|recordings| ProofSizeExt::new(ReplayProofSizeProvider::from(recordings)),
-		);
 
-		let mut extensions =
-			self.client.execution_extensions().extensions(parent_hash, parent_number);
-		extensions.register(proof_size_ext);
-
-		let mut arguments = block.encode();
-		arguments.extend_from_slice(extra_args);
+		let mut extensions = self.client.execution_extensions().extensions(at, number);
+		extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
 
 		self.client.executor().contextual_call(
-			parent_hash,
+			at,
 			method,
-			&arguments,
+			call_data,
 			&RefCell::new(OverlayedChanges::<HashingFor<Block>>::default()),
 			&Some(storage_proof_recorder),
 			CallContext::Offchain,
