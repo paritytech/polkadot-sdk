@@ -63,8 +63,6 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 pub trait TimedCodeExecutor: CodeExecutor {
 	/// Call a given method in the runtime, interrupting execution once `timeout` has elapsed.
 	///
-	/// Always executes wasm — never a native equivalent — so the cap cannot be bypassed.
-	///
 	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
 	/// and run uncapped.
 	fn call_with_execution_timeout(

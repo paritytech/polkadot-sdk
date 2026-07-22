@@ -650,7 +650,6 @@ where
 		context: CallContext,
 		timeout: Duration,
 	) -> Result<Vec<u8>> {
-		// Resolves to the inherent method of the same name.
 		self.call_with_execution_timeout(ext, runtime_code, method, data, context, timeout)
 	}
 }
