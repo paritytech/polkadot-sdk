@@ -99,6 +99,9 @@ pub enum Error {
 
 	#[error("Output exceeds bounds of wasm memory")]
 	OutputExceedsBounds,
+
+	#[error("Execution timed out")]
+	ExecutionTimeout,
 }
 
 impl From<&'static str> for Error {

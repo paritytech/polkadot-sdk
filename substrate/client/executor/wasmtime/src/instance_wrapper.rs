@@ -27,7 +27,7 @@ use sc_executor_common::{
 	wasm_runtime::HeapAllocStrategy,
 };
 use sp_wasm_interface::{Pointer, WordSize};
-use wasmtime::{AsContext, AsContextMut, Engine, Instance, InstancePre, Memory};
+use wasmtime::{AsContext, AsContextMut, Engine, Instance, InstancePre, Memory, Trap};
 
 /// Wasm blob entry point.
 pub struct EntryPoint(wasmtime::TypedFunc<(u32, u32), u64>);
@@ -58,6 +58,10 @@ impl EntryPoint {
 
 			if let Some(message) = host_state.take_panic_message() {
 				Error::AbortedDueToPanic(MessageWithBacktrace { message, backtrace })
+			} else if trap.downcast_ref::<Trap>() == Some(&Trap::Interrupt) {
+				// `Trap::Interrupt` only arises from an expired epoch deadline, i.e. the
+				// execution timeout of a timed instance elapsed.
+				Error::ExecutionTimeout
 			} else {
 				let message = trap.root_cause().to_string();
 				Error::AbortedDueToTrap(MessageWithBacktrace { message, backtrace })

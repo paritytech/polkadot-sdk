@@ -20,9 +20,10 @@ use codec::{Decode as _, Encode as _};
 use sc_executor_common::{
 	error::Error,
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY},
+	wasm_runtime::{HeapAllocStrategy, TimedWasmModule, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY},
 };
 use sc_runtime_test::wasm_binary_unwrap;
+use std::time::{Duration, Instant};
 
 use crate::InstantiationStrategy;
 
@@ -111,23 +112,23 @@ impl RuntimeBuilder {
 		self
 	}
 
-	fn build(&mut self) -> impl WasmModule + '_ {
-		let blob = {
-			let wasm: Vec<u8>;
+	fn blob(&self) -> RuntimeBlob {
+		let wasm: Vec<u8>;
 
-			let wasm = match self.code {
-				None => wasm_binary_unwrap(),
-				Some(ref wat) => {
-					wasm = wat::parse_str(wat).expect("wat parsing failed");
-					&wasm
-				},
-			};
-
-			RuntimeBlob::uncompress_if_needed(&wasm)
-				.expect("failed to create a runtime blob out of test runtime")
+		let wasm = match self.code {
+			None => wasm_binary_unwrap(),
+			Some(ref wat) => {
+				wasm = wat::parse_str(wat).expect("wat parsing failed");
+				&wasm
+			},
 		};
 
-		let config = crate::Config {
+		RuntimeBlob::uncompress_if_needed(wasm)
+			.expect("failed to create a runtime blob out of test runtime")
+	}
+
+	fn config(&self) -> crate::Config {
+		crate::Config {
 			allow_missing_func_imports: true,
 			cache_path: None,
 			semantics: crate::Semantics {
@@ -147,7 +148,12 @@ impl RuntimeBuilder {
 				wasm_reference_types: false,
 				wasm_simd: false,
 			},
-		};
+		}
+	}
+
+	fn build(&mut self) -> impl WasmModule + '_ {
+		let blob = self.blob();
+		let config = self.config();
 
 		if self.precompile_runtime {
 			let dir = tempfile::tempdir().unwrap();
@@ -163,6 +169,13 @@ impl RuntimeBuilder {
 			crate::create_runtime::<HostFunctions>(blob, config)
 		}
 		.expect("cannot create runtime")
+	}
+
+	fn build_timed(&mut self) -> impl TimedWasmModule + '_ {
+		assert!(!self.precompile_runtime, "timed runtimes do not support precompilation");
+
+		crate::create_timed_runtime::<HostFunctions>(self.blob(), self.config())
+			.expect("cannot create runtime")
 	}
 }
 
@@ -303,6 +316,95 @@ fn test_stack_depth_reaching(instantiation_strategy: InstantiationStrategy) {
 		.expect("failed to instantiate a runtime");
 
 	match instance.call_export("test-many-locals", &[]).unwrap_err() {
+		Error::AbortedDueToTrap(error) => {
+			let expected = "wasm trap: wasm `unreachable` instruction executed";
+			assert_eq!(error.message, expected);
+		},
+		error => panic!("unexpected error: {:?}", error),
+	}
+}
+
+test_wasm_execution!(test_timed_call_interrupts_infinite_loop);
+fn test_timed_call_interrupts_infinite_loop(instantiation_strategy: InstantiationStrategy) {
+	let wat = r#"
+		(module
+		  (memory $0 32)
+		  (export "memory" (memory $0))
+		  (global (export "__heap_base") i32 (i32.const 0))
+		  (func (export "main")
+		    (param i32 i32) (result i64)
+		    (loop (br 0))
+		    (i64.const 0)
+		  )
+		)
+	"#;
+
+	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat.to_string());
+	let runtime = builder.build_timed();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	let timeout = Duration::from_secs(1);
+	let start = Instant::now();
+	match instance.call_with_timeout("main", &[], timeout).unwrap_err() {
+		Error::ExecutionTimeout => {},
+		error => panic!("unexpected error: {:?}", error),
+	}
+	// No upper bound check: returning at all proves the loop was interrupted, and a tight
+	// bound would be flaky on a loaded machine.
+	assert!(start.elapsed() >= timeout);
+}
+
+test_wasm_execution!(test_timed_call_completes_when_fast_enough);
+fn test_timed_call_completes_when_fast_enough(instantiation_strategy: InstantiationStrategy) {
+	let wat = r#"
+		(module
+		  (memory $0 32)
+		  (export "memory" (memory $0))
+		  (global (export "__heap_base") i32 (i32.const 256))
+		  (data (i32.const 0) "\2a\00\00\00")
+		  (func (export "main")
+		    (param i32 i32) (result i64)
+		    ;; Return ptr 0, len 4: (4 << 32) | 0.
+		    (i64.const 17179869184)
+		  )
+		)
+	"#;
+
+	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat.to_string());
+	let runtime = builder.build_timed();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	let result = instance.call_with_timeout("main", &[], Duration::from_secs(1000)).unwrap();
+	assert_eq!(result, [42, 0, 0, 0]);
+}
+
+test_wasm_execution!(test_timed_call_distinguishes_traps_from_timeouts);
+fn test_timed_call_distinguishes_traps_from_timeouts(
+	instantiation_strategy: InstantiationStrategy,
+) {
+	let wat = r#"
+		(module
+		  (memory $0 32)
+		  (export "memory" (memory $0))
+		  (global (export "__heap_base") i32 (i32.const 0))
+		  (func (export "main")
+		    (param i32 i32) (result i64)
+		    (unreachable)
+		  )
+		)
+	"#;
+
+	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat.to_string());
+	let runtime = builder.build_timed();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	match instance.call_with_timeout("main", &[], Duration::from_secs(1000)).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = "wasm trap: wasm `unreachable` instruction executed";
 			assert_eq!(error.message, expected);
