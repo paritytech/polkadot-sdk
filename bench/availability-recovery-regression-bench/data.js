@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784748262638,
+  "lastUpdate": 1784753905485,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "822943a18869e2b9ad1f46b0c66f32ab375c7386",
-          "message": "[Release|CI/CD] Create draft release without runtimes or any artefacts attached (for crates only releases) (#10379)\n\nThis PR adjusts existing Publish Release Draft flows for the cases:\n1. When we have a patch release without runtimes (only bins and docker\nimages)\n2. When we have crates only release\n\nFor those two cases, the unnecessary information and artifacts won't be\nattached\n\nCloses: https://github.com/paritytech/release-engineering/issues/275",
-          "timestamp": "2025-11-25T13:20:02Z",
-          "tree_id": "42da423e77e65d28536845567c3f593cae86d9e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/822943a18869e2b9ad1f46b0c66f32ab375c7386"
-        },
-        "date": 1764081993599,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.25487189783333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20321907276666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.214960993999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1d75337a4f800c921a830e2a39dc4ea754f2481",
+          "message": "[pallet-bounties]: add `reclaim_bounty_funds` to reclaim stranded funds from closed bounty accounts (#11045)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/10996\n\nThis PR adds a permissionless `reclaim_bounty_funds` extrinsic that\nmoves funds stranded in a closed bounty's account back to the treasury,\none asset per call (`None` for the native token, `Some(asset_kind)` for\na named fungible), using `transfer_all` semantics, free on success and\npaid on a no-op to prevent griefing\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dhiraj Sah <dhiraj@parity.io>",
+          "timestamp": "2026-07-22T19:16:27Z",
+          "tree_id": "129f837c4ca1c97470a713acc5eeddb55aeb4f29",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1d75337a4f800c921a830e2a39dc4ea754f2481"
+        },
+        "date": 1784753871942,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12906361516666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.130569986733335,
             "unit": "seconds"
           }
         ]
