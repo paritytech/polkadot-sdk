@@ -506,7 +506,7 @@ mod test {
 			Self::fund_account(&account);
 
 			let dry_run =
-				crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), Default::default());
+				crate::Pallet::<Test>::dry_run_eth_transact(self.tx.clone(), None, true, None);
 			self.tx.gas_price = Some(<Pallet<Test>>::evm_base_fee());
 
 			match dry_run {
