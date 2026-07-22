@@ -29,12 +29,10 @@ Only needs python3 + PyYAML. No network access, no containers.
 
 import argparse
 import fnmatch
-import hashlib
 import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import quote
 
 import yaml
 
@@ -47,15 +45,6 @@ AUDIENCE_ALIASES = {re.sub(r"[\W_]", "", a).lower(): a for a in CANONICAL_AUDIEN
 TRUNCATION_LADDER = (700, 550, 450, 400, 350, 300, 250)
 BUMP_RANK = {"major": 3, "minor": 2, "patch": 1, "none": 0}
 CRATE_LIST_CAP = 6
-# Colored audience badges: shields.io images via markdown reference syntax, so each
-# use costs only `![Audience][ref]` and the URL is defined once per document.
-AUDIENCE_BADGES = {
-    "Node Dev": ("nd", "a78bfa"),
-    "Runtime Dev": ("rd", "60a5fa"),
-    "Node Operator": ("no", "fbbf24"),
-    "Runtime User": ("ru", "34d399"),
-}
-DEFAULT_BADGE_COLOR = "9ca3af"
 # Legacy prdocs escaped tera-significant text for the old pipeline ({{ "{{" }}closure...);
 # the new pipeline never tera-processes prdoc content, so unescape it back.
 TERA_ESCAPE_RE = re.compile(r'\{\{\s*"(\{\{|\}\})"\s*\}\}')
@@ -323,12 +312,95 @@ def unwrap_soft_breaks(text):
     return "\n".join(out)
 
 
+# The linked forms `[![alt](img)](target)` and `[<img ...>](target)` (badge /
+# clickable-screenshot patterns) must match before the plain image forms, or the
+# inner image alone would be rewritten and leave a nested link behind. PR
+# descriptions pasted from GitHub also carry raw HTML `<img ... src="...">` tags
+# (single-line; that is how GitHub emits attachments).
+LINKED_IMAGE_RE = re.compile(r"\[!\[([^\]]*)\]\([^)]*\)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+LINKED_IMG_TAG_RE = re.compile(
+    r"\[\s*(<img\b[^>]*>)\s*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", re.IGNORECASE
+)
+IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+IMG_SRC_RE = re.compile(r"\bsrc\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
+IMG_ALT_RE = re.compile(r"\balt\s*=\s*[\"']([^\"']*)[\"']", re.IGNORECASE)
+CODE_SPAN_RE = re.compile(r"`[^`]*`")
+INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)")
+
+
+def replace_images(text):
+    """Turn embedded images into plain links. Images throw off the entry layout on
+    the release page and do nothing for non-rendering consumers; worse, GitHub
+    attachment URLs resolve to expiring signed links, so an embedded image in a
+    release body eventually 404s. A link to the attachment keeps the reference
+    without the noise. Fenced/indented code blocks and inline code spans are left
+    untouched."""
+    def link(m):
+        label = m.group(1).strip() or "attached image"
+        return f"[📷 {label}]({m.group(2)})"
+
+    def img_label(tag):
+        alt = IMG_ALT_RE.search(tag)
+        return (alt.group(1).strip() if alt else "") or "attached image"
+
+    def html_link(m):
+        src = IMG_SRC_RE.search(m.group(0))
+        if not src:
+            return m.group(0)
+        return f"[📷 {img_label(m.group(0))}]({src.group(1)})"
+
+    def linked_html(m):
+        return f"[📷 {img_label(m.group(1))}]({m.group(2)})"
+
+    def replace_in(segment):
+        segment = IMAGE_RE.sub(link, LINKED_IMAGE_RE.sub(link, segment))
+        return IMG_TAG_RE.sub(html_link, LINKED_IMG_TAG_RE.sub(linked_html, segment))
+
+    out = []
+    for line, in_code in scan_fences(text.splitlines()):
+        if not in_code and not INDENTED_CODE_RE.match(line):
+            # Rewrite between inline code spans only, so literal syntax examples
+            # like `![alt](url)` survive verbatim.
+            parts = CODE_SPAN_RE.split(line)
+            spans = CODE_SPAN_RE.findall(line)
+            line = "".join(
+                replace_in(part) + (spans[i] if i < len(spans) else "")
+                for i, part in enumerate(parts)
+            )
+        out.append(line)
+    return "\n".join(out)
+
+
 def rendered_description(text):
     """Prdoc description prepared for markdown rendering (raw text stays in the JSON)."""
-    return demote_headings(unwrap_soft_breaks(text))
+    return demote_headings(replace_images(unwrap_soft_breaks(text)))
 
 
 UNSAFE_PREFIX_RE = re.compile(r"```|~~~|<!--|<details\b", re.IGNORECASE)
+
+# Non-void tags GitHub's HTML sanitizer lets through (minus <details>, tracked
+# separately). A cut that leaves one of these open bleeds its formatting into
+# every entry that follows on the release page, since GitHub only auto-closes
+# dangling tags at the end of the whole document.
+_HTML_FORMATTING_TAGS = (
+    "a|abbr|b|bdo|blockquote|caption|cite|code|dd|del|dfn|div|dl|dt|em|figcaption|"
+    "figure|h[1-6]|i|ins|kbd|li|mark|ol|p|pre|q|rp|rt|ruby|s|samp|small|span|strike|"
+    "strong|sub|summary|sup|table|tbody|td|tfoot|th|thead|time|tr|tt|ul|var"
+)
+HTML_TAG_RE = re.compile(rf"<(/?)(?:{_HTML_FORMATTING_TAGS})\b[^>]*?(/?)>", re.IGNORECASE)
+OPEN_TAG_TAIL_RE = re.compile(r"<[A-Za-z][^>]*$")
+HEADING_LINE_RE = re.compile(r"^\s*#{1,6}\s")
+
+
+def html_tag_balance(text):
+    """Net count of formatting tags opened but not closed in `text` (stray closers
+    can drive it negative; only a positive balance makes a cut unsafe)."""
+    balance = 0
+    for m in HTML_TAG_RE.finditer(text):
+        if not m.group(2):  # self-closing tags open nothing
+            balance += -1 if m.group(1) else 1
+    return balance
 
 
 def truncate_markdown(text, limit):
@@ -344,6 +416,7 @@ def truncate_markdown(text, limit):
     pos = 0
     comment_depth = 0
     details_depth = 0
+    html_depth = 0
     for i, line in enumerate(lines):
         end = pos + len(line)
         if end > limit:
@@ -352,8 +425,14 @@ def truncate_markdown(text, limit):
             comment_depth += line.count("<!--") - line.count("-->")
             details_depth += (len(re.findall(r"<details\b", line, re.IGNORECASE))
                               - line.lower().count("</details>"))
-        clean = not fence_states[i] and comment_depth <= 0 and details_depth <= 0
-        at_paragraph_end = line.strip() and (i + 1 == len(lines) or not lines[i + 1].strip())
+            html_depth += html_tag_balance(line)
+        clean = (not fence_states[i] and comment_depth <= 0 and details_depth <= 0
+                 and html_depth <= 0)
+        # A heading is never a cut point: cutting there would orphan the heading
+        # right before the content it introduces.
+        at_paragraph_end = (line.strip()
+                            and (i + 1 == len(lines) or not lines[i + 1].strip())
+                            and not HEADING_LINE_RE.match(line))
         if clean and at_paragraph_end:
             safe_end = end
         pos = end + 1
@@ -366,9 +445,31 @@ def truncate_markdown(text, limit):
         return "", True
     cut = prefix.rfind(". ")
     if cut >= limit * 0.4:
-        return prefix[: cut + 1].rstrip(), True
-    cut = prefix.rfind(" ")
-    return prefix[: cut if cut > 0 else limit - 1].rstrip(), True
+        snippet = prefix[: cut + 1].rstrip()
+    else:
+        cut = prefix.rfind(" ")
+        snippet = prefix[: cut if cut > 0 else limit - 1].rstrip()
+    # A word-boundary cut can land on or inside a heading line, stranding a
+    # (possibly mangled) heading as the snippet's last content; drop it.
+    while snippet and HEADING_LINE_RE.match(snippet.splitlines()[-1]):
+        snippet = "\n".join(snippet.splitlines()[:-1]).rstrip()
+    # Bail out rather than leave an HTML tag open (or cut through one): a dangling
+    # tag reformats everything after the entry on the release page.
+    if snippet and (html_tag_balance(snippet) > 0 or OPEN_TAG_TAIL_RE.search(snippet)):
+        return "", True
+    return snippet, True
+
+
+def with_ellipsis(text):
+    """Mark a truncation cut with an ellipsis at the end of the cut line itself.
+    A structural last line (list, table, quote, heading, HTML, indented code) gets
+    the marker as its own paragraph instead so the construct is not corrupted; cuts
+    never end inside code fences (see truncate_markdown), so inline appending is
+    safe."""
+    last = text.splitlines()[-1]
+    if BLOCK_LINE_RE.match(last) or RULE_LINE_RE.match(last) or INDENTED_CODE_RE.match(last):
+        return text + "\n\n…"
+    return text + " …"
 
 
 def fmt_crate(crate):
@@ -376,9 +477,13 @@ def fmt_crate(crate):
     return f"`{crate['name']}`{bump}"
 
 
-def fmt_crate_list(crates, cap=CRATE_LIST_CAP):
-    shown = ", ".join(fmt_crate(c) for c in crates[:cap])
-    extra = len(crates) - cap
+def fmt_crate_list(crates, cap=CRATE_LIST_CAP, bumps=True):
+    """bumps=False renders names only — used where the bump level is implied by
+    context (e.g. the Breaking list, whose crates are all major by construction).
+    A falsy cap means unlimited."""
+    listed = crates[:cap] if cap else crates
+    shown = ", ".join(fmt_crate(c) if bumps else f"`{c['name']}`" for c in listed)
+    extra = len(crates) - len(listed)
     return shown + (f" and {extra} more" if extra > 0 else "")
 
 
@@ -396,32 +501,20 @@ def first_line(text, limit=200):
     return line if len(line) <= limit else line[: limit - 1].rstrip() + "…"
 
 
-def badge_ref(audience):
-    if audience in AUDIENCE_BADGES:
-        return AUDIENCE_BADGES[audience][0]
-    slug = re.sub(r"[^a-z0-9]+", "-", audience.lower()).strip("-")
-    if not slug:
-        # Symbol-only audiences (legacy placeholders like "...") must not collide
-        # on one shared reference; derive a stable suffix from the content.
-        slug = hashlib.md5(audience.encode("utf-8")).hexdigest()[:6]
-    return "b-" + slug
+def audience_tags(entry):
+    """Plain-text audience tags. Deliberately not images: text is Ctrl+F-able in the
+    browser, costs fewer characters against the body budget, and needs no external
+    image host."""
+    return "<sub>" + " ".join(f"`{a}`" for a in entry["audiences"]) + "</sub>"
 
 
-def audience_badges(entry):
-    return " ".join(f"![{a}][{badge_ref(a)}]" for a in entry["audiences"])
+SCHEMA_PATH = "scripts/release/changelog/schema.json"
 
 
-def badge_definitions(entries):
-    """Reference definitions for every audience badge used in the document."""
-    used = {a for e in entries for a in e["audiences"]}
-    ordered = [a for a in CANONICAL_AUDIENCES if a in used]
-    ordered += sorted(used - set(CANONICAL_AUDIENCES))
-    lines = []
-    for a in ordered:
-        color = AUDIENCE_BADGES.get(a, (None, DEFAULT_BADGE_COLOR))[1]
-        label = quote(a.replace("-", "--").replace("_", "__").replace(" ", "_"), safe="_-.")
-        lines.append(f"[{badge_ref(a)}]: https://img.shields.io/badge/{label}-{color}")
-    return lines
+def schema_url(tag):
+    """URL of the schema describing changelog.json, pinned at the release tag so it
+    matches the document even after the schema evolves on master."""
+    return f"https://raw.githubusercontent.com/paritytech/polkadot-sdk/{tag or 'master'}/{SCHEMA_PATH}"
 
 
 def asset_note(tag):
@@ -444,14 +537,11 @@ def asset_note(tag):
 def render_breaking_index(entries, cap=4):
     lines = []
     for e in (e for e in entries if e["breaking"]):
-        names = [f"`{c['name']}`" for c in e["crates"] if c["bump"] == "major"]
-        shown = ", ".join(names[:cap] if cap else names)
-        extra = len(names) - cap if cap else 0
-        if extra > 0:
-            shown += f" and {extra} more"
+        majors = [c for c in e["crates"] if c["bump"] == "major"]
+        shown = fmt_crate_list(majors, cap=cap, bumps=False)
         flags = " ".join(migration_flags(e))
         lines.append(
-            f"- **{e['topic']['label']}** — [#{e['pr']}]({e['url']}) {e['title']} — {shown}"
+            f"- **{e['topic']['label']}**: [#{e['pr']}]({e['url']}) {e['title']} ({shown})"
             + (f" {flags}" if flags else "")
         )
     return lines
@@ -462,8 +552,10 @@ def render_breaking_section(entries, cap=4):
     lines = ["## 💥 Breaking Changes", ""]
     if breaking_count:
         lines += [
-            f"{breaking_count} change{'s' if breaking_count != 1 else ''} contain at least one "
-            "`major` crate bump. Details in the 💥-marked entries below.",
+            f"{breaking_count} change{'s are' if breaking_count != 1 else ' is'} breaking "
+            "according to [Rust SemVer](https://doc.rust-lang.org/cargo/reference/semver.html) "
+            "(each bumps the major version of at least one crate). "
+            "Details in the 💥-marked entries below.",
             "",
         ]
         lines += render_breaking_index(entries, cap=cap) + [""]
@@ -481,8 +573,8 @@ def render_migrations_section(entries, full=False):
             runtime.append(f"- [#{e['pr']}]({e['url']}){ref}: {desc}")
         for m in e["migrations"]["db"]:
             desc = m["description"] if full else first_line(m["description"])
-            name = f"**{m['name']}** — " if m["name"] else ""
-            db.append(f"- [#{e['pr']}]({e['url']}): {name}{desc}")
+            name = f" **{m['name']}**" if m["name"] else ""
+            db.append(f"- [#{e['pr']}]({e['url']}){name}: {desc}")
     if not runtime and not db:
         return []
     lines = ["### 🗄️ Migrations", ""]
@@ -496,23 +588,27 @@ def render_migrations_section(entries, full=False):
 def render_entry_body(entry, limit, drop_low):
     lines = [f"#### {'💥 ' if entry['breaking'] else ''}[#{entry['pr']}]({entry['url']}): {entry['title']}"]
     if entry["audiences"]:
-        lines.append(audience_badges(entry))
+        lines.append(audience_tags(entry))
     lines.append("")
 
     description = entry["docs"][0]["description"] if entry["docs"] else ""
     if (limit > 0 and description
             and not (drop_low and max_bump_rank(entry["crates"]) <= BUMP_RANK["patch"])):
         text, truncated = truncate_markdown(rendered_description(description), limit)
-        if text:
+        if text and truncated:
+            lines += [with_ellipsis(text), ""]
+        elif text:
             lines += [text, ""]
-        if truncated:
-            # Own paragraph: appending to the last line could corrupt a closing fence.
-            lines += ["[…]", ""]
+        elif truncated:
+            # Nothing safe to show (e.g. the description opens with a huge code
+            # block); the bare marker still signals there is more in CHANGELOG.md.
+            lines += ["…", ""]
 
     breaking_crates = [c for c in entry["crates"] if c["bump"] == "major"]
     other_crates = [c for c in entry["crates"] if c["bump"] != "major"]
     if breaking_crates:
-        lines.append(f"**Breaking**: {fmt_crate_list(breaking_crates)}")
+        # Names only: everything in this list is a major bump by definition.
+        lines.append(f"**Breaking**: {fmt_crate_list(breaking_crates, bumps=False)}")
     for m in entry["migrations"]["runtime"]:
         lines.append(f"🗄️ **Runtime migration**: {first_line(m['description'])}")
     for m in entry["migrations"]["db"]:
@@ -547,33 +643,32 @@ def render_body_fragment(entries, topics, tag, limit, drop_low):
         lines += [f"### {topic['label']}", ""]
         for e in group:
             lines += render_entry_body(e, limit, drop_low)
-    lines += badge_definitions(entries)
     return "\n".join(lines).rstrip() + "\n"
 
 
 def render_full_entry(entry):
     lines = [f"#### {'💥 ' if entry['breaking'] else ''}[#{entry['pr']}]({entry['url']}): {entry['title']}"]
     if entry["audiences"]:
-        lines.append(audience_badges(entry))
+        lines.append(audience_tags(entry))
     lines.append("")
     multi = len(entry["docs"]) > 1
     for doc in entry["docs"]:
         if multi or doc["title"]:
             heading = doc["title"] or entry["title"]
-            lines += [f"**For {' '.join(f'`{a}`' for a in doc['audiences'])}** — {heading}", ""]
+            lines += [f"**For {' '.join(f'`{a}`' for a in doc['audiences'])}**: {heading}", ""]
         if doc["description"]:
             lines += [rendered_description(doc["description"]), ""]
     if entry["crates"]:
         crate_lines = []
         for c in entry["crates"]:
-            crate_lines.append(f"  - {fmt_crate(c)}" + (f" — {c['note']}" if c["note"] else ""))
+            crate_lines.append(f"  - {fmt_crate(c)}" + (f": {c['note']}" if c["note"] else ""))
         lines += ["**Crates**:"] + crate_lines + [""]
     for m in entry["migrations"]["runtime"]:
         ref = f" ({m['reference']})" if m["reference"] else ""
         lines += [f"🗄️ **Runtime migration**{ref}: {m['description']}", ""]
     for m in entry["migrations"]["db"]:
-        name = f"**{m['name']}** — " if m["name"] else ""
-        lines += [f"🗄️ **DB migration**: {name}{m['description']}", ""]
+        name = f" (**{m['name']}**)" if m["name"] else ""
+        lines += [f"🗄️ **DB migration**{name}: {m['description']}", ""]
     for hf in entry["host_functions"]:
         desc = f": {hf['description']}" if hf["description"] else ""
         lines += [f"⚙️ **Host function** `{hf['name']}`{desc}", ""]
@@ -582,7 +677,7 @@ def render_full_entry(entry):
 
 def render_full_changelog(entries, topics, tag, previous_tag, audience_descriptions):
     title_ref = tag or "unreleased"
-    lines = [f"# Polkadot SDK {title_ref} — Complete Changelog", ""]
+    lines = [f"# Polkadot SDK {title_ref}: Complete Changelog", ""]
     if tag and previous_tag:
         lines += [f"This release contains the changes from `{previous_tag}` to `{tag}`.", ""]
     lines += [
@@ -613,12 +708,12 @@ def render_full_changelog(entries, topics, tag, previous_tag, audience_descripti
                     lines += [f"#### [#{e['pr']}]({e['url']}): {heading}", ""]
                     if doc["description"]:
                         lines += [rendered_description(doc["description"]), ""]
-    lines += badge_definitions(entries)
     return "\n".join(lines).rstrip() + "\n"
 
 
 def build_json(entries, topics, tag, previous_tag, version, generated_at):
     return {
+        "$schema": schema_url(tag),
         "schema_version": SCHEMA_VERSION,
         "release": {
             "tag": tag,
@@ -675,7 +770,7 @@ def main():
 
     # Degradation ladder: shrink descriptions until the fragment fits the budget, then
     # drop descriptions of entries without any major/minor bump, and as the guaranteed
-    # terminal rung drop all descriptions (titles/badges/crates always fit in practice).
+    # terminal rung drop all descriptions (titles/tags/crates always fit in practice).
     steps = [(limit, False) for limit in TRUNCATION_LADDER]
     steps += [(TRUNCATION_LADDER[-1], True), (0, True)]
     body = None

@@ -35,7 +35,7 @@ jobs:
 
       - name: Prepare tooling
         run: |
-          python3 -m pip install --user pyyaml
+          python3 -m pip install --user pyyaml jsonschema
           URL=https://github.com/chevdor/tera-cli/releases/download/v0.4.0/tera-cli_linux_amd64.deb
           wget -q $URL -O tera.deb
           sudo dpkg -i tera.deb
@@ -98,24 +98,46 @@ jobs:
           LATEST_DIR="${{ steps.folders.outputs.latest }}"
           export VERSION="$(basename "$LATEST_DIR")"
           export REF1="polkadot-previous-test" REF2="polkadot-${VERSION}-rc1"
-          export RUSTC_STABLE="0.0" NO_RUNTIMES=true GENERATED_AT="2000-01-01T00:00:00Z"
-          ./scripts/release/build-changelogs.sh
+          export RUSTC_STABLE="0.0" GENERATED_AT="2000-01-01T00:00:00Z"
 
-          DRAFT=scripts/release/RELEASE_DRAFT.md
-          test -s "$DRAFT"
-          if grep -qF '<!-- POLKADOT-SDK-CHANGELOG-BODY -->' "$DRAFT"; then
-            echo "::error::changelog marker not substituted in RELEASE_DRAFT.md"
-            exit 1
-          fi
-          CHARS=$(wc -m < "$DRAFT")
-          echo "RELEASE_DRAFT.md: $CHARS chars"
-          if [ "$CHARS" -gt 125000 ]; then
-            echo "::error::release draft exceeds GitHub's 125000-char body cap ($CHARS)"
-            exit 1
-          fi
-          mkdir -p changelog-preview/end-to-end
-          cp "$DRAFT" scripts/release/CHANGELOG.md scripts/release/changelog.json \
-            changelog-preview/end-to-end/
+          # Both release shapes: a patch release without runtimes, and a full
+          # quarterly release, which also exercises the srtool digest assembly
+          # and the runtimes/compiler template branches (against the fixture
+          # digests in scripts/release/digests/).
+          for MODE in patch full; do
+            if [ "$MODE" = "patch" ]; then export NO_RUNTIMES=true; else export NO_RUNTIMES=false; fi
+            ./scripts/release/build-changelogs.sh
+
+            DRAFT=scripts/release/RELEASE_DRAFT.md
+            test -s "$DRAFT"
+            if grep -qF '<!-- POLKADOT-SDK-CHANGELOG-BODY -->' "$DRAFT"; then
+              echo "::error::changelog marker not substituted in RELEASE_DRAFT.md ($MODE)"
+              exit 1
+            fi
+            CHARS=$(wc -m < "$DRAFT")
+            echo "RELEASE_DRAFT.md ($MODE): $CHARS chars"
+            if [ "$CHARS" -gt 125000 ]; then
+              echo "::error::release draft exceeds GitHub's 125000-char body cap ($CHARS, $MODE)"
+              exit 1
+            fi
+            mkdir -p "changelog-preview/end-to-end-$MODE"
+            cp "$DRAFT" scripts/release/CHANGELOG.md scripts/release/changelog.json \
+              "changelog-preview/end-to-end-$MODE/"
+          done
+
+      - name: Validate changelog.json outputs against the schema
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, jsonschema
+          schema = json.loads(pathlib.Path("scripts/release/changelog/schema.json").read_text())
+          jsonschema.Draft7Validator.check_schema(schema)
+          validator = jsonschema.Draft7Validator(schema)
+          documents = sorted(pathlib.Path("changelog-preview").glob("*/changelog.json"))
+          assert documents, "no rendered changelog.json found to validate"
+          for doc in documents:
+              validator.validate(json.loads(doc.read_text()))
+              print(f"OK: {doc}")
+          PY
 
       - name: Upload rendered changelogs
         if: always()
