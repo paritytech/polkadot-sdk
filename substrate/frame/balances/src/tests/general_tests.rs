@@ -30,6 +30,7 @@ use frame_support::{
 	traits::{
 		fungible::{self, InspectFreeze, Mutate, MutateFreeze, MutateHold},
 		tokens::{Fortitude, Precision, Preservation},
+		LockableCurrency, WithdrawReasons,
 	},
 };
 use sp_runtime::DispatchError;
@@ -215,6 +216,28 @@ fn regression_thaw_dusting_sub_ed_account_leaks_issuance() {
 
 		// Thawing the last freeze dusts the 5 free units; the dust must be burned.
 		assert_ok!(Balances::thaw(&TestId::Foo, &alice));
+		ensure_ti_valid();
+	});
+}
+
+/// Removing the last lock from an account dusted below the ED must not leak the
+/// dust from `TotalIssuance` (`update_locks` must handle `maybe_dust`).
+#[test]
+fn regression_remove_lock_dusting_sub_ed_account_leaks_issuance() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+		let (alice, bob) = (0, 1);
+
+		Balances::set_balance(&alice, 100);
+		TotalIssuance::<Test>::put(100);
+		let _ = System::inc_providers(&alice);
+		Balances::set_lock(*b"locktest", &alice, 5, WithdrawReasons::all());
+
+		// Leaves free = 7: below ED, but kept alive by the lock.
+		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 93));
+
+		// Removing the last lock dusts the 7 free units; the dust must be burned.
+		Balances::remove_lock(*b"locktest", &alice);
 		ensure_ti_valid();
 	});
 }
