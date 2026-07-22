@@ -234,6 +234,31 @@ fn unbalanced_trait_increase_balance_works() {
 }
 
 #[test]
+fn increase_balance_rejects_total_balance_overflow() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		// The free-balance addition is checked, but free and reserved are then combined with
+		// saturating arithmetic. That masks the aggregate overflow and accepts an account whose
+		// mathematical total cannot be represented by `Balance`.
+		let account = 1;
+
+		Balances::set_balance(&account, u64::MAX - 1);
+		assert_ok!(Balances::hold(&TestId::Foo, &account, 1));
+		assert_eq!(get_test_account_data(account).free, u64::MAX - 2);
+		assert_eq!(get_test_account_data(account).reserved, 1);
+
+		// Exact cannot credit the requested amount because it would make the aggregate overflow.
+		assert_noop!(Balances::increase_balance(&account, 2, Exact), ArithmeticError::Overflow);
+
+		// BestEffort must credit only the remaining aggregate headroom, not hide the overflow by
+		// saturating `total_balance` after writing both components.
+		assert_eq!(Balances::increase_balance(&account, 2, BestEffort), Ok(1));
+		assert_eq!(get_test_account_data(account).free, u64::MAX - 1);
+		assert_eq!(get_test_account_data(account).reserved, 1);
+		assert_eq!(Balances::total_balance(&account), u64::MAX);
+	});
+}
+
+#[test]
 fn unbalanced_trait_increase_balance_at_most_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_eq!(Balances::increase_balance(&1337, 0, BestEffort), Ok(0));
