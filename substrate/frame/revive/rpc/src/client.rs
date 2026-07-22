@@ -702,6 +702,27 @@ impl Client {
 		}
 	}
 
+	/// Get the block for the given block number or tag, or `None` if it is not known.
+	///
+	/// Prefer this over resolving a hash with [`Self::block_hash_for_tag`] and then fetching the
+	/// block, which costs an extra request; use `block_hash_for_tag` only when the hash alone is
+	/// needed, since it avoids fetching the block at all for a block number.
+	pub async fn block_for_tag(
+		&self,
+		at: BlockId,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		match at {
+			BlockId::Hash(hash) => {
+				let Some(hash) = self.resolve_substrate_hash(&H256::from(hash.block_hash.0)).await
+				else {
+					return Ok(None);
+				};
+				self.block_by_hash(&hash).await
+			},
+			BlockId::Number(tag) => self.block_by_number_or_tag(&tag).await,
+		}
+	}
+
 	/// Get the storage API for the given block.
 	pub fn storage_api(&self, block_hash: H256) -> StorageApi {
 		StorageApi::new(self.api.storage().at(block_hash))
@@ -798,14 +819,7 @@ impl Client {
 		&self,
 		at: BlockId,
 	) -> Result<Option<Vec<ReceiptInfo>>, ClientError> {
-		let substrate_hash = match self.block_hash_for_tag(at).await {
-			Ok(hash) => hash,
-			Err(ClientError::BlockNotFound | ClientError::EthereumBlockNotFound) => {
-				return Ok(None);
-			},
-			Err(err) => return Err(err),
-		};
-		let Some(block) = self.block_provider.block_by_hash(&substrate_hash).await? else {
+		let Some(block) = self.block_for_tag(at).await? else {
 			return Ok(None);
 		};
 		let receipts = self.receipt_provider.block_receipts(&block).await?;
