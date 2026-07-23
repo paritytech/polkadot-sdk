@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784819482598,
+  "lastUpdate": 1784827823397,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -109727,6 +109727,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2664210673,
             "range": "± 13580819",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7616541d96bdd8f328fc0dcabcc0571e9898815c",
+          "message": "[pallet-revive] Omit empty traces uniformly across tracer types (#12386)\n\n# Description\n\nThe tracer types produced non-uniform results for empty traces.\n`Tracer::collect_trace` returns `Option<Trace>`, but `None` meant\ndifferent things: `CallTracer` returned `None` when nothing was traced,\nwhile `ExecutionTracer` and `PrestateTracer` always returned `Some` with\na zero/default trace.\n\nThis makes them uniform: a collected trace equal to the tracer's\n`empty_trace()` is reported as `None` for every tracer type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-23T16:00:17Z",
+          "tree_id": "42cfca17203a8cd954b9c732a88a5fdd80a047b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7616541d96bdd8f328fc0dcabcc0571e9898815c"
+        },
+        "date": 1784827789633,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21124155,
+            "range": "± 233386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21102736,
+            "range": "± 280301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23740046,
+            "range": "± 413897",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28493693,
+            "range": "± 591924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63826937,
+            "range": "± 1492980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 393085417,
+            "range": "± 14912647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2618002889,
+            "range": "± 27042088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18284144,
+            "range": "± 145436",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18302913,
+            "range": "± 144439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19035029,
+            "range": "± 344148",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23516993,
+            "range": "± 337850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65044677,
+            "range": "± 942241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 406746081,
+            "range": "± 3983868",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2990301335,
+            "range": "± 61109833",
             "unit": "ns/iter"
           }
         ]
