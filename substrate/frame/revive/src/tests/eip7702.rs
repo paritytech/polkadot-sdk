@@ -500,8 +500,7 @@ fn clearing_delegation_with_zero_address() {
 ///
 /// The refund is routed via `exec_config.funds(old_payer)` to the recorded payer rather than to
 /// `origin` (the clear submitter), so the original payer is made whole and the clearer gains
-/// nothing. This test pins that invariant; it would have failed against the earlier
-/// `exec_config.funds(origin)` routing that paid the clearer.
+/// nothing.
 #[test]
 fn refund_routes_to_set_payer_not_clear_submitter() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -600,14 +599,15 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 	});
 }
 
-/// Under eth-tx, a payer-change refund must reach the recorded payer, not the fee pot. The
+/// Under eth-tx, a payer-change refund must reach the recorded payer, not the fee pot: the
 /// `Funds::TxFee` rail drops the recipient and returns the deposit to the pot (→ the current
-/// submitter); the fix forces a `Funds::Balance` transfer to `old_payer`. Exercises both
-/// payer-change refund legs — re-delegation (`current > 0`) and clear (`current == 0`) — and the
-/// moving recorded-payer across them, asserting the refund lands on the right account and the pot
-/// never recovers it. (Full cross-tx loss needs two separate gas pools, out of scope here.)
+/// submitter), so the refund must go out as a `Funds::Balance` transfer to `old_payer`.
+/// Exercises both payer-change refund legs — re-delegation (`current > 0`) and clear
+/// (`current == 0`) — and the moving recorded-payer across them, asserting the refund lands on
+/// the right account and the pot never recovers it. (Full cross-tx loss needs two separate gas
+/// pools, out of scope here.)
 #[test]
-fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
+fn eth_tx_payer_change_refund_reaches_recorded_payer() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		// Seed the fee pot so eth-tx charges have somewhere to draw from.
@@ -751,10 +751,9 @@ fn eth_tx_payer_change_refund_leaks_to_fee_pot() {
 /// the new deposit in full, and the net deposit reported to the new submitter's metering budget
 /// must be exactly `Charge(current)` — never the cross-account `current - previous` diff.
 ///
-/// This is the regime where the cross-account bug bites hardest: with the buggy `current -
-/// previous` net and `previous == current` it would report `Charge(0)`, handing the new submitter
-/// a full deposit's worth of free EVM budget. The clear-path test above only exercises
-/// `current == 0`.
+/// With `previous == current`, a cross-account `current - previous` net would report
+/// `Charge(0)`, handing the new submitter a full deposit's worth of free EVM budget. The
+/// clear-path test above only exercises `current == 0`.
 #[test]
 fn payer_change_redelegation_charges_new_payer_in_full() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -763,7 +762,7 @@ fn payer_change_redelegation_charges_new_payer_in_full() {
 
 		// Two distinct contracts sharing the same code, hence the same base deposit. Re-pointing
 		// between them keeps `previous == current`, isolating the metering net from any deposit
-		// delta so `Charge(current)` (correct) is distinguishable from `Charge(0)` (the bug).
+		// delta so `Charge(current)` (correct) is distinguishable from `Charge(0)`.
 		let target_a = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 		let target_b = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
@@ -825,7 +824,7 @@ fn payer_change_redelegation_charges_new_payer_in_full() {
 			Some(target_b.addr)
 		);
 
-		// Core bug-#1 invariant: the new submitter is metered for exactly what it paid, not the
+		// Core invariant: the new submitter is metered for exactly what it paid, not the
 		// cross-account `current - previous` (which would be `Charge(0)` here).
 		assert_eq!(
 			redelegate_result.deposit,
@@ -853,11 +852,10 @@ fn payer_change_redelegation_charges_new_payer_in_full() {
 	});
 }
 
-/// Payer-change re-delegation where the two targets carry *different* deposits. This is the
-/// strongest form of the cross-account metering bug: `previous != current`, so the buggy
-/// `current - previous` net would be a non-zero (and wrong) charge/refund, while the correct net
-/// is exactly `Charge(current)` charged to the new payer. The old payer must be refunded its full
-/// `previous`, independent of the new deposit.
+/// Payer-change re-delegation where the two targets carry *different* deposits:
+/// `previous != current`, so a cross-account `current - previous` net would be a non-zero (and
+/// wrong) charge/refund, while the correct net is exactly `Charge(current)` charged to the new
+/// payer. The old payer must be refunded its full `previous`, independent of the new deposit.
 #[test]
 fn payer_change_redelegation_different_deposits_charges_current() {
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
@@ -920,8 +918,8 @@ fn payer_change_redelegation_different_deposits_charges_current() {
 			Some(target_b.addr)
 		);
 
-		// Net charged to the new payer's budget is the NEW deposit in full — not deposit_b -
-		// deposit_a (the cross-account diff the bug would compute).
+		// Net charged to the new payer's budget is the NEW deposit in full — not the
+		// cross-account diff deposit_b - deposit_a.
 		assert_eq!(
 			result.deposit,
 			crate::StorageDeposit::Charge(deposit_b),
@@ -1102,7 +1100,7 @@ fn auth_failing_post_validation_skips_without_aborting_list() {
 /// Runtime test: Set and clear authorization via eth_call.
 /// Verifies delegation state, nonce increment, and deposit lifecycle.
 #[test]
-fn test_runtime_set_and_clear_authorization() {
+fn runtime_set_and_clear_authorization() {
 	ExtBuilder::default().build().execute_with(|| {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 
@@ -1162,7 +1160,7 @@ fn test_runtime_set_and_clear_authorization() {
 /// in the same eth_call. Authorizations are processed before execution, so the
 /// call body finds the delegation and executes the target contract's code.
 #[test]
-fn test_runtime_delegation_resolution() {
+fn runtime_delegation_resolution() {
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -1858,11 +1856,11 @@ fn assert_system_terminate_on_delegated_reverts(method: u8, ctx: &str) {
 		let revert_msg = crate::evm::decode_revert_reason(&result.data)
 			.unwrap_or_else(|| panic!("expected an ABI-encoded Error(string) revert ({ctx})"));
 		let expected_msg = if method == 0 {
-			// METHOD_PRECOMPILE: our new `CannotTerminateDelegatedAccount` guard.
+			// METHOD_PRECOMPILE: the `CannotTerminateDelegatedAccount` guard.
 			"revert: cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
 		} else {
-			// METHOD_DELEGATE_CALL: short-circuits on the pre-existing
-			// `PrecompileDelegateDenied` guard before reaching our new one.
+			// METHOD_DELEGATE_CALL: short-circuits on the `PrecompileDelegateDenied` guard
+			// before reaching `CannotTerminateDelegatedAccount`.
 			"revert: illegal to call this pre-compile via delegate call"
 		};
 		assert_eq!(revert_msg, expected_msg, "wrong revert reason ({ctx})");
@@ -1929,9 +1927,9 @@ fn delegation_deposit_lifecycle() {
 	});
 }
 
-/// Regression: an EIP-7702 transaction that revokes more delegation deposit than it charges must
-/// surface a `Refund(N)` from `process_authorizations`, not a clamped `Charge(0)`. The previous
-/// implementation aggregated on `BalanceOf<T>` (unsigned) and silently lost the net refund.
+/// An EIP-7702 transaction that revokes more delegation deposit than it charges must surface a
+/// `Refund(N)` from `process_authorizations` — aggregating on an unsigned balance would clamp
+/// the net refund to `Charge(0)` and silently lose it.
 #[test]
 fn pure_revoke_authorization_yields_net_refund() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -2015,7 +2013,7 @@ fn redelegation_adjusts_deposit() {
 		let result = setup.process(&[auth]);
 
 		// Same payer, same deposit → the net reported to the metering budget must be zero, not a
-		// spurious charge or refund. Discarding this previously hid metering-net regressions.
+		// spurious charge or refund.
 		assert_eq!(
 			result.deposit,
 			crate::StorageDeposit::Charge(0),
@@ -2259,9 +2257,6 @@ fn set_delegation_to_zero_hash_contract_succeeds() {
 fn set_delegation_preserves_dust_on_eoa_transition() {
 	ExtBuilder::default().build().execute_with(|| {
 		let authority = H160::from([0x55; 20]);
-		let authority_id = <Test as Config>::AddressMapper::to_address(
-			&<Test as Config>::AddressMapper::to_account_id(&authority),
-		);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(
 			&<Test as Config>::AddressMapper::to_account_id(&authority),
 			100_000_000,
@@ -2283,7 +2278,6 @@ fn set_delegation_preserves_dust_on_eoa_transition() {
 			after.account_type,
 			crate::storage::AccountType::DelegatedEOA { delegate_target: Some(_), .. }
 		));
-		let _ = authority_id; // suppress unused
 	});
 }
 
@@ -2460,27 +2454,6 @@ fn high_s_authorization_is_not_rejected() {
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 		assert_eq!(result.existing_accounts, 1);
 	});
-}
-
-/// Spec-compliant behavior for an EIP-7702 transaction whose destination is the
-/// `RUNTIME_PALLETS_ADDR` substrate-dispatch routing address: the auths must still be
-/// processed before the substrate call dispatches.
-///
-/// Currently we reject this combination at validation time (see
-/// `check_eth_transact_7702_rejects_runtime_pallets_addr`) because `eth_substrate_call`
-/// has no `authorization_list` field. Activating this test requires:
-///  1. Dropping that rejection check.
-///  2. Plumbing the auth list through `eth_substrate_call` and processing it before dispatching the
-///     inner pallet call.
-#[test]
-#[ignore = "spec-compliant EIP-7702 + RUNTIME_PALLETS_ADDR requires plumbing the auth list through eth_substrate_call"]
-fn runtime_pallet_call_still_processes_authorizations() {
-	// Placeholder for the spec-compliant test:
-	// 1. Build an EIP-7702 tx with `to = RUNTIME_PALLETS_ADDR`, data = encoded
-	//    `frame_system::Call::remark { remark }`, and a valid authorization_list.
-	// 2. Submit via eth_transact.
-	// 3. Assert the auth signer ends up delegated to the auth's target.
-	// 4. Assert the remark event was emitted (substrate call also dispatched).
 }
 
 /// Snapshot-vs-call-time deviation: if code is deployed at the delegation target *after*

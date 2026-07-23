@@ -28,7 +28,6 @@ pub enum TransactionType {
 	Eip2930,
 	Eip1559,
 	Eip4844,
-	Eip7702,
 }
 
 /// Transaction builder.
@@ -39,7 +38,6 @@ pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	input: Bytes,
 	to: Option<H160>,
 	nonce: Option<U256>,
-	authorization_list: Vec<AuthorizationListEntry>,
 	gas: Option<U256>,
 	mutate: Box<dyn FnOnce(&mut TransactionUnsigned)>,
 }
@@ -52,11 +50,6 @@ pub struct SubmittedTransaction<Client: EthRpcClient + Sync + Send> {
 }
 
 impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
-	/// Create from a raw transaction hash and gas limit.
-	pub fn from_raw(client: Arc<Client>, hash: H256, gas: U256) -> Self {
-		Self { tx: GenericTransaction { gas: Some(gas), ..Default::default() }, hash, client }
-	}
-
 	/// Get the hash of the transaction.
 	pub fn hash(&self) -> H256 {
 		self.hash
@@ -114,7 +107,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			input: Bytes::default(),
 			to: None,
 			nonce: None,
-			authorization_list: vec![],
 			gas: None,
 			mutate: Box::new(|_| {}),
 		}
@@ -149,12 +141,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		self
 	}
 
-	/// Set the authorization list (EIP-7702).
-	pub fn authorization_list(mut self, list: Vec<AuthorizationListEntry>) -> Self {
-		self.authorization_list = list;
-		self
-	}
-
 	/// Set the gas limit explicitly, skipping eth_estimateGas.
 	pub fn gas(mut self, gas: U256) -> Self {
 		self.gas = Some(gas);
@@ -169,7 +155,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 
 	/// Call eth_call to get the result of a view function
 	pub async fn eth_call(self) -> anyhow::Result<Vec<u8>> {
-		let TransactionBuilder { client, signer, value, input, to, authorization_list, .. } = self;
+		let TransactionBuilder { client, signer, value, input, to, .. } = self;
 
 		let from = signer.address();
 		let result = client
@@ -179,7 +165,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 					input: input.into(),
 					value: Some(value),
 					to,
-					authorization_list,
 					..Default::default()
 				},
 				None,
@@ -200,17 +185,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		self,
 		tx_type: TransactionType,
 	) -> anyhow::Result<SubmittedTransaction<Client>> {
-		let TransactionBuilder {
-			client,
-			signer,
-			value,
-			input,
-			to,
-			nonce,
-			authorization_list,
-			gas,
-			mutate,
-		} = self;
+		let TransactionBuilder { client, signer, value, input, to, nonce, gas, mutate } = self;
 
 		let from = signer.address();
 		let chain_id = client.chain_id().await?;
@@ -224,13 +199,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 				.with_context(|| "Failed to fetch account nonce")?
 		};
 
-		let r#type = match tx_type {
-			TransactionType::Legacy => None,
-			TransactionType::Eip2930 => Some(Byte(1)),
-			TransactionType::Eip1559 => Some(Byte(2)),
-			TransactionType::Eip4844 => Some(Byte(3)),
-			TransactionType::Eip7702 => Some(Byte(4)),
-		};
 		let gas = if let Some(gas) = gas {
 			gas
 		} else {
@@ -242,8 +210,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 						value: Some(value),
 						gas_price: Some(gas_price),
 						to,
-						r#type,
-						authorization_list: authorization_list.clone(),
 						..Default::default()
 					},
 					None,
@@ -312,23 +278,6 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 					access_list: vec![],
 					blob_versioned_hashes: vec![],
 					r#type: TypeEip4844,
-				}
-				.into()
-			},
-			TransactionType::Eip7702 => {
-				let to = to.ok_or_else(|| {
-					anyhow::anyhow!("EIP-7702 transactions require a destination address")
-				})?;
-				Transaction7702Unsigned {
-					gas,
-					nonce,
-					to,
-					value,
-					input,
-					max_fee_per_gas: gas_price,
-					chain_id,
-					authorization_list,
-					..Default::default()
 				}
 				.into()
 			},
