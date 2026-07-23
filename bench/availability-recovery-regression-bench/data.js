@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784820387308,
+  "lastUpdate": 1784828625188,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e9ea6541eb190cccb4106667c3a505ef29951d8",
-          "message": "ZN test for asserting building Parablocks on RC with session change (#10204)\n\nEdit by @skunert (edited because original test said not to merge):\n\nThis adds a zombienet test that verifies that parachains running with a\nrelay parent offset will not build on relay parents that have a session\nchange in the descendant blocks.\n\nThe reason is that candidates that were build in a past session are\ndropped on session boundary.\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-25T18:21:45Z",
-          "tree_id": "83187dbf1dbf987d3e2eb0637555bd47e64e6dd0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e9ea6541eb190cccb4106667c3a505ef29951d8"
-        },
-        "date": 1764100703505,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1992266606,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.315362903033334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14433014973333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7616541d96bdd8f328fc0dcabcc0571e9898815c",
+          "message": "[pallet-revive] Omit empty traces uniformly across tracer types (#12386)\n\n# Description\n\nThe tracer types produced non-uniform results for empty traces.\n`Tracer::collect_trace` returns `Option<Trace>`, but `None` meant\ndifferent things: `CallTracer` returned `None` when nothing was traced,\nwhile `ExecutionTracer` and `PrestateTracer` always returned `Some` with\na zero/default trace.\n\nThis makes them uniform: a collected trace equal to the tracer's\n`empty_trace()` is reported as `None` for every tracer type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-23T16:00:17Z",
+          "tree_id": "42cfca17203a8cd954b9c732a88a5fdd80a047b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7616541d96bdd8f328fc0dcabcc0571e9898815c"
+        },
+        "date": 1784828593309,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13792742649999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.238316867233335,
             "unit": "seconds"
           }
         ]
