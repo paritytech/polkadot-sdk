@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784753947425,
+  "lastUpdate": 1784820429315,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "822943a18869e2b9ad1f46b0c66f32ab375c7386",
-          "message": "[Release|CI/CD] Create draft release without runtimes or any artefacts attached (for crates only releases) (#10379)\n\nThis PR adjusts existing Publish Release Draft flows for the cases:\n1. When we have a patch release without runtimes (only bins and docker\nimages)\n2. When we have crates only release\n\nFor those two cases, the unnecessary information and artifacts won't be\nattached\n\nCloses: https://github.com/paritytech/release-engineering/issues/275",
-          "timestamp": "2025-11-25T13:20:02Z",
-          "tree_id": "42da423e77e65d28536845567c3f593cae86d9e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/822943a18869e2b9ad1f46b0c66f32ab375c7386"
-        },
-        "date": 1764082026551,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007357830759999981,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01326952332666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022667249153333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15865737471333344,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022921095406666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab770ca94391d929751faeb9189403fdb8b997b6",
+          "message": "pallet-revive: implement eth_getBlockReceipts (#12636)\n\n## Summary\n\n`pallet-revive`'s Ethereum JSON-RPC server did not implement\n`eth_getBlockReceipts`, a standard `execution-apis` method that returns\nevery transaction receipt in a block in a single call. It is widely used\nby indexers and block explorers.\n\nThis adds it: given a block number, tag, or hash it returns the list of\nreceipts, extracted from the block in a single pass, or `null` if the\nblock does not exist — matching go-ethereum.\n\n## Changes\n\n- Add `eth_getBlockReceipts` to the `EthRpc` trait and implement the\nhandler.\n- `Client::block_receipts` resolves the block and returns `None` (null)\nfor a missing block.\n- `ReceiptProvider::block_receipts` extracts all receipts from the block\nin one pass.\n- Add an integration test covering by-number, by-hash, and the not-found\ncase.\n\n## Testing\n\n- `cargo check` / `cargo clippy --all-targets` / `cargo +nightly fmt`\nclean.\n- `test_get_block_receipts` added to the eth-rpc integration suite.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-23T13:36:54Z",
+          "tree_id": "b8a349bf7e94811d08baed63c57d6f2e3dd9a1ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ab770ca94391d929751faeb9189403fdb8b997b6"
+        },
+        "date": 1784820395992,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007736249093333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14921305524000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009934358979999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023096462473333343,
             "unit": "seconds"
           }
         ]
