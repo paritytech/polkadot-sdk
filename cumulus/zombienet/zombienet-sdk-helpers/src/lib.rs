@@ -42,8 +42,10 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
 // Maximum time to wait for PVF preparation to conclude on a validator before
 // starting throughput measurement. PVF preparation is a one-off ~20s wasm
-// compile per validator that contends for CPU.
-const PVF_PREPARE_TIMEOUT_SECS: u64 = 180;
+// compile per validator that contends for CPU. The clock starts at the session
+// change, but the first parachain candidate (which triggers PVF preparation)
+// can be delayed by several minutes of collator warm-up, which we must account for.
+const PVF_PREPARE_TIMEOUT_SECS: u64 = 300;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
 ///
@@ -979,4 +981,32 @@ pub async fn wait_for_runtime_upgrade(
 	}
 
 	Err(anyhow!("Did not find a runtime upgrade"))
+}
+
+/// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
+/// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
+///
+/// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
+/// the on-chain state until a new client is constructed against a block executed under the
+/// upgraded runtime.
+pub async fn wait_for_pallet_in_metadata(
+	ws_url: &str,
+	pallet_name: &str,
+	timeout: Duration,
+	poll_interval: Duration,
+) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
+	let deadline = std::time::Instant::now() + timeout;
+	loop {
+		if std::time::Instant::now() >= deadline {
+			return Err(anyhow!(
+				"metadata at {ws_url} never reflected pallet `{pallet_name}` within {timeout:?}",
+			));
+		}
+		sleep(poll_interval).await;
+		let candidate = OnlineClient::<PolkadotConfig>::from_url(ws_url).await?;
+		if candidate.metadata().pallet_by_name(pallet_name).is_some() {
+			return Ok(candidate);
+		}
+		log::debug!("`{pallet_name}` not in metadata yet, retrying");
+	}
 }
