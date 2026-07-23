@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_revive/evm/</div>tracing.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_revive/evm/</div>tracing.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
@@ -212,20 +212,45 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#62 id=62 data-nosnippet>62</a>		}
 <a href=#63 id=63 data-nosnippet>63</a>	}
 <a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// Collect the traces and return them.
-<a href=#66 id=66 data-nosnippet>66</a>	</span><span class="kw">pub fn </span>collect_trace(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Trace&gt; {
-<a href=#67 id=67 data-nosnippet>67</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#68 id=68 data-nosnippet>68</a>			Tracer::CallTracer(inner) =&gt; inner.collect_trace().map(Trace::Call),
-<a href=#69 id=69 data-nosnippet>69</a>			Tracer::PrestateTracer(inner) =&gt; <span class="prelude-val">Some</span>(inner.collect_trace().into()),
-<a href=#70 id=70 data-nosnippet>70</a>			Tracer::ExecutionTracer(inner) =&gt; <span class="prelude-val">Some</span>(inner.collect_trace().into()),
-<a href=#71 id=71 data-nosnippet>71</a>		}
-<a href=#72 id=72 data-nosnippet>72</a>	}
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Check if this is an execution tracer.
-<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="kw">pub fn </span>is_execution_tracer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#76 id=76 data-nosnippet>76</a>		<span class="macro">matches!</span>(<span class="self">self</span>, Tracer::ExecutionTracer(<span class="kw">_</span>))
-<a href=#77 id=77 data-nosnippet>77</a>	}
-<a href=#78 id=78 data-nosnippet>78</a>}
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// Collect the trace, or `None` when it is empty. A tracer can run and still produce an empty
+<a href=#66 id=66 data-nosnippet>66</a>	/// trace (e.g. a prestate diff with no state changes), so the caller decides what `None` means.
+<a href=#67 id=67 data-nosnippet>67</a>	</span><span class="kw">pub fn </span>collect_trace(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Trace&gt; {
+<a href=#68 id=68 data-nosnippet>68</a>		<span class="kw">let </span>empty = <span class="self">self</span>.empty_trace();
+<a href=#69 id=69 data-nosnippet>69</a>		<span class="kw">let </span>trace = <span class="kw">match </span><span class="self">self </span>{
+<a href=#70 id=70 data-nosnippet>70</a>			Tracer::CallTracer(inner) =&gt; Trace::Call(inner.collect_trace().unwrap_or_default()),
+<a href=#71 id=71 data-nosnippet>71</a>			Tracer::PrestateTracer(inner) =&gt; Trace::Prestate(inner.collect_trace()),
+<a href=#72 id=72 data-nosnippet>72</a>			Tracer::ExecutionTracer(inner) =&gt; Trace::Execution(inner.collect_trace()),
+<a href=#73 id=73 data-nosnippet>73</a>		};
+<a href=#74 id=74 data-nosnippet>74</a>		(<span class="macro">trace !</span>= empty).then_some(trace)
+<a href=#75 id=75 data-nosnippet>75</a>	}
+<a href=#76 id=76 data-nosnippet>76</a>
+<a href=#77 id=77 data-nosnippet>77</a>	<span class="doccomment">/// Check if this is an execution tracer.
+<a href=#78 id=78 data-nosnippet>78</a>	</span><span class="kw">pub fn </span>is_execution_tracer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#79 id=79 data-nosnippet>79</a>		<span class="macro">matches!</span>(<span class="self">self</span>, Tracer::ExecutionTracer(<span class="kw">_</span>))
+<a href=#80 id=80 data-nosnippet>80</a>	}
+<a href=#81 id=81 data-nosnippet>81</a>}
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a><span class="attr">#[cfg(test)]
+<a href=#84 id=84 data-nosnippet>84</a></span><span class="kw">mod </span>tests {
+<a href=#85 id=85 data-nosnippet>85</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#86 id=86 data-nosnippet>86</a>	<span class="kw">use </span><span class="kw">crate</span>::tests::{ExtBuilder, Test};
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="comment">// An extrinsic that runs no contract code must produce no trace, so
+<a href=#89 id=89 data-nosnippet>89</a>	// consumers can rely on a trace's presence to mean a contract actually ran.
+<a href=#90 id=90 data-nosnippet>90</a>	</span><span class="attr">#[test]
+<a href=#91 id=91 data-nosnippet>91</a>	</span><span class="kw">fn </span>collect_trace_is_none_when_nothing_executed() {
+<a href=#92 id=92 data-nosnippet>92</a>		ExtBuilder::default().build().execute_with(|| {
+<a href=#93 id=93 data-nosnippet>93</a>			<span class="kw">let </span>call = Tracer::&lt;Test&gt;::CallTracer(CallTracer::new(Default::default()));
+<a href=#94 id=94 data-nosnippet>94</a>			<span class="kw">let </span>prestate = Tracer::&lt;Test&gt;::PrestateTracer(PrestateTracer::new(Default::default()));
+<a href=#95 id=95 data-nosnippet>95</a>			<span class="kw">let </span>execution =
+<a href=#96 id=96 data-nosnippet>96</a>				Tracer::&lt;Test&gt;::ExecutionTracer(ExecutionTracer::new(Default::default()));
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a>			<span class="macro">assert_eq!</span>(call.collect_trace(), <span class="prelude-val">None</span>);
+<a href=#99 id=99 data-nosnippet>99</a>			<span class="macro">assert_eq!</span>(prestate.collect_trace(), <span class="prelude-val">None</span>);
+<a href=#100 id=100 data-nosnippet>100</a>			<span class="macro">assert_eq!</span>(execution.collect_trace(), <span class="prelude-val">None</span>);
+<a href=#101 id=101 data-nosnippet>101</a>		});
+<a href=#102 id=102 data-nosnippet>102</a>	}
+<a href=#103 id=103 data-nosnippet>103</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
