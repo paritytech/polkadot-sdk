@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784820555620,
+  "lastUpdate": 1784828787671,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "38abd89401c6f15f0a6a5c62becd096917875499",
-          "message": "[Release|CI/CD] Combine Promote rc to final, Publish debian, Publish RPM and Publish docker pipelines (#10274)\n\nhttps://github.com/paritytech/devops/issues/3830\n\n---------\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
-          "timestamp": "2025-11-24T14:49:09Z",
-          "tree_id": "e9f6ea4bd65ba3cd3e8cc360f946a1bf5e2340dd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38abd89401c6f15f0a6a5c62becd096917875499"
-        },
-        "date": 1764000621114,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008673739859999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026367149800000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005068378709999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00973469291999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7616541d96bdd8f328fc0dcabcc0571e9898815c",
+          "message": "[pallet-revive] Omit empty traces uniformly across tracer types (#12386)\n\n# Description\n\nThe tracer types produced non-uniform results for empty traces.\n`Tracer::collect_trace` returns `Option<Trace>`, but `None` meant\ndifferent things: `CallTracer` returned `None` when nothing was traced,\nwhile `ExecutionTracer` and `PrestateTracer` always returned `Some` with\na zero/default trace.\n\nThis makes them uniform: a collected trace equal to the tracer's\n`empty_trace()` is reported as `None` for every tracer type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-23T16:00:17Z",
+          "tree_id": "42cfca17203a8cd954b9c732a88a5fdd80a047b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7616541d96bdd8f328fc0dcabcc0571e9898815c"
+        },
+        "date": 1784828756067,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010585395979999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009787357609999981,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025339329399999997,
             "unit": "seconds"
           }
         ]
