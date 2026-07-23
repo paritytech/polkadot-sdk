@@ -14,3 +14,9 @@ doc:
 crates:
   - name: cumulus-pallet-parachain-system
     bump: minor
+  - name: polkadot-primitives
+    bump: major
+  - name: cumulus-test-relay-sproof-builder
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: none
