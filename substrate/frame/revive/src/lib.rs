@@ -58,8 +58,8 @@ use crate::{
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
-		block_hash::EthereumBlockBuilderIR,
-		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
