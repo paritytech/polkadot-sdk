@@ -708,6 +708,18 @@ impl SpecMsgPool {
 		self.rounds.lock().started.len()
 	}
 
+	/// Diagnostic: number of monitor-pushed offers awaiting a round the
+	/// fetcher has not yet begun — the late-offer grace window (tests).
+	pub fn pending_offers_in_flight(&self) -> usize {
+		self.rounds.lock().pending_offers.len()
+	}
+
+	/// Diagnostic: number of just-completed rounds still inside their
+	/// [`COMPLETION_RETENTION`] re-read window (tests).
+	pub fn retained_completions(&self) -> usize {
+		self.rounds.lock().completed.len()
+	}
+
 	/// The source's current lift target root.
 	pub fn target(&self, source: ParaId) -> Option<StreamsRoot> {
 		self.sources.lock().get(&source).and_then(|pool| pool.target)

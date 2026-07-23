@@ -1590,7 +1590,16 @@ mod tests {
 		// The monitor pushed the offer: a round is imminent, but nothing is
 		// marked in flight yet (the offer is still in transit to the fetcher).
 		pool.note_pending_offer(source());
+		// Unambiguously isolate the late-offer path — the sub-mode the live
+		// soak never exercised (`pending_offers` stayed 0 across all 116
+		// Campaign-3 grace engagements), so this test is its sole coverage.
+		// At the wait entry the ONLY grace anchor is the pending offer: no
+		// round is in flight and no completion is retained, so any wait the
+		// window takes below is attributable solely to the pending offer, not
+		// the in-flight round or the store-visibility retention path.
 		assert_eq!(pool.rounds_in_flight(), 0);
+		assert_eq!(pool.pending_offers_in_flight(), 1);
+		assert_eq!(pool.retained_completions(), 0);
 
 		std::thread::scope(|scope| {
 			let (network, registry, pool) = (&network, &registry, &pool);
@@ -1615,12 +1624,17 @@ mod tests {
 
 			let start = std::time::Instant::now();
 			block_on(pool.wait_for_in_flight_rounds(Duration::from_secs(30)));
-			// It waited on the pending offer (nothing was marked at entry)
-			// until the imminent round arrived and completed — not the
-			// immediate return the pre-fix window would have taken.
+			// The wait was driven solely by the pending offer (the only anchor
+			// at entry): it blocked until begin_round superseded the offer with
+			// the real round and that round completed — not the immediate
+			// return the pre-fix window (which could only await an
+			// already-marked round) would have taken.
 			assert!(start.elapsed() >= Duration::from_millis(20));
 			assert!(start.elapsed() < Duration::from_secs(10));
 			assert_eq!(pool.rounds_in_flight(), 0);
+			// begin_round superseded the pending-offer hint — it is not left
+			// dangling once the real round has run.
+			assert_eq!(pool.pending_offers_in_flight(), 0);
 			// The post-wait snapshot sees the round's material.
 			assert_eq!(pool.target(source()), Some(root));
 			let data = pool.build_inherent(
@@ -1694,6 +1708,13 @@ mod tests {
 		let pool = SpecMsgPool::default();
 		let bound = Duration::from_millis(100);
 		pool.note_pending_offer(source());
+		// Only a pending offer anchors the window — no round in flight,
+		// nothing retained — so the full-bound wait below is provably driven
+		// by the offer, and the return at the bound is the offer's OWN hard
+		// bound, not a round's.
+		assert_eq!(pool.rounds_in_flight(), 0);
+		assert_eq!(pool.pending_offers_in_flight(), 1);
+		assert_eq!(pool.retained_completions(), 0);
 		let start = std::time::Instant::now();
 		block_on(pool.wait_for_in_flight_rounds(bound));
 		let waited = start.elapsed();
