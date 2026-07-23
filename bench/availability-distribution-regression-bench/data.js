@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784820429315,
+  "lastUpdate": 1784828665834,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eb11ef2b855f72fa012c8c9b4fdeb4cb43ffbb06",
-          "message": "Fix check-semver job (#10418)",
-          "timestamp": "2025-11-25T16:31:57Z",
-          "tree_id": "bf7f970563fd3f0e5836c0e45b4bb8c7fee92706",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb11ef2b855f72fa012c8c9b4fdeb4cb43ffbb06"
-        },
-        "date": 1764092367161,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.16050026461333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007346349660000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013494516553333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022960281853333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023096462473333343,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7616541d96bdd8f328fc0dcabcc0571e9898815c",
+          "message": "[pallet-revive] Omit empty traces uniformly across tracer types (#12386)\n\n# Description\n\nThe tracer types produced non-uniform results for empty traces.\n`Tracer::collect_trace` returns `Option<Trace>`, but `None` meant\ndifferent things: `CallTracer` returned `None` when nothing was traced,\nwhile `ExecutionTracer` and `PrestateTracer` always returned `Some` with\na zero/default trace.\n\nThis makes them uniform: a collected trace equal to the tracer's\n`empty_trace()` is reported as `None` for every tracer type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-23T16:00:17Z",
+          "tree_id": "42cfca17203a8cd954b9c732a88a5fdd80a047b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7616541d96bdd8f328fc0dcabcc0571e9898815c"
+        },
+        "date": 1784828634445,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02287063058666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007434450180000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00975412508000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14792452676,
             "unit": "seconds"
           }
         ]
