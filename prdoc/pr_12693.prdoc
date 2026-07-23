@@ -13,7 +13,7 @@ doc:
 
     ## Review Notes
 
-    `generate_certificate_from_seed` derives a P-256 signing key from the 32-byte node key seed via RFC 9380 `hash_to_field` then builds a minimal self-signed X.509 certificate and loads it into litep2p's `DtlsCertificate`.
+    `derive_certificate` derives a P-256 signing key from the 32-byte node key seed via RFC 9380 `hash_to_field` then builds a minimal self-signed X.509 certificate and loads it into litep2p's `DtlsCertificate`.
 
     #### Note
 
