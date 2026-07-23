@@ -18,7 +18,7 @@
 //! Tests for EIP-7702: Set EOA Account Code
 
 use crate::{
-	Code, CodeInfoOf, Config, DryRunConfig, ExecConfig, HoldReason,
+	Code, CodeInfoOf, Config, ExecConfig, HoldReason,
 	evm::{
 		AuthorizationListEntry, Bytes, StateOverride, StateOverrideSet, StorageOverride,
 		eip7702::AuthorizationResult, fees::InfoT,
@@ -1338,7 +1338,9 @@ fn dry_run_with_authorization_list() {
 				to: Some(target_contract.addr),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 		assert_ok!(&baseline);
 
@@ -1350,7 +1352,9 @@ fn dry_run_with_authorization_list() {
 				authorization_list: vec![auth],
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 		assert_ok!(&with_auth);
 
@@ -1412,9 +1416,9 @@ fn state_override_delegation_indicator_routes_to_target() {
 				input: Counter::numberCall {}.abi_encode().into(),
 				..Default::default()
 			},
-			DryRunConfig::default()
-				.with_perform_balance_checks(false)
-				.with_state_overrides(overrides),
+			None,
+			false,
+			Some(overrides),
 		);
 
 		let info = result.expect("dry-run with delegation indicator override should succeed");
