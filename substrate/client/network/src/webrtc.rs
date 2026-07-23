@@ -22,17 +22,12 @@
 //! advertised WebRTC multiaddresses. Reusing a certificate across restarts keeps the
 //! certhash stable, similarly to how reusing the node secret key keeps the peer id stable.
 
-use codec::{DecodeAll, Encode};
 use hash2curve::{hash_to_scalar, ExpandMsgXmd};
 use p256::{
 	ecdsa::{DerSignature, SigningKey},
 	elliptic_curve::consts::U48,
 	pkcs8::EncodePrivateKey,
 	NistP256, NonZeroScalar, SecretKey,
-};
-use sc_network_types::{
-	multiaddr::{Multiaddr, Protocol},
-	multihash::Code,
 };
 use sha2::Sha256;
 use x509_cert::{
@@ -50,8 +45,7 @@ use x509_cert::{
 };
 
 use litep2p::transport::webrtc::DtlsCertificate;
-use std::{fmt::Error, path::Path, str::FromStr};
-use crate::LOG_TARGET;
+use std::str::FromStr;
 
 /// RFC 9380 hash-to-field domain-separation tag (DST)
 /// for key derivation in [`generate_certificate_from_seed`].
@@ -87,36 +81,27 @@ impl Profile for SelfSignedNoExtensions {
 /// from a node's secret key seed.
 #[derive(Debug, thiserror::Error)]
 pub enum CertificateError {
-   /// Failed to derive the P-256 signing key from the seed via RFC 9380 hash-to-field.
-   #[error("failed to derive a P-256 scalar from the seed: {0}")]
-   ScalarDerivation(#[from] hash2curve::ExpandMsgXmdError),
-   /// The RFC 9380 derivation produced a zero scalar.
-   #[error("derived a zero P-256 scalar from the seed")]
-   ZeroScalar,
-   /// Failed to construct the certificate serial number.
-   #[error("invalid certificate serial number: {0}")]
-   InvalidSerialNumber(#[source] x509_cert::der::Error),
-   /// Failed to construct the certificate validity period.
-   #[error("invalid certificate validity period: {0}")]
-   InvalidValidity(#[source] x509_cert::der::Error),
-   /// Failed to construct the certificate subject name.
-   #[error("invalid certificate subject name: {0}")]
-   InvalidSubjectName(#[source] x509_cert::der::Error),
-   /// Failed to encode the certificate public key.
-   #[error("failed to encode certificate public key: {0}")]
-   PublicKeyEncoding(#[from] x509_cert::spki::Error),
-   /// Failed to build the certificate.
-   #[error("failed to build certificate: {0}")]
-   CertificateBuild(#[source] x509_cert::builder::Error),
-   /// Failed to DER-encode the certificate.
-   #[error("failed to encode certificate: {0}")]
-   CertificateEncoding(#[source] x509_cert::der::Error),
-   /// Failed to PKCS#8-encode the certificate private key.
-   #[error("failed to encode certificate private key: {0}")]
-   PrivateKeyEncoding(#[from] p256::pkcs8::Error),
-   /// Failed to load the generated certificate/key pair into a WebRTC DTLS certificate.
-   #[error("failed to load WebRTC certificate: {0}")]
-   CertificateLoad(#[from] litep2p::Error),
+	/// Failed to derive the P-256 signing key from the seed via RFC 9380 hash-to-field.
+	#[error("failed to derive a P-256 scalar from the seed: {0}")]
+	ScalarDerivation(#[from] hash2curve::ExpandMsgXmdError),
+	/// The RFC 9380 derivation produced a zero scalar.
+	#[error("derived a zero P-256 scalar from the seed")]
+	ZeroScalar,
+	/// Failed to encode the certificate public key.
+	#[error("failed to encode certificate public key: {0}")]
+	PublicKeyEncoding(#[from] x509_cert::spki::Error),
+	/// Failed to build the certificate.
+	#[error("failed to build certificate: {0}")]
+	CertificateBuild(#[source] x509_cert::builder::Error),
+	/// Failed to DER-encode the certificate.
+	#[error("failed to encode certificate: {0}")]
+	CertificateEncoding(#[source] x509_cert::der::Error),
+	/// Failed to PKCS#8-encode the certificate private key.
+	#[error("failed to encode certificate private key: {0}")]
+	PrivateKeyEncoding(#[from] p256::pkcs8::Error),
+	/// Failed to load the generated certificate/key pair into a WebRTC DTLS certificate.
+	#[error("failed to load WebRTC certificate: {0}")]
+	CertificateLoad(#[from] litep2p::Error),
 }
 
 /// Deterministically generate a WebRTC DTLS certificate from a 32-byte seed, typically the
@@ -124,38 +109,41 @@ pub enum CertificateError {
 ///
 /// The DTLS key is derived from the seed via RFC 9380 `hash_to_field`,
 /// so the certificate does not reveal the node key.
-pub fn generate_certificate_from_seed(seed: &[u8; 32]) -> Result<DtlsCertificate, CertificateError> {
+pub fn generate_certificate_from_seed(
+	seed: &[u8; 32],
+) -> Result<DtlsCertificate, CertificateError> {
 	// Derive the P-256 signing key via RFC 9380 hash-to-field.
-	// Thi stretches the seed into pseudorandom bytes via `expand_message_xmd`,
+	// This stretches the seed into pseudorandom bytes via `expand_message_xmd`,
 	// with field reduction for producing an EC private key.
-	let scalar =
-		hash_to_scalar::<NistP256, ExpandMsgXmd<Sha256>, U48>(&[&seed[..]], &[CERTIFICATE_KEY_DST])?;
-	let secret_scalar = Option::<NonZeroScalar>::from(NonZeroScalar::new(scalar))
-		.ok_or(CertificateError::ZeroScalar)?;
+	let scalar = hash_to_scalar::<NistP256, ExpandMsgXmd<Sha256>, U48>(
+		&[&seed[..]],
+		&[CERTIFICATE_KEY_DST],
+	)?;
+	let secret_scalar =
+		NonZeroScalar::new(scalar).into_option().ok_or(CertificateError::ZeroScalar)?;
 	let secret = SecretKey::from(secret_scalar);
 	let signing_key = SigningKey::from(&secret);
 
 	// Fixed serial number. WebRTC peers pin the certificate by certhash and never inspect the
 	// serial, a constant positive integer keeps it a valid X.509 while removing a derivation step.
 	// Must stay fixed to keep the certhash stable.
-	let serial =
-		SerialNumber::new(&[0x01]).map_err(CertificateError::InvalidSerialNumber)?;
+	let serial = SerialNumber::new(&[0x01])
+		.expect("0x01 is a valid serial number below the 20-byte DER limit; qed");
 
 	// Fixed validity dates, required for determinism. WebRTC peers pin the certificate by
 	// certhash and ignore its lifetime, 99991231235959Z is RFC 5280's "no well-defined
 	// expiration date" value.
 	let not_before = DateTime::new(2000, 1, 1, 0, 0, 0)
 		.and_then(UtcTime::from_date_time)
-		.map_err(CertificateError::InvalidValidity)?;
+		.expect("2000-01-01 00:00:00 is a valid date within the UTCTime range; qed");
 	let not_after = DateTime::new(9999, 12, 31, 23, 59, 59)
 		.map(GeneralizedTime::from_date_time)
-		.map_err(CertificateError::InvalidValidity)?;
+		.expect("9999-12-31 23:59:59 is a valid date, the maximum DER DateTime supports; qed");
 	let validity = Validity::new(Time::UtcTime(not_before), Time::GeneralTime(not_after));
 
 	// `SelfSignedNoExtensions` makes the certificate self-issued and adds no extensions,
 	//  WebRTC peers only check the fingerprint.
-	let name =
-		Name::from_str("CN=WebRTC").map_err(CertificateError::InvalidSubjectName)?;
+	let name = Name::from_str("CN=WebRTC").expect("CN=WebRTC is a valid RDN string; qed");
 	let public_key = SubjectPublicKeyInfoOwned::from_key(signing_key.verifying_key())?;
 
 	let certificate =
@@ -166,10 +154,7 @@ pub fn generate_certificate_from_seed(seed: &[u8; 32]) -> Result<DtlsCertificate
 			.map_err(CertificateError::CertificateEncoding)?;
 
 	// PKCS#8, loadable by both OpenSSL and rust-native DTLS backends.
-	let private_key = secret
-		.to_pkcs8_der()?
-		.as_bytes()
-		.to_vec();
+	let private_key = secret.to_pkcs8_der()?.as_bytes().to_vec();
 
 	DtlsCertificate::load(certificate, private_key).map_err(CertificateError::CertificateLoad)
 }
@@ -177,6 +162,10 @@ pub fn generate_certificate_from_seed(seed: &[u8; 32]) -> Result<DtlsCertificate
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sc_network_types::{
+		multiaddr::{Multiaddr, Protocol},
+		multihash::Code,
+	};
 
 	/// Compute the `/certhash/<hash>` multiaddress component of a certificate.
 	fn certhash(certificate: &DtlsCertificate) -> String {

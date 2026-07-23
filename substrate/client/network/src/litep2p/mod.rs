@@ -19,10 +19,13 @@
 //! `NetworkBackend` implementation for `litep2p`.
 
 use crate::{
-	NetworkStatus, NotificationService, ProtocolName, config::{
+	config::{
 		FullNetworkConfiguration, IncomingRequest, NodeKeyConfig, NotificationHandshake, Params,
 		SetConfig, TransportConfig,
-	}, error::Error, event::{DhtEvent, Event}, litep2p::{
+	},
+	error::Error,
+	event::{DhtEvent, Event},
+	litep2p::{
 		bitswap::BitswapService,
 		discovery::{Discovery, DiscoveryEvent},
 		ipfs_dht::IpfsDht,
@@ -35,11 +38,14 @@ use crate::{
 			},
 			request_response::{RequestResponseConfig, RequestResponseProtocol},
 		},
-	}, peer_store::PeerStoreProvider, service::{
-		metrics::{MetricSources, Metrics, NotificationMetrics, register_without_sources},
+	},
+	peer_store::PeerStoreProvider,
+	service::{
+		metrics::{register_without_sources, MetricSources, Metrics, NotificationMetrics},
 		out_events,
 		traits::{BandwidthSink, NetworkBackend, NetworkService},
-	}, webrtc
+	},
+	webrtc, NetworkStatus, NotificationService, ProtocolName,
 };
 
 use codec::Encode;
@@ -262,12 +268,12 @@ impl Litep2pNetworkBackend {
 
 	/// Configure transport protocols for `Litep2pNetworkBackend`.
 	///
-	/// `node_key_seed` is the node's ed25519 secret-key bytes, the same key that backs the
+	/// `node_secret_key` is the node's ed25519 secret-key bytes, the same key that backs the
 	/// node's peer id. It is used to derive a deterministic WebRTC DTLS certificate so the
 	/// node's `/certhash` stays associated with its identity and stable across restarts.
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
-		node_key_seed: &[u8; 32],
+		node_secret_key: &[u8; 32],
 	) -> Result<ConfigBuilder, Error> {
 		let _ = match config.network_config.transport {
 			TransportConfig::MemoryOnly => panic!("memory transport not supported"),
@@ -344,8 +350,9 @@ impl Litep2pNetworkBackend {
 
 		if !webrtc_addresses.is_empty() {
 			// Always provide a deterministic DTLS certificate derived from the node's secret key,
-			// so the WebRTC certhash is associated with the node identity and stable across restarts.
-			let certificate = webrtc::generate_certificate_from_seed(node_key_seed)?;
+			// so the WebRTC certhash is associated with the node identity and stable across
+			// restarts.
+			let certificate = webrtc::generate_certificate_from_seed(node_secret_key)?;
 			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
 				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 				certificate: Some(certificate),
@@ -354,7 +361,7 @@ impl Litep2pNetworkBackend {
 		} else if config.network_config.experimental_webrtc {
 			log::warn!(
 				target: LOG_TARGET,
-				"WebRtc enabled but no listen address specified"
+				"WebRTC enabled but no listen address specified"
 			);
 		}
 
@@ -422,9 +429,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		params.network_config.sanity_check_addresses()?;
 		params.network_config.sanity_check_bootnodes()?;
 
-		let node_key_seed = keypair.secret().to_bytes();
-		let mut config_builder = Self::configure_transport(&params.network_config, &node_key_seed)?
-			.with_keypair(keypair.clone());
+		let node_secret_key = zeroize::Zeroizing::new(keypair.secret().to_bytes());
+		let mut config_builder =
+			Self::configure_transport(&params.network_config, &node_secret_key)?
+				.with_keypair(keypair.clone());
 		let known_addresses = params.network_config.known_addresses();
 		let peer_store_handle = params.network_config.peer_store_handle();
 		let executor = Arc::new(Litep2pExecutor { executor: params.executor });
