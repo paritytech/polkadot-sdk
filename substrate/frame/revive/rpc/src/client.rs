@@ -155,6 +155,9 @@ pub enum ClientError {
 	ContractNotFound,
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
+	/// The transaction exists but a recorder-less replay could not produce its trace.
+	#[error("Trace unavailable: replay without proof recorder may have dropped it")]
+	TraceUnavailable,
 	/// The transaction fee could not be found
 	#[error("transactionFeePaid event not found")]
 	TxFeeNotFound,
@@ -1066,7 +1069,7 @@ impl Client {
 				(&block, &config).encode(),
 				parent_hash,
 			),
-			|| async {
+			|_| async {
 				let runtime_api = self.runtime_api(parent_hash).await?;
 				runtime_api.trace_block(block, config).await
 			},
@@ -1108,9 +1111,16 @@ impl Client {
 				(&block, &transaction_index, &config).encode(),
 				parent_hash,
 			),
-			|| async {
+			|reason| async move {
 				let runtime_api = self.runtime_api(parent_hash).await?;
-				runtime_api.trace_tx(block, transaction_index, config).await.map(Some)
+				match runtime_api.trace_tx(block, transaction_index, config).await {
+					Err(ClientError::EthExtrinsicNotFound)
+						if reason == RecordedUnavailable::MethodMissing =>
+					{
+						Err(ClientError::TraceUnavailable)
+					},
+					trace => trace.map(Some),
+				}
 			},
 		)
 		.await?;
@@ -1135,36 +1145,36 @@ impl Client {
 	}
 
 	/// Run `recorded`; on a node that cannot service it (see
-	/// [`ClientError::recorded_unavailable_reason`]) run `fallback` instead, otherwise propagate.
-	/// `method` is used only for logging.
+	/// [`ClientError::recorded_unavailable_reason`]) run `fallback` with the reason instead,
+	/// otherwise propagate. `method` is used only for logging.
 	async fn recorded_or_fallback<R, Fb, Fut>(
 		method: &str,
 		recorded: impl Future<Output = Result<R, ClientError>>,
 		fallback: Fb,
 	) -> Result<R, ClientError>
 	where
-		Fb: FnOnce() -> Fut,
+		Fb: FnOnce(RecordedUnavailable) -> Fut,
 		Fut: Future<Output = Result<R, ClientError>>,
 	{
 		match recorded.await {
 			Ok(result) => Ok(result),
 			Err(e) => match e.recorded_unavailable_reason() {
-				Some(RecordedUnavailable::MethodMissing) => {
+				Some(reason @ RecordedUnavailable::MethodMissing) => {
 					log::warn!(
 						target: LOG_TARGET,
 						"{method}: node does not expose `state_callRecorded` (older binary, or \
 						 unsafe RPC methods disabled); falling back to recorder-less replay — \
 						 traces may be INCOMPLETE on PoV/parachain chains",
 					);
-					fallback().await
+					fallback(reason).await
 				},
-				Some(RecordedUnavailable::NoRecorder) => {
+				Some(reason @ RecordedUnavailable::NoRecorder) => {
 					log::debug!(
 						target: LOG_TARGET,
 						"{method}: node registers no proof-size recorder; using plain replay \
 						 (correct, no reclaim to honour)",
 					);
-					fallback().await
+					fallback(reason).await
 				},
 				None => Err(e),
 			},
@@ -1348,13 +1358,40 @@ mod tests {
 	#[tokio::test]
 	async fn recorded_or_fallback_propagates_genuine_errors() {
 		let fell_back = std::cell::Cell::new(false);
-		let out: Result<u32, ClientError> =
-			Client::recorded_or_fallback("test", async { Err(rpc_user_error(-32000)) }, || async {
+		let out: Result<u32, ClientError> = Client::recorded_or_fallback(
+			"test",
+			async { Err(rpc_user_error(-32000)) },
+			|_| async {
 				fell_back.set(true);
 				Ok(2)
-			})
-			.await;
+			},
+		)
+		.await;
 		assert!(matches!(out, Err(ClientError::RpcError(_))), "genuine error must propagate");
 		assert!(!fell_back.get(), "fallback must not run for a genuine failure");
+	}
+
+	#[tokio::test]
+	async fn fallback_receives_the_unavailability_reason() {
+		let seen = std::cell::Cell::new(None);
+		let fallback = |reason| {
+			seen.set(Some(reason));
+			async { Ok(2) }
+		};
+
+		let out: Result<u32, ClientError> =
+			Client::recorded_or_fallback("test", async { Err(rpc_user_error(-32601)) }, fallback)
+				.await;
+		assert_eq!(out.unwrap(), 2);
+		assert_eq!(seen.get(), Some(RecordedUnavailable::MethodMissing));
+
+		let out: Result<u32, ClientError> = Client::recorded_or_fallback(
+			"test",
+			async { Err(rpc_user_error(CALL_RECORDED_UNSUPPORTED_ERROR_CODE)) },
+			fallback,
+		)
+		.await;
+		assert_eq!(out.unwrap(), 2);
+		assert_eq!(seen.get(), Some(RecordedUnavailable::NoRecorder));
 	}
 }
