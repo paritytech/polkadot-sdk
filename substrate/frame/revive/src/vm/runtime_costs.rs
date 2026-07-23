@@ -438,7 +438,7 @@ mod tests {
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
 		let cold = ContractStorageKind::Persistent(Warmth::cold_non_revertible());
-		let cold_revertible = ContractStorageKind::Persistent(Warmth::Cold { revertible: true });
+		let cold_revertible = ContractStorageKind::Persistent(Warmth::cold_revertible());
 		let hot = ContractStorageKind::Persistent(Warmth::Hot);
 
 		let with_kind = |kind: ContractStorageKind| -> Vec<RuntimeCosts> {
@@ -481,48 +481,56 @@ mod tests {
 
 	#[test]
 	fn call_base_cold_hot_pricing() {
-		let hot = Warmth::Hot;
-		let cold = Warmth::cold_non_revertible();
-		let cold_revertible = Warmth::Cold { revertible: true };
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
 		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
-			account: hot,
-			contract_info: hot,
+			account: Warmth::Hot,
+			contract_info: Warmth::Hot,
 		}));
 		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
-			account: cold,
-			contract_info: cold,
+			account: Warmth::cold_non_revertible(),
+			contract_info: Warmth::cold_non_revertible(),
 		}));
 		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
-			account: cold,
-			contract_info: hot,
+			account: Warmth::cold_non_revertible(),
+			contract_info: Warmth::Hot,
 		}));
 
 		assert!(
-			all_cold.ref_time() >= all_hot.ref_time(),
-			"cold call must not be cheaper than hot: cold={all_cold:?} hot={all_hot:?}",
+			all_cold.ref_time() > all_hot.ref_time(),
+			"cold call must be more expensive than hot: cold={all_cold:?} hot={all_hot:?}",
 		);
 		assert_eq!(all_hot.proof_size(), 0, "hot call adds nothing to the proof: {all_hot:?}");
 		assert!(all_cold.proof_size() > 0, "cold call pays proof size: {all_cold:?}");
-		assert!(mixed.proof_size() > 0, "any cold item prices the full cold base: {mixed:?}",);
+		assert_eq!(
+			mixed.proof_size(),
+			all_cold.proof_size(),
+			"any cold item prices the call as fully cold: mixed={mixed:?} all_cold={all_cold:?}",
+		);
 
 		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Normal {
-			account: cold_revertible,
-			contract_info: cold,
+			account: Warmth::cold_revertible(),
+			contract_info: Warmth::cold_non_revertible(),
 		}));
 		assert!(
 			revertible.ref_time() > all_cold.ref_time(),
 			"a revertible cold touch prepays the rollback: rev={revertible:?} cold={all_cold:?}",
 		);
+		assert_eq!(
+			revertible.proof_size(),
+			all_cold.proof_size(),
+			"the rollback prepayment is ref_time only: rev={revertible:?} cold={all_cold:?}",
+		);
 
-		let delegate_hot =
-			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { contract_info: hot }));
-		let delegate_cold =
-			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { contract_info: cold }));
+		let delegate_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
+			contract_info: Warmth::Hot,
+		}));
+		let delegate_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
+			contract_info: Warmth::cold_non_revertible(),
+		}));
 		assert!(
-			delegate_cold.ref_time() >= delegate_hot.ref_time(),
-			"cold delegate call must not be cheaper than hot: cold={delegate_cold:?} hot={delegate_hot:?}",
+			delegate_cold.ref_time() > delegate_hot.ref_time(),
+			"cold delegate call must be more expensive than hot: cold={delegate_cold:?} hot={delegate_hot:?}",
 		);
 		assert_eq!(delegate_hot.proof_size(), 0, "hot delegate call: {delegate_hot:?}");
 		assert!(delegate_cold.proof_size() > 0, "cold delegate call: {delegate_cold:?}");

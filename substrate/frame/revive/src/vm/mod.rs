@@ -439,8 +439,8 @@ mod tests {
 			let cold_revertible = weight_of(
 				code_type,
 				CodeLoadWarmth {
-					info: Warmth::Cold { revertible: true },
-					blob: Warmth::Cold { revertible: true },
+					info: Warmth::cold_revertible(),
+					blob: Warmth::cold_revertible(),
 				},
 			);
 			assert!(

@@ -121,6 +121,10 @@ impl Warmth {
 		Self::Cold { revertible: false }
 	}
 
+	pub fn cold_revertible() -> Self {
+		Self::Cold { revertible: true }
+	}
+
 	pub fn is_hot(&self) -> bool {
 		matches!(self, Self::Hot)
 	}
@@ -445,7 +449,7 @@ mod tests {
 		al.enter_frame();
 		assert_eq!(al.frame_depth(), 1);
 
-		assert_eq!(al.touch(b.clone()), Warmth::Cold { revertible: true }, "B in frame 1: cold");
+		assert_eq!(al.touch(b.clone()), Warmth::cold_revertible(), "B in frame 1: cold");
 		assert!(al.touch(a.clone()).is_hot(), "A in frame 1: hot via parent");
 
 		al.enter_frame();
@@ -531,8 +535,8 @@ mod tests {
 		assert_eq!(
 			al.call_warmth(CallStateAccess::Normal { target }),
 			CallWarmth::Normal {
-				account: Warmth::Cold { revertible: true },
-				contract_info: Warmth::Cold { revertible: true },
+				account: Warmth::cold_revertible(),
+				contract_info: Warmth::cold_revertible(),
 			},
 			"peek sees the not-full set for both entries",
 		);
@@ -541,7 +545,7 @@ mod tests {
 		assert_eq!(
 			al.warm_call(CallStateAccess::Normal { target }),
 			CallWarmth::Normal {
-				account: Warmth::Cold { revertible: true },
+				account: Warmth::cold_revertible(),
 				contract_info: Warmth::cold_non_revertible(),
 			},
 			"touch journals only the first entry before the cap fills",

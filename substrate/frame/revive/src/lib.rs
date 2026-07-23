@@ -1115,7 +1115,7 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: ContractStorageKind::Persistent(Warmth::Cold { revertible: true }),
+						kind: ContractStorageKind::Persistent(Warmth::cold_revertible()),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
