@@ -324,6 +324,67 @@ struct RoundsInFlight {
 	waiters: Vec<oneshot::Sender<()>>,
 }
 
+/// How a time-bounded [`SpecMsgPool::wait_for_in_flight_rounds`] ended,
+/// distinguished for logging (issue 12): the two paths share the same
+/// mechanics but mean very different things, and reusing one message made a
+/// benign 3–4 ms completion-retention settle read in the logs as a stalled
+/// 250 ms round.
+#[derive(Debug, PartialEq, Eq)]
+enum GraceExit {
+	/// The wait was held open only by a just-completed round's brief re-read
+	/// retention ([`COMPLETION_RETENTION`]), which has now lapsed. The
+	/// fetched material is in the read view; this is the normal settle a
+	/// snapshot landing on top of a completion takes, NOT a hard-bound stall.
+	RetentionElapsed,
+	/// Live work — a round in flight, or an offer the monitor pushed but the
+	/// fetcher has not yet turned into a round — was still outstanding when
+	/// the hard `bound` (a full `ROUND_GRACE_WINDOW`) elapsed. This is the
+	/// genuine "authoring proceeded without the material" case.
+	BoundExpired,
+}
+
+impl GraceExit {
+	/// Classifies a time-bounded grace exit from what remained at the exit
+	/// instant: any live work (a round in flight or a pushed-but-undequeued
+	/// offer) means the hard bound was hit; neither means only the completion
+	/// retention lapsed.
+	fn classify(rounds_started: usize, pending_offers: usize) -> Self {
+		if rounds_started == 0 && pending_offers == 0 {
+			GraceExit::RetentionElapsed
+		} else {
+			GraceExit::BoundExpired
+		}
+	}
+}
+
+/// Logs a time-bounded grace exit with the message matching its
+/// classification (issue 12), so completion-retention settles and genuine
+/// hard-bound expiries are never conflated.
+fn log_grace_time_exit(
+	exit: GraceExit,
+	rounds: usize,
+	pending_offers: usize,
+	retained: usize,
+	waited: Duration,
+) {
+	let waited_ms = waited.as_millis() as u64;
+	match exit {
+		GraceExit::RetentionElapsed => tracing::debug!(
+			target: LOG_TARGET,
+			retained,
+			waited_ms,
+			"Grace window over: completion-retention elapsed",
+		),
+		GraceExit::BoundExpired => tracing::debug!(
+			target: LOG_TARGET,
+			rounds,
+			pending_offers,
+			waited_ms,
+			"Grace window over: bound expired with rounds still in flight",
+		),
+	}
+}
+
 /// The verified pool shared between the fetch pipeline (writer), the
 /// inherent provider and the lift assembler (readers). See the module docs.
 #[derive(Default)]
@@ -581,11 +642,12 @@ impl SpecMsgPool {
 					deadline.min(entered + bound).saturating_duration_since(Instant::now());
 				if remaining.is_zero() {
 					if waited_on > 0 {
-						tracing::debug!(
-							target: LOG_TARGET,
-							rounds = rounds.started.len(),
-							waited_ms = entered.elapsed().as_millis() as u64,
-							"Grace window over: bound expired with rounds still in flight",
+						log_grace_time_exit(
+							GraceExit::classify(rounds.started.len(), rounds.pending_offers.len()),
+							rounds.started.len(),
+							rounds.pending_offers.len(),
+							rounds.completed.len(),
+							entered.elapsed(),
 						);
 					}
 					return;
@@ -618,11 +680,22 @@ impl SpecMsgPool {
 				// re-check.
 				_ = ended => (),
 				_ = timeout => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						rounds = self.rounds.lock().started.len(),
-						waited_ms = entered.elapsed().as_millis() as u64,
-						"Grace window over: bound expired with rounds still in flight",
+					// The `bound` elapsed. Whether this is a benign
+					// completion-retention settle (the 5 ms COMPLETION_RETENTION
+					// path, waited_ms ≈ 3–5, nothing live) or a genuine
+					// hard-bound expiry with a round still in flight is
+					// classified from what remains — they share this exit but
+					// must NOT share a log message (issue 12).
+					let rounds = self.rounds.lock();
+					log_grace_time_exit(
+						GraceExit::classify(
+							rounds.started.len(),
+							rounds.pending_offers.len(),
+						),
+						rounds.started.len(),
+						rounds.pending_offers.len(),
+						rounds.completed.len(),
+						entered.elapsed(),
 					);
 					return
 				},
@@ -844,5 +917,25 @@ impl SpecMsgPool {
 			.get(&source)
 			.and_then(|pool| pool.channels.get(stream))
 			.map_or(0, |ledger| ledger.payloads.len())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn grace_time_exit_classifies_retention_apart_from_a_hard_bound() {
+		// Issue 12: the completion-retention settle and the hard-bound expiry
+		// share the one time-based exit of `wait_for_in_flight_rounds` but
+		// must log distinctly. The classification is purely "was any live
+		// work still outstanding at the exit instant" — a round in flight or
+		// a pushed-but-undequeued offer means the hard bound was hit; neither
+		// means only the brief completion retention lapsed (a benign settle
+		// that must NOT read as a stalled round).
+		assert_eq!(GraceExit::classify(0, 0), GraceExit::RetentionElapsed);
+		assert_eq!(GraceExit::classify(1, 0), GraceExit::BoundExpired);
+		assert_eq!(GraceExit::classify(0, 1), GraceExit::BoundExpired);
+		assert_eq!(GraceExit::classify(2, 3), GraceExit::BoundExpired);
 	}
 }
