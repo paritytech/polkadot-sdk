@@ -72,6 +72,7 @@
 
 pub mod archive;
 pub mod authoring;
+pub mod discovery;
 pub mod exchange;
 pub mod fetch;
 pub mod monitor;
@@ -85,6 +86,10 @@ pub use archive::{ArchiveError, ServeError, SpecMsgArchive, SERVING_HORIZON};
 pub use authoring::{
 	assemble_collation, assemble_lifts, inherent_data_at, lift_assembler, AssembleError,
 	ROUND_GRACE_WINDOW,
+};
+pub use discovery::{
+	run_spec_msg_discovery, BootnodeSourceDiscovery, SourceDiscovery, DISCOVERY_REFRESH_INTERVAL,
+	DISCOVERY_ROUND_TIMEOUT,
 };
 pub use exchange::{ExchangeError, ExchangeNetwork, PeerRegistry, SourcePeers};
 pub use fetch::{fetch_source, run_spec_msg_fetcher, FetchError, FETCH_CHUNK_BYTES};

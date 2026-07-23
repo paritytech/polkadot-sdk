@@ -5158,6 +5158,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
+ "cumulus-client-bootnodes",
  "cumulus-primitives-core",
  "cumulus-primitives-spec-messaging",
  "cumulus-relay-chain-interface",

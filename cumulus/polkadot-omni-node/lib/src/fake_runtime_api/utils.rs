@@ -224,6 +224,13 @@ macro_rules! impl_node_runtime_apis {
 				fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
 					unimplemented!()
 				}
+
+				fn source_discovery_info() -> std::collections::BTreeMap<
+					ParaId,
+					([u8; 32], Option<Vec<u8>>),
+				> {
+					unimplemented!()
+				}
 			}
 
 			#[cfg(feature = "try-runtime")]

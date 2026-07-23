@@ -37,8 +37,9 @@
 
 use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
 use cumulus_client_spec_msg::{
-	lift_assembler, run_relay_provides_monitor, run_spec_msg_archiver, run_spec_msg_fetcher,
-	PeerRegistry, SpecMsgArchive, SpecMsgPool, SpecMsgRequestHandler,
+	lift_assembler, run_relay_provides_monitor, run_spec_msg_archiver, run_spec_msg_discovery,
+	run_spec_msg_fetcher, BootnodeSourceDiscovery, PeerRegistry, SourceDiscovery, SpecMsgArchive,
+	SpecMsgPool, SpecMsgRequestHandler, DISCOVERY_REFRESH_INTERVAL,
 };
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::LiftsBySource;
@@ -48,7 +49,7 @@ use sc_network::{
 	config::FullNetworkConfiguration, service::traits::NetworkService, NetworkBackend,
 };
 use sc_service::TaskManager;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 /// Capacity of the monitor → fetcher trigger channel. Triggers are tiny
 /// `(source, root)` tuples; the bound only guards against a wedged fetcher.
@@ -124,9 +125,11 @@ where
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		network: Arc<dyn NetworkService>,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
+		relay_chain_network: Arc<dyn NetworkService>,
 		para_id: ParaId,
 		validator: bool,
 		source_peers: &[String],
+		source_genesis: &[String],
 	) -> sc_service::error::Result<Option<SpecMsgDeps<Block>>> {
 		let spawner = task_manager.spawn_essential_handle();
 		spawner.spawn("spec-msg-exchange", Some("spec-msg"), self.handler.run());
@@ -147,6 +150,40 @@ where
 			network.add_known_address(peer, address);
 			registry.add_peer(source, peer);
 		}
+
+		// DHT-based discovery of source peers over the relay-chain DHT (RFC-0008
+		// `/paranode`), refreshing the same registry. The authoritative source
+		// set + genesis comes from the runtime API (`source_discovery_info()`,
+		// governance-set on-chain via `set_source_genesis` — so it tracks the
+		// channel lifecycle), with the CLI `--spec-msg-source-genesis` values as
+		// overrides for pinning/bootstrap. Runs regardless, since the on-chain
+		// set is dynamic; a source pinned statically via `--spec-msg-source-peer`
+		// simply keeps its registry entry (discovery never lists it).
+		let mut overrides = HashMap::new();
+		for entry in source_genesis {
+			let (source, genesis_hash, fork_id) = parse_source_genesis(entry)?;
+			log::info!(
+				"Speculative Messaging DHT discovery override for para {source} (genesis {})",
+				array_bytes::bytes2hex("0x", &genesis_hash),
+			);
+			overrides.insert(source, (genesis_hash, fork_id));
+		}
+		let discovery: Arc<dyn SourceDiscovery> = Arc::new(BootnodeSourceDiscovery::new(
+			network.clone(),
+			relay_chain_interface.clone(),
+			relay_chain_network,
+		));
+		spawner.spawn(
+			"spec-msg-discovery",
+			Some("spec-msg"),
+			run_spec_msg_discovery::<Block, _>(
+				client.clone(),
+				discovery,
+				registry.clone(),
+				overrides,
+				DISCOVERY_REFRESH_INTERVAL,
+			),
+		);
 
 		let pool = Arc::new(SpecMsgPool::default());
 		let (events_tx, events_rx) = async_channel::bounded(EVENTS_CHANNEL_CAPACITY);
@@ -196,6 +233,32 @@ fn parse_source_peer(
 	Ok((para_id.into(), peer, address))
 }
 
+/// Parses one `--spec-msg-source-genesis` value:
+/// `<para-id>=<genesis-hash-hex>[/<fork-id>]`.
+fn parse_source_genesis(
+	entry: &str,
+) -> sc_service::error::Result<(ParaId, Vec<u8>, Option<String>)> {
+	let error = |details: String| {
+		sc_service::Error::Other(format!(
+			"invalid --spec-msg-source-genesis value `{entry}` \
+			 (expected `<para-id>=<genesis-hash-hex>[/<fork-id>]`): {details}"
+		))
+	};
+	let (para_id, rest) = entry.split_once('=').ok_or_else(|| error("missing `=`".to_string()))?;
+	let para_id: u32 = para_id.trim().parse().map_err(|e| error(format!("bad para id: {e}")))?;
+	let (genesis_hex, fork_id) = match rest.trim().split_once('/') {
+		Some((hash, fork)) => (hash, (!fork.is_empty()).then(|| fork.to_string())),
+		None => (rest.trim(), None),
+	};
+	let genesis_hex = genesis_hex.strip_prefix("0x").unwrap_or(genesis_hex);
+	let genesis_hash = array_bytes::hex2bytes(genesis_hex)
+		.map_err(|e| error(format!("bad genesis hash hex: {e:?}")))?;
+	if genesis_hash.is_empty() {
+		return Err(error("empty genesis hash".to_string()));
+	}
+	Ok((para_id.into(), genesis_hash, fork_id))
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -218,6 +281,26 @@ mod tests {
 			"2000=nonsense",
 		] {
 			assert!(parse_source_peer(bad).is_err(), "`{bad}` must be rejected");
+		}
+	}
+
+	#[test]
+	fn source_genesis_values_parse() {
+		// Bare genesis hash (0x-prefixed), no fork id.
+		let (para, hash, fork) = parse_source_genesis("2000=0xaabbcc").expect("valid value parses");
+		assert_eq!(para, ParaId::from(2000));
+		assert_eq!(hash, vec![0xaa, 0xbb, 0xcc]);
+		assert_eq!(fork, None);
+
+		// Without `0x`, with a fork id.
+		let (para, hash, fork) =
+			parse_source_genesis("2001=aabb/mychain").expect("valid value parses");
+		assert_eq!(para, ParaId::from(2001));
+		assert_eq!(hash, vec![0xaa, 0xbb]);
+		assert_eq!(fork.as_deref(), Some("mychain"));
+
+		for bad in ["2000", "abc=0xaabb", "2000=0xzz", "2000=", "2000=0x"] {
+			assert!(parse_source_genesis(bad).is_err(), "`{bad}` must be rejected");
 		}
 	}
 }

@@ -2725,6 +2725,11 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
 			SpecMessaging::consumption_record()
 		}
+
+		fn source_discovery_info(
+		) -> alloc::collections::BTreeMap<ParaId, ([u8; 32], Option<Vec<u8>>)> {
+			SpecMessaging::source_discovery_info()
+		}
 	}
 
 	impl pallet_asset_rewards::AssetRewards<Block, Balance> for Runtime {

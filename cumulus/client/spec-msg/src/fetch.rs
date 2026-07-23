@@ -155,8 +155,17 @@ pub async fn fetch_source(
 ) -> Result<(), FetchError> {
 	let (mut leaves, mut bytes) = (0u64, 0u64);
 	for (stream, cursor) in channels {
-		match fetch_channel_stream(network, peers, pool, source, root, *stream, *cursor, chunk_bytes)
-			.await
+		match fetch_channel_stream(
+			network,
+			peers,
+			pool,
+			source,
+			root,
+			*stream,
+			*cursor,
+			chunk_bytes,
+		)
+		.await
 		{
 			Ok((stream_leaves, stream_bytes)) => {
 				leaves += stream_leaves;

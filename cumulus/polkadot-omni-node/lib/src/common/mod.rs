@@ -153,4 +153,8 @@ pub struct NodeExtraArgs {
 	/// Speculative Messaging: static source-chain peers for the fetch
 	/// pipeline, as raw `<para-id>=<multiaddr-with-/p2p/-peer-id>` values.
 	pub spec_msg_source_peers: Vec<String>,
+
+	/// Speculative Messaging: source-chain genesis hashes for relay-chain-DHT
+	/// peer discovery, as raw `<para-id>=<genesis-hash-hex>[/<fork-id>]` values.
+	pub spec_msg_source_genesis: Vec<String>,
 }

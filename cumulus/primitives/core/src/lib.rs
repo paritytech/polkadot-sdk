@@ -799,6 +799,14 @@ sp_api::decl_runtime_apis! {
 		/// in-wasm after executing each block of a bundle — one definition,
 		/// two callers, byte-identical records.
 		fn consumption_record() -> ConsumptionRecord;
+
+		/// DHT peer-discovery info of the source parachains this receiver
+		/// consumes from: each configured source's genesis hash (+ optional
+		/// fork id), so the collator can resolve that para's `/paranode`
+		/// bootnodes over the relay chain DHT. Node-only; empty when no
+		/// sources are configured (governance-set locally — how to reach a
+		/// source cannot come from the source itself).
+		fn source_discovery_info() -> BTreeMap<ParaId, ([u8; 32], Option<Vec<u8>>)>;
 	}
 }
 

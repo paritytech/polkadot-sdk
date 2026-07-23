@@ -277,6 +277,16 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "PARA_ID=MULTIADDR")]
 	pub spec_msg_source_peer: Vec<String>,
 
+	/// Speculative Messaging: a source chain's genesis hash for DHT-based peer
+	/// discovery over the relay chain (RFC-0008 `/paranode`), as
+	/// `<para-id>=<genesis-hash-hex>[/<fork-id>]` (repeatable).
+	///
+	/// A source configured here has its collators discovered dynamically over
+	/// the relay-chain DHT instead of being listed statically via
+	/// `--spec-msg-source-peer`. Configure a source via one or the other.
+	#[arg(long, value_name = "PARA_ID=GENESIS_HASH")]
+	pub spec_msg_source_genesis: Vec<String>,
+
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -338,6 +348,7 @@ impl<Config: CliConfig> Cli<Config> {
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
 			spec_msg_source_peers: self.spec_msg_source_peer.clone(),
+			spec_msg_source_genesis: self.spec_msg_source_genesis.clone(),
 		}
 	}
 

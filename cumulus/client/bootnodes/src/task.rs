@@ -132,6 +132,9 @@ async fn bootnode_discovery(
 		relay_chain_interface,
 		relay_chain_network,
 		paranode_protocol_name,
+		// Own-parachain bootstrap: addresses are injected into the parachain
+		// network, not streamed to a caller.
+		discovered_tx: None,
 	});
 
 	match bootnode_discovery.run().await {

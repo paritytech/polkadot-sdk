@@ -712,6 +712,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type HrmpClosing<T: Config> = StorageMap<_, Twox64Concat, ParaId, (), OptionQuery>;
 
+	/// Reachability of source parachains for node-side DHT peer discovery: each
+	/// source para's genesis hash (+ optional fork id) so the receiver's
+	/// collators can resolve that para's `/paranode` bootnodes over the relay
+	/// chain DHT. Set locally by governance ([`Pallet::set_source_genesis`]) —
+	/// the receiver's own knowledge of how to reach a source, which cannot come
+	/// from the source itself (that would require already reaching it). Keyed
+	/// per source para; genesis is per-chain, so one entry covers every channel
+	/// to that para. Exposed to the node via
+	/// [`Pallet::source_discovery_info`].
+	#[pallet::storage]
+	pub type SourceGenesis<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		ParaId,
+		([u8; 32], Option<BoundedVec<u8, ConstU32<32>>>),
+		OptionQuery,
+	>;
+
 	/// Consumption frontier per consumed channel stream, keyed by the full
 	/// stream key `(sender, stream id)` — a chain may consume several
 	/// streams of one sender. Position (= leaf count) and the root built
@@ -816,6 +834,12 @@ pub mod pallet {
 		ChannelAccepted {
 			/// The accepted inbound channel.
 			channel: ChannelId,
+		},
+		/// A source parachain's DHT discovery info (genesis hash) was set or
+		/// updated, or cleared (`None`).
+		SourceGenesisSet {
+			/// The source parachain.
+			source: ParaId,
 		},
 		/// This chain closed an inbound channel: a `closed: true` register
 		/// is published, the stream left the consumed set. The consumption
@@ -1157,6 +1181,31 @@ pub mod pallet {
 			Self::publish_register(&channel, &mut state)?;
 			InChannels::<T>::insert(channel, state);
 			Self::deposit_event(Event::ChannelAccepted { channel });
+			Ok(())
+		}
+
+		/// Registers (or clears, with `None`) how this receiver reaches source
+		/// parachain `source` for node-side DHT peer discovery: its genesis
+		/// hash and optional fork id. Local and governance-gated — the
+		/// receiver's own knowledge of a source's reachability, which the
+		/// channel handshake cannot supply (fetching the source's messages
+		/// requires already knowing how to reach it, so it can never come from
+		/// the source itself). One entry per source para covers all its
+		/// channels. Read node-side via [`Pallet::source_discovery_info`].
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_source_genesis(
+			origin: OriginFor<T>,
+			source: ParaId,
+			info: Option<([u8; 32], Option<BoundedVec<u8, ConstU32<32>>>)>,
+		) -> DispatchResult {
+			T::AcceptChannelOrigin::ensure_origin(origin)?;
+			ensure!(source != T::SelfParaId::get(), Error::<T>::ChannelToSelf);
+			match info {
+				Some(info) => SourceGenesis::<T>::insert(source, info),
+				None => SourceGenesis::<T>::remove(source),
+			}
+			Self::deposit_event(Event::SourceGenesisSet { source });
 			Ok(())
 		}
 
@@ -1677,6 +1726,18 @@ pub mod pallet {
 		/// check, suspension standing, diagnostics.
 		pub fn in_channels() -> BTreeMap<ChannelId, InChannelState> {
 			InChannels::<T>::iter().collect()
+		}
+
+		/// DHT discovery info of every configured source parachain — genesis
+		/// hash + optional fork id — for the node's `source_discovery_info()`
+		/// runtime API. The receiver's collators resolve each source's
+		/// `/paranode` bootnodes over the relay chain DHT from this.
+		pub fn source_discovery_info() -> BTreeMap<ParaId, ([u8; 32], Option<Vec<u8>>)> {
+			SourceGenesis::<T>::iter()
+				.map(|(source, (genesis, fork))| {
+					(source, (genesis, fork.map(BoundedVec::into_inner)))
+				})
+				.collect()
 		}
 
 		/// Consumes one channel item of the messaging inherent: hashes the
