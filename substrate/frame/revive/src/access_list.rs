@@ -235,10 +235,10 @@ pub enum AccessEntry {
 	Storage { slot: Slot, address: H160 },
 	/// Contract metadata of `address`.
 	ContractInfo { address: H160 },
-	/// Code metadata (`CodeInfoOf`). Keyed by code hash: code is
+	/// Code metadata. Keyed by code hash: code is
 	/// deduplicated, so contracts sharing a blob share its metadata warmth.
 	CodeInfo { hash: H256 },
-	/// Code blob (`PristineCode`). Keyed by code hash for the same reason.
+	/// Code blob. Keyed by code hash for the same reason.
 	CodeBlob { hash: H256 },
 }
 
@@ -345,9 +345,7 @@ impl AccessList {
 		}
 	}
 
-	/// Register the entry, returning its warmth **before** this touch: the
-	/// first touch of an entry returns `Cold` although the entry is tracked
-	/// from now on.
+	/// Register the entry, returning its warmth **before** this touch.
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot entries continue to bill hot.
@@ -381,7 +379,7 @@ impl AccessList {
 		call_access.expand(|entry| self.touch(entry))
 	}
 
-	/// Non-mutating sibling of [`warm_call`](Self::warm_call): the warmth without registering.
+	/// Non-mutating sibling of [`warm_call`](Self::warm_call).
 	pub fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth {
 		call_access.expand(|entry| self.peek(&entry))
 	}

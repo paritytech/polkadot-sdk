@@ -2530,8 +2530,6 @@ mod benchmarks {
 		);
 	}
 
-	// Call a target whose account state, contract metadata, and code are hot,
-	// as if an identical call already ran in the same transaction.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call_hot() -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::dummy());

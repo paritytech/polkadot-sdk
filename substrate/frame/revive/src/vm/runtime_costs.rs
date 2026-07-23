@@ -222,8 +222,7 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
-	/// Bookkeeping weight of one access-list touch, plus the prepaid rollback
-	/// for a revertible cold insert.
+	/// Weight of one access-list touch, plus the prepaid rollback for a revertible cold insert.
 	fn access_list_overhead<T: Config>(warmth: Warmth) -> Weight {
 		let touch_cost =
 			|bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
@@ -263,7 +262,7 @@ impl RuntimeCosts {
 }
 
 /// Computes the weight of an operation, given the warmth of each state item it reads.
-/// Prices hot only if every item is hot;
+/// Prices hot only if every item is hot.
 pub(crate) fn cold_hot_weight<T: Config>(
 	item_warmths: &[Warmth],
 	state_reads: u64,
