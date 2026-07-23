@@ -37,7 +37,7 @@ impl Module {
 	/// Look up a previously compiled module by `identifier`.
 	///
 	/// Returns `Err(ModuleError::NotCached)` if no module is cached under `identifier`.
-	/// This is a pure cache lookup — no storage access, no compilation — so the call is
+	/// This is a pure cache lookup, without storage access or compilation, so the call is
 	/// cheap. On a miss, compile the bytes with [`Module::from_bytes`].
 	pub fn lookup(identifier: &[u8]) -> Result<Self, ModuleError> {
 		Ok(Self(host_fn::lookup(identifier)?))

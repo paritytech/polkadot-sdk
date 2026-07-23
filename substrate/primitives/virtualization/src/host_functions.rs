@@ -305,8 +305,7 @@ pub trait Virtualization {
 	/// The bytes are compiled and, if `identifier` is `Some`, cached under it so a later
 	/// [`lookup`] with the same `identifier` reuses the result. This always compiles: a caller
 	/// that wants to skip recompiling an already-cached module must [`lookup`] first and only
-	/// call this on a miss (`pallet_revive` does exactly that, so pre-looking-up here would be
-	/// a redundant second lookup).
+	/// call this on a miss. Pre-looking-up here would just duplicate that lookup.
 	///
 	/// The returned `module_id` can be passed to [`instantiate`] to create instances.
 	fn compile(
@@ -453,7 +452,7 @@ pub trait VirtManagerBackend: Send + 'static {
 	///
 	/// If `identifier` is `Some`, the compiled module is retained in the per-extension cache
 	/// keyed by that opaque byte slice so a later [`lookup`] with the same bytes can reuse it.
-	/// Always compiles — never pre-looks-up — so the caller controls cache reuse via [`lookup`].
+	/// Always compiles and never pre-looks-up, so the caller controls cache reuse via [`lookup`].
 	///
 	/// [`lookup`]: VirtManagerBackend::lookup
 	fn compile(

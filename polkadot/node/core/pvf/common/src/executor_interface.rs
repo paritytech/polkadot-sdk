@@ -224,7 +224,7 @@ pub fn prepare(
 /// host functions for JIT contract execution. We include them so those candidates can be
 /// validated. The runtime reads the contract code from its own (witness-backed) storage and
 /// hands the bytes to the host `compile`, so no virtualization host function reaches for
-/// `ValidationExternalities`' storage — which would otherwise panic.
+/// `ValidationExternalities`' storage, which would otherwise panic.
 ///
 /// On a non-revive_jit build this resolves to `()`, which is a no-op
 /// `HostFunctions` impl per `sp_wasm_interface`.

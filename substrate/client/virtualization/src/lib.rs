@@ -20,7 +20,7 @@
 //!
 //! Provides the concrete [`VirtManager`] that drives `polkavm` to compile, instantiate
 //! and execute programs on behalf of the runtime. Register it with the externalities via
-//! [`sp_virtualization::VirtManagerExt::new`] — or use the [`default_extension`] helper
+//! [`sp_virtualization::VirtManagerExt::new`], or use the [`default_extension`] helper
 //! and [`ExtensionsFactory`] convenience types defined below.
 
 use polkavm::{
@@ -44,7 +44,7 @@ const LOG_TARGET: &str = "virtualization";
 /// Build a fresh [`VirtManagerExt`] backed by a default [`VirtManager`].
 ///
 /// Use this where you would otherwise hand-roll
-/// `VirtManagerExt::new(VirtManager::default())` — e.g. when registering the
+/// `VirtManagerExt::new(VirtManager::default())`, for example when registering the
 /// extension directly on a `TestExternalities` or an `Extensions` set.
 pub fn default_extension() -> VirtManagerExt {
 	VirtManagerExt::new(VirtManager::default())
@@ -75,8 +75,9 @@ impl<Block: BlockT> sc_client_api::execution_extensions::ExtensionsFactory<Block
 ///
 /// Each live instance reserves its guest address space and memory, so the number alive at once
 /// must be bounded. One instance is live per nested contract frame, so the bound is the maximum
-/// contract call-stack depth and must stay `>=` the consumer's maximum call depth (for
-/// pallet-revive, `CALL_STACK_DEPTH + 1`, currently 26). [`VirtManager::instantiate`] enforces it
+/// contract call-stack depth and must stay `>=` any consumer's maximum call depth (the deepest
+/// today is pallet-revive with `CALL_STACK_DEPTH + 1`, currently 26).
+/// [`VirtManager::instantiate`] enforces it
 /// as a hard cap, returning `InstantiateError::TooManyInstances` once that many instances are
 /// live.
 const MAX_LIVE_INSTANCES: usize = 30;
@@ -95,8 +96,8 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	// Hardcode the generic sandbox, which executes guest code inline in-process: no worker
 	// processes to spawn, warm or nest namespaces for, so the host process model (in particular
 	// the PVF's fork-per-job execute path and its CPU-time timeout) stays untouched. This trades
-	// away the isolation of the Linux sandbox — acceptable while the JIT backend is an
-	// experimental opt-in — and is exactly what `set_allow_experimental` acknowledges.
+	// away the isolation of the Linux sandbox, which is acceptable while the JIT backend is an
+	// experimental opt-in and is exactly what `set_allow_experimental` acknowledges.
 	config.set_sandbox(Some(SandboxKind::Generic));
 	config.set_allow_experimental(true);
 	let engine = Engine::new(&config).expect("Failed to initialize PolkaVM.");
@@ -104,11 +105,6 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	log::info!(target: LOG_TARGET, "PolkaVM engine initialized in {:?}", start.elapsed());
 	engine
 });
-
-/// The process-global engine, built on first access.
-fn engine() -> &'static Engine {
-	LazyLock::force(&ENGINE)
-}
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
 	match error {
@@ -310,7 +306,7 @@ impl VirtManagerBackend for VirtManager {
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module =
-			Module::new(engine(), &module_config, program.into()).map_err(|err| match err {
+			Module::new(&ENGINE, &module_config, program.into()).map_err(|err| match err {
 				CompileError::ValidationFailed(err) => {
 					log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
 					ModuleError::InvalidImage
