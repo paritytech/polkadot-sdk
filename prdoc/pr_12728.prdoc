@@ -1,0 +1,59 @@
+title: 'sp/sc-virtualization: wire the PolkaVM JIT backend into node & PVF behind --cfg revive_jit'
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    The pre-existing sp-/sc-virtualization backend (PolkaVM compile/instantiate/
+    execute driven through host functions) is made usable by real runtimes. The
+    virtualization host functions and the VirtManagerExt extension are registered
+    in node-cli, omni-node and the PVF execute worker — but only in builds with the
+    new `revive_jit` rustc cfg (forwarded into the WASM build by each consuming
+    runtime's build.rs); default builds are unchanged. The engine now runs on
+    PolkaVM's generic in-process sandbox so the host process model (in particular
+    the PVF's fork-per-job execute path) stays untouched, with live instances
+    capped and the engine configuration fixed (no longer read from the
+    environment).
+
+    Along the way the sp-virtualization compile/lookup wire was reworked: the
+    combined compile-and-cache call is split into the composable
+    `Module::from_bytes` (always compile) and `Module::lookup` (cache probe)
+    primitives, `CompileStatus`/`Module::from_storage_key` are removed. PolkaVM is
+    bumped from 0.35 to 0.36.
+crates:
+- name: sp-virtualization
+  bump: major
+- name: sc-virtualization
+  bump: major
+- name: sp-virtualization-test-fixture
+  bump: patch
+- name: polkadot-node-core-pvf-common
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: patch
+- name: frame-omni-bencher
+  bump: patch
+- name: sc-executor
+  bump: patch
+- name: sc-executor-common
+  bump: patch
+- name: sc-executor-polkavm
+  bump: patch
+- name: sp-io
+  bump: patch
+- name: sp-runtime-interface
+  bump: patch
+- name: substrate-wasm-builder
+  bump: patch
+- name: staging-node-cli
+  bump: patch
+- name: kitchensink-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
