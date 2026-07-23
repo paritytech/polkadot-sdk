@@ -15,9 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Placeholder weights for `pallet_scarcity`.
+//! Estimated weights for `pallet_scarcity`.
 //!
-//! Replace these constants with runtime benchmark results before production use.
+//! WARNING: These values are honest engineering estimates for review integration only. The
+//! bench-bot must replace them with measured target-runtime values after `/cmd bench`.
+
+#![cfg_attr(rustfmt, rustfmt_skip)]
+#![allow(unused_parens)]
+#![allow(unused_imports)]
+#![allow(missing_docs)]
+#![allow(dead_code)]
 
 use core::marker::PhantomData;
 use frame_support::{
@@ -28,67 +35,92 @@ use frame_support::{
 /// Weight functions needed for `pallet_scarcity`.
 pub trait WeightInfo {
 	fn create_collection() -> Weight;
-	fn define_item() -> Weight;
+	fn define_item(s: u32, m: u32) -> Weight;
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
+	fn as_scarcity_pipeline() -> Weight;
 }
 
-/// Placeholder weights using the Substrate node and recommended hardware.
-#[cfg_attr(
-	not(feature = "std"),
-	deprecated(
-		note = "SubstrateWeight is a placeholder and must be replaced with runtime benchmarked weights."
-	)
-)]
+/// Estimated weights for `pallet_scarcity` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	/// Storage: `Scarcity::NextCollectionId` (r:1 w:1)
+	/// Storage: `Scarcity::Collections` (r:0 w:1)
 	fn create_collection() -> Weight {
-		Weight::from_parts(10_000, 0)
+		Weight::from_parts(12_000_000, 3_593)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 
-	fn define_item() -> Weight {
-		Weight::from_parts(10_000, 0)
+	/// Storage: `Scarcity::Collections` (r:1 w:1)
+	/// Storage: `Scarcity::ItemDefs` (r:1 w:1)
+	/// Components: `s` statistics and `m` metadata bytes.
+	fn define_item(s: u32, m: u32) -> Weight {
+		Weight::from_parts(18_000_000, 4_096)
+			.saturating_add(Weight::from_parts(120_000, 0).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 
+	/// Storage: `Scarcity::Collections` (r:1 w:0)
+	/// Storage: `Scarcity::ItemDefs` (r:1 w:1)
+	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
+	/// Storage: `Scarcity::NextInstanceId` (r:1 w:1)
+	/// Storage: `Scarcity::Instances` (r:0 w:1)
 	fn mint() -> Weight {
-		Weight::from_parts(10_000, 0)
+		Weight::from_parts(35_000_000, 6_148)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 
+	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
+	/// Storage: `Scarcity::Instances` (r:0 w:1)
 	fn transfer() -> Weight {
-		Weight::from_parts(10_000, 0)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+		Weight::from_parts(18_000_000, 3_593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+
+	/// Storage: `Scarcity::Locked` (r:1 w:0)
+	/// Storage: `Scarcity::NftsByOwner` (r:3 w:1)
+	fn as_scarcity_pipeline() -> Weight {
+		Weight::from_parts(32_000_000, 8_192)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
 impl WeightInfo for () {
 	fn create_collection() -> Weight {
-		Weight::from_parts(10_000, 0)
+		Weight::from_parts(12_000_000, 3_593)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 
-	fn define_item() -> Weight {
-		Weight::from_parts(10_000, 0)
+	fn define_item(s: u32, m: u32) -> Weight {
+		Weight::from_parts(18_000_000, 4_096)
+			.saturating_add(Weight::from_parts(120_000, 0).saturating_mul(s.into()))
+			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(m.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 
 	fn mint() -> Weight {
-		Weight::from_parts(10_000, 0)
+		Weight::from_parts(35_000_000, 6_148)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 
 	fn transfer() -> Weight {
-		Weight::from_parts(10_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+		Weight::from_parts(18_000_000, 3_593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+
+	fn as_scarcity_pipeline() -> Weight {
+		Weight::from_parts(32_000_000, 8_192)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

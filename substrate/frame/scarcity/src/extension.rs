@@ -17,7 +17,7 @@
 
 //! Scarcity transaction extension.
 
-use crate::{pallet::*, Config, Nft};
+use crate::{pallet::*, weights::WeightInfo, Config, Nft};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{
@@ -130,8 +130,14 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 	type Val = Val<T>;
 	type Pre = Pre<T>;
 
-	fn weight(&self, _call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
-		Weight::zero()
+	fn weight(&self, call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
+		if matches!(self.0, Some(AsScarcityInfo::AsNft)) &&
+			matches!(call.is_sub_type(), Some(Call::<T>::transfer { .. }))
+		{
+			T::WeightInfo::as_scarcity_pipeline()
+		} else {
+			Weight::zero()
+		}
 	}
 
 	fn validate(

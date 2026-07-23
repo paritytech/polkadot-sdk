@@ -29,6 +29,9 @@
 
 pub use pallet::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod mock;
 
@@ -316,7 +319,10 @@ pub mod pallet {
 
 		/// Define one immutable item in a collection owned by the signer.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::define_item())]
+		#[pallet::weight(T::WeightInfo::define_item(
+			stats.len() as u32,
+			metadata.len() as u32,
+		))]
 		pub fn define_item(
 			origin: OriginFor<T>,
 			collection: CollectionId,
