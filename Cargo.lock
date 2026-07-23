@@ -14294,6 +14294,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-scarcity"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "29.0.0"
 dependencies = [
