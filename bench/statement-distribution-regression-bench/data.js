@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784754030160,
+  "lastUpdate": 1784820513330,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e588acf5e12b14c68331d2e08afe7c12d6671df9",
-          "message": "pallet-revive: add DebugSetting for bypassing eip-3607 (#10387)\n\nOnly works for contract accounts, not precompiles.\nThis is needed so that test nodes like anvil can send transactions from\ncontract accounts, a widely-used feature in tests\n\nNeeded for https://github.com/paritytech/foundry-polkadot/pull/423",
-          "timestamp": "2025-11-24T13:52:50Z",
-          "tree_id": "60ed8cd8e2ccbb73ceb16405548c0f1817a4f756",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e588acf5e12b14c68331d2e08afe7c12d6671df9"
-        },
-        "date": 1763996482974,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034751887556,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044750869529999966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.040012081570000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab770ca94391d929751faeb9189403fdb8b997b6",
+          "message": "pallet-revive: implement eth_getBlockReceipts (#12636)\n\n## Summary\n\n`pallet-revive`'s Ethereum JSON-RPC server did not implement\n`eth_getBlockReceipts`, a standard `execution-apis` method that returns\nevery transaction receipt in a block in a single call. It is widely used\nby indexers and block explorers.\n\nThis adds it: given a block number, tag, or hash it returns the list of\nreceipts, extracted from the block in a single pass, or `null` if the\nblock does not exist — matching go-ethereum.\n\n## Changes\n\n- Add `eth_getBlockReceipts` to the `EthRpc` trait and implement the\nhandler.\n- `Client::block_receipts` resolves the block and returns `None` (null)\nfor a missing block.\n- `ReceiptProvider::block_receipts` extracts all receipts from the block\nin one pass.\n- Add an integration test covering by-number, by-hash, and the not-found\ncase.\n\n## Testing\n\n- `cargo check` / `cargo clippy --all-targets` / `cargo +nightly fmt`\nclean.\n- `test_get_block_receipts` added to the eth-rpc integration suite.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-23T13:36:54Z",
+          "tree_id": "b8a349bf7e94811d08baed63c57d6f2e3dd9a1ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ab770ca94391d929751faeb9189403fdb8b997b6"
+        },
+        "date": 1784820480058,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13800000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08554814674999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03964288270600002,
             "unit": "seconds"
           }
         ]
