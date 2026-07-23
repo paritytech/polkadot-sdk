@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784753905485,
+  "lastUpdate": 1784820387308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eb11ef2b855f72fa012c8c9b4fdeb4cb43ffbb06",
-          "message": "Fix check-semver job (#10418)",
-          "timestamp": "2025-11-25T16:31:57Z",
-          "tree_id": "bf7f970563fd3f0e5836c0e45b4bb8c7fee92706",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb11ef2b855f72fa012c8c9b4fdeb4cb43ffbb06"
-        },
-        "date": 1764092334297,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.377517258800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20180525373333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.130569986733335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "78631234+soloking1412@users.noreply.github.com",
+            "name": "Maheswaran Velmurugan",
+            "username": "soloking1412"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab770ca94391d929751faeb9189403fdb8b997b6",
+          "message": "pallet-revive: implement eth_getBlockReceipts (#12636)\n\n## Summary\n\n`pallet-revive`'s Ethereum JSON-RPC server did not implement\n`eth_getBlockReceipts`, a standard `execution-apis` method that returns\nevery transaction receipt in a block in a single call. It is widely used\nby indexers and block explorers.\n\nThis adds it: given a block number, tag, or hash it returns the list of\nreceipts, extracted from the block in a single pass, or `null` if the\nblock does not exist — matching go-ethereum.\n\n## Changes\n\n- Add `eth_getBlockReceipts` to the `EthRpc` trait and implement the\nhandler.\n- `Client::block_receipts` resolves the block and returns `None` (null)\nfor a missing block.\n- `ReceiptProvider::block_receipts` extracts all receipts from the block\nin one pass.\n- Add an integration test covering by-number, by-hash, and the not-found\ncase.\n\n## Testing\n\n- `cargo check` / `cargo clippy --all-targets` / `cargo +nightly fmt`\nclean.\n- `test_get_block_receipts` added to the eth-rpc integration suite.\n\n---------\n\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-07-23T13:36:54Z",
+          "tree_id": "b8a349bf7e94811d08baed63c57d6f2e3dd9a1ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ab770ca94391d929751faeb9189403fdb8b997b6"
+        },
+        "date": 1784820353104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.092013077733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14433014973333336,
             "unit": "seconds"
           }
         ]
