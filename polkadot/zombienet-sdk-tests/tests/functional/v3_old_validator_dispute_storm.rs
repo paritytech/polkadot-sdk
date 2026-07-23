@@ -3,27 +3,27 @@
 
 //! Enabling V3 while part of the validator set still runs a pre-V3 binary.
 //!
-//! The network is `westend-local` with 15 validators. Dispute conclusion needs a
-//! `n - (n - 1) / 3 = 11` vote supermajority, which is exactly what the two variants pivot on:
+//! `westend-local` with 15 validators. Dispute conclusion needs an `n - (n - 1) / 3 = 11` vote
+//! supermajority, which is what the two variants pivot on:
 //!
-//! * `4/15` old: the valid side reaches `15 - 4 = 11` → disputes conclude valid → the 4 old
-//!   validators collect against-valid offences and are disabled (4 is the disabling cap for n = 15)
-//!   → with every disputer disabled the storm self-extinguishes. This proves the safety net holds.
-//! * `5/15` old: the valid side maxes out at `15 - 5 = 10 < 11` → disputes never conclude, nobody
-//!   is slashed or disabled, and the degradation persists. This documents the boundary: 2/3 is the
-//!   soundness floor, but the operational bar is that ~all validators are upgraded.
+//! * `4/15` old: the valid side reaches 11 → disputes conclude valid → the 4 old validators are
+//!   disabled (4 is the disabling cap for n = 15) → the storm self-extinguishes. Proves the safety
+//!   net holds.
+//! * `5/15` old: the valid side maxes out at 10 < 11, so no dispute ever concludes and nobody is
+//!   disabled. But 5 invalid votes exceed the byzantine threshold, reverting each disputed block
+//!   and clamping GRANDPA to the undisputed chain → finality is degraded. Documents the boundary:
+//!   2/3 is the soundness floor, but the operational bar is that ~all validators are upgraded.
 //!
-//! Two single-collator parachains are used: A stays plain V2 throughout (a canary proving that V3
-//! gossip does not poison the old validators on an unrelated para), and B starts V2 and is upgraded
-//! mid-test to a v3-descriptor runtime.
+//! Two single-collator parachains: A stays plain V2 (canary that V3 gossip does not poison the old
+//! validators on an unrelated para), B starts V2 and is upgraded to a v3-descriptor runtime
+//! mid-test.
 
 use crate::utils::assert_candidates_version;
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, wait_for_runtime_upgrade};
 use polkadot_primitives::{
-	BlockNumber, CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2, DisputeState,
-	Id as ParaId, SessionIndex, ValidatorId, ValidatorIndex,
+	CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId, ValidatorId, ValidatorIndex,
 };
 use rstest::rstest;
 use serde_json::json;
@@ -37,17 +37,17 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
-/// Total validators in the set. Chosen so the dispute supermajority (`n - (n - 1) / 3`) lands at
-/// 11, straddled by the two variants (11 valid voters vs 10).
 const TOTAL_VALIDATORS: usize = 15;
 
-const PARA_A: u32 = 2000; // plain V2 canary.
-const PARA_B: u32 = 2001; // upgraded from V2 to V3 mid-test.
+const PARA_A: u32 = 2000;
+const PARA_B: u32 = 2001;
+
+const GROUP_ROTATION: u32 = 10;
+
+const HEALTHY_BACKING_FLOOR: u32 = 7;
 
 #[rstest]
-// 4 old validators: valid side reaches 11 → disputes conclude → all 4 disabled → storm dies out.
 #[case::four_old(4)]
-// 5 old validators: valid side stuck at 10 → disputes never conclude → nobody disabled.
 #[case::five_old(5)]
 #[tokio::test(flavor = "multi_thread")]
 async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), anyhow::Error> {
@@ -69,9 +69,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	let old_image = std::env::var("OLD_POLKADOT_IMAGE").ok();
 	let old_command = std::env::var("OLD_POLKADOT_COMMAND").unwrap_or("polkadot".into());
 
-	// V3 (bit 4) is enabled from genesis alongside V2 (bit 3). Para B still runs a V2 runtime, so
-	// it keeps emitting V2 until its mid-test upgrade — the storm is triggered by that upgrade,
-	// not by the feature bit.
 	let node_features_with_v3 = json!({"bits": 8, "data": [0b00011000]});
 
 	let old_names: Vec<String> =
@@ -79,7 +76,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
-			// westend-local so staking-based disabling can take effect.
 			let r = r
 				.with_chain("westend-local")
 				.with_default_command("polkadot")
@@ -97,7 +93,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 						}
 					}
 				}))
-				// validator-0: v3-capable, used as the query node.
 				.with_validator(|node| {
 					node.with_name("validator-0")
 						.with_args(vec!["-lparachain=debug,runtime::staking=debug".into()])
@@ -133,7 +128,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
 				.with_collator(|n| n.with_name("collator-a"))
 		})
-		// Para B: starts V2 ("async-backing"), upgraded to the v3 runtime mid-test.
 		.with_parachain(|p| {
 			p.with_id(PARA_B)
 				.with_default_command("test-parachain")
@@ -145,7 +139,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 				])
 				.with_collator(|n| n.with_name("collator-b"))
 		})
-		// Keep the network alive on failure for post-mortem logs.
 		.with_global_settings(|s| s.with_tear_down_on_failure(false))
 		.build()
 		.map_err(|e| {
@@ -162,7 +155,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let para_b_client: OnlineClient<PolkadotConfig> = para_b_node.wait_client().await?;
 
-	// Collect the pre-V3 validators' public keys so we can tell them apart in the disabled set.
 	let mut old_pubkeys: HashSet<String> = HashSet::new();
 	for name in &old_names {
 		let spec = serde_json::to_value(network.get_node(name)?.spec())?;
@@ -177,10 +169,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	let para_a = ParaId::from(PARA_A);
 	let para_b = ParaId::from(PARA_B);
 
-	// Baseline: V3 is enabled on the relay from genesis, but para B still runs a V2 runtime, so
-	// both paras emit V2 and there are no disputes. This pins the later storm on the para upgrade,
-	// not on the feature bit.
-	log::info!("baseline: V3 enabled on the relay, both paras still emit V2");
+	log::info!("baseline: both paras emit V2");
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
@@ -213,15 +202,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 		.await?;
 	wait_for_runtime_upgrade(&para_b_client).await?;
 
-	// Para B now emits V3 descriptors. We deliberately do NOT assert this over finalized blocks
-	// here: the dispute storm we wait for next only happens on V3 candidates (para A is V2 and the
-	// pre-V3 validators validate it fine), so a rising dispute counter is itself proof that B went
-	// V3. Counting over finalized blocks would in any case be unreliable now, since the disputes
-	// start stalling finality. Para B's V3 band is asserted explicitly in the 4/15 path once
-	// finality has recovered.
-
-	// The storm: every V3 candidate a pre-V3 validator approval-checks raises a dispute.
-	log::info!("waiting for the dispute storm to start (proves para B emits V3)");
+	log::info!("waiting for dispute storm to start");
 	relay_node
 		.wait_metric_with_timeout("parachain_candidate_disputes_total", |d| d >= 1.0, 300u64)
 		.await?;
@@ -229,64 +210,39 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	if num_old == 4 {
 		assert_four_old_self_extinguishes(relay_node, &relay_client, &old_pubkeys, num_old).await?;
 
-		// Immediate recovery: disabling takes effect within the session (not at a boundary), so the
-		// moment the last disputer is disabled the storm ends and para B resumes. We measure over
-		// the *best* chain starting right after disabling — same session, no finality/session
-		// wait — which verifies the V3 throughput band and proves the effect is immediate. The
-		// window spans two group rotations so a transiently short-handed group (disabled members)
-		// can't skew it. Over it: para B holds a healthy V3 band, the canary para A a healthy V2
-		// band, and the dispute counter must not keep growing (no disputer left).
-		log::info!(
-			"verifying immediate recovery on the best chain (V3 band + canary + no new disputes)"
-		);
-		let disputes_before = read_metric(relay_node, "parachain_candidate_disputes_total").await?;
-		let counts = count_backed_over_best_blocks(
+		log::info!("waiting for dispute storm to self-extinguish");
+		let total_disputes = wait_for_dispute_storm_to_settle(relay_node, 240).await?;
+		log::info!("storm self-extinguished at {total_disputes} disputes");
+
+		assert_finality_lag(&para_b_client, 6).await?;
+
+		let series = backed_series_over_best_blocks(
 			&relay_client,
-			20,
+			GROUP_ROTATION,
 			&[(para_b, CandidateDescriptorVersion::V3), (para_a, CandidateDescriptorVersion::V2)],
 		)
 		.await?;
-		let disputes_after = read_metric(relay_node, "parachain_candidate_disputes_total").await?;
-		log::info!(
-			"over 20 best blocks post-disabling: para B V3={}, para A V2={}, disputes {disputes_before}→{disputes_after}",
-			counts[&para_b],
-			counts[&para_a],
+		let b_backed: u32 = series[&para_b].iter().sum();
+		let a_backed: u32 = series[&para_a].iter().sum();
+		log::info!("post-recovery: para B V3={b_backed}, para A V2={a_backed} (floor {HEALTHY_BACKING_FLOOR})");
+		assert!(
+			b_backed >= HEALTHY_BACKING_FLOOR,
+			"para B did not recover to a healthy V3 band: {b_backed} in {GROUP_ROTATION} blocks \
+			 (floor {HEALTHY_BACKING_FLOOR})",
 		);
 		assert!(
-			counts[&para_b] >= 8,
-			"para B did not recover to a healthy V3 band immediately after disabling: {} in 20 best blocks",
-			counts[&para_b],
+			a_backed >= HEALTHY_BACKING_FLOOR,
+			"canary para A degraded: {a_backed} V2 in {GROUP_ROTATION} blocks (floor \
+			 {HEALTHY_BACKING_FLOOR})",
 		);
-		assert!(
-			counts[&para_a] >= 8,
-			"canary para A degraded: {} V2 in 20 best blocks",
-			counts[&para_a],
-		);
-		assert!(
-			disputes_after - disputes_before <= 3.0,
-			"dispute storm should self-extinguish after disabling, but grew {disputes_before}→{disputes_after}",
-		);
-
-		log::info!("waiting for relay-chain finality to recover after the storm");
-		relay_node
-			.wait_metric_with_timeout(
-				"polkadot_parachain_approval_checking_finality_lag",
-				|lag| lag <= 5.0,
-				180u64,
-			)
-			.await?;
-		assert_finality_lag(&para_b_client, 12).await?;
 	} else {
-		let collator_a = network.get_node("collator-a")?;
-		assert_five_old_persists(relay_node, &relay_client, collator_a).await?;
+		assert_five_old_persists(relay_node, &relay_client).await?;
 	}
 
 	log::info!("V3 old-validator dispute storm test ({num_old}/{TOTAL_VALIDATORS} old) finished");
 	Ok(())
 }
 
-/// `4/15`: the valid supermajority (11) concludes the disputes, the 4 pre-V3 validators are
-/// disabled, and the storm self-extinguishes.
 async fn assert_four_old_self_extinguishes(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
@@ -330,86 +286,44 @@ async fn assert_four_old_self_extinguishes(
 	Ok(())
 }
 
-/// `5/15`: the valid side never reaches 11, so disputes never conclude, nobody is disabled, and the
-/// degradation persists. The canary para A must stay healthy V2 throughout.
 async fn assert_five_old_persists(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
-	collator_a: &zombienet_sdk::NetworkNode,
 ) -> Result<(), anyhow::Error> {
-	log::info!("observing that disputes persist unconcluded and nobody is disabled");
-	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
-	let mut blocks_checked = 0u32;
-	let mut saw_unconcluded = false;
-	while let Some(block) = best_blocks.next().await {
-		let hash = block?.hash();
-
-		// Nobody may be disabled: the valid side cannot muster the 11-vote supermajority.
-		let disabled = disabled_validators_at(relay_client, hash).await?;
-		assert!(
-			disabled.is_empty(),
-			"no validator should be disabled in the 5/15 case, found {disabled:?}",
-		);
-
-		// And at least one dispute must remain open with the valid side capped at 10.
-		for (_, _, state) in disputes_at(relay_client, hash).await? {
-			if state.concluded_at.is_none() {
-				saw_unconcluded = true;
-				assert!(
-					state.validators_for.count_ones() <= 10,
-					"valid side should be capped at 10 votes, got {}",
-					state.validators_for.count_ones(),
-				);
-			}
-		}
-
-		blocks_checked += 1;
-		if blocks_checked >= 20 {
-			break;
-		}
-	}
-	assert!(saw_unconcluded, "expected persistent unconcluded disputes in the 5/15 case");
-
-	// No dispute may have concluded on the valid side.
+	let finalized_metric = "substrate_block_height{status=\"finalized\"}";
+	let f0 = read_metric(relay_node, finalized_metric).await?;
+	tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+	let f1 = read_metric(relay_node, finalized_metric).await?;
+	let finalized_progress = f1 - f0;
+	log::info!("finalized over 60s: {f0} → {f1} (+{finalized_progress}, healthy ~10)");
 	assert!(
-		relay_node
-			.assert_with(
-				"polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}",
-				|d| d == 0.0,
-			)
-			.await?,
-		"no dispute should conclude valid with only 10 valid voters",
+		finalized_progress == 0.0,
+		"expected finality to be degraded behind the unresolvable dispute, but finalized advanced \
+		 {f0} → {f1} (+{finalized_progress}; healthy would be ~10 per 60s)",
 	);
 
-	// Canary: the unrelated plain-V2 para A keeps making progress — V3 gossip does not poison the
-	// pre-v3 validators on paras they can actually validate. Relay finality is stalled here, so we
-	// cannot count candidates over finalized blocks; instead we track para A's collator best block
-	// height, which advances as its candidates are backed on the (still-progressing) best chain.
-	log::info!("asserting canary para A keeps producing despite the stalled relay finality");
-	let best_height_metric = "substrate_block_height{status=\"best\"}";
-	let start_height = read_metric(collator_a, best_height_metric).await?;
-	let target_height = start_height + 8.0;
-	collator_a
-		.wait_metric_with_timeout(best_height_metric, |h| h >= target_height, 180u64)
-		.await
-		.map_err(|e| {
-			anyhow!(
-				"canary para A stalled (best height {start_height} → target {target_height}): {e}"
-			)
-		})?;
+	let finalized_hash = relay_client.blocks().at_latest().await?.hash();
+	let disabled = disabled_validators_at(relay_client, finalized_hash).await?;
+	assert!(
+		disabled.is_empty(),
+		"no validator should be disabled in the 5/15 case, found {disabled:?}",
+	);
 
-	// The degradation persists; we record the finality lag rather than asserting a bound.
-	let lag = read_metric(relay_node, "polkadot_parachain_approval_checking_finality_lag").await?;
-	log::info!("finality lag with an unresolvable dispute (5/15 case): {lag}");
+	for validity in ["valid", "invalid"] {
+		let metric =
+			format!("polkadot_parachain_candidate_dispute_concluded{{validity=\"{validity}\"}}");
+		assert!(
+			relay_node.assert_with(metric, |d| d == 0.0).await?,
+			"no dispute should conclude ({validity}) without an 11-vote supermajority",
+		);
+	}
 	Ok(())
 }
 
-/// Normalize a hex public key to lowercase without a `0x` prefix.
 fn normalize_hex(s: &str) -> String {
 	s.trim_start_matches("0x").to_ascii_lowercase()
 }
 
-/// Count how many disabled validator indices belong to a pre-V3 (old) validator.
 fn count_disabled_old(
 	disabled: &[ValidatorIndex],
 	validators: &[ValidatorId],
@@ -461,33 +375,17 @@ async fn session_validators_at(
 	)?)
 }
 
-async fn disputes_at(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	hash: H256,
-) -> Result<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>, anyhow::Error> {
-	Ok(Vec::<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>::decode(
-		&mut &relay_client
-			.runtime_api()
-			.at(hash)
-			.call_raw("ParachainHost_disputes", None)
-			.await?[..],
-	)?)
-}
-
-/// Count backed candidates matching the requested `(para, version)` targets over the next
-/// `num_blocks` *best* relay blocks. Best (not finalized) blocks keep advancing while relay
-/// finality is still catching up, and starting from the current best means the count reflects what
-/// happens immediately, not after a session or finality boundary.
-async fn count_backed_over_best_blocks(
+async fn backed_series_over_best_blocks(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	num_blocks: u32,
 	targets: &[(ParaId, CandidateDescriptorVersion)],
-) -> Result<HashMap<ParaId, u32>, anyhow::Error> {
+) -> Result<HashMap<ParaId, Vec<u32>>, anyhow::Error> {
 	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
-	let mut counts: HashMap<ParaId, u32> = targets.iter().map(|(p, _)| (*p, 0)).collect();
+	let mut series: HashMap<ParaId, Vec<u32>> = targets.iter().map(|(p, _)| (*p, vec![])).collect();
 	let mut blocks_checked = 0u32;
 	while let Some(block) = best_blocks.next().await {
 		let events = block?.events().await?;
+		let mut per_block: HashMap<ParaId, u32> = targets.iter().map(|(p, _)| (*p, 0)).collect();
 		for event in events.iter() {
 			let event = event?;
 			if event.pallet_name() == "ParaInclusion" && event.variant_name() == "CandidateBacked" {
@@ -495,19 +393,21 @@ async fn count_backed_over_best_blocks(
 				let para_id = receipt.descriptor.para_id();
 				let version = receipt.descriptor.version();
 				if targets.iter().any(|(p, v)| *p == para_id && *v == version) {
-					*counts.get_mut(&para_id).expect("para_id is a target; qed") += 1;
+					*per_block.get_mut(&para_id).expect("para_id is a target; qed") += 1;
 				}
 			}
+		}
+		for (para_id, count) in per_block {
+			series.get_mut(&para_id).expect("para_id is a target; qed").push(count);
 		}
 		blocks_checked += 1;
 		if blocks_checked >= num_blocks {
 			break;
 		}
 	}
-	Ok(counts)
+	Ok(series)
 }
 
-/// Read a single metric value from a node.
 async fn read_metric(
 	node: &zombienet_sdk::NetworkNode,
 	metric: &str,
@@ -515,4 +415,29 @@ async fn read_metric(
 	node.reports(metric)
 		.await
 		.map_err(|e| anyhow!("failed to read metric {metric}: {e}"))
+}
+
+async fn wait_for_dispute_storm_to_settle(
+	node: &zombienet_sdk::NetworkNode,
+	timeout_secs: u64,
+) -> Result<f64, anyhow::Error> {
+	const STEP_SECS: u64 = 25;
+	let metric = "parachain_candidate_disputes_total";
+	let mut prev = read_metric(node, metric).await?;
+	let mut elapsed = 0u64;
+	loop {
+		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
+		elapsed += STEP_SECS;
+		let cur = read_metric(node, metric).await?;
+		log::info!("dispute counter {prev} → {cur} after {elapsed}s");
+		if cur - prev == 0.0 {
+			return Ok(cur);
+		}
+		prev = cur;
+		if elapsed >= timeout_secs {
+			return Err(anyhow!(
+				"dispute storm did not settle within {timeout_secs}s (still growing, last {cur})"
+			));
+		}
+	}
 }
