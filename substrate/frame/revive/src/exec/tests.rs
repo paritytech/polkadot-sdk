@@ -3672,3 +3672,38 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }
+
+#[test]
+fn cold_hot_failed_code_load_leaves_code_cold() {
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let before = ctx.ext.access_list_metrics();
+		let r = ctx.ext.call(
+			&Default::default(),
+			&DJANGO_ADDR,
+			U256::zero(),
+			vec![],
+			ReentrancyProtection::AllowReentry,
+			false,
+		);
+		assert_eq!(
+			r,
+			Err(Error::<Test>::CodeNotFound.into()),
+			"the dangling code hash fails to load",
+		);
+		let after = ctx.ext.access_list_metrics();
+		assert_eq!(
+			after.cold - before.cold,
+			2,
+			"account + contract info warm up front; the two code entries stay cold",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&CHARLIE, root_code_hash);
+		// DJANGO is a contract, but its code hash is not registered, so the
+		// code load fails after the account and contract info are warmed.
+		place_contract(&DJANGO, H256([0xcd; 32]));
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}

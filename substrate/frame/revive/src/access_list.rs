@@ -244,7 +244,7 @@ pub enum AccessEntry {
 
 impl AccessEntry {
 	// Number of state reads per entry.
-	pub(crate) const ACCOUNT_READS: u64 = 2; // address map + `System::Account`
+	pub(crate) const ACCOUNT_READS: u64 = 2; // `OriginalAccount` + `System::Account`
 	pub(crate) const CONTRACT_INFO_READS: u64 = 1;
 	pub(crate) const STORAGE_READS: u64 = 1;
 	pub(crate) const CODE_INFO_READS: u64 = 1;

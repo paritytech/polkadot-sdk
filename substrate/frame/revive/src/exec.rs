@@ -1062,7 +1062,7 @@ where
 		Ok(Some((stack, executable)))
 	}
 
-	/// Loads code, warming its access-list entry only after the load succeeds.
+	/// Loads code, warming its access-list entries only after the load succeeds.
 	fn load_code<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
