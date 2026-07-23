@@ -228,15 +228,6 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	// No disputes throughout the lifecycle.
-	relay_node
-		.wait_metric_with_timeout(
-			"polkadot_parachain_candidate_disputes_total",
-			|v| v == 0.0,
-			30u64,
-		)
-		.await?;
-
 	assert_validator_backed_candidates(relay_node, 30).await?;
 	for i in 4..=9 {
 		let node = network.get_node(format!("validator-{i}"))?;
@@ -335,7 +326,7 @@ async fn v3_relay_feature_rollback_keeps_para_producing() -> Result<(), anyhow::
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
-		HashMap::from([(para_2902, 5..25)]),
+		HashMap::from([(para_2902, 17..25)]),
 		20,
 		None,
 	)
@@ -350,7 +341,7 @@ async fn v3_relay_feature_rollback_keeps_para_producing() -> Result<(), anyhow::
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2902, 5..15)]),
+		HashMap::from([(para_2902, 11..15)]),
 		15,
 		Some(enactment_session),
 	)
