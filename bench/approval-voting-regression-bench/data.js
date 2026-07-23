@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784820471339,
+  "lastUpdate": 1784828706879,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "822943a18869e2b9ad1f46b0c66f32ab375c7386",
-          "message": "[Release|CI/CD] Create draft release without runtimes or any artefacts attached (for crates only releases) (#10379)\n\nThis PR adjusts existing Publish Release Draft flows for the cases:\n1. When we have a patch release without runtimes (only bins and docker\nimages)\n2. When we have crates only release\n\nFor those two cases, the unnecessary information and artifacts won't be\nattached\n\nCloses: https://github.com/paritytech/release-engineering/issues/275",
-          "timestamp": "2025-11-25T13:20:02Z",
-          "tree_id": "42da423e77e65d28536845567c3f593cae86d9e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/822943a18869e2b9ad1f46b0c66f32ab375c7386"
-        },
-        "date": 1764082059605,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63639.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5170576814200007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9929970909799928,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43033798776999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.387499704229995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019999090000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019999090000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.474908789869999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005869997500000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002131299,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6382800635908747,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4690689677100006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4972591889800007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002131299,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005388636240000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7616541d96bdd8f328fc0dcabcc0571e9898815c",
+          "message": "[pallet-revive] Omit empty traces uniformly across tracer types (#12386)\n\n# Description\n\nThe tracer types produced non-uniform results for empty traces.\n`Tracer::collect_trace` returns `Option<Trace>`, but `None` meant\ndifferent things: `CallTracer` returned `None` when nothing was traced,\nwhile `ExecutionTracer` and `PrestateTracer` always returned `Some` with\na zero/default trace.\n\nThis makes them uniform: a collected trace equal to the tracer's\n`empty_trace()` is reported as `None` for every tracer type.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-23T16:00:17Z",
+          "tree_id": "42cfca17203a8cd954b9c732a88a5fdd80a047b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7616541d96bdd8f328fc0dcabcc0571e9898815c"
+        },
+        "date": 1784828674891,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63570.89999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022801420000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.65362012061,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001876678,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8397610909399693,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001876678,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.673755703640002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022801420000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6239200243100007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3618904604199966,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.64877811612,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.807387183099967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005661667060000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.650057280873106,
             "unit": "seconds"
           }
         ]
