@@ -23,7 +23,7 @@ pub(crate) mod storage_api;
 use crate::{
 	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
 	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
-	SyncingStatus, TransactionTrace,
+	SyncingStatus, TraceOutcome, TransactionTrace,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
@@ -1062,16 +1062,18 @@ impl Client {
 			return Ok(vec![]);
 		}
 
-		let traces: Vec<(u32, TraceV1)> = Self::recorded_or_fallback(
+		let recorded = self.state_call_recorded::<Vec<(u32, TraceV1)>>(
+			"ReviveApi_trace_block",
+			(&block, &config).encode(),
+			parent_hash,
+		);
+		let (traces, degraded) = Self::recorded_or_fallback(
 			"trace_block",
-			self.state_call_recorded(
-				"ReviveApi_trace_block",
-				(&block, &config).encode(),
-				parent_hash,
-			),
-			|_| async {
+			async { Ok((recorded.await?, false)) },
+			|reason| async move {
 				let runtime_api = self.runtime_api(parent_hash).await?;
-				runtime_api.trace_block(block, config).await
+				let traces = runtime_api.trace_block(block, config).await?;
+				Ok((traces, reason == RecordedUnavailable::MethodMissing))
 			},
 		)
 		.await?;
@@ -1082,11 +1084,24 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let traces = traces.into_iter().filter_map(|(index, trace)| {
-			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
-		});
+		let mut entries = traces
+			.into_iter()
+			.filter_map(|(index, trace)| {
+				let index = index as usize;
+				let tx_hash = hashes.remove(&index)?;
+				Some((index, TransactionTrace { tx_hash, outcome: TraceOutcome::Trace(trace) }))
+			})
+			.collect::<Vec<_>>();
 
-		Ok(traces.collect())
+		if degraded {
+			entries.extend(hashes.into_iter().map(|(index, tx_hash)| {
+				let outcome = TraceOutcome::Error(ClientError::TraceUnavailable.to_string());
+				(index, TransactionTrace { tx_hash, outcome })
+			}));
+			entries.sort_unstable_by_key(|(index, _)| *index);
+		}
+
+		Ok(entries.into_iter().map(|(_, entry)| entry).collect())
 	}
 
 	/// Get the transaction traces for the given transaction.

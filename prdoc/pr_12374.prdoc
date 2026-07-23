@@ -40,6 +40,9 @@ doc:
     - `sc-rpc-api`'s state `Error::UnsafeRpcCalled` now reports the standard "method not found"
       code (-32601), per the `DenyUnsafe` design (a denied unsafe method is indistinguishable
       from an absent one). Clients use this to fall back.
+    - The trace types in `pallet-revive-types` now deserialize the JSON they serialize: fields
+      skipped when empty (`skip_serializing_if`) also carry `#[serde(default)]`. Previously a
+      serialized trace with any empty field could not be read back by typed clients.
 
     # Review Notes
 
@@ -58,7 +61,10 @@ doc:
     unsafe RPC methods disabled, or no recorder hook — e.g. a solochain), eth-rpc falls back to
     the plain typed `trace_block`/`trace_tx`. The fallback is not silent: version skew and
     unsafe-disabled warn (the recorder-less replay can still drop the tail on PoV chains), the
-    expected recorder-less case logs at debug.
+    expected recorder-less case logs at debug. Degradation is also visible to consumers: on the
+    replay that can drop traces, `debug_traceBlock*` returns dropped transactions as geth-style
+    `{txHash, error}` entries instead of silently omitting them, and `debug_traceTransaction`
+    returns a trace-unavailable error instead of "not found".
 
     **Tests.** Integration tests in `asset-hub-westend` reproduce the bug and confirm the fix
     through the versioned trace APIs. A block of two storage-heavy revive calls is replayed,
@@ -84,4 +90,6 @@ crates:
 - name: asset-hub-westend-runtime
   bump: patch
 - name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-types
   bump: patch

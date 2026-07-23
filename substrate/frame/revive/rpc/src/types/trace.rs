@@ -97,15 +97,52 @@ pub struct TraceCallConfig {
 pub struct TransactionTrace {
 	/// The transaction hash.
 	pub tx_hash: H256,
-	/// The trace of the transaction.
+	/// The trace, or the reason it is unavailable.
+	#[serde(flatten)]
+	pub outcome: TraceOutcome,
+}
+
+/// The outcome of tracing a single transaction, geth style: `result` or `error`.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum TraceOutcome {
+	/// The transaction trace.
 	#[serde(rename = "result")]
-	pub trace: TraceV1,
+	Trace(TraceV1),
+	/// Why no trace could be produced.
+	#[serde(rename = "error")]
+	Error(String),
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use pallet_revive_types::runtime_api::*;
+
+	#[test]
+	fn transaction_trace_serializes_geth_style() {
+		let traced = TransactionTrace {
+			tx_hash: H256::zero(),
+			outcome: TraceOutcome::Trace(TraceV1::Call(CallTraceV1::default())),
+		};
+		let json = serde_json::to_value(&traced).unwrap();
+		assert!(json.get("result").is_some());
+		assert!(json.get("error").is_none());
+		// `flatten` deserializes through serde's content buffer, which is where untagged enums
+		// like `TraceV1` tend to break: pin the round-trip, not just the serialization.
+		let round: TransactionTrace = serde_json::from_value(json).unwrap();
+		assert!(matches!(round.outcome, TraceOutcome::Trace(TraceV1::Call(_))));
+
+		let dropped = TransactionTrace {
+			tx_hash: H256::zero(),
+			outcome: TraceOutcome::Error("trace unavailable".into()),
+		};
+		let json = serde_json::to_value(&dropped).unwrap();
+		assert_eq!(json["error"], "trace unavailable");
+		assert!(json.get("result").is_none());
+
+		let round: TransactionTrace = serde_json::from_value(json).unwrap();
+		assert!(matches!(round.outcome, TraceOutcome::Error(_)));
+	}
 
 	/// Serialization should support the following JSON format:
 	///
