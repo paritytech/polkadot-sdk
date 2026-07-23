@@ -25,7 +25,12 @@ use crate::{
 	Collections, Error, Event, Instances, ItemDefs, Kind, LockInfo, Locked, Nft, NftsByOwner,
 	Origin, Stat,
 };
-use frame_support::{assert_noop, assert_ok, traits::ConstU32, BoundedVec};
+use frame_support::{
+	assert_noop, assert_ok,
+	dispatch::Pays,
+	traits::{ConstU32, OriginTrait},
+	BoundedVec,
+};
 use sp_runtime::{
 	traits::{TransactionExtension, TxBaseImplication},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},

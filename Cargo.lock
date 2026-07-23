@@ -17450,6 +17450,7 @@ dependencies = [
  "pallet-root-testing",
  "pallet-safe-mode",
  "pallet-salary",
+ "pallet-scarcity",
  "pallet-scheduler",
  "pallet-scored-pool",
  "pallet-session",
