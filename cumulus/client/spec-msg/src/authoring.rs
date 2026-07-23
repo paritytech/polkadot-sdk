@@ -736,7 +736,9 @@ mod tests {
 		// sees the read reflected and correctly hands nothing — but X has
 		// not landed anywhere except its own branch.
 		let on_descendant = Some(register(1));
-		assert!(pool.build_inherent(&[], &[(source(), stream, on_descendant)], budget).is_empty());
+		assert!(pool
+			.build_inherent(&[], &[(source(), stream, on_descendant)], budget)
+			.is_empty());
 
 		// X's whole branch is abandoned (never backed): authoring returns to
 		// the original parent, whose applied view reflects nothing. The read
@@ -749,7 +751,9 @@ mod tests {
 
 		// Once a branch that reflects the read is extended (it truly
 		// landed), it stays consumed there.
-		assert!(pool.build_inherent(&[], &[(source(), stream, on_descendant)], budget).is_empty());
+		assert!(pool
+			.build_inherent(&[], &[(source(), stream, on_descendant)], budget)
+			.is_empty());
 	}
 
 	#[test]
