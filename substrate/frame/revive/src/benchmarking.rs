@@ -269,7 +269,7 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 			let (mut ext, _) = setup.ext();
-			ext.touch_call_target(CallStateAccess::new(callee_contract.address, $delegate), code_hash);
+			ext.prewarm_call(CallStateAccess::new(callee_contract.address, $delegate), code_hash);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};

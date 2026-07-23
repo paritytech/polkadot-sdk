@@ -588,8 +588,8 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges the load from the weight meter; `warmth` picks the cold or
-	/// hot cost.
+	/// Charges the size-based load weight from the weight meter; `warmth` picks
+	/// the cold or hot cost.
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
@@ -1018,7 +1018,7 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
-		// Created before the stack so the first frame's touches land in it.
+		// Create before the first frame is built, to capture its state accesses.
 		let mut access_list = AccessList::new();
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
@@ -1062,6 +1062,18 @@ where
 		Ok(Some((stack, executable)))
 	}
 
+	/// Loads code, warming its access-list entry only after the load succeeds.
+	fn load_code<S: State>(
+		access_list: &mut AccessList,
+		meter: &mut ResourceMeter<T, S>,
+		code_hash: H256,
+	) -> Result<E, DispatchError> {
+		let code_warmth = access_list.code_warmth(code_hash);
+		let executable = E::from_storage(code_hash, meter, code_warmth)?;
+		access_list.warm_code(code_hash);
+		Ok(executable)
+	}
+
 	/// Construct a new frame.
 	///
 	/// This does not take `self` because when constructing the first frame `self` is
@@ -1082,26 +1094,22 @@ where
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
-				let originally_delegated = delegated_call.is_some();
-				let delegate_precompile = delegated_call
-					.as_ref()
-					.and_then(|d| <AllPrecompiles<T>>::get(d.callee.as_fixed_bytes()));
-
-				// Denied calls (depth, reentrancy) abort before reaching this
-				// touch. The contract-info load below hits storage even for a
-				// plain account, so warming is correct when no frame is built.
-				//
-				// Precompiles are not warmed. Reuse the `precompile` lookup for
-				// a plain call; a delegate call reuses its own.
-				let (call_access, target_is_precompile) = match &delegated_call {
-					None => (CallStateAccess::Normal { target: address }, precompile.is_some()),
-					Some(delegated) => (
-						CallStateAccess::Delegate { target: delegated.callee },
-						delegate_precompile.is_some(),
-					),
-				};
-				if !target_is_precompile {
-					access_list.warm_call(call_access);
+				// Precompiles don't use cold/hot pricing, so they're not warmed.
+				// Even a plain account reads its AccountInfo, so it's safe to warm here.
+				match &delegated_call {
+					None => {
+						if precompile.is_none() {
+							access_list.warm_call(CallStateAccess::Normal { target: address });
+						}
+					},
+					Some(delegated) => {
+						let delegate_precompile =
+							<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes());
+						if delegate_precompile.is_none() {
+							access_list
+								.warm_call(CallStateAccess::Delegate { target: delegated.callee });
+						}
+					},
 				}
 
 				// which contract info to load is unaffected by the fact if this
@@ -1134,14 +1142,9 @@ where
 				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
-					// Reuse the lookup from above for a real delegate; a
-					// mock-injected callee is resolved fresh.
-					let callee_precompile = if originally_delegated {
-						delegate_precompile
-					} else {
+					if let Some(precompile) =
 						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
-					};
-					if let Some(precompile) = callee_precompile {
+					{
 						ExecutableOrPrecompile::Precompile {
 							instance: precompile,
 							_phantom: Default::default(),
@@ -1151,11 +1154,7 @@ where
 						else {
 							return Ok(None);
 						};
-						// Touch only after the charge succeeds, so a failed load
-						// leaves nothing warm.
-						let code_warmth = access_list.code_warmth(info.code_hash);
-						let executable = E::from_storage(info.code_hash, meter, code_warmth)?;
-						access_list.warm_code(info.code_hash);
+						let executable = Self::load_code(access_list, meter, info.code_hash)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1169,11 +1168,7 @@ where
 							.as_contract()
 							.expect("When not a precompile the contract was loaded above; qed")
 							.code_hash;
-						// Touch only after the charge succeeds, so a failed load
-						// leaves nothing warm.
-						let code_warmth = access_list.code_warmth(code_hash);
-						let executable = E::from_storage(code_hash, meter, code_warmth)?;
-						access_list.warm_code(code_hash);
+						let executable = Self::load_code(access_list, meter, code_hash)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};
@@ -1626,7 +1621,7 @@ where
 			let m = self.access_list.metrics();
 			log::trace!(
 				target: LOG_TARGET,
-				"access list metrics: size={size} cold={cold} hot={hot}",
+				"access-list metrics: size={size} cold={cold} hot={hot}",
 				size = m.size, cold = m.cold, hot = m.hot,
 			);
 		} else if success {
@@ -1953,14 +1948,14 @@ where
 		self.block_number = block_number;
 	}
 
-	/// Touches the access-list entries the call reads, plus the code, as if the call already ran.
+	/// Warms the access-list entries the call reads, plus the code.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn touch_call_target(&mut self, call_access: CallStateAccess, code_hash: H256) {
+	pub(crate) fn prewarm_call(&mut self, call_access: CallStateAccess, code_hash: H256) {
 		self.access_list.warm_call(call_access);
 		self.access_list.warm_code(code_hash);
 	}
 
-	/// Per-transaction access list metrics (testing).
+	/// Returns the access-list metrics.
 	#[cfg(test)]
 	pub(crate) fn access_list_metrics(&self) -> crate::access_list::AccessListMetrics {
 		self.access_list.metrics()
@@ -2170,11 +2165,11 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					// Touch only after the charge succeeds, so a failed load
-					// leaves nothing warm.
-					let code_warmth = self.access_list.code_warmth(*hash);
-					let executable = E::from_storage(*hash, self.frame_meter_mut(), code_warmth)?;
-					self.access_list.warm_code(*hash);
+					let executable = Self::load_code(
+						&mut self.access_list,
+						&mut top_frame_mut!(self).frame_meter,
+						*hash,
+					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},

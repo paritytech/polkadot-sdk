@@ -522,9 +522,8 @@ mod tests {
 			"the rollback prepayment is ref_time only: rev={revertible:?} cold={all_cold:?}",
 		);
 
-		let delegate_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
-			contract_info: Warmth::Hot,
-		}));
+		let delegate_hot =
+			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { contract_info: Warmth::Hot }));
 		let delegate_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
 			contract_info: Warmth::cold_non_revertible(),
 		}));

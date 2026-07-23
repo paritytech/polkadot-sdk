@@ -438,10 +438,7 @@ mod tests {
 			let hot = weight_of(code_type, CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::Hot });
 			let cold_revertible = weight_of(
 				code_type,
-				CodeLoadWarmth {
-					info: Warmth::cold_revertible(),
-					blob: Warmth::cold_revertible(),
-				},
+				CodeLoadWarmth { info: Warmth::cold_revertible(), blob: Warmth::cold_revertible() },
 			);
 			assert!(
 				cold.ref_time() > hot.ref_time(),
