@@ -156,6 +156,7 @@ where
 			run_relay_provides_monitor::<Block, _, _>(
 				client.clone(),
 				relay_chain_interface,
+				pool.clone(),
 				events_tx,
 			),
 		);

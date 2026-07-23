@@ -69,7 +69,7 @@ use cumulus_relay_chain_interface::{
 	RelayChainResult,
 };
 
-use crate::LOG_TARGET;
+use crate::{pool::SpecMsgPool, LOG_TARGET};
 
 /// A source's `StreamsRoot` observed on the relay chain — the trigger tuple
 /// handed to the fetch/verify pipeline.
@@ -258,6 +258,7 @@ enum MonitorError {
 pub async fn run_relay_provides_monitor<Block, Client, RCInterface>(
 	parachain: Arc<Client>,
 	relay_chain: RCInterface,
+	pool: Arc<SpecMsgPool>,
 	events: async_channel::Sender<RelayProvidesEvent>,
 ) where
 	Block: BlockT,
@@ -283,8 +284,15 @@ pub async fn run_relay_provides_monitor<Block, Client, RCInterface>(
 	// next relay block to learn the current inclusion frontier of its sources.
 	match startup_header(&relay_chain).await {
 		Ok(Some(header)) => {
-			match process_relay_block(&*parachain, &relay_chain, &mut tracker, &events, &header)
-				.await
+			match process_relay_block(
+				&*parachain,
+				&relay_chain,
+				&mut tracker,
+				&pool,
+				&events,
+				&header,
+			)
+			.await
 			{
 				Ok(()) => (),
 				Err(MonitorError::EventsChannelClosed) => return,
@@ -304,7 +312,9 @@ pub async fn run_relay_provides_monitor<Block, Client, RCInterface>(
 	}
 
 	while let Some(header) = imports.next().await {
-		match process_relay_block(&*parachain, &relay_chain, &mut tracker, &events, &header).await {
+		match process_relay_block(&*parachain, &relay_chain, &mut tracker, &pool, &events, &header)
+			.await
+		{
 			Ok(()) => (),
 			Err(MonitorError::EventsChannelClosed) => return,
 			Err(error) => tracing::warn!(
@@ -330,6 +340,7 @@ async fn process_relay_block<Block, Client>(
 	parachain: &Client,
 	relay_chain: &impl RelayChainInterface,
 	tracker: &mut ProvidesTracker,
+	pool: &SpecMsgPool,
 	events: &async_channel::Sender<RelayProvidesEvent>,
 	header: &PHeader,
 ) -> Result<(), MonitorError>
@@ -375,6 +386,13 @@ where
 				bootstrap,
 				"Included root offered to the fetcher",
 			);
+			// A round for this source is now imminent: record it before the
+			// send so authoring's grace window sees the offer even while it
+			// is still queued in the (bounded) monitor→fetcher channel — the
+			// late-offer photo-finish (issue 10). Cleared when the fetcher
+			// begins the real round, expired under the window's bound
+			// otherwise.
+			pool.note_pending_offer(included.source);
 			events
 				.send(RelayProvidesEvent::Included(included))
 				.await
