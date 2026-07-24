@@ -279,7 +279,7 @@ enum CallType {
 }
 
 impl CallType {
-	fn cost(&self, ext: &impl Ext, callee: &sp_core::H160) -> RuntimeCosts {
+	fn cost(&self, ext: &impl Ext, callee: &H160) -> RuntimeCosts {
 		let call_access = CallStateAccess::new(*callee, matches!(self, CallType::DelegateCall));
 		RuntimeCosts::CallBase(ext.call_warmth(call_access))
 	}

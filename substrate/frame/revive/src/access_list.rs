@@ -416,6 +416,7 @@ impl AccessList {
 mod tests {
 	use super::*;
 
+	// Compile-time exhaustiveness check.
 	#[test]
 	fn every_entry_has_a_read_count() {
 		fn reads(entry: &AccessEntry) -> u64 {

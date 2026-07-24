@@ -2698,6 +2698,8 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+		// The code read during instantiation is priced by `code_load`.
+		whitelist_code::<T>(hash);
 		let hash_bytes = hash.encode();
 
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();

@@ -143,8 +143,8 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			&[self.warmth.info, self.warmth.blob],
 			AccessEntry::CODE_INFO_READS + AccessEntry::CODE_BLOB_READS,
 			|| {
-				// Charge the full code_load: the call base bench whitelists its reads.
-				// This overlaps the call base ref_time, so it slightly overcharges.
+				// Charge code_load since the call and instantiate benches whitelist the code
+				// reads. This overlaps their ref_time, so it slightly overcharges.
 				T::WeightInfo::code_load().saturating_add(match self.code_type {
 					BytecodeType::Pvm => len_weight_of(T::WeightInfo::call_with_pvm_code_per_byte),
 					BytecodeType::Evm => len_weight_of(T::WeightInfo::call_with_evm_code_per_byte),
