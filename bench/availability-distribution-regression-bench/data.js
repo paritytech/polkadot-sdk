@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784828665834,
+  "lastUpdate": 1784901392431,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e9ea6541eb190cccb4106667c3a505ef29951d8",
-          "message": "ZN test for asserting building Parablocks on RC with session change (#10204)\n\nEdit by @skunert (edited because original test said not to merge):\n\nThis adds a zombienet test that verifies that parachains running with a\nrelay parent offset will not build on relay parents that have a session\nchange in the descendant blocks.\n\nThe reason is that candidates that were build in a past session are\ndropped on session boundary.\n\n---------\n\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-25T18:21:45Z",
-          "tree_id": "83187dbf1dbf987d3e2eb0637555bd47e64e6dd0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e9ea6541eb190cccb4106667c3a505ef29951d8"
-        },
-        "date": 1764100735940,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01308461312,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007200718906666651,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022614412446666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15775278646000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14792452676,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbefd5ecd60b76780c80f916ad157023667d476e",
+          "message": "fix(rpc-v2-statement): reject empty `matchAll` (#12706)\n\n# Description\n\nTighten input validation and submission outcomes for the unstable\nstatement RPC methods to match the JSON-RPC interface specification.\n\nThis PR:\n\n- Rejects `statement_unstable_submit` inputs containing trailing bytes\nafter an otherwise valid SCALE-encoded statement.\n- Rejects `statement_unstable_add_filter` calls where `matchAll`\ncontains no topics.\n- Returns JSON-RPC error `-32602` for both invalid inputs.\n- Returns `dataTooLarge`, with the submitted and available sizes, when a\nstatement exceeds an account's remaining data allowance instead of\nincorrectly returning `accountFull`.\n- Adds regression tests covering these cases.\n\n## Integration\n\nNo downstream migration is required.\n\nClients must provide an exact SCALE encoding to\n`statement_unstable_submit`; encodings with trailing bytes are no longer\naccepted.\n\nA `matchAll` filter must contain between one and four topics. Clients\nwishing to match every statement should use `\"any\"` instead of\n`{\"matchAll\": []}`.\n\nWhen a statement cannot fit within the account's remaining data\nallowance, `statement_unstable_submit` now returns a `dataTooLarge`\nrejection. `accountFull` remains reserved for statement-count\nexhaustion.\n\n## Review Notes\n\nSubmission decoding now uses `DecodeAll` rather than `Decode`, ensuring\nthe complete input buffer is consumed.\n\nTopic-filter validation rejects an empty `MatchAll` before converting it\ninto an `OptimizedTopicFilter`.\n\nThe account-allowance check now distinguishes an unsatisfied byte limit\nfrom an unsatisfied statement-count limit and reports the remaining\navailable size.\n\nThe corresponding statement JSON-RPC specification has been updated\nseparately to document the one-to-four-topic requirement.\n\nRegression tests verify that both invalid inputs return JSON-RPC error\n`-32602` and that byte-allowance exhaustion returns `dataTooLarge`.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required).\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).",
+          "timestamp": "2026-07-24T12:07:56Z",
+          "tree_id": "217cb63effe328239834cab7bb89b3e441f30f1b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbefd5ecd60b76780c80f916ad157023667d476e"
+        },
+        "date": 1784901360433,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009831445099999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14744005060666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007666818219999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02288666506666667,
             "unit": "seconds"
           }
         ]
