@@ -7,4 +7,4 @@ doc:
     Part of: https://github.com/paritytech/polkadot-sdk/issues/239
 crates:
 - name: pallet-core-fellowship
-  bump: major
+  bump: minor

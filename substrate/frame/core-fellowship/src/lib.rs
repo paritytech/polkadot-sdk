@@ -719,7 +719,11 @@ pub mod pallet {
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
 		/// in the range `1..=RANK_COUNT` is `None`.
 		pub(crate) fn rank_to_index(rank: RankOf<T, I>) -> Option<usize> {
-			if rank == 0 || rank > T::MaxRank::get() { None } else { Some((rank - 1) as usize) }
+			if rank == 0 || rank > T::MaxRank::get() {
+				None
+			} else {
+				Some((rank - 1) as usize)
+			}
 		}
 
 		fn dispose_evidence(who: T::AccountId, old_rank: u16, new_rank: Option<u16>) {
