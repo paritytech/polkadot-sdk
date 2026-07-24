@@ -663,10 +663,12 @@ impl VersionAwareRuntimeApi {
 
 	/// The primary way of calling the runtime API throughout the eth-rpc.
 	///
-	/// This method should be used for any and all runtime API calls throughout the eth-rpc as the
-	/// final dispatch point of the runtime API call. It ensures that all of the calls that will be
-	/// made will have [`StaticPayload::unvalidated`] called on them since we handle all validation
-	/// at runtime in the eth-rpc rather than relying on subxt to handle them for us.
+	/// Every call made through a constructed `VersionAwareRuntimeApi` uses this final dispatch
+	/// point. It applies [`StaticPayload::unvalidated`] centrally because the eth-rpc handles
+	/// runtime compatibility itself instead of relying on Subxt's static validation.
+	///
+	/// Capability discovery performs one direct bootstrap call before a `VersionAwareRuntimeApi`
+	/// can be constructed.
 	async fn call<ArgsType, ReturnType>(
 		&self,
 		payload: StaticPayload<ArgsType, ReturnType>,
