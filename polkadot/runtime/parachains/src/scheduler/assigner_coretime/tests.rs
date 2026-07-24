@@ -499,6 +499,7 @@ fn ensure_workload_works() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pop_assignment_for_core_works() {
 	let para_id = ParaId::from(1);
 	let core_idx = CoreIndex(0);

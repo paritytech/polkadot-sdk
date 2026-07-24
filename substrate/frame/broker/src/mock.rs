@@ -68,6 +68,7 @@ parameter_types! {
 	pub static CoretimeTrace: Vec<(u32, CoretimeTraceItem)> = Default::default();
 	pub static CoretimeCredit: BTreeMap<u64, u64> = Default::default();
 	pub static CoretimeSpending: Vec<(u32, u64)> = Default::default();
+	pub static CoretimeOnDemandOrders: Vec<(u32, TaskId, u64, u64)> = Default::default();
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
@@ -111,6 +112,16 @@ impl CoretimeInterface for TestCoretimeProvider {
 		// network this will be a teleport).
 		CoretimeCredit::mutate(|c| c.entry(who).or_default().saturating_accrue(amount));
 		burn_from_pot(amount);
+	}
+	fn place_on_demand_order(
+		para_id: TaskId,
+		ordered_by: Self::AccountId,
+		spot_price: Self::Balance,
+	) {
+		// The payment stays in the pot on this chain (no teleport), so the pot is untouched
+		// here; the order is merely forwarded.
+		let now = RCBlockNumberProviderOf::<Self>::current_block_number() as u32;
+		CoretimeOnDemandOrders::mutate(|o| o.push((now, para_id, ordered_by, spot_price)));
 	}
 	fn assign_core(
 		core: CoreIndex,
@@ -278,6 +289,10 @@ pub fn new_config() -> ConfigRecordOf<Test> {
 		region_length: 3,
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
+		on_demand_base_fee: 10,
+		on_demand_queue_max_size: 100,
+		on_demand_target_queue_utilization: Perbill::from_percent(25),
+		on_demand_fee_variability: Perbill::from_percent(3),
 	}
 }
 

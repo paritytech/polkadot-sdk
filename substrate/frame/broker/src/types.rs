@@ -25,7 +25,7 @@ use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 use sp_core::ConstU32;
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, FixedU128};
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
 pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Balance;
@@ -252,7 +252,7 @@ pub type OnDemandRevenueRecordOf<T> =
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
-pub struct ConfigRecord<RelayBlockNumber> {
+pub struct ConfigRecord<Balance, RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.
 	pub advance_notice: RelayBlockNumber,
@@ -275,10 +275,24 @@ pub struct ConfigRecord<RelayBlockNumber> {
 	pub renewal_bump: Perbill,
 	/// The duration by which rewards for contributions to the InstaPool must be collected.
 	pub contribution_timeout: Timeslice,
+	/// The minimum price (and the price while the traffic multiplier is at its floor of one) of
+	/// an on-demand order placed on this chain. If zero, placing on-demand orders on this chain
+	/// is disabled.
+	pub on_demand_base_fee: Balance,
+	/// Normalisation capacity (in orders) for the on-demand congestion estimate; the analogue of
+	/// the Relay-chain's order-queue capacity. New orders are rejected while the estimated
+	/// backlog is at this capacity. Governance should keep this consistent with the
+	/// Relay-chain's `on_demand_queue_max_size` scheduler parameter: a larger value here means
+	/// paid orders may be dropped by the Relay-chain when its queue is full.
+	pub on_demand_queue_max_size: u32,
+	/// The target utilisation of the estimated on-demand order backlog.
+	pub on_demand_target_queue_utilization: Perbill,
+	/// How aggressively the on-demand spot price adapts.
+	pub on_demand_fee_variability: Perbill,
 }
-pub type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>>;
+pub type ConfigRecordOf<T> = ConfigRecord<BalanceOf<T>, RelayBlockNumberOf<T>>;
 
-impl<RelayBlockNumber> ConfigRecord<RelayBlockNumber>
+impl<Balance, RelayBlockNumber> ConfigRecord<Balance, RelayBlockNumber>
 where
 	RelayBlockNumber: sp_arithmetic::traits::Zero,
 {
@@ -288,9 +302,46 @@ where
 			return Err(());
 		}
 
+		// The queue capacity is scaled by `CORE_MASK_BITS` when estimating on-demand congestion;
+		// it must neither be zero nor overflow that scaling.
+		if self.on_demand_queue_max_size == 0 ||
+			self.on_demand_queue_max_size > u32::MAX / CORE_MASK_BITS as u32
+		{
+			return Err(());
+		}
+
 		Ok(())
 	}
 }
+
+/// Local estimate of the Relay-chain on-demand market congestion.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub struct OnDemandStatusRecord<RelayBlockNumber> {
+	/// Estimated backlog of not yet served orders, in core-mask-bit units ([`CORE_MASK_BITS`]
+	/// units make up one order).
+	pub queue_size: CoreMaskBitCount,
+	/// The traffic multiplier: the spot price is `traffic * on_demand_base_fee`. Never goes
+	/// below one.
+	pub traffic: FixedU128,
+	/// The Relay-chain block at which `queue_size` was last brought up to date.
+	pub last_updated: RelayBlockNumber,
+}
+
+impl<RelayBlockNumber: sp_arithmetic::traits::Zero> Default
+	for OnDemandStatusRecord<RelayBlockNumber>
+{
+	fn default() -> Self {
+		Self {
+			queue_size: 0,
+			traffic: FixedU128::from_u32(1),
+			last_updated: sp_arithmetic::traits::Zero::zero(),
+		}
+	}
+}
+
+pub type OnDemandStatusRecordOf<T> = OnDemandStatusRecord<RelayBlockNumberOf<T>>;
 
 /// A record containing information regarding auto-renewal for a specific core.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]

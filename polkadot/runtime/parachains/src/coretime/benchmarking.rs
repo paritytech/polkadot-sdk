@@ -106,4 +106,26 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, who, 1_000_000u32.into())
 	}
+
+	#[benchmark]
+	fn place_order() {
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let ordered_by: T::AccountId = whitelisted_caller();
+		let para_id = ParaId::from(111u32);
+
+		// Worst case: the order queue is already nearly full.
+		on_demand::Pallet::<T>::populate_queue(
+			para_id,
+			polkadot_primitives::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE.saturating_sub(1),
+		);
+
+		#[extrinsic_call]
+		_(
+			root_origin as <T as frame_system::Config>::RuntimeOrigin,
+			para_id,
+			ordered_by,
+			1_000_000u32.into(),
+		)
+	}
 }

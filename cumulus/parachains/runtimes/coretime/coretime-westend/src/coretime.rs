@@ -53,6 +53,8 @@ enum CoretimeProviderCalls {
 		Vec<(CoreAssignment, PartsOf57600)>,
 		Option<relay_chain::BlockNumber>,
 	),
+	#[codec(index = 5)]
+	PlaceOrder(TaskId, AccountId, Balance),
 }
 
 parameter_types! {
@@ -157,6 +159,39 @@ impl CoretimeInterface for CoretimeAllocator {
 			Err(e) => tracing::error!(
 				target: "runtime::coretime", error=?e,
 				"Instruction to credit account failed to send"
+			),
+		}
+	}
+
+	fn place_on_demand_order(
+		para_id: TaskId,
+		ordered_by: Self::AccountId,
+		spot_price: Self::Balance,
+	) {
+		use crate::coretime::CoretimeProviderCalls::PlaceOrder;
+		let place_order_call =
+			RelayRuntimePallets::Coretime(PlaceOrder(para_id, ordered_by, spot_price));
+
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				call: place_order_call.encode().into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000_000, 200_000)),
+			},
+		]);
+
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
+			Ok(_) => tracing::debug!(
+				target: "runtime::coretime",
+				"On-demand order sent successfully."
+			),
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"On-demand order failed to send"
 			),
 		}
 	}

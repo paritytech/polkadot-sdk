@@ -90,7 +90,28 @@ pub trait CoretimeInterface {
 	/// It is expected that Instantaneous Coretime Market Credit on the Relay-chain is NOT
 	/// transferable and only redeemable when used to assign cores in the Instantaneous Coretime
 	/// Pool.
+	///
+	/// This method is part of the credit flow which is being retired in favor of
+	/// [`Self::place_on_demand_order`]; it will be deprecated and removed together with
+	/// `purchase_credit`.
 	fn credit_account(who: Self::AccountId, amount: Self::Balance);
+
+	/// Instructs the Relay-chain to place an order for an on-demand core assignment for the task
+	/// `para_id`.
+	///
+	/// The order was already fully paid for on this chain: `ordered_by` paid `spot_price`
+	/// (denominated in the Relay-chain balance). The Relay-chain MUST NOT charge for the order
+	/// again; it only enqueues it. `ordered_by` and `spot_price` are forwarded so that the
+	/// Relay-chain's order bookkeeping (events consumed by indexers) stays complete.
+	///
+	/// This method deliberately has no default implementation: the caller collects payment before
+	/// invoking it, so failing to deliver the order must be a conscious choice of the implementer
+	/// rather than a silently inherited no-op.
+	fn place_on_demand_order(
+		para_id: TaskId,
+		ordered_by: Self::AccountId,
+		spot_price: Self::Balance,
+	);
 
 	/// Instructs the Relay-chain to ensure that the core indexed as `core` is utilised for a number
 	/// of assignments in specific ratios given by `assignment` starting as soon after `begin` as
@@ -124,6 +145,12 @@ impl CoretimeInterface for () {
 	fn request_core_count(_count: CoreIndex) {}
 	fn request_revenue_info_at(_when: RCBlockNumberOf<Self>) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
+	fn place_on_demand_order(
+		_para_id: TaskId,
+		_ordered_by: Self::AccountId,
+		_spot_price: Self::Balance,
+	) {
+	}
 	fn assign_core(
 		_core: CoreIndex,
 		_begin: RCBlockNumberOf<Self>,

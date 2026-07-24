@@ -17211,6 +17211,7 @@ dependencies = [
  "assert_matches",
  "bitflags 1.3.2",
  "bitvec",
+ "fp-coretime",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",

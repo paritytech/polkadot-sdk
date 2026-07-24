@@ -21,11 +21,19 @@ use codec::Codec;
 use sp_runtime::DispatchError;
 
 sp_api::decl_runtime_apis! {
+	#[api_version(2)]
 	pub trait BrokerApi<Balance>
 	where
 		Balance: Codec
 	{
 		/// If there is an ongoing sale returns the current price of a core.
 		fn sale_price() -> Result<Balance, DispatchError>;
+
+		/// The price of an on-demand order placed on this chain, were it placed now.
+		///
+		/// Errors if on-demand ordering via this chain is not enabled (or the pallet is not
+		/// initialized). Callers should add some headroom on top when picking a `max_amount`
+		/// for `place_order`, since the price may change until the order is included.
+		fn on_demand_price() -> Result<Balance, DispatchError>;
 	}
 }

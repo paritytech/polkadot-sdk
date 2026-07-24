@@ -44,6 +44,8 @@ use crate::{
 };
 
 mod benchmarking;
+#[cfg(test)]
+mod tests;
 
 const LOG_TARGET: &str = "runtime::parachains::coretime";
 
@@ -52,6 +54,7 @@ pub trait WeightInfo {
 	fn request_revenue_at() -> Weight;
 	fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
+	fn place_order() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -68,6 +71,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn assign_core(_s: u32) -> Weight {
+		Weight::MAX
+	}
+	fn place_order() -> Weight {
 		Weight::MAX
 	}
 }
@@ -204,6 +210,9 @@ pub mod pallet {
 
 		#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
 		#[pallet::call_index(3)]
+		#[allow(deprecated)]
+		#[deprecated(note = "The on-demand credit system is being retired; orders paid for on \
+			the coretime chain arrive via `place_order` instead.")]
 		pub fn credit_account(
 			origin: OriginFor<T>,
 			who: T::AccountId,
@@ -243,6 +252,37 @@ pub mod pallet {
 
 			<scheduler::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
+			Ok(())
+		}
+
+		/// Place an on-demand order on behalf of a user that already paid for it on the coretime
+		/// chain.
+		///
+		/// Parameters:
+		/// - `origin`: Root or the Coretime Chain.
+		/// - `para_id`: The parachain to place an order for.
+		/// - `ordered_by`: The coretime-chain account that paid for the order.
+		/// - `spot_price`: The price paid on the coretime chain.
+		///
+		/// Besides the origin check this call is infallible: a full order queue drops the order
+		/// with an `on_demand::Event::OnDemandOrderDropped` event instead of erroring, since a
+		/// failed `Transact` dispatch would leave no on-chain trace.
+		#[pallet::weight(<T as Config>::WeightInfo::place_order())]
+		#[pallet::call_index(5)]
+		pub fn place_order(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			ordered_by: T::AccountId,
+			spot_price: BalanceOf<T>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+
+			on_demand::Pallet::<T>::place_broker_order(
+				para_id,
+				ordered_by,
+				spot_price.saturated_into(),
+			);
 			Ok(())
 		}
 	}

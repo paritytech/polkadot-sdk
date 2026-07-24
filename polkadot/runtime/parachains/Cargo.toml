@@ -33,6 +33,7 @@ sp-staking = { features = ["serde"], workspace = true }
 sp-std = { workspace = true, optional = true }
 sp-tracing = { optional = true, workspace = true }
 
+fp-coretime = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -83,6 +84,7 @@ no_std = []
 std = [
 	"bitvec/std",
 	"codec/std",
+	"fp-coretime/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
 	"frame-support/std",

@@ -33,7 +33,7 @@ use frame_system::{Pallet as System, RawOrigin};
 use sp_arithmetic::{FixedU64, Perbill};
 use sp_core::Get;
 use sp_runtime::{
-	traits::{BlockNumberProvider, MaybeConvert},
+	traits::{BlockNumberProvider, MaybeConvert, Zero},
 	FixedPointNumber, Saturating,
 };
 
@@ -58,6 +58,10 @@ fn new_config_record<T: Config>() -> ConfigRecordOf<T> {
 		region_length: 3,
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
+		on_demand_base_fee: 10u32.into(),
+		on_demand_queue_max_size: 100,
+		on_demand_target_queue_utilization: Perbill::from_percent(25),
+		on_demand_fee_variability: Perbill::from_percent(3),
 	}
 }
 
@@ -647,6 +651,70 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn place_order() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		let config = new_config_record::<T>();
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(config.on_demand_base_fee),
+		);
+		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
+
+		let para_id: TaskId = 111;
+		let ordered_by: RelayAccountIdOf<T> = account("ordered_by", 0, SEED);
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(caller.clone()),
+			config.on_demand_base_fee,
+			para_id,
+			ordered_by.clone(),
+		);
+
+		// With an empty backlog the traffic multiplier sits at its floor of one, so the price is
+		// exactly the base fee.
+		assert_last_event::<T>(
+			Event::OnDemandOrderPlaced {
+				who: caller,
+				para_id,
+				spot_price: config.on_demand_base_fee,
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_on_demand_traffic() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		advance_to::<T>(2);
+
+		let config = Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let status = Status::<T>::get().ok_or(BenchmarkError::Weightless)?;
+
+		// A non-trivial state: a partially filled backlog with an elevated price which has not
+		// been updated for a while.
+		let mut record = OnDemandStatusRecord {
+			queue_size: config.on_demand_queue_max_size.saturating_mul(CORE_MASK_BITS as u32) / 2,
+			traffic: sp_runtime::FixedU128::from_u32(2),
+			last_updated: Default::default(),
+		};
+
+		#[block]
+		{
+			Broker::<T>::update_on_demand_traffic(&mut record, &status, &config);
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn drop_region() -> Result<(), BenchmarkError> {
 		let sale_data = setup_and_start_sale::<T>()?;
 		let core = sale_data.first_core;
@@ -847,17 +915,20 @@ mod benches {
 				maybe_payout: None,
 			},
 		);
+		// Worst case includes merging revenue collected from orders placed on this chain.
+		LocalOnDemandRevenue::<T>::insert(timeslice, BalanceOf::<T>::from(10_000_000u32));
 
 		#[block]
 		{
 			Broker::<T>::process_revenue();
 		}
 
+		assert!(LocalOnDemandRevenue::<T>::get(timeslice).is_zero());
 		assert_last_event::<T>(
 			Event::ClaimsReady {
 				when: timeslice.into(),
-				system_payout: 6_000_000u32.into(),
-				private_payout: 4_000_000u32.into(),
+				system_payout: 12_000_000u32.into(),
+				private_payout: 8_000_000u32.into(),
 			}
 			.into(),
 		);

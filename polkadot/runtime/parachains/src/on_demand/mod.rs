@@ -55,7 +55,7 @@ use sp_runtime::{
 
 pub use pallet::*;
 
-mod mock_helpers;
+pub(crate) mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
@@ -173,16 +173,7 @@ impl<N> Default for OrderStatus<N> {
 	}
 }
 
-/// Errors that can happen during spot traffic calculation.
-#[derive(PartialEq, Debug)]
-pub enum SpotTrafficCalculationErr {
-	/// The order queue capacity is at 0.
-	QueueCapacityIsZero,
-	/// The queue size is larger than the queue capacity.
-	QueueSizeLargerThanCapacity,
-	/// Arithmetic error during division, either division by 0 or over/underflow.
-	Division,
-}
+pub use fp_coretime::spot::SpotTrafficCalculationErr;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -247,6 +238,9 @@ pub mod pallet {
 		SpotPriceSet { spot_price: BalanceOf<T> },
 		/// An account was given credits.
 		AccountCredited { who: T::AccountId, amount: BalanceOf<T> },
+		/// An order placed via the coretime chain was dropped because the order queue was full.
+		/// The payment was already collected on the coretime chain.
+		OnDemandOrderDropped { para_id: ParaId, spot_price: BalanceOf<T>, ordered_by: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -309,7 +303,8 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death())]
 		#[allow(deprecated)]
-		#[deprecated(note = "This will be removed in favor of using `place_order_with_credits`")]
+		#[deprecated(note = "On-demand orders should be placed on the coretime chain via \
+			`pallet-broker`. This will be removed once ordering on the relay chain is retired.")]
 		pub fn place_order_allow_death(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -343,7 +338,8 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive())]
 		#[allow(deprecated)]
-		#[deprecated(note = "This will be removed in favor of using `place_order_with_credits`")]
+		#[deprecated(note = "On-demand orders should be placed on the coretime chain via \
+			`pallet-broker`. This will be removed once ordering on the relay chain is retired.")]
 		pub fn place_order_keep_alive(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -378,6 +374,9 @@ pub mod pallet {
 		/// - `OnDemandOrderPlaced`
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::place_order_with_credits())]
+		#[allow(deprecated)]
+		#[deprecated(note = "The on-demand credit system is being retired; on-demand orders \
+			should be placed on the coretime chain via `pallet-broker`.")]
 		pub fn place_order_with_credits(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -448,6 +447,52 @@ where
 			*credits = credits.saturating_add(amount);
 		});
 		Pallet::<T>::deposit_event(Event::<T>::AccountCredited { who, amount });
+	}
+
+	/// Place an order that was already paid for on the coretime (broker) chain.
+	///
+	/// In contrast to [`Self::do_place_order`] this neither charges anyone nor records revenue:
+	/// the payment happened on the coretime chain and never reaches the on-demand pot, so
+	/// recording it in `Revenue` would make the revenue teleport in `coretime::do_notify_revenue`
+	/// withdraw funds the pot does not hold. The spot price check also already happened on the
+	/// coretime chain; `spot_price` is only forwarded for event bookkeeping.
+	///
+	/// Spot traffic is still updated so that relay-chain-priced orders account for the queue
+	/// load added by coretime-chain orders.
+	///
+	/// A full queue does not error: the order is dropped with an
+	/// [`Event::OnDemandOrderDropped`] event, since a `Transact` dispatch error would leave no
+	/// on-chain trace at all.
+	///
+	/// Parameters:
+	/// - `para_id`: The para that will get the order.
+	/// - `ordered_by`: The coretime-chain account that paid for the order.
+	/// - `spot_price`: The price paid on the coretime chain.
+	pub fn place_broker_order(para_id: ParaId, ordered_by: T::AccountId, spot_price: BalanceOf<T>) {
+		let config = configuration::ActiveConfig::<T>::get();
+		pallet::OrderStatus::<T>::mutate(|order_status| {
+			// The traffic update is kept even if the order is dropped below: it reflects real
+			// observed demand.
+			Self::update_spot_traffic(&config, order_status);
+
+			let now = <frame_system::Pallet<T>>::block_number();
+			let has_capacity = order_status.queue.len() <
+				config.scheduler_params.on_demand_queue_max_size as usize;
+			if !has_capacity || order_status.queue.try_push(now, para_id).is_err() {
+				Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderDropped {
+					para_id,
+					spot_price,
+					ordered_by,
+				});
+				return;
+			}
+
+			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
+				para_id,
+				spot_price,
+				ordered_by,
+			});
+		});
 	}
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
@@ -593,28 +638,9 @@ where
 		};
 	}
 
-	/// The spot price multiplier. This is based on the transaction fee calculations defined in:
-	/// https://research.web3.foundation/Polkadot/overview/token-economics#setting-transaction-fees
-	///
-	/// Parameters:
-	/// - `traffic`: The previously calculated multiplier, can never go below 1.0.
-	/// - `queue_capacity`: The max size of the order book.
-	/// - `queue_size`: How many orders are currently in the order book.
-	/// - `target_queue_utilisation`: How much of the queue_capacity should be ideally occupied,
-	///   expressed in percentages(perbill).
-	/// - `variability`: A variability factor, i.e. how quickly the spot price adjusts. This number
-	///   can be chosen by p/(k*(1-s)) where p is the desired ratio increase in spot price over k
-	///   number of blocks. s is the target_queue_utilisation. A concrete example: v =
-	///   0.05/(20*(1-0.25)) = 0.0033.
-	///
-	/// Returns:
-	/// - A `FixedU128` in the range of  `Config::TrafficDefaultValue` - `FixedU128::MAX` on
-	///   success.
-	///
-	/// Errors:
-	/// - `SpotTrafficCalculationErr::QueueCapacityIsZero`
-	/// - `SpotTrafficCalculationErr::QueueSizeLargerThanCapacity`
-	/// - `SpotTrafficCalculationErr::Division`
+	/// The spot price multiplier, calculated by the shared
+	/// [`fp_coretime::spot::calculate_spot_traffic`] with the pallet's
+	/// [`Config::TrafficDefaultValue`] as the floor.
 	fn calculate_spot_traffic(
 		traffic: FixedU128,
 		queue_capacity: u32,
@@ -622,46 +648,14 @@ where
 		target_queue_utilisation: Perbill,
 		variability: Perbill,
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
-		// Return early if queue has no capacity.
-		if queue_capacity == 0 {
-			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero);
-		}
-
-		// Return early if queue size is greater than capacity.
-		if queue_size > queue_capacity {
-			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity);
-		}
-
-		// (queue_size / queue_capacity) - target_queue_utilisation
-		let queue_util_ratio = FixedU128::from_rational(queue_size.into(), queue_capacity.into());
-		let positive = queue_util_ratio >= target_queue_utilisation.into();
-		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into()) -
-			queue_util_ratio.min(target_queue_utilisation.into());
-
-		// variability * queue_util_diff
-		let var_times_qud = queue_util_diff.saturating_mul(variability.into());
-
-		// variability^2 * queue_util_diff^2
-		let var_times_qud_pow = var_times_qud.saturating_mul(var_times_qud);
-
-		// (variability^2 * queue_util_diff^2)/2
-		let div_by_two: FixedU128;
-		match var_times_qud_pow.const_checked_div(2.into()) {
-			Some(dbt) => div_by_two = dbt,
-			None => return Err(SpotTrafficCalculationErr::Division),
-		}
-
-		// traffic * (1 + queue_util_diff) + div_by_two
-		if positive {
-			let new_traffic = queue_util_diff
-				.saturating_add(div_by_two)
-				.saturating_add(One::one())
-				.saturating_mul(traffic);
-			Ok(new_traffic.max(<T as Config>::TrafficDefaultValue::get()))
-		} else {
-			let new_traffic = queue_util_diff.saturating_sub(div_by_two).saturating_mul(traffic);
-			Ok(new_traffic.max(<T as Config>::TrafficDefaultValue::get()))
-		}
+		fp_coretime::spot::calculate_spot_traffic(
+			traffic,
+			queue_capacity,
+			queue_size,
+			target_queue_utilisation,
+			variability,
+			<T as Config>::TrafficDefaultValue::get(),
+		)
 	}
 
 	/// Collect the revenue from the `when` blockheight

@@ -60,7 +60,7 @@ impl Default for GenesisConfigBuilder {
 }
 
 impl GenesisConfigBuilder {
-	pub(super) fn build(self) -> MockGenesisConfig {
+	pub(crate) fn build(self) -> MockGenesisConfig {
 		let mut genesis = default_genesis_config();
 		let config = &mut genesis.configuration.config;
 		config.scheduler_params.num_cores = self.on_demand_cores;

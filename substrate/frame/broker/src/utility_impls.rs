@@ -25,8 +25,8 @@ use frame_support::{
 	},
 };
 use sp_arithmetic::{
-	traits::{SaturatedConversion, Saturating},
-	FixedPointNumber, FixedU64,
+	traits::{SaturatedConversion, Saturating, Zero},
+	FixedPointNumber, FixedU128, FixedU64,
 };
 use sp_runtime::traits::{AccountIdConversion, BlockNumberProvider};
 
@@ -69,6 +69,59 @@ impl<T: Config> Pallet<T> {
 		let credit = T::Currency::withdraw(&who, amount, Exact, Expendable, Polite)?;
 		T::OnRevenue::on_unbalanced(credit);
 		Ok(())
+	}
+
+	/// Bring the local estimate of the Relay-chain on-demand market up to date.
+	///
+	/// First drains the backlog estimate by the number of orders the Relay-chain can have
+	/// served since the last update (one order per pool core per Relay-chain block; pool sizes
+	/// are in core-mask bits, [`CORE_MASK_BITS`] of which make up a full core, matching the
+	/// backlog's unit), then recomputes the traffic multiplier with the same formula the
+	/// Relay-chain uses for its own order queue.
+	///
+	/// Does not emit events or touch storage; callers persist `record` and announce a changed
+	/// price as appropriate.
+	pub(crate) fn update_on_demand_traffic(
+		record: &mut OnDemandStatusRecordOf<T>,
+		status: &StatusRecord,
+		config: &ConfigRecordOf<T>,
+	) {
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let elapsed: u64 = now.saturating_sub(record.last_updated).saturated_into();
+		let pool_bits = status.private_pool_size.saturating_add(status.system_pool_size) as u64;
+		let consumed = elapsed.saturating_mul(pool_bits).min(u32::MAX as u64) as u32;
+		record.queue_size = record.queue_size.saturating_sub(consumed);
+		record.last_updated = now;
+
+		// `validate()` ensures this cannot overflow.
+		let capacity = config.on_demand_queue_max_size.saturating_mul(CORE_MASK_BITS as u32);
+		match fp_coretime::spot::calculate_spot_traffic(
+			record.traffic,
+			capacity,
+			record.queue_size,
+			config.on_demand_target_queue_utilization,
+			config.on_demand_fee_variability,
+			FixedU128::from_u32(1),
+		) {
+			Ok(new_traffic) => record.traffic = new_traffic,
+			Err(err) => log::debug!(
+				target: LOG_TARGET,
+				"Error calculating on-demand spot traffic: {:?}", err
+			),
+		}
+	}
+
+	/// The price of an on-demand order placed on this chain, were it placed now.
+	///
+	/// Computed against an up-to-date congestion estimate without mutating storage.
+	pub fn current_on_demand_price() -> Result<BalanceOf<T>, DispatchError> {
+		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		ensure!(!config.on_demand_base_fee.is_zero(), Error::<T>::OnDemandUnavailable);
+
+		let mut record = OnDemandStatus::<T>::get();
+		Self::update_on_demand_traffic(&mut record, &status, &config);
+		Ok(record.traffic.saturating_mul_int(config.on_demand_base_fee))
 	}
 
 	/// Buy a core at the specified price (price is to be determined by the caller).

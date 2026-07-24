@@ -26,6 +26,7 @@ extern crate alloc;
 
 mod core_mask;
 pub mod market;
+pub mod spot;
 
 pub use core_mask::*;
 

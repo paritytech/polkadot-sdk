@@ -70,7 +70,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -210,6 +210,18 @@ pub mod pallet {
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
+
+	/// Locally-estimated state of the Relay-chain's on-demand order market, used to compute a
+	/// spot price for orders placed on this chain.
+	#[pallet::storage]
+	pub type OnDemandStatus<T> = StorageValue<_, OnDemandStatusRecordOf<T>, ValueQuery>;
+
+	/// Revenue collected from on-demand orders placed on this chain (as opposed to revenue
+	/// reported by the Relay-chain), per timeslice, awaiting merging into the revenue processing
+	/// in `process_revenue`.
+	#[pallet::storage]
+	pub type LocalOnDemandRevenue<T: Config> =
+		StorageMap<_, Twox64Concat, Timeslice, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -517,6 +529,20 @@ pub mod pallet {
 			/// The timeslice associated with the potential renewal that was removed.
 			timeslice: Timeslice,
 		},
+		/// An on-demand order has been placed and forwarded to the Relay-chain.
+		OnDemandOrderPlaced {
+			/// The account placing (and paying for) the order.
+			who: T::AccountId,
+			/// The task the order was placed for.
+			para_id: TaskId,
+			/// The price paid for the order.
+			spot_price: BalanceOf<T>,
+		},
+		/// The locally computed on-demand spot price has changed.
+		OnDemandSpotPriceSet {
+			/// The new spot price of an on-demand order placed on this chain.
+			spot_price: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -600,6 +626,11 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// On-demand ordering via this chain is not enabled (the configured
+		/// `on_demand_base_fee` is zero).
+		OnDemandUnavailable,
+		/// The estimated backlog of on-demand orders is at capacity; try again later.
+		OnDemandQueueFull,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -854,6 +885,9 @@ pub mod pallet {
 		/// - `beneficiary`: The account on the Relay-chain which controls the credit (generally
 		///   this will be the collator's hot wallet).
 		#[pallet::call_index(13)]
+		#[allow(deprecated)]
+		#[deprecated(note = "The Relay-chain on-demand credit system is being retired; use \
+			`place_order` on this chain instead. This call will be removed in a future release.")]
 		pub fn purchase_credit(
 			origin: OriginFor<T>,
 			amount: BalanceOf<T>,
@@ -1080,6 +1114,33 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
+		}
+
+		/// Place an order for an on-demand core assignment for `para_id` on the Relay-chain.
+		///
+		/// The price is computed from this chain's local estimate of the on-demand market
+		/// congestion, charged from the origin and accrued as revenue for the pool contributors
+		/// of the current timeslice; the order is then forwarded to the Relay-chain, where it is
+		/// served without further payment.
+		///
+		/// This replaces ordering directly on the Relay-chain as well as the credit flow via
+		/// [`Self::purchase_credit`].
+		///
+		/// - `origin`: Must be a Signed origin able to pay the current on-demand spot price.
+		/// - `max_amount`: The maximum price the origin is willing to pay for the order.
+		/// - `para_id`: The task to which a Relay-chain block will be provided.
+		/// - `ordered_by`: The account on the Relay-chain to attribute the order to (generally this
+		///   will be the account paying for the order). Only used for Relay-chain event
+		///   bookkeeping.
+		#[pallet::call_index(29)]
+		pub fn place_order(
+			origin: OriginFor<T>,
+			max_amount: BalanceOf<T>,
+			para_id: TaskId,
+			ordered_by: RelayAccountIdOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_place_order(who, max_amount, para_id, ordered_by)
 		}
 
 		#[pallet::call_index(99)]

@@ -295,7 +295,9 @@ pub mod v4 {
 						config_record.leadin_length,
 					);
 
-				let updated_config_record = ConfigRecord {
+				// Write the pre-v6 `ConfigRecord` layout: the v6 migration adds the on-demand
+				// fields later in the sequence.
+				let updated_config_record = v6::old::ConfigRecord {
 					interlude_length: updated_interlude_length,
 					leadin_length: updated_leadin_length,
 					advance_notice: config_record.advance_notice,
@@ -305,7 +307,7 @@ pub mod v4 {
 					renewal_bump: config_record.renewal_bump,
 					contribution_timeout: config_record.contribution_timeout,
 				};
-				Configuration::<T>::put(updated_config_record);
+				v6::old::Configuration::<T>::put(updated_config_record);
 			}
 			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
@@ -346,7 +348,7 @@ pub mod v4 {
 			): (BlockNumberFor<T>, BlockNumberFor<T>, BlockNumberFor<T>, BlockNumberFor<T>) =
 				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
 
-			if let Some(config_record) = Configuration::<T>::get() {
+			if let Some(config_record) = v6::old::Configuration::<T>::get() {
 				ensure!(
 					Self::verify_updated_block_length(
 						old_configuration_leadin_length,
@@ -459,9 +461,10 @@ pub mod v5 {
 			if let Some(old_sale) = old::SaleInfo::<T>::get() {
 				let first_region_begin = F::region_begin();
 
-				// `region_length` from Configuration; defaults to 0 (sale_index 1) if absent, so
-				// the record is rewritten rather than the migration panicking.
-				let region_length = if let Some(config) = Configuration::<T>::get() {
+				// `region_length` from Configuration (still in its pre-v6 layout at this point in
+				// the migration sequence); defaults to 0 (sale_index 1) if absent, so the record
+				// is rewritten rather than the migration panicking.
+				let region_length = if let Some(config) = v6::old::Configuration::<T>::get() {
 					config.region_length
 				} else {
 					log::error!(
@@ -554,6 +557,124 @@ pub mod v5 {
 	}
 }
 
+pub mod v6 {
+	use super::*;
+	use sp_arithmetic::{traits::Zero, Perbill};
+
+	/// Pre-v6 `Configuration` storage: the `ConfigRecord` layout without the on-demand fields.
+	pub(crate) mod old {
+		use super::*;
+		use codec::MaxEncodedLen;
+		use frame_support::{
+			pallet_prelude::{Debug, OptionQuery, TypeInfo},
+			storage_alias,
+		};
+
+		#[storage_alias]
+		pub type Configuration<T: Config> = StorageValue<Pallet<T>, ConfigRecordOf<T>, OptionQuery>;
+		pub type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>>;
+
+		/// Pre-v6 `ConfigRecord`: the current layout without the on-demand fields.
+		#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+		pub struct ConfigRecord<RelayBlockNumber> {
+			/// The number of Relay-chain blocks in advance which scheduling should be fixed and
+			/// the `Coretime::assign` API used to inform the Relay-chain.
+			pub advance_notice: RelayBlockNumber,
+			/// The length in blocks of the Interlude Period for forthcoming sales.
+			pub interlude_length: RelayBlockNumber,
+			/// The length in blocks of the Leadin Period for forthcoming sales.
+			pub leadin_length: RelayBlockNumber,
+			/// The length in timeslices of Regions which are up for sale in forthcoming sales.
+			pub region_length: Timeslice,
+			/// The proportion of cores available for sale which should be sold.
+			pub ideal_bulk_proportion: sp_arithmetic::Perbill,
+			/// An artificial limit to the number of cores which are allowed to be sold. If
+			/// `Some` then no more cores will be sold than this.
+			pub limit_cores_offered: Option<CoreIndex>,
+			/// The amount by which the renewal price increases each sale period.
+			pub renewal_bump: sp_arithmetic::Perbill,
+			/// The duration by which rewards for contributions to the InstaPool must be
+			/// collected.
+			pub contribution_timeout: Timeslice,
+		}
+	}
+
+	/// Adds the on-demand order fields to `ConfigRecord`.
+	///
+	/// On-demand ordering ships disabled: `on_demand_base_fee` is set to zero and governance is
+	/// expected to enable ordering via `configure` once the Relay-chain accepts forwarded
+	/// orders. The remaining fields get the Relay-chain's defaults.
+	pub struct MigrateToV6Impl<T>(PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6Impl<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let config_state = old::Configuration::<T>::get()
+				.map(|config| (config.region_length, config.contribution_timeout));
+			Ok(config_state.encode())
+		}
+
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			if let Some(old_config) = old::Configuration::<T>::take() {
+				let updated_config = crate::ConfigRecordOf::<T> {
+					advance_notice: old_config.advance_notice,
+					interlude_length: old_config.interlude_length,
+					leadin_length: old_config.leadin_length,
+					region_length: old_config.region_length,
+					ideal_bulk_proportion: old_config.ideal_bulk_proportion,
+					limit_cores_offered: old_config.limit_cores_offered,
+					renewal_bump: old_config.renewal_bump,
+					contribution_timeout: old_config.contribution_timeout,
+					on_demand_base_fee: Zero::zero(),
+					on_demand_queue_max_size: 10_000,
+					on_demand_target_queue_utilization: Perbill::from_percent(25),
+					on_demand_fee_variability: Perbill::from_percent(3),
+				};
+				Configuration::<T>::put(updated_config);
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+				log::info!(
+					target: LOG_TARGET,
+					"Storage migration v6 for pallet-broker finished: on-demand ordering \
+					disabled until configured",
+				);
+			} else {
+				log::info!(
+					target: LOG_TARGET,
+					"No Configuration found, skipping v6 migration",
+				);
+			}
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_state: Option<(Timeslice, Timeslice)> = Decode::decode(&mut &state[..])
+				.map_err(|_| "Failed to decode pre_upgrade state")?;
+
+			if let Some((old_region_length, old_contribution_timeout)) = old_state {
+				let new_config = Configuration::<T>::get()
+					.ok_or("Configuration should still exist after migration")?;
+
+				ensure!(
+					old_region_length == new_config.region_length &&
+						old_contribution_timeout == new_config.contribution_timeout,
+					"Existing ConfigRecord fields should not change during migration"
+				);
+				ensure!(
+					new_config.on_demand_base_fee.is_zero(),
+					"On-demand ordering must ship disabled"
+				);
+			}
+
+			Ok(())
+		}
+	}
+}
+
 /// Migrate the pallet storage from `0` to `1`.
 pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
 	0,
@@ -591,6 +712,14 @@ pub type MigrateV4ToV5<T, FirstSaleRegion> = frame_support::migrations::Versione
 	4,
 	5,
 	v5::MigrateToV5Impl<T, FirstSaleRegion>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub type MigrateV5ToV6<T> = frame_support::migrations::VersionedMigration<
+	5,
+	6,
+	v6::MigrateToV6Impl<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;

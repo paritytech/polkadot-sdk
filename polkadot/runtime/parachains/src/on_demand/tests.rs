@@ -337,6 +337,7 @@ fn place_order_keep_alive_keeps_alive() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn place_order_with_credits() {
 	let alice = 1u64;
 	let initial_credit = 10_000_000u128;
@@ -393,6 +394,104 @@ fn place_order_with_credits() {
 			),
 			Error::<Test>::InsufficientCredits
 		);
+	});
+}
+
+#[test]
+fn place_broker_order_works() {
+	let alice = 1u64;
+	let spot_price = 5_000u128;
+	let para_id = ParaId::from(111);
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		schedule_blank_para(para_id, ParaKind::Parathread);
+		Balances::make_free_balance_be(&alice, 1_000_000u128);
+
+		let current_block = 100;
+		run_to_block(current_block, |n| {
+			if n == current_block {
+				Some(Default::default())
+			} else {
+				None
+			}
+		});
+
+		OnDemand::place_broker_order(para_id, alice, spot_price);
+
+		// The order was already paid for on the coretime chain: the passed spot price is only
+		// forwarded to the event, and neither balances, credits nor relay chain revenue change.
+		System::assert_has_event(
+			Event::<Test>::OnDemandOrderPlaced { para_id, spot_price, ordered_by: alice }.into(),
+		);
+		assert_eq!(Balances::free_balance(&alice), 1_000_000u128);
+		assert_eq!(Credits::<Test>::get(alice), 0);
+		assert!(OnDemand::get_revenue().iter().all(|r| r.is_zero()));
+
+		// The order landed in the queue (usable two blocks later due to async backing).
+		assert_eq!(
+			OnDemand::peek_order_queue()
+				.pop_assignment_for_cores::<Test>(current_block + 2, 1)
+				.next(),
+			Some(para_id)
+		);
+	});
+}
+
+#[test]
+fn place_broker_order_queue_full_drops_order() {
+	let alice = 1u64;
+	let spot_price = 5_000u128;
+	let para_id = ParaId::from(111);
+
+	new_test_ext(
+		GenesisConfigBuilder { on_demand_max_queue_size: 1, ..Default::default() }.build(),
+	)
+	.execute_with(|| {
+		schedule_blank_para(para_id, ParaKind::Parathread);
+
+		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
+
+		// Fill the queue up to its capacity of one.
+		OnDemand::place_broker_order(para_id, alice, spot_price);
+		assert_eq!(OnDemand::get_order_status().queue.len(), 1);
+
+		// The next order is dropped (with an event) rather than erroring: the failed
+		// `Transact` of an error would leave no on-chain trace.
+		OnDemand::place_broker_order(para_id, alice, spot_price);
+		System::assert_has_event(
+			Event::<Test>::OnDemandOrderDropped { para_id, spot_price, ordered_by: alice }.into(),
+		);
+		assert_eq!(OnDemand::get_order_status().queue.len(), 1);
+	});
+}
+
+#[test]
+fn place_broker_order_updates_spot_traffic() {
+	let alice = 1u64;
+	let para_id = ParaId::from(111);
+
+	new_test_ext(
+		GenesisConfigBuilder {
+			on_demand_max_queue_size: 10,
+			on_demand_target_queue_utilization: Perbill::from_percent(25),
+			on_demand_fee_variability: Perbill::from_percent(20),
+			..Default::default()
+		}
+		.build(),
+	)
+	.execute_with(|| {
+		schedule_blank_para(para_id, ParaKind::Parathread);
+
+		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
+
+		let base_traffic = OnDemand::get_order_status().traffic;
+
+		// Fill the queue well beyond the target utilization; the traffic multiplier and with it
+		// the price of relay-chain-placed orders must increase.
+		for _ in 0..10 {
+			OnDemand::place_broker_order(para_id, alice, 5_000u128);
+		}
+		assert!(OnDemand::get_order_status().traffic > base_traffic);
 	});
 }
 

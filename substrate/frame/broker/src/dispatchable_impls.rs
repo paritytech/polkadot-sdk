@@ -20,9 +20,16 @@ use core::cmp;
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
+	traits::{
+		fungible::Mutate,
+		tokens::Preservation::{Expendable, Preserve},
+		DefensiveResult,
+	},
 };
-use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
+use sp_arithmetic::{
+	traits::{CheckedDiv, Saturating, Zero},
+	FixedPointNumber,
+};
 use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
@@ -482,6 +489,59 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_place_order(
+		who: T::AccountId,
+		max_amount: BalanceOf<T>,
+		para_id: TaskId,
+		ordered_by: RelayAccountIdOf<T>,
+	) -> DispatchResult {
+		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
+		// A zero base fee means that ordering on-demand via this chain is not (yet) enabled.
+		ensure!(!config.on_demand_base_fee.is_zero(), Error::<T>::OnDemandUnavailable);
+
+		OnDemandStatus::<T>::try_mutate(|record| -> DispatchResult {
+			// Bring the congestion estimate up to date. Doing this for every order (rather than
+			// only once per block) makes a burst of orders escalate its own price: the Nth order
+			// in a block is priced against a backlog containing the previous N-1.
+			let old_traffic = record.traffic;
+			Self::update_on_demand_traffic(record, &status, &config);
+
+			let spot_price = record.traffic.saturating_mul_int(config.on_demand_base_fee);
+			ensure!(spot_price <= max_amount, Error::<T>::Overpriced);
+
+			// The backlog estimate is capped at the equivalent of the configured queue size:
+			// beyond that, admitting more orders would outpace what the Relay-chain can serve.
+			let capacity = config.on_demand_queue_max_size.saturating_mul(CORE_MASK_BITS as u32);
+			ensure!(record.queue_size < capacity, Error::<T>::OnDemandQueueFull);
+
+			// The payment stays in the pot, exactly where Relay-chain-collected on-demand
+			// revenue ends up (via teleport), and is accounted to the current timeslice so that
+			// `process_revenue` includes it in the pool contributors' payout.
+			T::Currency::transfer(&who, &Self::account_id(), spot_price, Preserve)?;
+			LocalOnDemandRevenue::<T>::mutate(Self::current_timeslice(), |revenue| {
+				revenue.saturating_accrue(spot_price)
+			});
+
+			record.queue_size = record.queue_size.saturating_add(CORE_MASK_BITS as u32);
+
+			T::Coretime::place_on_demand_order(
+				para_id,
+				ordered_by,
+				T::ConvertBalance::convert(spot_price),
+			);
+
+			if record.traffic != old_traffic {
+				Self::deposit_event(Event::<T>::OnDemandSpotPriceSet {
+					spot_price: record.traffic.saturating_mul_int(config.on_demand_base_fee),
+				});
+			}
+			Self::deposit_event(Event::<T>::OnDemandOrderPlaced { who, para_id, spot_price });
+			Ok(())
+		})
+	}
+
 	pub(crate) fn do_drop_region(region_id: RegionId) -> DispatchResult {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
@@ -516,10 +576,13 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::StillValid
 		);
 		let record = InstaPoolHistory::<T>::take(when).ok_or(Error::<T>::NoHistory)?;
-		if let Some(payout) = record.maybe_payout {
-			let _ = Self::charge(&Self::account_id(), payout);
+		// Also clean up any revenue collected on this chain for `when` for the case that the
+		// Relay-chain revenue report which would have merged it never arrived.
+		let mut revenue = record.maybe_payout.unwrap_or_default();
+		revenue.saturating_accrue(LocalOnDemandRevenue::<T>::take(when));
+		if !revenue.is_zero() {
+			let _ = Self::charge(&Self::account_id(), revenue);
 		}
-		let revenue = record.maybe_payout.unwrap_or_default();
 		Self::deposit_event(Event::HistoryDropped { when, revenue });
 		Ok(())
 	}

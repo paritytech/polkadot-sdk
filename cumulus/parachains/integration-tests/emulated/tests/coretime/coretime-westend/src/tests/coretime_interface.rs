@@ -73,6 +73,10 @@ fn transact_hardcoded_weights_are_sane() {
 			limit_cores_offered: None,
 			renewal_bump: Perbill::from_percent(2),
 			contribution_timeout: 1,
+			on_demand_base_fee: 10_000_000,
+			on_demand_queue_max_size: 100,
+			on_demand_target_queue_utilization: Perbill::from_percent(25),
+			on_demand_fee_variability: Perbill::from_percent(3),
 		};
 		assert_ok!(<CoretimeWestend as CoretimeWestendPallet>::Broker::configure(
 			coretime_root_origin.clone(),

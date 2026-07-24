@@ -137,6 +137,7 @@ pub type Migrations = (
 	pallet_broker::migration::MigrateV2ToV3<Runtime>,
 	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 	pallet_broker::migration::MigrateV4ToV5<Runtime, BrokerFirstSaleRegion>,
+	pallet_broker::migration::MigrateV5ToV6<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
@@ -532,11 +533,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
-				// `purchase`, `renew`, `transfer` and `purchase_credit` are pretty self explanatory.
+				// `purchase`, `renew`, `transfer`, `purchase_credit` and `place_order` are
+				// pretty self explanatory.
 				RuntimeCall::Broker(pallet_broker::Call::purchase { .. }) |
 				RuntimeCall::Broker(pallet_broker::Call::renew { .. }) |
 				RuntimeCall::Broker(pallet_broker::Call::transfer { .. }) |
 				RuntimeCall::Broker(pallet_broker::Call::purchase_credit { .. }) |
+				RuntimeCall::Broker(pallet_broker::Call::place_order { .. }) |
 				// `pool` doesn't transfer, but it defines the account to be paid for contributions
 				RuntimeCall::Broker(pallet_broker::Call::pool { .. }) |
 				// `assign` is essentially a transfer of a region NFT
@@ -568,6 +571,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Broker(pallet_broker::Call::purchase_credit { .. }) |
+						RuntimeCall::Broker(pallet_broker::Call::place_order { .. }) |
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. }
 				)
@@ -902,6 +906,10 @@ impl_runtime_apis! {
 	impl pallet_broker::runtime_api::BrokerApi<Block, Balance> for Runtime {
 		fn sale_price() -> Result<Balance, DispatchError> {
 			Broker::current_price()
+		}
+
+		fn on_demand_price() -> Result<Balance, DispatchError> {
+			Broker::current_on_demand_price()
 		}
 	}
 

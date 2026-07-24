@@ -364,6 +364,10 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 								limit_cores_offered: None,
 								renewal_bump: Perbill(10),
 								contribution_timeout: 5,
+								on_demand_base_fee: 10_000_000,
+								on_demand_queue_max_size: 100,
+								on_demand_target_queue_utilization: Perbill(250_000_000),
+								on_demand_fee_variability: Perbill(30_000_000),
 							},
 						}),
 						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::set_lease {

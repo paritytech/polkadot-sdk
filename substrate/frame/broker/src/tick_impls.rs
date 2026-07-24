@@ -18,7 +18,10 @@
 use super::*;
 use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
-use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
+use sp_arithmetic::{
+	traits::{One, SaturatedConversion, Saturating, Zero},
+	FixedPointNumber,
+};
 use sp_runtime::traits::{BlockNumberProvider, ConvertBack, MaybeConvert};
 use CompletionStatus::Complete;
 
@@ -47,6 +50,25 @@ impl<T: Config> Pallet<T> {
 
 		if Self::process_revenue() {
 			meter.consume(T::WeightInfo::process_revenue());
+		}
+
+		// Decay the local on-demand congestion estimate to account for orders served since the
+		// last update, mirroring the Relay-chain's per-block spot traffic update.
+		{
+			let mut on_demand = OnDemandStatus::<T>::get();
+			let (old_queue_size, old_traffic) = (on_demand.queue_size, on_demand.traffic);
+			Self::update_on_demand_traffic(&mut on_demand, &status, &config);
+			// `last_updated` alone changing is not worth a write: draining an empty backlog is
+			// independent of the elapsed time.
+			if on_demand.queue_size != old_queue_size || on_demand.traffic != old_traffic {
+				if on_demand.traffic != old_traffic {
+					Self::deposit_event(Event::<T>::OnDemandSpotPriceSet {
+						spot_price: on_demand.traffic.saturating_mul_int(config.on_demand_base_fee),
+					});
+				}
+				OnDemandStatus::<T>::put(&on_demand);
+			}
+			meter.consume(T::WeightInfo::update_on_demand_traffic());
 		}
 
 		if let Some(commit_timeslice) = Self::next_timeslice_to_commit(&config, &status) {
@@ -101,6 +123,20 @@ impl<T: Config> Pallet<T> {
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
 		let mut revenue = T::ConvertBalance::convert_back(amount.clone());
+
+		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
+		if r.maybe_payout.is_some() {
+			// Duplicate report for an already-processed timeslice: checked before taking the
+			// local revenue below, so that any not yet merged local revenue is not stranded and
+			// remains recoverable via `drop_history`.
+			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
+			return true;
+		}
+
+		// Merge in the revenue from on-demand orders placed on this chain for the same
+		// timeslice; the Relay-chain report only covers orders placed there, so the two sums
+		// are disjoint.
+		revenue.saturating_accrue(LocalOnDemandRevenue::<T>::take(when));
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
@@ -111,12 +147,6 @@ impl<T: Config> Pallet<T> {
 			target: "pallet_broker::process_revenue",
 			"Received {amount:?} from RC, converted into {revenue:?} revenue",
 		);
-
-		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
-		if r.maybe_payout.is_some() {
-			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
-			return true;
-		}
 		// Payout system InstaPool Cores.
 		let total_contrib = r.system_contributions.saturating_add(r.private_contributions);
 		let system_payout = if !total_contrib.is_zero() {

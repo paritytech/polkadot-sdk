@@ -567,6 +567,7 @@ fn renewals_affect_price() {
 		region_length: 20,
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
+		..new_config()
 	};
 	TestExt::new_with_config(config).endow(1, b).execute_with(|| {
 		let price = 910;
@@ -631,6 +632,7 @@ fn renewal_price_adjusts_to_lower_market_end() {
 		region_length: 20,
 		renewal_bump: Perbill::from_percent(10),
 		contribution_timeout: 5,
+		..new_config()
 	};
 	TestExt::new_with_config(config.clone())
 		.endow(1, b)
@@ -3142,5 +3144,209 @@ fn force_transfer_can_transfer_provisionally_assigned_region() {
 			}
 			.into(),
 		);
+	});
+}
+
+#[test]
+fn place_order_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// With an empty backlog the traffic multiplier sits at its floor of one, so the price
+		// is exactly the configured base fee (10 in `new_config()`).
+		assert_eq!(Broker::current_on_demand_price(), Ok(10));
+		assert_noop!(Broker::do_place_order(1, 9, 111, 4), Error::<Test>::Overpriced);
+		assert_ok!(Broker::do_place_order(1, 10, 111, 4));
+
+		// The caller was charged into the pot and the order was forwarded to the relay chain
+		// with the price and orderer attached.
+		assert_eq!(balance(1), 990);
+		assert_eq!(pot(), 10);
+		assert_eq!(CoretimeOnDemandOrders::get(), vec![(2, 111, 4, 10)]);
+		// The payment is accounted as revenue of the current timeslice.
+		assert_eq!(LocalOnDemandRevenue::<Test>::get(Broker::current_timeslice()), 10);
+		System::assert_has_event(
+			Event::<Test>::OnDemandOrderPlaced { who: 1, para_id: 111, spot_price: 10 }.into(),
+		);
+	});
+}
+
+#[test]
+fn place_order_unavailable_when_base_fee_zero() {
+	let config = ConfigRecord { on_demand_base_fee: 0, ..new_config() };
+	TestExt::new_with_config(config).endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// A zero base fee is the activation gate: ordering via this chain is disabled.
+		assert_noop!(Broker::do_place_order(1, 100, 111, 1), Error::<Test>::OnDemandUnavailable);
+		assert_eq!(
+			Broker::current_on_demand_price(),
+			Err(Error::<Test>::OnDemandUnavailable.into())
+		);
+	});
+}
+
+#[test]
+fn place_order_respects_backlog_cap() {
+	let config = ConfigRecord { on_demand_queue_max_size: 1, ..new_config() };
+	TestExt::new_with_config(config).endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// The backlog estimate is capped at one order.
+		assert_ok!(Broker::do_place_order(1, 100, 111, 1));
+		assert_noop!(Broker::do_place_order(1, 100, 111, 1), Error::<Test>::OnDemandQueueFull);
+	});
+}
+
+#[test]
+fn place_order_price_adapts() {
+	TestExt::new().endow(1, 100_000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Fill the backlog well beyond the 25% target utilization. Each order is priced
+		// against the backlog including its predecessors, so a burst of orders escalates its
+		// own price within a single block.
+		for _ in 0..30 {
+			assert_ok!(Broker::do_place_order(1, 100_000, 111, 1));
+		}
+		let elevated = OnDemandStatus::<Test>::get().traffic;
+		assert!(elevated > sp_runtime::FixedU128::from_u32(1));
+		assert!(Broker::current_on_demand_price().unwrap() > 10);
+		System::assert_has_event(
+			Event::<Test>::OnDemandSpotPriceSet {
+				spot_price: Broker::current_on_demand_price().unwrap(),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn on_demand_backlog_drains_with_pool_capacity() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let config = Configuration::<Test>::get().unwrap();
+		let mut status = Status::<Test>::get().unwrap();
+		// One full core worth of pool capacity serves one order (80 core-mask bits) per relay
+		// chain block.
+		status.private_pool_size = 40;
+		status.system_pool_size = 40;
+
+		let mut record = OnDemandStatusRecord {
+			queue_size: 800,
+			traffic: sp_runtime::FixedU128::from_u32(2),
+			last_updated: 0,
+		};
+		// Two relay chain blocks have elapsed (mock relay block == system block == 2).
+		Broker::update_on_demand_traffic(&mut record, &status, &config);
+		assert_eq!(record.queue_size, 800 - 2 * 80);
+		assert_eq!(record.last_updated, 2);
+		// The drained backlog sits below the target utilization, so the multiplier decays
+		// (but never below its floor of one).
+		assert!(record.traffic < sp_runtime::FixedU128::from_u32(2));
+		assert!(record.traffic >= sp_runtime::FixedU128::from_u32(1));
+	});
+}
+
+#[test]
+fn local_on_demand_revenue_merged_in_process_revenue() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
+		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), 100);
+		assert_ok!(Broker::do_pool(region, None, 2, Final));
+		advance_to(8);
+		// Instead of purchasing credits and spending them on the relay chain (as in
+		// `instapool_payouts_work`), place an order on this chain: the price of 10 goes to the
+		// pot and is recorded for the current timeslice.
+		assert_ok!(Broker::do_place_order(1, 10, 111, 1));
+		assert_eq!(pot(), 10);
+		advance_to(11);
+		// The relay chain reported zero revenue for the timeslice, but the local order revenue
+		// is merged in: 6 is the system payout (goes to `OnRevenue` instantly) and the rest is
+		// private (kept in the pot until claimed) - the exact same split as in
+		// `instapool_payouts_work`.
+		assert_eq!(pot(), 4);
+		assert_eq!(revenue(), 106);
+		assert!(LocalOnDemandRevenue::<Test>::iter().next().is_none());
+
+		// Revenue can be claimed.
+		assert_ok!(Broker::do_claim_revenue(region, 100));
+		assert_eq!(pot(), 0);
+		assert_eq!(balance(2), 4);
+	});
+}
+
+#[test]
+fn drop_history_cleans_up_unreported_local_revenue() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(24);
+
+		// Simulate order revenue collected at a long-gone timeslice whose relay chain revenue
+		// report never arrived and was therefore never merged.
+		let when = 1;
+		let stranded = 10;
+		mint_to_pot(stranded);
+		LocalOnDemandRevenue::<Test>::insert(when, stranded);
+		InstaPoolHistory::<Test>::insert(
+			when,
+			InstaPoolHistoryRecord::<u64> {
+				private_contributions: 0,
+				system_contributions: 0,
+				maybe_payout: None,
+			},
+		);
+
+		// Dropping the history record after the contribution timeout also burns the stranded
+		// local revenue so nothing lingers in storage or the pot.
+		let pot_before = pot();
+		let revenue_before = revenue();
+		assert_ok!(Broker::do_drop_history(when));
+		assert_eq!(LocalOnDemandRevenue::<Test>::get(when), 0);
+		assert_eq!(pot(), pot_before - stranded);
+		assert_eq!(revenue(), revenue_before + stranded);
+		System::assert_has_event(Event::<Test>::HistoryDropped { when, revenue: stranded }.into());
+	});
+}
+
+#[test]
+fn duplicate_revenue_report_does_not_strand_local_revenue() {
+	TestExt::new().execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// A timeslice which was already processed (`maybe_payout` set) receives a duplicate
+		// relay chain revenue report while local order revenue for it is still unmerged.
+		let when = 0;
+		InstaPoolHistory::<Test>::insert(
+			when,
+			InstaPoolHistoryRecord::<u64> {
+				private_contributions: 4,
+				system_contributions: 6,
+				maybe_payout: Some(10),
+			},
+		);
+		LocalOnDemandRevenue::<Test>::insert(when, 7);
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord {
+			until: ((when + 1) * 2) as u64, // TimeslicePeriod = 2
+			amount: 3,
+		});
+
+		assert!(Broker::process_revenue());
+
+		// The duplicate is ignored without touching the local revenue, which therefore stays
+		// recoverable via `drop_history`.
+		System::assert_has_event(Event::<Test>::HistoryIgnored { when, revenue: 3 }.into());
+		assert_eq!(LocalOnDemandRevenue::<Test>::get(when), 7);
 	});
 }

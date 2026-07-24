@@ -2454,6 +2454,12 @@ impl CoretimeInterface for CoretimeProvider {
 	fn request_core_count(_count: CoreIndex) {}
 	fn request_revenue_info_at(_when: u32) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
+	fn place_on_demand_order(
+		_para_id: TaskId,
+		_ordered_by: Self::AccountId,
+		_spot_price: Self::Balance,
+	) {
+	}
 	fn assign_core(
 		_core: CoreIndex,
 		_begin: u32,
