@@ -1172,3 +1172,79 @@ pub enum MethodVersioningStatus {
 	/// highest version supported by the runtime.
 	Versioned(u8),
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Ensures every known method is mapped and version precedence is preserved.
+	#[test]
+	fn maps_known_methods_and_preserves_version_precedence() {
+		// Arrange
+		let expected = ReviveRuntimeApiCapabilities {
+			eth_block: Available(Versioned(4)),
+			eth_block_hash: Available(Unversioned),
+			eth_receipt_data: Available(Versioned(1)),
+			block_gas_limit: Available(Unversioned),
+			max_extrinsic_weight_in_gas: Available(Versioned(2)),
+			balance: Available(Unversioned),
+			gas_price: Available(Versioned(3)),
+			nonce: Available(Unversioned),
+			call: Available(Versioned(4)),
+			instantiate: Available(Unversioned),
+			eth_transact: Available(Versioned(5)),
+			eth_transact_with_config: Available(Unversioned),
+			eth_estimate_gas: Available(Versioned(6)),
+			eth_pre_dispatch_weight: Available(Unversioned),
+			upload_code: Available(Versioned(7)),
+			get_storage: Available(Unversioned),
+			runtime_pallets_address: Available(Versioned(8)),
+			code: Available(Unversioned),
+			account_id: Available(Versioned(9)),
+			new_balance_with_dust: Available(Unversioned),
+			block_author: Available(Versioned(10)),
+			address: Available(Unversioned),
+			trace_block: Available(Versioned(11)),
+			trace_tx: Available(Unversioned),
+			trace_call: Available(Versioned(12)),
+			trace_call_with_config: Available(Unversioned),
+		};
+
+		// Act
+		let actual = ReviveRuntimeApiCapabilities::default()
+			.with_method("eth_block", Unversioned)
+			.with_method("eth_block_versioned", Versioned(2))
+			.with_method("eth_block_versioned", Versioned(4))
+			.with_method("eth_block_versioned", Versioned(3))
+			.with_method("eth_block", Unversioned)
+			.with_method("eth_block_hash", Unversioned)
+			.with_method("eth_receipt_data_versioned", Versioned(1))
+			.with_method("block_gas_limit", Unversioned)
+			.with_method("max_extrinsic_weight_in_gas_versioned", Versioned(2))
+			.with_method("balance", Unversioned)
+			.with_method("gas_price_versioned", Versioned(3))
+			.with_method("nonce", Unversioned)
+			.with_method("call_versioned", Versioned(4))
+			.with_method("instantiate", Unversioned)
+			.with_method("eth_transact_versioned", Versioned(5))
+			.with_method("eth_transact_with_config", Unversioned)
+			.with_method("eth_estimate_gas_versioned", Versioned(6))
+			.with_method("eth_pre_dispatch_weight", Unversioned)
+			.with_method("upload_code_versioned", Versioned(7))
+			.with_method("get_storage", Unversioned)
+			.with_method("runtime_pallets_address_versioned", Versioned(8))
+			.with_method("code", Unversioned)
+			.with_method("account_id_versioned", Versioned(9))
+			.with_method("new_balance_with_dust", Unversioned)
+			.with_method("block_author_versioned", Versioned(10))
+			.with_method("address", Unversioned)
+			.with_method("trace_block_versioned", Versioned(11))
+			.with_method("trace_tx", Unversioned)
+			.with_method("trace_call_versioned", Versioned(12))
+			.with_method("trace_call_with_config", Unversioned)
+			.with_method("unknown_method_versioned", Versioned(u8::MAX));
+
+		// Assert
+		assert_eq!(actual, expected);
+	}
+}
