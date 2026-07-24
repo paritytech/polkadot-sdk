@@ -90,7 +90,19 @@ const CURRENT_VERSION: u32 = 2;
 
 const MIGRATION_COMMIT_CHUNK: usize = 100_000;
 
-type DbOperation = (u8, Vec<u8>, Option<Vec<u8>>);
+/// A single raw database operation: writes `value` under `key` in `column`, or deletes the key
+/// when `value` is `None`.
+struct DbOperation {
+	column: u8,
+	key: Vec<u8>,
+	value: Option<Vec<u8>>,
+}
+
+impl From<(u8, Vec<u8>, Option<Vec<u8>>)> for DbOperation {
+	fn from((column, key, value): (u8, Vec<u8>, Option<Vec<u8>>)) -> Self {
+		Self { column, key, value }
+	}
+}
 
 struct MigrationBatch<'a> {
 	db: &'a parity_db::Db,
@@ -126,7 +138,13 @@ impl<'a> MigrationBatch<'a> {
 		}
 		let operations = std::mem::take(&mut self.operations);
 		let count = operations.len();
-		self.db.commit(operations).map_err(|error| Error::Db(error.to_string()))?;
+		self.db
+			.commit(
+				operations
+					.into_iter()
+					.map(|operation| (operation.column, operation.key, operation.value)),
+			)
+			.map_err(|error| Error::Db(error.to_string()))?;
 		self.committed += count;
 		Ok(())
 	}
@@ -1025,12 +1043,14 @@ impl Store {
 							submit_index.insert_new(hash, account_id, &statement, admission_seq);
 							query_index.note_initial(&statement);
 							if let Some(seq) = admission_seq {
-								let mut operations = statement_index_ops(&hash, &statement, true);
-								operations.push((
-									col::ADMISSION_SEQ,
-									seq.to_be_bytes().to_vec(),
-									Some(hash.to_vec()),
-								));
+								let operations = statement_index_ops(&hash, &statement, true)
+									.into_iter()
+									.map(DbOperation::from)
+									.chain(std::iter::once(DbOperation {
+										column: col::ADMISSION_SEQ,
+										key: seq.to_be_bytes().to_vec(),
+										value: Some(hash.to_vec()),
+									}));
 								if let Err(error) = migration.extend(operations) {
 									migration_error = Some(error);
 									return false;
@@ -1066,13 +1086,8 @@ impl Store {
 					let Some(entry) = submit_index.entries.get_mut(&hash) else {
 						continue;
 					};
-					if entry.admission_seq.replace(seq).is_some() {
-						return Err(Error::Db("Duplicate admission sequence for statement".into()));
-					}
+					entry.admission_seq = Some(seq);
 					submit_index.next_seq = submit_index.next_seq.max(seq.saturating_add(1));
-				}
-				if submit_index.entries.values().any(|entry| entry.admission_seq.is_none()) {
-					return Err(Error::Db("Statement is missing an admission sequence".into()));
 				}
 			}
 			let mut evicted_count = 0usize;
@@ -1091,11 +1106,11 @@ impl Store {
 						if migrate_index {
 							let purge_at =
 								timestamp.saturating_add(submit_index.config.purge_after_sec);
-							let operation = (
-								col::INDEX_EVICTED,
-								evicted_index_key(purge_at, &hash),
-								Some(INDEX_EMPTY_VALUE.to_vec()),
-							);
+							let operation = DbOperation {
+								column: col::INDEX_EVICTED,
+								key: evicted_index_key(purge_at, &hash),
+								value: Some(INDEX_EMPTY_VALUE.to_vec()),
+							};
 							if let Err(error) = migration.push(operation) {
 								migration_error = Some(error);
 								return false;
@@ -2312,8 +2327,8 @@ impl StatementStoreSubscriptionApi for Store {
 
 impl Store {
 	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
-		// Enqueue registration while holding the same lock that assigns submit sequence numbers.
-		// Every post-watermark live notification is therefore ordered after that registration.
+		// Holding the submit lock across `enqueue` keeps the registration ordered before any
+		// post-watermark live notification. `enqueue` must not block.
 		let submit_index = self.submit_index.write();
 		let watermark = submit_index.next_seq;
 		Ok(enqueue(watermark).then_some(watermark))

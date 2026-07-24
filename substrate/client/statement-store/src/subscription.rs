@@ -94,6 +94,9 @@ pub(crate) trait ReplaySnapshotProvider: Send + Sync {
 	/// Capture the committed admission watermark and enqueue filter registration atomically with
 	/// respect to submit.
 	/// Returns the registered watermark, or `None` when registration could not be enqueued.
+	///
+	/// `enqueue` is called at most once, with the submit lock held: it must not block or call
+	/// back into the store.
 	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>>;
 
 	/// Read the next replay batch from the persisted admission sequence.
