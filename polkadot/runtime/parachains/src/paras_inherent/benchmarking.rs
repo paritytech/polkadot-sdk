@@ -167,15 +167,10 @@ mod benchmarks {
 			true,
 		)
 		.unwrap();
-		// Speculative messaging: enable the feature and make the backed candidate carry a
-		// worst-case `Requires` set (via the candidate modifier) against a fully-seeded provides
-		// window, so this benchmark captures the per-candidate `requires`-match read cost.
-		configuration::Pallet::<T>::set_node_feature(
-			RawOrigin::Root.into(),
-			FeatureIndex::SpeculativeMessaging as u8,
-			true,
-		)
-		.unwrap();
+		// Speculative messaging: make the backed candidate carry a worst-case `Requires` set (via
+		// the candidate modifier) against a fully-seeded provides window, so this benchmark
+		// captures the per-candidate `requires`-match read cost. Processing is unconditional (no
+		// feature gate).
 		let cores_with_backed: BTreeMap<_, _> = vec![(0, v)] // The backed candidate will have `v` validity votes.
 			.into_iter()
 			.collect();
