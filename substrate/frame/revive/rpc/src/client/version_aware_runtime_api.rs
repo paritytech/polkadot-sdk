@@ -20,7 +20,7 @@
 
 use crate::{
 	BlockId,
-	client::{Balance, ClientError},
+	client::{Balance, ClientError, SubstrateBlockNumber},
 	subxt_client::{self, SrcChainConfig},
 };
 use futures::{FutureExt, TryFutureExt, future::BoxFuture};
@@ -855,6 +855,27 @@ impl VersionAwareRuntimeApiProvider {
 	/// capabilities of its runtime spec version if they are not cached yet.
 	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block(block_hash).await?;
+		let capabilities = self.capabilities(&at_block).await?;
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
+	}
+
+	/// Returns the version-aware runtime API for a block when both its Substrate hash and number
+	/// are already known.
+	///
+	/// Supplying both values avoids the header request that [`Self::at`] needs to derive the block
+	/// number from its hash. The number is the Substrate height, even where the caller also uses it
+	/// as an Ethereum block number; pallet-revive defines those heights to be identical.
+	///
+	/// # Warning
+	///
+	/// `block_number` must identify `block_hash`. A mismatch can make Subxt use runtime metadata
+	/// from a different block than the state addressed by the hash.
+	pub async fn at_block_hash_and_number(
+		&self,
+		block_hash: H256,
+		block_number: SubstrateBlockNumber,
+	) -> Result<VersionAwareRuntimeApi, ClientError> {
+		let at_block = self.api.at_block_hash_and_number(block_hash, block_number).await?;
 		let capabilities = self.capabilities(&at_block).await?;
 		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
 	}

@@ -206,29 +206,29 @@ impl ReceiptExtractor {
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
 		let provider = runtime_api_provider.clone();
-		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
+		let fetch_eth_block_hash = Arc::new(move |substrate_block_hash, substrate_block_number| {
 			let provider = provider.clone();
 
 			let fut = async move {
 				let runtime_api = provider
-					.at(block_hash)
+					.at_block_hash_and_number(substrate_block_hash, substrate_block_number)
 					.await
 					.inspect_err(|err| {
 						log::debug!(
 							target: LOG_TARGET,
-							"Failed to access the runtime API at block #{block_number} \
-							({block_hash:?}) for an eth_block_hash query: {err:?}"
+							"Failed to access the runtime API at block #{substrate_block_number} \
+							({substrate_block_hash:?}) for an eth_block_hash query: {err:?}"
 						);
 					})
 					.ok()?;
 				runtime_api
-					.eth_block_hash(U256::from(block_number))?
+					.eth_block_hash(U256::from(substrate_block_number))?
 					.await
 					.inspect_err(|err| {
 						log::debug!(
 							target: LOG_TARGET,
-							"Failed to query eth_block_hash at block #{block_number} \
-							({block_hash:?}): {err:?}"
+							"Failed to query eth_block_hash at block #{substrate_block_number} \
+							({substrate_block_hash:?}): {err:?}"
 						);
 					})
 					.ok()
