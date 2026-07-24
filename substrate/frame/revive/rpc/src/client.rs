@@ -45,7 +45,7 @@ use std::{
 };
 use storage_api::StorageApi;
 use subxt::{
-	Config, OnlineClient,
+	OnlineClient,
 	backend::{StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
@@ -63,9 +63,6 @@ use subxt::{
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
 use version_aware_runtime_api::{VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider};
-
-/// The substrate block header.
-pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 
 /// The substrate block number type.
 pub type SubstrateBlockNumber = u64;
@@ -587,15 +584,6 @@ impl Client {
 			let _guard = self.subscription_lock.lock().await;
 
 			let block_number = block.block_number();
-
-			// Failures are tolerable here: any runtime API access to the block recomputes its
-			// capabilities lazily.
-			if let Err(err) = self.runtime_api_provider.observe_block(&block).await {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to update the runtime API capabilities at block {block_number}: {err:?}"
-				);
-			}
 
 			// Only check finalized blocks for gaps.
 			if subscription_type == SubscriptionType::FinalizedBlocks {

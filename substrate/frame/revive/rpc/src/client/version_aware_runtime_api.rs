@@ -16,30 +16,24 @@
 // limitations under the License.
 
 //! A version-aware access layer for pallet-revive's runtime API together with the provider that
-//! tracks which runtime API methods are available at which blocks.
+//! tracks which runtime API methods are available in each runtime spec version.
 
 use crate::{
 	BlockId,
-	client::{Balance, ClientError, SubstrateBlock, SubstrateBlockHeader},
+	client::{Balance, ClientError},
 	subxt_client::{self, SrcChainConfig},
 };
-use codec::{Decode, Encode};
 use futures::{FutureExt, TryFutureExt, future::BoxFuture};
 use pallet_revive::evm::{H160, U256};
 use pallet_revive_types::runtime_api::*;
-use schnellru::{ByLength, LruMap};
 use sp_core::H256;
 use sp_timestamp::Timestamp;
 use std::{
+	collections::HashMap,
 	future::Future,
 	sync::{Arc, Mutex, MutexGuard, PoisonError},
 };
-use subxt::{
-	OnlineClient,
-	client::OnlineClientAtBlock,
-	config::substrate::DigestItem,
-	ext::frame_metadata::{OpaqueMetadata, RuntimeMetadata, RuntimeMetadataPrefixed},
-};
+use subxt::{Metadata, OnlineClient, client::OnlineClientAtBlock};
 
 use MethodStatus::*;
 use MethodVersioningStatus::*;
@@ -832,154 +826,63 @@ impl VersionAwareRuntimeApi {
 	}
 }
 
-/// The number of blocks whose capabilities are kept in the provider's cache.
-///
-/// Sized to cover a full day of blocks at a two-second block time. This comfortably serves the
-/// typical usage pattern of the eth-rpc, where queries overwhelmingly target recent blocks; the
-/// capabilities of older blocks are recomputed on demand and cached again, evicting the least
-/// recently used entries.
-const CACHE_CAPACITY: u32 = 43_200;
-
 /// Hands out [`VersionAwareRuntimeApi`] instances for specific blocks, caching the
 /// [`ReviveRuntimeApiCapabilities`] that each one is constructed with.
 ///
-/// Capabilities are cached per block hash in an LRU map, making every cached entry an immutable
-/// fact about that exact block: forks need no special handling because competing blocks have
-/// different hashes. The cache is populated in two ways:
-///
-/// * [`at`] computes the capabilities of a block on first use. This covers the very first
-///   computation when the client starts as well as queries for blocks that the subscriptions have
-///   not observed, such as the historic blocks visited by the backward sync.
-/// * [`observe_block`] is fed every block seen by the block subscriptions and lets each new block
-///   inherit its parent's capabilities, so steady-state operation requires no computations at all.
+/// Capabilities are cached by runtime spec version, which changes whenever runtime behavior
+/// changes. Subxt resolves the spec version and its metadata while constructing an
+/// [`OnlineClientAtBlock`] and uses the same key for its own metadata cache. Consequently, blocks
+/// running the same runtime share one capability entry without requiring block-by-block
+/// observation or runtime-upgrade detection.
 ///
 /// [`at`]: Self::at
-/// [`observe_block`]: Self::observe_block
 #[derive(Clone)]
 pub struct VersionAwareRuntimeApiProvider {
 	/// The subxt client through which the capabilities of blocks are computed.
 	api: OnlineClient<SrcChainConfig>,
-	/// The capabilities of the most recently used blocks, keyed by block hash.
-	cache: Arc<Mutex<LruMap<H256, Arc<ReviveRuntimeApiCapabilities>>>>,
+	/// The capabilities of each encountered runtime spec version.
+	cache: Arc<Mutex<HashMap<u32, ReviveRuntimeApiCapabilities>>>,
 }
 
 impl VersionAwareRuntimeApiProvider {
 	/// Creates a provider with an empty cache which computes capabilities through the given
 	/// client.
 	pub fn new(api: OnlineClient<SrcChainConfig>) -> Self {
-		Self { api, cache: Arc::new(Mutex::new(LruMap::new(ByLength::new(CACHE_CAPACITY)))) }
+		Self { api, cache: Arc::new(Mutex::new(HashMap::new())) }
 	}
 
 	/// Returns the version-aware runtime API of the given block, computing and caching the
-	/// block's capabilities if they are not cached yet.
+	/// capabilities of its runtime spec version if they are not cached yet.
 	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {
-		let capabilities = self.capabilities(block_hash).await?;
-		Ok(VersionAwareRuntimeApi::new(self.api.at_block(block_hash).await?, *capabilities))
+		let at_block = self.api.at_block(block_hash).await?;
+		let capabilities = self.capabilities(&at_block).await;
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
 	}
 
-	/// Records a block seen by a block subscription.
-	///
-	/// A block without the runtime-upgrade marker in its header ran the same runtime as its
-	/// parent, so it inherits the parent's capabilities without any computation. A block carrying
-	/// the marker gets capabilities computed from its own state instead, since its parent ran a
-	/// different runtime.
-	pub(crate) async fn observe_block(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
-		let block_hash = block.block_hash();
-		if self.lock_cache().peek(&block_hash).is_some() {
-			return Ok(());
-		}
-
-		// Genesis has no parent to inherit capabilities from.
-		if block.block_number() == 0 {
-			self.capabilities(block_hash).await?;
-			return Ok(());
-		}
-
-		let header = block.block_header().await?;
-		if runtime_environment_updated(&header) {
-			let computed = self.compute(block_hash).await?;
-			// An upgrade which did not change the revive runtime API keeps the parent's
-			// capabilities: share the parent's allocation instead of storing a copy.
-			let capabilities = match self.lock_cache().get(&header.parent_hash).cloned() {
-				Some(parent) if *parent == computed => parent,
-				_ => Arc::new(computed),
-			};
-			self.lock_cache().insert(block_hash, capabilities);
-		} else {
-			let capabilities = self.capabilities(header.parent_hash).await?;
-			self.lock_cache().insert(block_hash, capabilities);
-		}
-
-		Ok(())
-	}
-
-	/// Returns the capabilities of the given block, computing and caching them if they are not
-	/// cached yet.
+	/// Returns the capabilities of the handle's runtime spec version, computing and caching them
+	/// if they are not cached yet.
 	async fn capabilities(
 		&self,
-		block_hash: H256,
-	) -> Result<Arc<ReviveRuntimeApiCapabilities>, ClientError> {
-		if let Some(capabilities) = self.lock_cache().get(&block_hash).cloned() {
-			return Ok(capabilities);
-		}
-
-		let capabilities = Arc::new(self.compute(block_hash).await?);
-		self.lock_cache().insert(block_hash, capabilities.clone());
-		Ok(capabilities)
-	}
-
-	/// Computes the capabilities of the given block from its state.
-	async fn compute(&self, block_hash: H256) -> Result<ReviveRuntimeApiCapabilities, ClientError> {
-		let at_block = self.api.at_block(block_hash).await?;
-		let capabilities = match self.fetch_runtime_metadata(&at_block).await? {
-			Some(metadata) => ReviveRuntimeApiCapabilities::new(&metadata, at_block).await,
-			None => ReviveRuntimeApiCapabilities::default(),
-		};
-		log::debug!(target: LOG_TARGET,
-			"Computed the revive runtime API capabilities of block {block_hash:?}");
-		Ok(capabilities)
-	}
-
-	/// Fetches the runtime metadata stored at the given block, preferring the newest metadata
-	/// version and falling back to older ones for blocks whose runtime predates it. Returns
-	/// [`None`] when the block's runtime knows the versioned metadata runtime API but supports
-	/// none of the requested versions; runtimes so old that they lack the versioned metadata
-	/// runtime API altogether (all of which predate pallet-revive) yield an error instead.
-	async fn fetch_runtime_metadata(
-		&self,
 		at_block: &OnlineClientAtBlock<SrcChainConfig>,
-	) -> Result<Option<RuntimeMetadata>, ClientError> {
-		const SUPPORTED_METADATA_VERSIONS: [u32; 2] = [16, 15];
-
-		for version in SUPPORTED_METADATA_VERSIONS {
-			let response = at_block
-				.runtime_apis()
-				.call_raw("Metadata_metadata_at_version", Some(&version.encode()))
-				.await?;
-			if let Some(metadata) = Option::<OpaqueMetadata>::decode(&mut response.as_slice())? {
-				let prefixed = RuntimeMetadataPrefixed::decode(&mut metadata.0.as_slice())?;
-				return Ok(Some(prefixed.1));
-			}
+	) -> ReviveRuntimeApiCapabilities {
+		let spec_version = at_block.spec_version();
+		if let Some(capabilities) = self.lock_cache().get(&spec_version).copied() {
+			return capabilities;
 		}
 
-		Ok(None)
+		let capabilities =
+			ReviveRuntimeApiCapabilities::new(at_block.metadata_ref(), at_block).await;
+		self.lock_cache().insert(spec_version, capabilities);
+		log::debug!(target: LOG_TARGET,
+			"Computed the revive runtime API capabilities of spec version {spec_version}");
+		capabilities
 	}
 
 	/// Locks the cache, tolerating lock poisoning since the cache holds no invariants beyond the
 	/// cached entries themselves.
-	fn lock_cache(&self) -> MutexGuard<'_, LruMap<H256, Arc<ReviveRuntimeApiCapabilities>>> {
+	fn lock_cache(&self) -> MutexGuard<'_, HashMap<u32, ReviveRuntimeApiCapabilities>> {
 		self.cache.lock().unwrap_or_else(PoisonError::into_inner)
 	}
-}
-
-/// Whether the block header carries the marker that frame-system deposits when the runtime is
-/// upgraded.
-fn runtime_environment_updated(header: &SubstrateBlockHeader) -> bool {
-	header
-		.digest
-		.logs
-		.iter()
-		.any(|log| matches!(log, DigestItem::RuntimeEnvironmentUpdated))
 }
 
 /// Stores the capabilities of pallet-revive's runtime API.
@@ -1028,48 +931,25 @@ impl ReviveRuntimeApiCapabilities {
 	/// If they come from different blocks then the object created might end up with corrupted state
 	/// that is not representative of any real block on the network.
 	///
-	/// Runtime API information only exists in metadata V15 and V16, so those are the versions this
-	/// constructor understands. For any older metadata no method is reported as available, which
-	/// is accurate in practice since runtimes without V15 metadata predate pallet-revive.
-	pub async fn new(
-		metadata: &RuntimeMetadata,
-		at_block: OnlineClientAtBlock<SrcChainConfig>,
-	) -> Self {
+	/// Subxt normalizes every metadata version it supports into [`Metadata`]. If that metadata does
+	/// not describe pallet-revive's runtime API, no method is reported as available.
+	pub async fn new(metadata: &Metadata, at_block: &OnlineClientAtBlock<SrcChainConfig>) -> Self {
 		let version_declarations = at_block
 			.runtime_apis()
 			.call(subxt_client::runtime_apis().revive_api().version_declarations().unvalidated())
 			.await;
 
-		let v15_methods = match metadata {
-			RuntimeMetadata::V15(metadata) => Some(
-				metadata
-					.apis
-					.iter()
-					.filter(|runtime_api| runtime_api.name == "ReviveApi")
-					.flat_map(|api| api.methods.iter())
-					.map(|method| method.name.as_str()),
-			),
-			_ => None,
-		}
-		.into_iter()
-		.flatten();
-		let v16_methods = match metadata {
-			RuntimeMetadata::V16(metadata) => metadata
-				.apis
-				.iter()
-				.filter(|runtime_api| runtime_api.name == "ReviveApi")
-				.max_by(|a, b| a.version.0.cmp(&b.version.0))
-				.map(|api| api.methods.iter().map(|method| method.name.as_str())),
-			_ => None,
-		}
-		.into_iter()
-		.flatten();
+		let metadata_methods = metadata
+			.runtime_api_trait_by_name("ReviveApi")
+			.into_iter()
+			.flat_map(|api| api.methods())
+			.map(|method| method.name());
 
 		version_declarations
 			.iter()
 			.flat_map(|declarations| declarations.0.iter())
 			.map(|(method, version)| (method, Versioned(*version)))
-			.chain(v15_methods.chain(v16_methods).map(|method| (method, Unversioned)))
+			.chain(metadata_methods.map(|method| (method, Unversioned)))
 			.fold(Self::default(), |this, (method, versioning_status)| {
 				this.with_method(method, versioning_status)
 			})
