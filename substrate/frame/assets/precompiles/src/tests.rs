@@ -232,6 +232,59 @@ fn precompile_transfer_works(asset_index: u16) {
 	});
 }
 
+// EIP-20 requires a zero-value transfer to be treated as a normal transfer and fire the `Transfer`
+// event. `do_transfer` no-ops on zero and fires no callback, so the precompile emits the log
+// itself; this asserts it is emitted (value 0, canonical token address) and balances are unchanged.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn precompile_zero_value_transfer_emits_log(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let from = 123456789;
+		let to = 987654321;
+
+		Balances::make_free_balance_be(&from, 100);
+		Balances::make_free_balance_be(&to, 100);
+
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		let data = IERC20::transferCall { to: to_addr.0.into(), value: U256::ZERO }.abi_encode();
+
+		pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+
+		// Emitted at the callback's canonical token address (asset id 0, trust-backed prefix),
+		// regardless of which precompile alias was called, matching the non-zero path.
+		assert_contract_event(
+			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: from_addr.0.into(),
+				to: to_addr.0.into(),
+				value: U256::ZERO,
+			}),
+		);
+
+		// Zero transfer moves nothing.
+		assert_eq!(Assets::balance(asset_id, from), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+	});
+}
+
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn total_supply_works(asset_index: u16) {

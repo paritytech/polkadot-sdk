@@ -398,19 +398,34 @@ where
 		Self::charge_transfer_log(env)?;
 
 		let from = Self::caller(env)?;
+		let from_account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
 		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(
 			&call.to.into_array().into(),
 		);
+		let amount = Self::to_balance(call.value)?;
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
-			asset_id,
-			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
+			asset_id.clone(),
+			&from_account,
 			&dest,
-			Self::to_balance(call.value)?,
+			amount,
 			None,
 			f,
 		)?;
+
+		// A zero-value transfer is a no-op in `do_transfer` and fires no callback, but EIP-20
+		// requires it to still emit a `Transfer` log. Invoke the instance's own callback (the same
+		// one `do_transfer` uses for non-zero), so the log is identical; the weight is already
+		// covered by `charge_transfer_log` above.
+		if call.value.is_zero() {
+			<Runtime as Config<Instance>>::CallbackHandle::transferred(
+				&asset_id,
+				&from_account,
+				&dest,
+				amount,
+			);
+		}
 
 		Ok(IERC20::transferCall::abi_encode_returns(&true))
 	}
@@ -572,12 +587,25 @@ where
 
 		let approval_amount = Self::to_balance(call.value)?;
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
-			asset_id,
+			asset_id.clone(),
 			&from,
 			&spender,
 			&to,
 			approval_amount,
 		)?;
+
+		// A zero-value transfer is a no-op in `do_transfer_approved` and fires no callback, but
+		// EIP-20 requires it to still emit a `Transfer` log. Invoke the instance's own callback
+		// (the same one used for non-zero), so the log is identical; the weight is already
+		// covered by `charge_transfer_log` above.
+		if call.value.is_zero() {
+			<Runtime as Config<Instance>>::CallbackHandle::transferred(
+				&asset_id,
+				&from,
+				&to,
+				approval_amount,
+			);
+		}
 
 		Ok(IERC20::transferFromCall::abi_encode_returns(&true))
 	}
