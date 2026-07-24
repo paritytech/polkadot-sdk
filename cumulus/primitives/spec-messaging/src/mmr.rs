@@ -33,12 +33,34 @@
 //! sender's on-chain state.
 
 use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use mmr_lib::{Error as MmrError, Merge};
 use polkadot_core_primitives::Hash;
+use scale_info::TypeInfo;
 use sp_runtime::traits::Hash as HashT;
 
 use crate::{INNER_TAG, PEAK_TAG};
+
+/// A leaf position within a stream's MMR (its leaf count). Newtype, per the design's
+/// `MessagePosition` — a position is not an arbitrary `u64`. Lives here (a leaf module both `lift`
+/// and `message` depend on) so neither has to depend on the other for it.
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	Default,
+	TypeInfo,
+)]
+pub struct MessagePosition(pub u64);
 
 /// Domain-tagged merge for the speculative-messaging MMR, generic over the hash
 /// function `H`. Used as the `mmr_lib::Merge` implementation for the subtree.

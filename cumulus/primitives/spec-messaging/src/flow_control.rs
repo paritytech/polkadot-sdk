@@ -46,7 +46,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use crate::message::MessagePosition;
+use crate::mmr::MessagePosition;
 
 /// The payload of every channel-stream MMR leaf: protocol signalling or userspace data.
 ///
