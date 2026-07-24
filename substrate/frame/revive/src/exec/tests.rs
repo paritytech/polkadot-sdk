@@ -24,7 +24,7 @@ use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
-		CallStateAccess, CallWarmth, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN,
+		CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StateAccess, StateWarmth,
 		Warmth,
 	},
 	exec::ExportedFunction::*,
@@ -3396,16 +3396,16 @@ fn cold_hot_call_target_warms_across_calls() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: BOB_ADDR }),
-			CallWarmth::Normal { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
+			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
+			StateWarmth::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
 			"an uncalled target starts cold",
 		);
 		let before = ctx.ext.access_list_metrics();
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: BOB_ADDR }),
-			CallWarmth::Normal { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
+			StateWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"account state and contract metadata are hot after the first call",
 		);
 		let mid = ctx.ext.access_list_metrics();
@@ -3458,8 +3458,8 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 			let before = ctx.ext.access_list_metrics();
 			assert_matches!(
-				ctx.ext.call_warmth(CallStateAccess::Normal { target: DJANGO_ADDR }),
-				CallWarmth::Normal {
+				ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+				StateWarmth::Call {
 					account: Warmth::Cold { .. },
 					contract_info: Warmth::Cold { .. }
 				},
@@ -3485,8 +3485,8 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 				"the denied call warms nothing",
 			);
 			assert_matches!(
-				ctx.ext.call_warmth(CallStateAccess::Normal { target: DJANGO_ADDR }),
-				CallWarmth::Normal {
+				ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+				StateWarmth::Call {
 					account: Warmth::Cold { .. },
 					contract_info: Warmth::Cold { .. }
 				},
@@ -3570,13 +3570,13 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: DJANGO_ADDR }),
-			CallWarmth::Normal { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
+			ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+			StateWarmth::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
 			"B's revert drops the warmth of targets B touched",
 		);
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: BOB_ADDR }),
-			CallWarmth::Normal { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
+			StateWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"the caller's touch of B persists even though B reverted",
 		);
 		exec_success()
@@ -3619,8 +3619,8 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: BOB_ADDR }),
-			CallWarmth::Normal { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
+			StateWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"the entry target is pre-warmed by the first frame",
 		);
 		exec_success()
@@ -3640,8 +3640,8 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: DJANGO_ADDR }),
-			CallWarmth::Normal { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
+			ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+			StateWarmth::Call { account: Warmth::Cold { .. }, contract_info: Warmth::Cold { .. } },
 			"an uncalled target starts cold",
 		);
 
@@ -3649,8 +3649,8 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.call_warmth(CallStateAccess::Normal { target: DJANGO_ADDR }),
-			CallWarmth::Normal { account: Warmth::Hot, contract_info: Warmth::Hot },
+			ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+			StateWarmth::Call { account: Warmth::Hot, contract_info: Warmth::Hot },
 			"a call to a plain account warms it",
 		);
 		let after_plain = ctx.ext.access_list_metrics();

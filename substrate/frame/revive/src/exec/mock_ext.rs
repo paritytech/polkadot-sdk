@@ -264,11 +264,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::storage_slot_warmth")
 	}
 
-	fn call_warmth(
+	fn operation_warmth(
 		&self,
-		_call_access: crate::access_list::CallStateAccess,
-	) -> crate::access_list::CallWarmth {
-		panic!("MockExt::call_warmth")
+		_call_access: crate::access_list::StateAccess,
+	) -> crate::access_list::StateWarmth {
+		panic!("MockExt::operation_warmth")
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {

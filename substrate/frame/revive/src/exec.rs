@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, ContractStorageKind, Error, Event, ImmutableData,
 	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, CallStateAccess, CallWarmth, CodeLoadWarmth},
+	access_list::{AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateWarmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -554,8 +554,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Non-mutating sibling of `warm_storage_slot`.
 	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind;
 
-	/// Warmth of the state items this call reads.
-	fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth;
+	/// Warmth of the state items the operation reads.
+	fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1099,15 +1099,16 @@ where
 				match &delegated_call {
 					None => {
 						if precompile.is_none() {
-							access_list.warm_call(CallStateAccess::Normal { target: address });
+							access_list.warm_operation(StateAccess::Call { target: address });
 						}
 					},
 					Some(delegated) => {
 						let delegate_precompile =
 							<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes());
 						if delegate_precompile.is_none() {
-							access_list
-								.warm_call(CallStateAccess::Delegate { target: delegated.callee });
+							access_list.warm_operation(StateAccess::DelegateCall {
+								target: delegated.callee,
+							});
 						}
 					},
 				}
@@ -1950,8 +1951,8 @@ where
 
 	/// Warms the access-list entries the call reads, plus the code.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn prewarm_call(&mut self, call_access: CallStateAccess, code_hash: H256) {
-		self.access_list.warm_call(call_access);
+	pub(crate) fn prewarm_call(&mut self, state_access: StateAccess, code_hash: H256) {
+		self.access_list.warm_operation(state_access);
 		self.access_list.warm_code(code_hash);
 	}
 
@@ -2692,8 +2693,8 @@ where
 		)
 	}
 
-	fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth {
-		self.access_list.call_warmth(call_access)
+	fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth {
+		self.access_list.operation_warmth(state_access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

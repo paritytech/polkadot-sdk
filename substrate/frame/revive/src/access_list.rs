@@ -174,43 +174,43 @@ impl CodeLoadWarmth {
 	}
 }
 
-/// A call-family operation (normal or delegate).
+/// A state-accessing operation, one variant per opcode.
 #[derive(Clone, Copy, Debug)]
-pub enum CallStateAccess {
-	Normal { target: H160 },
-	Delegate { target: H160 },
+pub enum StateAccess {
+	Call { target: H160 },
+	DelegateCall { target: H160 },
 }
 
-impl CallStateAccess {
-	/// Builds a [`CallStateAccess`] from the given address and delegate flag.
-	pub fn new(target: H160, delegate: bool) -> Self {
-		if delegate { Self::Delegate { target } } else { Self::Normal { target } }
+impl StateAccess {
+	/// Builds the call variant matching the `delegate` flag.
+	pub fn call(target: H160, delegate: bool) -> Self {
+		if delegate { Self::DelegateCall { target } } else { Self::Call { target } }
 	}
 
-	/// Maps `warmth_of` over each state item this call reads and collects
-	/// the results into a [`CallWarmth`].
-	fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> CallWarmth {
+	/// Maps `warmth_of` over each state item this operation reads and
+	/// collects the results into a [`StateWarmth`].
+	fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateWarmth {
 		match self {
-			Self::Normal { target } => CallWarmth::Normal {
+			Self::Call { target } => StateWarmth::Call {
 				account: warmth_of(AccessEntry::Account { address: target }),
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
-			Self::Delegate { target } => CallWarmth::Delegate {
+			Self::DelegateCall { target } => StateWarmth::DelegateCall {
 				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
 			},
 		}
 	}
 }
 
-/// Warmth of the state items a [`CallStateAccess`] reads, one variant per opcode.
+/// Warmth of the state items a [`StateAccess`] reads, one variant per opcode.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
-pub enum CallWarmth {
+pub enum StateWarmth {
 	/// A normal call reads the target's account state and contract metadata.
-	Normal { account: Warmth, contract_info: Warmth },
+	Call { account: Warmth, contract_info: Warmth },
 	/// A delegate call runs in the caller's context and reads only the
 	/// target's contract metadata.
-	Delegate { contract_info: Warmth },
+	DelegateCall { contract_info: Warmth },
 }
 
 /// Snapshot of per-transaction access-list counters.
@@ -374,14 +374,14 @@ impl AccessList {
 		kind
 	}
 
-	/// Warms every state item this call reads, returning its warmth.
-	pub fn warm_call(&mut self, call_access: CallStateAccess) -> CallWarmth {
-		call_access.expand(|entry| self.touch(entry))
+	/// Warms every state item the operation reads, returning its warmth.
+	pub fn warm_operation(&mut self, state_access: StateAccess) -> StateWarmth {
+		state_access.expand(|entry| self.touch(entry))
 	}
 
-	/// Non-mutating sibling of [`warm_call`](Self::warm_call).
-	pub fn call_warmth(&self, call_access: CallStateAccess) -> CallWarmth {
-		call_access.expand(|entry| self.peek(&entry))
+	/// Non-mutating sibling of [`warm_operation`](Self::warm_operation).
+	pub fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth {
+		state_access.expand(|entry| self.peek(&entry))
 	}
 
 	/// Warms the two entries a code load reads, returning their warmth.
@@ -532,8 +532,8 @@ mod tests {
 		// The set is below the cap, so peek prices both call entries revertible
 		// cold: it cannot see that touching the first entry fills the cap.
 		assert_eq!(
-			al.call_warmth(CallStateAccess::Normal { target }),
-			CallWarmth::Normal {
+			al.operation_warmth(StateAccess::Call { target }),
+			StateWarmth::Call {
 				account: Warmth::cold_revertible(),
 				contract_info: Warmth::cold_revertible(),
 			},
@@ -542,8 +542,8 @@ mod tests {
 
 		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
 		assert_eq!(
-			al.warm_call(CallStateAccess::Normal { target }),
-			CallWarmth::Normal {
+			al.warm_operation(StateAccess::Call { target }),
+			StateWarmth::Call {
 				account: Warmth::cold_revertible(),
 				contract_info: Warmth::cold_non_revertible(),
 			},
