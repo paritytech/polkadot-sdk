@@ -146,23 +146,26 @@ where
 }
 
 /// Fork from the included head once the relay parent of the parablock we'd build on lags the
-/// scheduling parent by more than this many relay blocks.
+/// scheduling parent by more than this many relay blocks past the relay parent offset (a healthy
+/// segment already trails by the offset). Deliberately large: forking is a last-resort rescue
+/// (e.g. a lost proof), and the chance of needing it is very low.
 ///
 /// TODO: a raw relay-block gap also triggers on a voluntary pause (cores unassigned and later
 /// re-assigned), forking away a still-resubmittable segment. Accumulating the gap only while the
 /// para is scheduled would avoid that. It is a niche case though: what matters for parachains that
 /// plan to disturb the chain this way is that building cleanly resumes, even if some txs are lost.
-const MAX_RELAY_GAP_BEFORE_FORK: u32 = 20;
+const MAX_RELAY_GAP_BEFORE_FORK: u32 = 50;
 
 /// Pick the parent to build on and the unincluded segment to re-advertise: the deepest parent
 /// from the search with its segment, or — when the parent's relay parent lags the scheduling
-/// parent by more than [`MAX_RELAY_GAP_BEFORE_FORK`] — the included head with an empty segment
-/// (a fork abandons the stuck segment), as a stall recovery. Sibling forks from different
-/// collators are arbitrated by the relay chain: once one fork block is backed,
-/// pending-availability anchoring pulls every collator onto it.
+/// parent by more than [`MAX_RELAY_GAP_BEFORE_FORK`] plus the relay parent offset — the included
+/// head with an empty segment (a fork abandons the stuck segment), as a stall recovery. Sibling
+/// forks from different collators are arbitrated by the relay chain: once one fork block is
+/// backed, pending-availability anchoring pulls every collator onto it.
 fn select_build_parent_and_segment<Block: BlockT>(
 	parent_search_result: &consensus_common::ParentSearchResult<Block>,
 	scheduling_parent_number: u32,
+	relay_parent_offset: u32,
 	v3_enabled: bool,
 ) -> (Block::Header, Vec<Block::Header>) {
 	let build_parent = parent_search_result.best_parent_header();
@@ -171,10 +174,10 @@ fn select_build_parent_and_segment<Block: BlockT>(
 			build_parent.digest(),
 		)
 		.map(|(_, number)| number);
+	let max_gap = relay_parent_offset.saturating_add(MAX_RELAY_GAP_BEFORE_FORK);
 	let fork = v3_enabled &&
-		build_parent_relay_parent.is_some_and(|rp| {
-			scheduling_parent_number.saturating_sub(rp) > MAX_RELAY_GAP_BEFORE_FORK
-		});
+		build_parent_relay_parent
+			.is_some_and(|rp| scheduling_parent_number.saturating_sub(rp) > max_gap);
 
 	if fork {
 		let included = parent_search_result.included_at_scheduling();
@@ -182,7 +185,7 @@ fn select_build_parent_and_segment<Block: BlockT>(
 			target: LOG_TARGET,
 			included_number = %included.number(),
 			build_parent_number = %build_parent.number(),
-			max_gap = MAX_RELAY_GAP_BEFORE_FORK,
+			max_gap,
 			"Build parent relay parent lags scheduling parent; forking from included head.",
 		);
 		(included.clone(), Vec::new())
@@ -190,7 +193,7 @@ fn select_build_parent_and_segment<Block: BlockT>(
 		(
 			build_parent.clone(),
 			parent_search_result
-				.unincluded_segment()
+				.resubmittable_ancestry()
 				.map(|s| s.to_vec())
 				.unwrap_or_default(),
 		)
@@ -364,6 +367,7 @@ where
 		let (initial_parent_header, unincluded_headers) = select_build_parent_and_segment(
 			&parent_search_result,
 			scheduling_parent_header.number,
+			relay_parent_offset,
 			v3_enabled,
 		);
 		let initial_parent_hash = initial_parent_header.hash();
@@ -555,8 +559,10 @@ where
 
 		// Core affinity: bucket each unincluded (historical) block by its original
 		// `CoreInfo.selector`, mapped into the current core set via `selector mod total_cores`.
-		// Buckets stay as headers; they're hydrated per core just before submission, so buckets
-		// for cores we never reach are never hydrated.
+		// The mapping is stable across slots, so a block is always re-advertised on the same
+		// core — never double-advertised across cores — and the resubmission load spreads over
+		// all assigned cores. Buckets stay as headers; they're hydrated per core just before
+		// submission, so buckets for cores we never reach are never hydrated.
 		let total_cores = cores.total_cores();
 		let mut per_selector_unincluded_headers: HashMap<u32, Vec<Block::Header>> = HashMap::new();
 		if total_cores > 0 {
@@ -781,7 +787,7 @@ where
 				let unincluded_headers =
 					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
 				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
-				let message = assemble_core_message::<Block, P>(
+				let submission = assemble_core_submission::<Block, P>(
 					v3_header_chain,
 					unincluded_headers,
 					bundle,
@@ -793,14 +799,21 @@ where
 					&env.keystore,
 				);
 
-				if let Some(message) = message {
-					if collator_sender.unbounded_send(message).is_err() {
-						tracing::error!(
-							target: LOG_TARGET,
-							"Unable to send collation to the collation task.",
-						);
-						return;
-					}
+				match submission {
+					Some(submission) =>
+						if collator_sender.unbounded_send(submission).is_err() {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Unable to send collation to the collation task.",
+							);
+							return;
+						},
+					None => tracing::debug!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						has_fresh,
+						"Nothing to submit for this core.",
+					),
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
@@ -821,7 +834,7 @@ where
 /// Assemble one core's submission. V3: the resubmitted unincluded bucket plus the freshly-built
 /// bundle (or the bucket alone), under a scheduling proof signed only when there is something to
 /// submit. V2: a single collation, only when a fresh block was built.
-fn assemble_core_message<Block, P>(
+fn assemble_core_submission<Block, P>(
 	v3_header_chain: Option<Vec<RelayHeader>>,
 	unincluded_headers: Vec<Block::Header>,
 	bundle: Option<CollatorSegmentEntry<Block>>,

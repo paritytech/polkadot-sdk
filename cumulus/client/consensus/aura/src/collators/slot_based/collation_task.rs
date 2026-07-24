@@ -30,7 +30,7 @@ use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateDescriptorVersion, CollatorPair, Id as ParaId};
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{BlockId, UMPSignal, UMP_SEPARATOR},
 	ClaimQueueOffset, SchedulingProof, SignedSchedulingInfo,
@@ -252,6 +252,14 @@ fn override_ump_scheduling_tail(
 ) {
 	// Strip everything from the first `UMP_SEPARATOR` onwards (the existing scheduling tail).
 	if let Some(pos) = upward_messages.iter().position(|m| m == &UMP_SEPARATOR) {
+		for bytes in upward_messages.iter().skip(pos + 1) {
+			// NOTE: intentionally exhaustive (no `_` arm), mirroring
+			// `SchedulingSignals::from_block_signals`: a new `UMPSignal` variant must fail to
+			// compile here, because the truncate below would silently drop it.
+			match UMPSignal::decode(&mut &bytes[..]).expect("Failed to decode `UMPSignal`") {
+				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
+			}
+		}
 		upward_messages.truncate(pos);
 	}
 

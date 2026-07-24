@@ -14,6 +14,8 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use std::time::Duration;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
@@ -109,10 +111,22 @@ async fn v4_fork_from_included() -> Result<(), anyhow::Error> {
 
 	// Freeze inclusion: set all the para's cores (including the auto-assigned one) to Idle, long
 	// enough for the segment to fill, building to halt, and the build parent's relay parent to age
-	// past MAX_RELAY_GAP_BEFORE_FORK so the fork fires.
+	// past the fork threshold (`MAX_RELAY_GAP_BEFORE_FORK` plus the relay parent offset) so the
+	// fork fires.
 	log::info!("Freezing inclusion: setting {PARA_ID}'s cores to Idle");
 	unassign_cores(&relay_client, vec![0, 1, 2]).await?;
-	wait_for_relay_blocks(&relay_client, 40).await?;
+	wait_for_relay_blocks(&relay_client, 60).await?;
+
+	// The fork must actually have fired: the builder logs it when it abandons the stuck segment.
+	log::info!("Asserting the fork fired on a collator");
+	let result = collator_alice
+		.wait_log_line_count_with_timeout(
+			"*forking from included head*",
+			true,
+			LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(60), false),
+		)
+		.await?;
+	assert!(result.success(), "no collator logged the fork-from-included");
 
 	// Restore cores; the para must recover.
 	log::info!("Restoring cores to {PARA_ID}");

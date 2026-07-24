@@ -56,8 +56,10 @@ impl ParentSearchParams {
 
 /// A potential parent block returned from [`find_parent_for_building`].
 ///
-/// V3 additionally carries the local view of the unincluded segment between included and best
-/// (oldest first, exclusive of included); V2 only exposes the segment endpoints.
+/// V3 additionally carries the resubmittable ancestry: the parablocks above the relay-known head
+/// (pending availability if any, else included) up to the best parent, oldest first. This is not
+/// the runtime's unincluded segment — pending parablocks are excluded and the view is taken at the
+/// scheduling parent. V2 only exposes the endpoints.
 #[derive(PartialEq, Clone)]
 pub enum ParentSearchResult<Block: BlockT> {
 	/// V2 result: only the segment endpoints.
@@ -67,15 +69,16 @@ pub enum ParentSearchResult<Block: BlockT> {
 		/// The header of the best parent block to build on.
 		best_parent_header: Block::Header,
 	},
-	/// V3 result: endpoints plus the local view of the unincluded segment.
+	/// V3 result: endpoints plus the resubmittable ancestry.
 	V3 {
 		/// The header of the included block (confirmed on relay chain) at the scheduling parent.
 		included_at_scheduling: Block::Header,
 		/// The header of the best parent block to build on.
 		best_parent_header: Block::Header,
-		/// Unincluded parablocks ordered oldest first (just after the included block) to newest
-		/// (best parent). Empty when best parent equals the included block.
-		unincluded_segment: Vec<Block::Header>,
+		/// Parablocks that may still need (re-)advertising: everything above the relay-known head
+		/// (pending if any, else included), oldest first, ending at the best parent. Empty when
+		/// the best parent is the relay-known head itself.
+		resubmittable_ancestry: Vec<Block::Header>,
 	},
 }
 
@@ -98,22 +101,23 @@ impl<Block: BlockT> ParentSearchResult<Block> {
 		}
 	}
 
-	/// The unincluded segment for V3 (oldest first, exclusive of included). `None` for V2.
-	pub fn unincluded_segment(&self) -> Option<&[Block::Header]> {
+	/// The resubmittable ancestry for V3 (oldest first, exclusive of the relay-known head).
+	/// `None` for V2.
+	pub fn resubmittable_ancestry(&self) -> Option<&[Block::Header]> {
 		match self {
 			Self::V2 { .. } => None,
-			Self::V3 { unincluded_segment, .. } => Some(unincluded_segment),
+			Self::V3 { resubmittable_ancestry, .. } => Some(resubmittable_ancestry),
 		}
 	}
 
 	/// Replace the best parent with its parent (one step back). For V3, also pops the matching
-	/// tail entry of the unincluded segment to keep it in sync with the new best.
+	/// tail entry of the resubmittable ancestry to keep it in sync with the new best.
 	pub fn walk_best_parent_back(&mut self, new_best: Block::Header) {
 		match self {
 			Self::V2 { best_parent_header, .. } => *best_parent_header = new_best,
-			Self::V3 { best_parent_header, unincluded_segment, .. } => {
+			Self::V3 { best_parent_header, resubmittable_ancestry, .. } => {
 				*best_parent_header = new_best;
-				unincluded_segment.pop();
+				resubmittable_ancestry.pop();
 			},
 		}
 	}
@@ -124,9 +128,9 @@ impl<Block: BlockT> ParentSearchResult<Block> {
 			Self::V2 { best_parent_header, included_at_scheduling } => {
 				*best_parent_header = included_at_scheduling.clone()
 			},
-			Self::V3 { best_parent_header, included_at_scheduling, unincluded_segment } => {
+			Self::V3 { best_parent_header, included_at_scheduling, resubmittable_ancestry } => {
 				*best_parent_header = included_at_scheduling.clone();
-				unincluded_segment.clear();
+				resubmittable_ancestry.clear();
 			},
 		}
 	}
@@ -138,7 +142,7 @@ impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 			.field("included_at_scheduling_number", &self.included_at_scheduling().number())
 			.field("best_parent_hash", &self.best_parent_header().hash())
 			.field("best_parent_number", &self.best_parent_header().number())
-			.field("unincluded_segment_len", &self.unincluded_segment().map(|s| s.len()))
+			.field("resubmittable_ancestry_len", &self.resubmittable_ancestry().map(|s| s.len()))
 			.finish()
 	}
 }
@@ -258,7 +262,7 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 /// The `start` block (pending or included) is always valid by construction.
 /// This function explores its descendants via DFS, returning the deepest block
 /// whose relay-parent is within the allowed ancestry.
-/// Find the deepest valid parent to build on, and collect the unincluded segment (the ancestry
+/// Find the deepest valid parent to build on, and collect the resubmittable ancestry (the chain
 /// of that parent, oldest first, exclusive of `start`) while walking the parablocks — the segment
 /// is reconstructed from the headers visited during the search, without re-reading the backend.
 async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
@@ -270,7 +274,7 @@ async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 	let mut best = start_header;
 
 	// Valid parablocks visited during the search, keyed by hash. Reused below to reconstruct the
-	// unincluded segment (the ancestry of `best`) without re-reading from the backend.
+	// resubmittable ancestry (the chain up to `best`) without re-reading from the backend.
 	let mut seen: HashMap<Block::Hash, Block::Header> = HashMap::new();
 
 	let mut frontier: Vec<Block::Hash> =
@@ -299,21 +303,21 @@ async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 		frontier.extend(backend.blockchain().children(hash).ok().into_iter().flatten());
 	}
 
-	// Reconstruct the unincluded segment: walk back from `best` to `start` (exclusive), oldest
+	// Reconstruct the resubmittable ancestry: walk back from `best` to `start` (exclusive), oldest
 	// first, reusing the headers visited above.
-	let mut unincluded_segment = Vec::new();
+	let mut resubmittable_ancestry = Vec::new();
 	let mut current = best.clone();
 	while current.hash() != start_hash {
 		let parent_hash = *current.parent_hash();
-		unincluded_segment.push(current);
+		resubmittable_ancestry.push(current);
 		match seen.get(&parent_hash) {
 			Some(parent) => current = parent.clone(),
 			None => break,
 		}
 	}
-	unincluded_segment.reverse();
+	resubmittable_ancestry.reverse();
 
-	(best, unincluded_segment)
+	(best, resubmittable_ancestry)
 }
 
 async fn get_relay_parent<Block: BlockT>(
@@ -432,7 +436,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
 			// Search for the deepest valid parent starting from the pending/included block.
-			let (best_parent_header, _unincluded_segment) =
+			let (best_parent_header, _resubmittable_ancestry) =
 				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
 					let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
 					async move { is_valid }
@@ -442,9 +446,9 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			ParentSearchResult::V2 { included_at_scheduling: included_header, best_parent_header }
 		},
 		ParentSearchParams::V3 { scheduling_parent } => {
-			// The unincluded segment (oldest first, exclusive of the start block) is collected
+			// The resubmittable ancestry (oldest first, exclusive of the start block) is collected
 			// while walking the parablocks in `find_deepest_valid_parent`.
-			let (best_parent_header, unincluded_segment) =
+			let (best_parent_header, resubmittable_ancestry) =
 				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
 					let header = header.clone();
 					async move {
@@ -462,7 +466,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			ParentSearchResult::V3 {
 				included_at_scheduling: included_header,
 				best_parent_header,
-				unincluded_segment,
+				resubmittable_ancestry,
 			}
 		},
 	};
