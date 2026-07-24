@@ -855,7 +855,7 @@ impl VersionAwareRuntimeApiProvider {
 	/// capabilities of its runtime spec version if they are not cached yet.
 	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block(block_hash).await?;
-		let capabilities = self.capabilities(&at_block).await;
+		let capabilities = self.capabilities(&at_block).await?;
 		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
 	}
 
@@ -864,18 +864,18 @@ impl VersionAwareRuntimeApiProvider {
 	async fn capabilities(
 		&self,
 		at_block: &OnlineClientAtBlock<SrcChainConfig>,
-	) -> ReviveRuntimeApiCapabilities {
+	) -> Result<ReviveRuntimeApiCapabilities, ClientError> {
 		let spec_version = at_block.spec_version();
 		if let Some(capabilities) = self.lock_cache().get(&spec_version).copied() {
-			return capabilities;
+			return Ok(capabilities);
 		}
 
 		let capabilities =
-			ReviveRuntimeApiCapabilities::new(at_block.metadata_ref(), at_block).await;
+			ReviveRuntimeApiCapabilities::new(at_block.metadata_ref(), at_block).await?;
 		self.lock_cache().insert(spec_version, capabilities);
 		log::debug!(target: LOG_TARGET,
 			"Computed the revive runtime API capabilities of spec version {spec_version}");
-		capabilities
+		Ok(capabilities)
 	}
 
 	/// Locks the cache, tolerating lock poisoning since the cache holds no invariants beyond the
@@ -933,11 +933,30 @@ impl ReviveRuntimeApiCapabilities {
 	///
 	/// Subxt normalizes every metadata version it supports into [`Metadata`]. If that metadata does
 	/// not describe pallet-revive's runtime API, no method is reported as available.
-	pub async fn new(metadata: &Metadata, at_block: &OnlineClientAtBlock<SrcChainConfig>) -> Self {
-		let version_declarations = at_block
-			.runtime_apis()
-			.call(subxt_client::runtime_apis().revive_api().version_declarations().unvalidated())
-			.await;
+	///
+	/// If metadata declares `version_declarations`, any failure to call it is returned instead of
+	/// caching incomplete capabilities.
+	pub async fn new(
+		metadata: &Metadata,
+		at_block: &OnlineClientAtBlock<SrcChainConfig>,
+	) -> Result<Self, ClientError> {
+		let version_declarations = match metadata
+			.runtime_api_trait_by_name("ReviveApi")
+			.and_then(|api| api.method_by_name("version_declarations"))
+		{
+			Some(_) => Some(
+				at_block
+					.runtime_apis()
+					.call(
+						subxt_client::runtime_apis()
+							.revive_api()
+							.version_declarations()
+							.unvalidated(),
+					)
+					.await?,
+			),
+			None => None,
+		};
 
 		let metadata_methods = metadata
 			.runtime_api_trait_by_name("ReviveApi")
@@ -945,14 +964,14 @@ impl ReviveRuntimeApiCapabilities {
 			.flat_map(|api| api.methods())
 			.map(|method| method.name());
 
-		version_declarations
+		Ok(version_declarations
 			.iter()
 			.flat_map(|declarations| declarations.0.iter())
 			.map(|(method, version)| (method, Versioned(*version)))
 			.chain(metadata_methods.map(|method| (method, Unversioned)))
 			.fold(Self::default(), |this, (method, versioning_status)| {
 				this.with_method(method, versioning_status)
-			})
+			}))
 	}
 
 	fn with_method(
