@@ -20,11 +20,14 @@
 #![cfg(test)]
 
 use crate::{
-	extension::{AsScarcity, AsScarcityInfo, Pre, Val},
+	extension::{AsScarcity, AsScarcityInfo, CustomInvalidity, Pre, Val},
 	mock::*,
-	Collections, Error, Event, Instances, ItemDefs, Kind, LockInfo, Locked, Nft, NftsByOwner,
-	Origin, Stat,
+	Collections, Error, Event, InstanceDeposits, Instances, ItemDefs, Kind, LockInfo, Locked, Nft,
+	NftsByOwner, Origin, Stat,
 };
+use codec::Encode;
+#[cfg(feature = "try-runtime")]
+use frame_support::traits::Hooks;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::Pays,
@@ -33,8 +36,10 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{TransactionExtension, TxBaseImplication},
-	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
-	DispatchResult,
+	transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+	},
+	DispatchError, DispatchResult,
 };
 
 const OWNER: u64 = 1;
@@ -79,6 +84,10 @@ fn transfer_call(to: u64) -> RuntimeCall {
 	RuntimeCall::Scarcity(crate::Call::transfer { to })
 }
 
+fn burn_call() -> RuntimeCall {
+	RuntimeCall::Scarcity(crate::Call::burn {})
+}
+
 fn scarcity_extension() -> AsScarcity<Test> {
 	AsScarcity::new(Some(AsScarcityInfo::AsNft))
 }
@@ -106,6 +115,36 @@ fn prepare_transfer(val: Val<Test>, origin: &RuntimeOrigin, to: u64) -> Pre<Test
 		.unwrap()
 }
 
+fn validate_burn(
+	signer: u64,
+) -> Result<(ValidTransaction, Val<Test>, RuntimeOrigin), TransactionValidityError> {
+	let call = burn_call();
+	scarcity_extension().validate(
+		RuntimeOrigin::signed(signer),
+		&call,
+		&Default::default(),
+		0,
+		(),
+		&TxBaseImplication(()),
+		TransactionSource::External,
+	)
+}
+
+fn prepare_burn(val: Val<Test>, origin: &RuntimeOrigin) -> Pre<Test> {
+	let call = burn_call();
+	scarcity_extension()
+		.prepare(val, origin, &call, &Default::default(), 0)
+		.unwrap()
+}
+
+fn assert_no_nft(error: TransactionValidityError) {
+	assert!(matches!(
+		error,
+		TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
+			if code == CustomInvalidity::NoNft as u8
+	));
+}
+
 fn post_dispatch(pre: Pre<Test>, result: DispatchResult) {
 	assert_ok!(AsScarcity::<Test>::post_dispatch_details(
 		pre,
@@ -130,6 +169,56 @@ fn create_collection_assigns_incremental_ids_and_owner() {
 		System::assert_has_event(
 			Event::<Test>::CollectionCreated { collection: 1, owner: OTHER }.into(),
 		);
+	});
+}
+
+#[test]
+fn create_collection_charges_creator_and_stores_ticket() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+
+		let info = Collections::<Test>::get(0).expect("collection exists");
+		assert_eq!(info.ticket, TestConsideration);
+		assert!(matches!(
+			consideration_events().as_slice(),
+			[ConsiderationEvent::New { who: OWNER, footprint }]
+				if footprint.count == 1 && footprint.size > 0
+		));
+	});
+}
+
+#[test]
+fn define_item_charges_issuer_by_encoded_size() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+		clear_consideration_events();
+
+		define(0, Kind::Normal, None);
+		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
+		assert_eq!(definition.ticket, TestConsideration);
+		assert!(matches!(
+			consideration_events().as_slice(),
+			[ConsiderationEvent::New { who: OWNER, footprint }]
+				if footprint.count == 1
+					&& footprint.size == definition.encoded_size() as u64
+					&& footprint.size > 0
+		));
+	});
+}
+
+#[test]
+fn mint_charges_collection_owner_and_stores_instance_deposit() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		clear_consideration_events();
+
+		mint(0, RECIPIENT);
+		assert!(InstanceDeposits::<Test>::contains_key(0));
+		assert!(matches!(
+			consideration_events().as_slice(),
+			[ConsiderationEvent::New { who: OWNER, footprint }]
+				if footprint.count == 2 && footprint.size > 0
+		));
 	});
 }
 
@@ -259,6 +348,43 @@ fn mint_writes_consistent_state() {
 }
 
 #[test]
+fn do_mint_claimed_waives_deposit_and_increments_supply() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		clear_consideration_events();
+		MockNow::set(1_234);
+
+		assert_eq!(Scarcity::do_mint_claimed(0, 0, RECIPIENT), Ok(0));
+
+		let nft = NftsByOwner::<Test>::get(RECIPIENT).expect("claimed NFT is stored by owner");
+		assert_eq!(nft.instance, 0);
+		assert_eq!(nft.collection, 0);
+		assert_eq!(nft.item, 0);
+		assert_eq!(nft.minted_at, 1_234);
+		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
+		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, 1);
+		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		assert!(consideration_events().is_empty());
+		System::assert_has_event(
+			Event::<Test>::Minted { instance: 0, collection: 0, item: 0, owner: RECIPIENT }.into(),
+		);
+	});
+}
+
+#[test]
+fn do_mint_claimed_checks_collection_item_and_destination() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		define(0, Kind::Special, None);
+
+		assert_noop!(Scarcity::do_mint_claimed(99, 0, RECIPIENT), Error::<Test>::UnknownCollection);
+		assert_noop!(Scarcity::do_mint_claimed(0, 99, RECIPIENT), Error::<Test>::UnknownItem);
+		assert_ok!(Scarcity::do_mint_claimed(0, 0, RECIPIENT));
+		assert_noop!(Scarcity::do_mint_claimed(0, 1, RECIPIENT), Error::<Test>::AddressOccupied);
+	});
+}
+
+#[test]
 fn item_defs_are_immutable() {
 	new_test_ext().execute_with(|| {
 		setup_item();
@@ -291,6 +417,32 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		assert_eq!(moved.moves, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		System::assert_has_event(Event::<Test>::Transferred { instance: 0, to: OTHER }.into());
+	});
+}
+
+#[test]
+fn claimed_instance_transfers_through_extension_pipeline() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		clear_consideration_events();
+		MockNow::set(10);
+		assert_ok!(Scarcity::do_mint_claimed(0, 0, RECIPIENT));
+
+		MockNow::set(20);
+		let (validity, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
+		assert_eq!(validity.priority, 10);
+		let pre = prepare_transfer(val, &origin, OTHER);
+		assert_ok!(Scarcity::transfer(origin, OTHER));
+		post_dispatch(pre, Ok(()));
+
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has claimed NFT");
+		assert_eq!(moved.instance, 0);
+		assert_eq!(moved.last_moved, 20);
+		assert_eq!(moved.moves, 1);
+		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
+		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		assert!(consideration_events().is_empty());
 	});
 }
 
@@ -459,5 +611,123 @@ fn transfer_to_self_rejected() {
 			Scarcity::transfer(nft_origin(RECIPIENT, nft), RECIPIENT),
 			Error::<Test>::SelfTransfer
 		);
+	});
+}
+
+#[test]
+fn burn_removes_funded_instance_releases_deposit_and_preserves_supply() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		MockNow::set(10);
+		mint(0, RECIPIENT);
+		clear_consideration_events();
+		let supply = ItemDefs::<Test>::get(0, 0).unwrap().supply;
+
+		MockNow::set(25);
+		let (validity, val, origin) = validate_burn(RECIPIENT).unwrap();
+		assert_eq!(validity.priority, 15);
+		let pre = prepare_burn(val, &origin);
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		let post_info = Scarcity::burn(origin).unwrap();
+		post_dispatch(pre, Ok(()));
+
+		assert_eq!(post_info.pays_fee, Pays::No);
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		assert!(!Instances::<Test>::contains_key(0));
+		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, supply);
+		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
+		System::assert_has_event(Event::<Test>::Burned { instance: 0 }.into());
+
+		assert_no_nft(validate_transfer(RECIPIENT, OTHER).err().expect("burned purse has no NFT"));
+		assert_no_nft(validate_burn(RECIPIENT).err().expect("burned purse has no NFT"));
+	});
+}
+
+#[test]
+fn burn_of_claimed_instance_releases_nothing_and_cleans_indexes() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		assert_ok!(Scarcity::do_mint_claimed(0, 0, RECIPIENT));
+		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		clear_consideration_events();
+
+		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
+		let pre = prepare_burn(val, &origin);
+		assert_ok!(Scarcity::burn(origin));
+		post_dispatch(pre, Ok(()));
+
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		assert!(!Instances::<Test>::contains_key(0));
+		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		assert!(consideration_events().is_empty());
+	});
+}
+
+#[test]
+fn burn_uses_rest_time_priority_and_rejects_locked_keys() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+
+		MockNow::set(100);
+		let (validity, _, _) = validate_burn(RECIPIENT).unwrap();
+		assert_eq!(validity.priority, 100);
+
+		Locked::<Test>::insert(RECIPIENT, LockInfo { retries: 0, until: 101 });
+		assert!(validate_burn(RECIPIENT).is_err());
+		assert!(NftsByOwner::<Test>::contains_key(RECIPIENT));
+
+		MockNow::set(101);
+		assert!(validate_burn(RECIPIENT).is_ok());
+	});
+}
+
+#[test]
+fn failed_burn_restores_nft_and_locks_purse_key() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		MockDropFails::set(true);
+
+		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
+		let pre = prepare_burn(val, &origin);
+		let dispatch = Scarcity::burn(origin);
+		assert_noop!(dispatch, DispatchError::Other("test consideration drop failed"));
+		// The burn's storage transaction restores its reverse index and ticket. The extension
+		// still owns the NFT until post-dispatch handles the failed capability call.
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
+		assert!(InstanceDeposits::<Test>::contains_key(0));
+
+		post_dispatch(pre, Err(DispatchError::Other("test consideration drop failed")));
+		assert!(NftsByOwner::<Test>::contains_key(RECIPIENT));
+		assert_eq!(Locked::<Test>::get(RECIPIENT), Some(LockInfo { retries: 0, until: 60 }));
+	});
+}
+
+#[test]
+fn try_state_accepts_issuer_claimed_transferred_and_burned_states() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		define(0, Kind::Special, None);
+		mint(0, RECIPIENT);
+		mint(1, OTHER);
+
+		let (_, val, origin) = validate_transfer(RECIPIENT, 4).unwrap();
+		let pre = prepare_transfer(val, &origin, 4);
+		assert_ok!(Scarcity::transfer(origin, 4));
+		post_dispatch(pre, Ok(()));
+
+		assert_ok!(Scarcity::do_mint_claimed(0, 0, 5));
+		let (_, val, origin) = validate_burn(5).unwrap();
+		let pre = prepare_burn(val, &origin);
+		assert_ok!(Scarcity::burn(origin));
+		post_dispatch(pre, Ok(()));
+		assert_ok!(Scarcity::do_mint_claimed(0, 0, 6));
+
+		assert_ok!(Scarcity::do_try_state());
+		#[cfg(feature = "try-runtime")]
+		assert_ok!(<Scarcity as Hooks<u64>>::try_state(System::block_number()));
 	});
 }

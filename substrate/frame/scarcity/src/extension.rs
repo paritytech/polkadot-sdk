@@ -48,7 +48,7 @@ use sp_runtime::{
 	DebugNoBound,
 )]
 pub enum AsScarcityInfo {
-	/// Authorize a transfer using the NFT's purse key.
+	/// Authorize a transfer or burn using the NFT's purse key.
 	AsNft,
 }
 
@@ -59,7 +59,7 @@ pub enum CustomInvalidity {
 	OriginToAsNftMustBeSigned = 0,
 	/// The purse key is temporarily locked after a failed dispatch.
 	NftTemporarilyLocked = 1,
-	/// The purse key has no NFT to authorize the transfer.
+	/// The purse key has no NFT to authorize the requested action.
 	NoNft = 2,
 	/// The transfer destination equals the current purse key.
 	TransferToSelf = 3,
@@ -85,9 +85,9 @@ pub enum Pre<T: Config + Send + Sync> {
 	UsingNft { owner: T::AccountId, nft: Nft },
 }
 
-/// Purse-key authorization for Scarcity transfers.
+/// Purse-key authorization for Scarcity transfers and burns.
 ///
-/// NFT authorization is deliberately nonce-free. Consumption-on-transfer makes replays hit
+/// NFT authorization is deliberately nonce-free. Consumption-on-use makes replays hit
 /// `NoNft`; the transaction-pool `provides` tag, mandatory mortality, and the failure lock
 /// together bound replay. Callers must send mortal transactions.
 #[derive(
@@ -132,8 +132,10 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 
 	fn weight(&self, call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
 		if matches!(self.0, Some(AsScarcityInfo::AsNft)) &&
-			matches!(call.is_sub_type(), Some(Call::<T>::transfer { .. }))
-		{
+			matches!(
+				call.is_sub_type(),
+				Some(Call::<T>::transfer { .. }) | Some(Call::<T>::burn {})
+			) {
 			T::WeightInfo::as_scarcity_pipeline()
 		} else {
 			Weight::zero()
@@ -150,8 +152,10 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 		_inherited_implication: &impl Implication,
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
-		let Some(Call::<T>::transfer { to }) = call.is_sub_type() else {
-			return Ok((ValidTransaction::default(), Val::NotUsing, origin));
+		let transfer_to = match call.is_sub_type() {
+			Some(Call::<T>::transfer { to }) => Some(to),
+			Some(Call::<T>::burn {}) => None,
+			_ => return Ok((ValidTransaction::default(), Val::NotUsing, origin)),
 		};
 		if !matches!(self.0, Some(AsScarcityInfo::AsNft)) {
 			return Ok((ValidTransaction::default(), Val::NotUsing, origin));
@@ -168,14 +172,17 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 			}
 		}
 		let nft = NftsByOwner::<T>::get(&owner).ok_or(CustomInvalidity::NoNft)?;
-		// Pre-validate the destination so ordinary user error is rejected at the pool and never
-		// reaches dispatch, where a failure triggers the backoff lock. The dispatch-time checks
-		// remain for genuine same-block races. Mirrors coinage's `validate_transfer` pattern.
-		if to == &owner {
-			return Err(CustomInvalidity::TransferToSelf.into());
-		}
-		if NftsByOwner::<T>::contains_key(to) {
-			return Err(CustomInvalidity::DestinationOccupied.into());
+		if let Some(to) = transfer_to {
+			// Pre-validate the destination so ordinary user error is rejected at the pool and
+			// never reaches dispatch, where a failure triggers the backoff lock. The
+			// dispatch-time checks remain for genuine same-block races. Mirrors coinage's
+			// `validate_transfer` pattern. Burns have no destination checks.
+			if to == &owner {
+				return Err(CustomInvalidity::TransferToSelf.into());
+			}
+			if NftsByOwner::<T>::contains_key(to) {
+				return Err(CustomInvalidity::DestinationOccupied.into());
+			}
 		}
 		let priority = now.saturating_sub(nft.last_moved).min(T::MaxTransferPriority::get());
 		let validity = ValidTransaction::with_tag_prefix("Scarcity")

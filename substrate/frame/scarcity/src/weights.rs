@@ -38,6 +38,7 @@ pub trait WeightInfo {
 	fn define_item(s: u32, m: u32) -> Weight;
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
+	fn burn() -> Weight;
 	fn as_scarcity_pipeline() -> Weight;
 }
 
@@ -68,10 +69,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
 	/// Storage: `Scarcity::NextInstanceId` (r:1 w:1)
 	/// Storage: `Scarcity::Instances` (r:0 w:1)
+	/// Storage: `Scarcity::InstanceDeposits` (r:0 w:1)
 	fn mint() -> Weight {
-		Weight::from_parts(35_000_000, 6_148)
+		Weight::from_parts(38_000_000, 6_148)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
@@ -80,6 +82,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(18_000_000, 3_593)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+
+	/// Storage: `Scarcity::Collections` (r:1 w:0)
+	/// Storage: `Scarcity::Instances` (r:0 w:1)
+	/// Storage: `Scarcity::InstanceDeposits` (r:1 w:1)
+	/// Includes a conservative read/write allowance for dropping the consideration ticket.
+	fn burn() -> Weight {
+		Weight::from_parts(20_000_000, 6_148)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 
 	/// Storage: `Scarcity::Locked` (r:1 w:0)
@@ -107,15 +119,21 @@ impl WeightInfo for () {
 	}
 
 	fn mint() -> Weight {
-		Weight::from_parts(35_000_000, 6_148)
+		Weight::from_parts(38_000_000, 6_148)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 
 	fn transfer() -> Weight {
 		Weight::from_parts(18_000_000, 3_593)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+
+	fn burn() -> Weight {
+		Weight::from_parts(20_000_000, 6_148)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 
 	fn as_scarcity_pipeline() -> Weight {

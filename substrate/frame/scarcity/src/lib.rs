@@ -46,9 +46,12 @@ pub mod pallet {
 	use crate::weights::WeightInfo;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{IsSubType, UnixTime},
+		traits::{Consideration, Footprint, IsSubType, UnixTime},
+		transactional,
 	};
 	use frame_system::pallet_prelude::*;
+	#[cfg(any(test, feature = "try-runtime"))]
+	use sp_runtime::TryRuntimeError;
 	use sp_runtime::{transaction_validity::TransactionPriority, DispatchError};
 
 	pub type CollectionId = u32;
@@ -101,13 +104,24 @@ pub mod pallet {
 
 	/// Collection issuer and the next automatically assigned item index.
 	#[derive(
-		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
+		CloneNoBound,
+		PartialEqNoBound,
+		EqNoBound,
+		DebugNoBound,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
 	)]
-	pub struct CollectionInfo<AccountId> {
+	#[scale_info(skip_type_params(CollectionConsideration))]
+	pub struct CollectionInfo<AccountId: Member, CollectionConsideration: Member> {
 		/// The issuer; v1 permits only this account to define items and mint.
 		pub owner: AccountId,
 		/// The next item index to allocate, beginning at zero.
 		pub next_item_index: ItemIndex,
+		/// Collection-record storage deposit paid by `owner`.
+		pub ticket: CollectionConsideration,
 	}
 
 	/// Immutable shared definition for every minted copy of an item.
@@ -122,8 +136,12 @@ pub mod pallet {
 		TypeInfo,
 		MaxEncodedLen,
 	)]
-	#[scale_info(skip_type_params(MaxStats, MaxMetadata))]
-	pub struct ItemDefinition<MaxStats: Get<u32>, MaxMetadata: Get<u32>> {
+	#[scale_info(skip_type_params(MaxStats, MaxMetadata, ItemDefConsideration))]
+	pub struct ItemDefinition<
+		MaxStats: Get<u32>,
+		MaxMetadata: Get<u32>,
+		ItemDefConsideration: Member,
+	> {
 		pub kind: Kind,
 		/// A same-collection link toward the rarer variant of this concept.
 		pub next_variant: Option<ItemIndex>,
@@ -131,8 +149,10 @@ pub mod pallet {
 		pub stats: BoundedVec<Stat, MaxStats>,
 		/// Opaque display metadata.
 		pub metadata: BoundedVec<u8, MaxMetadata>,
-		/// Number of instances minted from this definition so far.
+		/// Number of instances ever minted from this definition; burns do not decrement it.
 		pub supply: u32,
+		/// Item-definition storage deposit paid by the issuer.
+		pub ticket: ItemDefConsideration,
 	}
 
 	/// A minted Scarcity instance.
@@ -179,8 +199,12 @@ pub mod pallet {
 
 	/// Immutable item catalogues, grouped by their issuer-owned collection.
 	#[pallet::storage]
-	pub type Collections<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionId, CollectionInfo<T::AccountId>>;
+	pub type Collections<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionId,
+		CollectionInfo<T::AccountId, T::CollectionConsideration>,
+	>;
 
 	/// Immutable item definitions, indexed within their collection.
 	#[pallet::storage]
@@ -190,7 +214,7 @@ pub mod pallet {
 		CollectionId,
 		Twox64Concat,
 		ItemIndex,
-		ItemDefinition<T::MaxStats, T::MaxMetadata>,
+		ItemDefinition<T::MaxStats, T::MaxMetadata, T::ItemDefConsideration>,
 	>;
 
 	/// The next permanent instance identifier to allocate.
@@ -204,6 +228,11 @@ pub mod pallet {
 	/// Stable reverse index from instance identifier to its current owner key.
 	#[pallet::storage]
 	pub type Instances<T: Config> = StorageMap<_, Twox64Concat, InstanceId, T::AccountId>;
+
+	/// Per-instance storage-deposit tickets, present only for issuer-path mints.
+	#[pallet::storage]
+	pub type InstanceDeposits<T: Config> =
+		StorageMap<_, Twox64Concat, InstanceId, T::InstanceConsideration>;
 
 	/// Post-failure backoff locks for NFT purse keys.
 	#[pallet::storage]
@@ -225,6 +254,8 @@ pub mod pallet {
 		},
 		/// An instance moved to a new purse key.
 		Transferred { instance: InstanceId, to: T::AccountId },
+		/// An instance was permanently removed.
+		Burned { instance: InstanceId },
 	}
 
 	#[pallet::error]
@@ -253,6 +284,14 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
 
 	/// A Scarcity NFT held by the custom dispatch origin.
 	#[pallet::origin]
@@ -289,6 +328,15 @@ pub mod pallet {
 
 		/// Unix time source for `minted_at` / `last_moved`; rest-time priority lands in Phase 2.
 		type UnixTime: UnixTime;
+
+		/// Deposit for a collection record, charged to the creator.
+		type CollectionConsideration: Consideration<Self::AccountId, Footprint>;
+
+		/// Deposit for an item definition, charged to the issuer and sized by encoded length.
+		type ItemDefConsideration: Consideration<Self::AccountId, Footprint>;
+
+		/// Deposit for one issuer-minted instance's storage, charged to the collection owner.
+		type InstanceConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Maximum typed statistics stored per immutable item definition.
 		#[pallet::constant]
@@ -368,6 +416,27 @@ pub mod pallet {
 			Self::deposit_event(Event::Transferred { instance: nft.instance, to });
 			Ok(Pays::No.into())
 		}
+
+		/// Burn an NFT held by the `Origin::Nft` purse-key origin.
+		///
+		/// Item-definition supply counts minted-ever instances and is deliberately monotonic.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::burn())]
+		#[transactional]
+		pub fn burn(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let Ok(Origin::Nft { nft, .. }) = origin.into() else {
+				return Err(DispatchError::BadOrigin.into());
+			};
+			let info =
+				Collections::<T>::get(nft.collection).ok_or(Error::<T>::UnknownCollection)?;
+
+			Instances::<T>::remove(nft.instance);
+			if let Some(ticket) = InstanceDeposits::<T>::take(nft.instance) {
+				ticket.drop(&info.owner)?;
+			}
+			Self::deposit_event(Event::Burned { instance: nft.instance });
+			Ok(Pays::No.into())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -376,11 +445,17 @@ pub mod pallet {
 			let collection = NextCollectionId::<T>::get();
 			let next_collection =
 				collection.checked_add(1).ok_or(Error::<T>::TooManyCollections)?;
+			let record_size =
+				CollectionInfo { owner: owner.clone(), next_item_index: 0, ticket: () }
+					.encoded_size()
+					.saturating_add(T::CollectionConsideration::max_encoded_len());
+			let ticket =
+				T::CollectionConsideration::new(&owner, Footprint::from_parts(1, record_size))?;
 
 			NextCollectionId::<T>::put(next_collection);
 			Collections::<T>::insert(
 				collection,
-				CollectionInfo { owner: owner.clone(), next_item_index: 0 },
+				CollectionInfo { owner: owner.clone(), next_item_index: 0, ticket },
 			);
 			Self::deposit_event(Event::CollectionCreated { collection, owner });
 			Ok(collection)
@@ -407,7 +482,16 @@ pub mod pallet {
 
 			let item = info.next_item_index;
 			info.next_item_index = item.checked_add(1).ok_or(Error::<T>::TooManyItems)?;
-			let definition = ItemDefinition { kind, next_variant, stats, metadata, supply: 0 };
+			let definition_without_ticket =
+				ItemDefinition { kind, next_variant, stats, metadata, supply: 0, ticket: () };
+			let definition_size = definition_without_ticket
+				.encoded_size()
+				.saturating_add(T::ItemDefConsideration::max_encoded_len());
+			let ticket =
+				T::ItemDefConsideration::new(&owner, Footprint::from_parts(1, definition_size))?;
+			let ItemDefinition { kind, next_variant, stats, metadata, supply, ticket: () } =
+				definition_without_ticket;
+			let definition = ItemDefinition { kind, next_variant, stats, metadata, supply, ticket };
 
 			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
@@ -424,6 +508,30 @@ pub mod pallet {
 		) -> Result<InstanceId, DispatchError> {
 			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
 			ensure!(info.owner == owner, Error::<T>::NoPermission);
+			Self::do_mint_inner(collection, item, to, Some(&info.owner))
+		}
+
+		/// **TRUSTED CALLERS ONLY:** mint an instance without an instance deposit.
+		///
+		/// The caller — the claim pallet wired at runtime composition — is responsible for
+		/// verifying both the claim entitlement and the collection's opt-in before calling this
+		/// function. The deposit waiver is justified only because this path's volume is bounded
+		/// by a scarce external resource: one mint per claim credit.
+		pub fn do_mint_claimed(
+			collection: CollectionId,
+			item: ItemIndex,
+			to: T::AccountId,
+		) -> Result<InstanceId, DispatchError> {
+			ensure!(Collections::<T>::contains_key(collection), Error::<T>::UnknownCollection);
+			Self::do_mint_inner(collection, item, to, None)
+		}
+
+		fn do_mint_inner(
+			collection: CollectionId,
+			item: ItemIndex,
+			to: T::AccountId,
+			deposit_owner: Option<&T::AccountId>,
+		) -> Result<InstanceId, DispatchError> {
 			let mut definition =
 				ItemDefs::<T>::get(collection, item).ok_or(Error::<T>::UnknownItem)?;
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
@@ -433,14 +541,60 @@ pub mod pallet {
 			let next_supply = definition.supply.checked_add(1).ok_or(Error::<T>::SupplyOverflow)?;
 			let now = T::UnixTime::now().as_secs();
 			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now, moves: 0 };
+			let instance_ticket = if let Some(owner) = deposit_owner {
+				Some(T::InstanceConsideration::new(
+					owner,
+					Footprint::from_parts(2, nft.encoded_size().saturating_add(to.encoded_size())),
+				)?)
+			} else {
+				None
+			};
 
 			definition.supply = next_supply;
 			NextInstanceId::<T>::put(next_instance);
 			ItemDefs::<T>::insert(collection, item, definition);
 			NftsByOwner::<T>::insert(&to, nft);
 			Instances::<T>::insert(instance, &to);
+			if let Some(ticket) = instance_ticket {
+				InstanceDeposits::<T>::insert(instance, ticket);
+			}
 			Self::deposit_event(Event::Minted { instance, collection, item, owner: to });
 			Ok(instance)
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	impl<T: Config> Pallet<T> {
+		/// Check ownership indexes and that every instance-deposit ticket belongs to an instance.
+		pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
+			for (owner, nft) in NftsByOwner::<T>::iter() {
+				if Instances::<T>::get(nft.instance) != Some(owner) {
+					return Err(TryRuntimeError::Other(
+						"NftsByOwner entry has no matching Instances entry",
+					));
+				}
+			}
+
+			for (instance, owner) in Instances::<T>::iter() {
+				if !matches!(
+					NftsByOwner::<T>::get(&owner),
+					Some(nft) if nft.instance == instance
+				) {
+					return Err(TryRuntimeError::Other(
+						"Instances entry has no matching NftsByOwner entry",
+					));
+				}
+			}
+
+			for instance in InstanceDeposits::<T>::iter_keys() {
+				if !Instances::<T>::contains_key(instance) {
+					return Err(TryRuntimeError::Other(
+						"InstanceDeposits entry has no matching instance",
+					));
+				}
+			}
+
+			Ok(())
 		}
 	}
 }
