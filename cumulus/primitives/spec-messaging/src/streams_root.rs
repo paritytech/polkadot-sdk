@@ -47,16 +47,16 @@ const KEY_BITS: usize = STREAM_ID_LEN * 8;
 pub use polkadot_primitives::StreamsRoot;
 
 /// One step of a `StreamsRoot` trie walk, from an inner node toward the proven leaf.
+///
+/// The branch *direction* is not stored — it is derived from the proven key's bit at `split_bit`
+/// during verification (the key binding), so a step is just `(split_bit, sibling)`.
 #[derive(
 	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, scale_info::TypeInfo,
 )]
 pub struct TreeStep {
 	/// Key-bit index this node branches on (`0..KEY_BITS`, `0` = MSB of the key). Bound into the
-	/// inner-node hash, and checked against the proven key's bit during verification.
+	/// inner-node hash; the proven key's bit here also gives the branch direction.
 	pub split_bit: u8,
-	/// Which side the proven key descends to at this node: `false` = left (bit 0), `true` = right
-	/// (bit 1). Must equal the key's bit at `split_bit`, else the proof is rejected.
-	pub target_right: bool,
 	/// Hash of the sibling subtree (the side the proven key does NOT descend to).
 	pub sibling: Hash,
 }
@@ -162,7 +162,7 @@ fn prove(
 	let target_right = bit(key, split_bit);
 	let (sibling, descend) =
 		if target_right { (node_hash(left), right) } else { (node_hash(right), left) };
-	steps.push(TreeStep { split_bit: split_bit as u8, target_right, sibling });
+	steps.push(TreeStep { split_bit: split_bit as u8, sibling });
 	let child = prove(descend, key, steps);
 	if target_right {
 		hash_inner(split_bit as u8, &sibling, &child)
@@ -199,11 +199,11 @@ pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
 }
 
 /// Fold a keyed membership proof for `(stream, stream_root)` up to the `StreamsRoot` it *implies*,
-/// or `None` if a step is malformed (out-of-range branch, or a direction that contradicts the
-/// proven key). Unlike [`verify_stream_membership`] this **yields** the root rather than comparing
-/// it — the shape the requires-lift `tree_proof` needs (`compute_tree_root` in the design): the
-/// walk is driven by `stream`'s key, so a proof built for a different stream folds to a different
-/// root.
+/// or `None` if a step is malformed (an out-of-range branch). Unlike [`verify_stream_membership`]
+/// this **yields** the root rather than comparing it — the shape the requires-lift `tree_proof`
+/// needs (`compute_tree_root` in the design): the walk is driven by `stream`'s key (each branch
+/// direction is that key's bit at `split_bit`), so a proof built for a different stream folds the
+/// siblings on the wrong sides and yields a different root.
 pub fn streams_root_from_proof(
 	stream: StreamId,
 	stream_root: Hash,
@@ -220,12 +220,14 @@ pub fn streams_root_from_proof(
 	// Steps are root-first; fold leaf -> root.
 	for step in membership.steps.iter().rev() {
 		let split_bit = step.split_bit as usize;
-		// Reject an out-of-range branch (would otherwise index the key out of bounds) and any step
-		// whose direction contradicts the proven key — this is the key binding.
-		if split_bit >= KEY_BITS || bit(&key, split_bit) != step.target_right {
+		// Reject an out-of-range branch (would otherwise index the key out of bounds).
+		if split_bit >= KEY_BITS {
 			return None;
 		}
-		node = if step.target_right {
+		// The branch direction is the proven key's bit at `split_bit` — this is the key binding: a
+		// proof for a different stream folds the sibling on the wrong side and yields a different
+		// root.
+		node = if bit(&key, split_bit) {
 			hash_inner(step.split_bit, &step.sibling, &node)
 		} else {
 			hash_inner(step.split_bit, &node, &step.sibling)
@@ -237,8 +239,8 @@ pub fn streams_root_from_proof(
 /// Verify that `stream_root` is the sender's committed root for `stream`, against a `StreamsRoot`
 /// (read from the sender's header via [`read_streams_root`]). Receiver side.
 ///
-/// The walk is keyed: the leaf is recomputed from `stream`, and each step's direction is checked
-/// against `stream`'s bit at that branch — so a proof built for a different stream cannot verify.
+/// The walk is keyed: the leaf is recomputed from `stream`, and each step's direction is taken from
+/// `stream`'s bit at that branch — so a proof built for a different stream cannot verify.
 pub fn verify_stream_membership(
 	streams_root: StreamsRoot,
 	stream: StreamId,
@@ -354,9 +356,7 @@ mod tests {
 	#[test]
 	fn out_of_range_split_bit_is_rejected() {
 		let (r, mut proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
-		proof
-			.steps
-			.push(TreeStep { split_bit: 64, target_right: false, sibling: root(0) });
+		proof.steps.push(TreeStep { split_bit: 64, sibling: root(0) });
 		assert!(!verify_stream_membership(r, ch(3000), root(0xC), &proof));
 	}
 
@@ -364,12 +364,8 @@ mod tests {
 	fn over_long_proof_is_rejected() {
 		let (r, _proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
 		// A valid proof can never exceed the trie depth (`KEY_BITS`); a padded one must reject.
-		let proof = StreamProof {
-			steps: vec![
-				TreeStep { split_bit: 0, target_right: false, sibling: root(0) };
-				KEY_BITS + 1
-			],
-		};
+		let proof =
+			StreamProof { steps: vec![TreeStep { split_bit: 0, sibling: root(0) }; KEY_BITS + 1] };
 		assert!(!verify_stream_membership(r, ch(3000), root(0xC), &proof));
 	}
 
