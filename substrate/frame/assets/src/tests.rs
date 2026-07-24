@@ -2036,6 +2036,9 @@ fn querying_roles_should_work() {
 #[test]
 fn normal_asset_create_and_destroy_callbacks_should_work() {
 	build_and_execute(|| {
+		// Genesis seeds an asset, which fires `created`; clear the marker so the assertions below
+		// reflect the create call under test rather than genesis.
+		storage::clear(AssetsCallbackHandle::CREATED.as_bytes());
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
 
@@ -2252,10 +2255,23 @@ fn balance_change_callbacks_fire_on_balanced_paths() {
 #[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {
+		// Genesis seeds an asset, which fires `created`; clear the marker so the assertions below
+		// reflect the force_create call under test rather than genesis.
+		storage::clear(AssetsCallbackHandle::CREATED.as_bytes());
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
+	});
+}
+
+#[test]
+fn genesis_seeded_assets_fire_created_callback() {
+	// The mock seeds an asset at genesis. `created` must fire for it, otherwise callback-backed
+	// state (e.g. the precompile asset-index map) is never established for genesis assets and
+	// later mirrors for that asset are silently dropped.
+	build_and_execute(|| {
+		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 	});
 }
 

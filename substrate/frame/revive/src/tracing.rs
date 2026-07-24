@@ -126,7 +126,7 @@ pub trait Tracing {
 	/// this must not assume an active call frame.
 	fn log_event_outside_frame(
 		&mut self,
-		_event: H160,
+		_address: H160,
 		_topics: &[H256],
 		_data: &[u8],
 		_log_index: u32,
