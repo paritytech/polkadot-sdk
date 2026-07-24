@@ -24,15 +24,15 @@ use polkadot_node_primitives::{
 	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
 	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
-use polkadot_node_subsystem::messages::{CollatorProtocolMessage, SegmentEntry};
+use polkadot_node_subsystem::messages::{BuiltEntry, CollatorProtocolMessage, Segment};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateDescriptorV2, CandidateDescriptorVersion, CandidateReceiptV2,
-	ClaimQueueOffset, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	OccupiedCoreAssumption, DEFAULT_CLAIM_QUEUE_OFFSET,
+	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
+	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use polkadot_service::{Handle, NewFull, ParachainHost};
 use sc_client_api::client::BlockchainEvents;
-use sp_core::{bounded::BoundedVec, Pair};
+use sp_core::Pair;
 
 use std::{
 	collections::HashMap,
@@ -533,7 +533,6 @@ impl Collator {
 
 					let persisted_validation_data_hash = validation_data.hash();
 					let parent_head_data = validation_data.parent_head.clone();
-					let parent_head_data_hash = validation_data.parent_head.hash();
 
 					// Apply compression to the block data.
 					let pov = {
@@ -631,21 +630,25 @@ impl Collator {
 						// the descriptor and commitments core indexes. To bypass this check, we are
 						// simulating the behavior of SubmitCollation while skipping ump signals
 						// validation.
-						let candidates = BoundedVec::try_from(vec![SegmentEntry {
-							candidate_receipt,
-							parent_head_data_hash,
-							pov: pov.clone(),
-							parent_head_data: parent_head_data.clone(),
-							result_sender: None,
-						}])
-						.expect("len 1 should fit");
 						overseer_handle
 							.send_msg(
 								CollatorProtocolMessage::DistributeSegment {
-									scheduling_parent: relay_parent,
 									core_index: *core_index,
-									candidates_descriptor_version: CandidateDescriptorVersion::V2,
-									candidates,
+									para_id,
+									segment: Segment::V2(BuiltEntry {
+										relay_parent,
+										session_index,
+										validation_code_hash,
+										persisted_validation_data_hash,
+										erasure_root,
+										commitments_hash: candidate_receipt.commitments_hash,
+										output_head_data_hash: candidate_receipt
+											.descriptor()
+											.para_head(),
+										pov: pov.clone(),
+										parent_head_data: parent_head_data.clone(),
+										result_sender: None,
+									}),
 								},
 								"Collator",
 							)

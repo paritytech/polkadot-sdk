@@ -406,10 +406,12 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 			let distributed = distribute_segment_with_receipts(
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
-				vec![(candidate, pov, parent_head_data_hash)],
+				vec![(candidate.clone(), pov, parent_head_data_hash)],
 				head_c,
 				CoreIndex(0),
 				CandidateDescriptorVersion::V2,
+				test_state.para_id,
+				candidate.descriptor.scheduling_session().unwrap(),
 			)
 			.await
 			.into_iter()
@@ -467,7 +469,6 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 			.await;
 
 			let pov = PoV { block_data: BlockData(vec![4, 5, 6]) };
-			let parent_head_data_hash = Hash::repeat_byte(0xBB);
 			let candidate = TestCandidateBuilder {
 				para_id: test_state.para_id,
 				relay_parent: head_c,
@@ -478,17 +479,13 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 			overseer_send(
 				virtual_overseer,
 				CollatorProtocolMessage::DistributeSegment {
-					scheduling_parent: head_c,
 					core_index: CoreIndex(0),
-					candidates_descriptor_version: CandidateDescriptorVersion::V2,
-					candidates: BoundedVec::try_from(vec![SegmentEntry {
-						candidate_receipt: candidate.clone(),
-						parent_head_data_hash,
-						pov: pov.clone(),
-						parent_head_data: HeadData(vec![1, 2, 3]),
-						result_sender: None,
-					}])
-					.unwrap(),
+					para_id: test_state.para_id,
+					segment: Segment::V2(built_entry_from_receipt(
+						&candidate,
+						&pov,
+						HeadData(vec![1, 2, 3]),
+					)),
 				},
 			)
 			.await;
@@ -565,10 +562,12 @@ fn distribute_collation_up_to_limit() {
 				distribute_segment_with_receipts(
 					virtual_overseer,
 					test_state.current_group_validator_authority_ids(),
-					vec![(candidate, pov, parent_head_data_hash)],
+					vec![(candidate.clone(), pov, parent_head_data_hash)],
 					head_b,
 					CoreIndex(0),
 					CandidateDescriptorVersion::V2,
+					test_state.para_id,
+					candidate.descriptor.session_index().unwrap(),
 				)
 				.await
 				.into_iter()
@@ -577,7 +576,6 @@ fn distribute_collation_up_to_limit() {
 			}
 
 			let pov = PoV { block_data: BlockData(vec![10, 12, 6]) };
-			let parent_head_data_hash = Hash::repeat_byte(0xBB);
 			let candidate = TestCandidateBuilder {
 				para_id: test_state.para_id,
 				relay_parent: head_b,
@@ -589,17 +587,13 @@ fn distribute_collation_up_to_limit() {
 			overseer_send(
 				virtual_overseer,
 				CollatorProtocolMessage::DistributeSegment {
-					scheduling_parent: head_b,
 					core_index: CoreIndex(0),
-					candidates_descriptor_version: CandidateDescriptorVersion::V2,
-					candidates: BoundedVec::try_from(vec![SegmentEntry {
-						candidate_receipt: candidate,
-						parent_head_data_hash,
-						pov,
-						parent_head_data: HeadData(vec![1, 2, 3]),
-						result_sender: None,
-					}])
-					.unwrap(),
+					para_id: test_state.para_id,
+					segment: Segment::V2(built_entry_from_receipt(
+						&candidate,
+						&pov,
+						HeadData(vec![1, 2, 3]),
+					)),
 				},
 			)
 			.await;
@@ -617,7 +611,6 @@ fn distribute_collation_up_to_limit() {
 			// Let's also try on core 1, where we don't have any assignments.
 
 			let pov = PoV { block_data: BlockData(vec![10, 12, 6]) };
-			let parent_head_data_hash = Hash::repeat_byte(0xBB);
 			let candidate = TestCandidateBuilder {
 				para_id: test_state.para_id,
 				relay_parent: head_b,
@@ -629,17 +622,13 @@ fn distribute_collation_up_to_limit() {
 			overseer_send(
 				virtual_overseer,
 				CollatorProtocolMessage::DistributeSegment {
-					scheduling_parent: head_b,
 					core_index: CoreIndex(1),
-					candidates_descriptor_version: CandidateDescriptorVersion::V2,
-					candidates: BoundedVec::try_from(vec![SegmentEntry {
-						candidate_receipt: candidate.clone(),
-						parent_head_data_hash,
-						pov: pov.clone(),
-						parent_head_data: HeadData(vec![1, 2, 3]),
-						result_sender: None,
-					}])
-					.unwrap(),
+					para_id: test_state.para_id,
+					segment: Segment::V2(built_entry_from_receipt(
+						&candidate,
+						&pov,
+						HeadData(vec![1, 2, 3]),
+					)),
 				},
 			)
 			.await;
@@ -727,6 +716,8 @@ fn send_parent_head_data_for_elastic_scaling() {
 				head_b,
 				CoreIndex(0),
 				CandidateDescriptorVersion::V2,
+				test_state.para_id,
+				candidate.descriptor().session_index().unwrap(),
 			)
 			.await
 			.into_iter()
@@ -864,6 +855,8 @@ fn advertise_and_send_collation_by_hash() {
 					head_b,
 					CoreIndex(0),
 					CandidateDescriptorVersion::V2,
+					test_state.para_id,
+					candidate.descriptor().session_index().unwrap(),
 				)
 				.await
 				.into_iter()

@@ -41,6 +41,8 @@ pub enum Error {
 	InvalidSegmentSize(usize),
 	#[error("Segments consisting of V2 candidates should have exactly one entry.")]
 	V2InvalidSegmentLength,
+	#[error("Only V2 and V3 candidate descriptor versions can be submitted")]
+	UnsupportedDescriptorVersion,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

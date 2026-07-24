@@ -30,7 +30,8 @@ use thiserror::Error;
 pub use sc_network::IfDisconnected;
 
 use polkadot_node_network_protocol::{
-	self as net_protocol, peer_set::PeerSet, request_response::Requests, PeerId,
+	self as net_protocol, peer_set::PeerSet, request_response::Requests,
+	v4_collation::CandidateFingerprint, PeerId,
 };
 use polkadot_node_primitives::{
 	approval::{
@@ -48,15 +49,14 @@ use polkadot_primitives::{
 	slashing,
 	vstaging::RelayParentInfo,
 	ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateCommitments,
-	CandidateDescriptorVersion, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
+	CoalescedApprovalCandidateHashes, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo,
+	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -269,19 +269,64 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 	}
 }
 
-/// Data received from cumulus used to build the advertised segment fingerprint.
+/// A fully built segment entry.
+/// The collator protocol assembles a `CandidateReceipt` from these
+/// fields and the segment level commons.
 #[derive(Debug)]
-pub struct SegmentEntry {
-	/// Candidate receipt to advertise.
-	pub candidate_receipt: CandidateReceipt,
-	/// Hash of the parachain head data before candidate execution.
-	pub parent_head_data_hash: Hash,
+pub struct BuiltEntry {
+	/// Relay parent the candidate builds on.
+	pub relay_parent: Hash,
+	/// The relay parent's session index.
+	pub session_index: SessionIndex,
+	/// Hash of the validation code the candidate is validated against.
+	pub validation_code_hash: ValidationCodeHash,
+	/// Hash of the candidate's persisted validation data.
+	pub persisted_validation_data_hash: Hash,
+	/// Erasure root of the candidate's available data.
+	pub erasure_root: Hash,
+	/// Hash of the candidate commitments.
+	pub commitments_hash: Hash,
+	/// Hash of the parachain head data produced by the candidate. Stable
+	/// across resubmissions; doubles as the fingerprint identity and the
+	/// collation storage key.
+	pub output_head_data_hash: Hash,
 	/// Proof of validity for the candidate.
 	pub pov: PoV,
 	/// Parachain head data before candidate execution.
 	pub parent_head_data: HeadData,
 	/// Optional channel notified with the validator's seconded statement.
 	pub result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+}
+
+/// A single candidate in a distributed segment.
+#[derive(Debug)]
+pub enum SegmentEntry {
+	/// A materialized candidate: can be advertised and fetched.
+	Built(BuiltEntry),
+	/// An advertised-only candidate. There is no collation to serve until it
+	/// is materialized on request. Collation-generation does not emit this
+	/// variant yet.
+	Fingerprint(CandidateFingerprint),
+}
+
+/// The candidates of one `DistributeSegment` message, shaped by descriptor
+/// version.
+#[derive(Debug)]
+pub enum Segment {
+	/// A V2-descriptor segment: exactly one candidate, always built. The
+	/// entry's `relay_parent` doubles as the scheduling parent.
+	V2(BuiltEntry),
+	/// A V3-descriptor segment: candidates ordered by age, sharing one
+	/// scheduling parent.
+	V3 {
+		/// The scheduling parent shared by all candidates in the segment.
+		scheduling_parent: Hash,
+		/// The scheduling parent's session index.
+		scheduling_session: SessionIndex,
+		/// Ordered candidates; the list may have gaps. The last entry must
+		/// be `Built`.
+		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
+	},
 }
 
 /// Messages received by the Collator Protocol subsystem.
@@ -296,16 +341,13 @@ pub enum CollatorProtocolMessage {
 	CollateOn(ParaId),
 	/// Provide an ordered list of collations to the validators.
 	DistributeSegment {
-		/// The scheduling parent shared by all candidates in the segment.
-		scheduling_parent: Hash,
 		/// Core index on which every candidate is to be backed on.
 		core_index: CoreIndex,
-		/// The candidates descriptor version.
-		/// V2 segments are always length 1
-		/// V3 segments may be longer.
-		candidates_descriptor_version: CandidateDescriptorVersion,
-		/// Ordered segment entries to distribute.
-		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
+		/// Id of the parachain the candidates are for
+		para_id: ParaId,
+		/// The segment: scheduling context and candidates, shaped by
+		/// descriptor version.
+		segment: Segment,
 	},
 	/// Get a network bridge update.
 	#[from]

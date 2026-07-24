@@ -40,8 +40,8 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGMENT_LEN};
 use polkadot_node_subsystem::{
 	messages::{
-		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
-		SegmentEntry,
+		BuiltEntry, ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent,
+		NetworkBridgeTxMessage, Segment, SegmentEntry,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
@@ -55,9 +55,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlockNumber, CandidateDescriptorVersion, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData, Id as ParaId,
-	SessionIndex,
+	AuthorityDiscoveryId, BlockNumber, CandidateDescriptorV2, CandidateDescriptorVersion,
+	CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex,
+	Hash, HeadData, Id as ParaId, SessionIndex,
 };
 use sp_runtime::BoundedVec;
 
@@ -247,10 +247,6 @@ struct StoredSegment {
 	descriptor_version: CandidateDescriptorVersion,
 	/// Ordered candidate fingerprints advertised to validators.
 	fingerprints: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
-	/// Candidate hash of the newest (tip) entry. Only the tip's hash is retained:
-	/// V2/V3 fallback advertisements carry it, and non-tip entries won't have a
-	/// hash at all once candidates are built on demand.
-	tip_candidate_hash: CandidateHash,
 }
 
 struct PerSchedulingParent {
@@ -457,10 +453,8 @@ async fn distribute_segment<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	id: ParaId,
-	scheduling_parent: Hash,
 	core_index: CoreIndex,
-	candidates_descriptor_version: CandidateDescriptorVersion,
-	candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
+	segment: Segment,
 ) -> Result<()> {
 	// We should already be connected to the validators, but if we aren't, we will try to connect to
 	// them now. Do this BEFORE checking if parents are in view to ensure connections are properly
@@ -475,6 +469,21 @@ async fn distribute_segment<Context>(
 	)
 	.await;
 
+	let (scheduling_parent, descriptor_version, sp_session, entries) = match segment {
+		Segment::V2(entry) => (
+			entry.relay_parent,
+			CandidateDescriptorVersion::V2,
+			None,
+			vec![SegmentEntry::Built(entry)],
+		),
+		Segment::V3 { scheduling_parent, scheduling_session, candidates } => (
+			scheduling_parent,
+			CandidateDescriptorVersion::V3,
+			Some(scheduling_session),
+			candidates.into_inner(),
+		),
+	};
+
 	let per_scheduling_parent = match state.per_scheduling_parent.get_mut(&scheduling_parent) {
 		Some(per_scheduling_parent) => per_scheduling_parent,
 		None => {
@@ -488,7 +497,7 @@ async fn distribute_segment<Context>(
 		},
 	};
 
-	if candidates.is_empty() {
+	if entries.is_empty() {
 		gum::warn!(
 				target: LOG_TARGET,
 				para_id = %id,
@@ -542,6 +551,17 @@ async fn distribute_segment<Context>(
 		return Ok(());
 	}
 
+	if !entries.iter().all(|entry| matches!(entry, SegmentEntry::Built(_))) {
+		gum::warn!(
+				target: LOG_TARGET,
+				para_id = %id,
+				?scheduling_parent,
+				?core_index,
+				"Segment contains unbuilt entries, dropping segment",
+		);
+		return Ok(());
+	}
+
 	gum::debug!(
 		target: LOG_TARGET,
 		para_id = %id,
@@ -560,18 +580,25 @@ async fn distribute_segment<Context>(
 	});
 
 	let mut segment_fingerprint = vec![];
-	let tip_candidate_hash = candidates
-		.last()
-		.expect("candidates verified non-empty above; qed")
-		.candidate_receipt
-		.hash();
-	for candidate in candidates {
-		let candidate_hash = candidate.candidate_receipt.hash();
-		let para_head = candidate.candidate_receipt.descriptor.para_head();
+	for entry in entries {
+		let entry = match entry {
+			SegmentEntry::Built(entry) => entry,
+			SegmentEntry::Fingerprint(fingerprint) => {
+				segment_fingerprint.push(fingerprint);
+				continue;
+			},
+		};
+
+		let pov_hash = entry.pov.hash();
+		let receipt =
+			assemble_receipt(id, core_index, scheduling_parent, sp_session, &entry, pov_hash);
+		let candidate_hash = receipt.hash();
+
+		let para_head = entry.output_head_data_hash;
 		segment_fingerprint.push(CandidateFingerprint {
 			output_head_data_hash: para_head,
-			parent_head_data_hash: candidate.parent_head_data_hash,
-			relay_parent: candidate.candidate_receipt.descriptor.relay_parent(),
+			parent_head_data_hash: entry.parent_head_data.hash(),
+			relay_parent: entry.relay_parent,
 		});
 		// We have already seen collation for this scheduling parent.
 		if per_scheduling_parent.collations.contains_key(&para_head) {
@@ -583,19 +610,19 @@ async fn distribute_segment<Context>(
 			continue;
 		}
 		// Store the result sender
-		if let Some(result_sender) = candidate.result_sender {
+		if let Some(result_sender) = entry.result_sender {
 			state.collation_result_senders.insert(candidate_hash, result_sender);
 		}
 		// Store collation data
-		let pov_hash = candidate.pov.hash();
+		let pov_hash = entry.pov.hash();
 		per_scheduling_parent.by_candidate_hash.insert(candidate_hash, para_head);
 		per_scheduling_parent.collations.insert(
 			para_head,
 			CollationData {
 				collation: Collation {
-					receipt: candidate.candidate_receipt,
-					pov: candidate.pov,
-					parent_head_data: candidate.parent_head_data,
+					receipt,
+					pov: entry.pov,
+					parent_head_data: entry.parent_head_data,
 					status: CollationStatus::Created,
 				},
 				core_index,
@@ -616,9 +643,9 @@ async fn distribute_segment<Context>(
 	}
 
 	let new_segment = StoredSegment {
-		descriptor_version: candidates_descriptor_version,
-		fingerprints: BoundedVec::try_from(segment_fingerprint).unwrap(),
-		tip_candidate_hash,
+		descriptor_version,
+		fingerprints: BoundedVec::try_from(segment_fingerprint)
+			.expect("at most one fingerprint per entry, entries bounded by the message; qed"),
 	};
 
 	per_scheduling_parent.segments.insert(core_index, new_segment);
@@ -661,6 +688,46 @@ async fn distribute_segment<Context>(
 		.await;
 	}
 	Ok(())
+}
+
+/// Build the candidate receipt from the segment commons and a built entry.
+/// `sp_session` is `Some` exactly for V3 segments (its Someness is the
+/// version); `pov_hash` is derived by the caller from the shipped PoV.
+fn assemble_receipt(
+	para_id: ParaId,
+	core_index: CoreIndex,
+	scheduling_parent: Hash,
+	sp_session: Option<SessionIndex>,
+	entry: &BuiltEntry,
+	pov_hash: Hash,
+) -> CandidateReceipt {
+	let descriptor = match sp_session {
+		Some(scheduling_session) => CandidateDescriptorV2::new_v3(
+			para_id,
+			entry.relay_parent,
+			core_index,
+			entry.session_index,
+			scheduling_session,
+			entry.persisted_validation_data_hash,
+			pov_hash,
+			entry.erasure_root,
+			entry.output_head_data_hash,
+			entry.validation_code_hash,
+			scheduling_parent,
+		),
+		None => CandidateDescriptorV2::new(
+			para_id,
+			entry.relay_parent,
+			core_index,
+			entry.session_index,
+			entry.persisted_validation_data_hash,
+			pov_hash,
+			entry.erasure_root,
+			entry.output_head_data_hash,
+			entry.validation_code_hash,
+		),
+	};
+	CandidateReceipt { descriptor, commitments_hash: entry.commitments_hash }
 }
 
 /// Validators of a particular group index.
@@ -914,7 +981,6 @@ async fn advertise_segment<Context>(
 		return;
 	};
 	let candidates_descriptor_version = stored.descriptor_version;
-	let tip_candidate_hash = stored.tip_candidate_hash;
 	let core_segment = &stored.fingerprints;
 	let Some(validator_group) = per_scheduling_parent.validator_group.get_mut(&core_index) else {
 		gum::debug!(
@@ -981,6 +1047,18 @@ async fn advertise_segment<Context>(
 		CollationVersion::V3 => {
 			// Send V3 protocol message with the actual descriptor version
 			let newest_candidate = core_segment.last().expect("Segment is not empty; qed");
+			let Some(tip) =
+				per_scheduling_parent.collations.get(&newest_candidate.output_head_data_hash)
+			else {
+				gum::debug!(
+						target: LOG_TARGET,
+						?scheduling_parent,
+						?core_index,
+						"Tip collation not stored, not advertising to old-protocol peer",
+				);
+				return;
+			};
+			let tip_candidate_hash = tip.collation().receipt.hash();
 			CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(
 				protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent,
@@ -994,6 +1072,18 @@ async fn advertise_segment<Context>(
 		CollationVersion::V2 | CollationVersion::V1 => {
 			// Fall back to V2 protocol for older peers
 			let newest_candidate = core_segment.last().expect("Segment is not empty; qed");
+			let Some(tip) =
+				per_scheduling_parent.collations.get(&newest_candidate.output_head_data_hash)
+			else {
+				gum::debug!(
+						target: LOG_TARGET,
+						?scheduling_parent,
+						?core_index,
+						"Tip collation not stored, not advertising to old-protocol peer",
+				);
+				return;
+			};
+			let tip_candidate_hash = tip.collation().receipt.hash();
 			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					scheduling_parent,
@@ -1064,28 +1154,31 @@ async fn process_msg<Context>(
 			state.collating_on = Some(id);
 			state.implicit_view = Some(ImplicitView::new());
 		},
-		DistributeSegment {
-			scheduling_parent,
-			core_index,
-			candidates_descriptor_version,
-			candidates,
-		} => {
-			let Some(id) = state.collating_on else {
-				gum::warn!(target: LOG_TARGET, "DistributeSegment while not collating on any");
-				return Ok(());
-			};
-			gum::info!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
-			let _ = state.metrics.time_collation_distribution("distribute");
-			distribute_segment(
-				ctx,
-				state,
-				id,
-				scheduling_parent,
-				core_index,
-				candidates_descriptor_version,
-				candidates,
-			)
-			.await?;
+		DistributeSegment { core_index, para_id, segment } => {
+			match state.collating_on {
+				Some(id) if para_id != id => {
+					// If the ParaId of a collation requested to be distributed does not match
+					// the one we expect, we ignore the message.
+					gum::warn!(
+						target: LOG_TARGET,
+						%para_id,
+						collating_on = %id,
+						"DistributeSegment for unexpected para_id",
+					);
+				},
+				Some(id) => {
+					gum::info!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
+					let _ = state.metrics.time_collation_distribution("distribute");
+					distribute_segment(ctx, state, id, core_index, segment).await?;
+				},
+				None => {
+					gum::warn!(
+						target: LOG_TARGET,
+						%para_id,
+						"DistributeSegment message while not collating on any",
+					);
+				},
+			}
 		},
 		NetworkBridgeUpdate(event) => {
 			// We should count only this shoulder in the histogram, as other shoulders are just

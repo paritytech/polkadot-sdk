@@ -27,7 +27,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	CandidateDescriptorVersion, CandidateReceiptV2, ClaimQueueOffset, CollatorPair, CoreSelector,
+	CandidateDescriptorVersion, ClaimQueueOffset, CollatorPair, CoreSelector,
 	PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
@@ -255,16 +255,11 @@ fn submit_segment_leads_to_distribution() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment {
-				candidates,
-				..
-			}) => {
-				let CandidateReceiptV2 { descriptor, .. } = &candidates[0].candidate_receipt;
-				let parent_head_data_hash = candidates[0].parent_head_data_hash;
-				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
-				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
-				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment {segment: Segment::V2(entry),..}) => {
+				assert_eq!(entry.parent_head_data.hash(), parent_head.hash());
+				assert_eq!(entry.persisted_validation_data_hash, expected_pvd.hash());
+				assert_eq!(entry.output_head_data_hash, dummy_head_data().hash());
+				assert_eq!(entry.validation_code_hash, validation_code_hash);
 			}
 		);
 
@@ -328,16 +323,16 @@ fn submit_segment_v3_runtime_calls_use_scheduling_parent() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment {scheduling_parent: sp, candidates_descriptor_version: cdv, candidates,.. }) => {
-				let CandidateReceiptV2 { descriptor, .. } = &candidates[0].candidate_receipt;
-				let parent_head_data_hash = candidates[0].parent_head_data_hash;
-				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment {segment: Segment::V3 { scheduling_parent: sp, candidates,.. },.. }) => {
+				let [SegmentEntry::Built(entry)] = &candidates[..] else {
+					panic!("expected exactly one built entry")
+				};
+				assert_eq!(entry.parent_head_data.hash(), parent_head.hash());
+				assert_eq!(entry.persisted_validation_data_hash, expected_pvd.hash());
 				// relay_parent in the descriptor is the execution context
-				assert_eq!(descriptor.relay_parent(), relay_parent);
+				assert_eq!(entry.relay_parent, relay_parent);
 				// scheduling_parent in the descriptor is the scheduling context
 				assert_eq!(sp, scheduling_parent);
-				assert_eq!(cdv, CandidateDescriptorVersion::V3);
 			}
 		);
 
@@ -638,14 +633,14 @@ fn approved_peer_signal() {
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment { candidates_descriptor_version: cdv, candidates,.. }) => {
-				let CandidateReceiptV2 { descriptor, .. } = &candidates[0].candidate_receipt;
-				let parent_head_data_hash = candidates[0].parent_head_data_hash;
-				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
-				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
-				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
-				assert_eq!(cdv, CandidateDescriptorVersion::V3);
+			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment { segment: Segment::V3 { candidates,.. }, .. }) => {
+				let [SegmentEntry::Built(entry)] = &candidates[..] else {
+					panic!("expected exactly one built entry")
+				};
+				assert_eq!(entry.parent_head_data.hash(), parent_head.hash());
+				assert_eq!(entry.persisted_validation_data_hash, expected_pvd.hash());
+				assert_eq!(entry.output_head_data_hash, dummy_head_data().hash());
+				assert_eq!(entry.validation_code_hash, validation_code_hash);
 			}
 		);
 
@@ -779,13 +774,12 @@ mod helpers {
 		for core in cores_assigned {
 			assert_matches!(
 				overseer_recv(virtual_overseer).await,
-				AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment { core_index, candidates,.. }) => {
-					let SegmentEntry { candidate_receipt, parent_head_data_hash, .. } = &candidates[0];
+				AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment{ segment: Segment::V2(entry), core_index, ..}) => {
 					assert_eq!(CoreIndex(core), core_index);
-					assert_eq!(*parent_head_data_hash, parent_head.hash());
-					assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash(), pvd.hash());
-					assert_eq!(candidate_receipt.descriptor().para_head(), dummy_head_data().hash());
-					assert_eq!(candidate_receipt.descriptor().validation_code_hash(), validation_code_hash);
+					assert_eq!(entry.parent_head_data.hash(), parent_head.hash());
+					assert_eq!(entry.persisted_validation_data_hash, pvd.hash());
+					assert_eq!(entry.output_head_data_hash, dummy_head_data().hash());
+					assert_eq!(entry.validation_code_hash, validation_code_hash);
 				}
 			);
 		}
