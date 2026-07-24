@@ -21,10 +21,10 @@
 use crate::utils::assert_candidates_version;
 use anyhow::anyhow;
 use codec::Decode;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, wait_for_runtime_upgrade};
-use polkadot_primitives::{
-	CandidateDescriptorVersion, CandidateReceiptV2, Id as ParaId, ValidatorId, ValidatorIndex,
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput_with, wait_for_runtime_upgrade,
 };
+use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId, ValidatorId, ValidatorIndex};
 use rstest::rstest;
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
@@ -41,10 +41,6 @@ const TOTAL_VALIDATORS: usize = 15;
 
 const PARA_A: u32 = 2000;
 const PARA_B: u32 = 2001;
-
-const GROUP_ROTATION: u32 = 10;
-
-const HEALTHY_BACKING_FLOOR: u32 = 7;
 
 #[rstest]
 #[case::four_old(4)]
@@ -93,17 +89,11 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 						}
 					}
 				}))
-				.with_validator(|node| {
-					node.with_name("validator-0")
-						.with_args(vec!["-lparachain=debug,runtime::staking=debug".into()])
-						.invulnerable(false)
-				});
+				.with_validator(|node| node.with_name("validator-0").invulnerable(false));
 
 			let r = (1..num_new).fold(r, |acc, i| {
 				acc.with_validator(|node| {
-					node.with_name(&format!("validator-{i}"))
-						.with_args(vec!["-lparachain=debug,runtime::staking=debug".into()])
-						.invulnerable(false)
+					node.with_name(&format!("validator-{i}")).invulnerable(false)
 				})
 			});
 
@@ -111,8 +101,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 				acc.with_validator(|node| {
 					let node = node
 						.with_name(&format!("old-validator-{i}"))
-						.with_command(old_command.as_str())
-						.with_args(vec!["-lparachain=debug,runtime::staking=debug".into()]);
+						.with_command(old_command.as_str());
 					let node = match (native, old_image.as_deref()) {
 						(false, Some(img)) => node.with_image(img),
 						_ => node,
@@ -175,7 +164,6 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 		CandidateDescriptorVersion::V2,
 		HashMap::from([(para_a, 7..10), (para_b, 7..10)]),
 		8,
-		None,
 	)
 	.await?;
 	assert!(
@@ -210,31 +198,35 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	if num_old == 4 {
 		assert_four_old_self_extinguishes(relay_node, &relay_client, &old_pubkeys, num_old).await?;
 
-		log::info!("waiting for dispute storm to self-extinguish");
-		let total_disputes = wait_for_dispute_storm_to_settle(relay_node, 240).await?;
-		log::info!("storm self-extinguished at {total_disputes} disputes");
+		log::info!("waiting for every raised dispute to conclude valid");
+		let total_disputes = wait_for_disputes_resolved_valid(relay_node, 240).await?;
+		log::info!("storm resolved: all {total_disputes} disputes concluded valid, none invalid");
 
 		assert_finality_lag(&para_b_client, 6).await?;
 
-		let series = backed_series_over_best_blocks(
+		const RECOVERY_WINDOW: u32 = 20;
+		const PARA_A_FLOOR: u32 = 15;
+		const PARA_B_V3_FLOOR: u32 = 8;
+		assert_para_throughput_with(
 			&relay_client,
-			GROUP_ROTATION,
-			&[(para_b, CandidateDescriptorVersion::V3), (para_a, CandidateDescriptorVersion::V2)],
+			RECOVERY_WINDOW,
+			HashMap::from([
+				(para_b, PARA_B_V3_FLOOR..RECOVERY_WINDOW + 1),
+				(para_a, PARA_A_FLOOR..RECOVERY_WINDOW + 1),
+			]),
+			|receipt| {
+				let para_id = receipt.descriptor.para_id();
+				let version = receipt.descriptor.version();
+				if para_id == para_b && version != CandidateDescriptorVersion::V3 {
+					return Err(anyhow!("para B backed non-V3 post-recovery: {version:?}"));
+				}
+				if para_id == para_a && version != CandidateDescriptorVersion::V2 {
+					return Err(anyhow!("canary para A backed non-V2: {version:?}"));
+				}
+				Ok(true)
+			},
 		)
 		.await?;
-		let b_backed: u32 = series[&para_b].iter().sum();
-		let a_backed: u32 = series[&para_a].iter().sum();
-		log::info!("post-recovery: para B V3={b_backed}, para A V2={a_backed} (floor {HEALTHY_BACKING_FLOOR})");
-		assert!(
-			b_backed >= HEALTHY_BACKING_FLOOR,
-			"para B did not recover to a healthy V3 band: {b_backed} in {GROUP_ROTATION} blocks \
-			 (floor {HEALTHY_BACKING_FLOOR})",
-		);
-		assert!(
-			a_backed >= HEALTHY_BACKING_FLOOR,
-			"canary para A degraded: {a_backed} V2 in {GROUP_ROTATION} blocks (floor \
-			 {HEALTHY_BACKING_FLOOR})",
-		);
 	} else {
 		assert_five_old_persists(relay_node, &relay_client).await?;
 	}
@@ -290,17 +282,7 @@ async fn assert_five_old_persists(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
-	let finalized_metric = "substrate_block_height{status=\"finalized\"}";
-	let f0 = read_metric(relay_node, finalized_metric).await?;
-	tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-	let f1 = read_metric(relay_node, finalized_metric).await?;
-	let finalized_progress = f1 - f0;
-	log::info!("finalized over 60s: {f0} → {f1} (+{finalized_progress}, healthy ~10)");
-	assert!(
-		finalized_progress == 0.0,
-		"expected finality to be degraded behind the unresolvable dispute, but finalized advanced \
-		 {f0} → {f1} (+{finalized_progress}; healthy would be ~10 per 60s)",
-	);
+	assert_finality_stalls(relay_node, 120).await?;
 
 	let finalized_hash = relay_client.blocks().at_latest().await?.hash();
 	let disabled = disabled_validators_at(relay_client, finalized_hash).await?;
@@ -334,78 +316,32 @@ fn count_disabled_old(
 		.filter(|idx| {
 			validators
 				.get(idx.0 as usize)
-				.map(|id| {
-					let hex = id
-						.clone()
-						.into_inner()
-						.0
-						.iter()
-						.map(|b| format!("{b:02x}"))
-						.collect::<String>();
-					old_pubkeys.contains(&hex)
-				})
-				.unwrap_or(false)
+				.is_some_and(|id| old_pubkeys.contains(&hex::encode(id.clone().into_inner().0)))
 		})
 		.count()
+}
+
+/// Call a raw `ParachainHost` runtime API at `hash` and SCALE-decode its result.
+async fn runtime_api_decode<T: Decode>(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	hash: H256,
+	method: &str,
+) -> Result<T, anyhow::Error> {
+	Ok(T::decode(&mut &relay_client.runtime_api().at(hash).call_raw(method, None).await?[..])?)
 }
 
 async fn disabled_validators_at(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	hash: H256,
 ) -> Result<Vec<ValidatorIndex>, anyhow::Error> {
-	Ok(Vec::<ValidatorIndex>::decode(
-		&mut &relay_client
-			.runtime_api()
-			.at(hash)
-			.call_raw("ParachainHost_disabled_validators", None)
-			.await?[..],
-	)?)
+	runtime_api_decode(relay_client, hash, "ParachainHost_disabled_validators").await
 }
 
 async fn session_validators_at(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	hash: H256,
 ) -> Result<Vec<ValidatorId>, anyhow::Error> {
-	Ok(Vec::<ValidatorId>::decode(
-		&mut &relay_client
-			.runtime_api()
-			.at(hash)
-			.call_raw("ParachainHost_validators", None)
-			.await?[..],
-	)?)
-}
-
-async fn backed_series_over_best_blocks(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	num_blocks: u32,
-	targets: &[(ParaId, CandidateDescriptorVersion)],
-) -> Result<HashMap<ParaId, Vec<u32>>, anyhow::Error> {
-	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
-	let mut series: HashMap<ParaId, Vec<u32>> = targets.iter().map(|(p, _)| (*p, vec![])).collect();
-	let mut blocks_checked = 0u32;
-	while let Some(block) = best_blocks.next().await {
-		let events = block?.events().await?;
-		let mut per_block: HashMap<ParaId, u32> = targets.iter().map(|(p, _)| (*p, 0)).collect();
-		for event in events.iter() {
-			let event = event?;
-			if event.pallet_name() == "ParaInclusion" && event.variant_name() == "CandidateBacked" {
-				let receipt = CandidateReceiptV2::<H256>::decode(&mut &event.field_bytes()[..])?;
-				let para_id = receipt.descriptor.para_id();
-				let version = receipt.descriptor.version();
-				if targets.iter().any(|(p, v)| *p == para_id && *v == version) {
-					*per_block.get_mut(&para_id).expect("para_id is a target; qed") += 1;
-				}
-			}
-		}
-		for (para_id, count) in per_block {
-			series.get_mut(&para_id).expect("para_id is a target; qed").push(count);
-		}
-		blocks_checked += 1;
-		if blocks_checked >= num_blocks {
-			break;
-		}
-	}
-	Ok(series)
+	runtime_api_decode(relay_client, hash, "ParachainHost_validators").await
 }
 
 async fn read_metric(
@@ -417,26 +353,89 @@ async fn read_metric(
 		.map_err(|e| anyhow!("failed to read metric {metric}: {e}"))
 }
 
-async fn wait_for_dispute_storm_to_settle(
+async fn assert_finality_stalls(
 	node: &zombienet_sdk::NetworkNode,
 	timeout_secs: u64,
-) -> Result<f64, anyhow::Error> {
-	const STEP_SECS: u64 = 25;
-	let metric = "parachain_candidate_disputes_total";
+) -> Result<(), anyhow::Error> {
+	const STEP_SECS: u64 = 20;
+	let metric = "substrate_block_height{status=\"finalized\"}";
 	let mut prev = read_metric(node, metric).await?;
 	let mut elapsed = 0u64;
 	loop {
 		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
 		elapsed += STEP_SECS;
 		let cur = read_metric(node, metric).await?;
-		log::info!("dispute counter {prev} → {cur} after {elapsed}s");
-		if cur - prev == 0.0 {
-			return Ok(cur);
+		log::info!(
+			"finalized {prev} → {cur} after {elapsed}s (waiting for the dispute to freeze it)"
+		);
+		if cur == prev {
+			tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
+			let after = read_metric(node, metric).await?;
+			assert!(
+				after == cur,
+				"finality resumed after appearing to stall ({cur} → {after}); the unresolved \
+				 dispute should keep it frozen in the 5/15 case",
+			);
+			log::info!("finality frozen at {cur} (degraded as expected)");
+			return Ok(());
 		}
 		prev = cur;
 		if elapsed >= timeout_secs {
 			return Err(anyhow!(
-				"dispute storm did not settle within {timeout_secs}s (still growing, last {cur})"
+				"finality kept advancing (last {cur}) for {timeout_secs}s; expected the unresolved \
+				 dispute to freeze it in the 5/15 case",
+			));
+		}
+	}
+}
+
+/// Wait for the dispute storm to fully resolve: every raised dispute must conclude *valid* (the
+/// honest supermajority wins) and none may conclude *invalid*.
+async fn wait_for_disputes_resolved_valid(
+	node: &zombienet_sdk::NetworkNode,
+	timeout_secs: u64,
+) -> Result<f64, anyhow::Error> {
+	const STEP_SECS: u64 = 20;
+	let total_metric = "parachain_candidate_disputes_total";
+	let valid_metric = "polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}";
+	let invalid_metric = "polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
+	let mut elapsed = 0u64;
+	loop {
+		let total = read_metric(node, total_metric).await?;
+		let valid = read_metric(node, valid_metric).await?;
+		// The invalid-conclusion counter is absent until first incremented; treat absent as zero.
+		let invalid = read_metric(node, invalid_metric).await.unwrap_or(0.0);
+		log::info!(
+			"disputes after {elapsed}s: total={total}, concluded_valid={valid}, \
+			 concluded_invalid={invalid}"
+		);
+		assert!(
+			invalid == 0.0,
+			"a dispute concluded invalid ({invalid}); the honest supermajority must never lose",
+		);
+
+		if total >= 1.0 && valid >= total {
+			// All raised disputes concluded valid. Confirm no new dispute is still in flight.
+			tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
+			elapsed += STEP_SECS;
+			let total_after = read_metric(node, total_metric).await?;
+			let invalid_after = read_metric(node, invalid_metric).await.unwrap_or(0.0);
+			assert!(
+				invalid_after == 0.0,
+				"a dispute concluded invalid ({invalid_after}); the honest supermajority must never lose",
+			);
+			if total_after <= total {
+				return Ok(total_after);
+			}
+		} else {
+			tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
+			elapsed += STEP_SECS;
+		}
+
+		if elapsed >= timeout_secs {
+			return Err(anyhow!(
+				"disputes did not all conclude valid within {timeout_secs}s \
+				 (total={total}, concluded_valid={valid})"
 			));
 		}
 	}

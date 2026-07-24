@@ -120,7 +120,6 @@ async fn doesnt_break_parachains_test(
 			CandidateDescriptorVersion::V3,
 			HashMap::from([(para_id, 12..16)]),
 			15,
-			None,
 		)
 		.await?;
 	} else {

@@ -75,9 +75,6 @@ fn main() {
 		.set_file_name(v3::WASM_FILE_NAME)
 		.build();
 
-	// A V3-descriptor runtime with an incremented spec version, so it can be enacted as a genuine
-	// runtime upgrade on top of a plain (V2, spec_version 2) parachain runtime. Used by the
-	// old-validator dispute-storm test to flip a running parachain from V2 to V3 descriptors.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("spec-version-3")
