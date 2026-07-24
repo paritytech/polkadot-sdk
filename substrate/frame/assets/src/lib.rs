@@ -878,7 +878,6 @@ pub mod pallet {
 				},
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
-			// Allocate the id just created.
 			T::AssetIdAllocator::advance().map_err(|_| Error::<T, I>::AssetIdAllocationFailed)?;
 			Self::deposit_event(Event::Created {
 				asset_id: id,
@@ -929,7 +928,7 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
 			let id: T::AssetId = id.into();
-			Self::do_force_create(id, owner, is_sufficient, min_balance)
+			Self::do_force_create(id, owner, is_sufficient, min_balance, false)
 		}
 
 		/// Start the process of destroying a fungible asset class.

@@ -755,14 +755,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///   this asset.
 	/// * `min_balance`: The minimum balance a user is allowed to have of this asset before they are
 	///   considered dust and cleaned up.
+	/// * `enforce_allocator`: Whether `id` must be the one required by
+	///   [`Config::AssetIdAllocator`]. Only pass `false` for a `ForceOrigin` caller.
 	pub(super) fn do_force_create(
 		id: T::AssetId,
 		owner: T::AccountId,
 		is_sufficient: bool,
 		min_balance: T::Balance,
+		enforce_allocator: bool,
 	) -> DispatchResult {
 		ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 		ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
+		if enforce_allocator {
+			if let Some(next_id) = T::AssetIdAllocator::next() {
+				ensure!(id == next_id, Error::<T, I>::BadAssetId);
+			}
+		}
 
 		Asset::<T, I>::insert(
 			&id,
@@ -782,7 +790,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		);
 		ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
-		// Allocate the forced id, so it can never be handed out again.
 		T::AssetIdAllocator::advance_from(&id)
 			.map_err(|_| Error::<T, I>::AssetIdAllocationFailed)?;
 		Self::deposit_event(Event::ForceCreated { asset_id: id, owner: owner.clone() });
