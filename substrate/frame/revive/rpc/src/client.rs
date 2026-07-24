@@ -742,6 +742,26 @@ impl Client {
 		}
 	}
 
+	/// Get the block for the given block number or tag, or `None` if it is not known.
+	///
+	/// Prefer this over resolving a hash with [`Self::block_hash_for_tag`] and then fetching the
+	/// block by that hash, which fetches the same block twice.
+	pub async fn block_for_tag(
+		&self,
+		at: BlockId,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		match at {
+			BlockId::Hash(hash) => {
+				let Some(hash) = self.resolve_substrate_hash(&H256::from(hash.block_hash.0)).await
+				else {
+					return Ok(None);
+				};
+				self.block_by_hash(&hash).await
+			},
+			BlockId::Number(tag) => self.block_by_number_or_tag(&tag).await,
+		}
+	}
+
 	/// Resolve a [`BlockNumberOrTag`] to a concrete block number.
 	async fn resolve_tag_to_number(&self, tag: BlockNumberOrTag) -> Result<U256, ClientError> {
 		match tag {
@@ -844,6 +864,20 @@ impl Client {
 	/// Get an EVM transaction receipt by hash.
 	pub async fn receipt(&self, tx_hash: &H256) -> Option<ReceiptInfo> {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
+	}
+
+	/// Get all transaction receipts for the given block.
+	///
+	/// Returns `None` if the block does not exist.
+	pub async fn block_receipts(
+		&self,
+		at: BlockId,
+	) -> Result<Option<Vec<ReceiptInfo>>, ClientError> {
+		let Some(block) = self.block_for_tag(at).await? else {
+			return Ok(None);
+		};
+		let receipts = self.receipt_provider.block_receipts(&block).await?;
+		Ok(Some(receipts.into_iter().map(|(_, receipt)| receipt).collect()))
 	}
 
 	/// Get The post dispatch weight associated with this Ethereum transaction hash.
