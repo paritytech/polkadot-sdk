@@ -529,6 +529,8 @@ mod benchmarks {
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
 			.code_hash;
+		// The code read during instantiation is priced by `code_load`.
+		whitelist_code::<T>(hash);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		#[extrinsic_call]
@@ -566,6 +568,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		whitelist_code::<T>(instance.info()?.code_hash);
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -601,6 +605,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		whitelist_code::<T>(instance.info()?.code_hash);
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
