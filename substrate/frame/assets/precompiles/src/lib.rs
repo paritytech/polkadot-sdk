@@ -371,11 +371,6 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
-	fn charge_transfer_log(env: &mut impl Ext<T = Runtime>) -> Result<(), Error> {
-		env.charge(<Runtime as permit::Config>::WeightInfo::erc20_transfer_log())?;
-		Ok(())
-	}
-
 	/// Deposit an event to the runtime.
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
@@ -395,7 +390,6 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
-		Self::charge_transfer_log(env)?;
 
 		let from = Self::caller(env)?;
 		let from_account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
@@ -416,8 +410,8 @@ where
 
 		// A zero-value transfer is a no-op in `do_transfer` and fires no callback, but EIP-20
 		// requires it to still emit a `Transfer` log. Invoke the instance's own callback (the same
-		// one `do_transfer` uses for non-zero), so the log is identical; the weight is already
-		// covered by `charge_transfer_log` above.
+		// one `do_transfer` uses for non-zero), so the log is identical; its cost is already
+		// accounted for by `transfer()` above.
 		if call.value.is_zero() {
 			<Runtime as Config<Instance>>::CallbackHandle::transferred(
 				&asset_id,
@@ -574,8 +568,9 @@ where
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		// `transfer_approved()` accounts for the mirror-log callback; see `transfer` for why the
+		// precompile is slightly overcharged relative to the in-frame receipt path.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
-		Self::charge_transfer_log(env)?;
 		let spender = Self::caller(env)?;
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 
@@ -596,8 +591,8 @@ where
 
 		// A zero-value transfer is a no-op in `do_transfer_approved` and fires no callback, but
 		// EIP-20 requires it to still emit a `Transfer` log. Invoke the instance's own callback
-		// (the same one used for non-zero), so the log is identical; the weight is already
-		// covered by `charge_transfer_log` above.
+		// (the same one used for non-zero), so the log is identical; its cost is already accounted
+		// for by `transfer_approved()` above.
 		if call.value.is_zero() {
 			<Runtime as Config<Instance>>::CallbackHandle::transferred(
 				&asset_id,

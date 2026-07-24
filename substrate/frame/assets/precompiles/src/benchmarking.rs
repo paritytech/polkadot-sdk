@@ -55,8 +55,6 @@ const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
 		T: pallet_assets::Config<T::AssetsInstance, AssetId = <T as Config>::ForeignAssetId>,
 		// Permit bounds
 		T: crate::permit::Config,
-		// Needed to emit the mirrored ERC-20 log.
-		T: pallet_revive::Config,
 		<T as pallet_assets::Config<T::AssetsInstance>>::Balance: From<u32>,
 		<T as pallet_assets::Config<T::AssetsInstance>>::AssetIdParameter: From<<T as pallet_assets::Config<T::AssetsInstance>>::AssetId>,
 )]
@@ -222,31 +220,6 @@ mod benchmarks {
 
 		// Verify nonce was incremented, confirming the full flow ran.
 		assert_eq!(crate::permit::Pallet::<T>::nonce(&verifying_contract, &owner), U256::one());
-	}
-
-	// ==================== Mirror-log benchmark ====================
-
-	/// Benchmark emitting one mirrored ERC-20 `Transfer` log: the work charged by
-	/// `charge_transfer_log` on the precompile path (and performed on every substrate-native
-	/// balance change). Measures building the log and depositing it via
-	/// `emit_contract_log_outside_frame` (the `ContractEmitted` event plus receipt/bloom capture).
-	#[benchmark]
-	fn erc20_transfer_log() {
-		let token = H160::from_low_u64_be(0x0102_0304);
-		// Representative ERC-20 `Transfer`: three 32-byte topics (event signature, from, to) and a
-		// 32-byte value word.
-		let topics = [
-			sp_core::H256::repeat_byte(0x11),
-			sp_core::H256::repeat_byte(0x22),
-			sp_core::H256::repeat_byte(0x33),
-		]
-		.to_vec();
-		let data = [0x44u8; 32].to_vec();
-
-		#[block]
-		{
-			pallet_revive::Pallet::<T>::emit_contract_log_outside_frame(token, topics, data);
-		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
