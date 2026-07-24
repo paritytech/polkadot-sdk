@@ -2899,97 +2899,122 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
-		let signals = self.commitments.ump_signals()?;
-
-		match self.descriptor.version() {
-			CandidateDescriptorVersion::V1 => {
-				// If the parachain runtime started sending ump signals, v1 descriptors are no
-				// longer allowed.
-				if !signals.is_empty() {
-					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
-				} else {
-					// Nothing else to check for v1 descriptors.
-					return Ok(CandidateUMPSignals::default());
-				}
-			},
-			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown => {
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version))
-			},
-			_ if signals.is_empty() => {
-				// V3 and above require UMP signals.
-				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
-			},
-			_ => {},
+		if self.descriptor.version() == CandidateDescriptorVersion::Unknown {
+			return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version));
 		}
-
-		// Check the core index
-		let (maybe_core_index_selector, cq_offset) = signals
-			.core_selector()
-			.map(|(selector, offset)| (Some(selector), offset))
-			.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
-
-		self.check_core_index(cores_per_para, maybe_core_index_selector, cq_offset)?;
-
-		// Nothing to further check for the approved peer. If everything passed so far, return the
-		// signals.
-		Ok(signals)
+		parse_ump_signals_for_fields(
+			&self.commitments,
+			self.descriptor.version(),
+			self.descriptor.version,
+			cores_per_para,
+			self.descriptor.para_id(),
+			CoreIndex(self.descriptor.core_index as u32),
+		)
 	}
+}
 
-	/// Checks if descriptor core index is equal to the committed core index.
-	/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
-	/// a mapping between `ParaId` and the cores assigned per depth.
-	fn check_core_index(
-		&self,
-		cores_per_para: &TransposedClaimQueue,
-		maybe_core_index_selector: Option<CoreSelector>,
-		cq_offset: ClaimQueueOffset,
-	) -> Result<(), CommittedCandidateReceiptError> {
-		let assigned_cores = cores_per_para
-			.get(&self.descriptor.para_id())
-			.ok_or(CommittedCandidateReceiptError::NoAssignment)?
-			.get(&cq_offset.0)
-			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
+/// Performs the UMP-signal checks and returns the signals.
+///
+/// Receipt-free variant of [`CommittedCandidateReceiptV2::parse_ump_signals`]:
+/// takes the descriptor fields the check consumes instead of a built receipt.
+/// For callers that validate commitments before a receipt exists.
+pub fn parse_ump_signals_for_fields(
+	commitments: &CandidateCommitments,
+	version: CandidateDescriptorVersion,
+	version_raw: u8,
+	cores_per_para: &TransposedClaimQueue,
+	para_id: Id,
+	core_index: CoreIndex,
+) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
+	let signals = commitments.ump_signals()?;
 
-		if assigned_cores.is_empty() {
-			return Err(CommittedCandidateReceiptError::NoAssignment);
-		}
-
-		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
-
-		let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
-			// We have a committed core selector, we can use it.
-			core_index_selector
-		} else if assigned_cores.len() > 1 {
-			// We got more than one assigned core and no core selector. Special care is needed.
-			if !assigned_cores.contains(&descriptor_core_index) {
-				// core index in the descriptor is not assigned to the para. Error.
-				return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
+	match version {
+		CandidateDescriptorVersion::V1 => {
+			// If the parachain runtime started sending ump signals, v1 descriptors are no
+			// longer allowed.
+			if !signals.is_empty() {
+				return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
 			} else {
-				// the descriptor core index is indeed assigned to the para. This is the most we can
-				// check for now
-				return Ok(());
+				// Nothing else to check for v1 descriptors.
+				return Ok(CandidateUMPSignals::default());
 			}
-		} else {
-			// No core selector but there's only one assigned core, use it.
-			CoreSelector(0)
-		};
-
-		let core_index = assigned_cores
-			.iter()
-			.nth(core_index_selector.0 as usize % assigned_cores.len())
-			.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
-			.copied()?;
-
-		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
-				descriptor: descriptor_core_index,
-				commitments: core_index,
-			});
-		}
-
-		Ok(())
+		},
+		CandidateDescriptorVersion::V2 => {},
+		CandidateDescriptorVersion::Unknown => {
+			return Err(CommittedCandidateReceiptError::UnknownVersion(version_raw))
+		},
+		_ if signals.is_empty() => {
+			// V3 and above require UMP signals.
+			return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
+		},
+		_ => {},
 	}
+
+	// Check the core index
+	let (maybe_core_index_selector, cq_offset) = signals
+		.core_selector()
+		.map(|(selector, offset)| (Some(selector), offset))
+		.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
+
+	check_core_index(cores_per_para, maybe_core_index_selector, cq_offset, para_id, core_index)?;
+
+	// Nothing to further check for the approved peer. If everything passed so far, return the
+	// signals.
+	Ok(signals)
+}
+
+/// Checks if descriptor core index is equal to the committed core index.
+/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+/// a mapping between `ParaId` and the cores assigned per depth.
+fn check_core_index(
+	cores_per_para: &TransposedClaimQueue,
+	maybe_core_index_selector: Option<CoreSelector>,
+	cq_offset: ClaimQueueOffset,
+	para_id: Id,
+	descriptor_core_index: CoreIndex,
+) -> Result<(), CommittedCandidateReceiptError> {
+	let assigned_cores = cores_per_para
+		.get(&para_id)
+		.ok_or(CommittedCandidateReceiptError::NoAssignment)?
+		.get(&cq_offset.0)
+		.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
+
+	if assigned_cores.is_empty() {
+		return Err(CommittedCandidateReceiptError::NoAssignment);
+	}
+
+	let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
+		// We have a committed core selector, we can use it.
+		core_index_selector
+	} else if assigned_cores.len() > 1 {
+		// We got more than one assigned core and no core selector. Special care is needed.
+		if !assigned_cores.contains(&descriptor_core_index) {
+			// core index in the descriptor is not assigned to the para. Error.
+			return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
+		} else {
+			// the descriptor core index is indeed assigned to the para. This is the most we can
+			// check for now
+			return Ok(());
+		}
+	} else {
+		// No core selector but there's only one assigned core, use it.
+		CoreSelector(0)
+	};
+
+	let core_index = assigned_cores
+		.iter()
+		.nth(core_index_selector.0 as usize % assigned_cores.len())
+		.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
+		.copied()?;
+
+	if core_index != descriptor_core_index {
+		return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+			descriptor: descriptor_core_index,
+			commitments: core_index,
+		});
+	}
+
+	Ok(())
 }
 
 /// A backed (or backable, depending on context) candidate.

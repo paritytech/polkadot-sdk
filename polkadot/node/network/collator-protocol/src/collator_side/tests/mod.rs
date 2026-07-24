@@ -309,6 +309,54 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 		.expect(&format!("{:?} is more than enough for sending signals.", TIMEOUT));
 }
 
+/// Deconstruct a test receipt into the `BuiltEntry` the new `DistributeSegment`
+/// carries. The receiver reassembles an identical receipt from these fields.
+fn built_entry_from_receipt(
+	receipt: &CandidateReceipt,
+	pov: &PoV,
+	parent_head_data: HeadData,
+) -> BuiltEntry {
+	BuiltEntry {
+		relay_parent: receipt.descriptor.relay_parent(),
+		session_index: receipt
+			.descriptor
+			.session_index()
+			.expect("test receipts use V2/V3 descriptors which carry a session index"),
+		validation_code_hash: receipt.descriptor.validation_code_hash(),
+		persisted_validation_data_hash: receipt.descriptor.persisted_validation_data_hash(),
+		erasure_root: receipt.descriptor.erasure_root(),
+		commitments_hash: receipt.commitments_hash,
+		output_head_data_hash: receipt.descriptor.para_head(),
+		pov: pov.clone(),
+		parent_head_data,
+		result_sender: None,
+	}
+}
+
+/// Wrap built entries into the `Segment` arm matching the descriptor version.
+/// Test-only: panics on shape violations instead of returning errors.
+fn segment_from_entries(
+	entries: Vec<BuiltEntry>,
+	candidates_descriptor_version: CandidateDescriptorVersion,
+	scheduling_parent: Hash,
+	scheduling_session: SessionIndex,
+) -> Segment {
+	match candidates_descriptor_version {
+		CandidateDescriptorVersion::V2 => {
+			let [entry] = entries.try_into().expect("V2 test segments have exactly one entry");
+			Segment::V2(entry)
+		},
+		_ => Segment::V3 {
+			scheduling_parent,
+			scheduling_session,
+			candidates: BoundedVec::try_from(
+				entries.into_iter().map(SegmentEntry::Built).collect::<Vec<_>>(),
+			)
+			.expect("test segments fit MAX_SEGMENT_LEN"),
+		},
+	}
+}
+
 /// Result of [`distribute_collation`]
 struct DistributedCollation {
 	candidate: CandidateReceipt,
@@ -429,27 +477,21 @@ async fn distribute_segment_with_receipts(
 	core_index: CoreIndex,
 	candidates_descriptor_version: CandidateDescriptorVersion,
 	para_id: ParaId,
+	scheduling_session: SessionIndex,
 ) -> Vec<DistributedCollation> {
-	let candidates: Vec<SegmentEntry> = items
+	let candidates: Vec<BuiltEntry> = items
 		.iter()
-		.map(|(receipt, pov, parent_head_data_hash)| SegmentEntry {
-			candidate_receipt: receipt.clone(),
-			parent_head_data_hash: *parent_head_data_hash,
-			pov: pov.clone(),
-			parent_head_data: HeadData(vec![1, 2, 3]),
-			result_sender: None,
-		})
+		.map(|(receipt, pov, _)| built_entry_from_receipt(receipt, pov, HeadData(vec![1, 2, 3])))
 		.collect();
-	let candidates = BoundedVec::try_from(candidates).unwrap();
+	let segment = segment_from_entries(
+		candidates,
+		candidates_descriptor_version,
+		scheduling_parent,
+		scheduling_session,
+	);
 	overseer_send(
 		virtual_overseer,
-		CollatorProtocolMessage::DistributeSegment {
-			scheduling_parent,
-			core_index,
-			candidates_descriptor_version,
-			candidates,
-			para_id,
-		},
+		CollatorProtocolMessage::DistributeSegment { core_index, para_id, segment },
 	)
 	.await;
 	check_connected_to_validators(virtual_overseer, expected_connected).await;
@@ -488,6 +530,7 @@ async fn distribute_segment(
 		.build_v3();
 		items.push((candidate, pov_block, parent_head_data_hash));
 	}
+	let scheduling_session = items[0].0.descriptor().scheduling_session().unwrap();
 	distribute_segment_with_receipts(
 		virtual_overseer,
 		expected_connected,
@@ -496,6 +539,7 @@ async fn distribute_segment(
 		core_index,
 		CandidateDescriptorVersion::V3,
 		test_state.para_id,
+		scheduling_session,
 	)
 	.await
 }
@@ -608,66 +652,6 @@ async fn expect_advertise_segment_msg(
 				})
 			},
 			_ => panic!("Invalid advertisement"),
-		}
-	});
-}
-
-/// Assert that a segment is advertised to V3 peers as individual `AdvertiseCollation` messages.
-async fn expect_advertise_collations_for_segment_v3(
-	virtual_overseer: &mut VirtualOverseer,
-	any_peers: &[PeerId],
-	expected_scheduling_parent: Hash,
-	expected_candidate_hashes: Vec<CandidateHash>,
-) {
-	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
-		NetworkBridgeTxMessage::SendCollationMessages(messages)
-	) => {
-		assert_eq!(messages.len(), expected_candidate_hashes.len());
-		for (i, (peers, msg)) in messages.iter().enumerate() {
-			assert!(any_peers.iter().any(|p| peers.contains(p)));
-			match msg {
-				CollationProtocols::V3(protocol_v3::CollationProtocol::CollatorProtocol(message)) => {
-					assert_matches!(message, protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
-						scheduling_parent,
-						candidate_hash,
-						..
-					} => {
-						assert_eq!(*scheduling_parent, expected_scheduling_parent);
-						assert_eq!(*candidate_hash, expected_candidate_hashes[i]);
-					})
-				},
-				_ => panic!("Invalid advertisement"),
-			}
-		}
-	});
-}
-
-/// Assert that a segment is advertised to V2 peers as individual `AdvertiseCollation` messages.
-async fn expect_advertise_collations_for_segment_v2(
-	virtual_overseer: &mut VirtualOverseer,
-	any_peers: &[PeerId],
-	expected_scheduling_parent: Hash,
-	expected_candidate_hashes: Vec<CandidateHash>,
-) {
-	assert_matches!(overseer_recv(virtual_overseer).await, AllMessages::NetworkBridgeTx(
-		NetworkBridgeTxMessage::SendCollationMessages(messages)
-	) => {
-		assert_eq!(messages.len(), expected_candidate_hashes.len());
-		for (i, (peers, msg)) in messages.iter().enumerate() {
-			assert!(any_peers.iter().any(|p| peers.contains(p)));
-			match msg {
-				CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(message)) => {
-					assert_matches!(message, protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
-						scheduling_parent,
-						candidate_hash,
-						..
-					} => {
-						assert_eq!(*scheduling_parent, expected_scheduling_parent);
-						assert_eq!(*candidate_hash, expected_candidate_hashes[i]);
-					})
-				},
-				_ => panic!("Invalid advertisement"),
-			}
 		}
 	});
 }

@@ -43,22 +43,29 @@
 //! them and decides when to submit.
 //!
 //! - **Trigger**: Explicit `SubmitSegment` message from the collator
-//! - **Flow**: Collator builds collation externally → sends `SubmitSegmentParams` → subsystem
-//!   constructs one receipt per collation and distributes them in order
-//! - **Descriptor version**: Selected explicitly via `candidates_descriptor_version`. `V3` enables
-//!   low-latency collation where the scheduling context (which relay block determined core
-//!   assignment) differs from the relay parent (the block the parablock actually builds on).
+//! - **Flow**: Collator builds collations externally → sends `SubmitSegmentParams` → subsystem
+//!   constructs one [`BuiltEntry`] per collation and distributes them in order as a [`Segment`].
+//!   The collator protocol assembles the candidate receipts from the entry fields and the
+//!   segment-level commons.
+//! - **Descriptor version**: Selected explicitly via `candidates_descriptor_version` and reflected
+//!   in the [`Segment`] arm. `V3` enables low-latency collation where the scheduling context (which
+//!   relay block determined core assignment) differs from the relay parent (the block the parablock
+//!   actually builds on).
 //! - **Used by**: Production collators (cumulus slot-based, lookahead)
 //!
 //! # Candidate Descriptor Versions
 //!
-//! The subsystem creates different descriptor versions based on input:
+//! The descriptor version is selected via `candidates_descriptor_version` and is reflected in
+//! the [`Segment`] arm:
 //!
-//! - **V2**: `scheduling_parent` is `None`. The descriptor has `version=0` and `scheduling_parent`
-//!   field is zeroed. Scheduling context implicitly equals relay parent.
-//! - **V3**: `scheduling_parent` is `Some(hash)`. The descriptor has `version=1` and includes an
-//!   explicit `scheduling_parent` field. V3 candidates require UMP signals to be present. Requires
-//!   `CandidateReceiptV3` node feature to be enabled.
+//! - **V2**: [`Segment::V2`], exactly one collation. The scheduling context implicitly equals the
+//!   relay parent. The `CollatorFn` path only produces these.
+//! - **V3**: [`Segment::V3`], one or more collations sharing a scheduling parent. V3 candidates
+//!   require UMP signals to be present. Requires the `CandidateReceiptV3` node feature to be
+//!   enabled.
+//!
+//! UMP-signal checks run on the commitments and descriptor fields directly
+//! ([`parse_ump_signals_for_fields`]); no receipt exists sender-side.
 //!
 //! # Protocol Details
 //!
@@ -69,14 +76,14 @@
 //!    - Fetch claim queue to determine core assignments
 //!    - Fetch validation data and code hash
 //!    - Invoke `CollatorFn` for each assigned core
-//!    - Construct candidate receipt and distribute via
+//!    - Construct a [`BuiltEntry`] and distribute it as a V2 segment via
 //!      [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! On `SubmitSegment`:
 //!
 //! 1. Validate the subsystem is initialized
 //! 2. Fetch claim queue and session info for the scheduling parent
-//! 3. Construct one candidate receipt per collation (V2 or V3 per `candidates_descriptor_version`)
+//! 3. Construct one [`BuiltEntry`] per collation
 //! 4. Distribute the segment via [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! [`CollatorFn`]: polkadot_node_primitives::CollatorFn
@@ -94,7 +101,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage, SegmentEntry,
+		BuiltEntry, CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage,
+		Segment, SegmentEntry,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
@@ -104,8 +112,8 @@ use polkadot_node_subsystem_util::{
 	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2, CandidateDescriptorVersion,
-	CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	transpose_claim_queue, v9::parse_ump_signals_for_fields, CandidateCommitments,
+	CandidateDescriptorVersion, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
@@ -268,30 +276,41 @@ impl CollationGenerationSubsystem {
 				n_validators: session_info.n_validators,
 				core_index: params.core_index,
 				session_index,
-				scheduling_session,
 			};
 			let entry = construct_segment_entry(
 				collation,
 				result_sender,
 				&mut self.metrics,
 				transposed_queue,
-				scheduling_parent,
 				params.candidates_descriptor_version,
 			)?;
 			segment_entries.push(entry);
 		}
 		let sender = ctx.sender();
 		let len = segment_entries.len();
-		// This will never be an error as the params received from cumulus is a BoundedVec
-		let candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>> =
-			BoundedVec::try_from(segment_entries).map_err(|_| Error::InvalidSegmentSize(len))?;
+		let segment = match params.candidates_descriptor_version {
+			CandidateDescriptorVersion::V2 => {
+				// V2 was validated above to contain exactly one collation.
+				let entry = segment_entries.pop().ok_or(Error::InvalidSegmentSize(0))?;
+				Segment::V2(entry)
+			},
+			CandidateDescriptorVersion::V3 => Segment::V3 {
+				scheduling_parent,
+				scheduling_session,
+				candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
+					segment_entries.into_iter().map(SegmentEntry::Built).collect::<Vec<_>>(),
+				)
+				.map_err(|_| Error::InvalidSegmentSize(len))?,
+			},
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => {
+				return Err(Error::UnsupportedDescriptorVersion)
+			},
+		};
 		sender
 			.send_message(CollatorProtocolMessage::DistributeSegment {
-				scheduling_parent,
 				core_index: params.core_index,
-				candidates_descriptor_version: params.candidates_descriptor_version,
-				candidates,
 				para_id: config.para_id,
+				segment,
 			})
 			.await;
 		Ok(())
@@ -487,8 +506,8 @@ impl CollationGenerationSubsystem {
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
 					// Note: CollatorFn-based collators don't support V3 scheduling,
-					// so we pass None for scheduling_parent here.
-					if let Err(err) = construct_and_distribute_receipt(
+					// so this path always produces V2 segments.
+					if let Err(err) = construct_and_distribute_v2_receipt(
 						PreparedCollation {
 							collation,
 							para_id,
@@ -498,14 +517,11 @@ impl CollationGenerationSubsystem {
 							n_validators,
 							core_index: descriptor_core_index,
 							session_index,
-							// V2 only: relay_parent == scheduling_parent, same session.
-							scheduling_session: session_index,
 						},
 						&mut task_sender,
 						result_sender,
 						&metrics,
 						&transposed_claim_queue,
-						None, // scheduling_parent - not supported by CollatorFn interface
 					)
 					.await
 					{
@@ -582,34 +598,32 @@ struct PreparedCollation {
 	core_index: CoreIndex,
 	/// The relay parent's session index.
 	session_index: SessionIndex,
-	/// The scheduling parent's session index.
-	scheduling_session: SessionIndex,
 }
 
-/// Construct a `SegmentEntry` from a prepared collation, including its candidate receipt and PoV.
+/// Construct a [`BuiltEntry`] from a prepared collation: compress the PoV, compute the
+/// erasure root and run the UMP-signal checks on the commitments and descriptor fields.
+/// The final `CandidateReceipt` is assembled by the receiver from these fields.
 fn construct_segment_entry(
 	collation: PreparedCollation,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
-	scheduling_parent: Hash,
 	candidates_descriptor_version: CandidateDescriptorVersion,
-) -> Result<SegmentEntry> {
+) -> Result<BuiltEntry> {
 	let PreparedCollation {
 		collation,
-		para_id,
 		relay_parent,
 		validation_data,
 		validation_code_hash,
 		n_validators,
-		core_index,
 		session_index,
-		scheduling_session,
+		para_id,
+		core_index,
+		..
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
 	let parent_head_data = validation_data.parent_head.clone();
-	let parent_head_data_hash = validation_data.parent_head.hash();
 
 	// Apply compression to the block data.
 	let pov = {
@@ -631,8 +645,6 @@ fn construct_segment_entry(
 		pov
 	};
 
-	let pov_hash = pov.hash();
-
 	let erasure_root = erasure_root(n_validators, validation_data, pov.clone())?;
 
 	let commitments = CandidateCommitments {
@@ -644,119 +656,56 @@ fn construct_segment_entry(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	let receipt = {
-		let descriptor = if CandidateDescriptorVersion::V3 == candidates_descriptor_version {
-			// V3 descriptor with explicit scheduling_parent
-			CandidateDescriptorV2::new_v3(
-				para_id,
-				relay_parent,
-				core_index,
-				session_index,
-				scheduling_session,
-				persisted_validation_data_hash,
-				pov_hash,
-				erasure_root,
-				commitments.head_data.hash(),
-				validation_code_hash,
-				scheduling_parent,
-			)
-		} else {
-			// V2 descriptor (scheduling_parent = zero)
-			CandidateDescriptorV2::new(
-				para_id,
-				relay_parent,
-				core_index,
-				session_index,
-				persisted_validation_data_hash,
-				pov_hash,
-				erasure_root,
-				commitments.head_data.hash(),
-				validation_code_hash,
-			)
-		};
-
-		let ccr = CommittedCandidateReceiptV2 { descriptor, commitments: commitments.clone() };
-
-		ccr.parse_ump_signals(&transposed_claim_queue)
-			.map_err(Error::CandidateReceiptCheck)?;
-
-		ccr.to_plain()
-	};
-
-	gum::debug!(
-		target: LOG_TARGET,
-		candidate_hash = ?receipt.hash(),
-		?pov_hash,
-		?relay_parent,
-		para_id = %para_id,
-		?core_index,
-		"Candidate generated",
-	);
-	gum::trace!(
-		target: LOG_TARGET,
-		?commitments,
-		candidate_hash = ?receipt.hash(),
-		"Candidate commitments",
-	);
+	parse_ump_signals_for_fields(
+		&commitments,
+		candidates_descriptor_version,
+		// The raw version byte is unknown here; it is only surfaced in the
+		// `UnknownVersion` error, and V1/`Unknown` submissions are rejected
+		// at segment assembly anyway.
+		u8::MAX,
+		transposed_claim_queue,
+		para_id,
+		core_index,
+	)
+	.map_err(Error::CandidateReceiptCheck)?;
 
 	metrics.on_collation_generated();
-	Ok(SegmentEntry {
-		candidate_receipt: receipt,
-		parent_head_data_hash,
+	Ok(BuiltEntry {
+		relay_parent,
+		session_index,
+		validation_code_hash,
+		persisted_validation_data_hash,
+		erasure_root,
+		commitments_hash: commitments.hash(),
+		output_head_data_hash: commitments.head_data.hash(),
 		pov,
 		parent_head_data,
 		result_sender,
 	})
 }
 
-/// Takes a prepared collation, along with its context, and produces a candidate receipt
-/// which is distributed to validators.
-async fn construct_and_distribute_receipt(
+/// Takes a prepared collation and distributes it to validators as a
+/// single-candidate V2 segment.
+async fn construct_and_distribute_v2_receipt(
 	collation: PreparedCollation,
 	sender: &mut impl overseer::CollationGenerationSenderTrait,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
-	scheduling_parent: Option<Hash>,
 ) -> Result<()> {
-	let (scheduling_parent, candidates_descriptor_version) = scheduling_parent
-		.map_or((collation.relay_parent, CandidateDescriptorVersion::V2), |parent| {
-			(parent, CandidateDescriptorVersion::V3)
-		});
 	let core_index = collation.core_index;
 	let para_id = collation.para_id;
-	let SegmentEntry {
-		candidate_receipt,
-		parent_head_data_hash,
-		pov,
-		parent_head_data,
-		result_sender,
-	} = construct_segment_entry(
+	let built_entry = construct_segment_entry(
 		collation,
 		result_sender,
 		metrics,
 		transposed_claim_queue,
-		scheduling_parent,
-		candidates_descriptor_version,
+		CandidateDescriptorVersion::V2,
 	)?;
 
-	let candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>> =
-		BoundedVec::try_from(vec![SegmentEntry {
-			candidate_receipt,
-			parent_head_data_hash,
-			pov,
-			parent_head_data,
-			result_sender,
-		}])
-		.expect("length-1 fits");
+	let segment = Segment::V2(built_entry);
 	sender
-		.send_message(CollatorProtocolMessage::DistributeSegment {
-			scheduling_parent,
-			core_index,
-			candidates_descriptor_version,
-			candidates,
-			para_id,
-		})
+		.send_message(CollatorProtocolMessage::DistributeSegment { core_index, para_id, segment })
 		.await;
 
 	Ok(())
