@@ -1763,12 +1763,10 @@ pub mod node_features {
 		CandidateReceiptV2 = 3,
 		/// Enables support for scheduling information in the Candidate Descriptor.
 		CandidateReceiptV3 = 4,
-		/// Enables speculative messaging
-		SpeculativeMessaging = 5,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 6,
+		FirstUnassigned = 5,
 	}
 
 	impl FeatureIndex {
