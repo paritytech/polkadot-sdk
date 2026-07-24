@@ -256,7 +256,7 @@ mod tests {
 		// FROZEN consensus vector: appending these fixed leaves must always bag to this exact root.
 		// Any change to `SpecMerge`'s inner/peak domain tags or the peak-bagging order is a
 		// consensus break and breaks this test. (Round-trip tests can't catch a silent
-		// byte-format change.)
+		// byte-format change.) Pinned for `LEAF/INNER/PEAK = 0x1/0x2/0x3`.
 		let mut acc = Mmr::<H>::new();
 		for i in 1..=5u8 {
 			acc.append(h(i));
@@ -264,7 +264,7 @@ mod tests {
 		assert_eq!(
 			acc.root(),
 			Hash::from(hex_literal::hex!(
-				"9aadc77e51dcbf70a5a11751163a4478d054674b5976c903e273bb7c3712158b"
+				"2cfe88aae5315b66e2252889957efd68c4749d1cfbcba31d0ca00b902117e862"
 			))
 		);
 	}

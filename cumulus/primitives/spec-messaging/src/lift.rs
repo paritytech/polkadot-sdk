@@ -135,9 +135,11 @@ impl MmrFrontier {
 /// are never needed.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MMRExtensionProof {
-	/// `mmr_lib` node count of the extended MMR (with the frontier's `leaf_count`, this places the
-	/// connecting nodes). `0` for the identity extension.
-	pub new_mmr_size: u64,
+	/// Leaf count of the extended (newer) MMR. The `mmr_lib` node count is *derived* from it
+	/// (`leaf_index_to_mmr_size`), so an out-of-range size can never be smuggled in. `0` with
+	/// empty `connecting_nodes` is the identity extension (the endpoint already is the current
+	/// root).
+	pub leaf_count: u64,
 	/// The O(log n) connecting nodes `(position, hash)` — the extended MMR's peaks / witnesses not
 	/// derivable from the frontier's own peaks (from `gen_ancestry_proof`). Empty for the
 	/// identity.
@@ -145,28 +147,33 @@ pub struct MMRExtensionProof {
 }
 
 impl MMRExtensionProof {
-	/// The identity extension: no connecting nodes, yielding a frontier's own root unchanged (the
-	/// common caught-up case where the endpoint already *is* the current stream root).
+	/// The identity extension: `leaf_count = 0`, no connecting nodes — yields a frontier's own root
+	/// unchanged (the common caught-up case where the endpoint already *is* the current stream
+	/// root).
 	pub fn identity() -> Self {
-		Self { new_mmr_size: 0, connecting_nodes: Vec::new() }
+		Self { leaf_count: 0, connecting_nodes: Vec::new() }
 	}
 
-	/// Whether this is an identity (empty) extension.
+	/// Whether this is the identity (empty) extension.
 	pub fn is_identity(&self) -> bool {
-		self.connecting_nodes.is_empty()
+		self.leaf_count == 0 && self.connecting_nodes.is_empty()
 	}
 
 	/// Extend `from` and **return** the new root, computed from `from`'s peaks + the connecting
 	/// nodes; an [`Err`] if the proof is not well-formed for that placement. The identity extension
-	/// yields `from`'s own root. `from` is the verifier's own state — trusted, not re-checked.
+	/// yields `from`'s own root. `from` is the verifier's own state — its self-consistency is
+	/// asserted but its contents are not re-checked. The `mmr_lib` size is *derived* from
+	/// `leaf_count`, so it is always a valid MMR size.
 	pub fn verify(&self, from: &MmrFrontier) -> Result<MmrRoot, ProofError> {
-		let from_root = from.root().ok_or(ProofError::InconsistentFrontier)?;
-		if self.is_identity() {
-			return Ok(from_root);
+		// Frontier self-consistency: exactly one peak per set bit of its leaf count.
+		if from.peaks.len() != from.leaf_count.count_ones() as usize {
+			return Err(ProofError::InconsistentFrontier);
 		}
-		// The extension must go strictly forward: a newer MMR has a larger node count. Reject
-		// explicitly (a non-forward proof otherwise fails later inside `calculate_root`).
-		if self.new_mmr_size <= from.mmr_size() {
+		if self.is_identity() {
+			return from.root().ok_or(ProofError::InconsistentFrontier);
+		}
+		// Strictly forward: the extended MMR must have more leaves than the frontier.
+		if self.leaf_count <= from.leaf_count {
 			return Err(ProofError::NotForward);
 		}
 		// Defense-in-depth: bound an untrusted proof's connecting nodes before doing O(n) work in
@@ -174,20 +181,39 @@ impl MMRExtensionProof {
 		if self.connecting_nodes.len() > MAX_EXTENSION_CONNECTING_NODES {
 			return Err(ProofError::NodeLimitExceeded);
 		}
-		// Place `from`'s peaks at their canonical positions in the *previous* (pre-extension) MMR.
-		let prev_positions = get_peaks(from.mmr_size());
-		if prev_positions.len() != from.peaks.len() {
+		let new_mmr_size = leaf_index_to_mmr_size(self.leaf_count - 1);
+
+		// Extending from the empty stream: nothing binds (a prefix of nothing is vacuous), so the
+		// connecting nodes must simply BE the new MMR's peaks at their canonical positions.
+		if from.leaf_count == 0 {
+			let expected = get_peaks(new_mmr_size);
+			if self.connecting_nodes.len() != expected.len() ||
+				self.connecting_nodes.iter().map(|(p, _)| *p).ne(expected.iter().copied())
+			{
+				return Err(ProofError::InvalidProof);
+			}
+			let peaks: Vec<Hash> = self.connecting_nodes.iter().map(|(_, h)| *h).collect();
+			return MmrFrontier { peaks, leaf_count: self.leaf_count }
+				.root()
+				.ok_or(ProofError::InvalidProof);
+		}
+
+		// General: `from`'s peaks are complete subtrees of the new MMR at their unchanged
+		// positions; combined with the connecting nodes they reconstruct the new root
+		// (`calculate_root` merges them under `SpecMerge`, matching the sender's MMR).
+		let old_positions = get_peaks(from.mmr_size());
+		if old_positions.len() != from.peaks.len() {
 			return Err(ProofError::InconsistentFrontier);
 		}
 		let nodes: Vec<(u64, Hash)> =
-			prev_positions.into_iter().zip(from.peaks.iter().copied()).collect();
-		// Reconstruct the extended root from those peaks + the connecting nodes (`calculate_root`
-		// merges them under `SpecMerge`, matching the sender's MMR).
-		let proof = NodeMerkleProof::<Hash, SpecMerge<SpecHasher>>::new(
-			self.new_mmr_size,
+			old_positions.into_iter().zip(from.peaks.iter().copied()).collect();
+		NodeMerkleProof::<Hash, SpecMerge<SpecHasher>>::new(
+			new_mmr_size,
 			self.connecting_nodes.clone(),
-		);
-		proof.calculate_root(nodes).map(MmrRoot).map_err(|_| ProofError::InvalidProof)
+		)
+		.calculate_root(nodes)
+		.map(MmrRoot)
+		.map_err(|_| ProofError::InvalidProof)
 	}
 }
 
@@ -502,7 +528,7 @@ mod tests {
 		}
 		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 		MMRExtensionProof {
-			new_mmr_size: ap.prev_peaks_proof.mmr_size(),
+			leaf_count: n as u64,
 			connecting_nodes: ap.prev_peaks_proof.proof_items().to_vec(),
 		}
 	}
@@ -528,7 +554,7 @@ mod tests {
 	/// design's hash-only (32 B) count.
 	fn synthetic_extension(nodes: usize) -> MMRExtensionProof {
 		MMRExtensionProof {
-			new_mmr_size: u64::MAX / 2, // a day-scale size; placement is irrelevant to encoded size
+			leaf_count: u64::MAX / 2, // a day-scale count; value is irrelevant to encoded size
 			connecting_nodes: (0..nodes as u64).map(|i| (i, H256::repeat_byte(i as u8))).collect(),
 		}
 	}
@@ -556,7 +582,7 @@ mod tests {
 		// A real (non-identity) extension pointed *back* to the frontier's own size is not strictly
 		// forward → rejected up front, before any crypto work.
 		let mut ext = extension(&all, 2, 5);
-		ext.new_mmr_size = mmr_size(2);
+		ext.leaf_count = 2;
 		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NotForward));
 	}
 
@@ -737,7 +763,7 @@ mod tests {
 			let k = N - behind;
 			let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 			let ext = MMRExtensionProof {
-				new_mmr_size: ap.prev_peaks_proof.mmr_size(),
+				leaf_count: N as u64,
 				connecting_nodes: ap.prev_peaks_proof.proof_items().to_vec(),
 			};
 			// O(log N) connecting nodes — independent of how far the tail stretches.

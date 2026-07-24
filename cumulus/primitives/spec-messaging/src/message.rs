@@ -477,7 +477,7 @@ mod tests {
 		}
 		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 		MMRExtensionProof {
-			new_mmr_size: ap.prev_peaks_proof.mmr_size(),
+			leaf_count: n as u64,
 			connecting_nodes: ap.prev_peaks_proof.proof_items().to_vec(),
 		}
 	}

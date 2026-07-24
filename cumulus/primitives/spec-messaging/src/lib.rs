@@ -70,19 +70,20 @@ pub use mmr::MessagePosition;
 pub use stream::{StreamId, STREAM_ID_LEN};
 pub use streams_root::{StreamProof, StreamsRoot};
 
-// Domain Tags to ensure that the same message structure used in different
-// contexts (e.g. leaf vs inner node) do not collide on the same hash. Tag values
-// are part of the hash preimages, so they are kept stable (the now-removed
-// `EMPTY_TAG = 0x1` slot is intentionally left unused rather than renumbering).
+// Domain Tags to ensure that the same message structure used in different contexts (e.g. leaf vs
+// inner node) do not collide on the same hash. Tag values are part of the hash preimages. The MMR
+// tags are `LEAF/INNER/PEAK = 0x1/0x2/0x3`, matching the poc-mvp branch; there is no `EMPTY_TAG`
+// (empty streams are never committed to a `StreamsRoot`, so an empty MMR simply has no root). The
+// commitment-tree tags continue at `0x5/0x6`, leaving `0x4` free.
 
 /// Tag for a leaf node.
-pub const LEAF_TAG: u8 = 0x2;
+pub const LEAF_TAG: u8 = 0x1;
 
 /// Tag for an inner node.
-pub const INNER_TAG: u8 = 0x3;
+pub const INNER_TAG: u8 = 0x2;
 
 /// Tag for a peak.
-pub const PEAK_TAG: u8 = 0x4;
+pub const PEAK_TAG: u8 = 0x3;
 
 /// Tag for a `StreamsRoot` commitment-tree leaf: `H(STREAMS_LEAF_TAG ++ key[8] ++
 /// stream_root[32])`. Distinct from [`LEAF_TAG`] so a trie leaf can never collide with an MMR
