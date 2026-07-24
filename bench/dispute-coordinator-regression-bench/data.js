@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784828787671,
+  "lastUpdate": 1784901517796,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca",
-          "message": "`ExecuteBlock` split up seal verification and actual execution (#10396)\n\n`ExecuteBlock` exposes the `execute_block` function that is used by\n`validate_block` to execute a block. In case auf AuRa the block\nexecution includes the verification of the seal and the removal of the\nseal. To verify the seal, the block executor needs to load the current\nauthority set. The problem is that when we have storage proof reclaim\nenabled and the host function is used in `on_initialize` before\n`pallet_aura_ext::on_initialize` (this is where we fetch the authority\nset to ensure it appears in the proof) is called, it leads to\n`validate_block` returning a different size and thus, breaking the\nblock. To solve this issue `ExecuteBlock` is now split into seal\nverification and execution of the verified block. In `validate_block`\nthe seal verification is then run outside of the block execution, not\nleading to the issues of reporting different proof sizes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-24T22:43:33Z",
-          "tree_id": "7ebf393a60e410bf7c41c63117735fb7fad49aeb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf0b1fd9e10a39e2db78857a3ed3fbc19015c7ca"
-        },
-        "date": 1764029102605,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.004925490569999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008683296469999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026655713399999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025339329399999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbefd5ecd60b76780c80f916ad157023667d476e",
+          "message": "fix(rpc-v2-statement): reject empty `matchAll` (#12706)\n\n# Description\n\nTighten input validation and submission outcomes for the unstable\nstatement RPC methods to match the JSON-RPC interface specification.\n\nThis PR:\n\n- Rejects `statement_unstable_submit` inputs containing trailing bytes\nafter an otherwise valid SCALE-encoded statement.\n- Rejects `statement_unstable_add_filter` calls where `matchAll`\ncontains no topics.\n- Returns JSON-RPC error `-32602` for both invalid inputs.\n- Returns `dataTooLarge`, with the submitted and available sizes, when a\nstatement exceeds an account's remaining data allowance instead of\nincorrectly returning `accountFull`.\n- Adds regression tests covering these cases.\n\n## Integration\n\nNo downstream migration is required.\n\nClients must provide an exact SCALE encoding to\n`statement_unstable_submit`; encodings with trailing bytes are no longer\naccepted.\n\nA `matchAll` filter must contain between one and four topics. Clients\nwishing to match every statement should use `\"any\"` instead of\n`{\"matchAll\": []}`.\n\nWhen a statement cannot fit within the account's remaining data\nallowance, `statement_unstable_submit` now returns a `dataTooLarge`\nrejection. `accountFull` remains reserved for statement-count\nexhaustion.\n\n## Review Notes\n\nSubmission decoding now uses `DecodeAll` rather than `Decode`, ensuring\nthe complete input buffer is consumed.\n\nTopic-filter validation rejects an empty `MatchAll` before converting it\ninto an `OptimizedTopicFilter`.\n\nThe account-allowance check now distinguishes an unsatisfied byte limit\nfrom an unsatisfied statement-count limit and reports the remaining\navailable size.\n\nThe corresponding statement JSON-RPC specification has been updated\nseparately to document the one-to-four-topic requirement.\n\nRegression tests verify that both invalid inputs return JSON-RPC error\n`-32602` and that byte-allowance exhaustion returns `dataTooLarge`.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required).\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).",
+          "timestamp": "2026-07-24T12:07:56Z",
+          "tree_id": "217cb63effe328239834cab7bb89b3e441f30f1b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbefd5ecd60b76780c80f916ad157023667d476e"
+        },
+        "date": 1784901485380,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010471091209999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026086146699999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009742665409999992,
             "unit": "seconds"
           }
         ]
