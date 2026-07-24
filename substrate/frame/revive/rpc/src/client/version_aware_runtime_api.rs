@@ -949,7 +949,9 @@ impl VersionAwareRuntimeApiProvider {
 		&self,
 		at_block: &OnlineClientAtBlock<SrcChainConfig>,
 	) -> Result<Option<RuntimeMetadata>, ClientError> {
-		for version in [16u32, 15] {
+		const SUPPORTED_METADATA_VERSIONS: [u32; 2] = [16, 15];
+
+		for version in SUPPORTED_METADATA_VERSIONS {
 			let response = at_block
 				.runtime_apis()
 				.call_raw("Metadata_metadata_at_version", Some(&version.encode()))
