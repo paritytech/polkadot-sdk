@@ -326,7 +326,12 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				param_is_borrow.remove(0);
 			}
 
-			let param_count = param_names.len();
+			// Keep `param_names` in lockstep with the inner types; on the advanced-mode error
+			// path `get_at_param_name` can leave a stray entry that would emit an undeclared
+			// generic.
+			param_names.truncate(param_inner_types.len());
+
+			let param_count = param_inner_types.len();
 			let generic_names: Vec<Ident> =
 				(0..param_count).map(|i| format_ident!("__SrApiParam{}__", i)).collect();
 			let raw_param_names: Vec<Ident> =
