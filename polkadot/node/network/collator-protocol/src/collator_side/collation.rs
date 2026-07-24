@@ -178,8 +178,8 @@ impl VersionedCollationRequest {
 /// aborted, it only indicates that we should start processing
 /// the next one from the queue.
 pub struct CollationSendResult {
-	/// Candidate's relay parent.
-	pub relay_parent: Hash,
+	/// Candidate's scheduling parent.
+	pub scheduling_parent: Hash,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
 	/// Peer id.
