@@ -17,6 +17,7 @@
 
 use crate::LOG_TARGET;
 use codec::{Decode, Encode};
+use cumulus_client_consensus_common::old_finalized_hash;
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
@@ -73,14 +74,14 @@ fn load_ignored_nodes<Block: BlockT, B: AuxStore>(
 /// This handle should be passed to [`Params`](super::Params) or can also be dropped if the node is
 /// not running as collator.
 pub struct SlotBasedBlockImportHandle<Block> {
-	receiver: TracingUnboundedReceiver<(Block, StorageProof)>,
+	receiver: TracingUnboundedReceiver<(Block, Arc<StorageProof>)>,
 }
 
 impl<Block> SlotBasedBlockImportHandle<Block> {
 	/// Returns the next item.
 	///
 	/// The future will never return when the internal channel is closed.
-	pub async fn next(&mut self) -> (Block, StorageProof) {
+	pub async fn next(&mut self) -> (Block, Arc<StorageProof>) {
 		loop {
 			if self.receiver.is_terminated() {
 				futures::pending!()
@@ -100,14 +101,11 @@ where
 {
 	let client_for_closure = client.clone();
 	let on_finality = move |notification: &FinalityNotification<Block>| -> AuxDataOperations {
-		// The old finalized block is the parent of the first block in the tree route,
-		// or the parent of the finalized block if the tree route is empty.
-		let old_finalized_hash = notification
-			.tree_route
-			.first()
-			.and_then(|hash| client_for_closure.header(*hash).ok().flatten())
-			.map(|h| *h.parent_hash())
-			.unwrap_or_else(|| *notification.header.parent_hash());
+		let old_finalized = old_finalized_hash::<_, Block>(
+			&*client_for_closure,
+			&notification.tree_route,
+			*notification.header.parent_hash(),
+		);
 
 		notification
 			.stale_blocks
@@ -125,7 +123,7 @@ where
 					.copied()
 					.map(|hash| (ignored_nodes_key(hash), None)),
 			)
-			.chain(std::iter::once((ignored_nodes_key(old_finalized_hash), None)))
+			.chain(std::iter::once((ignored_nodes_key(old_finalized), None)))
 			.collect()
 	};
 
@@ -136,7 +134,7 @@ where
 pub struct SlotBasedBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
-	sender: TracingUnboundedSender<(Block, StorageProof)>,
+	sender: TracingUnboundedSender<(Block, Arc<StorageProof>)>,
 }
 
 impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
@@ -209,10 +207,10 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	/// The proof must be recorded in exactly the same manner as during block building, because the
 	/// proof size is tracked via `ProofSizeExt` and affects runtime state. Without identical proof
 	/// recording, the computed state root would differ and block import would fail.
-	fn execute_block_and_collect_storage_proof(
+	async fn execute_block_and_collect_storage_proof(
 		&self,
 		params: &mut sc_consensus::BlockImportParams<Block>,
-	) -> Result<(), sp_consensus::Error>
+	) -> Result<Option<(Block, Arc<StorageProof>)>, sp_consensus::Error>
 	where
 		Client: ProvideRuntimeApi<Block>
 			+ CallApiAt<Block>
@@ -236,7 +234,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 				number = ?params.header.number(),
 				"no bundle digests, skipping execute_block_and_collect_storage_proof",
 			);
-			return Ok(());
+			return Ok(None);
 		};
 
 		let parent_hash = *params.header.parent_hash();
@@ -256,7 +254,18 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
 
-		let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
+		// Only blocks imported at the tip (built by other collators) are forwarded to the
+		// resubmission backfill task. Sync/gap/warp imports are historical and never part of our
+		// unincluded segment, so recording resubmission data for them would be wasted work (and
+		// would buffer their potentially large storage proofs).
+		let collect_for_resubmission = matches!(
+			params.origin,
+			BlockOrigin::NetworkBroadcast | BlockOrigin::ConsensusBroadcast
+		);
+
+		let body = params.body.clone().unwrap_or_default();
+		let resubmission_body = collect_for_resubmission.then(|| body.clone());
+		let block = Block::new(params.header.clone(), body);
 
 		tracing::debug!(
 			target: LOG_TARGET,
@@ -318,7 +327,10 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
 
-		Ok(())
+		let Some(resubmission_body) = resubmission_body else { return Ok(None) };
+
+		let block = Block::new(params.post_header(), resubmission_body);
+		Ok(Some((block, Arc::new(storage_proof))))
 	}
 }
 
@@ -352,13 +364,23 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		if !(params.origin == BlockOrigin::Own ||
+		let origin = params.origin;
+
+		let imported = if !(origin == BlockOrigin::Own ||
 			params.with_state() ||
 			params.state_action.skip_execution_checks())
 		{
-			self.execute_block_and_collect_storage_proof(&mut params)?;
+			self.execute_block_and_collect_storage_proof(&mut params).await?
+		} else {
+			None
+		};
+
+		let result = self.inner.import_block(params).await.map_err(Into::into)?;
+
+		if let Some((block, proof)) = imported {
+			let _ = self.sender.unbounded_send((block, proof));
 		}
 
-		self.inner.import_block(params).await.map_err(Into::into)
+		Ok(result)
 	}
 }

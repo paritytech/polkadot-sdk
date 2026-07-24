@@ -74,14 +74,19 @@ use sp_statement_store::{
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-	sync::Arc,
+	collections::{BTreeMap, HashMap, HashSet},
+	sync::{Arc, Weak},
 	time::{Duration, Instant},
 };
-pub use subscription::StatementStoreSubscriptionApi;
+use subscription::ReplaySnapshotProvider;
+pub use subscription::{
+	AddFilterError, MultiFilterEventStream, MultiFilterSubscriptionApi,
+	MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi, SubscriptionHandle,
+	MAX_FILTERS_PER_SUBSCRIPTION,
+};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
-const CURRENT_VERSION: u32 = 1;
+const CURRENT_VERSION: u32 = 2;
 
 const LOG_TARGET: &str = "statement-store";
 
@@ -126,8 +131,78 @@ mod col {
 	pub const META: u8 = 0;
 	pub const STATEMENTS: u8 = 1;
 	pub const EXPIRED: u8 = 2;
+	pub const INDEX_BY_TOPIC: u8 = 3;
+	pub const INDEX_BY_DEC_KEY: u8 = 4;
+	pub const INDEX_EVICTED: u8 = 5;
 
-	pub const COUNT: u8 = 3;
+	pub const COUNT: u8 = 6;
+}
+
+const INDEX_EMPTY_VALUE: &[u8] = &[];
+const DEC_KEY_TAG_NONE: u8 = 0;
+const DEC_KEY_TAG_SOME: u8 = 1;
+
+fn topic_index_key(topic: &Topic, hash: &Hash) -> Vec<u8> {
+	let mut key = Vec::with_capacity(topic.len() + hash.len());
+	key.extend_from_slice(&topic[..]);
+	key.extend_from_slice(&hash[..]);
+	key
+}
+
+fn dec_key_index_prefix(dec_key: &Option<DecryptionKey>) -> Vec<u8> {
+	match dec_key {
+		None => vec![DEC_KEY_TAG_NONE],
+		Some(dec_key) => {
+			let mut prefix = Vec::with_capacity(1 + dec_key.len());
+			prefix.push(DEC_KEY_TAG_SOME);
+			prefix.extend_from_slice(&dec_key[..]);
+			prefix
+		},
+	}
+}
+
+fn dec_key_index_key(dec_key: &Option<DecryptionKey>, hash: &Hash) -> Vec<u8> {
+	let mut key = dec_key_index_prefix(dec_key);
+	key.extend_from_slice(&hash[..]);
+	key
+}
+
+fn evicted_index_key(purge_at: u64, hash: &Hash) -> Vec<u8> {
+	let mut key = Vec::with_capacity(8 + hash.len());
+	key.extend_from_slice(&purge_at.to_be_bytes());
+	key.extend_from_slice(&hash[..]);
+	key
+}
+
+/// Extracts the trailing 32-byte hash from a composite index key, if it is long enough.
+fn hash_from_index_key(key: &[u8]) -> Option<Hash> {
+	let len = key.len();
+	if len < 32 {
+		return None;
+	}
+	let mut hash = Hash::default();
+	hash.copy_from_slice(&key[len - 32..]);
+	Some(hash)
+}
+
+/// Builds the index-column operations for a statement's topic and decryption-key entries. With
+/// `insert == true` the entries are written; otherwise they are deleted. Designed to be folded
+/// into the same atomic [`parity_db::Db::commit`] as the statement body.
+fn statement_index_ops(
+	hash: &Hash,
+	statement: &Statement,
+	insert: bool,
+) -> Vec<(u8, Vec<u8>, Option<Vec<u8>>)> {
+	let value = insert.then(|| INDEX_EMPTY_VALUE.to_vec());
+	let mut ops = Vec::new();
+	let mut nt = 0;
+	while let Some(topic) = statement.topic(nt) {
+		ops.push((col::INDEX_BY_TOPIC, topic_index_key(&topic, hash), value.clone()));
+		nt += 1;
+	}
+	let dec_key = statement.decryption_key();
+	ops.push((col::INDEX_BY_DEC_KEY, dec_key_index_key(&dec_key, hash), value));
+	ops
 }
 
 #[derive(Eq, PartialEq, Debug, Ord, PartialOrd, Clone, Copy)]
@@ -241,61 +316,71 @@ impl Default for Config {
 	}
 }
 
-/// Tracks evicted statement hashes to suppress re-gossip until their purge deadline elapses
-#[derive(Default)]
-struct EvictedIndex {
-	hashes: HashSet<Hash>,
-	queue: BTreeSet<(u64, Hash)>,
-	pending_cleanup: Vec<Hash>,
+/// In-memory part of the read index.
+struct QueryIndex {
+	// TODO: Remove counters; replace them with a merge-join/leapfrog1
+	topic_counts: HashMap<Topic, usize>,
+	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
+	recent: HashSet<Hash>,
 }
 
-impl EvictedIndex {
-	fn insert(&mut self, hash: Hash, purge_at: u64) {
-		if self.hashes.len() >= DEFAULT_MAX_TOTAL_STATEMENTS {
-			if let Some(&key) = self.queue.iter().next() {
-				self.queue.remove(&key);
-				self.hashes.remove(&key.1);
-				self.pending_cleanup.push(key.1);
+impl QueryIndex {
+	fn new() -> Self {
+		QueryIndex {
+			topic_counts: HashMap::new(),
+			dec_key_counts: HashMap::new(),
+			recent: HashSet::new(),
+		}
+	}
+
+	/// Bumps cardinality counters for a statement seen at startup (no cache, not marked recent).
+	fn note_initial(&mut self, statement: &Statement) {
+		let mut nt = 0;
+		while let Some(topic) = statement.topic(nt) {
+			*self.topic_counts.entry(topic).or_insert(0) += 1;
+			nt += 1;
+		}
+		*self.dec_key_counts.entry(statement.decryption_key()).or_insert(0) += 1;
+	}
+
+	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent.
+	fn note_insert(&mut self, hash: Hash, statement: &Statement) {
+		let mut nt = 0;
+		while let Some(topic) = statement.topic(nt) {
+			*self.topic_counts.entry(topic).or_insert(0) += 1;
+			nt += 1;
+		}
+		let dec_key = statement.decryption_key();
+		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
+		self.recent.insert(hash);
+	}
+
+	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
+	fn note_remove(&mut self, hash: &Hash, statement: &Statement) {
+		let mut nt = 0;
+		while let Some(topic) = statement.topic(nt) {
+			if let Some(count) = self.topic_counts.get_mut(&topic) {
+				*count = count.saturating_sub(1);
+				if *count == 0 {
+					self.topic_counts.remove(&topic);
+				}
+			}
+			nt += 1;
+		}
+		let dec_key = statement.decryption_key();
+		if let Some(count) = self.dec_key_counts.get_mut(&dec_key) {
+			*count = count.saturating_sub(1);
+			if *count == 0 {
+				self.dec_key_counts.remove(&dec_key);
 			}
 		}
-		self.hashes.insert(hash);
-		self.queue.insert((purge_at, hash));
+		self.recent.remove(hash);
 	}
 
-	fn contains(&self, hash: &Hash) -> bool {
-		self.hashes.contains(hash)
+	/// Takes and clears the set of recently added hashes.
+	fn take_recent(&mut self) -> HashSet<Hash> {
+		std::mem::take(&mut self.recent)
 	}
-
-	fn len(&self) -> usize {
-		self.hashes.len()
-	}
-
-	/// Removes and returns all hashes whose purge deadline is at or before `current_time`,
-	/// plus any hashes displaced by the capacity cap since the last call.
-	fn drain_due(&mut self, current_time: u64) -> Vec<Hash> {
-		let cutoff = (current_time.saturating_add(1), Hash::default());
-		let to_keep = self.queue.split_off(&cutoff);
-		let due = std::mem::replace(&mut self.queue, to_keep);
-		let mut result: Vec<Hash> = std::mem::take(&mut self.pending_cleanup);
-		result.extend(due.into_iter().map(|(_, hash)| {
-			self.hashes.remove(&hash);
-			hash
-		}));
-		result
-	}
-}
-
-/// Index for query operations (topic/key-based filtering).
-#[derive(Default)]
-struct QueryIndex {
-	/// Topic → hashes of statements carrying that topic.
-	by_topic: HashMap<Topic, HashSet<Hash>>,
-	/// Decryption key (`None` for broadcasts) → hashes of matching statements.
-	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
-	/// Statement hash → its topics and decryption key; used to unindex on removal.
-	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
-	/// Hashes added since the last propagation round, drained by the gossip loop.
-	recent: HashSet<Hash>,
 }
 
 /// Index for submit operations (constraint checking, entries, accounts).
@@ -304,8 +389,6 @@ struct SubmitIndex {
 	/// Statement hash → (account, expiry/priority, data size); the authoritative set of stored
 	/// statements.
 	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
-	/// Removed or expired statements, retained for the purge period to block re-acceptance.
-	evicted: EvictedIndex,
 	/// Per-account tracking (priority-ordered hashes, channels, size) for quota enforcement.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	/// Accounts still pending an expiry/limit check by `enforce_limits`.
@@ -314,6 +397,14 @@ struct SubmitIndex {
 	config: Config,
 	/// Running total of data size across all stored statements.
 	total_size: usize,
+	evicted_count: usize,
+	// Monotonic sequence number assigned to each statement as it is inserted.
+	next_seq: u64,
+	// Sequence numbers of recently inserted statements, kept only while at least one subscription
+	// snapshot scan is in progress and only back to the oldest such scan's watermark.
+	recent_seqs: HashMap<Hash, u64>,
+	// Watermarks of the currently running snapshot scans.
+	active_scan_floors: BTreeMap<u64, usize>,
 }
 
 struct ClientWrapper<Block, Client, BE> {
@@ -367,159 +458,130 @@ pub struct Store {
 	metrics: PrometheusMetrics,
 }
 
-enum IndexQuery {
-	Unknown,
-	Exists,
-	Expired,
+/// Outcome of [`SubmitIndex::make_expired`].
+enum Eviction {
+	/// The statement was removed; it had already reached its natural expiry, so it is not banned
+	/// from re-acceptance.
+	Removed,
+	/// The statement was removed and is banned from re-acceptance until this timestamp.
+	Banned(u64),
 }
 
-impl QueryIndex {
-	fn insert(&mut self, hash: Hash, statement: &Statement) {
-		let mut all_topics = [None; MAX_TOPICS];
-		let mut nt = 0;
-		while let Some(t) = statement.topic(nt) {
-			self.by_topic.entry(t).or_default().insert(hash);
-			all_topics[nt] = Some(t);
-			nt += 1;
-		}
-		let key = statement.decryption_key();
-		self.by_dec_key.entry(key).or_default().insert(hash);
-		self.topics_and_keys.insert(hash, (all_topics, key));
-	}
-
-	fn take_recent(&mut self) -> HashSet<Hash> {
-		std::mem::take(&mut self.recent)
-	}
-
-	fn remove(&mut self, hash: &Hash) {
-		let _ = self.recent.remove(hash);
-		if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
-			for t in topics.into_iter().flatten() {
-				if let std::collections::hash_map::Entry::Occupied(mut set) = self.by_topic.entry(t)
-				{
-					set.get_mut().remove(hash);
-					if set.get().is_empty() {
-						set.remove_entry();
-					}
-				}
-			}
-			if let std::collections::hash_map::Entry::Occupied(mut set) = self.by_dec_key.entry(key)
-			{
-				set.get_mut().remove(hash);
-				if set.get().is_empty() {
-					set.remove_entry();
-				}
-			}
-		}
-	}
-
-	fn iterate_with(
+impl ReplaySnapshotProvider for Weak<Store> {
+	fn with_snapshot_hashes(
 		&self,
-		key: Option<DecryptionKey>,
-		topic: &OptimizedTopicFilter,
-		f: impl FnMut(&Hash) -> Result<()>,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
 	) -> Result<()> {
-		match topic {
-			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAll(topics) => {
-				self.iterate_with_match_all(key, topics.iter(), f)
-			},
-			OptimizedTopicFilter::MatchAny(topics) => {
-				self.iterate_with_match_any(key, topics.iter(), f)
-			},
-		}
-	}
-
-	fn iterate_with_match_any<'a>(
-		&self,
-		key: Option<DecryptionKey>,
-		match_any_topics: impl ExactSizeIterator<Item = &'a Topic>,
-		mut f: impl FnMut(&Hash) -> Result<()>,
-	) -> Result<()> {
-		let Some(key_set) = self.by_dec_key.get(&key).filter(|k| !k.is_empty()) else {
-			return Ok(());
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
-
-		for t in match_any_topics {
-			let set = self.by_topic.get(t);
-
-			for item in set.iter().flat_map(|set| set.iter()) {
-				if key_set.contains(item) {
-					log::trace!(
-						target: LOG_TARGET,
-						"Iterating by topic/key: statement {:?}",
-						HexDisplay::from(item)
-					);
-					f(item)?
-				}
-			}
-		}
-		Ok(())
+		store.with_snapshot_hashes(filter, enqueue)
 	}
 
-	fn iterate_with_any(
-		&self,
-		key: Option<DecryptionKey>,
-		mut f: impl FnMut(&Hash) -> Result<()>,
-	) -> Result<()> {
-		let key_set = self.by_dec_key.get(&key);
-		if key_set.map_or(true, |s| s.is_empty()) {
-			// Key does not exist in the index.
-			return Ok(());
-		}
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.statement_by_hash(hash)
+	}
+}
 
-		for item in key_set.map(|hashes| hashes.iter()).into_iter().flatten() {
-			f(item)?
+/// What [`SubmitIndex::insert`] evicted to make room for a new statement.
+struct InsertOutcome {
+	/// All hashes removed from the index. Their bodies must be deleted and their read-index
+	/// entries cleared.
+	evicted: HashSet<Hash>,
+	/// The subset of `evicted` that is banned from re-acceptance, with its purge deadline. These
+	/// must be recorded in the on-disk evicted journal.
+	banned: Vec<(Hash, u64)>,
+}
+
+/// A single on-disk index set referenced during a query: either the set of hashes carrying a
+/// topic, or the set of hashes for a decryption key.
+#[derive(Clone)]
+enum IndexSet {
+	Topic(Topic),
+	DecKey(Option<DecryptionKey>),
+}
+
+impl IndexSet {
+	fn column(&self) -> u8 {
+		match self {
+			IndexSet::Topic(_) => col::INDEX_BY_TOPIC,
+			IndexSet::DecKey(_) => col::INDEX_BY_DEC_KEY,
 		}
-		Ok(())
 	}
 
-	fn iterate_with_match_all<'a>(
-		&self,
-		key: Option<DecryptionKey>,
-		match_all_topics: impl ExactSizeIterator<Item = &'a Topic>,
-		mut f: impl FnMut(&Hash) -> Result<()>,
-	) -> Result<()> {
-		let empty = HashSet::new();
-		let mut sets: [&HashSet<Hash>; MAX_TOPICS + 1] = [&empty; MAX_TOPICS + 1];
-		let num_topics = match_all_topics.len();
-		if num_topics > MAX_TOPICS {
-			return Ok(());
+	/// Prefix selecting every entry of this set within its column.
+	fn prefix(&self) -> Vec<u8> {
+		match self {
+			IndexSet::Topic(t) => t[..].to_vec(),
+			IndexSet::DecKey(k) => dec_key_index_prefix(k),
 		}
-		let key_set = self.by_dec_key.get(&key);
-		if key_set.map_or(true, |s| s.is_empty()) {
-			// Key does not exist in the index.
-			return Ok(());
+	}
+
+	/// Full key of `hash` within this set's column, for point membership lookups.
+	fn member_key(&self, hash: &Hash) -> Vec<u8> {
+		match self {
+			IndexSet::Topic(t) => topic_index_key(t, hash),
+			IndexSet::DecKey(k) => dec_key_index_key(k, hash),
 		}
-		sets[0] = key_set.expect("Function returns if key_set is None");
-		for (i, t) in match_all_topics.enumerate() {
-			let set = self.by_topic.get(t);
-			if set.map_or(0, |s| s.len()) == 0 {
-				// At least one of the match_all_topics does not exist in the index.
-				return Ok(());
-			}
-			sets[i + 1] = set.expect("Function returns if set is None");
+	}
+
+	/// Cardinality of this set, read from the in-memory cardinality counters.
+	fn len(&self, read_index: &QueryIndex) -> usize {
+		match self {
+			IndexSet::Topic(t) => read_index.topic_counts.get(t).copied().unwrap_or(0),
+			IndexSet::DecKey(k) => read_index.dec_key_counts.get(k).copied().unwrap_or(0),
 		}
-		let sets = &mut sets[0..num_topics + 1];
-		// Start with the smallest topic set or the key set.
-		sets.sort_by_key(|s| s.len());
-		for item in sets[0] {
-			if sets[1..].iter().all(|set| set.contains(item)) {
-				log::trace!(
-					target: LOG_TARGET,
-					"Iterating by topic/key: statement {:?}",
-					HexDisplay::from(item)
-				);
-				f(item)?
-			}
-		}
-		Ok(())
 	}
 }
 
 impl SubmitIndex {
 	fn new(config: Config) -> SubmitIndex {
 		SubmitIndex { config, ..Default::default() }
+	}
+
+	/// Assigns and returns the next store sequence number for `hash`, recording it in `recent_seqs`
+	/// while a snapshot scan is active.
+	fn note_seq(&mut self, hash: Hash) -> u64 {
+		let seq = self.next_seq;
+		self.next_seq += 1;
+		if !self.active_scan_floors.is_empty() {
+			self.recent_seqs.insert(hash, seq);
+		}
+		seq
+	}
+
+	/// Registers a subscription snapshot scan and returns its watermark.
+	fn begin_scan(&mut self) -> u64 {
+		let watermark = self.next_seq;
+		*self.active_scan_floors.entry(watermark).or_insert(0) += 1;
+		watermark
+	}
+
+	/// Deregisters a snapshot scan previously registered with [`Self::begin_scan`] and prunes
+	/// `recent_seqs` down to the smallest still-active watermark.
+	fn end_scan(&mut self, watermark: u64) {
+		if let Some(count) = self.active_scan_floors.get_mut(&watermark) {
+			*count -= 1;
+			if *count == 0 {
+				self.active_scan_floors.remove(&watermark);
+			}
+		}
+		match self.active_scan_floors.keys().next() {
+			Some(&floor) => self.recent_seqs.retain(|_, seq| *seq >= floor),
+			None => self.recent_seqs.clear(),
+		}
+	}
+
+	/// Whether the statement `hash` belongs in the snapshot of a scan with the given `watermark`.
+	fn seq_covered_by_snapshot(&self, hash: &Hash, watermark: u64) -> bool {
+		match self.recent_seqs.get(hash) {
+			Some(&seq) => seq < watermark,
+			None => true,
+		}
 	}
 
 	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
@@ -536,34 +598,18 @@ impl SubmitIndex {
 			.insert(PriorityKey { hash, expiry }, (statement.channel(), statement.data_len()));
 	}
 
-	fn query(&self, hash: &Hash) -> IndexQuery {
-		if self.entries.contains_key(hash) {
-			return IndexQuery::Exists;
-		}
-		if self.evicted.contains(hash) {
-			return IndexQuery::Expired;
-		}
-		IndexQuery::Unknown
-	}
-
-	fn insert_expired(&mut self, hash: Hash, timestamp: u64) {
-		let purge_at = timestamp.saturating_add(self.config.purge_after_sec);
-		self.evicted.insert(hash, purge_at);
-	}
-
-	fn maintain(&mut self, current_time: u64) -> Vec<Hash> {
-		self.evicted.drain_due(current_time)
-	}
-
-	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
+	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> Option<Eviction> {
 		if let Some((account, expiry, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
-			if current_time < expiry.get_expiration_timestamp_secs() {
+			let eviction = if current_time < expiry.get_expiration_timestamp_secs() {
 				let purge_at = expiry
 					.get_expiration_timestamp_secs()
 					.min(current_time.saturating_add(self.config.purge_after_sec));
-				self.evicted.insert(*hash, purge_at);
-			}
+				self.evicted_count += 1;
+				Eviction::Banned(purge_at)
+			} else {
+				Eviction::Removed
+			};
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
 			{
@@ -579,9 +625,9 @@ impl SubmitIndex {
 				}
 			}
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
-			true
+			Some(eviction)
 		} else {
-			false
+			None
 		}
 	}
 
@@ -592,7 +638,7 @@ impl SubmitIndex {
 		account: &AccountId,
 		validation: &StatementAllowance,
 		current_time: u64,
-	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
+	) -> std::result::Result<InsertOutcome, RejectionReason> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
 			log::debug!(
@@ -700,11 +746,14 @@ impl SubmitIndex {
 			return Err(RejectionReason::StoreFull);
 		}
 
+		let mut banned = Vec::new();
 		for h in &evicted {
-			self.make_expired(h, current_time);
+			if let Some(Eviction::Banned(purge_at)) = self.make_expired(h, current_time) {
+				banned.push((*h, purge_at));
+			}
 		}
 		self.insert_new(hash, *account, statement);
-		Ok(evicted)
+		Ok(InsertOutcome { evicted, banned })
 	}
 }
 
@@ -770,33 +819,9 @@ impl Store {
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
 
-		let mut db_config = parity_db::Options::with_columns(&path, col::COUNT);
-
-		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
-		statement_col.ref_counted = false;
-		statement_col.preimage = true;
-		statement_col.uniform = true;
-		let db = parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))?;
-		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
-			Some(version) => {
-				let version = u32::from_le_bytes(
-					version
-						.try_into()
-						.map_err(|_| Error::Db("Error reading database version".into()))?,
-				);
-				if version != CURRENT_VERSION {
-					return Err(Error::Db(format!("Unsupported database version: {version}")));
-				}
-			},
-			None => {
-				db.commit([(
-					col::META,
-					KEY_VERSION.to_vec(),
-					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-				)])
-				.map_err(|e| Error::Db(e.to_string()))?;
-			},
-		}
+		Self::migrate_columns(&path)?;
+		let db = Self::open_db(&path)?;
+		let needs_index_migration = Self::check_db_version(&db)?;
 
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
@@ -808,7 +833,7 @@ impl Store {
 		let store = Store {
 			db,
 			submit_index: RwLock::new(SubmitIndex::new(config)),
-			query_index: RwLock::new(QueryIndex::default()),
+			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
 			keystore,
 			time_override: None,
@@ -818,20 +843,88 @@ impl Store {
 				NUM_FILTER_WORKERS,
 			),
 		};
-		store.populate()?;
+		store.populate(needs_index_migration)?;
 		Ok(store)
+	}
+
+	/// Migrate the column layout of an existing database to the current schema.
+	fn migrate_columns(path: &std::path::Path) -> Result<()> {
+		let Some(metadata) =
+			parity_db::Options::load_metadata(path).map_err(|e| Error::Db(e.to_string()))?
+		else {
+			return Ok(());
+		};
+		if metadata.columns.len() >= col::COUNT as usize {
+			return Ok(());
+		}
+		let mut migrate_config = parity_db::Options::with_columns(path, 0);
+		migrate_config.columns = metadata.columns;
+		while migrate_config.columns.len() < col::COUNT as usize {
+			// `add_column` takes the options by value, so build a fresh one each iteration.
+			let mut new_column_options = parity_db::ColumnOptions::default();
+			new_column_options.btree_index = true;
+			parity_db::Db::add_column(&mut migrate_config, new_column_options)
+				.map_err(|e| Error::Db(e.to_string()))?;
+		}
+		Ok(())
+	}
+
+	/// Open (or create) the statement database with the column options expected by the current
+	/// schema.
+	fn open_db(path: &std::path::Path) -> Result<parity_db::Db> {
+		let mut db_config = parity_db::Options::with_columns(path, col::COUNT);
+		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
+		statement_col.ref_counted = false;
+		statement_col.preimage = true;
+		statement_col.uniform = true;
+		for c in [col::INDEX_BY_TOPIC, col::INDEX_BY_DEC_KEY, col::INDEX_EVICTED] {
+			db_config.columns[c as usize].btree_index = true;
+		}
+		parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))
+	}
+
+	/// Read the on-disk database version and reconcile it with [`CURRENT_VERSION`].
+	///
+	/// A brand new database has its version initialised and needs no migration. An existing
+	/// database from a newer version is rejected. Returns `true` if the on-disk indexes predate
+	/// the current version and therefore need to be rebuilt.
+	fn check_db_version(db: &parity_db::Db) -> Result<bool> {
+		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
+			Some(version) => {
+				let version = u32::from_le_bytes(
+					version
+						.try_into()
+						.map_err(|_| Error::Db("Error reading database version".into()))?,
+				);
+				if version > CURRENT_VERSION {
+					return Err(Error::Db(format!("Unsupported database version: {version}")));
+				}
+				Ok(version < CURRENT_VERSION)
+			},
+			None => {
+				// Brand new database: the index columns start empty, nothing to migrate.
+				db.commit([(
+					col::META,
+					KEY_VERSION.to_vec(),
+					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| Error::Db(e.to_string()))?;
+				Ok(false)
+			},
+		}
 	}
 
 	/// Create memory index from the data.
 	// This may be moved to a background thread if it slows startup too much.
 	// This function should only be used on startup. There should be no other DB operations when
 	// iterating the index.
-	fn populate(&self) -> Result<()> {
+	fn populate(&self, migrate_index: bool) -> Result<()> {
 		// Holding both locks here is fine: this runs at startup before any statements are
 		// processed, so there is no contention.
-		{
+		let migration_ops = {
 			let mut submit_index = self.submit_index.write();
 			let mut query_index = self.query_index.write();
+			let mut migration_ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
 			self.db
 				.iter_column_while(col::STATEMENTS, |item| {
 					let statement = item.value;
@@ -844,7 +937,10 @@ impl Store {
 						);
 						if let Some(account_id) = statement.account_id() {
 							submit_index.insert_new(hash, account_id, &statement);
-							query_index.insert(hash, &statement);
+							query_index.note_initial(&statement);
+							if migrate_index {
+								migration_ops.extend(statement_index_ops(&hash, &statement, true));
+							}
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
@@ -856,6 +952,7 @@ impl Store {
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
+			let mut evicted_count = 0usize;
 			self.db
 				.iter_column_while(col::EXPIRED, |item| {
 					let expired_info = item.value;
@@ -867,64 +964,244 @@ impl Store {
 							"Statement loaded (expired): {:?}",
 							HexDisplay::from(&hash)
 						);
-						submit_index.insert_expired(hash, timestamp);
+						evicted_count += 1;
+						if migrate_index {
+							let purge_at =
+								timestamp.saturating_add(submit_index.config.purge_after_sec);
+							migration_ops.push((
+								col::INDEX_EVICTED,
+								evicted_index_key(purge_at, &hash),
+								Some(INDEX_EMPTY_VALUE.to_vec()),
+							));
+						}
 					}
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
+			submit_index.evicted_count = evicted_count;
+			migration_ops
+		};
+
+		if migrate_index {
+			// Commit the rebuilt index in bounded chunks, then mark the database as migrated.
+			const MIGRATION_CHUNK: usize = 100_000;
+			let total = migration_ops.len();
+			for chunk in migration_ops.chunks(MIGRATION_CHUNK) {
+				self.db.commit(chunk.iter().cloned()).map_err(|e| Error::Db(e.to_string()))?;
+			}
+			self.db
+				.commit([(
+					col::META,
+					KEY_VERSION.to_vec(),
+					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| Error::Db(e.to_string()))?;
+			log::info!(
+				target: LOG_TARGET,
+				"Migrated statement store read index to the on-disk format ({} entries)",
+				total
+			);
 		}
 
 		self.maintain();
 		Ok(())
 	}
 
-	fn collect_statements_locked<R>(
+	/// Scans an on-disk btree index column for every hash whose key starts with `prefix`.
+	fn scan_index_prefix(&self, column: u8, prefix: &[u8]) -> Result<HashSet<Hash>> {
+		let mut set = HashSet::new();
+		let mut iter = self.db.iter(column).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(prefix).map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			if !key.starts_with(prefix) {
+				break;
+			}
+			if let Some(hash) = hash_from_index_key(&key) {
+				set.insert(hash);
+			}
+		}
+		Ok(set)
+	}
+
+	/// Enumerates the hashes of all active statements. Each statement has exactly one entry in
+	/// [`col::INDEX_BY_DEC_KEY`], so scanning that column's keys yields every hash exactly once,
+	/// without decoding any bodies.
+	fn enumerate_hashes(&self) -> Result<Vec<Hash>> {
+		let mut hashes = Vec::new();
+		let mut iter = self.db.iter(col::INDEX_BY_DEC_KEY).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			if let Some(hash) = hash_from_index_key(&key) {
+				hashes.push(hash);
+			}
+		}
+		Ok(hashes)
+	}
+
+	/// Tests, against the on-disk column, whether `hash` belongs to an index set.
+	fn index_set_contains(&self, set: &IndexSet, hash: &Hash) -> Result<bool> {
+		Ok(self
+			.db
+			.get_size(set.column(), &set.member_key(hash))
+			.map_err(|e| Error::Db(e.to_string()))?
+			.is_some())
+	}
+
+	/// Whether `hash` is present in every one of `sets`, tested against the on-disk index. Used to
+	/// intersect a materialised candidate set with the remaining topic / decryption-key sets.
+	fn hash_in_all_sets(&self, hash: &Hash, sets: &[IndexSet]) -> Result<bool> {
+		sets.iter().try_fold(true, |acc, set| {
+			Ok::<bool, Error>(acc && self.index_set_contains(set, hash)?)
+		})
+	}
+
+	/// Enumerates matching hashes for `key` / `topic`, reading candidates directly from the on-disk
+	/// index for every filter kind. Used both for ad-hoc reads and for subscription snapshots.
+	fn iterate_with(
 		&self,
 		key: Option<DecryptionKey>,
 		topic_filter: &OptimizedTopicFilter,
-		query_index: &QueryIndex,
-		result: &mut Vec<R>,
-		mut f: impl FnMut(Statement) -> Option<R>,
+		f: impl FnMut(&Hash) -> Result<()>,
 	) -> Result<()> {
-		query_index.iterate_with(key, topic_filter, |hash| {
-			match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
-				Some(entry) => {
-					if let Ok(statement) = Statement::decode(&mut entry.as_slice()) {
-						if let Some(data) = f(statement) {
-							result.push(data);
-						}
-					} else {
-						// DB inconsistency
-						log::warn!(
-							target: LOG_TARGET,
-							"Corrupt statement {:?}",
-							HexDisplay::from(hash)
-						);
-					}
-				},
-				None => {
-					// DB inconsistency
-					log::debug!(
-						target: LOG_TARGET,
-						"Missing statement {:?}",
-						HexDisplay::from(hash)
-					);
-				},
+		match topic_filter {
+			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
+			OptimizedTopicFilter::MatchAll(topics) => self.iterate_with_match_all(key, topics, f),
+			OptimizedTopicFilter::MatchAny(topics) => self.iterate_with_match_any(key, topics, f),
+		}
+	}
+
+	/// Streams every hash for a decryption key directly from disk.
+	fn iterate_with_any(
+		&self,
+		key: Option<DecryptionKey>,
+		mut f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		let prefix = IndexSet::DecKey(key).prefix();
+		let mut iter = self.db.iter(col::INDEX_BY_DEC_KEY).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&prefix).map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((k, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			if !k.starts_with(&prefix) {
+				break;
 			}
-			Ok(())
-		})?;
+			if let Some(hash) = hash_from_index_key(&k) {
+				f(&hash)?;
+			}
+		}
 		Ok(())
 	}
 
+	/// For each requested topic, streams its hashes from disk and yields those that also belong to
+	/// the decryption-key set. A hash carrying several requested topics is yielded once per topic,
+	/// matching the in-memory behaviour callers already tolerate.
+	fn iterate_with_match_any(
+		&self,
+		key: Option<DecryptionKey>,
+		topics: &HashSet<Topic>,
+		mut f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		let key_set = IndexSet::DecKey(key);
+		for topic in topics {
+			let prefix = topic[..].to_vec();
+			let mut iter =
+				self.db.iter(col::INDEX_BY_TOPIC).map_err(|e| Error::Db(e.to_string()))?;
+			iter.seek(&prefix).map_err(|e| Error::Db(e.to_string()))?;
+			while let Some((k, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+				if !k.starts_with(&prefix) {
+					break;
+				}
+				if let Some(hash) = hash_from_index_key(&k) {
+					if self.index_set_contains(&key_set, &hash)? {
+						f(&hash)?;
+					}
+				}
+			}
+		}
+		Ok(())
+	}
+
+	/// Intersects the decryption-key set with all requested topic sets, reading candidates directly
+	/// from the on-disk index. The lock is taken only briefly to order the sets by cardinality so
+	/// the smallest is materialised first; this ordering is a best-effort hint (stale counters can
+	/// only misorder the sets, never drop a statement). Materialising that set and probing the rest
+	/// against disk then happen without holding the lock.
+	fn iterate_with_match_all(
+		&self,
+		key: Option<DecryptionKey>,
+		topics: &HashSet<Topic>,
+		mut f: impl FnMut(&Hash) -> Result<()>,
+	) -> Result<()> {
+		if topics.len() > MAX_TOPICS {
+			return Ok(());
+		}
+		let mut sets = Vec::with_capacity(topics.len() + 1);
+		sets.push(IndexSet::DecKey(key));
+		for topic in topics {
+			sets.push(IndexSet::Topic(*topic));
+		}
+		{
+			// Ordering only (best-effort): stale counters can misorder but never drop a statement.
+			let query_index = self.query_index.read();
+			sets.sort_by_key(|s| s.len(&query_index));
+		}
+		let smallest = self.scan_index_prefix(sets[0].column(), &sets[0].prefix())?;
+		let others = &sets[1..];
+		for hash in &smallest {
+			if self.hash_in_all_sets(hash, others)? {
+				log::trace!(
+					target: LOG_TARGET,
+					"Iterating by topic/key: statement {:?}",
+					HexDisplay::from(hash)
+				);
+				f(hash)?;
+			}
+		}
+		Ok(())
+	}
+
+	/// Reads the raw SCALE-encoded body of `hash` from `col::STATEMENTS`, or `None` if it is absent
+	/// (a benign DB race: the statement was removed concurrently). The stored value is exactly
+	/// `statement.encode()`, so it can be forwarded verbatim.
+	fn read_statement_encoded(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
+			Some(entry) => Ok(Some(entry)),
+			None => {
+				log::debug!(target: LOG_TARGET, "Missing statement {:?}", HexDisplay::from(hash));
+				Ok(None)
+			},
+		}
+	}
+
+	/// Reads and decodes the statement `hash`, returning `None` if it is absent or its stored body
+	/// fails to decode (a corrupt DB row, which is logged and skipped).
+	fn read_statement(&self, hash: &Hash) -> Result<Option<Statement>> {
+		let Some(entry) = self.read_statement_encoded(hash)? else { return Ok(None) };
+		match Statement::decode(&mut entry.as_slice()) {
+			Ok(statement) => Ok(Some(statement)),
+			Err(_) => {
+				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				Ok(None)
+			},
+		}
+	}
+
+	/// Collects statements matching `key` / `topic_filter`. Reads never hold the query-index lock
+	/// across disk I/O: `Any` / `MatchAny` touch only the (thread-safe) database, and `MatchAll`
+	/// takes the lock only momentarily to order the candidate sets.
 	fn collect_statements<R>(
 		&self,
 		key: Option<DecryptionKey>,
 		topic_filter: &OptimizedTopicFilter,
-		f: impl FnMut(Statement) -> Option<R>,
+		mut f: impl FnMut(Statement) -> Option<R>,
 	) -> Result<Vec<R>> {
 		let mut result = Vec::new();
-		let query_index = self.query_index.read();
-		self.collect_statements_locked(key, topic_filter, &query_index, &mut result, f)?;
+		self.iterate_with(key, topic_filter, |hash| {
+			if let Some(statement) = self.read_statement(hash)? {
+				if let Some(data) = f(statement) {
+					result.push(data);
+				}
+			}
+			Ok(())
+		})?;
 		Ok(result)
 	}
 
@@ -1086,6 +1363,41 @@ impl Store {
 		});
 	}
 
+	/// Drains the on-disk evicted journal of entries whose purge deadline has passed. Returns how
+	/// many entries were drained.
+	fn drain_due_evicted(&self, current_time: u64) -> Result<usize> {
+		let mut commit: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
+		let mut drained = 0usize;
+		{
+			let mut iter =
+				self.db.iter(col::INDEX_EVICTED).map_err(|e| Error::Db(e.to_string()))?;
+			iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+			loop {
+				let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? else {
+					break;
+				};
+				if key.len() < 8 {
+					continue;
+				}
+				let mut purge_at_bytes = [0u8; 8];
+				purge_at_bytes.copy_from_slice(&key[0..8]);
+				if u64::from_be_bytes(purge_at_bytes) > current_time {
+					// Entries are ordered by purge time, so nothing further is due.
+					break;
+				}
+				if let Some(hash) = hash_from_index_key(&key) {
+					commit.push((col::EXPIRED, hash.to_vec(), None));
+				}
+				commit.push((col::INDEX_EVICTED, key, None));
+				drained += 1;
+			}
+		}
+		if !commit.is_empty() {
+			self.db.commit(commit).map_err(|e| Error::Db(e.to_string()))?;
+		}
+		Ok(drained)
+	}
+
 	/// Perform periodic store maintenance: permanently delete statements whose purge period has
 	/// elapsed and refresh store metrics.
 	///
@@ -1100,33 +1412,37 @@ impl Store {
 	/// holding the index lock for too long during maintenance.
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
+		let current_time = self.timestamp();
+		let deleted_count = match self.drain_due_evicted(current_time) {
+			Ok(count) => count as u64,
+			Err(e) => {
+				log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
+				0
+			},
+		};
+
 		let (
-			deleted,
 			active_count,
 			expired_count,
 			total_size,
 			accounts_count,
 			capacity_statements,
 			capacity_bytes,
-		): (Vec<_>, usize, usize, usize, usize, usize, usize) = {
+		) = {
 			let mut submit_index = self.submit_index.write();
-			let deleted = submit_index.maintain(self.timestamp());
+			submit_index.evicted_count =
+				submit_index.evicted_count.saturating_sub(deleted_count as usize);
 			(
-				deleted,
 				submit_index.entries.len(),
-				submit_index.evicted.len(),
+				submit_index.evicted_count,
 				submit_index.total_size,
 				submit_index.accounts.len(),
 				submit_index.config.max_total_statements,
 				submit_index.config.max_total_size,
 			)
 		};
-		let deleted: Vec<_> =
-			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
-		let deleted_count = deleted.len() as u64;
-		if let Err(e) = self.db.commit(deleted) {
-			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
-		} else {
+
+		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 
@@ -1229,9 +1545,9 @@ impl StatementStore for Store {
 	/// each statement from the `STATEMENTS` database column, and skips any entry that fails to
 	/// decode.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let query_index = self.query_index.read();
-		let mut result = Vec::with_capacity(query_index.topics_and_keys.len());
-		for hash in query_index.topics_and_keys.keys().cloned() {
+		let hashes = self.enumerate_hashes()?;
+		let mut result = Vec::with_capacity(hashes.len());
+		for hash in hashes {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -1245,8 +1561,7 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let mut query_index = self.query_index.write();
-		let recent = query_index.take_recent();
+		let recent = self.query_index.write().take_recent();
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
 			let Some(encoded) =
@@ -1294,11 +1609,25 @@ impl StatementStore for Store {
 	}
 
 	fn has_statement(&self, hash: &Hash) -> bool {
-		self.query_index.read().topics_and_keys.contains_key(hash)
+		match self.db.get_size(col::STATEMENTS, hash.as_slice()) {
+			Ok(size) => size.is_some(),
+			Err(e) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Error checking statement presence {:?}: {:?}",
+					HexDisplay::from(hash),
+					e
+				);
+				false
+			},
+		}
 	}
 
 	fn statement_hashes(&self) -> Vec<Hash> {
-		self.query_index.read().topics_and_keys.keys().cloned().collect()
+		self.enumerate_hashes().unwrap_or_else(|e| {
+			log::warn!(target: LOG_TARGET, "Error enumerating statement hashes: {:?}", e);
+			Vec::new()
+		})
 	}
 
 	fn statements_by_hashes(
@@ -1479,24 +1808,22 @@ impl StatementStore for Store {
 			return SubmitResult::Invalid(reason);
 		}
 
-		match self.submit_index.read().query(&hash) {
-			IndexQuery::Expired => {
-				if !source.can_be_resubmitted() {
-					self.metrics.report(|metrics| {
-						metrics.known_statements.with_label_values(&["known_expired"]).inc();
-					});
-					return SubmitResult::KnownExpired;
-				}
-			},
-			IndexQuery::Exists => {
-				if !source.can_be_resubmitted() {
-					self.metrics.report(|metrics| {
-						metrics.known_statements.with_label_values(&["known"]).inc();
-					});
-					return SubmitResult::Known;
-				}
-			},
-			IndexQuery::Unknown => {},
+		// Deduplicate against statements we already store (in-memory submit index) or have recently
+		// evicted (on-disk evicted journal).
+		if self.submit_index.read().entries.contains_key(&hash) {
+			if !source.can_be_resubmitted() {
+				self.metrics.report(|metrics| {
+					metrics.known_statements.with_label_values(&["known"]).inc();
+				});
+				return SubmitResult::Known;
+			}
+		} else if self.db.get_size(col::EXPIRED, hash.as_slice()).ok().flatten().is_some() {
+			if !source.can_be_resubmitted() {
+				self.metrics.report(|metrics| {
+					metrics.known_statements.with_label_values(&["known_expired"]).inc();
+				});
+				return SubmitResult::KnownExpired;
+			}
 		}
 
 		let Some(account_id) = statement.account_id() else {
@@ -1574,13 +1901,13 @@ impl StatementStore for Store {
 		};
 
 		let current_time = self.timestamp();
-		let evicted = {
+		let (evicted, seq) = {
 			let mut submit_index = self.submit_index.write();
 
-			let evicted =
+			let outcome =
 				match submit_index.insert(hash, &statement, &account_id, &validation, current_time)
 				{
-					Ok(evicted) => evicted,
+					Ok(outcome) => outcome,
 					Err(reason) => {
 						self.metrics.report(|metrics| {
 							metrics.rejections.with_label_values(&[reason.label()]).inc();
@@ -1591,12 +1918,36 @@ impl StatementStore for Store {
 
 			let mut commit = Vec::new();
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
-			for h in &evicted {
+			commit.extend(statement_index_ops(&hash, &statement, true));
+
+			let mut evicted_statements = Vec::new();
+			for h in &outcome.evicted {
 				commit.push((col::STATEMENTS, h.to_vec(), None));
-				if submit_index.evicted.contains(h) {
-					commit.push((col::EXPIRED, h.to_vec(), Some((h, current_time).encode())));
+				match self.db.get(col::STATEMENTS, h) {
+					Ok(Some(encoded)) => {
+						if let Ok(evicted_statement) = Statement::decode(&mut encoded.as_slice()) {
+							commit.extend(statement_index_ops(h, &evicted_statement, false));
+							evicted_statements.push(evicted_statement);
+						}
+					},
+					Ok(None) => {},
+					Err(e) => log::warn!(
+						target: LOG_TARGET,
+						"Could not read evicted statement {:?} to clear its index: {:?}",
+						HexDisplay::from(h),
+						e
+					),
 				}
 			}
+			for (h, purge_at) in &outcome.banned {
+				commit.push((col::EXPIRED, h.to_vec(), Some((h, current_time).encode())));
+				commit.push((
+					col::INDEX_EVICTED,
+					evicted_index_key(*purge_at, h),
+					Some(INDEX_EMPTY_VALUE.to_vec()),
+				));
+			}
+
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
 					target: LOG_TARGET,
@@ -1609,17 +1960,17 @@ impl StatementStore for Store {
 				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
-			evicted
+			let seq = submit_index.note_seq(hash);
+			(evicted_statements, seq)
 		}; // Release submit index lock
 		{
 			let mut query_index = self.query_index.write();
 			for h in &evicted {
-				query_index.remove(h);
+				query_index.note_remove(&h.hash(), h);
 			}
-			query_index.insert(hash, &statement);
-			query_index.recent.insert(hash);
-			self.subscription_manager.notify(statement);
-		} // Release query index lock
+			query_index.note_insert(hash, &statement);
+		} // Release read index lock
+		self.subscription_manager.notify(seq, statement);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
@@ -1630,30 +1981,50 @@ impl StatementStore for Store {
 	/// period elapses (see [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
 		let current_time = self.timestamp();
-		let was_expired = {
+		let removed_statement = {
 			let mut submit_index = self.submit_index.write();
-			if submit_index.make_expired(hash, current_time) {
-				let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
-				if submit_index.evicted.contains(hash) {
-					commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
-				}
-				if let Err(e) = self.db.commit(commit) {
-					log::debug!(
-						target: LOG_TARGET,
-						"Error removing statement: database error {}, {:?}",
-						e,
-						HexDisplay::from(hash),
-					);
-					return Err(Error::Db(e.to_string()));
-				}
-				true
-			} else {
-				false
+			// Read the body under the submit-index lock: a concurrent first-time submit could
+			// otherwise commit the statement between the read and `make_expired`, and its
+			// read-index entries would never be cleared.
+			let statement =
+				match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
+					Some(encoded) => Statement::decode(&mut encoded.as_slice()).ok(),
+					None => None,
+				};
+			match submit_index.make_expired(hash, current_time) {
+				Some(eviction) => {
+					let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
+					if let Some(statement) = &statement {
+						commit.extend(statement_index_ops(hash, statement, false));
+					}
+					if let Eviction::Banned(purge_at) = eviction {
+						commit.push((
+							col::EXPIRED,
+							hash.to_vec(),
+							Some((hash, current_time).encode()),
+						));
+						commit.push((
+							col::INDEX_EVICTED,
+							evicted_index_key(purge_at, hash),
+							Some(INDEX_EMPTY_VALUE.to_vec()),
+						));
+					}
+					if let Err(e) = self.db.commit(commit) {
+						log::debug!(
+							target: LOG_TARGET,
+							"Error removing statement: database error {}, {:?}",
+							e,
+							HexDisplay::from(hash),
+						);
+						return Err(Error::Db(e.to_string()));
+					}
+					statement
+				},
+				None => None,
 			}
 		};
-		if was_expired {
-			let mut query_index = self.query_index.write();
-			query_index.remove(hash);
+		if let Some(statement) = &removed_statement {
+			self.query_index.write().note_remove(hash, statement);
 		}
 		Ok(())
 	}
@@ -1661,20 +2032,50 @@ impl StatementStore for Store {
 	/// Remove every statement authored by `who`, applying the same soft-delete as
 	/// [`remove`](Self::remove) to each.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
-		let evicted = {
+		let current_time = self.timestamp();
+		let removed_statements = {
 			let mut submit_index = self.submit_index.write();
-			let mut evicted = Vec::new();
-			if let Some(account_rec) = submit_index.accounts.get(&who) {
-				evicted.extend(account_rec.by_priority.keys().map(|k| k.hash));
-			}
+			let hashes: Vec<Hash> = submit_index
+				.accounts
+				.get(&who)
+				.map(|account_rec| account_rec.by_priority.keys().map(|k| k.hash).collect())
+				.unwrap_or_default();
 
-			let current_time = self.timestamp();
 			let mut commit = Vec::new();
-			for hash in &evicted {
-				submit_index.make_expired(hash, current_time);
-				commit.push((col::STATEMENTS, hash.to_vec(), None));
-				if submit_index.evicted.contains(hash) {
-					commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+			let mut removed_statements = Vec::new();
+			for hash in &hashes {
+				// Read the body before deleting it, to clear its query-index entries.
+				let statement = match self.db.get(col::STATEMENTS, hash) {
+					Ok(Some(encoded)) => Statement::decode(&mut encoded.as_slice()).ok(),
+					Ok(None) => None,
+					Err(e) => {
+						log::warn!(
+							target: LOG_TARGET,
+							"Could not read statement {:?} to clear its index: {:?}",
+							HexDisplay::from(hash),
+							e
+						);
+						None
+					},
+				};
+				if let Some(eviction) = submit_index.make_expired(hash, current_time) {
+					commit.push((col::STATEMENTS, hash.to_vec(), None));
+					if let Eviction::Banned(purge_at) = eviction {
+						commit.push((
+							col::EXPIRED,
+							hash.to_vec(),
+							Some((hash, current_time).encode()),
+						));
+						commit.push((
+							col::INDEX_EVICTED,
+							evicted_index_key(purge_at, hash),
+							Some(INDEX_EMPTY_VALUE.to_vec()),
+						));
+					}
+					if let Some(statement) = statement {
+						commit.extend(statement_index_ops(hash, &statement, false));
+						removed_statements.push((*hash, statement));
+					}
 				}
 			}
 			self.db.commit(commit).map_err(|e| {
@@ -1687,15 +2088,29 @@ impl StatementStore for Store {
 
 				Error::Db(e.to_string())
 			})?;
-			evicted
+			removed_statements
 		};
-		if !evicted.is_empty() {
-			let mut query_index = self.query_index.write();
-			for hash in &evicted {
-				query_index.remove(hash);
+		if !removed_statements.is_empty() {
+			let mut read_index = self.query_index.write();
+			for (hash, statement) in &removed_statements {
+				read_index.note_remove(hash, statement);
 			}
 		}
 		Ok(())
+	}
+}
+
+/// RAII guard that deregisters a subscription snapshot scan (see [`SubmitIndex::begin_scan`] /
+/// [`SubmitIndex::end_scan`]) when dropped, so the `recent_seqs` window is always released — on the
+/// happy path, on an early `?` return, or on a panic during the snapshot.
+struct ScanGuard<'a> {
+	store: &'a Store,
+	watermark: u64,
+}
+
+impl Drop for ScanGuard<'_> {
+	fn drop(&mut self) {
+		self.store.submit_index.write().end_scan(self.watermark);
 	}
 }
 
@@ -1705,19 +2120,39 @@ impl StatementStoreSubscriptionApi for Store {
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Keep the query index read lock until after we have subscribed to avoid missing
-		// statements.
-		let mut existing_statements = Vec::new();
-		let query_index = self.query_index.read();
-		self.collect_statements_locked(
-			None,
-			&topic_filter,
-			&query_index,
-			&mut existing_statements,
-			|statement| Some(statement.encode()),
-		)?;
-		let (subscription_sender, subscription_stream) =
-			self.subscription_manager.subscribe(topic_filter);
+		// Exactly-once delivery via a sequence-number watermark. Under the submit-index write lock
+		// we atomically (a) capture the current sequence boundary `W` and (b) register the
+		// subscription with `W` as its watermark.
+		let (subscription_sender, subscription_stream, watermark) = {
+			let mut submit_index = self.submit_index.write();
+			let watermark = submit_index.begin_scan();
+			let (sender, stream) =
+				self.subscription_manager.subscribe(topic_filter.clone(), watermark);
+			(sender, stream, watermark)
+		};
+		let _scan_guard = ScanGuard { store: self, watermark };
+
+		let mut hashes = HashSet::new();
+		self.iterate_with(None, &topic_filter, |hash| {
+			hashes.insert(*hash);
+			Ok(())
+		})?;
+
+		let hashes: Vec<Hash> = {
+			let submit_index = self.submit_index.read();
+			hashes
+				.into_iter()
+				.filter(|hash| submit_index.seq_covered_by_snapshot(hash, watermark))
+				.collect()
+		};
+
+		let mut existing_statements = Vec::with_capacity(hashes.len());
+		for hash in hashes {
+			if let Some(entry) = self.read_statement_encoded(&hash)? {
+				existing_statements.push(entry);
+			}
+		}
+
 		if existing_statements.is_empty() {
 			subscription_sender
 				.send_blocking(StatementEvent::NewStatements {
@@ -1727,6 +2162,78 @@ impl StatementStoreSubscriptionApi for Store {
 				.ok();
 		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
+	}
+}
+
+impl Store {
+	fn with_snapshot_hashes(
+		&self,
+		filter: &OptimizedTopicFilter,
+		enqueue: &mut dyn FnMut(Vec<Hash>),
+	) -> Result<()> {
+		// Hold the submit-index read lock across both the on-disk index scan and the `AddFilter`
+		// enqueue. `submit` assigns the statement's sequence number and commits its body under the
+		// write lock and only notifies matchers afterwards, so with the read lock held here every
+		// statement is either already committed (and therefore visible to the scan below) or its
+		// `NewStatement` notification is enqueued after the `AddFilter` message and matched live.
+		// Statements that end up in both are deduplicated by hash on the matcher side. The lock
+		// order (`submit_index` → `query_index`, taken briefly inside `iterate_with`) matches
+		// `populate`.
+		let _guard = self.submit_index.read();
+		let mut snapshot_hashes = Vec::new();
+		let mut seen = HashSet::new();
+		self.iterate_with(None, filter, |hash| {
+			if seen.insert(*hash) {
+				snapshot_hashes.push(*hash);
+			}
+			Ok(())
+		})?;
+		enqueue(snapshot_hashes);
+		Ok(())
+	}
+
+	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
+		self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))
+	}
+}
+
+impl MultiFilterSubscriptionApi for Arc<Store> {
+	fn create_subscription(&self) -> (SubscriptionHandle, MultiFilterEventStream) {
+		let inner =
+			Arc::new(parking_lot::Mutex::new(crate::subscription::SubscriptionHandleInner::new()));
+		let snapshot_provider: Arc<dyn ReplaySnapshotProvider> = Arc::new(Arc::downgrade(self));
+		let (sub_id, stream) = self.subscription_manager.subscribe_empty(snapshot_provider.clone());
+
+		let handle = SubscriptionHandle {
+			sub_id,
+			inner,
+			matchers: self.subscription_manager.matchers(),
+			snapshot_provider,
+		};
+		(handle, stream)
+	}
+}
+
+#[cfg(test)]
+impl Store {
+	/// Number of hashes currently in the on-disk evicted journal (per the in-memory counter).
+	fn evicted_count(&self) -> usize {
+		self.submit_index.read().evicted_count
+	}
+
+	/// Whether `hash` is currently banned from re-acceptance (present in the evicted journal).
+	fn is_evicted(&self, hash: &Hash) -> bool {
+		self.db.get_size(col::EXPIRED, hash.as_slice()).ok().flatten().is_some()
+	}
+
+	/// Whether the on-disk topic index links `topic` to `hash`.
+	fn index_has_topic(&self, topic: &Topic, hash: &Hash) -> bool {
+		self.index_set_contains(&IndexSet::Topic(*topic), hash).unwrap_or(false)
+	}
+
+	/// Whether the on-disk decryption-key index links `key` to `hash`.
+	fn index_has_dec_key(&self, key: &Option<DecryptionKey>, hash: &Hash) -> bool {
+		self.index_set_contains(&IndexSet::DecKey(*key), hash).unwrap_or(false)
 	}
 }
 
@@ -2075,6 +2582,90 @@ mod tests {
 	}
 
 	#[test]
+	fn migrates_v1_database_to_on_disk_index() {
+		sp_tracing::init_for_tests();
+		let temp = tempfile::Builder::new().tempdir().expect("Error creating test dir");
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		// The store appends `statements` to the path it is given.
+		let mut db_path = path.clone();
+		db_path.push("statements");
+
+		// One addressed statement (topics 1 & 2, decryption key 9) and one broadcast (topic 1, no
+		// key).
+		let addressed = signed_statement_with_topics(1, &[topic(1), topic(2)], Some(dec_key(9)));
+		let broadcast = signed_statement_with_topics(2, &[topic(1)], None);
+		let h_addressed = addressed.hash();
+		let h_broadcast = broadcast.hash();
+
+		// A hash seeded into the legacy EXPIRED column, with a deadline far in the future so it
+		// survives the maintenance pass triggered during migration.
+		let expired_hash = topic(999);
+		let expired_ts = 10_000_000_000u64;
+
+		// Build a version-1 database by hand: three columns and no on-disk read index.
+		{
+			let mut cfg = parity_db::Options::with_columns(&db_path, 3);
+			let statement_col = &mut cfg.columns[1];
+			statement_col.ref_counted = false;
+			statement_col.preimage = true;
+			statement_col.uniform = true;
+			let db = parity_db::Db::open_or_create(&cfg).unwrap();
+			db.commit([
+				(0u8, b"version".to_vec(), Some(1u32.to_le_bytes().to_vec())),
+				(1u8, h_addressed.to_vec(), Some(addressed.encode())),
+				(1u8, h_broadcast.to_vec(), Some(broadcast.encode())),
+				(2u8, expired_hash.to_vec(), Some((expired_hash, expired_ts).encode())),
+			])
+			.unwrap();
+		}
+
+		let open = |path: &std::path::Path| {
+			Store::new::<Block, TestClient, TestBackend>(
+				path,
+				Default::default(),
+				std::sync::Arc::new(TestClient),
+				std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory()),
+				None,
+				Box::new(sp_core::testing::TaskExecutor::new()),
+			)
+			.unwrap()
+		};
+
+		// Re-open through the store: it must add the index columns, rebuild them from the bodies,
+		// rebuild the evicted journal from EXPIRED, and bump the version to 2.
+		let store = open(&path);
+
+		// Bodies survived.
+		assert_eq!(store.statements().unwrap().len(), 2);
+		assert!(store.statement(&h_addressed).unwrap().is_some());
+		assert!(store.statement(&h_broadcast).unwrap().is_some());
+
+		// The read index was rebuilt on disk.
+		assert!(store.index_has_topic(&topic(1), &h_addressed));
+		assert!(store.index_has_topic(&topic(1), &h_broadcast));
+		assert!(store.index_has_topic(&topic(2), &h_addressed));
+		assert!(store.index_has_dec_key(&Some(dec_key(9)), &h_addressed));
+		assert!(store.index_has_dec_key(&None, &h_broadcast));
+
+		// And it answers queries: only the broadcast matches topic 1 with no key, only the
+		// addressed statement matches topic 1 for key 9.
+		assert_eq!(store.broadcasts(&[topic(1)]).unwrap().len(), 1);
+		assert_eq!(store.posted(&[topic(1)], dec_key(9)).unwrap().len(), 1);
+
+		// The evicted journal was rebuilt from the legacy EXPIRED column.
+		assert!(store.is_evicted(&expired_hash));
+		assert_eq!(store.evicted_count(), 1);
+
+		// The database is now at the current version; re-opening does not migrate again.
+		drop(store);
+		let store = open(&path);
+		assert_eq!(store.statements().unwrap().len(), 2);
+		assert!(store.index_has_topic(&topic(1), &h_broadcast));
+		assert!(store.is_evicted(&expired_hash));
+	}
+
+	#[test]
 	fn take_recent_statements_clears_index() {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
@@ -2179,7 +2770,7 @@ mod tests {
 			store.submit(statement(1, 1, Some(2), 100), source),
 			SubmitResult::Rejected(_)
 		));
-		assert_eq!(store.submit_index.read().evicted.len(), 1);
+		assert_eq!(store.evicted_count(), 1);
 
 		// Account 2 (limit = 2 msg, 1000 bytes)
 
@@ -2195,14 +2786,14 @@ mod tests {
 		// Should evict priority 1
 		let s2_prio3 = statement(2, 3, None, 500);
 		assert_eq!(store.submit(s2_prio3.clone(), source), ok);
-		assert_eq!(store.submit_index.read().evicted.len(), 2);
-		assert!(store.submit_index.read().evicted.contains(&s2_prio1.hash()));
+		assert_eq!(store.evicted_count(), 2);
+		assert!(store.is_evicted(&s2_prio1.hash()));
 		assert!(store.statement(&s2_prio1.hash()).unwrap().is_none());
 		// Should evict all
 		assert_eq!(store.submit(statement(2, 4, None, 1000), source), ok);
-		assert_eq!(store.submit_index.read().evicted.len(), 4);
-		assert!(store.submit_index.read().evicted.contains(&s2_prio2.hash()));
-		assert!(store.submit_index.read().evicted.contains(&s2_prio3.hash()));
+		assert_eq!(store.evicted_count(), 4);
+		assert!(store.is_evicted(&s2_prio2.hash()));
+		assert!(store.is_evicted(&s2_prio3.hash()));
 
 		// Account 3 (limit = 3 msg, 1000 bytes)
 
@@ -2213,9 +2804,9 @@ mod tests {
 		assert_eq!(store.submit(statement(3, 4, Some(3), 300), source), ok);
 		// Should evict 2 and 3
 		assert_eq!(store.submit(statement(3, 5, None, 500), source), ok);
-		assert_eq!(store.submit_index.read().evicted.len(), 6);
-		assert!(store.submit_index.read().evicted.contains(&s3_prio2.hash()));
-		assert!(store.submit_index.read().evicted.contains(&s3_prio3.hash()));
+		assert_eq!(store.evicted_count(), 6);
+		assert!(store.is_evicted(&s3_prio2.hash()));
+		assert!(store.is_evicted(&s3_prio3.hash()));
 
 		assert_eq!(store.submit_index.read().total_size, 2400);
 		assert_eq!(store.submit_index.read().entries.len(), 4);
@@ -2282,7 +2873,7 @@ mod tests {
 		assert_eq!(store.submit_index.read().accounts.len(), 0);
 		store.set_time(DEFAULT_PURGE_AFTER_SEC + 1);
 		store.maintain();
-		assert_eq!(store.submit_index.read().evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 		let keystore = store.keystore.clone();
 		drop(store);
 
@@ -2299,7 +2890,7 @@ mod tests {
 		)
 		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
-		assert_eq!(store.submit_index.read().evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 	}
 
 	#[test]
@@ -2580,14 +3171,14 @@ mod tests {
 			assert!(submit_idx.accounts.contains_key(&account(4)));
 			assert!(submit_idx.accounts.contains_key(&account(3)));
 			assert_eq!(submit_idx.total_size, 100 + 150 + 50 + 100 + 100);
+			drop(submit_idx);
 
-			let query_idx = store.query_index.read();
 			// Topic and key sets contain both A & B entries.
-			let set_t = query_idx.by_topic.get(&t42).expect("topic set exists");
-			assert!(set_t.contains(&h_a1) && set_t.contains(&h_b2));
-
-			let set_k = query_idx.by_dec_key.get(&Some(k7)).expect("key set exists");
-			assert!(set_k.contains(&h_a2) && set_k.contains(&h_b2));
+			assert!(store.index_has_topic(&t42, &h_a1) && store.index_has_topic(&t42, &h_b2));
+			assert!(
+				store.index_has_dec_key(&Some(k7), &h_a2) &&
+					store.index_has_dec_key(&Some(k7), &h_b2)
+			);
 		}
 
 		// --- Action: remove all statements by Account A.
@@ -2606,31 +3197,27 @@ mod tests {
 			}
 
 			let submit_idx = store.submit_index.read();
-
 			// Account map updated.
 			assert!(!submit_idx.accounts.contains_key(&account(4)), "Account A must be gone");
 			assert!(submit_idx.accounts.contains_key(&account(3)), "Account B must remain");
-
-			// Removed statements are marked expired.
-			assert!(submit_idx.evicted.contains(&h_a1));
-			assert!(submit_idx.evicted.contains(&h_a2));
-			assert!(submit_idx.evicted.contains(&h_a3));
-			assert_eq!(submit_idx.evicted.len(), 3);
-
 			// Entry count & total_size reflect only B's data.
 			assert_eq!(submit_idx.entries.len(), 2);
 			assert_eq!(submit_idx.total_size, 100 + 100);
+			drop(submit_idx);
 
-			let query_idx = store.query_index.read();
+			// Removed statements are banned in the on-disk evicted journal.
+			assert!(store.is_evicted(&h_a1));
+			assert!(store.is_evicted(&h_a2));
+			assert!(store.is_evicted(&h_a3));
+			assert_eq!(store.evicted_count(), 3);
+
 			// Topic index: only B2 remains for topic 42.
-			let set_t = query_idx.by_topic.get(&t42).expect("topic set exists");
-			assert!(set_t.contains(&h_b2));
-			assert!(!set_t.contains(&h_a1));
+			assert!(store.index_has_topic(&t42, &h_b2));
+			assert!(!store.index_has_topic(&t42, &h_a1));
 
 			// Decryption-key index: only B2 remains for key 7.
-			let set_k = query_idx.by_dec_key.get(&Some(k7)).expect("key set exists");
-			assert!(set_k.contains(&h_b2));
-			assert!(!set_k.contains(&h_a2));
+			assert!(store.index_has_dec_key(&Some(k7), &h_b2));
+			assert!(!store.index_has_dec_key(&Some(k7), &h_a2));
 		}
 
 		// --- Idempotency: removing again is a no-op and should not error.
@@ -2640,7 +3227,7 @@ mod tests {
 		let purge_after = store.submit_index.read().config.purge_after_sec;
 		store.set_time(purge_after + 1);
 		store.maintain();
-		assert_eq!(store.submit_index.read().evicted.len(), 0, "expired entries should be purged");
+		assert_eq!(store.evicted_count(), 0, "expired entries should be purged");
 
 		// --- Reuse: Account A can submit again after purge.
 		let s_new = statement(4, 40, None, 10);
@@ -2677,7 +3264,7 @@ mod tests {
 		assert!(accounts.contains(&account(3)));
 
 		// No statements should have been expired since they're all valid
-		assert_eq!(store.submit_index.read().evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 		assert_eq!(store.submit_index.read().entries.len(), 3);
 	}
 
@@ -2720,7 +3307,7 @@ mod tests {
 		// in submit rejects them without consulting the map)
 		let index = store.submit_index.read();
 		assert!(
-			!index.evicted.contains(&expired_hash),
+			!store.is_evicted(&expired_hash),
 			"Naturally expired statement must not be added to the expired map"
 		);
 		assert!(
@@ -2733,7 +3320,7 @@ mod tests {
 			index.entries.contains_key(&valid_hash),
 			"Valid statement should still be in entries"
 		);
-		assert!(!index.evicted.contains(&valid_hash), "Valid statement should not be expired");
+		assert!(!store.is_evicted(&valid_hash), "Valid statement should not be expired");
 	}
 
 	#[test]
@@ -2779,7 +3366,7 @@ mod tests {
 
 		// All statements were naturally expired (past their own timestamp), so they are not
 		// added to the expired map AlreadyExpired check in submit handles re-gossip prevention
-		assert_eq!(store.submit_index.read().evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 		assert_eq!(store.submit_index.read().entries.len(), 0);
 	}
 
@@ -2810,7 +3397,7 @@ mod tests {
 		);
 
 		// No statements should have been expired
-		assert_eq!(store.submit_index.read().evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 		assert_eq!(store.submit_index.read().entries.len(), 5);
 	}
 
@@ -2852,9 +3439,9 @@ mod tests {
 		{
 			let index = store.submit_index.read();
 			// Naturally expired statements are not added to the expired map.
-			assert!(!index.evicted.contains(&hash1), "stmt1 naturally expired, not in map");
-			assert!(!index.evicted.contains(&hash2), "stmt2 should not be expired yet");
-			assert!(!index.evicted.contains(&hash3), "stmt3 should not be expired yet");
+			assert!(!store.is_evicted(&hash1), "stmt1 naturally expired, not in map");
+			assert!(!store.is_evicted(&hash2), "stmt2 should not be expired yet");
+			assert!(!store.is_evicted(&hash3), "stmt3 should not be expired yet");
 			assert_eq!(index.entries.len(), 2);
 		}
 
@@ -2867,9 +3454,9 @@ mod tests {
 
 		{
 			let index = store.submit_index.read();
-			assert!(!index.evicted.contains(&hash1));
-			assert!(!index.evicted.contains(&hash2), "stmt2 naturally expired, not in map");
-			assert!(!index.evicted.contains(&hash3), "stmt3 should not be expired yet");
+			assert!(!store.is_evicted(&hash1));
+			assert!(!store.is_evicted(&hash2), "stmt2 naturally expired, not in map");
+			assert!(!store.is_evicted(&hash3), "stmt3 should not be expired yet");
 			assert_eq!(index.entries.len(), 1);
 		}
 
@@ -2880,9 +3467,9 @@ mod tests {
 
 		{
 			let index = store.submit_index.read();
-			assert!(!index.evicted.contains(&hash1));
-			assert!(!index.evicted.contains(&hash2));
-			assert!(!index.evicted.contains(&hash3), "stmt3 naturally expired, not in map");
+			assert!(!store.is_evicted(&hash1));
+			assert!(!store.is_evicted(&hash2));
+			assert!(!store.is_evicted(&hash3), "stmt3 naturally expired, not in map");
 			assert_eq!(index.entries.len(), 0);
 		}
 	}
@@ -2907,9 +3494,9 @@ mod tests {
 		// Statement should still be there
 		let index = store.submit_index.read();
 		assert!(index.entries.contains_key(&hash));
-		assert!(!index.evicted.contains(&hash));
+		assert!(!store.is_evicted(&hash));
 		assert_eq!(index.entries.len(), 1);
-		assert_eq!(index.evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 	}
 
 	#[test]
@@ -2944,7 +3531,7 @@ mod tests {
 				"Account should be removed when all its statements expire"
 			);
 			assert_eq!(index.total_size, 0, "Total size should be zero");
-			assert!(!index.evicted.contains(&hash), "Naturally expired, not in map");
+			assert!(!store.is_evicted(&hash), "Naturally expired, not in map");
 		}
 	}
 
@@ -2964,12 +3551,8 @@ mod tests {
 
 		// Verify indexes are populated
 		{
-			let query_index = store.query_index.read();
-			assert!(query_index.by_topic.get(&topic(42)).map_or(false, |s| s.contains(&hash)));
-			assert!(query_index
-				.by_dec_key
-				.get(&Some(dec_key(7)))
-				.map_or(false, |s| s.contains(&hash)));
+			assert!(store.index_has_topic(&topic(42), &hash));
+			assert!(store.index_has_dec_key(&Some(dec_key(7)), &hash));
 		}
 
 		// Populate and then expire
@@ -2979,21 +3562,12 @@ mod tests {
 
 		// Verify indexes are cleared
 		{
-			let query_index = store.query_index.read();
-			// Topic set should be empty or removed
+			assert!(!store.index_has_topic(&topic(42), &hash), "Topic index should be cleared");
 			assert!(
-				query_index.by_topic.get(&topic(42)).map_or(true, |s| s.is_empty()),
-				"Topic index should be cleared"
-			);
-			// Key set should be empty or removed
-			assert!(
-				query_index.by_dec_key.get(&Some(dec_key(7))).map_or(true, |s| s.is_empty()),
+				!store.index_has_dec_key(&Some(dec_key(7)), &hash),
 				"Decryption key index should be cleared"
 			);
-			assert!(
-				!store.submit_index.read().evicted.contains(&hash),
-				"Naturally expired, not in map"
-			);
+			assert!(!store.is_evicted(&hash), "Naturally expired, not in map");
 		}
 	}
 
@@ -3010,7 +3584,7 @@ mod tests {
 
 		assert!(store.submit_index.read().accounts_to_check_for_expiry_stmts.is_empty());
 		assert_eq!(store.submit_index.read().entries.len(), 0);
-		assert_eq!(store.submit_index.read().evicted.len(), 0);
+		assert_eq!(store.evicted_count(), 0);
 	}
 
 	#[test]
@@ -3046,7 +3620,7 @@ mod tests {
 			"Statement should be removed from entries after expiration"
 		);
 		// Naturally expired: timestamp 1001 < current_time 2000, not added to expired map.
-		assert!(!index.evicted.contains(&hash), "Naturally expired, not in map");
+		assert!(!store.is_evicted(&hash), "Naturally expired, not in map");
 	}
 
 	#[test]
@@ -3082,7 +3656,7 @@ mod tests {
 			);
 			// Naturally expired: not added to expired map, no need for suppression.
 			assert!(
-				!index.evicted.contains(&hash),
+				!store.is_evicted(&hash),
 				"Naturally expired statement must not be in the expired map"
 			);
 		}
@@ -3121,10 +3695,8 @@ mod tests {
 		// Directly insert into index, bypassing `submit`'s allowance check
 		{
 			let mut submit_index = store.submit_index.write();
-			let mut query_index = store.query_index.write();
 			for s in [&s1, &s2, &s3, &s4, &s5] {
 				submit_index.insert_new(s.hash(), account(4), s);
-				query_index.insert(s.hash(), s);
 			}
 		}
 
@@ -3146,7 +3718,7 @@ mod tests {
 		assert_eq!(index.total_size, 400);
 
 		// Evicted statement should be marked as expired
-		assert!(index.evicted.contains(&h1));
+		assert!(store.is_evicted(&h1));
 	}
 
 	#[test]
@@ -3164,11 +3736,8 @@ mod tests {
 		// Directly insert statements for account with no allowance
 		{
 			let mut submit_index = store.submit_index.write();
-			let mut query_index = store.query_index.write();
 			submit_index.insert_new(h1, account(0), &s1);
-			query_index.insert(h1, &s1);
 			submit_index.insert_new(h2, account(0), &s2);
-			query_index.insert(h2, &s2);
 		}
 
 		assert_eq!(store.submit_index.read().entries.len(), 2);
@@ -3181,8 +3750,8 @@ mod tests {
 		let index = store.submit_index.read();
 		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
 		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
-		assert!(index.evicted.contains(&h1));
-		assert!(index.evicted.contains(&h2));
+		assert!(store.is_evicted(&h1));
+		assert!(store.is_evicted(&h2));
 	}
 
 	#[test]
@@ -3202,11 +3771,8 @@ mod tests {
 		// Directly insert both statements (total 1200 bytes > 1000 limit)
 		{
 			let mut submit_index = store.submit_index.write();
-			let mut query_index = store.query_index.write();
 			submit_index.insert_new(h1, account(2), &s1);
-			query_index.insert(h1, &s1);
 			submit_index.insert_new(h2, account(2), &s2);
-			query_index.insert(h2, &s2);
 		}
 
 		assert_eq!(store.submit_index.read().total_size, 1200);
@@ -3259,7 +3825,7 @@ mod tests {
 			assert_eq!(index.entries.len(), 1);
 			assert!(!index.entries.contains_key(&h1), "Old channel message should be gone");
 			assert!(index.entries.contains_key(&h2), "New channel message should exist");
-			assert!(index.evicted.contains(&h1), "Old should be in expired");
+			assert!(store.is_evicted(&h1), "Old should be in expired");
 			assert_eq!(index.total_size, 200);
 		}
 	}
@@ -3429,5 +3995,299 @@ mod tests {
 		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
 		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
+	}
+
+	#[tokio::test]
+	async fn subscription_delivers_each_statement_exactly_once_across_boundary() {
+		// Exactly-once: a statement existing before the subscription is delivered only through the
+		// initial snapshot, and a statement submitted afterwards only through the live stream —
+		// never both (which was the at-least-once regression) and never neither.
+		use crate::StatementStoreSubscriptionApi;
+		use futures::StreamExt;
+		use sp_statement_store::{OptimizedTopicFilter, StatementEvent};
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+
+		// Two statements exist before the subscription is created.
+		let a = signed_statement(0);
+		let b = signed_statement(1);
+		assert_eq!(store.submit(a.clone(), source), SubmitResult::New);
+		assert_eq!(store.submit(b.clone(), source), SubmitResult::New);
+
+		// The snapshot must contain exactly the pre-existing statements.
+		let (existing, _sender, mut stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		let mut snapshot: Vec<Statement> = existing
+			.iter()
+			.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap())
+			.collect();
+		snapshot.sort_by_key(|s| s.hash());
+		let mut expected_snapshot = vec![a.clone(), b.clone()];
+		expected_snapshot.sort_by_key(|s| s.hash());
+		assert_eq!(
+			snapshot, expected_snapshot,
+			"snapshot must contain exactly the pre-existing statements"
+		);
+
+		// A statement submitted after the subscription must arrive on the live stream, exactly
+		// once.
+		let c = signed_statement(2);
+		assert_eq!(store.submit(c.clone(), source), SubmitResult::New);
+
+		let event = tokio::time::timeout(std::time::Duration::from_secs(5), stream.next())
+			.await
+			.expect("live statement should arrive within the timeout")
+			.expect("stream should yield an event");
+		let StatementEvent::NewStatements { statements, .. } = event;
+		let live: Vec<Statement> = statements
+			.iter()
+			.map(|bytes| Statement::decode(&mut &bytes.0[..]).unwrap())
+			.collect();
+		assert_eq!(
+			live,
+			vec![c.clone()],
+			"live stream must deliver exactly the post-subscribe statement"
+		);
+
+		// No duplicate: neither the new statement nor the snapshot statements are delivered again.
+		assert!(
+			tokio::time::timeout(std::time::Duration::from_millis(500), stream.next())
+				.await
+				.is_err(),
+			"no further (duplicate) statements must be delivered"
+		);
+	}
+
+	#[test]
+	fn subscription_snapshot_deduplicates_multi_topic_match_any() {
+		// A `MatchAny` snapshot must contain a statement matching several of the filter's topics
+		// only once, not once per matching topic.
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let topic_a = topic(1);
+		let topic_b = topic(2);
+
+		// A statement carrying BOTH topics.
+		let s = signed_statement_with_topics(1, &[topic_a, topic_b], None);
+		assert_eq!(store.submit(s, StatementSource::Local), SubmitResult::New);
+
+		let filter =
+			OptimizedTopicFilter::MatchAny(std::collections::HashSet::from([topic_a, topic_b]));
+		let (existing, _sender, _stream) = store.subscribe_statement(filter).unwrap();
+		assert_eq!(
+			existing.len(),
+			1,
+			"MatchAny snapshot must not duplicate a multi-topic statement"
+		);
+	}
+
+	#[tokio::test]
+	async fn subscription_match_all_delivers_exactly_once_across_boundary() {
+		// The `MatchAll` snapshot is enumerated authoritatively from disk, so a matching statement
+		// present before the subscription is delivered via the snapshot (never lost to the
+		// in-memory counters/cache lagging a commit), while one submitted afterwards is delivered
+		// live exactly once.
+		use crate::StatementStoreSubscriptionApi;
+		use futures::StreamExt;
+		use sp_statement_store::{OptimizedTopicFilter, StatementEvent};
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+		let t = topic(7);
+
+		// Two matching statements exist before the subscription.
+		let a = signed_statement_with_topics(0, &[t], None);
+		let b = signed_statement_with_topics(1, &[t], None);
+		assert_eq!(store.submit(a, source), SubmitResult::New);
+		assert_eq!(store.submit(b, source), SubmitResult::New);
+
+		let filter = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([t]));
+		let (existing, _sender, mut stream) = store.subscribe_statement(filter).unwrap();
+		assert_eq!(
+			existing.len(),
+			2,
+			"MatchAll snapshot must contain both pre-existing statements"
+		);
+
+		// A matching statement submitted afterwards must arrive live, exactly once.
+		let c = signed_statement_with_topics(2, &[t], None);
+		assert_eq!(store.submit(c.clone(), source), SubmitResult::New);
+
+		let event = tokio::time::timeout(std::time::Duration::from_secs(5), stream.next())
+			.await
+			.expect("live statement should arrive within the timeout")
+			.expect("stream should yield an event");
+		let StatementEvent::NewStatements { statements, .. } = event;
+		let live: Vec<Statement> = statements
+			.iter()
+			.map(|bytes| Statement::decode(&mut &bytes.0[..]).unwrap())
+			.collect();
+		assert_eq!(
+			live,
+			vec![c],
+			"MatchAll live stream must deliver exactly the post-subscribe statement"
+		);
+
+		assert!(
+			tokio::time::timeout(std::time::Duration::from_millis(500), stream.next())
+				.await
+				.is_err(),
+			"no further (duplicate) statements must be delivered"
+		);
+	}
+
+	#[tokio::test]
+	async fn subscription_no_loss_or_duplicate_under_concurrent_submits() {
+		// Race a stream of submissions against the subscription registration: whatever the
+		// interleaving, every matching statement must be delivered exactly once across the snapshot
+		// and the live stream — no loss (the bug the on-disk `MatchAll` snapshot could cause) and
+		// no duplicate (the original at-least-once regression). This assertion holds for any
+		// timing, so the test is deterministic even though the race window is hit
+		// non-deterministically.
+		use crate::StatementStoreSubscriptionApi;
+		use futures::StreamExt;
+		use sp_statement_store::{OptimizedTopicFilter, StatementEvent};
+		use std::collections::HashSet;
+
+		let (store, _temp) = test_store();
+		let store = std::sync::Arc::new(store);
+		let t = topic(9);
+		// Keep well under SUBSCRIPTION_BUFFER_SIZE (128) so the live channel never overflows (which
+		// would auto-unsubscribe and legitimately drop statements).
+		const N: u8 = 60;
+
+		let all: Vec<Statement> =
+			(0..N).map(|i| signed_statement_with_topics(i, &[t], None)).collect();
+		let all_hashes: HashSet<_> = all.iter().map(|s| s.hash()).collect();
+
+		// A handful exist before subscribing; the rest are submitted concurrently with the
+		// subscribe.
+		let split = 10usize;
+		for s in &all[..split] {
+			assert_eq!(store.submit(s.clone(), StatementSource::Local), SubmitResult::New);
+		}
+		let store2 = store.clone();
+		let rest: Vec<Statement> = all[split..].to_vec();
+		let submitter = std::thread::spawn(move || {
+			for s in rest {
+				let _ = store2.submit(s, StatementSource::Local);
+			}
+		});
+
+		let filter = OptimizedTopicFilter::MatchAll(HashSet::from([t]));
+		let (existing, _sender, mut stream) = store.subscribe_statement(filter).unwrap();
+
+		submitter.join().unwrap();
+
+		// Everything delivered so far, snapshot first.
+		let mut seen = existing
+			.iter()
+			.map(|b| Statement::decode(&mut &b[..]).unwrap().hash())
+			.collect::<Vec<_>>();
+		// Drain the live stream until every statement is accounted for (or a timeout on loss).
+		while seen.len() < N as usize {
+			match tokio::time::timeout(std::time::Duration::from_secs(5), stream.next()).await {
+				Ok(Some(StatementEvent::NewStatements { statements, .. })) => {
+					for b in statements {
+						seen.push(Statement::decode(&mut &b.0[..]).unwrap().hash());
+					}
+				},
+				_ => break,
+			}
+		}
+
+		let seen_set: HashSet<_> = seen.iter().copied().collect();
+		assert_eq!(
+			seen.len(),
+			N as usize,
+			"each statement must be delivered exactly once (got {} deliveries for {} statements — loss or duplicate)",
+			seen.len(),
+			N
+		);
+		assert_eq!(seen_set, all_hashes, "delivered set must equal submitted set");
+	}
+
+	// Tests for the multi-filter subscription API (`MultiFilterSubscriptionApi` /
+	// `create_subscription`), as opposed to the single-filter `subscribe_statement` tests above.
+	mod multi_filter {
+		use super::*;
+		use crate::{
+			MultiFilterEventStream, MultiFilterSubscriptionApi, MultiFilterSubscriptionEvent,
+		};
+		use futures::StreamExt;
+		use sp_statement_store::OptimizedTopicFilter;
+		use std::{collections::HashSet, sync::Arc, time::Duration};
+
+		fn arc_test_store() -> (Arc<Store>, tempfile::TempDir) {
+			let (store, dir) = test_store();
+			(Arc::new(store), dir)
+		}
+
+		async fn drain_all(
+			stream: &mut MultiFilterEventStream,
+			idle: Duration,
+		) -> Vec<MultiFilterSubscriptionEvent> {
+			let mut events = Vec::new();
+			while let Ok(Some(event)) = tokio::time::timeout(idle, stream.next()).await {
+				events.push(event);
+			}
+			events
+		}
+
+		#[tokio::test]
+		async fn add_filter_replays_snapshot_and_delivers_later_submissions_live() {
+			let (store, _dir) = arc_test_store();
+			let (handle, mut stream) = store.create_subscription();
+
+			const NUM_STATEMENTS: u8 = 50;
+			const NUM_PRE_FILTER: u8 = 20;
+
+			// Statements stored before the filter is attached; the replay snapshot must cover
+			// exactly these.
+			for i in 0..NUM_PRE_FILTER {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
+
+			let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
+
+			// The snapshot is collected atomically with the filter registration, so statements
+			// submitted after `add_filter` returns must arrive as live events only.
+			for i in NUM_PRE_FILTER..NUM_STATEMENTS {
+				let stmt = signed_statement(i);
+				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
+			}
+
+			let mut snapshot_hashes: HashSet<[u8; 32]> = HashSet::new();
+			let mut live_with_filter: HashSet<[u8; 32]> = HashSet::new();
+			for event in drain_all(&mut stream, Duration::from_millis(300)).await {
+				match event {
+					MultiFilterSubscriptionEvent::ReplayStatements { statements, .. } => {
+						snapshot_hashes.extend(
+							statements
+								.iter()
+								.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap().hash()),
+						);
+					},
+					MultiFilterSubscriptionEvent::NewStatement(event)
+						if event.matched_filter_ids.contains(&filter_id) =>
+					{
+						live_with_filter.insert(event.hash);
+					},
+					_ => {},
+				}
+			}
+
+			let expected_replayed: HashSet<[u8; 32]> =
+				(0..NUM_PRE_FILTER).map(|i| signed_statement(i).hash()).collect();
+			let expected_live: HashSet<[u8; 32]> =
+				(NUM_PRE_FILTER..NUM_STATEMENTS).map(|i| signed_statement(i).hash()).collect();
+
+			assert_eq!(snapshot_hashes, expected_replayed);
+			assert_eq!(live_with_filter, expected_live);
+		}
 	}
 }
