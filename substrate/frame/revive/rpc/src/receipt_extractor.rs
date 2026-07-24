@@ -210,8 +210,29 @@ impl ReceiptExtractor {
 			let provider = provider.clone();
 
 			let fut = async move {
-				let runtime_api = provider.at(block_hash).await.ok()?;
-				runtime_api.eth_block_hash(U256::from(block_number))?.await.ok().flatten()
+				let runtime_api = provider
+					.at(block_hash)
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to access the runtime API at block #{block_number} \
+							({block_hash:?}) for an eth_block_hash query: {err:?}"
+						);
+					})
+					.ok()?;
+				runtime_api
+					.eth_block_hash(U256::from(block_number))?
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to query eth_block_hash at block #{block_number} \
+							({block_hash:?}): {err:?}"
+						);
+					})
+					.ok()
+					.flatten()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
@@ -222,8 +243,27 @@ impl ReceiptExtractor {
 			let provider = provider.clone();
 
 			let fut = async move {
-				let runtime_api = provider.at(block_hash).await.ok()?;
-				runtime_api.eth_receipt_data()?.await.ok()
+				let runtime_api = provider
+					.at(block_hash)
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to access the runtime API at block {block_hash:?} for an \
+							eth_receipt_data query: {err:?}"
+						);
+					})
+					.ok()?;
+				runtime_api
+					.eth_receipt_data()?
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to query eth_receipt_data at block {block_hash:?}: {err:?}"
+						);
+					})
+					.ok()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
