@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784827823397,
+  "lastUpdate": 1784900414301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -109835,6 +109835,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2990301335,
             "range": "± 61109833",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbefd5ecd60b76780c80f916ad157023667d476e",
+          "message": "fix(rpc-v2-statement): reject empty `matchAll` (#12706)\n\n# Description\n\nTighten input validation and submission outcomes for the unstable\nstatement RPC methods to match the JSON-RPC interface specification.\n\nThis PR:\n\n- Rejects `statement_unstable_submit` inputs containing trailing bytes\nafter an otherwise valid SCALE-encoded statement.\n- Rejects `statement_unstable_add_filter` calls where `matchAll`\ncontains no topics.\n- Returns JSON-RPC error `-32602` for both invalid inputs.\n- Returns `dataTooLarge`, with the submitted and available sizes, when a\nstatement exceeds an account's remaining data allowance instead of\nincorrectly returning `accountFull`.\n- Adds regression tests covering these cases.\n\n## Integration\n\nNo downstream migration is required.\n\nClients must provide an exact SCALE encoding to\n`statement_unstable_submit`; encodings with trailing bytes are no longer\naccepted.\n\nA `matchAll` filter must contain between one and four topics. Clients\nwishing to match every statement should use `\"any\"` instead of\n`{\"matchAll\": []}`.\n\nWhen a statement cannot fit within the account's remaining data\nallowance, `statement_unstable_submit` now returns a `dataTooLarge`\nrejection. `accountFull` remains reserved for statement-count\nexhaustion.\n\n## Review Notes\n\nSubmission decoding now uses `DecodeAll` rather than `Decode`, ensuring\nthe complete input buffer is consumed.\n\nTopic-filter validation rejects an empty `MatchAll` before converting it\ninto an `OptimizedTopicFilter`.\n\nThe account-allowance check now distinguishes an unsatisfied byte limit\nfrom an unsatisfied statement-count limit and reports the remaining\navailable size.\n\nThe corresponding statement JSON-RPC specification has been updated\nseparately to document the one-to-four-topic requirement.\n\nRegression tests verify that both invalid inputs return JSON-RPC error\n`-32602` and that byte-allowance exhaustion returns `dataTooLarge`.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required).\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).",
+          "timestamp": "2026-07-24T12:07:56Z",
+          "tree_id": "217cb63effe328239834cab7bb89b3e441f30f1b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbefd5ecd60b76780c80f916ad157023667d476e"
+        },
+        "date": 1784900383274,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20370692,
+            "range": "± 267378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20374889,
+            "range": "± 204865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22021292,
+            "range": "± 226165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26653072,
+            "range": "± 214339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59103043,
+            "range": "± 652383",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 350673334,
+            "range": "± 3097710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2648525217,
+            "range": "± 64818375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17449306,
+            "range": "± 218288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17575403,
+            "range": "± 159503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18015107,
+            "range": "± 182037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22405119,
+            "range": "± 177235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62359580,
+            "range": "± 661670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 348642245,
+            "range": "± 5895088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2688975193,
+            "range": "± 44739557",
             "unit": "ns/iter"
           }
         ]
