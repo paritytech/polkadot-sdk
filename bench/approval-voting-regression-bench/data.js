@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784828706879,
+  "lastUpdate": 1784901434000,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eb11ef2b855f72fa012c8c9b4fdeb4cb43ffbb06",
-          "message": "Fix check-semver job (#10418)",
-          "timestamp": "2025-11-25T16:31:57Z",
-          "tree_id": "bf7f970563fd3f0e5836c0e45b4bb8c7fee92706",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eb11ef2b855f72fa012c8c9b4fdeb4cb43ffbb06"
-        },
-        "date": 1764092399535,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63632.380000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.029974068359998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.495961248060001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4321139003400045,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000195579,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.49228851381,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001941022,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6388153264707808,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5346330938999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001941022,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006201831460000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000195579,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.455288163030003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4641155071,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.650057280873106,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbefd5ecd60b76780c80f916ad157023667d476e",
+          "message": "fix(rpc-v2-statement): reject empty `matchAll` (#12706)\n\n# Description\n\nTighten input validation and submission outcomes for the unstable\nstatement RPC methods to match the JSON-RPC interface specification.\n\nThis PR:\n\n- Rejects `statement_unstable_submit` inputs containing trailing bytes\nafter an otherwise valid SCALE-encoded statement.\n- Rejects `statement_unstable_add_filter` calls where `matchAll`\ncontains no topics.\n- Returns JSON-RPC error `-32602` for both invalid inputs.\n- Returns `dataTooLarge`, with the submitted and available sizes, when a\nstatement exceeds an account's remaining data allowance instead of\nincorrectly returning `accountFull`.\n- Adds regression tests covering these cases.\n\n## Integration\n\nNo downstream migration is required.\n\nClients must provide an exact SCALE encoding to\n`statement_unstable_submit`; encodings with trailing bytes are no longer\naccepted.\n\nA `matchAll` filter must contain between one and four topics. Clients\nwishing to match every statement should use `\"any\"` instead of\n`{\"matchAll\": []}`.\n\nWhen a statement cannot fit within the account's remaining data\nallowance, `statement_unstable_submit` now returns a `dataTooLarge`\nrejection. `accountFull` remains reserved for statement-count\nexhaustion.\n\n## Review Notes\n\nSubmission decoding now uses `DecodeAll` rather than `Decode`, ensuring\nthe complete input buffer is consumed.\n\nTopic-filter validation rejects an empty `MatchAll` before converting it\ninto an `OptimizedTopicFilter`.\n\nThe account-allowance check now distinguishes an unsatisfied byte limit\nfrom an unsatisfied statement-count limit and reports the remaining\navailable size.\n\nThe corresponding statement JSON-RPC specification has been updated\nseparately to document the one-to-four-topic requirement.\n\nRegression tests verify that both invalid inputs return JSON-RPC error\n`-32602` and that byte-allowance exhaustion returns `dataTooLarge`.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required).\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).",
+          "timestamp": "2026-07-24T12:07:56Z",
+          "tree_id": "217cb63effe328239834cab7bb89b3e441f30f1b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbefd5ecd60b76780c80f916ad157023667d476e"
+        },
+        "date": 1784901401770,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.85,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52947,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002209854,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021795620000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.717371240049967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005171373660000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6328578812100014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3636642068499993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6511119231499998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.625767210169999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021795620000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7671665657699689,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6716320792399992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002209854,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.453032060632742,
             "unit": "seconds"
           }
         ]
