@@ -377,6 +377,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
 		test_evm_blocks_hydrated_should_match,
+		test_get_block_receipts,
 		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
@@ -851,6 +852,50 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 		panic!("Expected hydrated transactions");
 	};
 	assert_eq!(expected_tx_info, tx_info, "TransationInfos should match");
+
+	Ok(())
+}
+
+/// Verifies that `eth_getBlockReceipts` returns every receipt of a block, that querying the same
+/// block by number and by hash yields the same receipts, and that an unknown block returns `null`.
+async fn test_get_block_receipts() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let deploy_tx = TransactionRequest::default()
+		.from(from)
+		.input(AlloyBytes::from(bytecode).into())
+		.create();
+
+	// Act
+	let receipt = provider.send_transaction(deploy_tx).await?.get_receipt().await?;
+	let block_number = receipt.block_number.expect("Mined receipt has a block number");
+	let block_hash = receipt.block_hash.expect("Mined receipt has a block hash");
+
+	let by_number = provider
+		.get_block_receipts(BlockId::number(block_number))
+		.await?
+		.expect("Block should have receipts");
+	let by_hash = provider
+		.get_block_receipts(BlockId::hash(block_hash))
+		.await?
+		.expect("Block should have receipts");
+	let missing = provider.get_block_receipts(BlockId::hash(B256::from([0x42u8; 32]))).await?;
+
+	// Assert
+	let hashes_by_number = by_number.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	let hashes_by_hash = by_hash.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	assert_eq!(hashes_by_number, hashes_by_hash, "Receipts by number and by hash should match");
+	assert!(
+		by_number.iter().any(|r| r.transaction_hash == receipt.transaction_hash),
+		"Block receipts should include the sent transaction"
+	);
+	assert!(
+		by_number.iter().all(|r| r.block_hash == Some(block_hash)),
+		"All receipts should belong to the queried block"
+	);
+	assert!(missing.is_none(), "Receipts for a non-existent block should be null");
 
 	Ok(())
 }
