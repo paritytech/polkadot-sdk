@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784827780305,
+  "lastUpdate": 1784900374308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -196415,6 +196415,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2518352066,
             "range": "± 71007531",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carlosalag@protonmail.com",
+            "name": "Carlo Sala",
+            "username": "carlosala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fbefd5ecd60b76780c80f916ad157023667d476e",
+          "message": "fix(rpc-v2-statement): reject empty `matchAll` (#12706)\n\n# Description\n\nTighten input validation and submission outcomes for the unstable\nstatement RPC methods to match the JSON-RPC interface specification.\n\nThis PR:\n\n- Rejects `statement_unstable_submit` inputs containing trailing bytes\nafter an otherwise valid SCALE-encoded statement.\n- Rejects `statement_unstable_add_filter` calls where `matchAll`\ncontains no topics.\n- Returns JSON-RPC error `-32602` for both invalid inputs.\n- Returns `dataTooLarge`, with the submitted and available sizes, when a\nstatement exceeds an account's remaining data allowance instead of\nincorrectly returning `accountFull`.\n- Adds regression tests covering these cases.\n\n## Integration\n\nNo downstream migration is required.\n\nClients must provide an exact SCALE encoding to\n`statement_unstable_submit`; encodings with trailing bytes are no longer\naccepted.\n\nA `matchAll` filter must contain between one and four topics. Clients\nwishing to match every statement should use `\"any\"` instead of\n`{\"matchAll\": []}`.\n\nWhen a statement cannot fit within the account's remaining data\nallowance, `statement_unstable_submit` now returns a `dataTooLarge`\nrejection. `accountFull` remains reserved for statement-count\nexhaustion.\n\n## Review Notes\n\nSubmission decoding now uses `DecodeAll` rather than `Decode`, ensuring\nthe complete input buffer is consumed.\n\nTopic-filter validation rejects an empty `MatchAll` before converting it\ninto an `OptimizedTopicFilter`.\n\nThe account-allowance check now distinguishes an unsatisfied byte limit\nfrom an unsatisfied statement-count limit and reports the remaining\navailable size.\n\nThe corresponding statement JSON-RPC specification has been updated\nseparately to document the one-to-four-topic requirement.\n\nRegression tests verify that both invalid inputs return JSON-RPC error\n`-32602` and that byte-allowance exhaustion returns `dataTooLarge`.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [ ] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required).\n* [x] I have made corresponding changes to the documentation (if\napplicable).\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable).",
+          "timestamp": "2026-07-24T12:07:56Z",
+          "tree_id": "217cb63effe328239834cab7bb89b3e441f30f1b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbefd5ecd60b76780c80f916ad157023667d476e"
+        },
+        "date": 1784900343050,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5425199,
+            "range": "± 74337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 327005,
+            "range": "± 4513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5244675,
+            "range": "± 52907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 418999,
+            "range": "± 5847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 6607871,
+            "range": "± 102840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 1009682,
+            "range": "± 15601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 12427319,
+            "range": "± 95562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5551899,
+            "range": "± 78135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 53963165,
+            "range": "± 926489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 45716440,
+            "range": "± 434349",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 456746555,
+            "range": "± 4825697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 357263614,
+            "range": "± 2391974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 3058424236,
+            "range": "± 32801500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2773138074,
+            "range": "± 21781040",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 4462945,
+            "range": "± 62306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2016774,
+            "range": "± 14303",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 4547885,
+            "range": "± 112090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2109095,
+            "range": "± 25144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 5111900,
+            "range": "± 52763",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2547179,
+            "range": "± 45032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 10501041,
+            "range": "± 87261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6351584,
+            "range": "± 56946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 45478067,
+            "range": "± 620213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 43332361,
+            "range": "± 257340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 393036457,
+            "range": "± 3998034",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 325794814,
+            "range": "± 3484941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 3092130075,
+            "range": "± 31195783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2629323873,
+            "range": "± 35434502",
             "unit": "ns/iter"
           }
         ]
