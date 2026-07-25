@@ -425,6 +425,70 @@ fn approval_works(asset_index: u16) {
 	});
 }
 
+// EIP-20 counterpart of `precompile_zero_value_transfer_emits_log` for the approved-transfer path:
+// a zero-value `transferFrom` is a no-op in `do_transfer_approved` and fires no callback, so the
+// precompile must still emit the `Transfer` log itself.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn precompile_zero_value_transfer_from_emits_log(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789;
+		let spender = 987654321;
+		let other = 1122334455;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&other, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let other_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&other);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Give the spender an allowance so the zero-value `transferFrom` is authorised.
+		call_approve(owner, asset_addr, spender_addr, U256::from(25));
+
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: other_addr.0.into(),
+			value: U256::ZERO,
+		}
+		.abi_encode();
+
+		pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+
+		// Emitted at the callback's canonical token address, regardless of the alias called.
+		assert_contract_event(
+			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: owner_addr.0.into(),
+				to: other_addr.0.into(),
+				value: U256::ZERO,
+			}),
+		);
+
+		// Nothing moved.
+		assert_eq!(Assets::balance(asset_id, owner), 100);
+		assert_eq!(Assets::balance(asset_id, other), 0);
+	});
+}
+
 /// Helper to call approve via the precompile. Returns the bare call result.
 fn raw_approve(
 	owner: u64,
