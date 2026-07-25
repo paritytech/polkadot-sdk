@@ -77,12 +77,14 @@ impl SubxtBlockInfoProvider {
 		api: OnlineClient<SrcChainConfig>,
 		rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
 	) -> Result<Self, ClientError> {
-		let latest = Arc::new(api.at_current_block().await?);
+		let best_hash = rpc.chain_get_block_hash(None).await?.ok_or(ClientError::BlockNotFound)?;
+		let latest_block = Arc::new(api.at_block(best_hash).await?);
+		let latest_finalized_block = Arc::new(api.at_current_block().await?);
 		Ok(Self {
 			api,
 			rpc,
-			latest_block: Arc::new(RwLock::new(latest.clone())),
-			latest_finalized_block: Arc::new(RwLock::new(latest)),
+			latest_block: Arc::new(RwLock::new(latest_block)),
+			latest_finalized_block: Arc::new(RwLock::new(latest_finalized_block)),
 		})
 	}
 }
@@ -94,7 +96,10 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
 			SubscriptionType::BestBlocks => self.latest_block.write().await,
 		};
-		*latest = block;
+		// Only move the head forward; the startup block stream can replay older blocks.
+		if block.block_number() >= latest.block_number() {
+			*latest = block;
+		}
 	}
 
 	async fn latest_block(&self) -> Arc<SubstrateBlock> {
