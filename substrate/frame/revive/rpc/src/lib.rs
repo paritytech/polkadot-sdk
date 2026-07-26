@@ -401,6 +401,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(block)
 	}
 
+	async fn get_block_receipts(&self, block: BlockId) -> RpcResult<Option<Vec<ReceiptInfo>>> {
+		let receipts = self.client.block_receipts(block).await?;
+		Ok(receipts)
+	}
+
 	async fn get_block_transaction_count_by_hash(
 		&self,
 		block_hash: Option<H256>,

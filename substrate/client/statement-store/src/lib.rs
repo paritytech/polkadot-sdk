@@ -722,6 +722,13 @@ impl SubmitIndex {
 						expiry,
 						entry.expiry,
 					);
+					let retained_size = account_rec.data_size - would_free_size;
+					if retained_size + statement_len > max_size {
+						return Err(RejectionReason::DataTooLarge {
+							submitted_size: statement_len,
+							available_size: max_size.saturating_sub(retained_size),
+						});
+					}
 					return Err(RejectionReason::AccountFull {
 						submitted_expiry: expiry.0,
 						min_expiry: entry.expiry.0,
@@ -2834,6 +2841,23 @@ mod tests {
 			store.statements().unwrap().into_iter().map(|(hash, _)| hash).collect();
 		statements.sort();
 		assert_eq!(expected_statements, statements);
+	}
+
+	#[test]
+	fn insufficient_remaining_account_bytes_is_data_too_large() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 4 allows four statements and 1000 data bytes. The count limit has room, but the
+		// lower-priority submission cannot evict the existing statement to obtain enough bytes.
+		assert_eq!(store.submit(statement(4, 2, None, 900), source), SubmitResult::New);
+		assert_eq!(
+			store.submit(statement(4, 1, None, 200), source),
+			SubmitResult::Rejected(RejectionReason::DataTooLarge {
+				submitted_size: 200,
+				available_size: 100,
+			})
+		);
 	}
 
 	#[test]
