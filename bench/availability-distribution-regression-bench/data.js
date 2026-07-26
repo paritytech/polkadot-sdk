@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784901392431,
+  "lastUpdate": 1785073445133,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "49bd017a06989799141af0809c0fbdd48d67b733",
-          "message": "[Release|CI/CD] Send release notifications to communication channels only in case of a stable release (#10419)\n\nCloses: https://github.com/paritytech/devops/issues/3831",
-          "timestamp": "2025-11-26T07:09:05Z",
-          "tree_id": "e8e6ac85c1830c106ffa4d06034d7006cd637fbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/49bd017a06989799141af0809c0fbdd48d67b733"
-        },
-        "date": 1764145104762,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257626552000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01346879342,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007301543213333306,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15851992481333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02288666506666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4858f078dac2e098000533f8d2fc794db992b2d0",
+          "message": "`pallet-assets`: Allow `force_create` set an arbitrary asset id when auto-increment is enabled (#12378)\n\nresolves #12302\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-26T11:59:54Z",
+          "tree_id": "359c75c2c4dfd93d86ab14fb50237126d5f2b158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4858f078dac2e098000533f8d2fc794db992b2d0"
+        },
+        "date": 1785073413671,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009734037326666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007417476980000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1478009643466667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02282498466,
             "unit": "seconds"
           }
         ]
