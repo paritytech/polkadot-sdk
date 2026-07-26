@@ -34,8 +34,7 @@ pub mod baseline;
 /// Legacy v1 benchmarking macros.
 ///
 /// Soft-deprecated in favor of [`v2`]: write new benchmarks with [`v2`] and migrate existing ones
-/// when convenient (replace `benchmarks! { ... }` with a `#[benchmarks]` module and annotate each
-/// function with `#[benchmark]`). See the [`v2`] docs for a migration guide.
+/// when convenient. See the [`v2`] docs for a migration guide.
 ///
 /// This is documentation-only; no `#[deprecated]` attribute is added, since v1 is still widely
 /// used and the warnings would break the `-D warnings` build.
