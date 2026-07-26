@@ -412,8 +412,7 @@ pub mod pallet {
 
 			/// Weight information for the extrinsics of this pallet.
 			///
-			/// `#[pallet::no_default]`: not copied into deriving runtimes, so production runtimes
-			/// must set their own weights instead of inheriting the Substrate reference weights.
+			/// Not copied into deriving runtimes, which must set their own weights.
 			#[pallet::no_default]
 			type SystemWeightInfo = ();
 
@@ -648,9 +647,8 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics of this pallet.
 		///
-		/// The `()` default resolves to the Substrate reference weights, which are benchmarked for
-		/// a different runtime and almost never correct in production. The production presets
-		/// therefore do not default it, while `TestDefaultConfig` keeps `()` for tests.
+		/// Not defaulted by the production presets (the `()` reference weights are wrong for most
+		/// runtimes); only `TestDefaultConfig` keeps `()`.
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.

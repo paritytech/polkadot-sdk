@@ -63,8 +63,7 @@ fn is_no_default_attr(attr: &syn::Attribute) -> bool {
 	segments.len() == 2 && segments[0].ident == "pallet" && segments[1].ident == "no_default"
 }
 
-/// Whether the impl item is marked `#[pallet::no_default]`, i.e. kept on the default impl but not
-/// copied into impls that derive from it.
+/// Whether the impl item is marked `#[pallet::no_default]` (not copied into deriving impls).
 fn is_no_default(item: &ImplItem) -> bool {
 	let attrs = match item {
 		ImplItem::Const(item) => &item.attrs,

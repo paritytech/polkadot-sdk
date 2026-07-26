@@ -789,8 +789,8 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	// ensure this is a impl statement
 	let item_impl = syn::parse_macro_input!(tokens as ItemImpl);
 
-	// Local copy with `#[pallet::no_default]` markers removed so it compiles as a normal impl. The
-	// markers are only read by `derive_impl` from the exported tokens to skip those items.
+	// Local copy with the `#[pallet::no_default]` markers stripped so it stays a valid impl; they
+	// survive only in the exported tokens, where `derive_impl` reads them.
 	let mut local_impl = item_impl.clone();
 	for item in &mut local_impl.items {
 		let attrs = match item {
@@ -808,8 +808,8 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 		});
 	}
 
-	// Export the original impl (markers preserved, for `derive_impl`) but don't let `export_tokens`
-	// emit it (`emit = false`); emit the marker-free `local_impl` ourselves instead.
+	// Export the original impl (markers preserved) with `emit = false`, then emit the marker-free
+	// `local_impl` ourselves.
 	match macro_magic::mm_core::export_tokens_internal(
 		attrs,
 		item_impl.to_token_stream(),
