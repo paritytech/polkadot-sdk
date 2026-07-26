@@ -1166,8 +1166,7 @@ mod tests {
 				if n > 1 {
 					System::run_to_block::<AllPalletsWithSystem>(n);
 				}
-				// Every registered para is a parachain regardless of temporary-slot state; the
-				// rotation is verified through the active temporary slot count below.
+				// All registered paras are parachains regardless of temp-slot state.
 				for p in 0..=5u32 {
 					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
 				}
@@ -1177,8 +1176,7 @@ mod tests {
 			// Block 6-11, Period 2-3
 			for n in 6..=11 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				// Every registered para is a parachain regardless of temporary-slot state; the
-				// rotation is verified through the active temporary slot count below.
+				// All registered paras are parachains regardless of temp-slot state.
 				for p in 0..=5u32 {
 					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
 				}
@@ -1188,8 +1186,7 @@ mod tests {
 			// Block 12-17, Period 4-5
 			for n in 12..=17 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				// Every registered para is a parachain regardless of temporary-slot state; the
-				// rotation is verified through the active temporary slot count below.
+				// All registered paras are parachains regardless of temp-slot state.
 				for p in 0..=5u32 {
 					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
 				}
@@ -1199,8 +1196,7 @@ mod tests {
 			// Block 18-23, Period 6-7
 			for n in 18..=23 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				// Every registered para is a parachain regardless of temporary-slot state; the
-				// rotation is verified through the active temporary slot count below.
+				// All registered paras are parachains regardless of temp-slot state.
 				for p in 0..=5u32 {
 					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
 				}
@@ -1210,8 +1206,7 @@ mod tests {
 			// Block 24-29, Period 8-9
 			for n in 24..=29 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				// Every registered para is a parachain regardless of temporary-slot state; the
-				// rotation is verified through the active temporary slot count below.
+				// All registered paras are parachains regardless of temp-slot state.
 				for p in 0..=5u32 {
 					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
 				}
@@ -1221,8 +1216,7 @@ mod tests {
 			// Block 30-35, Period 10-11
 			for n in 30..=35 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				// Every registered para is a parachain regardless of temporary-slot state; the
-				// rotation is verified through the active temporary slot count below.
+				// All registered paras are parachains regardless of temp-slot state.
 				for p in 0..=5u32 {
 					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
 				}

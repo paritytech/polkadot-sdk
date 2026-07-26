@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Parachain leasing system. Allows para IDs to be claimed, the code and data to be initialized
-//! and parachain slots (i.e. continuous scheduling) to be leased. Also allows for
-//! parachains to be swapped.
+//! and parachain slots (continuous scheduling) to be leased. Also allows for parachains to be
+//! swapped.
 //!
 //! This doesn't handle the mechanics of determining which para ID actually ends up with a parachain
 //! lease. This must handled by a separately, through the trait interface that this pallet provides
@@ -886,8 +886,7 @@ mod tests {
 				Error::<Test>::ParaNotOnboarding
 			);
 
-			// Para 2 still has a current lease, so onboarding it again is a successful no-op
-			// (all registered paras are already parachains).
+			// Para 2 still has a lease, so onboarding it again is a successful no-op.
 			assert_ok!(Slots::trigger_onboard(RuntimeOrigin::signed(1), 2.into()));
 		});
 	}
