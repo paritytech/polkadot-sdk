@@ -101,8 +101,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		BuiltEntry, CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage,
-		Segment, SegmentEntry,
+		BuiltEntry, CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage, Segment,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
@@ -297,8 +296,8 @@ impl CollationGenerationSubsystem {
 			CandidateDescriptorVersion::V3 => Segment::V3 {
 				scheduling_parent,
 				scheduling_session,
-				candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
-					segment_entries.into_iter().map(SegmentEntry::Built).collect::<Vec<_>>(),
+				candidates: BoundedVec::<BuiltEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
+					segment_entries,
 				)
 				.map_err(|_| Error::InvalidSegmentSize(len))?,
 			},

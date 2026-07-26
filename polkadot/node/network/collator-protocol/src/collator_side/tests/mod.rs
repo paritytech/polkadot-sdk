@@ -349,10 +349,7 @@ fn segment_from_entries(
 		_ => Segment::V3 {
 			scheduling_parent,
 			scheduling_session,
-			candidates: BoundedVec::try_from(
-				entries.into_iter().map(SegmentEntry::Built).collect::<Vec<_>>(),
-			)
-			.expect("test segments fit MAX_SEGMENT_LEN"),
+			candidates: BoundedVec::try_from(entries).expect("test segments fit MAX_SEGMENT_LEN"),
 		},
 	}
 }

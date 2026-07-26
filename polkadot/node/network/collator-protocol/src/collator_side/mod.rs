@@ -41,7 +41,7 @@ use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGM
 use polkadot_node_subsystem::{
 	messages::{
 		BuiltEntry, ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent,
-		NetworkBridgeTxMessage, Segment, SegmentEntry,
+		NetworkBridgeTxMessage, Segment,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
@@ -470,12 +470,9 @@ async fn distribute_segment<Context>(
 	.await;
 
 	let (scheduling_parent, descriptor_version, sp_session, entries) = match segment {
-		Segment::V2(entry) => (
-			entry.relay_parent,
-			CandidateDescriptorVersion::V2,
-			None,
-			vec![SegmentEntry::Built(entry)],
-		),
+		Segment::V2(entry) => {
+			(entry.relay_parent, CandidateDescriptorVersion::V2, None, vec![entry])
+		},
 		Segment::V3 { scheduling_parent, scheduling_session, candidates } => (
 			scheduling_parent,
 			CandidateDescriptorVersion::V3,
@@ -551,17 +548,6 @@ async fn distribute_segment<Context>(
 		return Ok(());
 	}
 
-	if !entries.iter().all(|entry| matches!(entry, SegmentEntry::Built(_))) {
-		gum::warn!(
-				target: LOG_TARGET,
-				para_id = %id,
-				?scheduling_parent,
-				?core_index,
-				"Segment contains unbuilt entries, dropping segment",
-		);
-		return Ok(());
-	}
-
 	gum::debug!(
 		target: LOG_TARGET,
 		para_id = %id,
@@ -581,14 +567,6 @@ async fn distribute_segment<Context>(
 
 	let mut segment_fingerprint = vec![];
 	for entry in entries {
-		let entry = match entry {
-			SegmentEntry::Built(entry) => entry,
-			SegmentEntry::Fingerprint(fingerprint) => {
-				segment_fingerprint.push(fingerprint);
-				continue;
-			},
-		};
-
 		let pov_hash = entry.pov.hash();
 		let receipt =
 			assemble_receipt(id, core_index, scheduling_parent, sp_session, &entry, pov_hash);
@@ -645,7 +623,7 @@ async fn distribute_segment<Context>(
 	let new_segment = StoredSegment {
 		descriptor_version,
 		fingerprints: BoundedVec::try_from(segment_fingerprint)
-			.expect("at most one fingerprint per entry, entries bounded by the message; qed"),
+			.expect("exactly one fingerprint per entry, entries bounded by the message; qed"),
 	};
 
 	per_scheduling_parent.segments.insert(core_index, new_segment);
