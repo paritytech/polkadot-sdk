@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784901351264,
+  "lastUpdate": 1785073407422,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b291e6f8b49a42d03646256b91458f6d9b0fd2aa",
-          "message": "Uncomment release notifications (#10434)",
-          "timestamp": "2025-11-26T11:02:35Z",
-          "tree_id": "d67511f3003dc5ebe13f6d310f738ff57da4de8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b291e6f8b49a42d03646256b91458f6d9b0fd2aa"
-        },
-        "date": 1764158912440,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20237255170000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.385759271400001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14104753106666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4858f078dac2e098000533f8d2fc794db992b2d0",
+          "message": "`pallet-assets`: Allow `force_create` set an arbitrary asset id when auto-increment is enabled (#12378)\n\nresolves #12302\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-26T11:59:54Z",
+          "tree_id": "359c75c2c4dfd93d86ab14fb50237126d5f2b158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4858f078dac2e098000533f8d2fc794db992b2d0"
+        },
+        "date": 1785073375497,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.270163301866663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1294070387333333,
             "unit": "seconds"
           }
         ]
