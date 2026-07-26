@@ -99,9 +99,15 @@ fn transact_recursion_limit_works() {
 			// itself should not fail => should have outcome == Complete
 			10 => {
 				let inner_call = call.take().unwrap();
+				// pallet-xcm's index in the test runtime's `construct_runtime!`, derived
+				// rather than hardcoded so inserting/reordering pallets (e.g. `SpecMsg`)
+				// can't silently shift it out from under this check.
+				let xcm_pallet_index =
+					<polkadot_test_runtime::Xcm as frame_support::traits::PalletInfoAccess>::index()
+						as u8;
 				let expected_transact_status =
 					sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
-						index: 27,
+						index: xcm_pallet_index,
 						error: [28, 0, 40, 0], // ExceedsStackLimit
 						message: Some("LocalExecutionIncompleteWithError"),
 					})

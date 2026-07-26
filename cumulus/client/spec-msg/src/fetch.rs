@@ -1570,4 +1570,174 @@ mod tests {
 		block_on(pool.wait_for_in_flight_rounds(bound));
 		assert!(start.elapsed() < bound);
 	}
+
+	#[test]
+	fn authoring_grace_window_waits_out_a_pending_offer_before_the_round_is_marked() {
+		// Issue 10, sub-mode (a) — late offer (soak runs 11 A6, 18 B6): the
+		// monitor has PUSHED an included offer but the fetcher has not yet
+		// dequeued it, so NO round is marked in flight at the snapshot
+		// instant. Pre-fix the window found nothing and returned immediately,
+		// and the material rode the next block (+6 s). With the monitor's
+		// pending-offer hint recorded, the window waits on the imminent round
+		// and picks up its material once it starts and completes in-bound.
+		let (mut network, root) = serving_archive(2, 2);
+		let honest = PeerId::random();
+		network.behavior.insert(honest, PeerBehavior::Honest);
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		// The monitor pushed the offer: a round is imminent, but nothing is
+		// marked in flight yet (the offer is still in transit to the fetcher).
+		pool.note_pending_offer(source());
+		// Unambiguously isolate the late-offer path — the sub-mode the live
+		// soak never exercised (`pending_offers` stayed 0 across all 116
+		// Campaign-3 grace engagements), so this test is its sole coverage.
+		// At the wait entry the ONLY grace anchor is the pending offer: no
+		// round is in flight and no completion is retained, so any wait the
+		// window takes below is attributable solely to the pending offer, not
+		// the in-flight round or the store-visibility retention path.
+		assert_eq!(pool.rounds_in_flight(), 0);
+		assert_eq!(pool.pending_offers_in_flight(), 1);
+		assert_eq!(pool.retained_completions(), 0);
+
+		std::thread::scope(|scope| {
+			let (network, registry, pool) = (&network, &registry, &pool);
+			scope.spawn(move || {
+				// The fetcher dequeues 20 ms later: it marks the real round
+				// (superseding the hint) and runs it to completion.
+				std::thread::sleep(Duration::from_millis(20));
+				let guard = pool.begin_round(source());
+				block_on(fetch_source(
+					network,
+					registry,
+					pool,
+					source(),
+					root,
+					&[(stream, 0)],
+					&[ack(RECEIVER)],
+					SMALL_CHUNK,
+				))
+				.expect("round succeeds");
+				drop(guard);
+			});
+
+			let start = std::time::Instant::now();
+			block_on(pool.wait_for_in_flight_rounds(Duration::from_secs(30)));
+			// The wait was driven solely by the pending offer (the only anchor
+			// at entry): it blocked until begin_round superseded the offer with
+			// the real round and that round completed — not the immediate
+			// return the pre-fix window (which could only await an
+			// already-marked round) would have taken.
+			assert!(start.elapsed() >= Duration::from_millis(20));
+			assert!(start.elapsed() < Duration::from_secs(10));
+			assert_eq!(pool.rounds_in_flight(), 0);
+			// begin_round superseded the pending-offer hint — it is not left
+			// dangling once the real round has run.
+			assert_eq!(pool.pending_offers_in_flight(), 0);
+			// The post-wait snapshot sees the round's material.
+			assert_eq!(pool.target(source()), Some(root));
+			let data = pool.build_inherent(
+				&[(source(), stream, 0)],
+				&[(source(), ack(RECEIVER), None)],
+				InherentBudget::default(),
+			);
+			assert_eq!(data.messages.len(), 1);
+			assert_eq!(data.register_reads.len(), 1);
+		});
+	}
+
+	#[test]
+	fn authoring_grace_window_re_reads_a_round_that_just_completed() {
+		// Issue 10, sub-mode (b) — store visibility (soak runs 12 A2, 18 B4,
+		// incl. run 18's KPI message): a round completed and its guard
+		// already dropped a hair before the snapshot, so `rounds_in_flight()`
+		// is 0 — yet the just-fetched material must still reach the first
+		// block, not ride the next one (+6 s). The just-completed retention
+		// makes the window wait a beat and re-read instead of sealing an
+		// empty inherent. (In-process the write is already visible; the
+		// retention closes the cross-thread publish→observe gap the soak saw.)
+		let (mut network, root) = serving_archive(2, 2);
+		let honest = PeerId::random();
+		network.behavior.insert(honest, PeerBehavior::Honest);
+		let registry = registry_with(&[honest]);
+		let pool = SpecMsgPool::default();
+		let stream = channel(RECEIVER);
+
+		let guard = pool.begin_round(source());
+		block_on(fetch_source(
+			&network,
+			&registry,
+			&pool,
+			source(),
+			root,
+			&[(stream, 0)],
+			&[ack(RECEIVER)],
+			SMALL_CHUNK,
+		))
+		.expect("round succeeds");
+
+		// The guard drops the instant before the snapshot — nothing is marked
+		// in flight, exactly the state the pre-fix window returned empty on.
+		let snapshot = std::time::Instant::now();
+		drop(guard);
+		assert_eq!(pool.rounds_in_flight(), 0);
+
+		block_on(pool.wait_for_in_flight_rounds(crate::ROUND_GRACE_WINDOW));
+		let waited = snapshot.elapsed();
+		// The retention engaged (a brief re-read window), far under the bound.
+		assert!(waited >= crate::pool::COMPLETION_RETENTION);
+		assert!(waited < crate::ROUND_GRACE_WINDOW);
+		// ...and the just-completed round's material is observed.
+		assert_eq!(pool.target(source()), Some(root));
+		let data = pool.build_inherent(
+			&[(source(), stream, 0)],
+			&[(source(), ack(RECEIVER), None)],
+			InherentBudget::default(),
+		);
+		assert_eq!(data.messages.len(), 1);
+		assert_eq!(data.register_reads.len(), 1);
+	}
+
+	#[test]
+	fn authoring_grace_window_pending_offer_is_a_hard_bound() {
+		// A pending offer whose round never materializes (fetcher wedged or
+		// torn down after the monitor pushed): the window must not wait
+		// forever — the offer is granted the same `bound` from its own push
+		// instant as a round is from its start, then authoring proceeds.
+		let pool = SpecMsgPool::default();
+		let bound = Duration::from_millis(100);
+		pool.note_pending_offer(source());
+		// Only a pending offer anchors the window — no round in flight,
+		// nothing retained — so the full-bound wait below is provably driven
+		// by the offer, and the return at the bound is the offer's OWN hard
+		// bound, not a round's.
+		assert_eq!(pool.rounds_in_flight(), 0);
+		assert_eq!(pool.pending_offers_in_flight(), 1);
+		assert_eq!(pool.retained_completions(), 0);
+		let start = std::time::Instant::now();
+		block_on(pool.wait_for_in_flight_rounds(bound));
+		let waited = start.elapsed();
+		assert!(waited >= bound);
+		assert!(waited < Duration::from_secs(5));
+
+		// Past its grant (the bound runs from the offer's OWN push instant), a
+		// later proposal does not wait on the stale offer at all.
+		let start = std::time::Instant::now();
+		block_on(pool.wait_for_in_flight_rounds(bound));
+		assert!(start.elapsed() < bound);
+	}
+
+	#[test]
+	fn authoring_grace_window_stays_free_with_no_round_offer_or_completion() {
+		// The idle path is unchanged and zero-cost: no round in flight, no
+		// pending offer and no recent completion means an immediate return —
+		// a 30 s bound returning instantly is the proof no wait path was
+		// taken.
+		let pool = SpecMsgPool::default();
+		let start = std::time::Instant::now();
+		block_on(pool.wait_for_in_flight_rounds(Duration::from_secs(30)));
+		assert!(start.elapsed() < Duration::from_secs(1));
+		assert_eq!(pool.rounds_in_flight(), 0);
+	}
 }

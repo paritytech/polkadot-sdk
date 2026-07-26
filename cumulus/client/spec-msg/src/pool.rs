@@ -51,6 +51,19 @@
 //! any round work, so even a snapshot firing right off the relay import
 //! finds the marker — and [`SpecMsgPool::wait_for_in_flight_rounds`] is
 //! the authoring side's bounded grace window over it.
+//!
+//! Two photo-finish edges sit either side of that in-flight marker, and the
+//! grace window covers both (issue 10):
+//! - *late offer*: the monitor has PUSHED an included offer but the fetcher has not yet dequeued
+//!   it, so no round is marked at the snapshot instant. [`SpecMsgPool::note_pending_offer`] records
+//!   a per-source "offer pushed at <instant>" the moment the monitor sends, and the window waits on
+//!   it exactly like an in-flight round (same `bound` expiry); [`SpecMsgPool::begin_round`]
+//!   supersedes it when the real round starts.
+//! - *store visibility*: a round completed and its guard already dropped a hair before the
+//!   snapshot, so nothing is marked yet the just-fetched material has not settled into the read
+//!   view. [`SpecMsgPool::end_round`] retains a per-source "completed at <instant>" for a brief
+//!   [`COMPLETION_RETENTION`], so a snapshot landing microseconds later waits a beat and re-reads
+//!   rather than sealing an empty inherent.
 
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -278,6 +291,15 @@ struct SourcePool {
 	registers: BTreeMap<StreamId, RegisterReads>,
 }
 
+/// How long a just-completed round is retained past its guard drop
+/// ([`SpecMsgPool::end_round`]) so a snapshot landing microseconds later
+/// still waits a beat and re-reads the pool instead of sealing an empty
+/// inherent — the store-visibility photo-finish (issue 10). A few
+/// milliseconds comfortably covers the ~1–2 ms publish→observe gaps the soak
+/// runs saw, while the retention only ever delays a proposal that arrives
+/// inside that window (idle authoring stays free).
+pub(crate) const COMPLETION_RETENTION: Duration = Duration::from_millis(5);
+
 /// The fetch rounds currently in flight, plus the authoring tasks waiting
 /// out the grace window for them
 /// ([`SpecMsgPool::wait_for_in_flight_rounds`]).
@@ -285,9 +307,82 @@ struct SourcePool {
 struct RoundsInFlight {
 	/// Sources with a running fetch round, by the round's start instant.
 	started: BTreeMap<ParaId, Instant>,
-	/// Woken (and drained) whenever any round ends — however it ends; every
-	/// waiter re-checks what is still in flight.
+	/// Sources the monitor has offered an included root for but whose round
+	/// the fetcher has not yet begun, by the offer's push instant — the
+	/// late-offer window ([`SpecMsgPool::note_pending_offer`]). Superseded by
+	/// [`SpecMsgPool::begin_round`]; expired under the same `bound` as a
+	/// round so a never-dequeued offer never wedges authoring.
+	pending_offers: BTreeMap<ParaId, Instant>,
+	/// Sources whose round just completed, by the completion instant — the
+	/// store-visibility window ([`SpecMsgPool::end_round`]), honoured for
+	/// [`COMPLETION_RETENTION`] and only by a proposal that arrives on top of
+	/// the completion (one already parked on the round was woken by it and
+	/// its writes are visible).
+	completed: BTreeMap<ParaId, Instant>,
+	/// Woken (and drained) whenever any round ends or a fresh offer is
+	/// recorded; every waiter re-checks what is still in flight or imminent.
 	waiters: Vec<oneshot::Sender<()>>,
+}
+
+/// How a time-bounded [`SpecMsgPool::wait_for_in_flight_rounds`] ended,
+/// distinguished for logging (issue 12): the two paths share the same
+/// mechanics but mean very different things, and reusing one message made a
+/// benign 3–4 ms completion-retention settle read in the logs as a stalled
+/// 250 ms round.
+#[derive(Debug, PartialEq, Eq)]
+enum GraceExit {
+	/// The wait was held open only by a just-completed round's brief re-read
+	/// retention ([`COMPLETION_RETENTION`]), which has now lapsed. The
+	/// fetched material is in the read view; this is the normal settle a
+	/// snapshot landing on top of a completion takes, NOT a hard-bound stall.
+	RetentionElapsed,
+	/// Live work — a round in flight, or an offer the monitor pushed but the
+	/// fetcher has not yet turned into a round — was still outstanding when
+	/// the hard `bound` (a full `ROUND_GRACE_WINDOW`) elapsed. This is the
+	/// genuine "authoring proceeded without the material" case.
+	BoundExpired,
+}
+
+impl GraceExit {
+	/// Classifies a time-bounded grace exit from what remained at the exit
+	/// instant: any live work (a round in flight or a pushed-but-undequeued
+	/// offer) means the hard bound was hit; neither means only the completion
+	/// retention lapsed.
+	fn classify(rounds_started: usize, pending_offers: usize) -> Self {
+		if rounds_started == 0 && pending_offers == 0 {
+			GraceExit::RetentionElapsed
+		} else {
+			GraceExit::BoundExpired
+		}
+	}
+}
+
+/// Logs a time-bounded grace exit with the message matching its
+/// classification (issue 12), so completion-retention settles and genuine
+/// hard-bound expiries are never conflated.
+fn log_grace_time_exit(
+	exit: GraceExit,
+	rounds: usize,
+	pending_offers: usize,
+	retained: usize,
+	waited: Duration,
+) {
+	let waited_ms = waited.as_millis() as u64;
+	match exit {
+		GraceExit::RetentionElapsed => tracing::debug!(
+			target: LOG_TARGET,
+			retained,
+			waited_ms,
+			"Grace window over: completion-retention elapsed",
+		),
+		GraceExit::BoundExpired => tracing::debug!(
+			target: LOG_TARGET,
+			rounds,
+			pending_offers,
+			waited_ms,
+			"Grace window over: bound expired with rounds still in flight",
+		),
+	}
 }
 
 /// The verified pool shared between the fetch pipeline (writer), the
@@ -420,16 +515,53 @@ impl SpecMsgPool {
 	/// before any round work (see `crate::fetch`): an unmarked round cannot
 	/// be awaited, and the proposer's snapshot can fire within milliseconds
 	/// of the trigger.
+	///
+	/// Starting the real round supersedes the source's pending-offer hint
+	/// ([`Self::note_pending_offer`]) and clears any stale just-completed
+	/// retention: from here the in-flight marker is the source's grace-window
+	/// anchor.
 	pub fn begin_round(&self, source: ParaId) -> RoundGuard<'_> {
-		self.rounds.lock().started.insert(source, Instant::now());
+		let mut rounds = self.rounds.lock();
+		rounds.started.insert(source, Instant::now());
+		rounds.pending_offers.remove(&source);
+		rounds.completed.remove(&source);
 		RoundGuard { pool: self, source }
 	}
 
-	/// Clears `source`'s round-in-flight marker and wakes every grace-window
-	/// waiter to re-check (the [`RoundGuard`] drop path).
+	/// Records that the monitor has just PUSHED an included offer for
+	/// `source` to the fetcher: a fetch round for it is imminent even though
+	/// the offer may still be traversing the monitor→fetcher channel and no
+	/// round is marked yet. [`Self::wait_for_in_flight_rounds`] waits on this
+	/// hint exactly like an in-flight round — closing the late-offer
+	/// photo-finish (issue 10) — and it is superseded by [`Self::begin_round`]
+	/// or expired under the wait's `bound`, so a never-dequeued offer (wedged
+	/// or dropped fetcher) never wedges authoring.
+	///
+	/// This is a bare per-source instant, deliberately NOT a guard handed
+	/// through the channel: a guard could sit queued behind a stalled fetcher
+	/// (bounded channel) and the per-source map cannot hold queued
+	/// duplicates — the reasons monitor-side guards were rejected for the
+	/// in-flight marker (issue 7).
+	pub fn note_pending_offer(&self, source: ParaId) {
+		let mut rounds = self.rounds.lock();
+		rounds.pending_offers.insert(source, Instant::now());
+		// Wake any proposal already in its grace window so it picks up the
+		// now-imminent round; registered under this same lock, so a waiter
+		// arriving after the offer still sees it on its own check.
+		for waiter in rounds.waiters.drain(..) {
+			let _ = waiter.send(());
+		}
+	}
+
+	/// Clears `source`'s round-in-flight marker, retains a brief
+	/// just-completed marker ([`COMPLETION_RETENTION`]) so a snapshot landing
+	/// microseconds later still waits and re-reads, and wakes every
+	/// grace-window waiter to re-check (the [`RoundGuard`] drop path).
 	fn end_round(&self, source: ParaId) {
 		let mut rounds = self.rounds.lock();
-		rounds.started.remove(&source);
+		if rounds.started.remove(&source).is_some() {
+			rounds.completed.insert(source, Instant::now());
+		}
 		for waiter in rounds.waiters.drain(..) {
 			let _ = waiter.send(());
 		}
@@ -451,21 +583,51 @@ impl SpecMsgPool {
 	/// - the caller never waits longer than `bound` from entry, even if rounds keep starting or
 	///   never finish — on timeout the snapshot proceeds with whatever is pooled (the pre-grace
 	///   behavior);
-	/// - each round is granted `bound` from *its own start*, never from the wait's: a hung round
-	///   can only delay proposals overlapping its first `bound`, and authoring on a later relay
-	///   parent or another fork (whole seconds away) finds it expired and does not wait at all.
+	/// - each round (and each pending offer) is granted `bound` from *its own start*, never from
+	///   the wait's: a hung round or never-dequeued offer can only delay proposals overlapping its
+	///   first `bound`, and authoring on a later relay parent or another fork (whole seconds away)
+	///   finds it expired and does not wait at all.
+	///
+	/// Beyond an in-flight round the wait also honours the two photo-finish
+	/// edges around it (issue 10): a *pending offer* the monitor pushed but
+	/// the fetcher has not yet turned into a round (waited on under `bound`,
+	/// like a round), and a round that *just completed* (retained for
+	/// [`COMPLETION_RETENTION`] so a snapshot arriving right on top of the
+	/// guard drop settles and re-reads). A completion the caller was itself
+	/// woken by needs no retention — being woken by [`Self::end_round`]
+	/// synchronises the round's writes into view — so the retention only
+	/// holds a proposal that had not yet parked when it entered.
 	pub async fn wait_for_in_flight_rounds(&self, bound: Duration) {
 		let entered = Instant::now();
-		// 0 until the wait path is taken, then the number of sources with a
-		// round in flight when the wait started. The idle path stays
-		// log-free; a taken wait logs its start and how it ended — run-4
-		// validation of the window was inferential because it logged nothing.
+		// 0 until the wait path is taken, then the number of rounds, pending
+		// offers and just-completed rounds the wait started on. The idle path
+		// stays log-free; a taken wait logs its start and how it ended —
+		// run-4 validation of the window was inferential because it logged
+		// nothing.
 		let mut waited_on = 0usize;
+		// Set once the caller has parked: a completion it is then woken for
+		// has its writes visible to the read that follows, so the
+		// just-completed retention only holds a proposal that arrives on top
+		// of a completion, never one already parked on the round producing it.
+		let mut parked = false;
 		loop {
 			let (ended, remaining) = {
 				let mut rounds = self.rounds.lock();
-				let Some(deadline) = rounds.started.values().map(|started| *started + bound).max()
-				else {
+				// In-flight rounds and imminent (pushed-but-not-dequeued)
+				// offers are granted `bound` from their start/offer instant;
+				// a just-completed round a short retention from its
+				// completion, but only for a not-yet-parked caller.
+				let live = rounds
+					.started
+					.values()
+					.chain(rounds.pending_offers.values())
+					.map(|since| *since + bound);
+				let retained = rounds
+					.completed
+					.values()
+					.filter(|_| !parked)
+					.map(|at| *at + COMPLETION_RETENTION);
+				let Some(deadline) = live.chain(retained).max() else {
 					if waited_on > 0 {
 						tracing::debug!(
 							target: LOG_TARGET,
@@ -480,41 +642,60 @@ impl SpecMsgPool {
 					deadline.min(entered + bound).saturating_duration_since(Instant::now());
 				if remaining.is_zero() {
 					if waited_on > 0 {
-						tracing::debug!(
-							target: LOG_TARGET,
-							rounds = rounds.started.len(),
-							waited_ms = entered.elapsed().as_millis() as u64,
-							"Grace window over: bound expired with rounds still in flight",
+						log_grace_time_exit(
+							GraceExit::classify(rounds.started.len(), rounds.pending_offers.len()),
+							rounds.started.len(),
+							rounds.pending_offers.len(),
+							rounds.completed.len(),
+							entered.elapsed(),
 						);
 					}
 					return;
 				}
 				if waited_on == 0 {
-					waited_on = rounds.started.len();
+					let pending = rounds.pending_offers.len();
+					let completing = if parked { 0 } else { rounds.completed.len() };
+					waited_on = rounds.started.len() + pending + completing;
 					tracing::debug!(
 						target: LOG_TARGET,
-						rounds = waited_on,
+						rounds = rounds.started.len(),
+						pending_offers = pending,
+						completing,
 						bound_ms = bound.as_millis() as u64,
 						"Waiting out the grace window for in-flight fetch rounds",
 					);
 				}
-				// Registered under the same lock `end_round` takes: a round
-				// ending after this check always finds the waiter.
+				// Registered under the same lock `end_round` /
+				// `note_pending_offer` take: a round ending or an offer
+				// arriving after this check always finds the waiter.
 				let (sender, receiver) = oneshot::channel();
 				rounds.waiters.push(sender);
 				(receiver, remaining)
 			};
+			parked = true;
 			let mut ended = ended.fuse();
 			let mut timeout = futures_timer::Delay::new(remaining).fuse();
 			futures::select_biased! {
-				// A round ended (or the pool went away): re-check.
+				// A round ended, an offer arrived, or the pool went away:
+				// re-check.
 				_ = ended => (),
 				_ = timeout => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						rounds = self.rounds.lock().started.len(),
-						waited_ms = entered.elapsed().as_millis() as u64,
-						"Grace window over: bound expired with rounds still in flight",
+					// The `bound` elapsed. Whether this is a benign
+					// completion-retention settle (the 5 ms COMPLETION_RETENTION
+					// path, waited_ms ≈ 3–5, nothing live) or a genuine
+					// hard-bound expiry with a round still in flight is
+					// classified from what remains — they share this exit but
+					// must NOT share a log message (issue 12).
+					let rounds = self.rounds.lock();
+					log_grace_time_exit(
+						GraceExit::classify(
+							rounds.started.len(),
+							rounds.pending_offers.len(),
+						),
+						rounds.started.len(),
+						rounds.pending_offers.len(),
+						rounds.completed.len(),
+						entered.elapsed(),
 					);
 					return
 				},
@@ -525,6 +706,18 @@ impl SpecMsgPool {
 	/// Diagnostic: number of fetch rounds currently marked in flight (tests).
 	pub fn rounds_in_flight(&self) -> usize {
 		self.rounds.lock().started.len()
+	}
+
+	/// Diagnostic: number of monitor-pushed offers awaiting a round the
+	/// fetcher has not yet begun — the late-offer grace window (tests).
+	pub fn pending_offers_in_flight(&self) -> usize {
+		self.rounds.lock().pending_offers.len()
+	}
+
+	/// Diagnostic: number of just-completed rounds still inside their
+	/// [`COMPLETION_RETENTION`] re-read window (tests).
+	pub fn retained_completions(&self) -> usize {
+		self.rounds.lock().completed.len()
 	}
 
 	/// The source's current lift target root.
@@ -736,5 +929,25 @@ impl SpecMsgPool {
 			.get(&source)
 			.and_then(|pool| pool.channels.get(stream))
 			.map_or(0, |ledger| ledger.payloads.len())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn grace_time_exit_classifies_retention_apart_from_a_hard_bound() {
+		// Issue 12: the completion-retention settle and the hard-bound expiry
+		// share the one time-based exit of `wait_for_in_flight_rounds` but
+		// must log distinctly. The classification is purely "was any live
+		// work still outstanding at the exit instant" — a round in flight or
+		// a pushed-but-undequeued offer means the hard bound was hit; neither
+		// means only the brief completion retention lapsed (a benign settle
+		// that must NOT read as a stalled round).
+		assert_eq!(GraceExit::classify(0, 0), GraceExit::RetentionElapsed);
+		assert_eq!(GraceExit::classify(1, 0), GraceExit::BoundExpired);
+		assert_eq!(GraceExit::classify(0, 1), GraceExit::BoundExpired);
+		assert_eq!(GraceExit::classify(2, 3), GraceExit::BoundExpired);
 	}
 }
