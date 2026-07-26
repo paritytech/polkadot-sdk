@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784901517796,
+  "lastUpdate": 1785073557743,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ca6700f91f71270c7f09fdc8d0c5d31a10dd3bda",
-          "message": "Fix termination (#10302)\n\nThis PR fixes up termination by changing the behavior to:\n\n- The free balance (without ed) should be send away right away to the\nbeneficiary and not be delayed like the contract deletion.\n- The ed and storage deposit will be send away only when terminating but\nto the origin (delayed).\n- The scheduling of the terminate needs to be reverted if the scheduling\nframe reverts.\n- `SELFDESTRUCT` should be allowed inside the constructor. The issuing\ncontract will exist as account without code for the remainder of the\ntransaction.\n- The `terminate` pre-compile should revert if delegate called or its\ncaller was delegate called. This is just my opinion but if we are\nchanging semantics we can might as well add some security. We are\nincreasing the attack surface by allowing the destruction of any\ncontract (not only created in the current tx).\n\n\n## Other fixes\n- Storage refunds should no longer use `BestEffort`. This is necessary\nto fail refunds in case some other locks (due to participation in gov\nfor example) prevent sending them away. This is in anticipation of new\npre-compiles.\n- Moved pre-compile interfaces to sol files and made them available to\nfixtures\n- Added some Solidity written tests to exercise error cases\n\n\n## Further tests needed\n\nThose should all be written in Solidity to test both backends at the\nsame time. No more Rust fixtures.\n\n@0xRVE can you take those over as I am ooo.\n\n- Test that checks that scheduled deletions do properly roll back if a\nframe fails\n- Test that value send to a contract after scheduling for deletion is\nsend to the beneficiary (different from Eth where this balance is lost)\n- Add tests that use `SELFDESTRUCT` to `Terminate.sol`. Need\nhttps://github.com/paritytech/devops/issues/4508 but can be tested\nlocally with newest `resolc`.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: Alin Dima <alin@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Marian Radu <marian@parity.io>\nCo-authored-by: Karol Kokoszka <karol@parity.io>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: girazoki <gorka.irazoki@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Agustín Rodriguez <agusrodriguez2456@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Thang X. Vu <zthangxv@gmail.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Alexander Cyon <Sajjon@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: BDevParity <bruno.devic@parity.io>",
-          "timestamp": "2025-11-25T07:55:24Z",
-          "tree_id": "55763ba7132848e6cad3b4448a4903ae7657b7c7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca6700f91f71270c7f09fdc8d0c5d31a10dd3bda"
-        },
-        "date": 1764062256975,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005063459899999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002628240229999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008642322209999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009742665409999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "PSYKYODAI",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4858f078dac2e098000533f8d2fc794db992b2d0",
+          "message": "`pallet-assets`: Allow `force_create` set an arbitrary asset id when auto-increment is enabled (#12378)\n\nresolves #12302\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-26T11:59:54Z",
+          "tree_id": "359c75c2c4dfd93d86ab14fb50237126d5f2b158",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4858f078dac2e098000533f8d2fc794db992b2d0"
+        },
+        "date": 1785073526129,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.01031426600999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00280271828,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010646534809999993,
             "unit": "seconds"
           }
         ]
