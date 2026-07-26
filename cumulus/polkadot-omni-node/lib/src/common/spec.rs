@@ -264,12 +264,20 @@ pub(crate) trait BaseNodeSpec {
 				HeapAllocStrategy::Static { extra_pages: h as _ }
 			});
 
+		// TRACING/DEV ONLY (this branch): offchain calls (runtime-API replays such as
+		// `ReviveApi_trace_tx` via `state_callRecorded`, CallContext::Offchain) get a
+		// 1 GiB heap so full EVM execution traces fit. Block authoring/import
+		// (CallContext::Onchain) keeps the standard strategy, so consensus execution
+		// and collected performance metrics are unaffected. Mirrors the same change
+		// in `sc_service::new_wasm_executor`, which this construction bypasses.
+		let offchain_heap_pages = HeapAllocStrategy::Static { extra_pages: 16384 };
+
 		let executor = sc_executor::WasmExecutor::<ParachainHostFunctions>::builder()
 			.with_execution_method(config.executor.wasm_method)
 			.with_max_runtime_instances(config.executor.max_runtime_instances)
 			.with_runtime_cache_size(config.executor.runtime_cache_size)
 			.with_onchain_heap_alloc_strategy(heap_pages)
-			.with_offchain_heap_alloc_strategy(heap_pages)
+			.with_offchain_heap_alloc_strategy(offchain_heap_pages)
 			.build();
 
 		let (client, backend, keystore_container, task_manager) =
