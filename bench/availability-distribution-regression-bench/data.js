@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785073445133,
+  "lastUpdate": 1785146447638,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b291e6f8b49a42d03646256b91458f6d9b0fd2aa",
-          "message": "Uncomment release notifications (#10434)",
-          "timestamp": "2025-11-26T11:02:35Z",
-          "tree_id": "d67511f3003dc5ebe13f6d310f738ff57da4de8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b291e6f8b49a42d03646256b91458f6d9b0fd2aa"
-        },
-        "date": 1764158945938,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013330519893333342,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02300040568666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1602665554333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007566908113333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02282498466,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd9ba06f7068e6296f4f8663ccac485af3a0f547",
+          "message": "[Release|CI/CD] Add eth-rpc docker image to release flow (#12733)\n\nThis PR adds publishing and versioning of the eth-rpc aligned with the\nmain sdk release.\n\nCloses: https://github.com/paritytech/devops/issues/4431 &\nhttps://github.com/paritytech/release-engineering/issues/283",
+          "timestamp": "2026-07-27T08:17:17Z",
+          "tree_id": "5852b17c31697f25cd190f81e435ad900362cc42",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd9ba06f7068e6296f4f8663ccac485af3a0f547"
+        },
+        "date": 1785146416616,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00751026554666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010116296553333324,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023042541306666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14791391946666665,
             "unit": "seconds"
           }
         ]
