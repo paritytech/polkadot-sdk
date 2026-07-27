@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785072618171,
+  "lastUpdate": 1785146323408,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -110051,6 +110051,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3064998063,
             "range": "± 41391016",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd9ba06f7068e6296f4f8663ccac485af3a0f547",
+          "message": "[Release|CI/CD] Add eth-rpc docker image to release flow (#12733)\n\nThis PR adds publishing and versioning of the eth-rpc aligned with the\nmain sdk release.\n\nCloses: https://github.com/paritytech/devops/issues/4431 &\nhttps://github.com/paritytech/release-engineering/issues/283",
+          "timestamp": "2026-07-27T08:17:17Z",
+          "tree_id": "5852b17c31697f25cd190f81e435ad900362cc42",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd9ba06f7068e6296f4f8663ccac485af3a0f547"
+        },
+        "date": 1785146289870,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20328757,
+            "range": "± 248617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20297481,
+            "range": "± 142078",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21746926,
+            "range": "± 192677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26777439,
+            "range": "± 124315",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62642621,
+            "range": "± 661592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 378794788,
+            "range": "± 6949140",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2975705365,
+            "range": "± 16468971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17635657,
+            "range": "± 162972",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17804297,
+            "range": "± 171389",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18209038,
+            "range": "± 179243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22697140,
+            "range": "± 163297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65507361,
+            "range": "± 746408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 388865526,
+            "range": "± 6271712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2776379534,
+            "range": "± 32141218",
             "unit": "ns/iter"
           }
         ]
