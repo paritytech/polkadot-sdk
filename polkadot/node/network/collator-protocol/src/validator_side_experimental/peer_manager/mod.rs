@@ -30,7 +30,7 @@ use crate::{
 		},
 		error::{Error, JfyiError, Result},
 	},
-	validator_side_metrics::Metrics,
+	validator_side_metrics::{Metrics, ScoreBand},
 	LOG_TARGET,
 };
 pub use backend::Backend;
@@ -413,10 +413,10 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_score(peer_id, para_id)
 	}
 
-	/// Visit every declared collator's score, grouped by para. See
-	/// [`ConnectedPeers::for_each_declared_collator_score`].
-	pub fn for_each_declared_collator_score(&self, f: impl FnMut(ParaId, Score)) {
-		self.connected.for_each_declared_collator_score(f)
+	/// The number of declared collators per para, grouped by score band. See
+	/// [`ConnectedPeers::score_distribution`].
+	pub fn score_distribution(&self) -> BTreeMap<ParaId, BTreeMap<ScoreBand, u64>> {
+		self.connected.score_distribution()
 	}
 
 	/// Retrieve the peer info associated to this PeerId, if any.
