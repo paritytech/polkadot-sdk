@@ -372,15 +372,15 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				StateWarmth::Call { account, contract_info } => cold_hot_weight::<T>(
-					&[account, contract_info],
-					AccessEntry::ACCOUNT_READS + AccessEntry::CONTRACT_INFO_READS,
+				StateWarmth::Call { account, account_info } => cold_hot_weight::<T>(
+					&[account, account_info],
+					AccessEntry::ACCOUNT_READS + AccessEntry::ACCOUNT_INFO_READS,
 					|| T::WeightInfo::seal_call(0, 0, 0),
 					T::WeightInfo::seal_call_hot,
 				),
-				StateWarmth::DelegateCall { contract_info } => cold_hot_weight::<T>(
-					&[contract_info],
-					AccessEntry::CONTRACT_INFO_READS,
+				StateWarmth::DelegateCall { account_info } => cold_hot_weight::<T>(
+					&[account_info],
+					AccessEntry::ACCOUNT_INFO_READS,
 					T::WeightInfo::seal_delegate_call,
 					T::WeightInfo::seal_delegate_call_hot,
 				),
@@ -484,15 +484,15 @@ mod tests {
 
 		let all_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
 			account: Warmth::Hot,
-			contract_info: Warmth::Hot,
+			account_info: Warmth::Hot,
 		}));
 		let all_cold = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
 			account: Warmth::cold_non_revertible(),
-			contract_info: Warmth::cold_non_revertible(),
+			account_info: Warmth::cold_non_revertible(),
 		}));
 		let mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
 			account: Warmth::cold_non_revertible(),
-			contract_info: Warmth::Hot,
+			account_info: Warmth::Hot,
 		}));
 
 		assert!(
@@ -509,7 +509,7 @@ mod tests {
 
 		let revertible = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
 			account: Warmth::cold_revertible(),
-			contract_info: Warmth::cold_non_revertible(),
+			account_info: Warmth::cold_non_revertible(),
 		}));
 		assert!(
 			revertible.ref_time() > all_cold.ref_time(),
@@ -522,10 +522,10 @@ mod tests {
 		);
 
 		let delegate_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::DelegateCall {
-			contract_info: Warmth::Hot,
+			account_info: Warmth::Hot,
 		}));
 		let delegate_cold = weight_of(RuntimeCosts::CallBase(StateWarmth::DelegateCall {
-			contract_info: Warmth::cold_non_revertible(),
+			account_info: Warmth::cold_non_revertible(),
 		}));
 		assert!(
 			delegate_cold.ref_time() > delegate_hot.ref_time(),

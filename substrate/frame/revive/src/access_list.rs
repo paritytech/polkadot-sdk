@@ -193,10 +193,10 @@ impl StateAccess {
 		match self {
 			Self::Call { target } => StateWarmth::Call {
 				account: warmth_of(AccessEntry::Account { address: target }),
-				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
+				account_info: warmth_of(AccessEntry::AccountInfo { address: target }),
 			},
 			Self::DelegateCall { target } => StateWarmth::DelegateCall {
-				contract_info: warmth_of(AccessEntry::ContractInfo { address: target }),
+				account_info: warmth_of(AccessEntry::AccountInfo { address: target }),
 			},
 		}
 	}
@@ -207,10 +207,10 @@ impl StateAccess {
 #[derive(Clone, Copy, Debug)]
 pub enum StateWarmth {
 	/// A normal call reads the target's account state and contract metadata.
-	Call { account: Warmth, contract_info: Warmth },
+	Call { account: Warmth, account_info: Warmth },
 	/// A delegate call runs in the caller's context and reads only the
 	/// target's contract metadata.
-	DelegateCall { contract_info: Warmth },
+	DelegateCall { account_info: Warmth },
 }
 
 /// Snapshot of per-transaction access-list counters.
@@ -233,8 +233,8 @@ pub enum AccessEntry {
 	/// decides on `slot` first, the most-discriminating field in the typical
 	/// access pattern (one contract touching many slots within a transaction).
 	Storage { slot: Slot, address: H160 },
-	/// Contract metadata of `address`.
-	ContractInfo { address: H160 },
+	/// Account metadata (`AccountInfoOf`) of `address`.
+	AccountInfo { address: H160 },
 	/// Code metadata. Keyed by code hash: code is
 	/// deduplicated, so contracts sharing a blob share its metadata warmth.
 	CodeInfo { hash: H256 },
@@ -245,11 +245,24 @@ pub enum AccessEntry {
 impl AccessEntry {
 	// Number of state reads per entry.
 	pub(crate) const ACCOUNT_READS: u64 = 2; // `OriginalAccount` + `System::Account`
-	pub(crate) const CONTRACT_INFO_READS: u64 = 1;
+	pub(crate) const ACCOUNT_INFO_READS: u64 = 1;
 	pub(crate) const STORAGE_READS: u64 = 1;
 	pub(crate) const CODE_INFO_READS: u64 = 1;
 	pub(crate) const CODE_BLOB_READS: u64 = 1;
 }
+
+// Compile-time check that every `AccessEntry` variant has a read count.
+const _: () = {
+	fn _reads(entry: &AccessEntry) -> u64 {
+		match entry {
+			AccessEntry::Account { .. } => AccessEntry::ACCOUNT_READS,
+			AccessEntry::Storage { .. } => AccessEntry::STORAGE_READS,
+			AccessEntry::AccountInfo { .. } => AccessEntry::ACCOUNT_INFO_READS,
+			AccessEntry::CodeInfo { .. } => AccessEntry::CODE_INFO_READS,
+			AccessEntry::CodeBlob { .. } => AccessEntry::CODE_BLOB_READS,
+		}
+	}
+};
 
 /// Per-transaction access list with per-frame rollback support. Layout
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
@@ -416,28 +429,13 @@ impl AccessList {
 mod tests {
 	use super::*;
 
-	// Compile-time exhaustiveness check.
-	#[test]
-	fn every_entry_has_a_read_count() {
-		fn reads(entry: &AccessEntry) -> u64 {
-			match entry {
-				AccessEntry::Account { .. } => AccessEntry::ACCOUNT_READS,
-				AccessEntry::Storage { .. } => AccessEntry::STORAGE_READS,
-				AccessEntry::ContractInfo { .. } => AccessEntry::CONTRACT_INFO_READS,
-				AccessEntry::CodeInfo { .. } => AccessEntry::CODE_INFO_READS,
-				AccessEntry::CodeBlob { .. } => AccessEntry::CODE_BLOB_READS,
-			}
-		}
-		let _ = reads;
-	}
-
 	#[test]
 	fn nested_commit_then_parent_rollback_drops_all() {
 		let mut al = AccessList::new();
 		let (a, b, c, d) = (
 			AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([0xA; 32]) },
 			AccessEntry::Account { address: H160::zero() },
-			AccessEntry::ContractInfo { address: H160::zero() },
+			AccessEntry::AccountInfo { address: H160::zero() },
 			AccessEntry::CodeBlob { hash: H256::repeat_byte(0xD) },
 		);
 
@@ -535,7 +533,7 @@ mod tests {
 			al.operation_warmth(StateAccess::Call { target }),
 			StateWarmth::Call {
 				account: Warmth::cold_revertible(),
-				contract_info: Warmth::cold_revertible(),
+				account_info: Warmth::cold_revertible(),
 			},
 			"peek sees the not-full set for both entries",
 		);
@@ -545,7 +543,7 @@ mod tests {
 			al.warm_operation(StateAccess::Call { target }),
 			StateWarmth::Call {
 				account: Warmth::cold_revertible(),
-				contract_info: Warmth::cold_non_revertible(),
+				account_info: Warmth::cold_non_revertible(),
 			},
 			"touch journals only the first entry before the cap fills",
 		);
