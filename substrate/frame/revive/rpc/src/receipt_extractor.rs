@@ -154,7 +154,7 @@ fn extract_revive_events(
 }
 
 type FetchReceiptDataFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
+	dyn Fn(SubstrateBlock) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
 		+ Send
 		+ Sync,
 >;
@@ -222,12 +222,8 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let api_inner = api.clone();
-		let fetch_receipt_data = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
-
+		let fetch_receipt_data = Arc::new(move |at_block: SubstrateBlock| {
 			let fut = async move {
-				let at_block = api_inner.at_block(block_hash).await.ok()?;
 				let runtime_api = RuntimeApi::new(at_block);
 				runtime_api.eth_receipt_data().await.ok()
 			};
@@ -443,7 +439,7 @@ impl ReceiptExtractor {
 		})?;
 
 		let receipt_data =
-			(self.fetch_receipt_data)(block.block_hash()).await.ok_or_else(|| {
+			(self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
 				log::trace!(target: LOG_TARGET,
 				"Receipt data not found for block #{} ({:?})",
 				block.block_number(), block.block_hash());
