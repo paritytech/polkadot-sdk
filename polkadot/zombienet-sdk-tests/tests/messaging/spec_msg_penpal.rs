@@ -4,10 +4,12 @@
 //! Parachain-to-parachain XCM delivery over Speculative Messaging — the
 //! end-to-end cutover test gating the HRMP→spec-msg rollout.
 //!
-//! Spawns a rococo-local relay chain and two penpal parachains whose
-//! collators are wired for spec-msg (static `--spec-msg-source-peer`
-//! addresses; zombienet derives node keys from node names, so the peer ids
-//! are known up front), then walks the transition runbook:
+//! Spawns a rococo-local relay chain and two penpal parachains whose collators
+//! discover each other's spec-msg peers dynamically over the relay chain DHT
+//! (RFC-0008 `/paranode`): each receiver's source reachability is registered
+//! on-chain via `SpecMessaging::set_source_genesis` (the source's genesis hash),
+//! and the node's discovery worker resolves the sibling's collators from it — no
+//! static peer list. It then walks the transition runbook:
 //!
 //! 1. **Baseline**: HRMP channels open in both directions; XCM A→B delivers over HRMP.
 //! 2. **Handshake**: open/accept the spec-msg channels in both directions (`open_channel` +
@@ -94,8 +96,7 @@ const PARA_B: u32 = 2001;
 /// A sibling with neither an HRMP channel nor a spec-msg channel.
 const PARA_NOWHERE: u32 = 2002;
 
-/// Fixed parachain-side p2p ports, so each collator's multiaddr is known
-/// when the *other* collator's args are rendered.
+/// Fixed parachain-side p2p ports for the two collators.
 const PENPAL_A_P2P_PORT: u16 = 43210;
 const PENPAL_B_P2P_PORT: u16 = 43310;
 
@@ -112,15 +113,6 @@ const TRANSFER_AMOUNT: u128 = 10 * UNIT;
 
 /// The `SPMS` header digest's consensus engine id (`SPMS_ENGINE_ID`).
 const SPMS_ENGINE_ID: [u8; 4] = *b"SPMS";
-
-/// The multiaddr (with peer id) of a zombienet parachain collator's
-/// parachain-side network: zombienet listens on `/ip4/0.0.0.0/tcp/<port>/ws`
-/// and derives the node key from the node's name.
-fn collator_multiaddr(name: &str, p2p_port: u16) -> anyhow::Result<String> {
-	let (_node_key, peer_id) = zombienet_orchestrator::generators::generate_node_identity(name)
-		.map_err(|e| anyhow!("failed to derive {name}'s node identity: {e:?}"))?;
-	Ok(format!("/ip4/127.0.0.1/tcp/{p2p_port}/ws/p2p/{peer_id}"))
-}
 
 /// The account on the destination penpal that an incoming XCM sent by
 /// `sender` on the sibling `source_para` resolves to (see the HRMP baseline
@@ -197,6 +189,25 @@ async fn accept_spec_msg_channel(
 	sudo_spec_messaging(
 		client,
 		SpecMessagingCall::accept_open_channel { sender: PenpalId(sender), domain: 0, num: 0 },
+	)
+	.await
+}
+
+/// Registers on `client`'s penpal how to reach source parachain `source` for
+/// relay-DHT peer discovery: the source's genesis hash (no fork id). Governance-
+/// gated, so sudo-wrapped like the channel handshake; the node's discovery worker
+/// reads it via `source_discovery_info()` and resolves that source's collators.
+async fn set_source_genesis(
+	client: &OnlineClient<PolkadotConfig>,
+	source: u32,
+	genesis: [u8; 32],
+) -> anyhow::Result<()> {
+	sudo_spec_messaging(
+		client,
+		SpecMessagingCall::set_source_genesis {
+			source: PenpalId(source),
+			info: Some((genesis, None)),
+		},
 	)
 	.await
 }
@@ -547,11 +558,6 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let penpal_a_addr = collator_multiaddr("penpal-a", PENPAL_A_P2P_PORT)?;
-	let penpal_b_addr = collator_multiaddr("penpal-b", PENPAL_B_P2P_PORT)?;
-	log::info!("penpal-a serves spec-msg at {penpal_a_addr}");
-	log::info!("penpal-b serves spec-msg at {penpal_b_addr}");
-
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -570,11 +576,9 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 				.with_chain("penpal-rococo-2000")
 				.with_collator(|n| {
 					n.with_name("penpal-a").with_p2p_port(PENPAL_A_P2P_PORT).with_args(vec![
-						("--spec-msg-source-peer", format!("{PARA_B}={penpal_b_addr}").as_str())
-							.into(),
 						// The final exactly-once tally reads every block's events.
 						("--state-pruning", "archive").into(),
-						("-lspec-msg=debug").into(),
+						("-lspec-msg=trace,bootnodes=trace").into(),
 					])
 				})
 		})
@@ -585,11 +589,9 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 				.with_chain("penpal-rococo-2001")
 				.with_collator(|n| {
 					n.with_name("penpal-b").with_p2p_port(PENPAL_B_P2P_PORT).with_args(vec![
-						("--spec-msg-source-peer", format!("{PARA_A}={penpal_a_addr}").as_str())
-							.into(),
 						// The final exactly-once tally reads every block's events.
 						("--state-pruning", "archive").into(),
-						("-lspec-msg=debug").into(),
+						("-lspec-msg=trace,bootnodes=trace").into(),
 					])
 				})
 		})
@@ -617,6 +619,19 @@ async fn spec_msg_penpal_xcm_delivery() -> Result<(), anyhow::Error> {
 		[],
 	)
 	.await?;
+
+	// Register how each penpal reaches its sibling source over the relay-chain
+	// DHT (RFC-0008 `/paranode`) by recording the source's genesis hash on-chain
+	// — replacing the old static `--spec-msg-source-peer` wiring. The discovery
+	// worker reads this (`source_discovery_info()`) and resolves the sibling's
+	// collators; peerless sources are retried every block, so this self-heals
+	// until the source's DHT record propagates. Done before the handshake so the
+	// register round-trip finds the peer.
+	let genesis_a = para_a_client.genesis_hash();
+	let genesis_b = para_b_client.genesis_hash();
+	log::info!("Registering DHT discovery sources: B<-A {genesis_a:?}, A<-B {genesis_b:?}");
+	set_source_genesis(&para_b_client, PARA_A, genesis_a.0).await?;
+	set_source_genesis(&para_a_client, PARA_B, genesis_b.0).await?;
 
 	let alice = dev::alice();
 

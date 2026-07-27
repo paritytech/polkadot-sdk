@@ -229,10 +229,6 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
-			// Dev nodes have no relay chain to monitor and no peers to fetch
-			// from; the spec-msg subsystems stay unwired.
-			spec_msg_source_peers: _,
-			spec_msg_source_genesis: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).

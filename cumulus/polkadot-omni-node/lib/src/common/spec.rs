@@ -620,10 +620,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				network.clone(),
 				relay_chain_interface.clone(),
 				relay_chain_network.clone(),
+				relay_chain_fork_id.clone(),
 				para_id,
 				validator,
-				&node_extra_args.spec_msg_source_peers,
-				&node_extra_args.spec_msg_source_genesis,
 			)?;
 
 			start_bootnode_tasks(StartBootnodeTasksParams {

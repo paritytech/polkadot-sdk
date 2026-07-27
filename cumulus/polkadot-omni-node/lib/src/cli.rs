@@ -266,27 +266,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "N", default_value_t = 32)]
 	pub collator_reserved_slots: usize,
 
-	/// Speculative Messaging: a static peer serving a source parachain's
-	/// streams, as `<para-id>=<multiaddr>/p2p/<peer-id>` (repeatable).
-	///
-	/// The receiver-side fetch pipeline dials these peers for the given
-	/// source chain's `/spec-msg/exchange` protocol. Source chains are
-	/// *other* parachains, so their collators are never in the own chain's
-	/// peer set; until DHT-based discovery of a source's collators lands,
-	/// this is how a collator learns them (test networks, static setups).
-	#[arg(long, value_name = "PARA_ID=MULTIADDR")]
-	pub spec_msg_source_peer: Vec<String>,
-
-	/// Speculative Messaging: a source chain's genesis hash for DHT-based peer
-	/// discovery over the relay chain (RFC-0008 `/paranode`), as
-	/// `<para-id>=<genesis-hash-hex>[/<fork-id>]` (repeatable).
-	///
-	/// A source configured here has its collators discovered dynamically over
-	/// the relay-chain DHT instead of being listed statically via
-	/// `--spec-msg-source-peer`. Configure a source via one or the other.
-	#[arg(long, value_name = "PARA_ID=GENESIS_HASH")]
-	pub spec_msg_source_genesis: Vec<String>,
-
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -347,8 +326,6 @@ impl<Config: CliConfig> Cli<Config> {
 			storage_monitor: self.storage_monitor.clone(),
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
-			spec_msg_source_peers: self.spec_msg_source_peer.clone(),
-			spec_msg_source_genesis: self.spec_msg_source_genesis.clone(),
 		}
 	}
 

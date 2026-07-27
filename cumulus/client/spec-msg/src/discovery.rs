@@ -45,11 +45,16 @@
 //! only inject them into the own-parachain network) is the one upstream change
 //! it needs.
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 use async_trait::async_trait;
 use futures::{channel::mpsc, pin_mut, FutureExt, StreamExt};
 use futures_timer::Delay;
+use sc_client_api::BlockchainEvents;
 use sc_network::{service::traits::NetworkService, PeerId};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -58,10 +63,13 @@ use sp_runtime::traits::Block as BlockT;
 use cumulus_client_bootnodes::{
 	paranode_protocol_name, BootnodeDiscovery, BootnodeDiscoveryParams,
 };
-use cumulus_primitives_core::{ParaId, SpecMsgApi};
+use cumulus_primitives_core::{relay_chain::BlockId, ParaId, SpecMsgApi};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use crate::{exchange::PeerRegistry, LOG_TARGET};
+use crate::{
+	exchange::{PeerRegistry, SourcePeers},
+	LOG_TARGET,
+};
 
 /// How often the discovery loop re-resolves each source's peers. Discovery is a
 /// safety net over steady-state connectivity (the fetch loop reuses live peers
@@ -86,38 +94,63 @@ pub trait SourceDiscovery: Send + Sync {
 	) -> Vec<PeerId>;
 }
 
-/// Runs the discovery loop until the task is dropped. Each tick reads the
-/// configured sources' reachability (`SpecMsgApi::source_discovery_info()`, set
-/// on-chain by governance) merged with `overrides` (the CLI
-/// `--spec-msg-source-genesis` values, which win), resolves each source's peers
-/// over the relay-chain DHT, and repopulates `registry`. Spawn next to
+/// Runs the discovery loop until the task is dropped. Keeps the shared
+/// `registry` (the set the fetch pipeline reads) populated with each configured
+/// source's peers, resolved over the relay-chain DHT. The source set comes from
+/// `SpecMsgApi::source_discovery_info()` (set on-chain by governance via
+/// `set_source_genesis`).
+///
+/// Event-driven: on every new best block it reads the (cheap) source set and
+/// DHT-resolves only the sources whose reachability changed or that still have
+/// no peers — so a `set_source_genesis` extrinsic takes effect within ~one block
+/// — and once `fallback` has elapsed it re-resolves the whole set as a
+/// steady-state safety net (peers that dropped, etc.). Spawn next to
 /// [`crate::run_relay_provides_monitor`] / [`crate::run_spec_msg_fetcher`],
-/// sharing the same [`PeerRegistry`] the fetch pipeline reads.
+/// sharing their [`PeerRegistry`].
 pub async fn run_spec_msg_discovery<Block, Client>(
 	parachain: Arc<Client>,
 	discovery: Arc<dyn SourceDiscovery>,
 	registry: Arc<PeerRegistry>,
-	overrides: HashMap<ParaId, (Vec<u8>, Option<String>)>,
-	interval: Duration,
+	fallback: Duration,
 ) where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+	Client: BlockchainEvents<Block> + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	Client::Api: SpecMsgApi<Block>,
 {
-	loop {
-		if let Err(error) = refresh(&*parachain, &*discovery, &registry, &overrides).await {
-			tracing::warn!(target: LOG_TARGET, ?error, "Spec-msg peer discovery refresh failed");
+	let mut known: HashMap<ParaId, (Vec<u8>, Option<String>)> = HashMap::new();
+
+	// Resolve whatever is already configured before the first block arrives.
+	if let Err(error) = refresh(&*parachain, &*discovery, &registry, &mut known, true).await {
+		tracing::warn!(target: LOG_TARGET, ?error, "Initial spec-msg peer discovery failed");
+	}
+	let mut last_full = Instant::now();
+
+	let mut imports = parachain.import_notification_stream();
+	while let Some(notification) = imports.next().await {
+		if !notification.is_new_best {
+			continue;
 		}
-		Delay::new(interval).await;
+		// Full re-resolve once `fallback` has elapsed (steady-state health);
+		// otherwise only changed / peerless sources are re-resolved.
+		let force = last_full.elapsed() >= fallback;
+		match refresh(&*parachain, &*discovery, &registry, &mut known, force).await {
+			Ok(()) => {
+				if force {
+					last_full = Instant::now();
+				}
+			},
+			Err(error) => {
+				tracing::warn!(target: LOG_TARGET, ?error, "Spec-msg peer discovery failed")
+			},
+		}
 	}
 }
 
-/// The configured sources and their `(genesis_hash, fork_id)`, from the runtime
-/// API merged with the CLI `overrides` (overrides win). Version-gated: no
-/// `SpecMsgApi` means no configured sources.
+/// The configured sources and their `(genesis_hash, fork_id)`, read from
+/// `SpecMsgApi::source_discovery_info()`. Version-gated: no `SpecMsgApi` (or a
+/// runtime without the method) means no configured sources.
 fn source_genesis_map<Block, Client>(
 	parachain: &Client,
-	overrides: &HashMap<ParaId, (Vec<u8>, Option<String>)>,
 ) -> Result<HashMap<ParaId, (Vec<u8>, Option<String>)>, sp_api::ApiError>
 where
 	Block: BlockT,
@@ -125,48 +158,58 @@ where
 	Client::Api: SpecMsgApi<Block>,
 {
 	let best = parachain.info().best_hash;
-	let mut map: HashMap<ParaId, (Vec<u8>, Option<String>)> =
-		if parachain.runtime_api().has_api::<dyn SpecMsgApi<Block>>(best)? {
-			parachain
-				.runtime_api()
-				.source_discovery_info(best)?
-				.into_iter()
-				.map(|(source, (genesis, fork))| {
-					(source, (genesis.to_vec(), fork.and_then(|f| String::from_utf8(f).ok())))
-				})
-				.collect()
-		} else {
-			HashMap::new()
-		};
-	// CLI overrides win — an operator can pin or patch a source's reachability.
-	map.extend(overrides.iter().map(|(source, info)| (*source, info.clone())));
-	Ok(map)
+	if !parachain.runtime_api().has_api::<dyn SpecMsgApi<Block>>(best)? {
+		return Ok(HashMap::new());
+	}
+	Ok(parachain
+		.runtime_api()
+		.source_discovery_info(best)?
+		.into_iter()
+		.map(|(source, (genesis, fork))| {
+			(source, (genesis.to_vec(), fork.and_then(|f| String::from_utf8(f).ok())))
+		})
+		.collect())
 }
 
-/// One refresh pass: resolve and repopulate every configured source. `set_peers`
-/// replaces the whole set per source — a fresh discovery each round; the fetch
-/// loop re-evicts any still-bad peer within its own round via `report_bad`.
+/// One refresh pass. `force` re-resolves every configured source; otherwise only
+/// those whose `(genesis, fork)` changed since `known` or that currently hold no
+/// peers — the cheap per-block path. Sources dropped from the on-chain set have
+/// their registry entry cleared. `set_peers` replaces the whole set per source;
+/// the fetch loop re-evicts any still-bad peer within its own round.
 async fn refresh<Block, Client>(
 	parachain: &Client,
 	discovery: &dyn SourceDiscovery,
 	registry: &PeerRegistry,
-	overrides: &HashMap<ParaId, (Vec<u8>, Option<String>)>,
+	known: &mut HashMap<ParaId, (Vec<u8>, Option<String>)>,
+	force: bool,
 ) -> Result<(), sp_api::ApiError>
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	Client::Api: SpecMsgApi<Block>,
 {
-	for (source, (genesis_hash, fork_id)) in source_genesis_map(parachain, overrides)? {
-		let peers = discovery.discover(source, genesis_hash, fork_id).await;
-		tracing::debug!(
-			target: LOG_TARGET,
-			source = %u32::from(source),
-			count = peers.len(),
-			"Discovered spec-msg source peers",
-		);
-		registry.set_peers(source, peers);
+	let current = source_genesis_map(parachain)?;
+	for (source, info) in &current {
+		let changed = known.get(source) != Some(info);
+		let peerless = registry.peers(*source).is_empty();
+		if force || changed || peerless {
+			let peers = discovery.discover(*source, info.0.clone(), info.1.clone()).await;
+			tracing::debug!(
+				target: LOG_TARGET,
+				source = %u32::from(*source),
+				count = peers.len(),
+				"Discovered spec-msg source peers",
+			);
+			registry.set_peers(*source, peers);
+		}
 	}
+	// Sources dropped from the on-chain set: clear their peers.
+	for source in known.keys() {
+		if !current.contains_key(source) {
+			registry.set_peers(*source, Vec::new());
+		}
+	}
+	*known = current;
 	Ok(())
 }
 
@@ -189,6 +232,11 @@ pub struct BootnodeSourceDiscovery {
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	/// Relay chain network — the DHT the source's bootnodes are advertised on.
 	relay_chain_network: Arc<dyn NetworkService>,
+	/// Relay chain `fork_id` — part of the `/paranode` protocol name. The source
+	/// side derives it from the relay chain spec (`config.chain_spec.fork_id()`),
+	/// so the client must use the same value to match. `None` for every current
+	/// relay.
+	relay_chain_fork_id: Option<String>,
 	/// Per-source discovery round timeout.
 	timeout: Duration,
 }
@@ -202,11 +250,13 @@ impl BootnodeSourceDiscovery {
 		parachain_network: Arc<dyn NetworkService>,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		relay_chain_network: Arc<dyn NetworkService>,
+		relay_chain_fork_id: Option<String>,
 	) -> Self {
 		Self {
 			parachain_network,
 			relay_chain_interface,
 			relay_chain_network,
+			relay_chain_fork_id,
 			timeout: DISCOVERY_ROUND_TIMEOUT,
 		}
 	}
@@ -220,6 +270,28 @@ impl SourceDiscovery for BootnodeSourceDiscovery {
 		genesis_hash: Vec<u8>,
 		fork_id: Option<String>,
 	) -> Vec<PeerId> {
+		// The `/paranode` request-response protocol is keyed by the RELAY genesis —
+		// that is what every collator registers and serves (see
+		// `cumulus-client-bootnodes`: the config is built from the relay chain's
+		// genesis, and own-para discovery names it likewise). Naming the request
+		// with the *source's* genesis would target a protocol no node has
+		// registered, so the send is rejected ("protocol doesn't exist"). Name it
+		// with the relay genesis (+ the relay `fork_id`, matching the server's
+		// `chain_spec.fork_id()`); the *source* genesis still rides in
+		// `parachain_genesis_hash`, where `BootnodeDiscovery` verifies the responder
+		// really is the expected parachain.
+		let relay_genesis = match self.relay_chain_interface.header(BlockId::Number(0)).await {
+			Ok(Some(header)) => header.hash().as_bytes().to_vec(),
+			_ => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					source = %u32::from(source),
+					"Spec-msg discovery: relay chain genesis hash unavailable this round",
+				);
+				return Vec::new();
+			},
+		};
+
 		let (tx, mut rx) = mpsc::unbounded();
 		let discovery = BootnodeDiscovery::new(BootnodeDiscoveryParams {
 			para_id: source,
@@ -228,7 +300,10 @@ impl SourceDiscovery for BootnodeSourceDiscovery {
 			parachain_fork_id: fork_id.clone(),
 			relay_chain_interface: self.relay_chain_interface.clone(),
 			relay_chain_network: self.relay_chain_network.clone(),
-			paranode_protocol_name: paranode_protocol_name(&genesis_hash, fork_id.as_deref()),
+			paranode_protocol_name: paranode_protocol_name(
+				&relay_genesis,
+				self.relay_chain_fork_id.as_deref(),
+			),
 			discovered_tx: Some(tx),
 		});
 
