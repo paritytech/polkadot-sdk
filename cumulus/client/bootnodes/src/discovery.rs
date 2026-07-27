@@ -37,7 +37,7 @@ use codec::{CompactRef, Decode, Encode};
 use cumulus_primitives_core::{relay_chain::Hash as RelayHash, ParaId};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{
-	channel::oneshot,
+	channel::{mpsc::UnboundedSender, oneshot},
 	future::{BoxFuture, Fuse, FusedFuture},
 	pin_mut,
 	stream::FuturesUnordered,
@@ -78,6 +78,12 @@ pub struct BootnodeDiscoveryParams {
 	pub relay_chain_network: Arc<dyn NetworkService>,
 	/// `/paranode` protocol name.
 	pub paranode_protocol_name: ProtocolName,
+	/// Optional sink for each resolved `(peer_id, addresses)` as `/paranode`
+	/// responses land. `None` keeps the own-parachain bootstrap behaviour
+	/// (addresses only injected into `parachain_network`); `Some` additionally
+	/// streams them to the caller — the seam a peer-set manager (or any other
+	/// cross-parachain discoverer) uses to learn a source parachain's node set.
+	pub discovered_tx: Option<UnboundedSender<(PeerId, Vec<Multiaddr>)>>,
 }
 
 /// Parachain bootnode discovery service.
@@ -101,6 +107,7 @@ pub struct BootnodeDiscovery {
 	find_node_queries: HashSet<PeerId>,
 	pending_start_discovery: Pin<Box<Fuse<Sleep>>>,
 	succeeded: bool,
+	discovered_tx: Option<UnboundedSender<(PeerId, Vec<Multiaddr>)>>,
 }
 
 impl BootnodeDiscovery {
@@ -114,6 +121,7 @@ impl BootnodeDiscovery {
 			relay_chain_interface,
 			relay_chain_network,
 			paranode_protocol_name,
+			discovered_tx,
 		}: BootnodeDiscoveryParams,
 	) -> Self {
 		Self {
@@ -132,6 +140,7 @@ impl BootnodeDiscovery {
 			// Trigger the discovery immediately on startup.
 			pending_start_discovery: Box::pin(sleep(Duration::ZERO).fuse()),
 			succeeded: false,
+			discovered_tx,
 		}
 	}
 
@@ -367,6 +376,12 @@ impl BootnodeDiscovery {
 			target: LOG_TARGET,
 			"Discovered parachain bootnode {paranode_peer_id:?} with addresses {paranode_addresses:?}",
 		);
+
+		// Stream the resolved node to a cross-parachain caller, if any, before
+		// the addresses are consumed by the own-network injection below.
+		if let Some(tx) = &self.discovered_tx {
+			let _ = tx.unbounded_send((paranode_peer_id, paranode_addresses.clone()));
+		}
 
 		paranode_addresses.into_iter().for_each(|addr| {
 			self.parachain_network.add_known_address(paranode_peer_id, addr);
