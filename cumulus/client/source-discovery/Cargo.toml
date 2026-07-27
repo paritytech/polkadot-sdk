@@ -1,0 +1,31 @@
+[package]
+name = "cumulus-client-source-discovery"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Cross-parachain source peer discovery over the relay-chain DHT (RFC-0008 /paranode)."
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+tracing = { workspace = true, default-features = true }
+
+# Substrate
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-client-bootnodes = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-source-discovery = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
