@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785073407422,
+  "lastUpdate": 1785146410139,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109252977+YichiZhang0613@users.noreply.github.com",
-            "name": "Yichi Zhang",
-            "username": "YichiZhang0613"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "62b21e9e2366293998ba02fc00bbb258eeca661e",
-          "message": "Fix assertion (#10427)\n\n# Description\nAccording to assertion message and comment(\"at least\"),\n`T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE` should be changed\ninto `T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE`\n```rust\n// Debug buffer should at least be large enough to accommodate a simple error message\nconst MIN_DEBUG_BUF_SIZE: u32 = 256;\nassert!(\n\tT::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,\n\t\"Debug buffer should have minimum size of {} (current setting is {})\",\n\tMIN_DEBUG_BUF_SIZE,\n\tT::MaxDebugBufferLen::get(),\n);\n```\nFor this assertion, the assertion message indicates assertion will fail\nwhen max_storage_size > storage_size_limit, which means it requires\nmax_storage_size <= storage_size_limit, but assertion predicate is\n`max_storage_size < storage_size_limit`. Based on the code semantics,\nassertion predicate should be changed into `max_storage_size <=\nstorage_size_limit`.\n```rust\nassert!(\n\tmax_storage_size < storage_size_limit,\n\t\"Maximal storage size {} exceeds the storage limit {}\",\n\tmax_storage_size,\n\tstorage_size_limit\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-26T14:13:29Z",
-          "tree_id": "976b57b3433098dc60244b796403289d1622e31c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/62b21e9e2366293998ba02fc00bbb258eeca661e"
-        },
-        "date": 1764170652041,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2015540781333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.431658042566667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1294070387333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd9ba06f7068e6296f4f8663ccac485af3a0f547",
+          "message": "[Release|CI/CD] Add eth-rpc docker image to release flow (#12733)\n\nThis PR adds publishing and versioning of the eth-rpc aligned with the\nmain sdk release.\n\nCloses: https://github.com/paritytech/devops/issues/4431 &\nhttps://github.com/paritytech/release-engineering/issues/283",
+          "timestamp": "2026-07-27T08:17:17Z",
+          "tree_id": "5852b17c31697f25cd190f81e435ad900362cc42",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd9ba06f7068e6296f4f8663ccac485af3a0f547"
+        },
+        "date": 1785146378410,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14111351703333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.131350871933337,
             "unit": "seconds"
           }
         ]
