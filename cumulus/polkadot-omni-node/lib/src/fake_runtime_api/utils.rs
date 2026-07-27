@@ -186,6 +186,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl cumulus_primitives_source_discovery::SourceDiscoveryApi<$block> for $runtime {
+				fn source_discovery_info() -> Vec<(ParaId, ([u8; 32], Option<Vec<u8>>))> {
+					unimplemented!()
+				}
+			}
+
 			impl cumulus_primitives_core::KeyToIncludeInRelayProof<$block> for $runtime {
 				fn keys_to_prove() -> RelayProofRequest {
 					unimplemented!()

@@ -471,6 +471,35 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let _ = syncing_handle.set(sync_service.clone()
 				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
 
+			// Cross-parachain source discovery: for each source configured on-chain
+			// (`set_source_genesis`), resolve its collators over the relay DHT and
+			// keep a health-tracked peer set. Version-gated + governance-opt-in — a
+			// runtime without `SourceDiscoveryApi`, or with no configured source,
+			// does nothing.
+			{
+				use cumulus_client_source_discovery::{
+					run_source_discovery, BootnodeSourceDiscovery, PeerRegistry,
+					DISCOVERY_REFRESH_INTERVAL,
+				};
+				let registry = Arc::new(PeerRegistry::default());
+				let discovery = Arc::new(BootnodeSourceDiscovery::new(
+					network.clone(),
+					relay_chain_interface.clone(),
+					relay_chain_network.clone(),
+					relay_chain_fork_id.clone(),
+				));
+				task_manager.spawn_handle().spawn(
+					"cumulus-source-discovery",
+					Some("source-discovery"),
+					run_source_discovery::<Self::Block, _>(
+						client.clone(),
+						discovery,
+						registry,
+						DISCOVERY_REFRESH_INTERVAL,
+					),
+				);
+			}
+
 			let peer_id = relay_chain_network.local_peer_id();
 
 			if validator && node_extra_args.collator_reserved_slots > 0 {
