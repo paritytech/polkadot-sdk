@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785073557743,
+  "lastUpdate": 1785146559317,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "822943a18869e2b9ad1f46b0c66f32ab375c7386",
-          "message": "[Release|CI/CD] Create draft release without runtimes or any artefacts attached (for crates only releases) (#10379)\n\nThis PR adjusts existing Publish Release Draft flows for the cases:\n1. When we have a patch release without runtimes (only bins and docker\nimages)\n2. When we have crates only release\n\nFor those two cases, the unnecessary information and artifacts won't be\nattached\n\nCloses: https://github.com/paritytech/release-engineering/issues/275",
-          "timestamp": "2025-11-25T13:20:02Z",
-          "tree_id": "42da423e77e65d28536845567c3f593cae86d9e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/822943a18869e2b9ad1f46b0c66f32ab375c7386"
-        },
-        "date": 1764082125809,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002665682629999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008702412639999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005090707409999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010646534809999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd9ba06f7068e6296f4f8663ccac485af3a0f547",
+          "message": "[Release|CI/CD] Add eth-rpc docker image to release flow (#12733)\n\nThis PR adds publishing and versioning of the eth-rpc aligned with the\nmain sdk release.\n\nCloses: https://github.com/paritytech/devops/issues/4431 &\nhttps://github.com/paritytech/release-engineering/issues/283",
+          "timestamp": "2026-07-27T08:17:17Z",
+          "tree_id": "5852b17c31697f25cd190f81e435ad900362cc42",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd9ba06f7068e6296f4f8663ccac485af3a0f547"
+        },
+        "date": 1785146528219,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009907095389999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026083360900000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011056087180000005,
             "unit": "seconds"
           }
         ]
