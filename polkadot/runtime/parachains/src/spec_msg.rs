@@ -33,6 +33,13 @@
 //!   at its tier and consumption lag is covered by POV lifts, so the window only needs to absorb
 //!   authoring → inclusion pipeline depth (including elastic-scaling bursts). Outrunning the window
 //!   is not a failure mode.
+//! - Rings are wiped wholesale when a dispute freezes the chain ([`Pallet::clear_on_freeze`]). The
+//!   ordinary fork path needs nothing: the ring is plain runtime storage, so a revert rolls it back
+//!   with the rest of the state. The exception is a dispute concluding against an *already
+//!   finalized* candidate — the chain freezes instead of reverting, and a governance
+//!   `force_unfreeze` would otherwise resume with the invalid candidate's root still matchable.
+//!   Clearing costs nothing real: freezing halts inclusion anyway, and the rings refill as senders
+//!   provide again.
 
 use crate::initializer;
 use core::fmt;
@@ -59,25 +66,17 @@ pub const RECENT_PROVIDES_WINDOW: u32 = 128;
 
 /// Ring of the last [`RECENT_PROVIDES_WINDOW`] stream commitment roots of one
 /// sender, oldest first.
-///
-/// Each entry keeps the relay chain block number at which the root was pushed
-/// (i.e. the block enacting the sender candidate that committed it). The design
-/// text shows bare roots; the block number is a deliberate deviation, needed so
-/// that roots enacted in blocks abandoned by a dispute revert can be evicted and
-/// stop being matchable.
 #[derive(Clone, Debug, Default, Encode, Decode, MaxEncodedLen, PartialEq, Eq, TypeInfo)]
-pub struct RecentRoots<BlockNumber>(
-	BoundedVec<(StreamsRoot, BlockNumber), ConstU32<RECENT_PROVIDES_WINDOW>>,
-);
+pub struct RecentRoots(BoundedVec<StreamsRoot, ConstU32<RECENT_PROVIDES_WINDOW>>);
 
-impl<BlockNumber> RecentRoots<BlockNumber> {
+impl RecentRoots {
 	/// Push `root` as the newest entry, dropping the oldest one when full.
-	fn push(&mut self, root: StreamsRoot, block: BlockNumber) {
+	fn push(&mut self, root: StreamsRoot) {
 		if self.0.is_full() {
 			self.0.remove(0);
 		}
 		// Cannot fail: any full ring had its oldest entry removed above.
-		let _ = self.0.try_push((root, block));
+		let _ = self.0.try_push(root);
 	}
 
 	/// Whether `root` is present in the ring.
@@ -86,25 +85,12 @@ impl<BlockNumber> RecentRoots<BlockNumber> {
 	/// near-newest roots, so the scan hits within pipeline depth regardless of the
 	/// window size; no index structure is warranted.
 	fn contains(&self, root: &StreamsRoot) -> bool {
-		self.0.iter().rev().any(|(r, _)| r == root)
+		self.0.iter().rev().any(|r| r == root)
 	}
 
-	/// Drop all entries pushed at blocks higher than `revert_to`.
-	fn evict_after(&mut self, revert_to: BlockNumber)
-	where
-		BlockNumber: PartialOrd,
-	{
-		self.0.retain(|(_, block)| *block <= revert_to);
-	}
-
-	/// Whether the ring holds no entries.
-	fn is_empty(&self) -> bool {
-		self.0.is_empty()
-	}
-
-	/// The `(root, pushed at block)` entries, oldest first.
+	/// The roots, oldest first.
 	#[cfg(test)]
-	pub(crate) fn entries(&self) -> &[(StreamsRoot, BlockNumber)] {
+	pub(crate) fn entries(&self) -> &[StreamsRoot] {
 		&self.0
 	}
 }
@@ -140,14 +126,14 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {}
 
 	/// The recent stream commitment roots ([`StreamsRoot`]) of each sender, oldest
-	/// first, together with the relay chain block number each was pushed at.
+	/// first.
 	///
 	/// Pushed on enactment of a sender candidate that emitted a
 	/// `UMPSignal::Provides`; a `UMPSignal::Requires` entry of a backed candidate
 	/// matches iff its root is currently in the named source's ring.
 	#[pallet::storage]
 	pub(crate) type RecentProvides<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, RecentRoots<BlockNumberFor<T>>, ValueQuery>;
+		StorageMap<_, Twox64Concat, ParaId, RecentRoots, ValueQuery>;
 }
 
 /// Routines and getters related to Speculative Messaging.
@@ -188,8 +174,7 @@ impl<T: Config> Pallet<T> {
 	/// pushing it as the newest entry of the sender's ring (the oldest entry drops out
 	/// once the ring is full).
 	pub(crate) fn note_provides(sender: ParaId, root: StreamsRoot) {
-		let now = frame_system::Pallet::<T>::block_number();
-		RecentProvides::<T>::mutate(sender, |ring| ring.push(root, now));
+		RecentProvides::<T>::mutate(sender, |ring| ring.push(root));
 	}
 
 	/// Check that every `(source, root)` entry of `requires` names a root currently
@@ -207,16 +192,17 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Evict every entry pushed at a block higher than `revert_to`, across all senders.
+	/// Drop every sender's ring, called at the freeze transition.
 	///
-	/// Called when a dispute concluding against an included candidate signals a revert
-	/// of the chain back to `revert_to`: roots pushed by candidates enacted in the
-	/// reverted blocks must stop being matchable by requires entries, even if this
-	/// (frozen) chain is later resumed by governance instead of being abandoned.
-	pub(crate) fn evict_after_revert(revert_to: BlockNumberFor<T>) {
-		RecentProvides::<T>::translate::<RecentRoots<BlockNumberFor<T>>, _>(|_, mut ring| {
-			ring.evict_after(revert_to);
-			(!ring.is_empty()).then_some(ring)
-		});
+	/// A dispute concluding against an included candidate normally reverts the chain,
+	/// and the rings — ordinary runtime storage — roll back with it. When the invalid
+	/// candidate is already finalized there is nothing to revert to: the chain freezes,
+	/// and a later governance `force_unfreeze` would resume with the invalid candidate's
+	/// root still in its sender's ring, matchable by `Requires` entries. Wiping every
+	/// ring covers that case without tagging entries: freezing halts inclusion anyway,
+	/// so nothing is lost that is not re-provided within the window once the chain
+	/// resumes, and a revert that abandons this block abandons the wipe with it.
+	pub(crate) fn clear_on_freeze() {
+		let _ = RecentProvides::<T>::clear(u32::MAX, None);
 	}
 }

@@ -273,12 +273,12 @@ async fn outbound_frontier(
 async fn recent_provides(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	sender: u32,
-) -> anyhow::Result<Vec<(sp_core::H256, u32)>> {
+) -> anyhow::Result<Vec<sp_core::H256>> {
 	let key =
 		polkadot_primitives::well_known_keys::spec_msg_recent_provides(RelayParaId::from(sender));
 	let raw = relay_client.storage().at_latest().await?.fetch_raw(key).await?;
 	Ok(raw
-		.map(|bytes| Vec::<(sp_core::H256, u32)>::decode(&mut bytes.as_slice()))
+		.map(|bytes| Vec::<sp_core::H256>::decode(&mut bytes.as_slice()))
 		.transpose()?
 		.unwrap_or_default())
 }
@@ -478,7 +478,7 @@ async fn wait_for_frontier(
 async fn wait_for_recent_provides(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	sender: u32,
-) -> anyhow::Result<Vec<(sp_core::H256, u32)>> {
+) -> anyhow::Result<Vec<sp_core::H256>> {
 	for _ in 0..50 {
 		let ring = recent_provides(relay_client, sender).await?;
 		if !ring.is_empty() {

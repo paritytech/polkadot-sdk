@@ -2539,10 +2539,10 @@ mod enter {
 	}
 
 	#[test]
-	// A dispute concluding against an included candidate freezes the chain and signals a
-	// revert; the recent provides pushed in the reverted blocks must be evicted, across all
-	// senders.
-	fn spec_msg_dispute_revert_evicts_recent_provides() {
+	// A dispute concluding against an included candidate freezes the chain; every sender's
+	// recent-provides ring must be wiped, so that a governance `force_unfreeze` cannot
+	// resume with the invalid candidate's root still matchable.
+	fn spec_msg_dispute_freeze_clears_recent_provides() {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
@@ -2574,29 +2574,22 @@ mod enter {
 			// against it reverts the chain back to `now - 2`.
 			disputes::Pallet::<Test>::note_included(session, candidate_hash, now - 1);
 
-			// Recent provides pushed before and inside the to-be-reverted range.
+			// Recent provides of two senders, one of them entirely uninvolved in the dispute.
 			let sender_a = ParaId::from(3000);
 			let sender_b = ParaId::from(4000);
-			frame_system::Pallet::<Test>::set_block_number(revert_to - 1);
 			spec_msg::Pallet::<Test>::note_provides(sender_a, streams_root(1));
-			frame_system::Pallet::<Test>::set_block_number(revert_to);
 			spec_msg::Pallet::<Test>::note_provides(sender_a, streams_root(2));
-			frame_system::Pallet::<Test>::set_block_number(revert_to + 1);
-			spec_msg::Pallet::<Test>::note_provides(sender_a, streams_root(3));
-			spec_msg::Pallet::<Test>::note_provides(sender_b, streams_root(4));
-			frame_system::Pallet::<Test>::set_block_number(now);
+			spec_msg::Pallet::<Test>::note_provides(sender_b, streams_root(3));
 
 			assert_ok!(Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), data));
 
 			// The dispute import froze the chain at the revert point...
 			assert_eq!(disputes::Frozen::<Test>::get(), Some(revert_to));
 
-			// ...and evicted every entry pushed after it: `sender_a` keeps its first two
-			// roots, `sender_b`'s ring was emptied and removed.
-			assert_eq!(
-				spec_msg::RecentProvides::<Test>::get(sender_a).entries(),
-				&[(streams_root(1), revert_to - 1), (streams_root(2), revert_to)]
-			);
+			// ...and wiped every ring. Nothing finer-grained: a freeze means the chain
+			// cannot revert, and the rings refill from the next enactments after a
+			// governance `force_unfreeze`.
+			assert!(!spec_msg::RecentProvides::<Test>::contains_key(sender_a));
 			assert!(!spec_msg::RecentProvides::<Test>::contains_key(sender_b));
 		});
 	}

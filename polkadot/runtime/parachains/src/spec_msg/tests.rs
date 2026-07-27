@@ -46,7 +46,6 @@ fn ring_rotation_evicts_oldest() {
 		let sender = ParaId::from(1000);
 		let k = 5;
 
-		frame_system::Pallet::<Test>::set_block_number(1);
 		for i in 0..RECENT_PROVIDES_WINDOW + k {
 			Pallet::<Test>::note_provides(sender, root_at(i));
 		}
@@ -66,18 +65,16 @@ fn ring_rotation_evicts_oldest() {
 }
 
 #[test]
-fn entries_are_ordered_and_note_block_numbers() {
+fn entries_are_ordered_oldest_first() {
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 		let sender = ParaId::from(1000);
 
-		frame_system::Pallet::<Test>::set_block_number(3);
 		Pallet::<Test>::note_provides(sender, root(1));
-		frame_system::Pallet::<Test>::set_block_number(7);
 		Pallet::<Test>::note_provides(sender, root(2));
 		Pallet::<Test>::note_provides(sender, root(3));
 
 		let ring = RecentProvides::<Test>::get(sender);
-		assert_eq!(ring.entries(), &[(root(1), 3), (root(2), 7), (root(3), 7)]);
+		assert_eq!(ring.entries(), &[root(1), root(2), root(3)]);
 	});
 }
 
@@ -94,7 +91,6 @@ fn absent_source_never_matches() {
 #[test]
 fn multiple_sources_all_must_match() {
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-		frame_system::Pallet::<Test>::set_block_number(1);
 		Pallet::<Test>::note_provides(ParaId::from(1000), root(1));
 		Pallet::<Test>::note_provides(ParaId::from(2000), root(2));
 
@@ -120,30 +116,29 @@ fn multiple_sources_all_must_match() {
 }
 
 #[test]
-fn evict_after_revert_drops_entries_of_reverted_blocks() {
+fn clear_on_freeze_drops_every_ring() {
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 		let sender_a = ParaId::from(1000);
 		let sender_b = ParaId::from(2000);
 
-		frame_system::Pallet::<Test>::set_block_number(5);
 		Pallet::<Test>::note_provides(sender_a, root(1));
-		frame_system::Pallet::<Test>::set_block_number(6);
 		Pallet::<Test>::note_provides(sender_a, root(2));
 		Pallet::<Test>::note_provides(sender_b, root(3));
-		frame_system::Pallet::<Test>::set_block_number(7);
-		Pallet::<Test>::note_provides(sender_a, root(4));
 
-		// Revert back to block 5: everything pushed at blocks 6 and 7 must stop matching,
-		// across all senders.
-		Pallet::<Test>::evict_after_revert(5);
+		// A dispute against an already finalized candidate freezes instead of reverting:
+		// nothing may stay matchable, so every sender's ring goes — including roots of
+		// senders that were never disputed. They come back as those senders provide again.
+		Pallet::<Test>::clear_on_freeze();
 
-		assert_eq!(RecentProvides::<Test>::get(sender_a).entries(), &[(root(1), 5)]);
-		assert_matches(1000, root(1));
-		assert_no_match(1000, root(2));
-		assert_no_match(1000, root(4));
-		assert_no_match(2000, root(3));
-		// A ring emptied by the eviction is removed entirely.
+		assert!(!RecentProvides::<Test>::contains_key(sender_a));
 		assert!(!RecentProvides::<Test>::contains_key(sender_b));
+		assert_no_match(1000, root(1));
+		assert_no_match(1000, root(2));
+		assert_no_match(2000, root(3));
+
+		// The rings refill from the next enactment on.
+		Pallet::<Test>::note_provides(sender_a, root(4));
+		assert_matches(1000, root(4));
 	});
 }
 
@@ -153,7 +148,6 @@ fn offboarding_clears_the_ring() {
 		let outgoing = ParaId::from(1000);
 		let staying = ParaId::from(2000);
 
-		frame_system::Pallet::<Test>::set_block_number(1);
 		Pallet::<Test>::note_provides(outgoing, root(1));
 		Pallet::<Test>::note_provides(staying, root(2));
 
@@ -169,12 +163,11 @@ fn offboarding_clears_the_ring() {
 fn ring_is_readable_under_the_well_known_key_as_a_plain_vec() {
 	// The receiver-side node monitor (`cumulus-client-spec-msg`) reads the ring from relay
 	// chain state under `well_known_keys::spec_msg_recent_provides` and decodes it as a
-	// plain `Vec<(StreamsRoot, BlockNumber)>` — pin both halves of that contract here,
-	// where the pallet placement (`SpecMsg`) and the `RecentRoots` layout are in scope.
+	// plain `Vec<StreamsRoot>` — pin both halves of that contract here, where the pallet
+	// placement (`SpecMsg`) and the `RecentRoots` layout are in scope.
 	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 		let sender = ParaId::from(2000);
 
-		frame_system::Pallet::<Test>::set_block_number(7);
 		Pallet::<Test>::note_provides(sender, root(1));
 		Pallet::<Test>::note_provides(sender, root(2));
 
@@ -182,8 +175,8 @@ fn ring_is_readable_under_the_well_known_key_as_a_plain_vec() {
 			&polkadot_primitives::well_known_keys::spec_msg_recent_provides(sender),
 		)
 		.expect("the well-known key is where the pallet writes the ring");
-		let decoded: Vec<(StreamsRoot, u32)> =
-			Decode::decode(&mut &raw[..]).expect("a ring decodes as a plain vec of entries");
-		assert_eq!(decoded, vec![(root(1), 7), (root(2), 7)]);
+		let decoded: Vec<StreamsRoot> =
+			Decode::decode(&mut &raw[..]).expect("a ring decodes as a plain vec of roots");
+		assert_eq!(decoded, vec![root(1), root(2)]);
 	});
 }

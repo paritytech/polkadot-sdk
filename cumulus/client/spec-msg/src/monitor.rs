@@ -65,8 +65,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_spec_messaging::StreamsRoot;
 use cumulus_relay_chain_interface::{
-	BlockNumber as RelayBlockNumber, PHash, PHeader, RelayChainError, RelayChainInterface,
-	RelayChainResult,
+	PHash, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 
 use crate::{pool::SpecMsgPool, LOG_TARGET};
@@ -168,25 +167,25 @@ impl ProvidesTracker {
 	fn note_ring(
 		&mut self,
 		source: ParaId,
-		ring: &[(StreamsRoot, RelayBlockNumber)],
+		ring: &[StreamsRoot],
 		relay_block: PHash,
 	) -> Vec<SourceProvides> {
 		let state = self.sources.entry(source).or_default();
 		if !state.bootstrapped {
 			state.bootstrapped = true;
-			for (root, _) in ring {
+			for root in ring {
 				state.included.insert(*root);
 			}
 			return ring
 				.last()
-				.map(|(root, _)| SourceProvides { source, root: *root, relay_block })
+				.map(|root| SourceProvides { source, root: *root, relay_block })
 				.into_iter()
 				.collect();
 		}
 
 		ring.iter()
-			.filter(|(root, _)| state.included.insert(*root))
-			.map(|(root, _)| SourceProvides { source, root: *root, relay_block })
+			.filter(|root| state.included.insert(**root))
+			.map(|root| SourceProvides { source, root: *root, relay_block })
 			.collect()
 	}
 
@@ -220,9 +219,9 @@ pub fn pending_provides(commitments: &CandidateCommitments) -> Option<StreamsRoo
 }
 
 /// Reads `RecentProvides[source]` — the ring of the source's recently *included*
-/// [`StreamsRoot`]s, oldest first, each paired with the relay block number it was pushed
-/// at — from relay chain state at `relay_block`. An absent value is an empty ring (the
-/// source never provided, or was offboarded).
+/// [`StreamsRoot`]s, oldest first — from relay chain state at `relay_block`. An absent
+/// value is an empty ring (the source never provided, was offboarded, or the rings were
+/// wiped by a dispute freeze).
 ///
 /// This is also the read the inherent provider (issue 11) performs at its candidate's
 /// relay parent to pick the authoring target: the newest entry.
@@ -230,7 +229,7 @@ pub async fn read_recent_provides(
 	relay_chain: &impl RelayChainInterface,
 	relay_block: PHash,
 	source: ParaId,
-) -> RelayChainResult<Vec<(StreamsRoot, RelayBlockNumber)>> {
+) -> RelayChainResult<Vec<StreamsRoot>> {
 	let key =
 		cumulus_primitives_core::relay_chain::well_known_keys::spec_msg_recent_provides(source);
 	let Some(value) = relay_chain.get_storage_by_key(relay_block, &key).await? else {
@@ -456,7 +455,7 @@ mod tests {
 		let source = ParaId::from(2000);
 
 		// First sight: the whole ring predates the monitor — only the newest is offered.
-		let ring = [(root(1), 10), (root(2), 11), (root(3), 12)];
+		let ring = [root(1), root(2), root(3)];
 		assert_eq!(
 			tracker.note_ring(source, &ring, relay(0xA1)),
 			vec![offer(source, root(3), relay(0xA1))],
@@ -472,10 +471,10 @@ mod tests {
 		let mut tracker = ProvidesTracker::default();
 		let source = ParaId::from(2000);
 
-		tracker.note_ring(source, &[(root(1), 10)], relay(0xA1));
+		tracker.note_ring(source, &[root(1)], relay(0xA1));
 
 		// Two enactments land in one relay block: both offered, oldest first.
-		let grown = [(root(1), 10), (root(2), 11), (root(3), 11)];
+		let grown = [root(1), root(2), root(3)];
 		assert_eq!(
 			tracker.note_ring(source, &grown, relay(0xA2)),
 			vec![offer(source, root(2), relay(0xA2)), offer(source, root(3), relay(0xA2))],
@@ -483,7 +482,7 @@ mod tests {
 		assert!(tracker.note_ring(source, &grown, relay(0xA3)).is_empty());
 
 		// The ring rotating the oldest entry out changes nothing about novelty.
-		let rotated = [(root(2), 11), (root(3), 11), (root(4), 12)];
+		let rotated = [root(2), root(3), root(4)];
 		assert_eq!(
 			tracker.note_ring(source, &rotated, relay(0xA4)),
 			vec![offer(source, root(4), relay(0xA4))],
@@ -499,11 +498,11 @@ mod tests {
 
 		// Fork A enacts the source candidate committing `root(1)`.
 		assert_eq!(
-			tracker.note_ring(source, &[(root(1), 11)], relay(0xA1)),
+			tracker.note_ring(source, &[root(1)], relay(0xA1)),
 			vec![offer(source, root(1), relay(0xA1))],
 		);
 		// Fork B enacts the very same candidate: the root is not offered again.
-		assert!(tracker.note_ring(source, &[(root(1), 11)], relay(0xB1)).is_empty());
+		assert!(tracker.note_ring(source, &[root(1)], relay(0xB1)).is_empty());
 
 		// Re-org to a fork WITHOUT the enactment: nothing is offered and nothing needs
 		// retracting — the root simply is not in that branch's state, against which the
@@ -511,10 +510,10 @@ mod tests {
 		assert!(tracker.note_ring(source, &[], relay(0xC1)).is_empty());
 		// The abandoned branch's fetch was not wasted either: when the enactment lands
 		// on the surviving fork, the root is known already and stays offered-once.
-		assert!(tracker.note_ring(source, &[(root(1), 13)], relay(0xC2)).is_empty());
+		assert!(tracker.note_ring(source, &[root(1)], relay(0xC2)).is_empty());
 		// New roots on the surviving fork trigger as usual.
 		assert_eq!(
-			tracker.note_ring(source, &[(root(1), 13), (root(2), 14)], relay(0xC3)),
+			tracker.note_ring(source, &[root(1), root(2)], relay(0xC3)),
 			vec![offer(source, root(2), relay(0xC3))],
 		);
 	}
@@ -535,7 +534,7 @@ mod tests {
 
 		// Inclusion of the hinted root still triggers — authoring keys off included only.
 		assert_eq!(
-			tracker.note_ring(source, &[(root(1), 12)], relay(0xA2)),
+			tracker.note_ring(source, &[root(1)], relay(0xA2)),
 			vec![offer(source, root(1), relay(0xA2))],
 		);
 		// Once included, the root cannot regress to a hint.
@@ -546,7 +545,7 @@ mod tests {
 	fn dropped_sources_are_forgotten_and_rebootstrap_on_return() {
 		let mut tracker = ProvidesTracker::default();
 		let source = ParaId::from(2000);
-		let ring = [(root(1), 10), (root(2), 11)];
+		let ring = [root(1), root(2)];
 
 		tracker.note_ring(source, &ring, relay(0xA1));
 
@@ -555,7 +554,7 @@ mod tests {
 
 		// Reopened later: first sight again — only the (new) newest root is offered,
 		// even though older entries were seen in the source's previous life.
-		let returned = [(root(1), 10), (root(2), 11), (root(3), 12)];
+		let returned = [root(1), root(2), root(3)];
 		assert_eq!(
 			tracker.note_ring(source, &returned, relay(0xA9)),
 			vec![offer(source, root(3), relay(0xA9))],
@@ -569,7 +568,7 @@ mod tests {
 
 		tracker.note_ring(source, &[], relay(0xA0));
 		for i in 0..2 * SEEN_ROOTS_BOUND as u32 {
-			let offered = tracker.note_ring(source, &[(root_at(i), i)], relay(0xA1));
+			let offered = tracker.note_ring(source, &[root_at(i)], relay(0xA1));
 			assert_eq!(offered.len(), 1);
 		}
 

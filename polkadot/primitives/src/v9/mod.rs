@@ -433,8 +433,7 @@ pub mod well_known_keys {
 	/// stream commitment roots, oldest first.
 	///
 	/// The storage entry stores a `RecentRoots` newtype whose SCALE encoding is that of a
-	/// `Vec<(StreamsRoot, BlockNumber)>` — each root paired with the relay chain block number
-	/// at which it was pushed (the block enacting the sender candidate that committed it).
+	/// plain `Vec<StreamsRoot>`, oldest first.
 	pub fn spec_msg_recent_provides(para_id: Id) -> Vec<u8> {
 		let prefix = hex!["0fcce6413acc3a77c778c0d29cd914f7dd77411effbaf154539ed4f164654b66"];
 

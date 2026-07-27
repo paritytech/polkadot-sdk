@@ -422,7 +422,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Take note of the freeze state before importing the disputes, in order to detect a
-		// freshly signalled revert below.
+		// freshly signalled freeze below.
 		let frozen_before_disputes = disputes::Frozen::<T>::get();
 
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
@@ -438,16 +438,15 @@ impl<T: Config> Pallet<T> {
 		};
 		METRICS.on_disputes_imported(checked_disputes_sets.len() as u64);
 
-		// If this import concluded a dispute against an included candidate, it froze the
-		// chain and signalled a revert back to the frozen block number. Evict the stream
-		// commitment roots pushed by candidates enacted in the reverted blocks: they must
-		// no longer be matchable by `Requires` entries, even if this (frozen) chain is
-		// later resumed by governance instead of being abandoned.
+		// If this import concluded a dispute against an included candidate, the chain is
+		// frozen (and a revert signalled). Wipe the stream commitment root rings: an
+		// ordinary revert would roll them back with the rest of the state, but a dispute
+		// against an already finalized candidate cannot revert — and a governance
+		// `force_unfreeze` must not resume with the invalid candidate's root still
+		// matchable by `Requires` entries.
 		let frozen_after_disputes = disputes::Frozen::<T>::get();
 		if frozen_before_disputes != frozen_after_disputes {
-			if let Some(revert_to) = frozen_after_disputes {
-				spec_msg::Pallet::<T>::evict_after_revert(revert_to);
-			}
+			spec_msg::Pallet::<T>::clear_on_freeze();
 		}
 
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
