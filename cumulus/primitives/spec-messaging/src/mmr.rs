@@ -97,10 +97,10 @@ pub fn hash_leaf<H: sp_runtime::traits::Hash<Output = Hash>>(version: u8, payloa
 
 /// Root of a single message stream's MMR (bagged peaks).
 ///
-/// Newtype over [`Hash`]: roots flow through every layer (tree leaves, wire
+/// Newtype over [`tyalias@Hash`]: roots flow through every layer (tree leaves, wire
 /// responses, extension proofs) alongside block hashes, leaf hashes, peaks
 /// and `StreamsRoot`s — confusing them must not typecheck. Leaf and
-/// inner-node hashes stay bare [`Hash`]: they are internal to the
+/// inner-node hashes stay bare [`tyalias@Hash`]: they are internal to the
 /// accumulator code and already domain-separated cryptographically by the
 /// hash tags.
 #[derive(

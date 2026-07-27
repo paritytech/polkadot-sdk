@@ -33,9 +33,9 @@
 //!   at its tier and consumption lag is covered by POV lifts, so the window only needs to absorb
 //!   authoring → inclusion pipeline depth (including elastic-scaling bursts). Outrunning the window
 //!   is not a failure mode.
-//! - Rings are wiped wholesale when a dispute freezes the chain ([`Pallet::clear_on_freeze`]). The
-//!   ordinary fork path needs nothing: the ring is plain runtime storage, so a revert rolls it back
-//!   with the rest of the state. The exception is a dispute concluding against an *already
+//! - Rings are wiped wholesale when a dispute freezes the chain (see `Pallet::clear_on_freeze`).
+//!   The ordinary fork path needs nothing: the ring is plain runtime storage, so a revert rolls it
+//!   back with the rest of the state. The exception is a dispute concluding against an *already
 //!   finalized* candidate — the chain freezes instead of reverting, and a governance
 //!   `force_unfreeze` would otherwise resume with the invalid candidate's root still matchable.
 //!   Clearing costs nothing real: freezing halts inclusion anyway, and the rings refill as senders

@@ -56,13 +56,13 @@
 //! grace window covers both (issue 10):
 //! - *late offer*: the monitor has PUSHED an included offer but the fetcher has not yet dequeued
 //!   it, so no round is marked at the snapshot instant. [`SpecMsgPool::note_pending_offer`] records
-//!   a per-source "offer pushed at <instant>" the moment the monitor sends, and the window waits on
+//!   a per-source `offer pushed at <instant>` the moment the monitor sends, and the window waits on
 //!   it exactly like an in-flight round (same `bound` expiry); [`SpecMsgPool::begin_round`]
 //!   supersedes it when the real round starts.
 //! - *store visibility*: a round completed and its guard already dropped a hair before the
 //!   snapshot, so nothing is marked yet the just-fetched material has not settled into the read
-//!   view. [`SpecMsgPool::end_round`] retains a per-source "completed at <instant>" for a brief
-//!   [`COMPLETION_RETENTION`], so a snapshot landing microseconds later waits a beat and re-reads
+//!   view. `SpecMsgPool::end_round` retains a per-source `completed at <instant>` for a brief
+//!   `COMPLETION_RETENTION`, so a snapshot landing microseconds later waits a beat and re-reads
 //!   rather than sealing an empty inherent.
 
 use std::{
@@ -592,9 +592,9 @@ impl SpecMsgPool {
 	/// edges around it (issue 10): a *pending offer* the monitor pushed but
 	/// the fetcher has not yet turned into a round (waited on under `bound`,
 	/// like a round), and a round that *just completed* (retained for
-	/// [`COMPLETION_RETENTION`] so a snapshot arriving right on top of the
+	/// `COMPLETION_RETENTION` so a snapshot arriving right on top of the
 	/// guard drop settles and re-reads). A completion the caller was itself
-	/// woken by needs no retention — being woken by [`Self::end_round`]
+	/// woken by needs no retention — being woken by `Self::end_round`
 	/// synchronises the round's writes into view — so the retention only
 	/// holds a proposal that had not yet parked when it entered.
 	pub async fn wait_for_in_flight_rounds(&self, bound: Duration) {
@@ -715,7 +715,7 @@ impl SpecMsgPool {
 	}
 
 	/// Diagnostic: number of just-completed rounds still inside their
-	/// [`COMPLETION_RETENTION`] re-read window (tests).
+	/// `COMPLETION_RETENTION` re-read window (tests).
 	pub fn retained_completions(&self) -> usize {
 		self.rounds.lock().completed.len()
 	}
@@ -767,7 +767,7 @@ impl SpecMsgPool {
 	/// reads are additionally handed to at most one live block: before a
 	/// read is handed, the stream's outstanding hand-out (if any) is
 	/// reconciled against the parent's applied register view
-	/// ([`RegisterReads::reconcile_handed`]) — a hand-out the parent state
+	/// (`RegisterReads::reconcile_handed`) — a hand-out the parent state
 	/// reflects landed and stays consumed, one it does not reflect was
 	/// handed to a block that never made it onto this branch and becomes
 	/// handable again. A new included root refreshes reads as before.

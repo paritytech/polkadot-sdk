@@ -463,7 +463,7 @@ fn mask_prefix(key: &[u8; STREAM_ID_LEN], len: u8) -> [u8; STREAM_ID_LEN] {
 	PartialEq,
 )]
 pub struct TreeChild {
-	/// The child node's storage key ([`NodeKey::is_leaf`] = leaf).
+	/// The child node's storage key (`NodeKey::is_leaf` = leaf).
 	pub key: NodeKey,
 	/// The child's subtree hash — `tree_leaf_hash` for leaves,
 	/// `tree_inner_hash` for inner nodes.

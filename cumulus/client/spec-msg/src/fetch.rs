@@ -35,7 +35,7 @@
 //! provider hands over only target-bound material, which is what guarantees
 //! the lift assembler succeeds from local material. A failed round is
 //! retried under the SAME root with bounded exponential backoff
-//! ([`MAX_ROUND_RETRIES`] / [`ROUND_RETRY_DELAY`]) — a quiet sender offers
+//! (`MAX_ROUND_RETRIES` / `ROUND_RETRY_DELAY`) — a quiet sender offers
 //! no next root, so waiting for one would turn a single transient failure
 //! into an indefinite stall. Fetching is root-keyed and idempotent, so
 //! retries are always safe; a fresh included root supersedes a scheduled
@@ -107,7 +107,7 @@ fn retry_delay(attempt: u32) -> Duration {
 	ROUND_RETRY_DELAY.saturating_mul(factor).min(ROUND_RETRY_DELAY_CAP)
 }
 
-/// Errors of one fetch round. Retryable ones ([`RoundError::retryable`])
+/// Errors of one fetch round. Retryable ones (`RoundError::retryable`)
 /// are re-run in place with bounded backoff; the rest wait for the next
 /// trigger.
 #[derive(Debug, thiserror::Error)]
