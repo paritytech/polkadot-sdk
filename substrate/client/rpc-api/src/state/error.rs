@@ -47,9 +47,9 @@ pub enum Error {
 		/// Maximum allowed value
 		max: u32,
 	},
-	/// Call to an unsafe RPC was denied. Reported over the wire as "method not found" (see
-	/// [`crate::policy`]): a denied unsafe method is indistinguishable from an absent one, and
-	/// clients rely on that code to fall back (e.g. `pallet-revive-eth-rpc` downgrades
+	/// Call to an unsafe RPC was denied. Reported over the wire as "method not found":
+	/// a denied unsafe method is indistinguishable from an absent one, and clients
+	/// rely on that code to fall back (e.g. `pallet-revive-eth-rpc` downgrades
 	/// `state_callRecorded` to a plain replay).
 	#[error(transparent)]
 	UnsafeRpcCalled(#[from] crate::policy::UnsafeRpcError),
