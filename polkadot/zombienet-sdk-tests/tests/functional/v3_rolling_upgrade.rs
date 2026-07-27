@@ -1,14 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Rolling upgrade test: mixed V2/V3 validator fleet.
+//! Rolling upgrade test: mixed V2/V3 validator *and* collator fleets.
 //!
 //! Runs a network where some validators use the current binary (V3-capable) and others use an
-//! older binary (`OLD_POLKADOT_IMAGE`) that does not understand V3 descriptors. V3 is enabled
-//! at the runtime level. The collator produces V2 candidates throughout.
+//! older binary (`OLD_POLKADOT_IMAGE`) that does not understand V3 descriptors. The V3
+//! `CandidateReceiptV3` node feature is enabled on the relay chain, but the parachain runtime has
+//! V3 scheduling **disabled** (`async-backing`).
+//!
+//! The parachain is served by a mixed collator fleet, both authoring slot-based:
+//! - a **V3-capable** collator (the current `test-parachain`), and
+//! - a **V2-only** collator (an older `polkadot-parachain` release, predating V3, supplied via
+//!   `OLD_PARACHAIN_COMMAND` / `OLD_PARACHAIN_IMAGE`).
 //!
 //! Verifies that:
-//! - V2 candidates are backed by the mixed fleet.
+//! - V2 candidates are backed by the mixed validator fleet, from both collators.
+//! - A V3-capable collator does not emit V3 to a V3-disabled parachain (a V3 candidate would be
+//!   rejected by `validate_block`, collapsing throughput).
 //! - Statement and availability distribution work across binary versions.
 //! - GRANDPA finality does not stall.
 //! - Parachain throughput is sustained.
@@ -37,6 +45,13 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	let old_image = std::env::var("OLD_POLKADOT_IMAGE")
 		.expect("OLD_POLKADOT_IMAGE must be set for rolling upgrade test");
 	let old_command = std::env::var("OLD_POLKADOT_COMMAND").unwrap_or("polkadot".into());
+
+	// Old, V2-only `polkadot-parachain` (predates the cumulus V3 changes, PR #10742 / first in
+	// `polkadot-stable2606`). Under the native provider only the command (resolved from PATH)
+	// matters; the image is used by the k8s provider.
+	let old_parachain_command =
+		std::env::var("OLD_PARACHAIN_COMMAND").unwrap_or_else(|_| "polkadot-parachain-old".into());
+	let old_parachain_image = std::env::var("OLD_PARACHAIN_IMAGE").ok();
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -70,7 +85,8 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(3000)
+			let p = p
+				.with_id(3000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("async-backing")
@@ -78,7 +94,22 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 					("--authoring=slot-based").into(),
 					("-lparachain=debug,aura=debug").into(),
 				])
-				.with_collator(|n| n.with_name("collator-3000"))
+				// V3-capable collator (current binary); on a V3-disabled para it emits V2.
+				.with_collator(|n| n.with_name("collator-3000"));
+			// V2-only collator: an older `polkadot-parachain` that predates V3.
+			p.with_collator(|n| {
+				let n = n
+					.with_name("old-collator-3000")
+					.with_command(old_parachain_command.as_str())
+					.with_args(vec![
+						("--authoring=slot-based").into(),
+						("-lparachain=debug,aura=debug").into(),
+					]);
+				match old_parachain_image.as_deref() {
+					Some(img) => n.with_image(img),
+					None => n,
+				}
+			})
 		})
 		.build()
 		.map_err(|e| {
@@ -91,6 +122,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-3000")?;
+	let old_para_node = network.get_node("old-collator-3000")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// enabling v3 here does not overwrite all node_features
@@ -127,6 +159,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	}
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
+	assert_finality_lag(&old_para_node.wait_client().await?, 6).await?;
 
 	log::info!("Rolling upgrade test finished successfully");
 
