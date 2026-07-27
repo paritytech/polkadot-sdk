@@ -8,15 +8,11 @@
 //! `CandidateReceiptV3` node feature is enabled on the relay chain, but the parachain runtime has
 //! V3 scheduling **disabled** (`async-backing`).
 //!
-//! The parachain is served by a mixed collator fleet, both authoring slot-based:
+//! The parachain is served by a mixed collator fleet:
 //! - a **V3-capable** collator (the current `test-parachain`), and
 //! - a **V2-only** collator (an older `polkadot-parachain` release, predating V3, supplied via
 //!   `OLD_PARACHAIN_COMMAND` / `OLD_PARACHAIN_IMAGE`).
 //!
-//! Verifies that:
-//! - V2 candidates are backed by the mixed validator fleet, from both collators.
-//! - A V3-capable collator does not emit V3 to a V3-disabled parachain (a V3 candidate would be
-//!   rejected by `validate_block`, collapsing throughput).
 //! - Statement and availability distribution work across binary versions.
 //! - GRANDPA finality does not stall.
 //! - Parachain throughput is sustained.
@@ -46,9 +42,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 		.expect("OLD_POLKADOT_IMAGE must be set for rolling upgrade test");
 	let old_command = std::env::var("OLD_POLKADOT_COMMAND").unwrap_or("polkadot".into());
 
-	// Old, V2-only `polkadot-parachain` (predates the cumulus V3 changes, PR #10742 / first in
-	// `polkadot-stable2606`). Under the native provider only the command (resolved from PATH)
-	// matters; the image is used by the k8s provider.
+	// Old, V2-only `polkadot-parachain`
 	let old_parachain_command =
 		std::env::var("OLD_PARACHAIN_COMMAND").unwrap_or_else(|_| "polkadot-parachain-old".into());
 	let old_parachain_image = std::env::var("OLD_PARACHAIN_IMAGE").ok();
@@ -160,6 +154,21 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
 	assert_finality_lag(&old_para_node.wait_client().await?, 6).await?;
+
+	for (name, node) in [("collator-3000", &para_node), ("old-collator-3000", &old_para_node)] {
+		node.wait_metric_with_timeout(
+			"substrate_proposer_block_constructed_count",
+			|v| v >= 1.0,
+			30u64,
+		)
+		.await
+		.map_err(|e| {
+			anyhow!(
+				"Collator {name} did not author any parachain blocks \
+				 (metric substrate_proposer_block_constructed_count): {e}"
+			)
+		})?;
+	}
 
 	log::info!("Rolling upgrade test finished successfully");
 

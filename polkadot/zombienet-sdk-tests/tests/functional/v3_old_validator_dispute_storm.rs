@@ -168,10 +168,16 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	.await?;
 	assert!(
 		relay_node
-			.assert_with("parachain_candidate_disputes_total", |d| d == 0.0)
+			.assert_with("polkadot_parachain_candidate_disputes_total", |d| d == 0.0)
 			.await?,
 		"no disputes expected before the para upgrade"
 	);
+
+	// Capture finalized height before the upgrade so assert_finality_stalls (5/15 path) can
+	// require real forward progress before declaring a stall.
+	let baseline_finalized =
+		read_metric(relay_node, "substrate_block_height{status=\"finalized\"}").await?;
+	log::info!("baseline relay finalized height (before para-B upgrade): {baseline_finalized}");
 
 	log::info!("upgrading para B to the v3 runtime");
 	let upgrade_call = dynamic(
@@ -192,43 +198,46 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 
 	log::info!("waiting for dispute storm to start");
 	relay_node
-		.wait_metric_with_timeout("parachain_candidate_disputes_total", |d| d >= 1.0, 300u64)
-		.await?;
-
-	if num_old == 4 {
-		assert_four_old_self_extinguishes(relay_node, &relay_client, &old_pubkeys, num_old).await?;
-
-		log::info!("waiting for every raised dispute to conclude valid");
-		let total_disputes = wait_for_disputes_resolved_valid(relay_node, 240).await?;
-		log::info!("storm resolved: all {total_disputes} disputes concluded valid, none invalid");
-
-		assert_finality_lag(&para_b_client, 6).await?;
-
-		const RECOVERY_WINDOW: u32 = 20;
-		const PARA_A_FLOOR: u32 = 15;
-		const PARA_B_V3_FLOOR: u32 = 8;
-		assert_para_throughput_with(
-			&relay_client,
-			RECOVERY_WINDOW,
-			HashMap::from([
-				(para_b, PARA_B_V3_FLOOR..RECOVERY_WINDOW + 1),
-				(para_a, PARA_A_FLOOR..RECOVERY_WINDOW + 1),
-			]),
-			|receipt| {
-				let para_id = receipt.descriptor.para_id();
-				let version = receipt.descriptor.version();
-				if para_id == para_b && version != CandidateDescriptorVersion::V3 {
-					return Err(anyhow!("para B backed non-V3 post-recovery: {version:?}"));
-				}
-				if para_id == para_a && version != CandidateDescriptorVersion::V2 {
-					return Err(anyhow!("canary para A backed non-V2: {version:?}"));
-				}
-				Ok(true)
-			},
+		.wait_metric_with_timeout(
+			"polkadot_parachain_candidate_disputes_total",
+			|d| d >= 1.0,
+			300u64,
 		)
 		.await?;
-	} else {
-		assert_five_old_persists(relay_node, &relay_client).await?;
+
+	match num_old {
+		4 => {
+			assert_four_old_self_extinguishes(relay_node, &relay_client, &old_pubkeys).await?;
+
+			log::info!("waiting for every raised dispute to conclude valid");
+			let total_disputes = wait_for_disputes_resolved_valid(relay_node, 300).await?;
+			log::info!(
+				"storm resolved: all {total_disputes} disputes concluded valid, none invalid"
+			);
+
+			assert_finality_lag(&para_b_client, 6).await?;
+			assert_para_throughput_with(
+				&relay_client,
+				20,
+				HashMap::from([(para_b, 15..21), (para_a, 15..21)]),
+				|receipt| {
+					let para_id = receipt.descriptor.para_id();
+					let version = receipt.descriptor.version();
+					if para_id == para_b && version != CandidateDescriptorVersion::V3 {
+						return Err(anyhow!("para B backed non-V3 post-recovery: {version:?}"));
+					}
+					if para_id == para_a && version != CandidateDescriptorVersion::V2 {
+						return Err(anyhow!("canary para A backed non-V2: {version:?}"));
+					}
+					Ok(true)
+				},
+			)
+			.await?;
+		},
+		5 => {
+			assert_five_old_persists(relay_node, &relay_client, baseline_finalized).await?;
+		},
+		other => unreachable!("unexpected num_old: {other}"),
 	}
 
 	log::info!("V3 old-validator dispute storm test ({num_old}/{TOTAL_VALIDATORS} old) finished");
@@ -239,8 +248,8 @@ async fn assert_four_old_self_extinguishes(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
 	old_pubkeys: &HashSet<String>,
-	num_old: usize,
 ) -> Result<(), anyhow::Error> {
+	const NUM_OLD: usize = 4;
 	log::info!("waiting for disputes to conclude valid");
 	relay_node
 		.wait_metric_with_timeout(
@@ -250,7 +259,7 @@ async fn assert_four_old_self_extinguishes(
 		)
 		.await?;
 
-	log::info!("waiting for all {num_old} pre-v3 validators to be disabled");
+	log::info!("waiting for all {NUM_OLD} pre-v3 validators to be disabled");
 	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
 	let mut disabled_old = 0usize;
 	let mut blocks_checked = 0u32;
@@ -261,7 +270,7 @@ async fn assert_four_old_self_extinguishes(
 			let validators = session_validators_at(relay_client, hash).await?;
 			disabled_old = count_disabled_old(&disabled, &validators, old_pubkeys);
 			log::info!("disabled {} validators, {disabled_old} of them pre-v3", disabled.len());
-			if disabled_old >= num_old {
+			if disabled_old >= NUM_OLD {
 				break;
 			}
 		}
@@ -271,8 +280,8 @@ async fn assert_four_old_self_extinguishes(
 		}
 	}
 	assert!(
-		disabled_old >= num_old,
-		"expected all {num_old} pre-v3 validators disabled, got {disabled_old} after \
+		disabled_old >= NUM_OLD,
+		"expected all {NUM_OLD} pre-v3 validators disabled, got {disabled_old} after \
 		 {blocks_checked} blocks",
 	);
 	Ok(())
@@ -281,14 +290,18 @@ async fn assert_four_old_self_extinguishes(
 async fn assert_five_old_persists(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
+	baseline_finalized: f64,
 ) -> Result<(), anyhow::Error> {
-	assert_finality_stalls(relay_node, 120).await?;
+	assert_finality_stalls(relay_node, 120, baseline_finalized).await?;
 
-	let finalized_hash = relay_client.blocks().at_latest().await?.hash();
-	let disabled = disabled_validators_at(relay_client, finalized_hash).await?;
+	// `at_latest()` returns the best imported block, not the finalized head; in the 5/15 case
+	// they diverge by design. We check for disabled validators at the best block, which is the
+	// correct thing to check here.
+	let best_hash = relay_client.blocks().at_latest().await?.hash();
+	let disabled = disabled_validators_at(relay_client, best_hash).await?;
 	assert!(
 		disabled.is_empty(),
-		"no validator should be disabled in the 5/15 case, found {disabled:?}",
+		"no validator should be disabled in the 5/15 case (at best block), found {disabled:?}",
 	);
 
 	for validity in ["valid", "invalid"] {
@@ -356,11 +369,40 @@ async fn read_metric(
 async fn assert_finality_stalls(
 	node: &zombienet_sdk::NetworkNode,
 	timeout_secs: u64,
+	baseline_finalized: f64,
 ) -> Result<(), anyhow::Error> {
 	const STEP_SECS: u64 = 20;
+	// Require finality to have advanced at least this many blocks from the pre-upgrade baseline
+	// before we start watching for a stall. This guards against a vacuous pass if the function
+	// is entered before GRANDPA has had a chance to advance (slow pod, subsystem init).
+	const ADVANCE_MARGIN: f64 = 3.0;
 	let metric = "substrate_block_height{status=\"finalized\"}";
-	let mut prev = read_metric(node, metric).await?;
 	let mut elapsed = 0u64;
+
+	// wait for finality to advance past baseline + margin, proving GRANDPA was running.
+	loop {
+		let cur = read_metric(node, metric).await?;
+		if cur >= baseline_finalized + ADVANCE_MARGIN {
+			log::info!(
+				"finality at {cur} ({:.0} blocks past baseline {baseline_finalized}); \
+				 now watching for stall",
+				cur - baseline_finalized
+			);
+			break;
+		}
+		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
+		elapsed += STEP_SECS;
+		if elapsed >= timeout_secs {
+			return Err(anyhow!(
+				"finality at {cur} never advanced {ADVANCE_MARGIN} blocks above baseline \
+				 {baseline_finalized} within {timeout_secs}s; expected GRANDPA to make progress \
+				 before the dispute storm clamps it",
+			));
+		}
+	}
+
+	// look for the stall — two consecutive equal samples confirm finality is frozen.
+	let mut prev = read_metric(node, metric).await?;
 	loop {
 		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
 		elapsed += STEP_SECS;
@@ -391,51 +433,64 @@ async fn assert_finality_stalls(
 
 /// Wait for the dispute storm to fully resolve: every raised dispute must conclude *valid* (the
 /// honest supermajority wins) and none may conclude *invalid*.
+///
+/// A single quiet sample is not enough. Para B keeps authoring V3 candidates the whole time, so
+/// the pre-v3 validators keep raising fresh disputes until they are disabled and the last of their
+/// candidates drains out. The storm only counts as extinguished once the *raised* count has stopped
+/// growing — with everything raised so far concluded valid — for a sustained `QUIET_WINDOW_SECS`.
 async fn wait_for_disputes_resolved_valid(
 	node: &zombienet_sdk::NetworkNode,
 	timeout_secs: u64,
 ) -> Result<f64, anyhow::Error> {
 	const STEP_SECS: u64 = 20;
-	let total_metric = "parachain_candidate_disputes_total";
+	// How long the raised count must stay flat before we believe the storm is over.
+	const QUIET_WINDOW_SECS: u64 = 120;
+	const QUIET_STEPS: u32 = (QUIET_WINDOW_SECS / STEP_SECS) as u32;
+
+	let total_metric = "polkadot_parachain_candidate_disputes_total";
 	let valid_metric = "polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}";
 	let invalid_metric = "polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
+
 	let mut elapsed = 0u64;
+	let mut quiet_steps = 0u32;
+	let mut prev_total = f64::NEG_INFINITY;
+
 	loop {
 		let total = read_metric(node, total_metric).await?;
 		let valid = read_metric(node, valid_metric).await?;
-		// The invalid-conclusion counter is absent until first incremented; treat absent as zero.
-		let invalid = read_metric(node, invalid_metric).await.unwrap_or(0.0);
-		log::info!(
-			"disputes after {elapsed}s: total={total}, concluded_valid={valid}, \
-			 concluded_invalid={invalid}"
-		);
+		let invalid = read_metric(node, invalid_metric).await?;
 		assert!(
 			invalid == 0.0,
 			"a dispute concluded invalid ({invalid}); the honest supermajority must never lose",
 		);
 
-		if total >= 1.0 && valid >= total {
-			// All raised disputes concluded valid. Confirm no new dispute is still in flight.
-			tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
-			elapsed += STEP_SECS;
-			let total_after = read_metric(node, total_metric).await?;
-			let invalid_after = read_metric(node, invalid_metric).await.unwrap_or(0.0);
-			assert!(
-				invalid_after == 0.0,
-				"a dispute concluded invalid ({invalid_after}); the honest supermajority must never lose",
-			);
-			if total_after <= total {
-				return Ok(total_after);
-			}
+		// A step is quiet when nothing new was raised since the previous sample and everything
+		// raised so far has concluded valid. Any new dispute resets the window.
+		if total >= 1.0 && valid >= total && total <= prev_total {
+			quiet_steps += 1;
 		} else {
-			tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
-			elapsed += STEP_SECS;
+			quiet_steps = 0;
 		}
+		prev_total = total;
+
+		log::info!(
+			"disputes after {elapsed}s: total={total}, concluded_valid={valid}, \
+			 concluded_invalid={invalid}, quiet {}/{QUIET_STEPS}",
+			quiet_steps
+		);
+
+		if quiet_steps >= QUIET_STEPS {
+			return Ok(total);
+		}
+
+		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
+		elapsed += STEP_SECS;
 
 		if elapsed >= timeout_secs {
 			return Err(anyhow!(
-				"disputes did not all conclude valid within {timeout_secs}s \
-				 (total={total}, concluded_valid={valid})"
+				"disputes did not settle within {timeout_secs}s (total={total}, \
+				 concluded_valid={valid}, quiet for {}s of the required {QUIET_WINDOW_SECS}s)",
+				u64::from(quiet_steps) * STEP_SECS
 			));
 		}
 	}

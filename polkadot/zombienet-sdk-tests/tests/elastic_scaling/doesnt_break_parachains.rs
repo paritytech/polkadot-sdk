@@ -19,11 +19,10 @@ use zombienet_sdk::{
 };
 
 #[rstest]
-#[case::v2("test-parachain", None, false)]
-#[case::v3("test-parachain", Some("v3"), true)]
+#[case::v2(None, false)]
+#[case::v3(Some("v3"), true)]
 #[tokio::test(flavor = "multi_thread")]
 async fn doesnt_break_parachains_test(
-	#[case] collator_command: &str,
 	#[case] collator_chain: Option<&str>,
 	#[case] use_v3: bool,
 ) -> Result<(), anyhow::Error> {
@@ -84,7 +83,7 @@ async fn doesnt_break_parachains_test(
 		.with_parachain(|p| {
 			let p = p
 				.with_id(2000)
-				.with_default_command(collator_command)
+				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(collator_args);
 			let p = match collator_chain {
