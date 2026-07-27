@@ -411,6 +411,7 @@ impl<B: Backend> State<B> {
 				);
 			},
 			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
+				self.metrics.on_collation_blocked_on_parent(&reject_info.para_id);
 				gum::debug!(
 					target: LOG_TARGET,
 					?parent_hash,

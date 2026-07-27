@@ -149,6 +149,19 @@ impl Metrics {
 		}
 	}
 
+	/// Note a fetched collation that had to be parked because its parent is not yet known to
+	/// prospective-parachains and the collator didn't send the parent head data along with the
+	/// collation.
+	pub fn on_collation_blocked_on_parent(&self, para_id: &ParaId) {
+		if let Some(metrics) = &self.0 {
+			let para_id = u32::from(*para_id).to_string();
+			metrics
+				.collations_blocked_on_parent
+				.with_label_values(&[para_id.as_str()])
+				.inc();
+		}
+	}
+
 	/// Note a reputation slash for an invalid collation reported by the backing subsystem.
 	pub fn on_slash_invalid_collation(&self, para_id: &ParaId) {
 		if let Some(metrics) = &self.0 {
@@ -250,6 +263,7 @@ struct MetricsInner {
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
 	advertisements: prometheus::CounterVec<prometheus::U64>,
 	collations_seconded: prometheus::CounterVec<prometheus::U64>,
+	collations_blocked_on_parent: prometheus::CounterVec<prometheus::U64>,
 	slashes: prometheus::CounterVec<prometheus::U64>,
 	approved_peer_signals: prometheus::CounterVec<prometheus::U64>,
 	assigned_paras: prometheus::Gauge<prometheus::U64>,
@@ -315,6 +329,16 @@ impl metrics::Metrics for Metrics {
 					prometheus::Opts::new(
 						"polkadot_parachain_collator_protocol_validator_collations_seconded_total",
 						"Number of collations sent to the backing subsystem to be seconded, by para.",
+					),
+					&["para_id"],
+				)?,
+				registry,
+			)?,
+			collations_blocked_on_parent: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_collator_protocol_validator_collations_blocked_on_parent_total",
+						"Number of fetched collations that could not be seconded because their parent is unknown",
 					),
 					&["para_id"],
 				)?,
