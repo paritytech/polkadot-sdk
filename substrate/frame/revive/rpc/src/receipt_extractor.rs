@@ -438,13 +438,6 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.block_number());
 		})?;
 
-		let receipt_data =
-			(self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
-				log::trace!(target: LOG_TARGET,
-				"Receipt data not found for block #{} ({:?})",
-				block.block_number(), block.block_hash());
-				ClientError::ReceiptDataNotFound
-			})?;
 		let block_number = block.block_number();
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
@@ -463,6 +456,19 @@ impl ReceiptExtractor {
 				}
 			})
 			.collect();
+
+		// Only ask the runtime for receipt data once we know the block actually contains
+		// pallet-revive extrinsics.
+		let receipt_data = if extrinsics.is_empty() {
+			Vec::new()
+		} else {
+			(self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
+				log::trace!(target: LOG_TARGET,
+				"Receipt data not found for block #{} ({:?})",
+				block.block_number(), block.block_hash());
+				ClientError::ReceiptDataNotFound
+			})?
+		};
 
 		// Sanity check we received enough data from the pallet revive.
 		if receipt_data.len() != extrinsics.len() {
