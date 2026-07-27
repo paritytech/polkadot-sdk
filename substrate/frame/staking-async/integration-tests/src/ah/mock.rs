@@ -491,6 +491,8 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = RcClient;
 
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
+
+	type IsValidatorInactive = ();
 }
 
 // Session keys type that must match RC's SessionKeys.

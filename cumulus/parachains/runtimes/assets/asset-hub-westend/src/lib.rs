@@ -49,7 +49,9 @@ use assets_common::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{
+	relay_chain::AccountIndex, AggregateMessageOrigin, ParaId, VerifySchedulingSignature,
+};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -165,7 +167,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_006,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -335,7 +337,8 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
+	type CallbackHandle = ();
+	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -359,6 +362,7 @@ impl pallet_assets_holder::Config<AssetsHolderInstance> for Runtime {
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
+	pub MaxSwapFee: Permill = Permill::from_percent(2);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -390,6 +394,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -500,6 +505,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = LpFee;
+	type AdminOrigin = AssetsForceOrigin;
+	type MaxSwapFee = MaxSwapFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -652,6 +659,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
+	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -703,7 +711,14 @@ parameter_types! {
 impl pallet_recovery::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	// Benchmarks for `finish_attempt` / `cancel_attempt` advance `frame_system`'s block number,
+	// which does not move `RelaychainDataProvider`, causing `NotYetInheritable` /
+	// `NotYetCancelable`. Use `frame_system` under the benchmarking feature so the time-delay
+	// guards can be satisfied.
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type Currency = Balances;
 	type FriendGroupsConsideration = HoldConsideration<
 		AccountId,
@@ -725,7 +740,7 @@ impl pallet_recovery::Config for Runtime {
 	>;
 	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
 	type MaxFriendsPerConfig = ConstU32<100>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
 	type Slash = Dap;
 }
 
@@ -1021,6 +1036,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -1967,6 +1983,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
 	// unreleased
 	pallet_assets::migration::next_asset_id::SetNextAssetId<
 		ConstU32<50_000_000>,
@@ -2016,6 +2033,10 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	// Records the cutoff era from which the weighted-points validator self-stake
+	// incentive formula applies; pending pre-cutoff eras keep the legacy
+	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
+	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2231,9 +2252,11 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
+		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
 		[pallet_parameters, Parameters]
+		[pallet_recovery, Recovery]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
@@ -2282,6 +2305,16 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 
@@ -2719,6 +2752,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
@@ -2772,6 +2806,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					(keys.keys, keys.proof.encode())
 				}
 			}
+
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, PriceForParentDelivery};
 
