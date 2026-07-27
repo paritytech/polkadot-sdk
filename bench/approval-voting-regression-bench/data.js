@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785073482338,
+  "lastUpdate": 1785146484386,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "49bd017a06989799141af0809c0fbdd48d67b733",
-          "message": "[Release|CI/CD] Send release notifications to communication channels only in case of a stable release (#10419)\n\nCloses: https://github.com/paritytech/devops/issues/3831",
-          "timestamp": "2025-11-26T07:09:05Z",
-          "tree_id": "e8e6ac85c1830c106ffa4d06034d7006cd637fbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/49bd017a06989799141af0809c0fbdd48d67b733"
-        },
-        "date": 1764145138878,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63622.37999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5021509432100015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.530903746780001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.493961894879999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.0138847860700015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.41718084056999966,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6714262109509326,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001935478,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5147460491499993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005759745510000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001935478,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.478588006170002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002013864,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002013864,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.6248107355300014,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd9ba06f7068e6296f4f8663ccac485af3a0f547",
+          "message": "[Release|CI/CD] Add eth-rpc docker image to release flow (#12733)\n\nThis PR adds publishing and versioning of the eth-rpc aligned with the\nmain sdk release.\n\nCloses: https://github.com/paritytech/devops/issues/4431 &\nhttps://github.com/paritytech/release-engineering/issues/283",
+          "timestamp": "2026-07-27T08:17:17Z",
+          "tree_id": "5852b17c31697f25cd190f81e435ad900362cc42",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd9ba06f7068e6296f4f8663ccac485af3a0f547"
+        },
+        "date": 1785146453782,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.98,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.71156227413,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002333447,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8377281219399808,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.6257921298129165,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005573105560000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.685324170690001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023348529999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023348529999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6619412617100005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.67038336876,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.37214745183,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002333447,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.944659754619982,
             "unit": "seconds"
           }
         ]
