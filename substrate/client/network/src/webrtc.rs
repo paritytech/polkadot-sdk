@@ -143,10 +143,8 @@ fn derive_keys(seed: &[u8]) -> Result<(SigningKey, Vec<u8>), CertificateError> {
 	// Derive the P-256 signing key via RFC 9380 hash-to-field.
 	// This stretches the seed into pseudorandom bytes via `expand_message_xmd`,
 	// with field reduction for producing an EC private key.
-	let scalar = hash_to_scalar::<NistP256, ExpandMsgXmd<Sha256>, U48>(
-		&[&seed[..]],
-		&[CERTIFICATE_KEY_DST],
-	)?;
+	let scalar =
+		hash_to_scalar::<NistP256, ExpandMsgXmd<Sha256>, U48>(&[&seed], &[CERTIFICATE_KEY_DST])?;
 	let secret_scalar =
 		NonZeroScalar::new(scalar).into_option().ok_or(CertificateError::ZeroScalar)?;
 	let secret = SecretKey::from(secret_scalar);
@@ -170,8 +168,7 @@ fn derive_serial(seed: &[u8]) -> Result<SerialNumber, CertificateError> {
 }
 
 /// Fixed validity dates, required for determinism. WebRTC peers pin the certificate by
-/// certhash and ignore its lifetime, 99991231235959Z is RFC 5280's "no well-defined
-/// expiration date" value.
+/// certhash and ignore its lifetime.
 fn generate_validity() -> Validity {
 	let not_before = DateTime::new(2000, 1, 1, 0, 0, 0)
 		.and_then(UtcTime::from_date_time)
