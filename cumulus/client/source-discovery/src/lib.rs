@@ -67,9 +67,10 @@ pub use cumulus_client_bootnodes::{PeerRegistry, SourcePeers};
 const LOG_TARGET: &str = "source-discovery";
 
 /// How often the discovery loop re-resolves each source's peers as a steady-state
-/// safety net (the consumer's fetch loop reuses live peers and evicts bad ones),
-/// so this is deliberately unhurried.
-pub const DISCOVERY_REFRESH_INTERVAL: Duration = Duration::from_secs(5 * 60);
+/// safety net (the consumer's fetch loop reuses live peers and evicts bad ones).
+/// Kept well below the relay epoch length (so liveness self-heals far faster than
+/// the DHT provider record) and decoupled from the registry ban cooldown.
+pub const DISCOVERY_REFRESH_INTERVAL: Duration = Duration::from_secs(2 * 60);
 
 /// Timeout for a single source's `/paranode` discovery round. Discovery
 /// succeeds-once then stops; if a source has no reachable providers this bounds
