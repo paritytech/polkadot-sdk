@@ -1791,6 +1791,16 @@ async fn assert_new_active_leaf_messages(
 		}
 	);
 
+	// One SessionIndexForChild per ancestor, checking each stays within `expected_session_index`.
+	for _ in 0..(lookahead_value - 1) {
+		assert_matches!(
+			recv_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(expected_session_index));
+			}
+		);
+	}
+
 	// Second SessionIndexForChild — from handle_active_leaves_update's own
 	// get_session_index call (separate from the one in update_active_leaves_validation_backend).
 	assert_matches!(
