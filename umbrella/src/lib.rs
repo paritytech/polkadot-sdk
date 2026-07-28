@@ -706,10 +706,6 @@ pub use pallet_salary;
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
 
-/// FRAME pallet for scored pools.
-#[cfg(feature = "pallet-scored-pool")]
-pub use pallet_scored_pool;
-
 /// FRAME sessions pallet.
 #[cfg(feature = "pallet-session")]
 pub use pallet_session;
