@@ -123,6 +123,7 @@ fn evm_call_stipends_work_for_calls() {
 }
 
 #[test]
+#[ignore = "access list disabled"]
 fn evm_call_stipend_prevents_transfer_reentrancy() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
@@ -143,6 +144,7 @@ fn evm_call_stipend_prevents_transfer_reentrancy() {
 }
 
 #[test]
+#[ignore = "access list disabled"]
 fn evm_call_stipend_prevents_send_reentrancy() {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 

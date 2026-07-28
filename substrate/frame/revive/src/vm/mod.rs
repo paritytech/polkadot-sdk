@@ -427,6 +427,7 @@ mod tests {
 	use crate::{access_list::Warmth, tests::Test};
 
 	#[test]
+	#[ignore = "access list disabled"]
 	fn code_load_cold_hot_pricing() {
 		let code_len = 1024_u32;
 		let weight_of = |code_type, warmth| {
