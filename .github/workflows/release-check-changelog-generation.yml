@@ -100,10 +100,22 @@ jobs:
           export REF1="polkadot-previous-test" REF2="polkadot-${VERSION}-rc1"
           export RUSTC_STABLE="0.0" GENERATED_AT="2000-01-01T00:00:00Z"
 
+          # The full-release mode needs srtool digests; scripts/release/digests/
+          # is a gitignored drop-zone (empty in CI), so point the overrides at
+          # the committed fixtures instead.
+          FIXTURES="$PWD/scripts/release/test-fixtures/digests"
+          export ASSET_HUB_WESTEND_DIGEST="$FIXTURES/asset-hub-westend-srtool-digest.json"
+          export BRIDGE_HUB_WESTEND_DIGEST="$FIXTURES/bridge-hub-westend-srtool-digest.json"
+          export COLLECTIVES_WESTEND_DIGEST="$FIXTURES/collectives-westend-srtool-digest.json"
+          export CORETIME_WESTEND_DIGEST="$FIXTURES/coretime-westend-srtool-digest.json"
+          export GLUTTON_WESTEND_DIGEST="$FIXTURES/glutton-westend-srtool-digest.json"
+          export PEOPLE_WESTEND_DIGEST="$FIXTURES/people-westend-srtool-digest.json"
+          export WESTEND_DIGEST="$FIXTURES/westend-srtool-digest.json"
+
           # Both release shapes: a patch release without runtimes, and a full
           # quarterly release, which also exercises the srtool digest assembly
           # and the runtimes/compiler template branches (against the fixture
-          # digests in scripts/release/digests/).
+          # digests above).
           for MODE in patch full; do
             if [ "$MODE" = "patch" ]; then export NO_RUNTIMES=true; else export NO_RUNTIMES=false; fi
             ./scripts/release/build-changelogs.sh
