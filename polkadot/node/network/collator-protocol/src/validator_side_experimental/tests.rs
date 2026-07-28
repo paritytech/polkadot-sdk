@@ -4405,7 +4405,6 @@ async fn startup_populates_db_from_finalized_chain() {
 	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
 
 	assert!(db.witnessed_bumps().is_empty());
-	// assert!(db.witnessed_decay_values().is_empty());
 	assert_eq!(db.processed_finalized_block_number().await, Some(6));
 }
 
