@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785237016596,
+  "lastUpdate": 1785250801931,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -197183,6 +197183,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2271591777,
             "range": "± 88021156",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f2eeb2b81dc85f90bb9fc413cb56b9eac61f8b5",
+          "message": "Multi instance PSM (#12245)\n\n## Summary\n\nThis reworks `pallet-psm` from a single, governance-seeded Peg Stability\nModule into a multi-instance design where many independent PSMs can\ncoexist, each created permissionlessly and managed by its own admins. It\nreplaces the old model in which a single PSM was configured through the\npallet's `Config` and seeded via a one-off migration.\n\n## Motivation\n\nThe original pallet supported exactly one PSM, whose parameters were\nhardcoded into the runtime configuration and whose setup required\ngovernance. This change makes PSMs permissionlessly created, configured\nin storage, and governed by the accounts that create them.\n\n## What changed\n\n**Multiple instances.** A runtime can now hold any number of PSMs at\nonce. Each is identified by its internal (stablecoin) asset and tracks\nits own configuration, external assets, fees, and debt independently of\nthe others.\n\n**Configuration lives in storage, not in `Config`.** Per-PSM parameters\nthat used to be compile-time constants or single-value storage now live\nin maps keyed per PSM. A module can therefore be created and updated at\nruntime without a code change or migration.\n\n**Multiple backing assets per PSM.** Each PSM can be backed by several\nexternal assets. All per-asset state (status, ceilings, debt, decimal\ninformation) is keyed by the (PSM, backing-asset) pair, so adding or\nremoving a backing asset is a self-contained operation that cleans up\nafter itself.\n\n**Creation by the asset owner, with a refundable deposit.** Only the\ninternal asset's owner can create its PSM (no governance origin needed);\nthey lock a refundable native deposit, name the full and emergency\nadmins, and are refunded on removal.\n\n**Creation is restricted to the asset owner.** Creating a PSM requires\nthe caller to be the owner of the internal asset. A PSM mints and burns\nits internal asset through a privileged path that does not perform the\nusual issuer check, so without this restriction anyone could register a\nPSM over an asset they do not control and mint it against worthless\ncollateral. Tying creation to ownership ensures a PSM can only be set up\nby the party that actually controls the asset.\n\n**Per-PSM admin model.** Each PSM carries a full admin and an emergency\nadmin, allowing management and emergency actions to be delegated\nseparately.\n\n**State separation.** The data touched on every mint and redeem is\nstored separately from the rarely-used administrative data, keeping the\nswap path small and cheap.\n\n**Removed migrations.** There is no data migration. The pallet is\nredeployed cleanly (its old storage is removed and the storage version\nreset), so existing per-instance state is not carried over.\n\n## Changes beyond `pallet-psm`\n\n**`frame-support`: `fungibles::UnionOf` (additive).** `UnionOf` now\nimplements `fungibles::roles::Inspect`, forwarding\n`owner`/`issuer`/`admin`/`freezer` to whichever side owns the asset.\nThis is needed given that we need to know the asset owner for\n`create_psm`.\n\n**Runtime wiring.** `pallet-psm` is re-configured for the new\nmulti-instance `Config` in the runtimes that use it (Asset Hub Westend\nand the kitchensink runtime).\n\n**Asset Hub Westend redeploy.** Since there is no data migration, the\nruntime wipes the pallet's old storage and resets its storage version on\nupgrade (a `RemovePallet` for the pallet plus a one-shot storage-version\nreset). Existing on-chain PSM state is not carried forward; instances\nare created on demand afterwards.\n\n**`pallet-parameters` removed from Asset Hub Westend.** Its only use was\na system-wide PSM issuance cap, which the per-PSM debt ceiling replaces.\nThe pallet is removed from the runtime, and its on-chain storage is\ncleaned up with a `RemovePallet` migration.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-28T13:30:11Z",
+          "tree_id": "f89d163258e1439035de5d6711e3100d10298ed9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f2eeb2b81dc85f90bb9fc413cb56b9eac61f8b5"
+        },
+        "date": 1785250770234,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4339442,
+            "range": "± 14214",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 288100,
+            "range": "± 1019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4455133,
+            "range": "± 15474",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 358480,
+            "range": "± 2972",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5223454,
+            "range": "± 38833",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 876186,
+            "range": "± 4591",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10655258,
+            "range": "± 28455",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4610023,
+            "range": "± 60986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41461175,
+            "range": "± 256846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37043598,
+            "range": "± 209573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 349206705,
+            "range": "± 3679020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 298279479,
+            "range": "± 2104155",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2561783898,
+            "range": "± 7329124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2338793293,
+            "range": "± 17758412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3306145,
+            "range": "± 17983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1821202,
+            "range": "± 7371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3414923,
+            "range": "± 19826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1882405,
+            "range": "± 13091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3871975,
+            "range": "± 25217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2190501,
+            "range": "± 8540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7675686,
+            "range": "± 39864",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5135054,
+            "range": "± 38094",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 41380340,
+            "range": "± 714737",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35107741,
+            "range": "± 248665",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 308370115,
+            "range": "± 1787593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 274979495,
+            "range": "± 1530630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2396969582,
+            "range": "± 13560197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2380020756,
+            "range": "± 40408489",
             "unit": "ns/iter"
           }
         ]
