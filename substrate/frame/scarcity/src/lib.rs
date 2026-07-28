@@ -17,8 +17,20 @@
 
 //! # Scarcity Pallet
 //!
-//! `pallet-scarcity` defines immutable NFT collections and item definitions, then mints instances
-//! using a coinage-style ownership model: each purse key can hold at most one NFT.
+//! `pallet-scarcity` defines NFT collections and item definitions, then mints instances using a
+//! coinage-style ownership model: each purse key can hold at most one NFT. Item identity (`kind`,
+//! `next_variant`, and `supply`) and ownership remain immutable except through
+//! mint/transfer/burn, while owner-managed metadata is mutable at collection and item levels.
+//!
+//! Collection metadata supplies defaults inherited by every item. An item's complete metadata
+//! picture is built by iterating both storage prefixes and merging the item's entries over the
+//! collection entries; the item value wins when both scopes contain the same key.
+//! [`Pallet::metadata_of`] performs that resolution for one key, while
+//! [`Pallet::collection_metadata_of`] reads only the collection scope.
+//!
+//! Keys and values are bounded raw bytes. Numeric metadata is a convention rather than a pallet
+//! type: games should use SCALE-encoded `u128` values when they need a shared numeric convention,
+//! and must decode and validate those bytes themselves.
 //!
 //! Transfers are feeless when authorized through the [`AsScarcity`](extension::AsScarcity)
 //! transaction extension. Their transaction priority is the time since the NFT last moved,
@@ -52,35 +64,24 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	#[cfg(any(test, feature = "try-runtime"))]
 	use sp_runtime::TryRuntimeError;
-	use sp_runtime::{transaction_validity::TransactionPriority, DispatchError};
+	use sp_runtime::{transaction_validity::TransactionPriority, ArithmeticError, DispatchError};
 
 	pub type CollectionId = u32;
 	/// Index within a collection; `(CollectionId, ItemIndex)` names an item definition.
 	pub type ItemIndex = u32;
 	/// Permanent global serial, assigned at mint.
 	pub type InstanceId = u64;
-	pub type AttrId = u16;
+	pub type MetadataKeyOf<T> = BoundedVec<u8, <T as Config>::MaxKeyLen>;
+	pub type MetadataValueOf<T> = BoundedVec<u8, <T as Config>::MaxValueLen>;
 
-	/// One typed, on-chain-comparable statistic of an item definition.
-	///
-	/// Encodes identically to `(AttrId, u128)`; the named fields exist for metadata legibility.
+	/// One stored metadata entry and the deposit backing it.
 	#[derive(
-		Clone,
-		Copy,
-		PartialEq,
-		Eq,
-		Debug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		TypeInfo,
-		MaxEncodedLen,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 	)]
-	pub struct Stat {
-		/// Collection-defined attribute identifier; the schema is a per-collection convention.
-		pub attr: AttrId,
-		/// The attribute's numeric value.
-		pub value: u128,
+	#[scale_info(skip_type_params(Ticket))]
+	pub struct MetadataEntry<Value, Ticket> {
+		pub value: Value,
+		pub ticket: Ticket,
 	}
 
 	/// The display and fusion class of an immutable item definition.
@@ -136,19 +137,11 @@ pub mod pallet {
 		TypeInfo,
 		MaxEncodedLen,
 	)]
-	#[scale_info(skip_type_params(MaxStats, MaxMetadata, ItemDefConsideration))]
-	pub struct ItemDefinition<
-		MaxStats: Get<u32>,
-		MaxMetadata: Get<u32>,
-		ItemDefConsideration: Member,
-	> {
+	#[scale_info(skip_type_params(ItemDefConsideration))]
+	pub struct ItemDefinition<ItemDefConsideration: Member> {
 		pub kind: Kind,
 		/// A same-collection link toward the rarer variant of this concept.
 		pub next_variant: Option<ItemIndex>,
-		/// Typed, on-chain-comparable statistics.
-		pub stats: BoundedVec<Stat, MaxStats>,
-		/// Opaque display metadata.
-		pub metadata: BoundedVec<u8, MaxMetadata>,
 		/// Number of instances ever minted from this definition; burns do not decrement it.
 		pub supply: u32,
 		/// Item-definition storage deposit paid by the issuer.
@@ -167,10 +160,6 @@ pub mod pallet {
 		pub minted_at: u64,
 		/// Unix seconds; equal to `minted_at` until the first transfer.
 		pub last_moved: u64,
-		/// Times this instance has moved. Strictly monotonic — the authorization epoch for any
-		/// detached-signature flow (sponsored transfers, profile bindings): signatures bind this
-		/// value and die on the next move by construction.
-		pub moves: u32,
 	}
 
 	/// Post-failure backoff lock for an NFT purse key.
@@ -214,8 +203,46 @@ pub mod pallet {
 		CollectionId,
 		Twox64Concat,
 		ItemIndex,
-		ItemDefinition<T::MaxStats, T::MaxMetadata, T::ItemDefConsideration>,
+		ItemDefinition<T::ItemDefConsideration>,
 	>;
+
+	/// Collection-wide defaults inherited by every item in a collection.
+	///
+	/// With no collection deletion call, entries persist until the owner removes them explicitly.
+	#[pallet::storage]
+	pub type CollectionMetadata<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		CollectionId,
+		Blake2_128Concat,
+		MetadataKeyOf<T>,
+		MetadataEntry<MetadataValueOf<T>, T::MetadataConsideration>,
+	>;
+
+	/// Per-item entries which override collection defaults for the same key.
+	///
+	/// Item definitions outlive minted instances, so burning an instance never removes these
+	/// entries. With no item deletion call, entries persist until the owner removes them.
+	#[pallet::storage]
+	pub type ItemMetadata<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Twox64Concat, CollectionId>,
+			NMapKey<Twox64Concat, ItemIndex>,
+			NMapKey<Blake2_128Concat, MetadataKeyOf<T>>,
+		),
+		MetadataEntry<MetadataValueOf<T>, T::MetadataConsideration>,
+	>;
+
+	/// Number of collection metadata entries in each collection scope.
+	#[pallet::storage]
+	pub type CollectionMetadataCount<T> =
+		StorageMap<_, Twox64Concat, CollectionId, u32, ValueQuery>;
+
+	/// Number of item metadata entries in each `(collection, item)` scope.
+	#[pallet::storage]
+	pub type ItemMetadataCount<T> =
+		StorageDoubleMap<_, Twox64Concat, CollectionId, Twox64Concat, ItemIndex, u32, ValueQuery>;
 
 	/// The next permanent instance identifier to allocate.
 	#[pallet::storage]
@@ -256,6 +283,14 @@ pub mod pallet {
 		Transferred { instance: InstanceId, to: T::AccountId },
 		/// An instance was permanently removed.
 		Burned { instance: InstanceId },
+		/// A collection-level metadata default was inserted or overwritten.
+		CollectionMetadataSet { collection: CollectionId, key: MetadataKeyOf<T> },
+		/// A collection-level metadata default was removed.
+		CollectionMetadataRemoved { collection: CollectionId, key: MetadataKeyOf<T> },
+		/// An item-level metadata override was inserted or overwritten.
+		ItemMetadataSet { collection: CollectionId, item: ItemIndex, key: MetadataKeyOf<T> },
+		/// An item-level metadata override was removed.
+		ItemMetadataRemoved { collection: CollectionId, item: ItemIndex, key: MetadataKeyOf<T> },
 	}
 
 	#[pallet::error]
@@ -280,6 +315,8 @@ pub mod pallet {
 		SupplyOverflow,
 		/// An NFT cannot be transferred to its current purse key.
 		SelfTransfer,
+		/// A collection or item scope already contains the maximum metadata entries.
+		TooManyMetadataEntries,
 	}
 
 	#[pallet::pallet]
@@ -338,13 +375,20 @@ pub mod pallet {
 		/// Deposit for one issuer-minted instance's storage, charged to the collection owner.
 		type InstanceConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// Maximum typed statistics stored per immutable item definition.
-		#[pallet::constant]
-		type MaxStats: Get<u32>;
+		/// Deposit for one metadata entry, charged to the collection owner.
+		type MetadataConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// Maximum opaque metadata bytes stored per immutable item definition.
+		/// Maximum byte length of one metadata key.
 		#[pallet::constant]
-		type MaxMetadata: Get<u32>;
+		type MaxKeyLen: Get<u32>;
+
+		/// Maximum byte length of one metadata value.
+		#[pallet::constant]
+		type MaxValueLen: Get<u32>;
+
+		/// Maximum metadata entries in one collection scope or one item scope.
+		#[pallet::constant]
+		type MaxMetadataEntries: Get<u32>;
 
 		/// Base lock period after a failed purse-key dispatch, in seconds.
 		#[pallet::constant]
@@ -368,19 +412,18 @@ pub mod pallet {
 		/// Define one immutable item in a collection owned by the signer.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::define_item(
-			stats.len() as u32,
 			metadata.len() as u32,
+			metadata.iter().map(|(_, value)| value.len() as u32).max().unwrap_or(0),
 		))]
 		pub fn define_item(
 			origin: OriginFor<T>,
 			collection: CollectionId,
 			kind: Kind,
 			next_variant: Option<ItemIndex>,
-			stats: BoundedVec<Stat, T::MaxStats>,
-			metadata: BoundedVec<u8, T::MaxMetadata>,
+			metadata: BoundedVec<(MetadataKeyOf<T>, MetadataValueOf<T>), T::MaxMetadataEntries>,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
-			Self::do_define_item(owner, collection, kind, next_variant, stats, metadata).map(|_| ())
+			Self::do_define_item(owner, collection, kind, next_variant, metadata).map(|_| ())
 		}
 
 		/// Mint an instance of an immutable item definition into an empty purse key.
@@ -406,11 +449,7 @@ pub mod pallet {
 			ensure!(to != owner, Error::<T>::SelfTransfer);
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
 
-			let nft = Nft {
-				last_moved: T::UnixTime::now().as_secs(),
-				moves: nft.moves.saturating_add(1),
-				..nft
-			};
+			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), ..nft };
 			NftsByOwner::<T>::insert(&to, nft.clone());
 			Instances::<T>::insert(nft.instance, &to);
 			Self::deposit_event(Event::Transferred { instance: nft.instance, to });
@@ -420,6 +459,7 @@ pub mod pallet {
 		/// Burn an NFT held by the `Origin::Nft` purse-key origin.
 		///
 		/// Item-definition supply counts minted-ever instances and is deliberately monotonic.
+		/// Item metadata belongs to the definition, not this instance, and remains untouched.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
@@ -436,6 +476,41 @@ pub mod pallet {
 			}
 			Self::deposit_event(Event::Burned { instance: nft.instance });
 			Ok(Pays::No.into())
+		}
+
+		/// Set or remove a collection-level metadata default.
+		///
+		/// Only the collection owner may mutate metadata. `None` releases an existing entry's
+		/// deposit; when the key is absent it is a successful no-op.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::set_collection_metadata())]
+		#[transactional]
+		pub fn set_collection_metadata(
+			origin: OriginFor<T>,
+			collection: CollectionId,
+			key: MetadataKeyOf<T>,
+			value: Option<MetadataValueOf<T>>,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_set_collection_metadata(&owner, collection, key, value)
+		}
+
+		/// Set or remove an item-level metadata override.
+		///
+		/// Only the collection owner may mutate metadata. `None` releases an existing entry's
+		/// deposit; when the key is absent it is a successful no-op.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::set_item_metadata())]
+		#[transactional]
+		pub fn set_item_metadata(
+			origin: OriginFor<T>,
+			collection: CollectionId,
+			item: ItemIndex,
+			key: MetadataKeyOf<T>,
+			value: Option<MetadataValueOf<T>>,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_set_item_metadata(&owner, collection, item, key, value)
 		}
 	}
 
@@ -462,13 +537,13 @@ pub mod pallet {
 		}
 
 		/// Add an immutable item definition to an issuer-owned collection.
+		#[transactional]
 		pub fn do_define_item(
 			owner: T::AccountId,
 			collection: CollectionId,
 			kind: Kind,
 			next_variant: Option<ItemIndex>,
-			stats: BoundedVec<Stat, T::MaxStats>,
-			metadata: BoundedVec<u8, T::MaxMetadata>,
+			metadata: BoundedVec<(MetadataKeyOf<T>, MetadataValueOf<T>), T::MaxMetadataEntries>,
 		) -> Result<ItemIndex, DispatchError> {
 			let mut info =
 				Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
@@ -483,20 +558,158 @@ pub mod pallet {
 			let item = info.next_item_index;
 			info.next_item_index = item.checked_add(1).ok_or(Error::<T>::TooManyItems)?;
 			let definition_without_ticket =
-				ItemDefinition { kind, next_variant, stats, metadata, supply: 0, ticket: () };
+				ItemDefinition { kind, next_variant, supply: 0, ticket: () };
 			let definition_size = definition_without_ticket
 				.encoded_size()
 				.saturating_add(T::ItemDefConsideration::max_encoded_len());
 			let ticket =
 				T::ItemDefConsideration::new(&owner, Footprint::from_parts(1, definition_size))?;
-			let ItemDefinition { kind, next_variant, stats, metadata, supply, ticket: () } =
+			let ItemDefinition { kind, next_variant, supply, ticket: () } =
 				definition_without_ticket;
-			let definition = ItemDefinition { kind, next_variant, stats, metadata, supply, ticket };
+			let definition = ItemDefinition { kind, next_variant, supply, ticket };
 
 			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
 			Self::deposit_event(Event::ItemDefined { collection, item, kind });
+			for (key, value) in metadata {
+				Self::do_set_item_metadata(&owner, collection, item, key, Some(value))?;
+			}
 			Ok(item)
+		}
+
+		/// Effective value for `key` on `(collection, item)`.
+		///
+		/// An item-level entry wins; otherwise the collection-level default is returned.
+		pub fn metadata_of(
+			collection: CollectionId,
+			item: ItemIndex,
+			key: &MetadataKeyOf<T>,
+		) -> Option<MetadataValueOf<T>> {
+			ItemMetadata::<T>::get((collection, item, key.clone()))
+				.map(|entry| entry.value)
+				.or_else(|| Self::collection_metadata_of(collection, key))
+		}
+
+		/// Only the collection-level value for `key`, without item-level resolution.
+		pub fn collection_metadata_of(
+			collection: CollectionId,
+			key: &MetadataKeyOf<T>,
+		) -> Option<MetadataValueOf<T>> {
+			CollectionMetadata::<T>::get(collection, key).map(|entry| entry.value)
+		}
+
+		fn metadata_footprint(key: &MetadataKeyOf<T>, value: &MetadataValueOf<T>) -> Footprint {
+			Footprint::from_parts(1, key.len().saturating_add(value.len()))
+		}
+
+		fn do_set_collection_metadata(
+			owner: &T::AccountId,
+			collection: CollectionId,
+			key: MetadataKeyOf<T>,
+			value: Option<MetadataValueOf<T>>,
+		) -> DispatchResult {
+			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
+			ensure!(info.owner == *owner, Error::<T>::NoPermission);
+
+			match (CollectionMetadata::<T>::get(collection, &key), value) {
+				(Some(entry), Some(value)) => {
+					let ticket =
+						entry.ticket.update(owner, Self::metadata_footprint(&key, &value))?;
+					CollectionMetadata::<T>::insert(
+						collection,
+						&key,
+						MetadataEntry { value, ticket },
+					);
+					Self::deposit_event(Event::CollectionMetadataSet { collection, key });
+				},
+				(None, Some(value)) => {
+					let count = CollectionMetadataCount::<T>::get(collection);
+					ensure!(
+						count < T::MaxMetadataEntries::get(),
+						Error::<T>::TooManyMetadataEntries
+					);
+					let ticket = T::MetadataConsideration::new(
+						owner,
+						Self::metadata_footprint(&key, &value),
+					)?;
+					CollectionMetadata::<T>::insert(
+						collection,
+						&key,
+						MetadataEntry { value, ticket },
+					);
+					CollectionMetadataCount::<T>::insert(collection, count.saturating_add(1));
+					Self::deposit_event(Event::CollectionMetadataSet { collection, key });
+				},
+				(Some(entry), None) => {
+					let count = CollectionMetadataCount::<T>::get(collection);
+					let next_count = count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
+					entry.ticket.drop(owner)?;
+					CollectionMetadata::<T>::remove(collection, &key);
+					if next_count == 0 {
+						CollectionMetadataCount::<T>::remove(collection);
+					} else {
+						CollectionMetadataCount::<T>::insert(collection, next_count);
+					}
+					Self::deposit_event(Event::CollectionMetadataRemoved { collection, key });
+				},
+				(None, None) => {},
+			}
+			Ok(())
+		}
+
+		fn do_set_item_metadata(
+			owner: &T::AccountId,
+			collection: CollectionId,
+			item: ItemIndex,
+			key: MetadataKeyOf<T>,
+			value: Option<MetadataValueOf<T>>,
+		) -> DispatchResult {
+			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
+			ensure!(info.owner == *owner, Error::<T>::NoPermission);
+			ensure!(ItemDefs::<T>::contains_key(collection, item), Error::<T>::UnknownItem);
+
+			match (ItemMetadata::<T>::get((collection, item, key.clone())), value) {
+				(Some(entry), Some(value)) => {
+					let ticket =
+						entry.ticket.update(owner, Self::metadata_footprint(&key, &value))?;
+					ItemMetadata::<T>::insert(
+						(collection, item, key.clone()),
+						MetadataEntry { value, ticket },
+					);
+					Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
+				},
+				(None, Some(value)) => {
+					let count = ItemMetadataCount::<T>::get(collection, item);
+					ensure!(
+						count < T::MaxMetadataEntries::get(),
+						Error::<T>::TooManyMetadataEntries
+					);
+					let ticket = T::MetadataConsideration::new(
+						owner,
+						Self::metadata_footprint(&key, &value),
+					)?;
+					ItemMetadata::<T>::insert(
+						(collection, item, key.clone()),
+						MetadataEntry { value, ticket },
+					);
+					ItemMetadataCount::<T>::insert(collection, item, count.saturating_add(1));
+					Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
+				},
+				(Some(entry), None) => {
+					let count = ItemMetadataCount::<T>::get(collection, item);
+					let next_count = count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
+					entry.ticket.drop(owner)?;
+					ItemMetadata::<T>::remove((collection, item, key.clone()));
+					if next_count == 0 {
+						ItemMetadataCount::<T>::remove(collection, item);
+					} else {
+						ItemMetadataCount::<T>::insert(collection, item, next_count);
+					}
+					Self::deposit_event(Event::ItemMetadataRemoved { collection, item, key });
+				},
+				(None, None) => {},
+			}
+			Ok(())
 		}
 
 		/// Mint an instance after enforcing collection ownership and the one-NFT-per-key rule.
@@ -540,7 +753,7 @@ pub mod pallet {
 			let next_instance = instance.checked_add(1).ok_or(Error::<T>::TooManyInstances)?;
 			let next_supply = definition.supply.checked_add(1).ok_or(Error::<T>::SupplyOverflow)?;
 			let now = T::UnixTime::now().as_secs();
-			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now, moves: 0 };
+			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now };
 			let instance_ticket = if let Some(owner) = deposit_owner {
 				Some(T::InstanceConsideration::new(
 					owner,
@@ -565,7 +778,7 @@ pub mod pallet {
 
 	#[cfg(any(test, feature = "try-runtime"))]
 	impl<T: Config> Pallet<T> {
-		/// Check ownership indexes and that every instance-deposit ticket belongs to an instance.
+		/// Check ownership indexes, deposit-ticket ownership, and metadata count invariants.
 		pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
 			for (owner, nft) in NftsByOwner::<T>::iter() {
 				if Instances::<T>::get(nft.instance) != Some(owner) {
@@ -590,6 +803,78 @@ pub mod pallet {
 				if !Instances::<T>::contains_key(instance) {
 					return Err(TryRuntimeError::Other(
 						"InstanceDeposits entry has no matching instance",
+					));
+				}
+			}
+
+			for (collection, _, _) in CollectionMetadata::<T>::iter() {
+				if !Collections::<T>::contains_key(collection) {
+					return Err(TryRuntimeError::Other(
+						"CollectionMetadata entry has no matching collection",
+					));
+				}
+			}
+
+			for collection in Collections::<T>::iter_keys() {
+				let actual = CollectionMetadata::<T>::iter_prefix(collection).count() as u32;
+				let stored = CollectionMetadataCount::<T>::get(collection);
+				if actual != stored {
+					return Err(TryRuntimeError::Other(
+						"CollectionMetadataCount does not match stored entries",
+					));
+				}
+				if stored > T::MaxMetadataEntries::get() {
+					return Err(TryRuntimeError::Other(
+						"CollectionMetadataCount exceeds MaxMetadataEntries",
+					));
+				}
+			}
+
+			for (collection, count) in CollectionMetadataCount::<T>::iter() {
+				if !Collections::<T>::contains_key(collection) {
+					return Err(TryRuntimeError::Other(
+						"CollectionMetadataCount has no matching collection",
+					));
+				}
+				if count > T::MaxMetadataEntries::get() {
+					return Err(TryRuntimeError::Other(
+						"CollectionMetadataCount exceeds MaxMetadataEntries",
+					));
+				}
+			}
+
+			for ((collection, item, _), _) in ItemMetadata::<T>::iter() {
+				if !ItemDefs::<T>::contains_key(collection, item) {
+					return Err(TryRuntimeError::Other(
+						"ItemMetadata entry has no matching item definition",
+					));
+				}
+			}
+
+			for (collection, item, _) in ItemDefs::<T>::iter() {
+				let actual = ItemMetadata::<T>::iter_prefix((collection, item)).count() as u32;
+				let stored = ItemMetadataCount::<T>::get(collection, item);
+				if actual != stored {
+					return Err(TryRuntimeError::Other(
+						"ItemMetadataCount does not match stored entries",
+					));
+				}
+				if stored > T::MaxMetadataEntries::get() {
+					return Err(TryRuntimeError::Other(
+						"ItemMetadataCount exceeds MaxMetadataEntries",
+					));
+				}
+			}
+
+			for (collection, item, count) in ItemMetadataCount::<T>::iter() {
+				if !ItemDefs::<T>::contains_key(collection, item) {
+					return Err(TryRuntimeError::Other(
+						"ItemMetadataCount has no matching item definition",
+					));
+				}
+				if count > T::MaxMetadataEntries::get() {
+					return Err(TryRuntimeError::Other(
+						"ItemMetadataCount exceeds MaxMetadataEntries",
 					));
 				}
 			}

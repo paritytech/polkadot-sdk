@@ -5,14 +5,17 @@ doc:
     Adds `pallet-scarcity`, a FRAME pallet for collectible instances under a
     coinage-style ownership model: one instance per fresh purse public key,
     with a stable `InstanceId` reverse index as the external handle. Item
-    definitions (typed comparable stats plus an opaque metadata blob) are
-    immutable once written and may be minted many times.
+    identity is immutable once written and may be minted many times. Metadata
+    is a two-level mutable key/value store: collection entries provide
+    defaults and item entries override the same key. Only the collection owner
+    may write either scope; each entry has its own deposit and there is no
+    metadata freeze mechanism.
 
     Storage deposits are paid on the supply side: the creator pays for a
     collection, the issuer pays for each item definition, and the collection
-    owner pays for each ordinarily minted instance. Trusted claim-path mints
-    waive only the instance deposit because their volume is bounded by claim
-    credits.
+    owner pays for each metadata entry and ordinarily minted instance. Trusted
+    claim-path mints waive only the instance deposit because their volume is
+    bounded by claim credits.
 
     Transfers and burns are feeless and authorized by the owning purse key
     through the `AsScarcity` transaction extension, which elevates a custom
@@ -20,12 +23,14 @@ doc:
     assigns transaction priority proportional to the instance's rest time
     (seconds since it last moved, capped), and restores the instance with a
     quadratic backoff lock when dispatch fails. Burning releases any instance
-    deposit while keeping item supply monotonic. The replay model is
-    nonce-free: consumption-on-use, a per-key `provides` tag, transaction
-    mortality, and failure locks.
+    deposit while keeping item supply monotonic. The separate replay-epoch
+    field was removed as unnecessary: the replay model is nonce-free through
+    consumption-on-use, a per-key `provides` tag, transaction mortality, and
+    failure locks.
 
-    A `try_state` hook verifies the owner/reverse-index bijection and rejects
-    orphaned instance-deposit tickets.
+    A `try_state` hook verifies the owner/reverse-index bijection, rejects
+    orphaned instance-deposit tickets and metadata, and checks metadata counts
+    and per-scope limits.
 crates:
 - name: pallet-scarcity
   bump: major

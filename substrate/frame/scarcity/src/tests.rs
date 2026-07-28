@@ -22,8 +22,9 @@
 use crate::{
 	extension::{AsScarcity, AsScarcityInfo, CustomInvalidity, Pre, Val},
 	mock::*,
-	Collections, Error, Event, InstanceDeposits, Instances, ItemDefs, Kind, LockInfo, Locked, Nft,
-	NftsByOwner, Origin, Stat,
+	CollectionMetadata, CollectionMetadataCount, Collections, Error, Event, InstanceDeposits,
+	Instances, ItemDefs, ItemMetadata, ItemMetadataCount, Kind, LockInfo, Locked, MetadataKeyOf,
+	MetadataValueOf, Nft, NftsByOwner, Origin,
 };
 use codec::Encode;
 #[cfg(feature = "try-runtime")]
@@ -31,7 +32,7 @@ use frame_support::traits::Hooks;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::Pays,
-	traits::{ConstU32, OriginTrait},
+	traits::{ConstU32, Footprint, OriginTrait},
 	BoundedVec,
 };
 use sp_runtime::{
@@ -46,14 +47,23 @@ const OWNER: u64 = 1;
 const OTHER: u64 = 2;
 const RECIPIENT: u64 = 3;
 
-fn stats() -> BoundedVec<Stat, ConstU32<16>> {
-	vec![Stat { attr: 1, value: 42 }]
-		.try_into()
-		.expect("statistics fit the test bound")
+fn key(value: &[u8]) -> MetadataKeyOf<Test> {
+	value.to_vec().try_into().expect("metadata key fits the test bound")
 }
 
-fn metadata() -> BoundedVec<u8, ConstU32<256>> {
-	vec![1, 2, 3].try_into().expect("metadata fits the test bound")
+fn value(value: &[u8]) -> MetadataValueOf<Test> {
+	value.to_vec().try_into().expect("metadata value fits the test bound")
+}
+
+fn metadata(
+	entries: &[(&[u8], &[u8])],
+) -> BoundedVec<(MetadataKeyOf<Test>, MetadataValueOf<Test>), ConstU32<2>> {
+	entries
+		.iter()
+		.map(|(key_bytes, value_bytes)| (key(key_bytes), value(value_bytes)))
+		.collect::<Vec<_>>()
+		.try_into()
+		.expect("metadata entries fit the test bound")
 }
 
 fn define(collection: u32, kind: Kind, next_variant: Option<u32>) {
@@ -62,8 +72,7 @@ fn define(collection: u32, kind: Kind, next_variant: Option<u32>) {
 		collection,
 		kind,
 		next_variant,
-		stats(),
-		metadata(),
+		metadata(&[]),
 	));
 }
 
@@ -232,8 +241,7 @@ fn define_item_requires_collection_owner() {
 				0,
 				Kind::Normal,
 				None,
-				stats(),
-				metadata(),
+				metadata(&[]),
 			),
 			Error::<Test>::NoPermission
 		);
@@ -243,8 +251,7 @@ fn define_item_requires_collection_owner() {
 				99,
 				Kind::Normal,
 				None,
-				stats(),
-				metadata(),
+				metadata(&[]),
 			),
 			Error::<Test>::UnknownCollection
 		);
@@ -279,8 +286,7 @@ fn define_item_validates_next_variant() {
 				0,
 				Kind::Special,
 				Some(0),
-				stats(),
-				metadata(),
+				metadata(&[]),
 			),
 			Error::<Test>::UnknownVariant
 		);
@@ -288,6 +294,360 @@ fn define_item_validates_next_variant() {
 		define(0, Kind::Charm, None);
 		define(0, Kind::Special, Some(0));
 		assert_eq!(ItemDefs::<Test>::get(0, 1).unwrap().next_variant, Some(0));
+	});
+}
+
+#[test]
+fn metadata_resolution_prefers_item_then_falls_back_to_collection() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let shared = key(b"shared");
+		let inherited = key(b"inherited");
+		let absent = key(b"absent");
+
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			shared.clone(),
+			Some(value(b"collection")),
+		));
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			inherited.clone(),
+			Some(value(b"default")),
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			shared.clone(),
+			Some(value(b"item")),
+		));
+
+		assert_eq!(Scarcity::collection_metadata_of(0, &shared), Some(value(b"collection")));
+		assert_eq!(Scarcity::metadata_of(0, 0, &shared), Some(value(b"item")));
+		assert_eq!(Scarcity::metadata_of(0, 0, &inherited), Some(value(b"default")));
+		assert_eq!(Scarcity::metadata_of(0, 0, &absent), None);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn metadata_mutation_is_owner_only_at_both_levels() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let collection_key = key(b"collection");
+		let item_key = key(b"item");
+
+		assert_noop!(
+			Scarcity::set_collection_metadata(
+				RuntimeOrigin::signed(OTHER),
+				0,
+				collection_key.clone(),
+				Some(value(b"denied")),
+			),
+			Error::<Test>::NoPermission
+		);
+		assert_noop!(
+			Scarcity::set_item_metadata(
+				RuntimeOrigin::signed(OTHER),
+				0,
+				0,
+				item_key.clone(),
+				Some(value(b"denied")),
+			),
+			Error::<Test>::NoPermission
+		);
+
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			collection_key.clone(),
+			Some(value(b"first")),
+		));
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			collection_key.clone(),
+			Some(value(b"second")),
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			item_key.clone(),
+			Some(value(b"first")),
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			item_key.clone(),
+			Some(value(b"second")),
+		));
+		System::assert_has_event(
+			Event::<Test>::CollectionMetadataSet { collection: 0, key: collection_key.clone() }
+				.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::ItemMetadataSet { collection: 0, item: 0, key: item_key.clone() }.into(),
+		);
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			collection_key.clone(),
+			None,
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			item_key.clone(),
+			None,
+		));
+		System::assert_has_event(
+			Event::<Test>::CollectionMetadataRemoved { collection: 0, key: collection_key.clone() }
+				.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::ItemMetadataRemoved { collection: 0, item: 0, key: item_key.clone() }
+				.into(),
+		);
+
+		assert!(!CollectionMetadata::<Test>::contains_key(0, collection_key));
+		assert!(!ItemMetadata::<Test>::contains_key((0, 0, item_key)));
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn metadata_mutation_rejects_unknown_collection_and_item() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Scarcity::set_collection_metadata(
+				RuntimeOrigin::signed(OWNER),
+				99,
+				key(b"key"),
+				Some(value(b"value")),
+			),
+			Error::<Test>::UnknownCollection
+		);
+		assert_noop!(
+			Scarcity::set_item_metadata(
+				RuntimeOrigin::signed(OWNER),
+				99,
+				0,
+				key(b"key"),
+				Some(value(b"value")),
+			),
+			Error::<Test>::UnknownCollection
+		);
+
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+		assert_noop!(
+			Scarcity::set_item_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				99,
+				key(b"key"),
+				Some(value(b"value")),
+			),
+			Error::<Test>::UnknownItem
+		);
+	});
+}
+
+#[test]
+fn metadata_deposits_update_in_place_and_release_with_counts() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let collection_key = key(b"c");
+		clear_consideration_events();
+
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			collection_key.clone(),
+			Some(value(b"one")),
+		));
+		assert_eq!(CollectionMetadataCount::<Test>::get(0), 1);
+		assert_eq!(
+			consideration_events(),
+			vec![ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 4) }]
+		);
+
+		clear_consideration_events();
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			collection_key.clone(),
+			Some(value(b"longer")),
+		));
+		assert_eq!(CollectionMetadataCount::<Test>::get(0), 1);
+		assert_eq!(
+			consideration_events(),
+			vec![ConsiderationEvent::Update { who: OWNER, footprint: Footprint::from_parts(1, 7) }],
+			"overwrite must update the existing ticket, not charge a second ticket",
+		);
+
+		clear_consideration_events();
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			collection_key,
+			None,
+		));
+		assert_eq!(CollectionMetadataCount::<Test>::get(0), 0);
+		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
+
+		let item_key = key(b"i");
+		clear_consideration_events();
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			item_key.clone(),
+			Some(value(b"one")),
+		));
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 1);
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			item_key.clone(),
+			Some(value(b"longer")),
+		));
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 1);
+		assert_ok!(
+			Scarcity::set_item_metadata(RuntimeOrigin::signed(OWNER), 0, 0, item_key, None,)
+		);
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 0);
+		assert_eq!(
+			consideration_events(),
+			vec![
+				ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 4) },
+				ConsiderationEvent::Update { who: OWNER, footprint: Footprint::from_parts(1, 7) },
+				ConsiderationEvent::Drop { who: OWNER },
+			]
+		);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn removing_absent_metadata_is_a_no_op() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		clear_consideration_events();
+		let events_before = System::events().len();
+
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			key(b"missing"),
+			None,
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			key(b"missing"),
+			None,
+		));
+
+		assert_eq!(CollectionMetadataCount::<Test>::get(0), 0);
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 0);
+		assert!(consideration_events().is_empty());
+		assert_eq!(System::events().len(), events_before);
+	});
+}
+
+#[test]
+fn metadata_entry_cap_is_per_scope_and_independent_between_items() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		define(0, Kind::Special, None);
+
+		for suffix in [b"a".as_slice(), b"b".as_slice()] {
+			assert_ok!(Scarcity::set_collection_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				key(suffix),
+				Some(value(b"value")),
+			));
+			assert_ok!(Scarcity::set_item_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				0,
+				key(suffix),
+				Some(value(b"value")),
+			));
+			assert_ok!(Scarcity::set_item_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				1,
+				key(suffix),
+				Some(value(b"value")),
+			));
+		}
+
+		assert_noop!(
+			Scarcity::set_collection_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				key(b"c"),
+				Some(value(b"value")),
+			),
+			Error::<Test>::TooManyMetadataEntries
+		);
+		assert_noop!(
+			Scarcity::set_item_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				0,
+				key(b"c"),
+				Some(value(b"value")),
+			),
+			Error::<Test>::TooManyMetadataEntries
+		);
+		assert_eq!(CollectionMetadataCount::<Test>::get(0), 2);
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 2);
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 1), 2);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn define_item_stores_and_charges_each_initial_metadata_entry() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+		clear_consideration_events();
+
+		assert_ok!(Scarcity::define_item(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			Kind::Normal,
+			None,
+			metadata(&[(b"name", b"potion"), (b"power", b"42")]),
+		));
+
+		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 2);
+		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"name")), Some(value(b"potion")));
+		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"power")), Some(value(b"42")));
+		assert_eq!(
+			consideration_events(),
+			vec![
+				ConsiderationEvent::New {
+					who: OWNER,
+					footprint: Footprint::from_parts(1, definition.encoded_size()),
+				},
+				ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 10) },
+				ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 7) },
+			]
+		);
+		assert_ok!(Scarcity::do_try_state());
 	});
 }
 
@@ -333,7 +693,6 @@ fn mint_writes_consistent_state() {
 		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, 1);
 		assert_eq!(nft.minted_at, 1_234);
 		assert_eq!(nft.last_moved, 1_234);
-		assert_eq!(nft.moves, 0);
 		System::assert_has_event(
 			Event::<Test>::Minted { instance: 0, collection: 0, item: 0, owner: RECIPIENT }.into(),
 		);
@@ -414,7 +773,6 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has NFT");
 		assert_eq!(moved.instance, 0);
 		assert_eq!(moved.last_moved, 20);
-		assert_eq!(moved.moves, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		System::assert_has_event(Event::<Test>::Transferred { instance: 0, to: OTHER }.into());
 	});
@@ -439,7 +797,6 @@ fn claimed_instance_transfers_through_extension_pipeline() {
 		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has claimed NFT");
 		assert_eq!(moved.instance, 0);
 		assert_eq!(moved.last_moved, 20);
-		assert_eq!(moved.moves, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
 		assert!(consideration_events().is_empty());
@@ -615,9 +972,17 @@ fn transfer_to_self_rejected() {
 }
 
 #[test]
-fn burn_removes_funded_instance_releases_deposit_and_preserves_supply() {
+fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 	new_test_ext().execute_with(|| {
 		setup_item();
+		let metadata_key = key(b"survives");
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			metadata_key.clone(),
+			Some(value(b"burn")),
+		));
 		MockNow::set(10);
 		mint(0, RECIPIENT);
 		clear_consideration_events();
@@ -636,6 +1001,12 @@ fn burn_removes_funded_instance_releases_deposit_and_preserves_supply() {
 		assert!(!Instances::<Test>::contains_key(0));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
 		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, supply);
+		assert_eq!(
+			Scarcity::metadata_of(0, 0, &metadata_key),
+			Some(value(b"burn")),
+			"item-definition metadata must outlive a burned instance",
+		);
+		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 1);
 		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
 		System::assert_has_event(Event::<Test>::Burned { instance: 0 }.into());
 
@@ -711,6 +1082,19 @@ fn try_state_accepts_issuer_claimed_transferred_and_burned_states() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		define(0, Kind::Special, None);
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			key(b"default"),
+			Some(value(b"collection")),
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			key(b"default"),
+			Some(value(b"item")),
+		));
 		mint(0, RECIPIENT);
 		mint(1, OTHER);
 

@@ -35,10 +35,12 @@ use frame_support::{
 /// Weight functions needed for `pallet_scarcity`.
 pub trait WeightInfo {
 	fn create_collection() -> Weight;
-	fn define_item(s: u32, m: u32) -> Weight;
+	fn define_item(metadata_entries: u32, value_len: u32) -> Weight;
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
+	fn set_collection_metadata() -> Weight;
+	fn set_item_metadata() -> Weight;
 	fn as_scarcity_pipeline() -> Weight;
 }
 
@@ -55,13 +57,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Storage: `Scarcity::ItemDefs` (r:1 w:1)
-	/// Components: `s` statistics and `m` metadata bytes.
-	fn define_item(s: u32, m: u32) -> Weight {
+	/// Storage per metadata entry: `Collections` (r:1), `ItemDefs` (r:1),
+	/// `ItemMetadata` (r:1 w:1), `ItemMetadataCount` (r:1 w:1).
+	/// Components: metadata entry count and maximum value length.
+	fn define_item(metadata_entries: u32, value_len: u32) -> Weight {
 		Weight::from_parts(18_000_000, 4_096)
-			.saturating_add(Weight::from_parts(120_000, 0).saturating_mul(s.into()))
-			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(m.into()))
+			.saturating_add(
+				Weight::from_parts(120_000, 0).saturating_mul(metadata_entries.into()),
+			)
+			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(value_len.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(
+				T::DbWeight::get().reads(4_u64.saturating_mul(metadata_entries.into())),
+			)
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(
+				T::DbWeight::get().writes(2_u64.saturating_mul(metadata_entries.into())),
+			)
 	}
 
 	/// Storage: `Scarcity::Collections` (r:1 w:0)
@@ -94,6 +106,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 
+	/// Storage: `Scarcity::Collections` (r:1 w:0)
+	/// Storage: `Scarcity::CollectionMetadata` (r:1 w:1)
+	/// Benchmarked at the maximum key/value lengths while updating an existing ticket.
+	fn set_collection_metadata() -> Weight {
+		Weight::from_parts(20_000_000, 6_148)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	/// Storage: `Scarcity::Collections` (r:1 w:0)
+	/// Storage: `Scarcity::ItemDefs` (r:1 w:0)
+	/// Storage: `Scarcity::ItemMetadata` (r:1 w:1)
+	/// Benchmarked at the maximum key/value lengths while updating an existing ticket.
+	fn set_item_metadata() -> Weight {
+		Weight::from_parts(24_000_000, 8_192)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
 	/// Storage: `Scarcity::Locked` (r:1 w:0)
 	/// Storage: `Scarcity::NftsByOwner` (r:3 w:1)
 	fn as_scarcity_pipeline() -> Weight {
@@ -110,12 +141,22 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 
-	fn define_item(s: u32, m: u32) -> Weight {
+	fn define_item(metadata_entries: u32, value_len: u32) -> Weight {
 		Weight::from_parts(18_000_000, 4_096)
-			.saturating_add(Weight::from_parts(120_000, 0).saturating_mul(s.into()))
-			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(m.into()))
+			.saturating_add(
+				Weight::from_parts(120_000, 0).saturating_mul(metadata_entries.into()),
+			)
+			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(value_len.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(
+				RocksDbWeight::get()
+					.reads(4_u64.saturating_mul(metadata_entries.into())),
+			)
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(
+				RocksDbWeight::get()
+					.writes(2_u64.saturating_mul(metadata_entries.into())),
+			)
 	}
 
 	fn mint() -> Weight {
@@ -134,6 +175,18 @@ impl WeightInfo for () {
 		Weight::from_parts(20_000_000, 6_148)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	fn set_collection_metadata() -> Weight {
+		Weight::from_parts(20_000_000, 6_148)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn set_item_metadata() -> Weight {
+		Weight::from_parts(24_000_000, 8_192)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
 	fn as_scarcity_pipeline() -> Weight {

@@ -58,6 +58,7 @@ parameter_types! {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConsiderationEvent {
 	New { who: u64, footprint: Footprint },
+	Update { who: u64, footprint: Footprint },
 	Drop { who: u64 },
 }
 
@@ -79,7 +80,10 @@ impl Consideration<u64, Footprint> for TestConsideration {
 		Ok(Self)
 	}
 
-	fn update(self, _who: &u64, _footprint: Footprint) -> Result<Self, DispatchError> {
+	fn update(self, who: &u64, footprint: Footprint) -> Result<Self, DispatchError> {
+		CONSIDERATION_EVENTS.with(|events| {
+			events.borrow_mut().push(ConsiderationEvent::Update { who: *who, footprint })
+		});
 		Ok(self)
 	}
 
@@ -119,8 +123,10 @@ impl crate::Config for Test {
 	type CollectionConsideration = TestConsideration;
 	type ItemDefConsideration = TestConsideration;
 	type InstanceConsideration = TestConsideration;
-	type MaxStats = ConstU32<16>;
-	type MaxMetadata = ConstU32<256>;
+	type MetadataConsideration = TestConsideration;
+	type MaxKeyLen = ConstU32<32>;
+	type MaxValueLen = ConstU32<256>;
+	type MaxMetadataEntries = ConstU32<2>;
 	type LockPeriod = ConstU64<60>;
 	type MaxTransferPriority = ConstU64<1_000_000>;
 }
