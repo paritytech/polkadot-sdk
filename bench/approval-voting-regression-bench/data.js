@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785238179950,
+  "lastUpdate": 1785251936434,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109252977+YichiZhang0613@users.noreply.github.com",
-            "name": "Yichi Zhang",
-            "username": "YichiZhang0613"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "62b21e9e2366293998ba02fc00bbb258eeca661e",
-          "message": "Fix assertion (#10427)\n\n# Description\nAccording to assertion message and comment(\"at least\"),\n`T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE` should be changed\ninto `T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE`\n```rust\n// Debug buffer should at least be large enough to accommodate a simple error message\nconst MIN_DEBUG_BUF_SIZE: u32 = 256;\nassert!(\n\tT::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,\n\t\"Debug buffer should have minimum size of {} (current setting is {})\",\n\tMIN_DEBUG_BUF_SIZE,\n\tT::MaxDebugBufferLen::get(),\n);\n```\nFor this assertion, the assertion message indicates assertion will fail\nwhen max_storage_size > storage_size_limit, which means it requires\nmax_storage_size <= storage_size_limit, but assertion predicate is\n`max_storage_size < storage_size_limit`. Based on the code semantics,\nassertion predicate should be changed into `max_storage_size <=\nstorage_size_limit`.\n```rust\nassert!(\n\tmax_storage_size < storage_size_limit,\n\t\"Maximal storage size {} exceeds the storage limit {}\",\n\tmax_storage_size,\n\tstorage_size_limit\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-26T14:13:29Z",
-          "tree_id": "976b57b3433098dc60244b796403289d1622e31c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/62b21e9e2366293998ba02fc00bbb258eeca661e"
-        },
-        "date": 1764170720280,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63639.39,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021022590000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001982826,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.529351802270001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4874469967300015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4899352452899994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4761277776000012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.442427763749999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0056667672999999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001982826,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.0075726975099975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7511121680010917,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44632647704999917,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021022590000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.5966326731829055,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f2eeb2b81dc85f90bb9fc413cb56b9eac61f8b5",
+          "message": "Multi instance PSM (#12245)\n\n## Summary\n\nThis reworks `pallet-psm` from a single, governance-seeded Peg Stability\nModule into a multi-instance design where many independent PSMs can\ncoexist, each created permissionlessly and managed by its own admins. It\nreplaces the old model in which a single PSM was configured through the\npallet's `Config` and seeded via a one-off migration.\n\n## Motivation\n\nThe original pallet supported exactly one PSM, whose parameters were\nhardcoded into the runtime configuration and whose setup required\ngovernance. This change makes PSMs permissionlessly created, configured\nin storage, and governed by the accounts that create them.\n\n## What changed\n\n**Multiple instances.** A runtime can now hold any number of PSMs at\nonce. Each is identified by its internal (stablecoin) asset and tracks\nits own configuration, external assets, fees, and debt independently of\nthe others.\n\n**Configuration lives in storage, not in `Config`.** Per-PSM parameters\nthat used to be compile-time constants or single-value storage now live\nin maps keyed per PSM. A module can therefore be created and updated at\nruntime without a code change or migration.\n\n**Multiple backing assets per PSM.** Each PSM can be backed by several\nexternal assets. All per-asset state (status, ceilings, debt, decimal\ninformation) is keyed by the (PSM, backing-asset) pair, so adding or\nremoving a backing asset is a self-contained operation that cleans up\nafter itself.\n\n**Creation by the asset owner, with a refundable deposit.** Only the\ninternal asset's owner can create its PSM (no governance origin needed);\nthey lock a refundable native deposit, name the full and emergency\nadmins, and are refunded on removal.\n\n**Creation is restricted to the asset owner.** Creating a PSM requires\nthe caller to be the owner of the internal asset. A PSM mints and burns\nits internal asset through a privileged path that does not perform the\nusual issuer check, so without this restriction anyone could register a\nPSM over an asset they do not control and mint it against worthless\ncollateral. Tying creation to ownership ensures a PSM can only be set up\nby the party that actually controls the asset.\n\n**Per-PSM admin model.** Each PSM carries a full admin and an emergency\nadmin, allowing management and emergency actions to be delegated\nseparately.\n\n**State separation.** The data touched on every mint and redeem is\nstored separately from the rarely-used administrative data, keeping the\nswap path small and cheap.\n\n**Removed migrations.** There is no data migration. The pallet is\nredeployed cleanly (its old storage is removed and the storage version\nreset), so existing per-instance state is not carried over.\n\n## Changes beyond `pallet-psm`\n\n**`frame-support`: `fungibles::UnionOf` (additive).** `UnionOf` now\nimplements `fungibles::roles::Inspect`, forwarding\n`owner`/`issuer`/`admin`/`freezer` to whichever side owns the asset.\nThis is needed given that we need to know the asset owner for\n`create_psm`.\n\n**Runtime wiring.** `pallet-psm` is re-configured for the new\nmulti-instance `Config` in the runtimes that use it (Asset Hub Westend\nand the kitchensink runtime).\n\n**Asset Hub Westend redeploy.** Since there is no data migration, the\nruntime wipes the pallet's old storage and resets its storage version on\nupgrade (a `RemovePallet` for the pallet plus a one-shot storage-version\nreset). Existing on-chain PSM state is not carried forward; instances\nare created on demand afterwards.\n\n**`pallet-parameters` removed from Asset Hub Westend.** Its only use was\na system-wide PSM issuance cap, which the per-PSM debt ceiling replaces.\nThe pallet is removed from the runtime, and its on-chain storage is\ncleaned up with a `RemovePallet` migration.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-28T13:30:11Z",
+          "tree_id": "f89d163258e1439035de5d6711e3100d10298ed9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f2eeb2b81dc85f90bb9fc413cb56b9eac61f8b5"
+        },
+        "date": 1785251904309,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.19,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.386035718962705,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023533,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023533,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6330196735600024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022103019999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.68345938424998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3920863676499975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005102037439999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.5913553590000014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.613560516450001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7919479758799797,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022103019999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.656387454269999,
             "unit": "seconds"
           }
         ]
