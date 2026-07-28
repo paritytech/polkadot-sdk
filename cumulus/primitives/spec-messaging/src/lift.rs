@@ -414,15 +414,15 @@ pub fn stitch(
 	Ok(current)
 }
 
-/// Build the single requires entry for one source: stitch each stream's intervals into an endpoint,
-/// extend it to the stream's current root, walk the tree to the `StreamsRoot`, and require *all* of
-/// the source's streams to lift to the **same** root (one entry per source). `streams` iterates in
-/// `StreamId` order; `lifts` matches it positionally.
+/// Lift one source's streams to their single committed `StreamsRoot`: stitch each stream's
+/// intervals into an endpoint, extend it to the stream's current root, walk the tree to the
+/// `StreamsRoot`, and require *all* of the source's streams to lift to the **same** root. Returns
+/// that root; the caller ([`build_requires`]) already holds the source and pairs it. `streams`
+/// iterates in `StreamId` order; `lifts` matches it positionally.
 pub fn build_requires_entry(
-	source: ParaId,
 	streams: &[(StreamId, Vec<Interval>)],
 	lifts: &[RequiresLift],
-) -> Result<(ParaId, StreamsRoot), LiftError> {
+) -> Result<StreamsRoot, LiftError> {
 	if streams.len() != lifts.len() {
 		return Err(LiftError::LiftCountMismatch);
 	}
@@ -441,7 +441,7 @@ pub fn build_requires_entry(
 			Some(_) => {},
 		}
 	}
-	entry.map(|root| (source, root)).ok_or(LiftError::EmptyRecord)
+	entry.ok_or(LiftError::EmptyRecord)
 }
 
 /// Synthesize the candidate's [`RequiresSet`] from the per-block consumption records (bundle order)
@@ -471,7 +471,7 @@ pub fn build_requires(
 		.map(|((source, by_stream), source_lifts)| {
 			let streams: Vec<(StreamId, Vec<Interval>)> =
 				by_stream.iter().map(|(s, i)| (*s, i.clone())).collect();
-			build_requires_entry(*source, &streams, source_lifts)
+			build_requires_entry(&streams, source_lifts).map(|root| (*source, root))
 		})
 		.collect::<Result<Vec<_>, _>>()?;
 	RequiresSet::try_from_iter(entries).map_err(|_| LiftError::TooManySources)
@@ -649,9 +649,8 @@ mod tests {
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
-		let entry =
-			build_requires_entry(ParaId::from(1000), &[(stream, vec![interval])], &[lift]).unwrap();
-		assert_eq!(entry, (ParaId::from(1000), expected));
+		let root = build_requires_entry(&[(stream, vec![interval])], &[lift]).unwrap();
+		assert_eq!(root, expected);
 	}
 
 	#[test]
@@ -696,7 +695,6 @@ mod tests {
 	fn divergent_roots_rejected() {
 		let all = leaves(3);
 		let root3 = root_at(&all, 3);
-		let source = ParaId::from(1000);
 		let (sa, sb) = (ch(2000), ch(3000));
 
 		// Two single-stream trees → each stream's tree_proof folds to a DIFFERENT StreamsRoot.
@@ -713,7 +711,7 @@ mod tests {
 			(sb, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }]),
 		];
 		assert_eq!(
-			build_requires_entry(source, &streams, &[mk(proof_a), mk(proof_b)]),
+			build_requires_entry(&streams, &[mk(proof_a), mk(proof_b)]),
 			Err(LiftError::DivergentRoots),
 		);
 	}
