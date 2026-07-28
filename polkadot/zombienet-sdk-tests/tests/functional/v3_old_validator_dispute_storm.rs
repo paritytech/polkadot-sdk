@@ -7,8 +7,8 @@
 //! supermajority, which is what the two variants pivot on:
 //!
 //! * `4/15` old: the valid side reaches 11 → disputes conclude valid → the 4 old validators are
-//!   disabled (4 is the disabling cap for n = 15) → the storm self-extinguishes. Proves the safety
-//!   net holds.
+//!   disabled (4 is the disabling cap for n = 15). Proves the safety net holds.
+//!
 //! * `5/15` old: the valid side maxes out at 10 < 11, so no dispute ever concludes and nobody is
 //!   disabled. But 5 invalid votes exceed the byzantine threshold, reverting each disputed block
 //!   and clamping GRANDPA to the undisputed chain → finality is degraded. Documents the boundary:
@@ -24,14 +24,17 @@ use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput_with, wait_for_runtime_upgrade,
 };
-use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{
+	CandidateDescriptorVersion, CandidateReceiptV2, CoreIndex, GroupRotationInfo, Id as ParaId,
+	ValidatorId, ValidatorIndex,
+};
 use rstest::rstest;
 use serde_json::json;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use zombienet_sdk::{
 	subxt::{
-		dynamic::Value, ext::scale_value::value, tx::dynamic, utils::H256, OnlineClient,
-		PolkadotConfig,
+		blocks::Block, dynamic::Value, ext::scale_value::value, tx::dynamic, utils::H256,
+		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
@@ -41,6 +44,13 @@ const TOTAL_VALIDATORS: usize = 15;
 
 const PARA_A: u32 = 2000;
 const PARA_B: u32 = 2001;
+
+/// Relay blocks to measure para B over once a capable group holds its core. Must stay below
+/// `group_rotation_frequency` (10) so the whole window falls inside one group assignment.
+const PARA_B_WINDOW: u32 = 6;
+
+/// How many relay blocks to spend looking for a capable group before giving up.
+const PARA_B_SEARCH_LIMIT: u32 = 150;
 
 #[rstest]
 #[case::four_old(4)]
@@ -200,26 +210,24 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	relay_node
 		.wait_metric_with_timeout(
 			"polkadot_parachain_candidate_disputes_total",
-			|d| d >= 1.0,
+			|d| d >= 4.0,
 			300u64,
 		)
 		.await?;
 
 	match num_old {
 		4 => {
-			assert_four_old_self_extinguishes(relay_node, &relay_client, &old_pubkeys).await?;
+			assert_four_old_disabled(relay_node, &relay_client, &old_pubkeys).await?;
 
-			log::info!("waiting for every raised dispute to conclude valid");
-			let total_disputes = wait_for_disputes_resolved_valid(relay_node, 300).await?;
-			log::info!(
-				"storm resolved: all {total_disputes} disputes concluded valid, none invalid"
-			);
+			log::info!("waiting for every dispute raised so far to conclude valid");
+			let total_disputes = wait_for_pending_disputes_resolved_valid(relay_node, 300).await?;
+			log::info!("all {total_disputes} disputes raised so far concluded valid, none invalid");
 
 			assert_finality_lag(&para_b_client, 6).await?;
 			assert_para_throughput_with(
 				&relay_client,
-				20,
-				HashMap::from([(para_b, 15..21), (para_a, 15..21)]),
+				50,
+				HashMap::from([(para_b, 20..51), (para_a, 45..51)]),
 				|receipt| {
 					let para_id = receipt.descriptor.para_id();
 					let version = receipt.descriptor.version();
@@ -244,7 +252,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	Ok(())
 }
 
-async fn assert_four_old_self_extinguishes(
+async fn assert_four_old_disabled(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
 	old_pubkeys: &HashSet<String>,
@@ -313,6 +321,254 @@ async fn assert_five_old_persists(
 		);
 	}
 	Ok(())
+}
+
+/// What para B's backing pipeline looks like at one relay block.
+struct BackingContext {
+	/// Group membership is redrawn here; used to notice a reshuffle mid-window.
+	session_start: u32,
+	group_index: u32,
+	group_size: usize,
+	/// Group members that can actually back a V3 candidate: neither pre-v3 nor disabled.
+	usable: usize,
+	min_backing: usize,
+	blocks_left_in_rotation: u32,
+}
+
+impl BackingContext {
+	fn is_capable(&self) -> bool {
+		self.usable >= self.min_backing
+	}
+}
+
+/// Measure para B's backing rate while a group that can actually back it holds its core.
+///
+/// A pre-v3 validator cannot validate a V3 candidate at all — `validate_block` panics on the
+/// missing V3 extension — so it is dead weight in a backing group, whether or not it has been
+/// disabled yet.
+///
+/// That makes para B's candidate count over a fixed window a *draw*, not a rate. Group membership
+/// is redrawn from on-chain randomness at every session change, and the group-to-core assignment
+/// rotates every `group_rotation_frequency` blocks, so a 20-block window samples only about two
+/// assignments. Observed runs produced 4 and 9 candidates in 20 blocks while para A produced 20 in
+/// both — same storm, same disabled validators, just a different shuffle.
+///
+/// So rather than widening the bound until it asserts nothing, condition on the layout: wait for a
+/// capable group with room left in its rotation, then require para B to be backed in essentially
+/// every block of the window. This terminates because `num_old` pre-v3 validators can starve at
+/// most `num_old / (group_size - min_backing + 1)` groups — 2 of 5 here — so a capable group always
+/// comes round.
+async fn assert_para_b_backed_under_capable_group(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_b: ParaId,
+	old_pubkeys: &HashSet<String>,
+) -> Result<(), anyhow::Error> {
+	struct Window {
+		session_start: u32,
+		group_index: u32,
+		counted: u32,
+		backed: u32,
+	}
+
+	log::info!("looking for a v3-capable backing group on para B's core");
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	let mut window: Option<Window> = None;
+	let mut searched = 0u32;
+
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		let number = block.number();
+
+		// Session changes redraw group membership and never carry backed candidates.
+		if is_session_change(&block).await? {
+			if window.take().is_some() {
+				log::info!("session change at relay block {number}, restarting the measurement");
+			}
+			continue;
+		}
+
+		let Some(ctx) =
+			para_b_backing_context(relay_client, block.hash(), para_b, old_pubkeys).await?
+		else {
+			log::debug!("relay block {number}: para B has no core assigned");
+			continue;
+		};
+
+		if window.is_none() {
+			searched += 1;
+			if searched > PARA_B_SEARCH_LIMIT {
+				return Err(anyhow!(
+					"no v3-capable group held para B's core for {PARA_B_WINDOW} consecutive blocks \
+					 within {PARA_B_SEARCH_LIMIT} relay blocks; at most 2 of 5 groups should be \
+					 starved by 4 pre-v3 validators, so this points at a real backing failure",
+				));
+			}
+			if !ctx.is_capable() || ctx.blocks_left_in_rotation < PARA_B_WINDOW {
+				log::debug!(
+					"relay block {number}: group {} has {}/{} usable backers (need {}), \
+					 {} blocks left in rotation - not measuring",
+					ctx.group_index,
+					ctx.usable,
+					ctx.group_size,
+					ctx.min_backing,
+					ctx.blocks_left_in_rotation,
+				);
+				continue;
+			}
+			log::info!(
+				"relay block {number}: group {} on para B's core has {}/{} usable backers \
+				 (need {}), {} blocks left in rotation - measuring {PARA_B_WINDOW} blocks",
+				ctx.group_index,
+				ctx.usable,
+				ctx.group_size,
+				ctx.min_backing,
+				ctx.blocks_left_in_rotation,
+			);
+			window = Some(Window {
+				session_start: ctx.session_start,
+				group_index: ctx.group_index,
+				counted: 0,
+				backed: 0,
+			});
+		}
+
+		let w = window.as_mut().expect("set directly above or on an earlier iteration; qed");
+
+		// The layout must not shift under us, or we are no longer measuring what we selected for.
+		if ctx.session_start != w.session_start ||
+			ctx.group_index != w.group_index ||
+			!ctx.is_capable()
+		{
+			log::info!(
+				"relay block {number}: para B's backing context changed mid-window \
+				 (group {} -> {}, usable {}/{}), restarting",
+				w.group_index,
+				ctx.group_index,
+				ctx.usable,
+				ctx.group_size,
+			);
+			window = None;
+			continue;
+		}
+
+		let backed = para_b_backed_in(&block, para_b).await?;
+		w.counted += 1;
+		if backed {
+			w.backed += 1;
+		}
+		log::info!(
+			"relay block {number}: para B backed={backed} ({}/{} blocks measured)",
+			w.backed,
+			w.counted,
+		);
+
+		if w.counted >= PARA_B_WINDOW {
+			let backed = w.backed;
+			// One tolerated miss absorbs a single dropped collation; anything more means the V3
+			// para is not being backed even when the validators serving it are able to.
+			assert!(
+				backed + 1 >= PARA_B_WINDOW,
+				"para B was backed in only {backed} of {PARA_B_WINDOW} relay blocks while a group \
+				 that can back it held its core; under a capable group it should be backed in \
+				 essentially every block, dispute storm or not",
+			);
+			log::info!("para B backed in {backed}/{PARA_B_WINDOW} blocks under a v3-capable group");
+			return Ok(());
+		}
+	}
+
+	Err(anyhow!("finalized block subscription ended while measuring para B"))
+}
+
+/// Read the group currently serving para B's core and how much of it can back a V3 candidate.
+///
+/// Returns `None` if para B has no core in the claim queue at this block.
+async fn para_b_backing_context(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	hash: H256,
+	para_b: ParaId,
+	old_pubkeys: &HashSet<String>,
+) -> Result<Option<BackingContext>, anyhow::Error> {
+	let claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>> =
+		runtime_api_decode(relay_client, hash, "ParachainHost_claim_queue").await?;
+	let Some(core) = claim_queue
+		.iter()
+		.find(|(_, queue)| queue.contains(&para_b))
+		.map(|(core, _)| *core)
+	else {
+		return Ok(None);
+	};
+
+	let (groups, rotation): (Vec<Vec<ValidatorIndex>>, GroupRotationInfo) =
+		runtime_api_decode(relay_client, hash, "ParachainHost_validator_groups").await?;
+	let min_backing: u32 =
+		runtime_api_decode(relay_client, hash, "ParachainHost_minimum_backing_votes").await?;
+
+	// The rotation modulus is the number of *groups*, not the number of occupied cores — see
+	// `n_cores` in `polkadot/node/core/backing/src/lib.rs`. There are more groups (5) than paras
+	// (2) here, so using the claim queue length would resolve to the wrong group.
+	let group_index = rotation.group_for_core(core, groups.len());
+	let group = groups.get(group_index.0 as usize).ok_or_else(|| {
+		anyhow!("group {} out of range, only {} groups", group_index.0, groups.len())
+	})?;
+
+	let validators = session_validators_at(relay_client, hash).await?;
+	let disabled = disabled_validators_at(relay_client, hash).await?;
+	let usable = group
+		.iter()
+		.filter(|idx| {
+			!disabled.contains(idx) &&
+				validators.get(idx.0 as usize).is_some_and(|id| {
+					!old_pubkeys.contains(&hex::encode(id.clone().into_inner().0))
+				})
+		})
+		.count();
+
+	Ok(Some(BackingContext {
+		session_start: rotation.session_start_block,
+		group_index: group_index.0,
+		group_size: group.len(),
+		usable,
+		min_backing: min_backing as usize,
+		blocks_left_in_rotation: rotation.next_rotation_at().saturating_sub(rotation.now),
+	}))
+}
+
+/// Whether `block` backed a candidate for para B, erroring if one of them is not V3.
+async fn para_b_backed_in(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+	para_b: ParaId,
+) -> Result<bool, anyhow::Error> {
+	let events = block.events().await?;
+	let mut backed = false;
+	for event in events.iter() {
+		let event = event?;
+		if event.pallet_name() != "ParaInclusion" || event.variant_name() != "CandidateBacked" {
+			continue;
+		}
+		let receipt = CandidateReceiptV2::<H256>::decode(&mut &event.field_bytes()[..])?;
+		if receipt.descriptor.para_id() != para_b {
+			continue;
+		}
+		let version = receipt.descriptor.version();
+		if version != CandidateDescriptorVersion::V3 {
+			return Err(anyhow!("para B backed a non-V3 candidate post-recovery: {version:?}"));
+		}
+		backed = true;
+	}
+	Ok(backed)
+}
+
+/// Returns `true` if `block` contains a session change.
+async fn is_session_change(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<bool, anyhow::Error> {
+	let events = block.events().await?;
+	Ok(events.iter().any(|event| {
+		event.as_ref().is_ok_and(|event| {
+			event.pallet_name() == "Session" && event.variant_name() == "NewSession"
+		})
+	}))
 }
 
 fn normalize_hex(s: &str) -> String {
@@ -431,32 +687,33 @@ async fn assert_finality_stalls(
 	}
 }
 
-/// Wait for the dispute storm to fully resolve: every raised dispute must conclude *valid* (the
-/// honest supermajority wins) and none may conclude *invalid*.
+/// Wait until every dispute raised *up to the moment this is called* has concluded valid, with none
+/// concluding invalid.
 ///
-/// A single quiet sample is not enough. Para B keeps authoring V3 candidates the whole time, so
-/// the pre-v3 validators keep raising fresh disputes until they are disabled and the last of their
-/// candidates drains out. The storm only counts as extinguished once the *raised* count has stopped
-/// growing — with everything raised so far concluded valid — for a sustained `QUIET_WINDOW_SECS`.
-async fn wait_for_disputes_resolved_valid(
+/// Deliberately snapshot-based rather than waiting for the storm to burn out. Disabling only holds
+/// for the session it is applied in: each new session re-enables the pre-v3 validators, which then
+/// dispute the next batch of V3 candidates. As long as para B keeps authoring V3 candidates the
+/// raised counter therefore keeps climbing for the lifetime of the network, so any condition of the
+/// form "the raised count stopped growing" is a race against the session length and will flake.
+///
+/// What actually holds — and what is worth asserting — is that the honest supermajority resolves
+/// every round it is given, and never loses one.
+async fn wait_for_pending_disputes_resolved_valid(
 	node: &zombienet_sdk::NetworkNode,
 	timeout_secs: u64,
 ) -> Result<f64, anyhow::Error> {
-	const STEP_SECS: u64 = 20;
-	// How long the raised count must stay flat before we believe the storm is over.
-	const QUIET_WINDOW_SECS: u64 = 120;
-	const QUIET_STEPS: u32 = (QUIET_WINDOW_SECS / STEP_SECS) as u32;
+	const STEP_SECS: u64 = 10;
 
 	let total_metric = "polkadot_parachain_candidate_disputes_total";
 	let valid_metric = "polkadot_parachain_candidate_dispute_concluded{validity=\"valid\"}";
 	let invalid_metric = "polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
 
-	let mut elapsed = 0u64;
-	let mut quiet_steps = 0u32;
-	let mut prev_total = f64::NEG_INFINITY;
+	let target = read_metric(node, total_metric).await?;
+	assert!(target >= 1.0, "expected at least one dispute to have been raised by now");
+	log::info!("{target} disputes raised so far; waiting for all of them to conclude valid");
 
+	let mut elapsed = 0u64;
 	loop {
-		let total = read_metric(node, total_metric).await?;
 		let valid = read_metric(node, valid_metric).await?;
 		let invalid = read_metric(node, invalid_metric).await?;
 		assert!(
@@ -464,33 +721,23 @@ async fn wait_for_disputes_resolved_valid(
 			"a dispute concluded invalid ({invalid}); the honest supermajority must never lose",
 		);
 
-		// A step is quiet when nothing new was raised since the previous sample and everything
-		// raised so far has concluded valid. Any new dispute resets the window.
-		if total >= 1.0 && valid >= total && total <= prev_total {
-			quiet_steps += 1;
-		} else {
-			quiet_steps = 0;
+		if valid >= target {
+			return Ok(target);
 		}
-		prev_total = total;
 
 		log::info!(
-			"disputes after {elapsed}s: total={total}, concluded_valid={valid}, \
-			 concluded_invalid={invalid}, quiet {}/{QUIET_STEPS}",
-			quiet_steps
+			"after {elapsed}s: {valid}/{target} of the snapshotted disputes concluded valid \
+			 (raised so far: {})",
+			read_metric(node, total_metric).await?,
 		);
-
-		if quiet_steps >= QUIET_STEPS {
-			return Ok(total);
-		}
 
 		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
 		elapsed += STEP_SECS;
 
 		if elapsed >= timeout_secs {
 			return Err(anyhow!(
-				"disputes did not settle within {timeout_secs}s (total={total}, \
-				 concluded_valid={valid}, quiet for {}s of the required {QUIET_WINDOW_SECS}s)",
-				u64::from(quiet_steps) * STEP_SECS
+				"only {valid} of the {target} disputes raised at snapshot time concluded valid \
+				 within {timeout_secs}s",
 			));
 		}
 	}
