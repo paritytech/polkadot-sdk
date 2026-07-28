@@ -736,7 +736,7 @@ impl VersionAwareRuntimeApiProvider {
 	}
 
 	/// Returns the version-aware runtime API of the given block handle.
-	pub async fn at_provided_block(
+	pub async fn at_resolved_block(
 		&self,
 		at_block: OnlineClientAtBlock<SrcChainConfig>,
 	) -> Result<VersionAwareRuntimeApi, ClientError> {

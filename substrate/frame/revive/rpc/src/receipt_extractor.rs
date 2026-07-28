@@ -245,7 +245,7 @@ impl ReceiptExtractor {
 			let fut = async move {
 				let block_hash = at_block.block_hash();
 				let runtime_api = provider
-					.at_provided_block(at_block)
+					.at_resolved_block(at_block)
 					.await
 					.inspect_err(|err| {
 						log::debug!(
@@ -472,33 +472,40 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<impl Iterator<Item = (EthTransact, ReceiptGasInfoV1, usize)>, ClientError> {
-		// Filter extrinsics from pallet_revive
-		let extrinsics = block.extrinsics().fetch().await.inspect_err(|err| {
+		let block_extrinsics = block.extrinsics().fetch().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.block_number());
 		})?;
 
 		let block_number = block.block_number();
-		let extrinsics: Vec<_> = extrinsics
-			.iter()
-			.enumerate()
-			.flat_map(|(ext_idx, ext)| {
-				let ext = ext.ok()?;
-				match ext.decode_call_data_fields_as::<EthTransact>()? {
-					Ok(call) => Some((call, ext_idx)),
-					Err(err) => {
-						log::warn!(
-							target: LOG_TARGET,
-							"Failed to decode EthTransact call in extrinsic {ext_idx} of block #{block_number}: {err:?}, transaction dropped from receipts"
-						);
-						None
-					},
-				}
-			})
-			.collect();
+		let mut extrinsics = Vec::new();
+		let mut undecoded_extrinsic = false;
+		// Filter extrinsics from pallet_revive
+		for (ext_idx, ext) in block_extrinsics.iter().enumerate() {
+			let ext = match ext {
+				Ok(ext) => ext,
+				// The call is unknown when this fails, so let the receipt data count decide.
+				Err(err) => {
+					log::debug!(target: LOG_TARGET,
+						"Failed to decode extrinsic {ext_idx} of block #{block_number}: {err:?}");
+					undecoded_extrinsic = true;
+					continue;
+				},
+			};
+			match ext.decode_call_data_fields_as::<EthTransact>() {
+				Some(Ok(call)) => extrinsics.push((call, ext_idx)),
+				Some(Err(err)) => {
+					log::debug!(target: LOG_TARGET,
+						"Failed to decode the EthTransact call in extrinsic {ext_idx} of block \
+						#{block_number}: {err:?}");
+					return Err(ClientError::ExtrinsicDecodeFailed(ext_idx, block_number));
+				},
+				// Not a revive transaction.
+				None => {},
+			}
+		}
 
-		// Only ask the runtime for receipt data once we know the block actually contains
-		// pallet-revive extrinsics.
-		let receipt_data = if extrinsics.is_empty() {
+		// Skip the runtime query for blocks with no revive extrinsics.
+		let receipt_data = if extrinsics.is_empty() && !undecoded_extrinsic {
 			Vec::new()
 		} else {
 			(self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {

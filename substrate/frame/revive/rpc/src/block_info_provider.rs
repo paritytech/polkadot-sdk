@@ -32,7 +32,8 @@ use tokio::sync::RwLock;
 /// BlockInfoProvider cache and retrieves information about blocks.
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
-	/// Update the latest block
+	/// Update the latest block for the provided `subscription_type` to the given block, which is
+	/// ignored if it is not a valid new head.
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType);
 
 	/// Return the latest finalized block.
@@ -77,9 +78,9 @@ impl SubxtBlockInfoProvider {
 		api: OnlineClient<SrcChainConfig>,
 		rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
 	) -> Result<Self, ClientError> {
+		let latest_finalized_block = Arc::new(api.at_current_block().await?);
 		let best_hash = rpc.chain_get_block_hash(None).await?.ok_or(ClientError::BlockNotFound)?;
 		let latest_block = Arc::new(api.at_block(best_hash).await?);
-		let latest_finalized_block = Arc::new(api.at_current_block().await?);
 		Ok(Self {
 			api,
 			rpc,
@@ -92,13 +93,26 @@ impl SubxtBlockInfoProvider {
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
-		let mut latest = match subscription_type {
-			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
-			SubscriptionType::BestBlocks => self.latest_block.write().await,
-		};
-		// Only move the head forward; the startup block stream can replay older blocks.
-		if block.block_number() >= latest.block_number() {
-			*latest = block;
+		// Both streams are seeded with the finalized block on subscription (re)init; don't move
+		// the best/finalized back in this scenario.
+		match subscription_type {
+			SubscriptionType::FinalizedBlocks => {
+				let mut latest = self.latest_finalized_block.write().await;
+				if block.block_number() >= latest.block_number() {
+					*latest = block;
+				}
+			},
+			SubscriptionType::BestBlocks => {
+				// Accept a lower height best block that is above the finalized one since this
+				// is a real reorg.
+				let finalized_number = self.latest_finalized_block.read().await.block_number();
+				let mut latest = self.latest_block.write().await;
+				if block.block_number() >= latest.block_number() ||
+					block.block_number() > finalized_number
+				{
+					*latest = block;
+				}
+			},
 		}
 	}
 
