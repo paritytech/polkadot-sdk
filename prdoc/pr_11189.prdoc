@@ -1,7 +1,0 @@
-title: 'Collator revamp: collator interop zombienet test'
-doc:
-- audience: Node Dev
-  description: A zombienet-sdk test verifying that collators without ApprovedPeer
-    UMP signal support and V1 collators work with validators using the experimental
-    implementation.
-crates: []
