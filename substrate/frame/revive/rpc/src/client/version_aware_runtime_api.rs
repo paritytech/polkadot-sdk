@@ -951,6 +951,7 @@ pub enum MethodVersioningStatus {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Decode;
 
 	/// Ensures every known method is mapped and version precedence is preserved.
 	#[test]
@@ -1021,5 +1022,26 @@ mod tests {
 
 		// Assert
 		assert_eq!(actual, expected);
+	}
+
+	/// Ensures every supported method in the generated metadata is mapped.
+	#[test]
+	fn every_supported_metadata_method_updates_capabilities() {
+		// Arrange
+		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
+		let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
+		let revive_api = metadata.runtime_api_trait_by_name("ReviveApi").unwrap();
+		let methods = revive_api.methods().filter(|method| {
+			method.name() != "version_declarations" && method.name() != "get_storage_var_key"
+		});
+
+		// Act
+		for method in methods {
+			let before = ReviveRuntimeApiCapabilities::default();
+			let after = before.with_method(method.name(), Unversioned);
+
+			// Assert
+			assert_ne!(before, after, "`{}` is not mapped by `with_method`", method.name());
+		}
 	}
 }
