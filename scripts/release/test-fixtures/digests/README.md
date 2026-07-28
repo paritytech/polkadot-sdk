@@ -1,6 +1,6 @@
 # srtool digest test fixtures
 
-Real srtool digests (srtool v0.18.3, from the polkadot-stable2509 release build),
+Real srtool digests (srtool v0.18.3, from the Polkadot-stable2509 release build),
 committed so CI can exercise the full-release path of `build-changelogs.sh` — the
 jq digest assembly and the `runtimes.md.tera`/`runtime.md.tera` templates — without
 building any runtime.
