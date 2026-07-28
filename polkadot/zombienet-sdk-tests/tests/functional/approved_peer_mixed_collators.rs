@@ -93,7 +93,7 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 	// (recent or old) authored a given block.
 	assert_para_throughput(
 		&relay_client,
-		15,
+		20,
 		[
 			(ParaId::from(PRE_APPROVED_UMP_SIGNAL_PARA_ID), 10..16),
 			(ParaId::from(V1_PARA_ID), 10..16),
