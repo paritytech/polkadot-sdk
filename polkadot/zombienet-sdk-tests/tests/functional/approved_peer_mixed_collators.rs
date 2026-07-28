@@ -58,7 +58,6 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(PRE_APPROVED_UMP_SIGNAL_PARA_ID)
 				.with_default_command("polkadot-parachain")
-				.cumulus_based(false)
 				.with_collator(|n| {
 					n.with_name("collator-pre-approved-ump")
 						.with_image(PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE)
@@ -68,7 +67,6 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(V1_PARA_ID)
 				.with_default_command("polkadot-parachain")
-				.cumulus_based(false)
 				.with_collator(|n| {
 					n.with_name("collator-v1")
 						.with_image(V1_COLLATOR_IMAGE)
