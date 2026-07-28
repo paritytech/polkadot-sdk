@@ -13,6 +13,8 @@
 //! - a **V2-only** collator (an older `polkadot-parachain` release, predating V3, supplied via
 //!   `OLD_PARACHAIN_COMMAND` / `OLD_PARACHAIN_IMAGE`).
 //!
+//! Verifies that:
+//! - V2 candidates are backed by the mixed fleet.
 //! - Statement and availability distribution work across binary versions.
 //! - GRANDPA finality does not stall.
 //! - Parachain throughput is sustained.

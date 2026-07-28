@@ -22,7 +22,8 @@ use crate::utils::assert_candidates_version;
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput_with, wait_for_runtime_upgrade,
+	assert_finality_lag, assert_para_throughput_with, wait_for_pvf_prepare,
+	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId, ValidatorId, ValidatorIndex};
 use rstest::rstest;
@@ -140,6 +141,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
+	let para_a_node = network.get_node("collator-a")?;
 	let para_b_node = network.get_node("collator-b")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let para_b_client: OnlineClient<PolkadotConfig> = para_b_node.wait_client().await?;
@@ -195,6 +197,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 		.wait_for_finalized_success()
 		.await?;
 	wait_for_runtime_upgrade(&para_b_client).await?;
+	wait_for_pvf_prepare(&network, 2).await?;
 
 	log::info!("waiting for dispute storm to start");
 	relay_node
@@ -207,7 +210,8 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 
 	match num_old {
 		4 => {
-			assert_four_old_disabled(relay_node, &relay_client, &old_pubkeys).await?;
+			assert_old_validators_disabled(relay_node, &relay_client, &old_pubkeys, num_old)
+				.await?;
 
 			log::info!("waiting for every dispute raised so far to conclude valid");
 			let total_disputes = wait_for_pending_disputes_resolved_valid(relay_node, 300).await?;
@@ -233,7 +237,8 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 			.await?;
 		},
 		5 => {
-			assert_five_old_persists(relay_node, &relay_client, baseline_finalized).await?;
+			assert_five_old_persists(relay_node, para_a_node, &relay_client, baseline_finalized)
+				.await?;
 		},
 		other => unreachable!("unexpected num_old: {other}"),
 	}
@@ -242,12 +247,12 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 	Ok(())
 }
 
-async fn assert_four_old_disabled(
+async fn assert_old_validators_disabled(
 	relay_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
 	old_pubkeys: &HashSet<String>,
+	num_old: usize,
 ) -> Result<(), anyhow::Error> {
-	const NUM_OLD: usize = 4;
 	log::info!("waiting for disputes to conclude valid");
 	relay_node
 		.wait_metric_with_timeout(
@@ -257,18 +262,22 @@ async fn assert_four_old_disabled(
 		)
 		.await?;
 
-	log::info!("waiting for all {NUM_OLD} pre-v3 validators to be disabled");
+	log::info!("waiting for all {num_old} pre-v3 validators to be disabled");
 	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
-	let mut disabled_old = 0usize;
+	let mut seen_disabled_old: HashSet<String> = HashSet::new();
 	let mut blocks_checked = 0u32;
 	while let Some(block) = best_blocks.next().await {
 		let hash = block?.hash();
 		let disabled = disabled_validators_at(relay_client, hash).await?;
 		if !disabled.is_empty() {
 			let validators = session_validators_at(relay_client, hash).await?;
-			disabled_old = count_disabled_old(&disabled, &validators, old_pubkeys);
-			log::info!("disabled {} validators, {disabled_old} of them pre-v3", disabled.len());
-			if disabled_old >= NUM_OLD {
+			seen_disabled_old.extend(disabled_old_keys(&disabled, &validators, old_pubkeys));
+			log::info!(
+				"disabled {} validators, {} distinct pre-v3 seen disabled so far",
+				disabled.len(),
+				seen_disabled_old.len(),
+			);
+			if seen_disabled_old.len() >= num_old {
 				break;
 			}
 		}
@@ -278,15 +287,16 @@ async fn assert_four_old_disabled(
 		}
 	}
 	assert!(
-		disabled_old >= NUM_OLD,
-		"expected all {NUM_OLD} pre-v3 validators disabled, got {disabled_old} after \
-		 {blocks_checked} blocks",
+		seen_disabled_old.len() >= num_old,
+		"expected all {num_old} pre-v3 validators disabled, got {} after {blocks_checked} blocks",
+		seen_disabled_old.len(),
 	);
 	Ok(())
 }
 
 async fn assert_five_old_persists(
 	relay_node: &zombienet_sdk::NetworkNode,
+	para_a_node: &zombienet_sdk::NetworkNode,
 	relay_client: &OnlineClient<PolkadotConfig>,
 	baseline_finalized: f64,
 ) -> Result<(), anyhow::Error> {
@@ -302,6 +312,15 @@ async fn assert_five_old_persists(
 		"no validator should be disabled in the 5/15 case (at best block), found {disabled:?}",
 	);
 
+	let invalid_votes =
+		read_metric(relay_node, "polkadot_parachain_candidate_dispute_votes{validity=\"invalid\"}")
+			.await?;
+	assert!(
+		invalid_votes >= 1.0,
+		"expected the pre-v3 validators to have cast invalid votes; read {invalid_votes}, which \
+		 means the dispute vote metrics are not being reported and the checks below are vacuous",
+	);
+
 	for validity in ["valid", "invalid"] {
 		let metric =
 			format!("polkadot_parachain_candidate_dispute_concluded{{validity=\"{validity}\"}}");
@@ -310,6 +329,18 @@ async fn assert_five_old_persists(
 			"no dispute should conclude ({validity}) without an 11-vote supermajority",
 		);
 	}
+
+	let best_metric = "substrate_block_height{status=\"best\"}";
+	let para_a_best = read_metric(para_a_node, best_metric).await?;
+	para_a_node
+		.wait_metric_with_timeout(best_metric, |v| v > para_a_best, 120u64)
+		.await
+		.map_err(|e| {
+			anyhow!(
+				"canary para A stopped extending its best chain at height {para_a_best}; the V3 \
+				 dispute storm on para B must not stall an unrelated V2 para: {e}"
+			)
+		})?;
 	Ok(())
 }
 
@@ -317,19 +348,17 @@ fn normalize_hex(s: &str) -> String {
 	s.trim_start_matches("0x").to_ascii_lowercase()
 }
 
-fn count_disabled_old(
+fn disabled_old_keys(
 	disabled: &[ValidatorIndex],
 	validators: &[ValidatorId],
 	old_pubkeys: &HashSet<String>,
-) -> usize {
+) -> HashSet<String> {
 	disabled
 		.iter()
-		.filter(|idx| {
-			validators
-				.get(idx.0 as usize)
-				.is_some_and(|id| old_pubkeys.contains(&hex::encode(id.clone().into_inner().0)))
-		})
-		.count()
+		.filter_map(|idx| validators.get(idx.0 as usize))
+		.map(|id| hex::encode(id.clone().into_inner().0))
+		.filter(|key| old_pubkeys.contains(key))
+		.collect()
 }
 
 /// Call a raw `ParachainHost` runtime API at `hash` and SCALE-decode its result.
@@ -400,6 +429,7 @@ async fn assert_finality_stalls(
 	}
 
 	// look for the stall — two consecutive equal samples confirm finality is frozen.
+	let mut elapsed = 0u64;
 	let mut prev = read_metric(node, metric).await?;
 	loop {
 		tokio::time::sleep(std::time::Duration::from_secs(STEP_SECS)).await;
