@@ -1232,3 +1232,18 @@ fn cleanup_empty_storage_cleans_class_locks_only() {
 		assert!(!ClassLocksFor::<Test>::contains_key(&1));
 	});
 }
+
+#[test]
+fn cleanup_empty_storage_cleans_voting_only() {
+	new_test_ext().execute_with(|| {
+		// Manually insert an empty VotingFor entry, simulating legacy state that pre-dates
+		// the automatic cleanup logic.
+		VotingFor::<Test>::insert(&1u64, &class(3), VotingOf::<Test>::default());
+		assert!(VotingFor::<Test>::contains_key(&1, &class(3)));
+
+		// No ClassLocksFor entry exists, so the VotingFor removal alone must carry the call.
+		assert_ok!(Voting::cleanup_empty_storage(RuntimeOrigin::signed(2), 1, class(3)));
+
+		assert!(!VotingFor::<Test>::contains_key(&1, &class(3)));
+	});
+}

@@ -9,11 +9,11 @@ doc:
 
     This PR addresses the problem in two ways:
 
-    1. **Automatic cleanup** — after every vote, remove-vote, undelegate, or unlock
+    1. **Automatic cleanup**: after every vote, remove-vote, undelegate, or unlock
        operation, any resulting empty VotingFor or zero-balance ClassLocksFor entries
        are removed immediately.
 
-    2. **Permissionless `cleanup_empty_storage` extrinsic** — a new call that anyone
+    2. **Permissionless `cleanup_empty_storage` extrinsic**: a new call that anyone
        can use to remove a stale VotingFor entry and/or zero-balance ClassLocksFor
        entries for any account. The transaction fee is refunded on success to incentivise
        third-party cleanup of legacy entries.
@@ -26,6 +26,4 @@ crates:
 - name: asset-hub-westend-runtime
   bump: minor
 - name: rococo-runtime
-  bump: minor
-- name: westend-runtime
   bump: minor
