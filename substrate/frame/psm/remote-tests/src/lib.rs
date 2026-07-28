@@ -61,9 +61,11 @@ pub struct PsmTestConfig<AssetId> {
 	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
 	pub internal_asset_decimals: u8,
-	/// The pallet name for the assets pallet on the target chain (e.g., "Assets").
-	/// Used to determine which storage prefixes to fetch from the live chain.
-	pub assets_pallet_name: String,
+	/// Pallet names on the target chain whose storage must be fetched in order to
+	/// resolve the external asset (e.g., `["Assets", "ForeignAssets"]` on a runtime
+	/// that exposes its PSM `Fungibles` as a union over multiple `pallet_assets`
+	/// instances).
+	pub assets_pallet_names: Vec<String>,
 	/// Optional setup callback invoked before creating the internal asset.
 	/// Use this to set `NextAssetId` so that the asset can be created with
 	/// the desired ID on chains that use `AutoIncAssetId`.
@@ -199,7 +201,7 @@ const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
 /// Call [`clear_ext`] after all tests complete to remove the snapshot file.
 pub async fn build_ext<Block>(
 	ws_url: String,
-	assets_pallet_name: String,
+	assets_pallet_names: Vec<String>,
 ) -> remote_externalities::RemoteExternalities<Block>
 where
 	Block: BlockT + DeserializeOwned,
@@ -210,7 +212,7 @@ where
 			OfflineConfig { state_snapshot: SnapshotConfig::new(SNAPSHOT_PATH) },
 			OnlineConfig {
 				transport_uris: vec![ws_url],
-				pallets: vec![assets_pallet_name],
+				pallets: assets_pallet_names,
 				state_snapshot: Some(SnapshotConfig::new(SNAPSHOT_PATH)),
 				..Default::default()
 			},
@@ -254,11 +256,24 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 			asset_id.clone(),
 			&caller,
 		);
+		// The PSM-derived account may already hold the external asset on the
+		// live chain (residual from prior deployments / direct transfers), and
+		// `PsmDebt` may be non-empty if the pallet has already been used. We
+		// compare deltas rather than absolute balances.
+		let psm_external_before =
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+				asset_id.clone(),
+				&psm_account,
+			);
+		let total_debt_before = pallet_psm::PsmDebt::<Runtime>::iter_values()
+			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 
 		log::info!(
 			target: LOG_TARGET,
-			"Test account external stablecoin balance: {:?}",
+			"Caller external balance: {:?} / pre-existing PSM external: {:?} / pre-existing debt: {:?}",
 			balance_before,
+			psm_external_before,
+			total_debt_before,
 		);
 
 		// Test mint
@@ -281,14 +296,22 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 
 		let total_debt = pallet_psm::PsmDebt::<Runtime>::iter_values()
 			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
-		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
+		assert_eq!(
+			total_debt,
+			total_debt_before + swap_amount,
+			"PSM total debt should increase by exactly swap_amount"
+		);
 
-		// The PSM account should hold the external stablecoin.
+		// The PSM account's external balance should grow by exactly the swap amount.
 		let psm_external = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 			asset_id.clone(),
 			&psm_account,
 		);
-		assert_eq!(psm_external, swap_amount, "PSM should hold the external stablecoin");
+		assert_eq!(
+			psm_external,
+			psm_external_before + swap_amount,
+			"PSM external balance should increase by exactly swap_amount"
+		);
 
 		log::info!(
 			target: LOG_TARGET,
