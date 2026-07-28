@@ -126,7 +126,6 @@ impl crate::Config for Test {
 	type MetadataConsideration = TestConsideration;
 	type MaxKeyLen = ConstU32<32>;
 	type MaxValueLen = ConstU32<256>;
-	type MaxMetadataEntries = ConstU32<2>;
 	type LockPeriod = ConstU64<60>;
 	type MaxTransferPriority = ConstU64<1_000_000>;
 }

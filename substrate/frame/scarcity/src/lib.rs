@@ -39,6 +39,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -56,6 +58,7 @@ pub mod weights;
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::weights::WeightInfo;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Consideration, Footprint, IsSubType, UnixTime},
@@ -64,7 +67,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	#[cfg(any(test, feature = "try-runtime"))]
 	use sp_runtime::TryRuntimeError;
-	use sp_runtime::{transaction_validity::TransactionPriority, ArithmeticError, DispatchError};
+	use sp_runtime::{transaction_validity::TransactionPriority, DispatchError};
 
 	pub type CollectionId = u32;
 	/// Index within a collection; `(CollectionId, ItemIndex)` names an item definition.
@@ -234,16 +237,6 @@ pub mod pallet {
 		MetadataEntry<MetadataValueOf<T>, T::MetadataConsideration>,
 	>;
 
-	/// Number of collection metadata entries in each collection scope.
-	#[pallet::storage]
-	pub type CollectionMetadataCount<T> =
-		StorageMap<_, Twox64Concat, CollectionId, u32, ValueQuery>;
-
-	/// Number of item metadata entries in each `(collection, item)` scope.
-	#[pallet::storage]
-	pub type ItemMetadataCount<T> =
-		StorageDoubleMap<_, Twox64Concat, CollectionId, Twox64Concat, ItemIndex, u32, ValueQuery>;
-
 	/// The next permanent instance identifier to allocate.
 	#[pallet::storage]
 	pub type NextInstanceId<T> = StorageValue<_, InstanceId, ValueQuery>;
@@ -315,8 +308,6 @@ pub mod pallet {
 		SupplyOverflow,
 		/// An NFT cannot be transferred to its current purse key.
 		SelfTransfer,
-		/// A collection or item scope already contains the maximum metadata entries.
-		TooManyMetadataEntries,
 	}
 
 	#[pallet::pallet]
@@ -386,10 +377,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxValueLen: Get<u32>;
 
-		/// Maximum metadata entries in one collection scope or one item scope.
-		#[pallet::constant]
-		type MaxMetadataEntries: Get<u32>;
-
 		/// Base lock period after a failed purse-key dispatch, in seconds.
 		#[pallet::constant]
 		type LockPeriod: Get<u64>;
@@ -420,7 +407,7 @@ pub mod pallet {
 			collection: CollectionId,
 			kind: Kind,
 			next_variant: Option<ItemIndex>,
-			metadata: BoundedVec<(MetadataKeyOf<T>, MetadataValueOf<T>), T::MaxMetadataEntries>,
+			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			Self::do_define_item(owner, collection, kind, next_variant, metadata).map(|_| ())
@@ -543,7 +530,7 @@ pub mod pallet {
 			collection: CollectionId,
 			kind: Kind,
 			next_variant: Option<ItemIndex>,
-			metadata: BoundedVec<(MetadataKeyOf<T>, MetadataValueOf<T>), T::MaxMetadataEntries>,
+			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 		) -> Result<ItemIndex, DispatchError> {
 			let mut info =
 				Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
@@ -623,11 +610,6 @@ pub mod pallet {
 					Self::deposit_event(Event::CollectionMetadataSet { collection, key });
 				},
 				(None, Some(value)) => {
-					let count = CollectionMetadataCount::<T>::get(collection);
-					ensure!(
-						count < T::MaxMetadataEntries::get(),
-						Error::<T>::TooManyMetadataEntries
-					);
 					let ticket = T::MetadataConsideration::new(
 						owner,
 						Self::metadata_footprint(&key, &value),
@@ -637,19 +619,11 @@ pub mod pallet {
 						&key,
 						MetadataEntry { value, ticket },
 					);
-					CollectionMetadataCount::<T>::insert(collection, count.saturating_add(1));
 					Self::deposit_event(Event::CollectionMetadataSet { collection, key });
 				},
 				(Some(entry), None) => {
-					let count = CollectionMetadataCount::<T>::get(collection);
-					let next_count = count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
 					entry.ticket.drop(owner)?;
 					CollectionMetadata::<T>::remove(collection, &key);
-					if next_count == 0 {
-						CollectionMetadataCount::<T>::remove(collection);
-					} else {
-						CollectionMetadataCount::<T>::insert(collection, next_count);
-					}
 					Self::deposit_event(Event::CollectionMetadataRemoved { collection, key });
 				},
 				(None, None) => {},
@@ -679,11 +653,6 @@ pub mod pallet {
 					Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
 				},
 				(None, Some(value)) => {
-					let count = ItemMetadataCount::<T>::get(collection, item);
-					ensure!(
-						count < T::MaxMetadataEntries::get(),
-						Error::<T>::TooManyMetadataEntries
-					);
 					let ticket = T::MetadataConsideration::new(
 						owner,
 						Self::metadata_footprint(&key, &value),
@@ -692,19 +661,11 @@ pub mod pallet {
 						(collection, item, key.clone()),
 						MetadataEntry { value, ticket },
 					);
-					ItemMetadataCount::<T>::insert(collection, item, count.saturating_add(1));
 					Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
 				},
 				(Some(entry), None) => {
-					let count = ItemMetadataCount::<T>::get(collection, item);
-					let next_count = count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
 					entry.ticket.drop(owner)?;
 					ItemMetadata::<T>::remove((collection, item, key.clone()));
-					if next_count == 0 {
-						ItemMetadataCount::<T>::remove(collection, item);
-					} else {
-						ItemMetadataCount::<T>::insert(collection, item, next_count);
-					}
 					Self::deposit_event(Event::ItemMetadataRemoved { collection, item, key });
 				},
 				(None, None) => {},
@@ -762,10 +723,7 @@ pub mod pallet {
 					.saturating_add(to.encoded_size())
 					.saturating_add(instance.encoded_size())
 					.saturating_add(T::InstanceConsideration::max_encoded_len());
-				Some(T::InstanceConsideration::new(
-					owner,
-					Footprint::from_parts(3, record_size),
-				)?)
+				Some(T::InstanceConsideration::new(owner, Footprint::from_parts(3, record_size))?)
 			} else {
 				None
 			};
@@ -785,7 +743,7 @@ pub mod pallet {
 
 	#[cfg(any(test, feature = "try-runtime"))]
 	impl<T: Config> Pallet<T> {
-		/// Check ownership indexes, deposit-ticket ownership, and metadata count invariants.
+		/// Check ownership indexes, deposit-ticket ownership, and metadata references.
 		pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
 			for (owner, nft) in NftsByOwner::<T>::iter() {
 				if Instances::<T>::get(nft.instance) != Some(owner) {
@@ -822,66 +780,15 @@ pub mod pallet {
 				}
 			}
 
-			for collection in Collections::<T>::iter_keys() {
-				let actual = CollectionMetadata::<T>::iter_prefix(collection).count() as u32;
-				let stored = CollectionMetadataCount::<T>::get(collection);
-				if actual != stored {
-					return Err(TryRuntimeError::Other(
-						"CollectionMetadataCount does not match stored entries",
-					));
-				}
-				if stored > T::MaxMetadataEntries::get() {
-					return Err(TryRuntimeError::Other(
-						"CollectionMetadataCount exceeds MaxMetadataEntries",
-					));
-				}
-			}
-
-			for (collection, count) in CollectionMetadataCount::<T>::iter() {
+			for ((collection, item, _), _) in ItemMetadata::<T>::iter() {
 				if !Collections::<T>::contains_key(collection) {
 					return Err(TryRuntimeError::Other(
-						"CollectionMetadataCount has no matching collection",
+						"ItemMetadata entry has no matching collection",
 					));
 				}
-				if count > T::MaxMetadataEntries::get() {
-					return Err(TryRuntimeError::Other(
-						"CollectionMetadataCount exceeds MaxMetadataEntries",
-					));
-				}
-			}
-
-			for ((collection, item, _), _) in ItemMetadata::<T>::iter() {
 				if !ItemDefs::<T>::contains_key(collection, item) {
 					return Err(TryRuntimeError::Other(
 						"ItemMetadata entry has no matching item definition",
-					));
-				}
-			}
-
-			for (collection, item, _) in ItemDefs::<T>::iter() {
-				let actual = ItemMetadata::<T>::iter_prefix((collection, item)).count() as u32;
-				let stored = ItemMetadataCount::<T>::get(collection, item);
-				if actual != stored {
-					return Err(TryRuntimeError::Other(
-						"ItemMetadataCount does not match stored entries",
-					));
-				}
-				if stored > T::MaxMetadataEntries::get() {
-					return Err(TryRuntimeError::Other(
-						"ItemMetadataCount exceeds MaxMetadataEntries",
-					));
-				}
-			}
-
-			for (collection, item, count) in ItemMetadataCount::<T>::iter() {
-				if !ItemDefs::<T>::contains_key(collection, item) {
-					return Err(TryRuntimeError::Other(
-						"ItemMetadataCount has no matching item definition",
-					));
-				}
-				if count > T::MaxMetadataEntries::get() {
-					return Err(TryRuntimeError::Other(
-						"ItemMetadataCount exceeds MaxMetadataEntries",
 					));
 				}
 			}

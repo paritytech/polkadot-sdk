@@ -28,9 +28,11 @@ doc:
     consumption-on-use, a per-key `provides` tag, transaction mortality, and
     failure locks.
 
-    A `try_state` hook verifies the owner/reverse-index bijection, rejects
-    orphaned instance-deposit tickets and metadata, and checks metadata counts
-    and per-scope limits.
+    A `try_state` hook verifies the owner/reverse-index bijection and rejects
+    orphaned instance-deposit tickets and metadata. Metadata growth is priced
+    by a deposit per entry; `define_item` accepts a linearly weighted `Vec`
+    whose batch size is bounded by extrinsic and block length, while each key
+    and value remains individually bounded.
 crates:
 - name: pallet-scarcity
   bump: major

@@ -22,9 +22,8 @@
 use crate::{
 	extension::{AsScarcity, AsScarcityInfo, CustomInvalidity, Pre, Val},
 	mock::*,
-	CollectionMetadata, CollectionMetadataCount, Collections, Error, Event, InstanceDeposits,
-	Instances, ItemDefs, ItemMetadata, ItemMetadataCount, Kind, LockInfo, Locked, MetadataKeyOf,
-	MetadataValueOf, Nft, NftsByOwner, Origin,
+	CollectionMetadata, Collections, Error, Event, InstanceDeposits, Instances, ItemDefs,
+	ItemMetadata, Kind, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, Nft, NftsByOwner, Origin,
 };
 use codec::Encode;
 #[cfg(feature = "try-runtime")]
@@ -32,8 +31,7 @@ use frame_support::traits::Hooks;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::Pays,
-	traits::{ConstU32, Footprint, OriginTrait},
-	BoundedVec,
+	traits::{Footprint, OriginTrait},
 };
 use sp_runtime::{
 	traits::{TransactionExtension, TxBaseImplication},
@@ -55,15 +53,11 @@ fn value(value: &[u8]) -> MetadataValueOf<Test> {
 	value.to_vec().try_into().expect("metadata value fits the test bound")
 }
 
-fn metadata(
-	entries: &[(&[u8], &[u8])],
-) -> BoundedVec<(MetadataKeyOf<Test>, MetadataValueOf<Test>), ConstU32<2>> {
+fn metadata(entries: &[(&[u8], &[u8])]) -> Vec<(MetadataKeyOf<Test>, MetadataValueOf<Test>)> {
 	entries
 		.iter()
 		.map(|(key_bytes, value_bytes)| (key(key_bytes), value(value_bytes)))
 		.collect::<Vec<_>>()
-		.try_into()
-		.expect("metadata entries fit the test bound")
 }
 
 fn define(collection: u32, kind: Kind, next_variant: Option<u32>) {
@@ -459,7 +453,7 @@ fn metadata_mutation_rejects_unknown_collection_and_item() {
 }
 
 #[test]
-fn metadata_deposits_update_in_place_and_release_with_counts() {
+fn metadata_deposits_update_in_place_and_release() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		let collection_key = key(b"c");
@@ -471,7 +465,6 @@ fn metadata_deposits_update_in_place_and_release_with_counts() {
 			collection_key.clone(),
 			Some(value(b"one")),
 		));
-		assert_eq!(CollectionMetadataCount::<Test>::get(0), 1);
 		assert_eq!(
 			consideration_events(),
 			vec![ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 4) }]
@@ -484,7 +477,6 @@ fn metadata_deposits_update_in_place_and_release_with_counts() {
 			collection_key.clone(),
 			Some(value(b"longer")),
 		));
-		assert_eq!(CollectionMetadataCount::<Test>::get(0), 1);
 		assert_eq!(
 			consideration_events(),
 			vec![ConsiderationEvent::Update { who: OWNER, footprint: Footprint::from_parts(1, 7) }],
@@ -498,7 +490,6 @@ fn metadata_deposits_update_in_place_and_release_with_counts() {
 			collection_key,
 			None,
 		));
-		assert_eq!(CollectionMetadataCount::<Test>::get(0), 0);
 		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
 
 		let item_key = key(b"i");
@@ -510,7 +501,6 @@ fn metadata_deposits_update_in_place_and_release_with_counts() {
 			item_key.clone(),
 			Some(value(b"one")),
 		));
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 1);
 		assert_ok!(Scarcity::set_item_metadata(
 			RuntimeOrigin::signed(OWNER),
 			0,
@@ -518,11 +508,9 @@ fn metadata_deposits_update_in_place_and_release_with_counts() {
 			item_key.clone(),
 			Some(value(b"longer")),
 		));
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 1);
 		assert_ok!(
 			Scarcity::set_item_metadata(RuntimeOrigin::signed(OWNER), 0, 0, item_key, None,)
 		);
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 0);
 		assert_eq!(
 			consideration_events(),
 			vec![
@@ -556,97 +544,53 @@ fn removing_absent_metadata_is_a_no_op() {
 			None,
 		));
 
-		assert_eq!(CollectionMetadataCount::<Test>::get(0), 0);
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 0);
 		assert!(consideration_events().is_empty());
 		assert_eq!(System::events().len(), events_before);
 	});
 }
 
 #[test]
-fn metadata_entry_cap_is_per_scope_and_independent_between_items() {
-	new_test_ext().execute_with(|| {
-		setup_item();
-		define(0, Kind::Special, None);
-
-		for suffix in [b"a".as_slice(), b"b".as_slice()] {
-			assert_ok!(Scarcity::set_collection_metadata(
-				RuntimeOrigin::signed(OWNER),
-				0,
-				key(suffix),
-				Some(value(b"value")),
-			));
-			assert_ok!(Scarcity::set_item_metadata(
-				RuntimeOrigin::signed(OWNER),
-				0,
-				0,
-				key(suffix),
-				Some(value(b"value")),
-			));
-			assert_ok!(Scarcity::set_item_metadata(
-				RuntimeOrigin::signed(OWNER),
-				0,
-				1,
-				key(suffix),
-				Some(value(b"value")),
-			));
-		}
-
-		assert_noop!(
-			Scarcity::set_collection_metadata(
-				RuntimeOrigin::signed(OWNER),
-				0,
-				key(b"c"),
-				Some(value(b"value")),
-			),
-			Error::<Test>::TooManyMetadataEntries
-		);
-		assert_noop!(
-			Scarcity::set_item_metadata(
-				RuntimeOrigin::signed(OWNER),
-				0,
-				0,
-				key(b"c"),
-				Some(value(b"value")),
-			),
-			Error::<Test>::TooManyMetadataEntries
-		);
-		assert_eq!(CollectionMetadataCount::<Test>::get(0), 2);
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 2);
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 1), 2);
-		assert_ok!(Scarcity::do_try_state());
-	});
-}
-
-#[test]
-fn define_item_stores_and_charges_each_initial_metadata_entry() {
+fn define_item_accepts_more_than_old_cap_and_charges_each_metadata_entry() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
 		clear_consideration_events();
+		let metadata = (0..41)
+			.map(|index| {
+				(key(format!("key-{index}").as_bytes()), value(format!("value-{index}").as_bytes()))
+			})
+			.collect::<Vec<_>>();
+		let expected_footprints = metadata
+			.iter()
+			.map(|(key, value)| Footprint::from_parts(1, key.len().saturating_add(value.len())))
+			.collect::<Vec<_>>();
 
 		assert_ok!(Scarcity::define_item(
 			RuntimeOrigin::signed(OWNER),
 			0,
 			Kind::Normal,
 			None,
-			metadata(&[(b"name", b"potion"), (b"power", b"42")]),
+			metadata,
 		));
 
 		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 2);
-		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"name")), Some(value(b"potion")));
-		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"power")), Some(value(b"42")));
+		assert_eq!(ItemMetadata::<Test>::iter_prefix((0, 0)).count(), 41);
+		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"key-40")), Some(value(b"value-40")),);
+		let events = consideration_events();
 		assert_eq!(
-			consideration_events(),
-			vec![
-				ConsiderationEvent::New {
-					who: OWNER,
-					footprint: Footprint::from_parts(1, definition.encoded_size()),
-				},
-				ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 10) },
-				ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 7) },
-			]
+			events.first(),
+			Some(&ConsiderationEvent::New {
+				who: OWNER,
+				footprint: Footprint::from_parts(1, definition.encoded_size()),
+			}),
 		);
+		assert_eq!(events.len(), expected_footprints.len() + 1);
+		for (event, footprint) in events[1..].iter().zip(expected_footprints) {
+			assert_eq!(
+				event,
+				&ConsiderationEvent::New { who: OWNER, footprint },
+				"every initial metadata entry must create its own deposit ticket",
+			);
+		}
 		assert_ok!(Scarcity::do_try_state());
 	});
 }
@@ -1006,7 +950,6 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 			Some(value(b"burn")),
 			"item-definition metadata must outlive a burned instance",
 		);
-		assert_eq!(ItemMetadataCount::<Test>::get(0, 0), 1);
 		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
 		System::assert_has_event(Event::<Test>::Burned { instance: 0 }.into());
 

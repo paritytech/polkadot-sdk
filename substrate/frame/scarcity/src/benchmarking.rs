@@ -27,7 +27,6 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{Consideration, Footprint, Get},
-	BoundedVec,
 };
 use frame_system::RawOrigin;
 use sp_runtime::{
@@ -91,13 +90,8 @@ fn create_definition<T: Config>(
 	ensure_collection_consideration::<T>(owner);
 	let collection = Pallet::<T>::do_create_collection(owner.clone())?;
 	ensure_item_consideration::<T>(owner, Kind::Normal, None);
-	let item = Pallet::<T>::do_define_item(
-		owner.clone(),
-		collection,
-		Kind::Normal,
-		None,
-		BoundedVec::default(),
-	)?;
+	let item =
+		Pallet::<T>::do_define_item(owner.clone(), collection, Kind::Normal, None, Vec::new())?;
 	Ok((collection, item))
 }
 
@@ -122,7 +116,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn define_item(
-		m: Linear<0, { T::MaxMetadataEntries::get() }>,
+		m: Linear<0, 100>,
 		v: Linear<0, { T::MaxValueLen::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
@@ -134,7 +128,7 @@ mod benchmarks {
 			collection,
 			Kind::Special,
 			None,
-			BoundedVec::default(),
+			Vec::new(),
 		)?;
 		let metadata = (0..m)
 			.map(|index| {
@@ -146,17 +140,14 @@ mod benchmarks {
 				);
 				(key, value)
 			})
-			.collect::<Vec<_>>()
-			.try_into()
-			.ok()
-			.expect("metadata count is benchmark-bounded");
+			.collect::<Vec<_>>();
 		ensure_item_consideration::<T>(&caller, Kind::Normal, Some(variant));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), collection, Kind::Normal, Some(variant), metadata);
 
 		assert!(ItemDefs::<T>::contains_key(collection, variant + 1));
-		assert_eq!(ItemMetadataCount::<T>::get(collection, variant + 1), m);
+		assert_eq!(ItemMetadata::<T>::iter_prefix((collection, variant + 1)).count(), m as usize);
 		Ok(())
 	}
 
@@ -238,7 +229,6 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), collection, key.clone(), Some(replacement.clone()));
 
 		assert_eq!(Pallet::<T>::collection_metadata_of(collection, &key), Some(replacement));
-		assert_eq!(CollectionMetadataCount::<T>::get(collection), 1);
 		frame_system::Pallet::<T>::assert_last_event(
 			Event::<T>::CollectionMetadataSet { collection, key }.into(),
 		);
@@ -268,7 +258,6 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), collection, item, key.clone(), Some(replacement.clone()));
 
 		assert_eq!(Pallet::<T>::metadata_of(collection, item, &key), Some(replacement));
-		assert_eq!(ItemMetadataCount::<T>::get(collection, item), 1);
 		frame_system::Pallet::<T>::assert_last_event(
 			Event::<T>::ItemMetadataSet { collection, item, key }.into(),
 		);
