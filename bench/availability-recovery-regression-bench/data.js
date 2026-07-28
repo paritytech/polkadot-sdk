@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785146410139,
+  "lastUpdate": 1785238103434,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "08a4a548cb1f5a817d319725f9c1420a7bbe1d3e",
-          "message": "Disable polkavm logging in `pallet-revive` (#10385)\n\nThis PR adds configurable control over PolkaVM logging in\n`pallet-revive` to address performance degradation (details:\nhttps://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)\n\n- Upgrades PolkaVM to v0.30.0 which provides\n`set_imperfect_logger_filtering_workaround()`\n- Adds `pvm_logs` flag to `DebugSettings` to control PolkaVM interpreter\nlogging\n- Disables PolkaVM logs by default (when `pvm_logs=false`), enabling\nthem only when explicitly configured\n- Fixes performance issue where excessive PolkaVM logging was impacting\nblock proposal times\n\nThe logging can be re-enabled via debug settings when needed for\ntroubleshooting.\n\nAdditionally:\n- PolkaVM has been bumped globally across whole codebase.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-26T14:51:51Z",
-          "tree_id": "9cc449884442043a3546c974f7fc16f9ee2d99aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/08a4a548cb1f5a817d319725f9c1420a7bbe1d3e"
-        },
-        "date": 1764173207405,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.323704409466666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19862704693333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.131350871933337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bcf5321417211852425a92da820456f8fd59d50d",
+          "message": "[pallet-revive] Consume the versioned runtime API in the eth-rpc (#12548)\n\n# Description\n\nThis PR closes #11925 and allows the eth-rpc to consume the versioned\npallet-revive runtime API and allows it to determine what set of\ncapabilities the version of pallet-revive at the provided block hash\nprovides in order to allow it to determine what exact methods it needs\nto call on the runtime API.\n\nAt the core of this is the `ReviveRuntimeApiCapabilities` struct which\nholds the entire set of capabilities that a specific version of\npallet-revive supports.\n\n```rust\npub struct ReviveRuntimeApiCapabilities {\n\tpub eth_block: MethodStatus,\n\tpub eth_block_hash: MethodStatus,\n\tpub eth_receipt_data: MethodStatus,\n\tpub block_gas_limit: MethodStatus,\n\tpub max_extrinsic_weight_in_gas: MethodStatus,\n\tpub balance: MethodStatus,\n\tpub gas_price: MethodStatus,\n\tpub nonce: MethodStatus,\n\tpub call: MethodStatus,\n\tpub instantiate: MethodStatus,\n\tpub eth_transact: MethodStatus,\n\tpub eth_transact_with_config: MethodStatus,\n\tpub eth_estimate_gas: MethodStatus,\n\tpub eth_pre_dispatch_weight: MethodStatus,\n\tpub upload_code: MethodStatus,\n\tpub get_storage: MethodStatus,\n\tpub runtime_pallets_address: MethodStatus,\n\tpub code: MethodStatus,\n\tpub account_id: MethodStatus,\n\tpub new_balance_with_dust: MethodStatus,\n\tpub block_author: MethodStatus,\n\tpub address: MethodStatus,\n\tpub trace_block: MethodStatus,\n\tpub trace_tx: MethodStatus,\n\tpub trace_call: MethodStatus,\n\tpub trace_call_with_config: MethodStatus,\n}\n```\n\nWhere `MethodStatus` is defined as the following:\n\n```rust\npub enum MethodStatus {\n\tUnavailable,\n\tAvailable(MethodVersioningStatus),\n}\n\npub enum MethodVersioningStatus {\n\tUnversioned,\n\tVersioned(u8),\n}\n```\n\nThis means that once `ReviveRuntimeApiCapabilities` is computed for a\nparticular block, then the eth-rpc is able to determine if a particular\nmethod is available or not, versioned or not, and if versioned, then\nwhat the maximum supported version is.\n\nThis means that fallback patterns we used to need in the past (for\nexample, with the gas estimation where we'd first attempt calling\n`estimate_gas`, then fallback to `eth_transact_with_config`, and then\nfallback to `eth_transact`) is now removed since we're able to directly\ndetermine what the capabilities of the runtime API are and then based on\nthat call the appropriate methods.\n\nThe `ReviveRuntimeApiCapabilities` is computed using the metadata of the\ncurrent block (to determine the method availability) and the\n`ReviveRuntimeApiVersionDeclarations` to determine what versions of the\nversioned runtime API does the pallet support. We theoritically only\nneed the metadata to compute everything in this struct but this choice\nwas made in order to use the right abstractions we added for versioning\nand also to serve as an example for other projects who may want to\nconsume the pallet-revive runtime API on how it can be done correctly.\n\nA layer of abstraction above the `ReviveRuntimeApiCapabilities` is the\n`VersionAwareRuntimeApi` which is a wrapper for the runtime API that's\nversion aware and able to make the appropriate runtime API calls to the\nappropriate runtime API version without requiring anything additional\nfrom the callers of the runtime API. This implementation of the\n`VersionAwareRuntimeApi` always prefers the versioned runtime API\nmethods when they're available and fallsback on the unversioned methods\notherwise. We currently ignore the version, not because it's not\nimportant, but because the V1 of the versioned runtime APIs stasify our\nneeds. If a runtime API method ever needs it, then it's very easy to do\nwith the current design.\n\nAll of the methods on the `VersionAwareRuntimeApi` intentionally return\nan `Option<impl Future<Output = T>>` (the option part there is\nimportant) where we return `None` if none of the runtime API methods\navailable on pallet-revive at that block can service this request.\nOtherwise, an appropriate future is returned. An example of where this\nmight be useful is somebody trying to trace a block with state overrides\nof a pallet-revive which didn't support state overrides and therefore\nthe honest thing to return in that case would be a `None` since the\n`VersionAwareRuntimeApi` can't construct any future which resolves the\nuser's request correctly.\n\nThe `ReviveRuntimeApiCapabilities` we have are cached and are not\nrecomputed with each block we discover in the chain in order to reduce\nthe number of RPC requests we make. The `VersionAwareRuntimeApiProvider`\ncaches all of the `ReviveRuntimeApiCapabilities` by block hash. If a\nblock we subscribed to does not include a runtime upgrade then we simply\nclone the `Arc<ReviveRuntimeApiCapabilities>` of the parent block hash,\nno computations required in this code path. The cache is sized to allow\nfor the capabilities of all blocks within a 24 hour period to be cached\n(which is the most popular usage of the eth-rpc). If the block time\nchanges from 2s then we might want to adjust this cache accordingly.\n\nAn earlier design for this PR made use of `RangeMap`s in order to store\nthe capabilities for blocks. However, I decided against that since a\n`RangeMap` requires a key which can be incremented, and using the block\nnumber for capabilities can be quite hairy with forks and could lead to\nbugs in the future which would be hard to debug and hard to reason\nabout.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-28T09:42:18Z",
+          "tree_id": "9805a0ea00145a10f72c927815de4b038360783e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcf5321417211852425a92da820456f8fd59d50d"
+        },
+        "date": 1785238072951,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.285779066833332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1395869923,
             "unit": "seconds"
           }
         ]
