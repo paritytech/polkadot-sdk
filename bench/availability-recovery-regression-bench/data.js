@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785238103434,
+  "lastUpdate": 1785251856658,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "53065c0e42437b5d946dc51810855f8ccd8c6821",
-          "message": "wasm-builder: Only overwrite wasm files if they changed (#10448)\n\nWhen running two different `cargo` commands, they may both compile the\nsame wasm files. When the second `cargo` command produces the same wasm\nfiles, we are now not gonna overwrite it. This has the advantage that we\ncan run the first command again without it trying to recompile the\nproject. Right now it would lead to the wasm files always getting\nrecreated, which is wasting a lot of time :)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-28T09:52:17Z",
-          "tree_id": "354dac8266f0c72834c01010c3c88d833123765f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/53065c0e42437b5d946dc51810855f8ccd8c6821"
-        },
-        "date": 1764329308220,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.325136103499998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.200219052,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1395869923,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f2eeb2b81dc85f90bb9fc413cb56b9eac61f8b5",
+          "message": "Multi instance PSM (#12245)\n\n## Summary\n\nThis reworks `pallet-psm` from a single, governance-seeded Peg Stability\nModule into a multi-instance design where many independent PSMs can\ncoexist, each created permissionlessly and managed by its own admins. It\nreplaces the old model in which a single PSM was configured through the\npallet's `Config` and seeded via a one-off migration.\n\n## Motivation\n\nThe original pallet supported exactly one PSM, whose parameters were\nhardcoded into the runtime configuration and whose setup required\ngovernance. This change makes PSMs permissionlessly created, configured\nin storage, and governed by the accounts that create them.\n\n## What changed\n\n**Multiple instances.** A runtime can now hold any number of PSMs at\nonce. Each is identified by its internal (stablecoin) asset and tracks\nits own configuration, external assets, fees, and debt independently of\nthe others.\n\n**Configuration lives in storage, not in `Config`.** Per-PSM parameters\nthat used to be compile-time constants or single-value storage now live\nin maps keyed per PSM. A module can therefore be created and updated at\nruntime without a code change or migration.\n\n**Multiple backing assets per PSM.** Each PSM can be backed by several\nexternal assets. All per-asset state (status, ceilings, debt, decimal\ninformation) is keyed by the (PSM, backing-asset) pair, so adding or\nremoving a backing asset is a self-contained operation that cleans up\nafter itself.\n\n**Creation by the asset owner, with a refundable deposit.** Only the\ninternal asset's owner can create its PSM (no governance origin needed);\nthey lock a refundable native deposit, name the full and emergency\nadmins, and are refunded on removal.\n\n**Creation is restricted to the asset owner.** Creating a PSM requires\nthe caller to be the owner of the internal asset. A PSM mints and burns\nits internal asset through a privileged path that does not perform the\nusual issuer check, so without this restriction anyone could register a\nPSM over an asset they do not control and mint it against worthless\ncollateral. Tying creation to ownership ensures a PSM can only be set up\nby the party that actually controls the asset.\n\n**Per-PSM admin model.** Each PSM carries a full admin and an emergency\nadmin, allowing management and emergency actions to be delegated\nseparately.\n\n**State separation.** The data touched on every mint and redeem is\nstored separately from the rarely-used administrative data, keeping the\nswap path small and cheap.\n\n**Removed migrations.** There is no data migration. The pallet is\nredeployed cleanly (its old storage is removed and the storage version\nreset), so existing per-instance state is not carried over.\n\n## Changes beyond `pallet-psm`\n\n**`frame-support`: `fungibles::UnionOf` (additive).** `UnionOf` now\nimplements `fungibles::roles::Inspect`, forwarding\n`owner`/`issuer`/`admin`/`freezer` to whichever side owns the asset.\nThis is needed given that we need to know the asset owner for\n`create_psm`.\n\n**Runtime wiring.** `pallet-psm` is re-configured for the new\nmulti-instance `Config` in the runtimes that use it (Asset Hub Westend\nand the kitchensink runtime).\n\n**Asset Hub Westend redeploy.** Since there is no data migration, the\nruntime wipes the pallet's old storage and resets its storage version on\nupgrade (a `RemovePallet` for the pallet plus a one-shot storage-version\nreset). Existing on-chain PSM state is not carried forward; instances\nare created on demand afterwards.\n\n**`pallet-parameters` removed from Asset Hub Westend.** Its only use was\na system-wide PSM issuance cap, which the per-PSM debt ceiling replaces.\nThe pallet is removed from the runtime, and its on-chain storage is\ncleaned up with a `RemovePallet` migration.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-07-28T13:30:11Z",
+          "tree_id": "f89d163258e1439035de5d6711e3100d10298ed9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2f2eeb2b81dc85f90bb9fc413cb56b9eac61f8b5"
+        },
+        "date": 1785251823897,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14849592140000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.190442554866667,
             "unit": "seconds"
           }
         ]
