@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785146484386,
+  "lastUpdate": 1785238179950,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b291e6f8b49a42d03646256b91458f6d9b0fd2aa",
-          "message": "Uncomment release notifications (#10434)",
-          "timestamp": "2025-11-26T11:02:35Z",
-          "tree_id": "d67511f3003dc5ebe13f6d310f738ff57da4de8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b291e6f8b49a42d03646256b91458f6d9b0fd2aa"
-        },
-        "date": 1764158979110,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63622.749999999985,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52936.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.468975951879999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018514079999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.0177760025799993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018514079999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4783677869400007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4229988754500037,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.644779923731068,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005371310240000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002001456,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4713134301900004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.40022563173,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5354222744499983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002001456,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.944659754619982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bcf5321417211852425a92da820456f8fd59d50d",
+          "message": "[pallet-revive] Consume the versioned runtime API in the eth-rpc (#12548)\n\n# Description\n\nThis PR closes #11925 and allows the eth-rpc to consume the versioned\npallet-revive runtime API and allows it to determine what set of\ncapabilities the version of pallet-revive at the provided block hash\nprovides in order to allow it to determine what exact methods it needs\nto call on the runtime API.\n\nAt the core of this is the `ReviveRuntimeApiCapabilities` struct which\nholds the entire set of capabilities that a specific version of\npallet-revive supports.\n\n```rust\npub struct ReviveRuntimeApiCapabilities {\n\tpub eth_block: MethodStatus,\n\tpub eth_block_hash: MethodStatus,\n\tpub eth_receipt_data: MethodStatus,\n\tpub block_gas_limit: MethodStatus,\n\tpub max_extrinsic_weight_in_gas: MethodStatus,\n\tpub balance: MethodStatus,\n\tpub gas_price: MethodStatus,\n\tpub nonce: MethodStatus,\n\tpub call: MethodStatus,\n\tpub instantiate: MethodStatus,\n\tpub eth_transact: MethodStatus,\n\tpub eth_transact_with_config: MethodStatus,\n\tpub eth_estimate_gas: MethodStatus,\n\tpub eth_pre_dispatch_weight: MethodStatus,\n\tpub upload_code: MethodStatus,\n\tpub get_storage: MethodStatus,\n\tpub runtime_pallets_address: MethodStatus,\n\tpub code: MethodStatus,\n\tpub account_id: MethodStatus,\n\tpub new_balance_with_dust: MethodStatus,\n\tpub block_author: MethodStatus,\n\tpub address: MethodStatus,\n\tpub trace_block: MethodStatus,\n\tpub trace_tx: MethodStatus,\n\tpub trace_call: MethodStatus,\n\tpub trace_call_with_config: MethodStatus,\n}\n```\n\nWhere `MethodStatus` is defined as the following:\n\n```rust\npub enum MethodStatus {\n\tUnavailable,\n\tAvailable(MethodVersioningStatus),\n}\n\npub enum MethodVersioningStatus {\n\tUnversioned,\n\tVersioned(u8),\n}\n```\n\nThis means that once `ReviveRuntimeApiCapabilities` is computed for a\nparticular block, then the eth-rpc is able to determine if a particular\nmethod is available or not, versioned or not, and if versioned, then\nwhat the maximum supported version is.\n\nThis means that fallback patterns we used to need in the past (for\nexample, with the gas estimation where we'd first attempt calling\n`estimate_gas`, then fallback to `eth_transact_with_config`, and then\nfallback to `eth_transact`) is now removed since we're able to directly\ndetermine what the capabilities of the runtime API are and then based on\nthat call the appropriate methods.\n\nThe `ReviveRuntimeApiCapabilities` is computed using the metadata of the\ncurrent block (to determine the method availability) and the\n`ReviveRuntimeApiVersionDeclarations` to determine what versions of the\nversioned runtime API does the pallet support. We theoritically only\nneed the metadata to compute everything in this struct but this choice\nwas made in order to use the right abstractions we added for versioning\nand also to serve as an example for other projects who may want to\nconsume the pallet-revive runtime API on how it can be done correctly.\n\nA layer of abstraction above the `ReviveRuntimeApiCapabilities` is the\n`VersionAwareRuntimeApi` which is a wrapper for the runtime API that's\nversion aware and able to make the appropriate runtime API calls to the\nappropriate runtime API version without requiring anything additional\nfrom the callers of the runtime API. This implementation of the\n`VersionAwareRuntimeApi` always prefers the versioned runtime API\nmethods when they're available and fallsback on the unversioned methods\notherwise. We currently ignore the version, not because it's not\nimportant, but because the V1 of the versioned runtime APIs stasify our\nneeds. If a runtime API method ever needs it, then it's very easy to do\nwith the current design.\n\nAll of the methods on the `VersionAwareRuntimeApi` intentionally return\nan `Option<impl Future<Output = T>>` (the option part there is\nimportant) where we return `None` if none of the runtime API methods\navailable on pallet-revive at that block can service this request.\nOtherwise, an appropriate future is returned. An example of where this\nmight be useful is somebody trying to trace a block with state overrides\nof a pallet-revive which didn't support state overrides and therefore\nthe honest thing to return in that case would be a `None` since the\n`VersionAwareRuntimeApi` can't construct any future which resolves the\nuser's request correctly.\n\nThe `ReviveRuntimeApiCapabilities` we have are cached and are not\nrecomputed with each block we discover in the chain in order to reduce\nthe number of RPC requests we make. The `VersionAwareRuntimeApiProvider`\ncaches all of the `ReviveRuntimeApiCapabilities` by block hash. If a\nblock we subscribed to does not include a runtime upgrade then we simply\nclone the `Arc<ReviveRuntimeApiCapabilities>` of the parent block hash,\nno computations required in this code path. The cache is sized to allow\nfor the capabilities of all blocks within a 24 hour period to be cached\n(which is the most popular usage of the eth-rpc). If the block time\nchanges from 2s then we might want to adjust this cache accordingly.\n\nAn earlier design for this PR made use of `RangeMap`s in order to store\nthe capabilities for blocks. However, I decided against that since a\n`RangeMap` requires a key which can be incremented, and using the block\nnumber for capabilities can be quite hairy with forks and could lead to\nbugs in the future which would be hard to debug and hard to reason\nabout.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-28T09:42:18Z",
+          "tree_id": "9805a0ea00145a10f72c927815de4b038360783e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcf5321417211852425a92da820456f8fd59d50d"
+        },
+        "date": 1785238149691,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63573.08,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001833854,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002005804,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.65136706332001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005137927460000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6226502273700003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.348097864330013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.648552201109999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6439324625000014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.606410330500001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001833854,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7765860500499937,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002005804,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5966326731829055,
             "unit": "seconds"
           }
         ]
