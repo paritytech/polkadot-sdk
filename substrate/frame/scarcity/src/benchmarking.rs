@@ -59,12 +59,8 @@ fn ensure_collection_consideration<T: Config>(owner: &T::AccountId) {
 	T::CollectionConsideration::ensure_successful(owner, Footprint::from_parts(1, record_size));
 }
 
-fn ensure_item_consideration<T: Config>(
-	owner: &T::AccountId,
-	kind: Kind,
-	next_variant: Option<ItemIndex>,
-) {
-	let definition_size = ItemDefinition { kind, next_variant, supply: 0, ticket: () }
+fn ensure_item_consideration<T: Config>(owner: &T::AccountId) {
+	let definition_size = ItemDefinition { supply: 0, ticket: () }
 		.encoded_size()
 		.saturating_add(T::ItemDefConsideration::max_encoded_len());
 	T::ItemDefConsideration::ensure_successful(owner, Footprint::from_parts(1, definition_size));
@@ -89,9 +85,8 @@ fn create_definition<T: Config>(
 ) -> Result<(CollectionId, ItemIndex), BenchmarkError> {
 	ensure_collection_consideration::<T>(owner);
 	let collection = Pallet::<T>::do_create_collection(owner.clone())?;
-	ensure_item_consideration::<T>(owner, Kind::Normal, None);
-	let item =
-		Pallet::<T>::do_define_item(owner.clone(), collection, Kind::Normal, None, Vec::new())?;
+	ensure_item_consideration::<T>(owner);
+	let item = Pallet::<T>::do_define_item(owner.clone(), collection, Vec::new())?;
 	Ok((collection, item))
 }
 
@@ -122,14 +117,6 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		ensure_collection_consideration::<T>(&caller);
 		let collection = Pallet::<T>::do_create_collection(caller.clone())?;
-		ensure_item_consideration::<T>(&caller, Kind::Special, None);
-		let variant = Pallet::<T>::do_define_item(
-			caller.clone(),
-			collection,
-			Kind::Special,
-			None,
-			Vec::new(),
-		)?;
 		let metadata = (0..m)
 			.map(|index| {
 				let key = metadata_key::<T>(index);
@@ -141,13 +128,13 @@ mod benchmarks {
 				(key, value)
 			})
 			.collect::<Vec<_>>();
-		ensure_item_consideration::<T>(&caller, Kind::Normal, Some(variant));
+		ensure_item_consideration::<T>(&caller);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), collection, Kind::Normal, Some(variant), metadata);
+		_(RawOrigin::Signed(caller), collection, metadata);
 
-		assert!(ItemDefs::<T>::contains_key(collection, variant + 1));
-		assert_eq!(ItemMetadata::<T>::iter_prefix((collection, variant + 1)).count(), m as usize);
+		assert!(ItemDefs::<T>::contains_key(collection, 0));
+		assert_eq!(ItemMetadata::<T>::iter_prefix((collection, 0)).count(), m as usize);
 		Ok(())
 	}
 

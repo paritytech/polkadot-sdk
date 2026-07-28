@@ -23,7 +23,7 @@ use crate::{
 	extension::{AsScarcity, AsScarcityInfo, CustomInvalidity, Pre, Val},
 	mock::*,
 	CollectionMetadata, Collections, Error, Event, InstanceDeposits, Instances, ItemDefs,
-	ItemMetadata, Kind, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, Nft, NftsByOwner, Origin,
+	ItemMetadata, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, Nft, NftsByOwner, Origin,
 };
 use codec::Encode;
 #[cfg(feature = "try-runtime")]
@@ -60,19 +60,13 @@ fn metadata(entries: &[(&[u8], &[u8])]) -> Vec<(MetadataKeyOf<Test>, MetadataVal
 		.collect::<Vec<_>>()
 }
 
-fn define(collection: u32, kind: Kind, next_variant: Option<u32>) {
-	assert_ok!(Scarcity::define_item(
-		RuntimeOrigin::signed(OWNER),
-		collection,
-		kind,
-		next_variant,
-		metadata(&[]),
-	));
+fn define(collection: u32) {
+	assert_ok!(Scarcity::define_item(RuntimeOrigin::signed(OWNER), collection, metadata(&[]),));
 }
 
 fn setup_item() {
 	assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
-	define(0, Kind::Normal, None);
+	define(0);
 }
 
 fn mint(item: u32, to: u64) {
@@ -196,7 +190,7 @@ fn define_item_charges_issuer_by_encoded_size() {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
 		clear_consideration_events();
 
-		define(0, Kind::Normal, None);
+		define(0);
 		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
 		assert_eq!(definition.ticket, TestConsideration);
 		assert!(matches!(
@@ -230,23 +224,11 @@ fn define_item_requires_collection_owner() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
 		assert_noop!(
-			Scarcity::define_item(
-				RuntimeOrigin::signed(OTHER),
-				0,
-				Kind::Normal,
-				None,
-				metadata(&[]),
-			),
+			Scarcity::define_item(RuntimeOrigin::signed(OTHER), 0, metadata(&[]),),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Scarcity::define_item(
-				RuntimeOrigin::signed(OWNER),
-				99,
-				Kind::Normal,
-				None,
-				metadata(&[]),
-			),
+			Scarcity::define_item(RuntimeOrigin::signed(OWNER), 99, metadata(&[]),),
 			Error::<Test>::UnknownCollection
 		);
 	});
@@ -256,9 +238,9 @@ fn define_item_requires_collection_owner() {
 fn define_item_assigns_incremental_indexes() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
-		define(0, Kind::Normal, None);
-		define(0, Kind::Special, None);
-		define(0, Kind::Charm, None);
+		define(0);
+		define(0);
+		define(0);
 
 		assert!(ItemDefs::<Test>::contains_key(0, 0));
 		assert!(ItemDefs::<Test>::contains_key(0, 1));
@@ -267,27 +249,7 @@ fn define_item_assigns_incremental_indexes() {
 		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, 0);
 		assert_eq!(ItemDefs::<Test>::get(0, 1).unwrap().supply, 0);
 		assert_eq!(ItemDefs::<Test>::get(0, 2).unwrap().supply, 0);
-	});
-}
-
-#[test]
-fn define_item_validates_next_variant() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
-		assert_noop!(
-			Scarcity::define_item(
-				RuntimeOrigin::signed(OWNER),
-				0,
-				Kind::Special,
-				Some(0),
-				metadata(&[]),
-			),
-			Error::<Test>::UnknownVariant
-		);
-
-		define(0, Kind::Charm, None);
-		define(0, Kind::Special, Some(0));
-		assert_eq!(ItemDefs::<Test>::get(0, 1).unwrap().next_variant, Some(0));
+		System::assert_has_event(Event::<Test>::ItemDefined { collection: 0, item: 2 }.into());
 	});
 }
 
@@ -564,13 +526,7 @@ fn define_item_accepts_more_than_old_cap_and_charges_each_metadata_entry() {
 			.map(|(key, value)| Footprint::from_parts(1, key.len().saturating_add(value.len())))
 			.collect::<Vec<_>>();
 
-		assert_ok!(Scarcity::define_item(
-			RuntimeOrigin::signed(OWNER),
-			0,
-			Kind::Normal,
-			None,
-			metadata,
-		));
+		assert_ok!(Scarcity::define_item(RuntimeOrigin::signed(OWNER), 0, metadata,));
 
 		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
 		assert_eq!(ItemMetadata::<Test>::iter_prefix((0, 0)).count(), 41);
@@ -614,7 +570,7 @@ fn mint_requires_owner_and_existing_def() {
 fn mint_enforces_one_nft_per_key() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 		mint(0, RECIPIENT);
 		assert_noop!(
 			Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, 1, RECIPIENT),
@@ -627,7 +583,7 @@ fn mint_enforces_one_nft_per_key() {
 fn mint_writes_consistent_state() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 		MockNow::set(1_234);
 		mint(0, RECIPIENT);
 
@@ -678,7 +634,7 @@ fn do_mint_claimed_waives_deposit_and_increments_supply() {
 fn do_mint_claimed_checks_collection_item_and_destination() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 
 		assert_noop!(Scarcity::do_mint_claimed(99, 0, RECIPIENT), Error::<Test>::UnknownCollection);
 		assert_noop!(Scarcity::do_mint_claimed(0, 99, RECIPIENT), Error::<Test>::UnknownItem);
@@ -693,7 +649,7 @@ fn item_defs_are_immutable() {
 		setup_item();
 		let before = ItemDefs::<Test>::get(0, 0).expect("first definition exists");
 
-		define(0, Kind::Special, None);
+		define(0);
 		assert_eq!(ItemDefs::<Test>::get(0, 0), Some(before));
 	});
 }
@@ -794,7 +750,7 @@ fn same_block_double_use_blocked() {
 fn failed_dispatch_restores_and_locks() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 		mint(0, OWNER);
 
 		// Race shape: the destination is empty at validation time and becomes occupied before
@@ -876,7 +832,7 @@ fn pool_rejects_self_transfer_without_lock() {
 fn pool_rejects_occupied_destination_without_lock() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 		mint(0, RECIPIENT);
 		mint(1, OTHER);
 		assert!(validate_transfer(RECIPIENT, OTHER).is_err());
@@ -889,7 +845,7 @@ fn pool_rejects_occupied_destination_without_lock() {
 fn one_nft_per_key_on_transfer() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 		mint(0, RECIPIENT);
 		mint(1, OTHER);
 		let nft = NftsByOwner::<Test>::take(RECIPIENT).expect("minted NFT exists");
@@ -1024,7 +980,7 @@ fn failed_burn_restores_nft_and_locks_purse_key() {
 fn try_state_accepts_issuer_claimed_transferred_and_burned_states() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		define(0, Kind::Special, None);
+		define(0);
 		assert_ok!(Scarcity::set_collection_metadata(
 			RuntimeOrigin::signed(OWNER),
 			0,

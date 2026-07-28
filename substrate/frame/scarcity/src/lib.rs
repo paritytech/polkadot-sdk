@@ -18,9 +18,9 @@
 //! # Scarcity Pallet
 //!
 //! `pallet-scarcity` defines NFT collections and item definitions, then mints instances using a
-//! coinage-style ownership model: each purse key can hold at most one NFT. Item identity (`kind`,
-//! `next_variant`, and `supply`) and ownership remain immutable except through
-//! mint/transfer/burn, while owner-managed metadata is mutable at collection and item levels.
+//! coinage-style ownership model: each purse key can hold at most one NFT. The pallet knows
+//! ownership, supply, metadata, and deposits; it knows nothing about what an item means. Item
+//! semantics belong to collection contracts.
 //!
 //! Collection metadata supplies defaults inherited by every item. An item's complete metadata
 //! picture is built by iterating both storage prefixes and merging the item's entries over the
@@ -87,25 +87,6 @@ pub mod pallet {
 		pub ticket: Ticket,
 	}
 
-	/// The display and fusion class of an immutable item definition.
-	#[derive(
-		Clone,
-		Copy,
-		PartialEq,
-		Eq,
-		Debug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	pub enum Kind {
-		Normal,
-		Special,
-		Charm,
-	}
-
 	/// Collection issuer and the next automatically assigned item index.
 	#[derive(
 		CloneNoBound,
@@ -142,9 +123,6 @@ pub mod pallet {
 	)]
 	#[scale_info(skip_type_params(ItemDefConsideration))]
 	pub struct ItemDefinition<ItemDefConsideration: Member> {
-		pub kind: Kind,
-		/// A same-collection link toward the rarer variant of this concept.
-		pub next_variant: Option<ItemIndex>,
 		/// Number of instances ever minted from this definition; burns do not decrement it.
 		pub supply: u32,
 		/// Item-definition storage deposit paid by the issuer.
@@ -264,7 +242,7 @@ pub mod pallet {
 		/// A collection was created and assigned to its issuer.
 		CollectionCreated { collection: CollectionId, owner: T::AccountId },
 		/// An immutable item definition was assigned within a collection.
-		ItemDefined { collection: CollectionId, item: ItemIndex, kind: Kind },
+		ItemDefined { collection: CollectionId, item: ItemIndex },
 		/// An instance was minted into an empty purse key.
 		Minted {
 			instance: InstanceId,
@@ -294,8 +272,6 @@ pub mod pallet {
 		UnknownCollection,
 		/// Only the collection issuer may define items or mint in v1.
 		NoPermission,
-		/// The referenced rarer item definition does not exist in this collection.
-		UnknownVariant,
 		/// The per-collection item index space is exhausted.
 		TooManyItems,
 		/// The requested item definition does not exist.
@@ -405,12 +381,10 @@ pub mod pallet {
 		pub fn define_item(
 			origin: OriginFor<T>,
 			collection: CollectionId,
-			kind: Kind,
-			next_variant: Option<ItemIndex>,
 			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
-			Self::do_define_item(owner, collection, kind, next_variant, metadata).map(|_| ())
+			Self::do_define_item(owner, collection, metadata).map(|_| ())
 		}
 
 		/// Mint an instance of an immutable item definition into an empty purse key.
@@ -528,36 +502,26 @@ pub mod pallet {
 		pub fn do_define_item(
 			owner: T::AccountId,
 			collection: CollectionId,
-			kind: Kind,
-			next_variant: Option<ItemIndex>,
 			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 		) -> Result<ItemIndex, DispatchError> {
 			let mut info =
 				Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
 			ensure!(info.owner == owner, Error::<T>::NoPermission);
-			if let Some(variant) = next_variant {
-				ensure!(
-					ItemDefs::<T>::contains_key(collection, variant),
-					Error::<T>::UnknownVariant
-				);
-			}
 
 			let item = info.next_item_index;
 			info.next_item_index = item.checked_add(1).ok_or(Error::<T>::TooManyItems)?;
-			let definition_without_ticket =
-				ItemDefinition { kind, next_variant, supply: 0, ticket: () };
+			let definition_without_ticket = ItemDefinition { supply: 0, ticket: () };
 			let definition_size = definition_without_ticket
 				.encoded_size()
 				.saturating_add(T::ItemDefConsideration::max_encoded_len());
 			let ticket =
 				T::ItemDefConsideration::new(&owner, Footprint::from_parts(1, definition_size))?;
-			let ItemDefinition { kind, next_variant, supply, ticket: () } =
-				definition_without_ticket;
-			let definition = ItemDefinition { kind, next_variant, supply, ticket };
+			let ItemDefinition { supply, ticket: () } = definition_without_ticket;
+			let definition = ItemDefinition { supply, ticket };
 
 			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
-			Self::deposit_event(Event::ItemDefined { collection, item, kind });
+			Self::deposit_event(Event::ItemDefined { collection, item });
 			for (key, value) in metadata {
 				Self::do_set_item_metadata(&owner, collection, item, key, Some(value))?;
 			}

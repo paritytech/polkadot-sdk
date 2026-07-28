@@ -56,7 +56,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
-	/// Storage: `Scarcity::ItemDefs` (r:1 w:1)
+	/// Storage: `Scarcity::ItemDefs` (r:0 w:1)
 	/// Storage per metadata entry: `Collections` (r:1), `ItemDefs` (r:1),
 	/// `ItemMetadata` (r:1 w:1).
 	/// Components: metadata entry count and maximum value length.
@@ -66,7 +66,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 				Weight::from_parts(120_000, 0).saturating_mul(metadata_entries.into()),
 			)
 			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(value_len.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(
 				T::DbWeight::get().reads(3_u64.saturating_mul(metadata_entries.into())),
 			)
@@ -147,7 +147,7 @@ impl WeightInfo for () {
 				Weight::from_parts(120_000, 0).saturating_mul(metadata_entries.into()),
 			)
 			.saturating_add(Weight::from_parts(2_000, 0).saturating_mul(value_len.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(
 				RocksDbWeight::get()
 					.reads(3_u64.saturating_mul(metadata_entries.into())),
