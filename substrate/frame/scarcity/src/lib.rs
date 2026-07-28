@@ -755,9 +755,16 @@ pub mod pallet {
 			let now = T::UnixTime::now().as_secs();
 			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now };
 			let instance_ticket = if let Some(owner) = deposit_owner {
+				// Three storage entries back one instance: `NftsByOwner`, the `Instances`
+				// reverse index, and the `InstanceDeposits` ticket itself.
+				let record_size = nft
+					.encoded_size()
+					.saturating_add(to.encoded_size())
+					.saturating_add(instance.encoded_size())
+					.saturating_add(T::InstanceConsideration::max_encoded_len());
 				Some(T::InstanceConsideration::new(
 					owner,
-					Footprint::from_parts(2, nft.encoded_size().saturating_add(to.encoded_size())),
+					Footprint::from_parts(3, record_size),
 				)?)
 			} else {
 				None

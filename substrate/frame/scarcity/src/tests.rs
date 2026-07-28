@@ -226,7 +226,7 @@ fn mint_charges_collection_owner_and_stores_instance_deposit() {
 		assert!(matches!(
 			consideration_events().as_slice(),
 			[ConsiderationEvent::New { who: OWNER, footprint }]
-				if footprint.count == 2 && footprint.size > 0
+				if footprint.count == 3 && footprint.size > 0
 		));
 	});
 }
