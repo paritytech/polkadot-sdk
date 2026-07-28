@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			Advertisement, CanSecond, CollationFetchResponse, PeerAdvertisement, PeerInfo,
+			PeerState, ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -41,7 +41,6 @@ use polkadot_primitives::{
 	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId,
 };
-use std::time::Duration;
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -267,19 +266,21 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
-		let advertisement = Advertisement {
+		let peer_adv = PeerAdvertisement {
+			advertisement: Advertisement {
+				para_id: *para_id,
+				scheduling_parent,
+				prospective_candidate: maybe_prospective_candidate,
+				advertised_descriptor_version,
+			},
 			peer_id,
-			para_id: *para_id,
-			scheduling_parent,
-			prospective_candidate: maybe_prospective_candidate,
-			advertised_descriptor_version,
 		};
 
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
+		match self.collation_manager.try_accept_advertisement(sender, peer_adv).await {
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -317,24 +318,24 @@ impl<B: Backend> State<B> {
 	) {
 		let _timer = self.metrics.time_handle_collation_request_result();
 		let fetch_result = res.1.is_ok();
-		let advertisement = res.0;
+		let peer_adv = res.0;
 
 		if let Err(err) = &res.1 {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Collation fetch attempt failed: {}",
 				err
 			);
 		} else {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Collation fetch attempt succeeded",
 			);
 		}
 
-		let collation_version = self.peer_manager.get_peer_protocol_version(&advertisement.peer_id);
+		let collation_version = self.peer_manager.get_peer_protocol_version(&peer_adv.peer_id);
 		let can_second = self.collation_manager.note_fetched(sender, res, collation_version).await;
 
 		// To be consistent with the old implementation, if the fetch is successful we count the
@@ -353,7 +354,7 @@ impl<B: Backend> State<B> {
 
 				gum::debug!(
 					target: LOG_TARGET,
-					?advertisement,
+					?peer_adv,
 					"Started seconding"
 				);
 			},
@@ -370,13 +371,6 @@ impl<B: Backend> State<B> {
 						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 						.await;
 				}
-
-				self.collation_manager.release_slot(
-					&reject_info.scheduling_parent,
-					reject_info.para_id,
-					reject_info.maybe_candidate_hash.as_ref(),
-					reject_info.maybe_output_head_hash,
-				);
 			},
 			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
 				gum::debug!(
@@ -538,24 +532,18 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-	) -> Option<Duration> {
+	) {
 		let peer_manager = &self.peer_manager;
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
 		};
-		let max_reps = self
-			.peer_manager
-			.max_scores_for_paras(self.collation_manager.assignments())
-			.await;
 
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
 
-		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
-			connected_rep_query_fn,
-			max_reps,
-			create_timer_fn,
-		);
+		let requests = self
+			.collation_manager
+			.try_make_new_fetch_requests(connected_rep_query_fn, create_timer_fn);
 
 		if !requests.is_empty() {
 			gum::debug!(
@@ -572,8 +560,6 @@ impl<B: Backend> State<B> {
 				))
 				.await;
 		}
-
-		maybe_delay
 	}
 
 	async fn try_second_unblocked_collations<Sender: CollatorProtocolSenderTrait>(
@@ -654,7 +640,7 @@ impl<B: Backend> State<B> {
 	}
 
 	#[cfg(test)]
-	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
+	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::PeerAdvertisement> {
 		self.collation_manager.advertisements()
 	}
 }

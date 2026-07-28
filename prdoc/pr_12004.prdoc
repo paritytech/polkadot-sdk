@@ -1,0 +1,41 @@
+title: Avoid duplicate fetches on the experimental collator protocol
+doc:
+- audience: Node Dev
+  description: |-
+    Follow-up to #11967. Hardens the validator side of the experimental collator protocol
+    against fetching the same collation more than once and against mis-attributing a fetched
+    collation to the wrong peer.
+
+    * **Dedup co-advertised collations.** When several peers advertise the same collation, only
+      one fetch is issued. This is a best-effort optimisation for honest peers; no correctness
+      property depends on it (a redundant fetch is the only cost when it does not collapse).
+
+    * **Account a fetched collation only once verified.** A collation occupies a claim-queue
+      slot — and is attributed to the delivering peer (for inclusion credit or invalid-collation
+      slashing) — only after it is verified against the advertised candidate and its persisted
+      validation data. Previously it was recorded optimistically and undone on failure, which let
+      one peer's failing delivery release a *different* peer's valid delivery of the same
+      candidate, depending on response ordering — mis-attributing a slot or letting a candidate
+      escape its slash.
+
+    * **Parked ("blocked") collations no longer count towards capacity.** A collation whose parent
+      isn't seconded yet (so its PVD can't be reconstructed and the collator didn't inline the
+      parent head data) is parked for retry but holds no slot, and parking is bounded to one at a
+      time. Otherwise a peer could occupy capacity it never fills by withholding the parent head
+      data. This is a legacy path; collators that inline the parent head data (required for
+      elastic scaling) never block.
+
+    * **Drop the 300ms initial fetch delay (`MAX_FETCH_DELAY`).** It rarely applied in practice and
+      could penalise slower honest builds; the protection it approximated is delivered by parallel
+      fetching ([#11023](https://github.com/paritytech/polkadot-sdk/issues/11023)).
+
+    All collator-protocol behaviour changes are contained to the experimental validator side.
+
+    Separately, `polkadot-node-network-protocol` gains `Protocol::request_timeout()`, exposing the
+    per-protocol request timeout previously hardcoded inside `Protocol::into_config` (configured
+    values unchanged).
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-node-network-protocol
+  bump: minor

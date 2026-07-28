@@ -66,7 +66,7 @@ mod advertisement_spam_protection {
 			polkadot_primitives::HeadData(Vec::new()).hash(),
 		);
 		w.base.sim.advance(Duration::from_millis(100));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			0,
 			"SendRequest after CanSecond=false (must be zero)",
@@ -80,7 +80,7 @@ mod advertisement_spam_protection {
 			polkadot_primitives::HeadData(Vec::new()).hash(),
 		);
 		w.base.sim.advance(Duration::from_millis(200));
-		w.base.sim.expect_count(
+		w.base.sim.assert_count(
 			|e| matches!(e, Effect::SendRequest { .. }),
 			0,
 			"SendRequest after duplicate advertisement (must be zero — first dropped, second too)",

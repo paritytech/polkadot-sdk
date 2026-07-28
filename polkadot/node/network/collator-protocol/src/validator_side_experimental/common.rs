@@ -25,7 +25,7 @@ use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId, PersistedValidationData,
 };
-use std::{collections::HashSet, num::NonZeroU16, time::Duration};
+use std::{collections::HashSet, num::NonZeroU16};
 
 /// The following parameters (`MAX_SCORE`, `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY`)
 /// determine how fast collators build reputation, how fast they lose it due to inactivity and how
@@ -85,9 +85,6 @@ pub const FAILED_FETCH_SLASH: Score = Score::new(MAX_SCORE / 6);
 /// Slashing value for an invalid collation (half of the max).
 pub const INVALID_COLLATION_SLASH: Score = Score::new(MAX_SCORE / 2);
 
-/// Minimum reputation threshold that warrants an instant fetch.
-pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(VALID_INCLUDED_CANDIDATE_BUMP);
-
 /// Limit for the total number connected peers.
 pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 is greater than 0");
 
@@ -107,14 +104,6 @@ pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
-
-/// The maximum acceptable delay which can be applied on an advertisement from a collator with score
-/// less than the maximum score for the parachain.
-pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
-
-/// The minimum interval after which we may want to stop the main loop in order to fetch available
-/// advertised collations.
-pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(150);
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Encode, Decode)]
@@ -210,20 +199,21 @@ pub struct ProspectiveCandidate {
 	pub parent_head_data_hash: Hash,
 }
 
-/// Identifier of a collation being requested.
+/// What the collator advertises: a peer-agnostic identifier of an advertised collation.
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
-	/// Peer that advertised this collation.
-	pub peer_id: PeerId,
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
-	/// Advertised candidate descriptor version (for V3 protocol).
-	/// None for V1/V2 protocols.
+	/// Descriptor version claimed by the advertisement, shaped by the protocol version of the
+	/// carrying message: `None` for V1/V2 messages (which don't carry it), `Some(version)` for
+	/// V3. Like `prospective_candidate`, this is part of what the collator asserts about the
+	/// collation, so it belongs to the collation's identity — the fetched receipt's version is
+	/// checked against it (`ensure_matches_advertisement`).
 	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
@@ -233,9 +223,38 @@ impl Advertisement {
 	}
 }
 
-/// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
+/// An [`Advertisement`] paired with the peer that delivered it.
+///
+/// Used wherever the delivering peer matters: rate limiting per `(peer, sp)`, reputation
+/// arbitration when picking who to fetch from, and slashing the served-from peer if the
+/// collation turns out invalid. The same [`Advertisement`] may yield several
+/// `PeerAdvertisement`s when multiple peers advertise it — `peer_id` is the only field that
+/// distinguishes them; everything the collator asserts lives on the [`Advertisement`].
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
+pub struct PeerAdvertisement {
+	/// The advertised collation.
+	pub advertisement: Advertisement,
+	/// Peer that delivered this advertisement.
+	pub peer_id: PeerId,
+}
+
+impl PeerAdvertisement {
+	pub fn candidate_hash(&self) -> Option<CandidateHash> {
+		self.advertisement.candidate_hash()
+	}
+
+	pub fn scheduling_parent(&self) -> Hash {
+		self.advertisement.scheduling_parent
+	}
+
+	pub fn para_id(&self) -> ParaId {
+		self.advertisement.para_id
+	}
+}
+
+/// Output of a `CollationFetchRequest`, which includes the peer advertisement identifier.
 pub type CollationFetchResponse = (
-	Advertisement,
+	PeerAdvertisement,
 	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
 );
 
@@ -270,14 +289,14 @@ pub struct SecondingRejectionInfo {
 	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
-impl From<&Advertisement> for SecondingRejectionInfo {
-	fn from(advertisement: &Advertisement) -> Self {
+impl From<&PeerAdvertisement> for SecondingRejectionInfo {
+	fn from(peer_adv: &PeerAdvertisement) -> Self {
 		SecondingRejectionInfo {
-			scheduling_parent: advertisement.scheduling_parent,
-			peer_id: advertisement.peer_id,
-			para_id: advertisement.para_id,
+			scheduling_parent: peer_adv.scheduling_parent(),
+			peer_id: peer_adv.peer_id,
+			para_id: peer_adv.para_id(),
 			maybe_output_head_hash: None,
-			maybe_candidate_hash: advertisement.candidate_hash(),
+			maybe_candidate_hash: peer_adv.candidate_hash(),
 		}
 	}
 }

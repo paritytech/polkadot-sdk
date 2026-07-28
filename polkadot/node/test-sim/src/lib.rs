@@ -20,6 +20,13 @@
 //! subsystems, builders, and report rendering used to exercise a *subsystem under test* (SUT)
 //! against a controlled chain model and a recorded observable contract.
 //!
+//! This is the framework new subsystem tests should target. Hand-wired subsystem tests (driving
+//! a subsystem off a raw message channel) are legacy and being phased out: don't fix them when
+//! they break — confirm a simulation test covers the behaviour and delete the legacy test;
+//! where coverage is missing, add it here (ideally before the implementation change); where a
+//! subsystem isn't on this framework yet, extend the framework rather than writing more
+//! hand-wired tests.
+//!
 //! # How a consumer crate wires up
 //!
 //! 1. Implement [`harness::SubsystemUnderTest`] for the production subsystem's `ProtocolSide` or

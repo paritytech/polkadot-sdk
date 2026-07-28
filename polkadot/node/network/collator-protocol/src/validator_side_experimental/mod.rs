@@ -22,10 +22,7 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
-	LOG_TARGET,
-};
+use crate::{validator_side_experimental::peer_manager::PersistentDb, LOG_TARGET};
 use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
@@ -41,7 +38,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
-use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 #[cfg(test)]
 use peer_manager::Db;
@@ -227,18 +224,6 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 	}
 }
 
-fn create_timer(
-	clock: &dyn Clock,
-	maybe_delay: Option<Duration>,
-) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
-	let timer: Pin<Box<dyn Future<Output = ()> + Send>> = match maybe_delay {
-		Some(delay) => clock.delay(delay),
-		None => Box::pin(future::pending::<()>()),
-	};
-
-	timer.fuse()
-}
-
 /// Create the persistence timer that fires after the given interval.
 fn create_persistence_timer(
 	clock: &dyn Clock,
@@ -254,7 +239,6 @@ async fn run_inner<Context>(
 	persist_interval: Duration,
 	clock: Arc<dyn Clock>,
 ) -> FatalResult<()> {
-	let mut timer = create_timer(&*clock, None);
 	let mut persistence_timer = create_persistence_timer(&*clock, persist_interval);
 
 	loop {
@@ -288,10 +272,6 @@ async fn run_inner<Context>(
 			resp = state.collation_response_stream().select_next_some() => {
 				state.handle_fetched_collation(ctx.sender(), resp).await;
 			},
-			_ = &mut timer => {
-				// We don't need to do anything specific here.
-				// If the timer expires, we only need to trigger the advertisement fetching logic.
-			},
 			_ = &mut persistence_timer => {
 				// Periodic persistence - write reputation DB to disk
 				state.background_persist_reputations();
@@ -307,11 +287,7 @@ async fn run_inner<Context>(
 		// indeed trigger a new legitimate request.
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
-		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
-		timer = create_timer(
-			&*clock,
-			maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),
-		);
+		state.try_launch_new_fetch_requests(ctx.sender()).await;
 	}
 
 	Ok(())

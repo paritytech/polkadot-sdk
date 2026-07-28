@@ -20,6 +20,15 @@
 //! In Phase H.1 only the unit under test is spawned; auxiliary subsystem slots are an empty
 //! vector. Real `prospective-parachains` and `candidate-backing` are wired into the same
 //! infrastructure in later phases (H.3 / H.4) without changing the public `Sim` API.
+//!
+//! # Assertion naming convention
+//!
+//! `expect_*` assertions may **advance the simulated clock**, bounded by an explicit window
+//! (`expect`, `expect_from`, `expect_no`). `assert_*` and `count_*` helpers never advance
+//! time — they evaluate the recorder as it stands (`assert_count`, `assert_count_after`,
+//! `assert_at_least_after`, `count_effects`). Pick deliberately: a time-driving assertion
+//! after an `advance` can step past timeouts and other deadlines, changing what the
+//! scenario observes.
 
 use crate::{
 	contract::{Effect, RequestId},
@@ -27,7 +36,7 @@ use crate::{
 		dispatcher::AnswerQuery,
 		pending_fetches::{PendingFetches, RawResponse},
 		router::{self, RouteAttempt, SubsystemSlot, UutRoute, UutSlot},
-		Recorder,
+		Barrier, Recorder,
 	},
 	report::TimelineReport,
 	runtime::{Executor, LocalPoolSpawner, MockClock},
@@ -226,8 +235,9 @@ where
 		self.inject(FromOrchestra::Communication { msg });
 	}
 
-	/// Advance simulated time by `dur`. Iteratively resolves wakeups until either the time
-	/// budget is exhausted or no further wakeup falls inside the remaining window.
+	/// Advance simulated time by `dur`. Iteratively resolves scheduled events (executor timer
+	/// wakeups and pending-fetch timeouts) until either the time budget is exhausted or no
+	/// further event falls inside the remaining window.
 	///
 	/// Plain `MockClock::advance(d)` only fires wakeups whose deadline already exists at the
 	/// time of the call. Tick streams (e.g. `tick_stream`) re-register a new wakeup every
@@ -241,18 +251,35 @@ where
 				break;
 			}
 			let remaining = target - now;
-			match self.clock.next_wakeup_in() {
-				Some(d) if d <= remaining => {
-					self.clock.advance_to_next_wakeup();
-				},
-				Some(_) | None => {
-					// Either the next wakeup is past the target, or no wakeups are pending.
-					// Step the clock to the target in one go.
-					self.clock.advance(remaining);
-				},
-			}
+			self.step_clock(remaining);
 			self.executor.poll_until_pending();
 			self.drain();
+		}
+	}
+
+	/// Duration until the next scheduled event the sim must stop at: the earliest executor
+	/// timer wakeup or pending-fetch timeout deadline, whichever comes first. `None` when
+	/// neither exists.
+	fn next_event_in(&self) -> Option<Duration> {
+		let now = self.clock.now();
+		let fetch_timeout =
+			self.pending_fetches.next_deadline().map(|d| d.saturating_duration_since(now));
+		match (self.clock.next_wakeup_in(), fetch_timeout) {
+			(Some(a), Some(b)) => Some(a.min(b)),
+			(a, b) => a.or(b),
+		}
+	}
+
+	/// Step the clock to the next scheduled event ([`Self::next_event_in`]), capped at
+	/// `remaining`. Stopping *at* fetch-timeout deadlines (rather than overshooting to the
+	/// next executor wakeup or window end) keeps the subsystem's reaction to a timeout
+	/// correctly interleaved with its own timers, exactly as on a real network.
+	fn step_clock(&mut self, remaining: Duration) {
+		match self.next_event_in() {
+			Some(d) if d <= remaining => self.clock.advance(d),
+			// Either the next event is past the cap, or none is pending. Step the clock
+			// by the full cap in one go.
+			Some(_) | None => self.clock.advance(remaining),
 		}
 	}
 
@@ -260,8 +287,30 @@ where
 	/// as needed up to `within`. Searches the entire observation log so a stimulus that
 	/// produced its effect synchronously before this call still matches. Panics with a
 	/// [`TimelineReport`] on timeout.
+	///
+	/// Searching the whole log means an effect from an *earlier scenario step* can satisfy
+	/// the expectation. When the same kind of effect legitimately occurs more than once in
+	/// a scenario (multi-round tests), use [`Self::expect_from`] with a barrier instead.
 	#[track_caller]
 	pub fn expect<F>(&mut self, predicate: F, within: Duration, expected: &str) -> Effect
+	where
+		F: Fn(&Effect) -> bool,
+	{
+		self.expect_from(Barrier::START, predicate, within, expected)
+	}
+
+	/// Like [`Self::expect`], but only effects recorded at or after `barrier` match. Snapshot
+	/// the barrier via [`Recorder::barrier`] *before* the stimulus to express "this step must
+	/// produce a fresh effect" — an identical effect recorded by an earlier step cannot
+	/// satisfy the expectation.
+	#[track_caller]
+	pub fn expect_from<F>(
+		&mut self,
+		barrier: Barrier,
+		predicate: F,
+		within: Duration,
+		expected: &str,
+	) -> Effect
 	where
 		F: Fn(&Effect) -> bool,
 	{
@@ -270,7 +319,7 @@ where
 		let start_sim_t = self.now_sim_t();
 
 		self.drain();
-		if let Some(eff) = self.find_match(&predicate) {
+		if let Some(eff) = self.recorder.find_effect_from(barrier.index(), &predicate).cloned() {
 			return eff;
 		}
 
@@ -291,20 +340,46 @@ where
 			}
 
 			let remaining = within - elapsed_in_window;
-			match self.clock.next_wakeup_in() {
-				Some(d) if d <= remaining => {
-					self.clock.advance_to_next_wakeup();
-				},
-				Some(_) | None => {
-					self.clock.advance(remaining);
-				},
-			};
+			self.step_clock(remaining);
 			self.executor.poll_until_pending();
 			self.drain();
-			if let Some(eff) = self.find_match(&predicate) {
+			if let Some(eff) = self.recorder.find_effect_from(barrier.index(), &predicate).cloned()
+			{
 				return eff;
 			}
 		}
+	}
+
+	/// Assert that an effect matching `predicate` is *already* recorded at or after `barrier`,
+	/// returning it. Unlike [`Self::expect_from`], this never advances the clock — use it when a
+	/// preceding step (e.g. an explicit `advance` past a timeout) has already driven the effect
+	/// out, so there is nothing to wait for. Panics with a [`TimelineReport`] if not present.
+	#[track_caller]
+	pub fn assert_from<F>(&mut self, barrier: Barrier, predicate: F, expected: &str) -> Effect
+	where
+		F: Fn(&Effect) -> bool,
+	{
+		self.drain();
+		self.recorder
+			.find_effect_from(barrier.index(), &predicate)
+			.cloned()
+			.unwrap_or_else(|| {
+				let location = std::panic::Location::caller();
+				let report = TimelineReport {
+					expected: expected.to_string(),
+					actual: format!(
+						"no matching effect recorded at sim_t = {}ms",
+						self.now_sim_t().as_millis()
+					),
+					window_start: self.now_sim_t(),
+					window: Duration::ZERO,
+					recorder: &self.recorder,
+					replay_seed: None,
+					at: Some(&format!("{}:{}", location.file(), location.line())),
+					hint: None,
+				};
+				panic!("assertion failed:\n{}", report);
+			})
 	}
 
 	/// Register an auxiliary subsystem slot whose outbound stream the harness should drain.
@@ -429,14 +504,7 @@ where
 				return;
 			}
 			let remaining = within - elapsed;
-			match self.clock.next_wakeup_in() {
-				Some(d) if d <= remaining => {
-					self.clock.advance_to_next_wakeup();
-				},
-				Some(_) | None => {
-					self.clock.advance(remaining);
-				},
-			}
+			self.step_clock(remaining);
 			self.executor.poll_until_pending();
 			self.drain();
 			if let Some(eff) = self.recorder.find_effect_from(barrier, &predicate).cloned() {
@@ -458,9 +526,9 @@ where
 	}
 
 	/// Convenience: assert exactly `expected` effects matching `predicate` are recorded
-	/// right now. Panics with timeline on mismatch.
+	/// right now. Never advances time. Panics with timeline on mismatch.
 	#[track_caller]
-	pub fn expect_count<F: Fn(&Effect) -> bool>(
+	pub fn assert_count<F: Fn(&Effect) -> bool>(
 		&self,
 		predicate: F,
 		expected: usize,
@@ -478,12 +546,12 @@ where
 		);
 	}
 
-	/// Like [`Self::expect_count_after`], but asserts `actual >= at_least` instead of
+	/// Like [`Self::assert_count_after`], but asserts `actual >= at_least` instead of
 	/// equality. Use when the contract specifies a lower bound — e.g. "after the timeout
 	/// at least one new fetch fires" — and the upper bound depends on subsystem-internal
-	/// scheduling decisions tests shouldn't lock to.
+	/// scheduling decisions tests shouldn't lock to. Never advances time.
 	#[track_caller]
-	pub fn expect_at_least_after<F: Fn(&Effect) -> bool>(
+	pub fn assert_at_least_after<F: Fn(&Effect) -> bool>(
 		&self,
 		since: Duration,
 		predicate: F,
@@ -511,11 +579,12 @@ where
 		);
 	}
 
-	/// Variant of [`Self::expect_count`] that only counts effects with `sim_t >= since`.
+	/// Variant of [`Self::assert_count`] that only counts effects with `sim_t >= since`.
 	/// Tests use this with [`Self::now_sim_t`] to bound a count to a specific window
 	/// — e.g. "exactly 1 SendRequest fired between this point and end of test."
+	/// Never advances time.
 	#[track_caller]
-	pub fn expect_count_after<F: Fn(&Effect) -> bool>(
+	pub fn assert_count_after<F: Fn(&Effect) -> bool>(
 		&self,
 		since: Duration,
 		predicate: F,
@@ -563,19 +632,24 @@ where
 		Duration::from_millis(self.clock.duration_since_epoch().as_millis() as u64)
 	}
 
-	/// Find the first effect anywhere in the log matching `predicate`. Used by `expect`,
-	/// which matches the whole log so an effect a stimulus produced synchronously (before
-	/// `expect` was called) still counts.
-	fn find_match<F: Fn(&Effect) -> bool>(&self, predicate: &F) -> Option<Effect> {
-		self.recorder.find_effect_from(0, predicate).cloned()
-	}
-
 	fn drain(&mut self) {
 		loop {
 			// Stamp effects with simulated time elapsed since sim start — the same origin
 			// `now_sim_t` reports — so windowed assertions and recorded `sim_t` agree.
 			let sim_t = self.now_sim_t();
+			let now = self.clock.now();
 			let mut progressed = false;
+
+			// Time out any fetch whose deadline has passed. Dropping the response sender makes
+			// the subsystem's awaiting receiver resolve with `Canceled` — the same signal a
+			// real network-level request timeout produces — so the subsystem runs its
+			// timeout-fallback path. Count it as progress so the resulting effects settle in
+			// this same pass.
+			if self.pending_fetches.drain_timed_out(now) > 0 {
+				progressed = true;
+				self.executor.poll_until_pending();
+			}
+
 			for idx in 0..self.outbound_rxs.len() {
 				match self.outbound_rxs[idx].try_next() {
 					Ok(Some(msg)) => {
@@ -587,6 +661,7 @@ where
 						let pending = &mut self.pending_fetches;
 						self.executor.run_until(router::route(
 							sim_t,
+							now,
 							msg,
 							Some(&uut_route),
 							aux,
@@ -633,5 +708,194 @@ where
 			},
 			Err(other) => RouteAttempt::Declined(other),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::contract::Effect;
+	use futures::FutureExt;
+	use polkadot_node_network_protocol::{
+		peer_set::PeerSet,
+		request_response::{v2 as request_v2, OutgoingRequest, Protocol, Recipient, Requests},
+	};
+	use polkadot_node_subsystem::messages::{
+		CollatorProtocolMessage, IfDisconnected, NetworkBridgeTxMessage,
+	};
+	use polkadot_overseer::SubsystemContext;
+	use polkadot_primitives::Hash;
+
+	/// How long after the fetch's network timeout the probe's own timer fires. The probe's
+	/// two markers bracket the timeout deadline, so the tests below can assert the timeout
+	/// is delivered at its exact instant and in the right order relative to subsystem
+	/// timers.
+	const TIMER_AFTER_TIMEOUT: Duration = Duration::from_millis(400);
+
+	/// Minimal subsystem fixture pinning the harness's request-timeout model. On spawn it:
+	///
+	/// 1. fires a single `CollationFetchingV2` request (never answered by the test),
+	/// 2. arms its own `clock.delay` at `request_timeout() + TIMER_AFTER_TIMEOUT`,
+	/// 3. emits a `DisconnectPeers(_, Collation)` marker when the request resolves (`Canceled` —
+	///    the harness-modelled network timeout), and
+	/// 4. emits a `DisconnectPeers(_, Validation)` marker when its own timer fires.
+	///
+	/// The marker `sim_t` stamps are the assertion currency: stamps — unlike marker order,
+	/// which the probe's sequential awaits would force anyway — reveal *when* the harness
+	/// delivered each event.
+	struct TimeoutProbe;
+
+	impl SubsystemUnderTest for TimeoutProbe {
+		type Message = CollatorProtocolMessage;
+
+		fn spawn(
+			mut ctx: TestSubsystemContext<Self::Message, SpawnGlue<LocalPoolSpawner>>,
+			clock: Arc<MockClock>,
+		) -> BoxFuture<'static, ()> {
+			async move {
+				// Arm the timer before awaiting the response so both are pending from t=0.
+				let timer = clock
+					.delay(Protocol::CollationFetchingV2.request_timeout() + TIMER_AFTER_TIMEOUT);
+
+				let (req, response_recv) = OutgoingRequest::new(
+					Recipient::Peer(sc_network_types::PeerId::random()),
+					request_v2::CollationFetchingRequest {
+						scheduling_parent: Hash::zero(),
+						para_id: 100.into(),
+						candidate_hash: Default::default(),
+					},
+				);
+				ctx.send_message(NetworkBridgeTxMessage::SendRequests(
+					vec![Requests::CollationFetchingV2(req)],
+					IfDisconnected::ImmediateError,
+				))
+				.await;
+
+				let _ = response_recv.await;
+				ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+					Vec::new(),
+					PeerSet::Collation,
+				))
+				.await;
+
+				timer.await;
+				ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+					Vec::new(),
+					PeerSet::Validation,
+				))
+				.await;
+
+				// Park until the harness concludes (or the test drops the context).
+				loop {
+					match ctx.recv().await {
+						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => return,
+						_ => {},
+					}
+				}
+			}
+			.boxed()
+		}
+
+		fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages> {
+			match msg {
+				AllMessages::CollatorProtocol(inner) => Ok(inner),
+				other => Err(other),
+			}
+		}
+	}
+
+	/// The probe makes no queries; any query reaching the responder is a test bug.
+	struct NoQueries;
+	impl AnswerQuery for NoQueries {}
+
+	fn start_probe() -> Sim<TimeoutProbe> {
+		let mut sim = Sim::<TimeoutProbe>::start(SimConfig::default(), NoQueries);
+		// Sync on the probe's fetch: classification registers the request (and anchors its
+		// timeout deadline) at drain time, so make the harness see it at t=0.
+		let _ = sim.expect(
+			|e| matches!(e, Effect::SendRequest { .. }),
+			Duration::from_millis(10),
+			"the probe's fetch",
+		);
+		assert_eq!(sim.now_sim_t(), Duration::ZERO, "fetch must be registered at t=0");
+		sim
+	}
+
+	fn marker_sim_t(sim: &Sim<TimeoutProbe>, set: PeerSet) -> Duration {
+		sim.recorder()
+			.entries()
+			.iter()
+			.find_map(|o| {
+				let crate::harness::observation::Observation::Effect(s) = o;
+				match &s.value {
+					Effect::DisconnectPeers { peer_set, .. } if *peer_set == set => Some(s.sim_t),
+					_ => None,
+				}
+			})
+			.unwrap_or_else(|| panic!("marker for {:?} not recorded", set))
+	}
+
+	/// One `advance` across both deadlines: the request timeout must be delivered at its
+	/// exact instant — *before* the probe's own later timer — not lazily at the next
+	/// executor wakeup. Guards the `next_event_in` wiring: without it, both markers would
+	/// be stamped at the timer's wakeup (the only clock event the loop would stop at).
+	#[test]
+	fn fetch_timeout_fires_at_exact_deadline_before_later_subsystem_timer() {
+		let mut sim = start_probe();
+		sim.advance(Protocol::CollationFetchingV2.request_timeout() + TIMER_AFTER_TIMEOUT * 2);
+
+		let timeout = Protocol::CollationFetchingV2.request_timeout();
+		assert_eq!(marker_sim_t(&sim, PeerSet::Collation), timeout);
+		assert_eq!(marker_sim_t(&sim, PeerSet::Validation), timeout + TIMER_AFTER_TIMEOUT);
+	}
+
+	/// The timeout must not fire before its deadline, and must fire once the deadline is
+	/// reached.
+	#[test]
+	fn fetch_timeout_does_not_fire_early() {
+		let mut sim = start_probe();
+		let timeout = Protocol::CollationFetchingV2.request_timeout();
+
+		sim.advance(timeout - Duration::from_millis(1));
+		sim.assert_count(
+			|e| matches!(e, Effect::DisconnectPeers { .. }),
+			0,
+			"no timeout reaction before the deadline",
+		);
+
+		sim.advance(Duration::from_millis(1));
+		sim.assert_count(
+			|e| matches!(e, Effect::DisconnectPeers { peer_set: PeerSet::Collation, .. }),
+			1,
+			"timeout reaction exactly at the deadline",
+		);
+	}
+
+	/// A time-driving `expect` stops at the fetch deadline (where the awaited effect is
+	/// produced) instead of overshooting toward its window end.
+	#[test]
+	fn expect_stops_at_fetch_deadline() {
+		let mut sim = start_probe();
+		let _ = sim.expect(
+			|e| matches!(e, Effect::DisconnectPeers { peer_set: PeerSet::Collation, .. }),
+			Duration::from_secs(10),
+			"the probe's timeout marker",
+		);
+		assert_eq!(sim.now_sim_t(), Protocol::CollationFetchingV2.request_timeout());
+	}
+
+	/// `expect_from` must not be satisfied by an effect recorded before the barrier — the
+	/// probe's only `SendRequest` predates it, so the expectation times out.
+	#[test]
+	#[should_panic(expected = "expectation failed")]
+	fn expect_from_ignores_effects_before_barrier() {
+		let mut sim = start_probe();
+		let barrier = sim.recorder().barrier();
+		let _ = sim.expect_from(
+			barrier,
+			|e| matches!(e, Effect::SendRequest { .. }),
+			Duration::from_millis(100),
+			"a fresh SendRequest after the barrier (none is coming)",
+		);
 	}
 }

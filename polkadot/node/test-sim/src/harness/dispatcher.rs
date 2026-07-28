@@ -25,7 +25,7 @@ use crate::{
 	harness::{pending_fetches::PendingFetches, Recorder},
 };
 use polkadot_node_subsystem::messages::AllMessages;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Trait implemented by anything that can answer subsystem queries.
 ///
@@ -153,8 +153,21 @@ impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 	/// Process a single outbound message. One inbound message can yield multiple classified
 	/// entries (e.g. a batched `SendRequests` or `SendCollationMessages`); the dispatcher
 	/// records / forwards them in order.
-	pub fn dispatch(&mut self, sim_t: Duration, msg: AllMessages) {
-		for c in classify(msg, self.pending) {
+	///
+	/// Takes two time values, both from the simulated [`MockClock`] (never wall time) but read
+	/// from its two different channels — they are not redundant:
+	///
+	/// - `sim_t` (from `Clock::duration_since_epoch`) is elapsed-since-scenario-start at
+	///   millisecond resolution. It only *stamps* recorded effects, so tests can make windowed
+	///   assertions in the same units they advance the clock with.
+	/// - `now` (from `Clock::now`) is the clock's monotonic [`Instant`] at full precision. It is
+	///   used by `classify` to anchor request-timeout deadlines (`now + request_timeout`), which
+	///   must live on the same monotonic channel as the executor's `delay()` wakeups so the sim can
+	///   step to and fire them at the exact deadline (see `Sim::advance`).
+	///
+	/// [`MockClock`]: crate::runtime::MockClock
+	pub fn dispatch(&mut self, sim_t: Duration, now: Instant, msg: AllMessages) {
+		for c in classify(msg, self.pending, now) {
 			match c {
 				Classified::Effect(effect) => self.recorder.record_effect(sim_t, effect),
 				Classified::Query(query) => self.responder.answer(query),
@@ -167,6 +180,7 @@ impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 mod tests {
 	use super::*;
 	use crate::contract::Effect;
+	use polkadot_node_clock::{Clock, MockClock};
 	use polkadot_node_network_protocol::peer_set::PeerSet;
 	use polkadot_node_subsystem::messages::{ChainApiMessage, NetworkBridgeTxMessage};
 
@@ -247,7 +261,7 @@ mod tests {
 			vec![peer],
 			PeerSet::Collation,
 		));
-		disp.dispatch(Duration::ZERO, msg);
+		disp.dispatch(Duration::ZERO, MockClock::default().now(), msg);
 		assert_eq!(rec.len(), 1);
 		assert!(matches!(
 			rec.effects().next().unwrap(),
@@ -273,7 +287,7 @@ mod tests {
 		let mut disp = Dispatcher::new(&mut rec, &mut resp, &mut pending);
 		let (tx, _rx) = futures::channel::oneshot::channel();
 		let msg = AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx));
-		disp.dispatch(Duration::ZERO, msg);
+		disp.dispatch(Duration::ZERO, MockClock::default().now(), msg);
 		assert_eq!(rec.len(), 0, "query is not recorded as effect");
 		assert_eq!(resp.count, 1, "query is forwarded to responder");
 	}

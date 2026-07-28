@@ -39,7 +39,7 @@
 
 use crate::{
 	chain::{ChainModel, CoreSchedule, SessionInfo, SharedChain},
-	harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
+	harness::{Barrier, LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
 	responder::PanicResponder,
 };
 use polkadot_node_subsystem::{messages::AllMessages, ActiveLeavesUpdate, OverseerSignal};
@@ -421,6 +421,15 @@ where
 	// =====================================================================================
 	// Active-leaf accessors. Subsystem-agnostic: read `base().leaves` + `base().chain`.
 	// =====================================================================================
+
+	/// Snapshot the recorder's current position as a [`Barrier`]. Take one *before* a
+	/// scenario step, then pass it to barrier-scoped assertions (`Sim::expect_from`,
+	/// tenant helpers' `*_after` variants) so they only see effects that step produced.
+	/// Sim time alone doesn't separate events recorded inside a single settle cycle (they
+	/// all carry the same `sim_t`); the log position does.
+	fn recorder_barrier(&self) -> Barrier {
+		self.base().sim.recorder().barrier()
+	}
 
 	/// Hash of the first (and, for most scenarios, only) active leaf. Panics if no
 	/// leaf has been activated.

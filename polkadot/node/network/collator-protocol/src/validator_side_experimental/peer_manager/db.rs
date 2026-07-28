@@ -96,17 +96,6 @@ impl Backend for Db {
 		self.last_finalized = Some(leaf_number);
 		self.bump_reputations(bumps, decay_value, now.as_millis())
 	}
-
-	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
-		let mut max_scores = HashMap::with_capacity(paras.len());
-		for para in paras {
-			if let Some(per_para) = self.db.get(&para) {
-				let max_score = per_para.values().map(|e| e.score).max().unwrap_or(Score::new(0));
-				max_scores.insert(para, max_score);
-			}
-		}
-		max_scores
-	}
 }
 
 impl Db {

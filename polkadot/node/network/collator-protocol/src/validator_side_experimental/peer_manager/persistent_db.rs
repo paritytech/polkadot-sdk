@@ -446,10 +446,6 @@ impl Backend for PersistentDb {
 		// Persistence happens via the periodic timer calling persist()
 		self.inner.process_bumps(leaf_number, bumps, decay_value, now).await
 	}
-
-	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
-		self.inner.max_scores_for_paras(paras).await
-	}
 }
 
 #[cfg(test)]

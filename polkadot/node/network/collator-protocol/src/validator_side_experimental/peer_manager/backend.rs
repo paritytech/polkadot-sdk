@@ -46,6 +46,4 @@ pub trait Backend {
 		decay_value: Option<Score>,
 		now: std::time::Duration,
 	) -> Vec<ReputationUpdate>;
-	/// Get the maximum scores for the given paraids.
-	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score>;
 }

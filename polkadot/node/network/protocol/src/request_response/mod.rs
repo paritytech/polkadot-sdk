@@ -195,14 +195,14 @@ impl Protocol {
 	) -> N::RequestResponseProtocolConfig {
 		let name = req_protocol_names.get_name(self);
 		let legacy_names = self.get_legacy_name().into_iter().map(Into::into).collect();
+		let request_timeout = self.request_timeout();
 		match self {
 			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => N::request_response_config(
 				name,
 				legacy_names,
 				1_000,
 				POV_RESPONSE_SIZE,
-				// We are connected to all validators:
-				CHUNK_REQUEST_TIMEOUT,
+				request_timeout,
 				tx,
 			),
 			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => {
@@ -211,8 +211,7 @@ impl Protocol {
 					legacy_names,
 					1_000,
 					POV_RESPONSE_SIZE,
-					// Taken from initial implementation in collator protocol:
-					POV_REQUEST_TIMEOUT_CONNECTED,
+					request_timeout,
 					tx,
 				)
 			},
@@ -221,7 +220,7 @@ impl Protocol {
 				legacy_names,
 				1_000,
 				POV_RESPONSE_SIZE,
-				POV_REQUEST_TIMEOUT_CONNECTED,
+				request_timeout,
 				tx,
 			),
 			Protocol::AvailableDataFetchingV1 => N::request_response_config(
@@ -230,7 +229,7 @@ impl Protocol {
 				1_000,
 				// Available data size is dominated by the PoV size.
 				POV_RESPONSE_SIZE,
-				POV_REQUEST_TIMEOUT_CONNECTED,
+				request_timeout,
 				tx,
 			),
 			Protocol::DisputeSendingV1 => N::request_response_config(
@@ -240,7 +239,7 @@ impl Protocol {
 				// Responses are just confirmation, in essence not even a bit. So 100 seems
 				// plenty.
 				100,
-				DISPUTE_REQUEST_TIMEOUT,
+				request_timeout,
 				tx,
 			),
 			Protocol::AttestedCandidateV2 => N::request_response_config(
@@ -248,9 +247,29 @@ impl Protocol {
 				legacy_names,
 				1_000,
 				ATTESTED_CANDIDATE_RESPONSE_SIZE,
-				ATTESTED_CANDIDATE_TIMEOUT,
+				request_timeout,
 				tx,
 			),
+		}
+	}
+
+	/// The request timeout configured for this protocol on the network layer.
+	///
+	/// A request that receives no response within this duration is failed as a timeout by
+	/// `sc-network`'s request-response handler. Exposed so that components which stand in
+	/// for the network layer (e.g. the deterministic test-sim) can model the same timeout
+	/// instead of duplicating the constant.
+	pub const fn request_timeout(self) -> Duration {
+		match self {
+			// We are connected to all validators:
+			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => CHUNK_REQUEST_TIMEOUT,
+			// Taken from initial implementation in collator protocol:
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::PoVFetchingV1 |
+			Protocol::AvailableDataFetchingV1 => POV_REQUEST_TIMEOUT_CONNECTED,
+			Protocol::DisputeSendingV1 => DISPUTE_REQUEST_TIMEOUT,
+			Protocol::AttestedCandidateV2 => ATTESTED_CANDIDATE_TIMEOUT,
 		}
 	}
 

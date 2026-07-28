@@ -22,6 +22,31 @@ use crate::{
 };
 use std::time::Duration;
 
+/// A position in the observation log, used to scope assertions to "effects recorded from
+/// here on".
+///
+/// Obtain one from [`Recorder::barrier`] *before* a stimulus, then pass it to barrier-taking
+/// assertions (`Sim::expect_from`, the world helpers' `*_after` variants) so an identical
+/// effect recorded by an earlier scenario step cannot satisfy them.
+///
+/// A log position is sharper than a `sim_t` cutoff: effects emitted in the same simulated
+/// instant share their `sim_t` but not their position, so a barrier separates "before this
+/// step" from "after this step" even within one instant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Barrier(usize);
+
+impl Barrier {
+	/// The start of the log — nothing is excluded. Whole-log assertions (e.g. `Sim::expect`)
+	/// are barrier-scoped ones starting here.
+	pub const START: Barrier = Barrier(0);
+
+	/// The log index this barrier corresponds to: entries at `index() - 1` and below are
+	/// excluded, entries at `index()` and above match.
+	pub fn index(self) -> usize {
+		self.0
+	}
+}
+
 /// An append-only observation log. Used by the dispatcher to record effects and by tests to
 /// query / assert against the resulting log.
 #[derive(Debug, Clone, Default)]
@@ -33,6 +58,12 @@ impl Recorder {
 	/// Create a fresh recorder.
 	pub fn new() -> Self {
 		Self::default()
+	}
+
+	/// Snapshot the current log position as a [`Barrier`]. Everything already recorded is
+	/// *before* the barrier; effects recorded from now on are *after* it.
+	pub fn barrier(&self) -> Barrier {
+		Barrier(self.entries.len())
 	}
 
 	/// Record an effect stamped with the simulated time elapsed since the start of the
