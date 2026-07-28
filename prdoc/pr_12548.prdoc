@@ -23,9 +23,9 @@ doc:
     \n```rust\npub enum MethodStatus {\n\tUnavailable,\n\tAvailable(MethodVersioningStatus),\n\
     }\n\npub enum MethodVersioningStatus {\n\tUnversioned,\n\tVersioned(u8),\n}\n\
     ```\n\nThis means that once `ReviveRuntimeApiCapabilities` is computed for a particular\
-    \ block, then the eth-rpc is able to determine if a particular method is available\
-    \ or not, versioned or not, and if versioned, then what the maximum supported\
-    \ version is.\n\nThis means that fallback patterns we used to need in the past\
+    \ runtime spec version, then the eth-rpc is able to determine if a particular\
+    \ method is available or not, versioned or not, and if versioned, then what the\
+    \ maximum supported version is.\n\nThis means that fallback patterns we used to need in the past\
     \ (for example, with the gas estimation where we'd first attempt calling `estimate_gas`,\
     \ then fallback to `eth_transact_with_config`, and then fallback to `eth_transact`)\
     \ is now removed since we're able to directly determine what the capabilities\
@@ -54,20 +54,10 @@ doc:
     \ overrides of a pallet-revive which didn't support state overrides and therefore\
     \ the honest thing to return in that case would be a `None` since the `VersionAwareRuntimeApi`\
     \ can't construct any future which resolves the user's request correctly.\n\n\
-    The `ReviveRuntimeApiCapabilities` we have are cached and are not recomputed with\
-    \ each block we discover in the chain in order to reduce the number of RPC requests\
-    \ we make. The `VersionAwareRuntimeApiProvider` caches all of the `ReviveRuntimeApiCapabilities`\
-    \ by block hash. If a block we subscribed to does not include a runtime upgrade\
-    \ then we simply clone the `Arc<ReviveRuntimeApiCapabilities>` of the parent block\
-    \ hash, no computations required in this code path. The cache is sized to allow\
-    \ for the capabilities of all blocks within a 24 hour period to be cached (which\
-    \ is the most popular usage of the eth-rpc). If the block time changes from 2s\
-    \ then we might want to adjust this cache accordingly.\n\nAn earlier design for\
-    \ this PR made use of `RangeMap`s in order to store the capabilities for blocks.\
-    \ However, I decided against that since a `RangeMap` requires a key which can\
-    \ be incremented, and using the block number for capabilities can be quite hairy\
-    \ with forks and could lead to bugs in the future which would be hard to debug\
-    \ and hard to reason about."
+    The `VersionAwareRuntimeApiProvider` caches `ReviveRuntimeApiCapabilities` by\
+    \ runtime spec version, which Subxt exposes alongside the block metadata. Blocks\
+    \ running the same runtime share a cache entry. On a cache miss, the provider\
+    \ computes the capabilities from that block's metadata and version declarations."
 crates:
 - name: pallet-revive-eth-rpc
   bump: minor
