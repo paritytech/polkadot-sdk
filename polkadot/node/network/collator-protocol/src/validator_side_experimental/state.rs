@@ -137,6 +137,8 @@ impl<B: Backend> State<B> {
 		if !self.peer_manager.declared(sender, peer_id, para_id).await {
 			self.collation_manager.remove_peer(&peer_id);
 		}
+
+		self.metrics.note_collator_peer_count(self.peer_manager.connected_peer_count());
 	}
 
 	/// Handle our view update.
@@ -185,6 +187,7 @@ impl<B: Backend> State<B> {
 		}
 
 		self.collation_manager.remove_peers(maybe_disconnected_peers.iter());
+		self.metrics.note_collator_peer_count(self.peer_manager.connected_peer_count());
 
 		Ok(())
 	}
