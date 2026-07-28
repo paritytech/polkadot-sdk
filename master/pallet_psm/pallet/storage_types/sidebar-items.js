@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AssetCeilingWeight","ExternalAssets","ExternalDecimals","InternalDecimals","MaxPsmDebtOfTotal","MintingFee","PsmDebt","RedemptionFee"]};
+window.SIDEBAR_ITEMS = {"struct":["AssetCeilingWeight","ExternalAssets","MintingFee","Psm","PsmAdmin","PsmDebt","RedemptionFee"]};

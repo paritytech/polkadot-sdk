@@ -3258,970 +3258,943 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#3108 id=3108 data-nosnippet>3108</a>}
 <a href=#3109 id=3109 data-nosnippet>3109</a>
 <a href=#3110 id=3110 data-nosnippet>3110</a><span class="macro">parameter_types!</span> {
-<a href=#3111 id=3111 data-nosnippet>3111</a>	<span class="doccomment">/// The pUSD stablecoin asset ID.
-<a href=#3112 id=3112 data-nosnippet>3112</a>	</span><span class="kw">pub const </span>PsmStablecoinAssetId: u32 = <span class="number">4242</span>;
-<a href=#3113 id=3113 data-nosnippet>3113</a>	<span class="doccomment">/// Minimum swap amount for PSM operations (100 pUSD = 100 * 10^6).
-<a href=#3114 id=3114 data-nosnippet>3114</a>	</span><span class="kw">pub const </span>PsmMinSwapAmount: Balance = <span class="number">100_000_000</span>;
-<a href=#3115 id=3115 data-nosnippet>3115</a>	<span class="doccomment">/// PalletId for deriving the PSM system account.
-<a href=#3116 id=3116 data-nosnippet>3116</a>	</span><span class="kw">pub const </span>PsmPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/pegsm"</span>);
-<a href=#3117 id=3117 data-nosnippet>3117</a>	<span class="doccomment">/// Insurance fund account that receives PSM fee revenue.
-<a href=#3118 id=3118 data-nosnippet>3118</a>	</span><span class="kw">pub </span>PsmInsuranceFundAccount: AccountId =
-<a href=#3119 id=3119 data-nosnippet>3119</a>		sp_runtime::traits::AccountIdConversion::&lt;AccountId&gt;::into_account_truncating(
-<a href=#3120 id=3120 data-nosnippet>3120</a>			<span class="kw-2">&amp;</span>PalletId(<span class="kw-2">*</span><span class="string">b"py/insur"</span>),
-<a href=#3121 id=3121 data-nosnippet>3121</a>		);
-<a href=#3122 id=3122 data-nosnippet>3122</a>}
-<a href=#3123 id=3123 data-nosnippet>3123</a>
-<a href=#3124 id=3124 data-nosnippet>3124</a><span class="kw">type </span>PsmInternalAsset = ItemOf&lt;Assets, PsmStablecoinAssetId, AccountId&gt;;
-<a href=#3125 id=3125 data-nosnippet>3125</a>
-<a href=#3126 id=3126 data-nosnippet>3126</a><span class="macro">parameter_types!</span> {
-<a href=#3127 id=3127 data-nosnippet>3127</a>	<span class="doccomment">/// No debt ceiling: maximum possible issuance.
-<a href=#3128 id=3128 data-nosnippet>3128</a>	</span><span class="kw">pub const </span>NoVaultsCeiling: Balance = Balance::MAX;
-<a href=#3129 id=3129 data-nosnippet>3129</a>}
-<a href=#3130 id=3130 data-nosnippet>3130</a>
-<a href=#3131 id=3131 data-nosnippet>3131</a><span class="doccomment">/// EnsureOrigin implementation for PSM management that supports privilege levels.
-<a href=#3132 id=3132 data-nosnippet>3132</a></span><span class="kw">pub struct </span>EnsurePsmManager;
-<a href=#3133 id=3133 data-nosnippet>3133</a><span class="kw">impl </span>frame_support::traits::EnsureOrigin&lt;RuntimeOrigin&gt; <span class="kw">for </span>EnsurePsmManager {
-<a href=#3134 id=3134 data-nosnippet>3134</a>	<span class="kw">type </span>Success = pallet_psm::PsmManagerLevel;
-<a href=#3135 id=3135 data-nosnippet>3135</a>
-<a href=#3136 id=3136 data-nosnippet>3136</a>	<span class="kw">fn </span>try_origin(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
-<a href=#3137 id=3137 data-nosnippet>3137</a>		<span class="kw">use </span>frame_system::RawOrigin;
-<a href=#3138 id=3138 data-nosnippet>3138</a>
-<a href=#3139 id=3139 data-nosnippet>3139</a>		<span class="kw">match </span>o.clone().into() {
-<a href=#3140 id=3140 data-nosnippet>3140</a>			<span class="prelude-val">Ok</span>(RawOrigin::Root) =&gt; <span class="prelude-val">Ok</span>(pallet_psm::PsmManagerLevel::Full),
-<a href=#3141 id=3141 data-nosnippet>3141</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(o),
-<a href=#3142 id=3142 data-nosnippet>3142</a>		}
-<a href=#3143 id=3143 data-nosnippet>3143</a>	}
-<a href=#3144 id=3144 data-nosnippet>3144</a>
-<a href=#3145 id=3145 data-nosnippet>3145</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3146 id=3146 data-nosnippet>3146</a>	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
-<a href=#3147 id=3147 data-nosnippet>3147</a>		<span class="prelude-val">Ok</span>(RuntimeOrigin::root())
-<a href=#3148 id=3148 data-nosnippet>3148</a>	}
-<a href=#3149 id=3149 data-nosnippet>3149</a>}
-<a href=#3150 id=3150 data-nosnippet>3150</a>
-<a href=#3151 id=3151 data-nosnippet>3151</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3152 id=3152 data-nosnippet>3152</a></span><span class="kw">pub struct </span>PsmBenchmarkHelper;
-<a href=#3153 id=3153 data-nosnippet>3153</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3154 id=3154 data-nosnippet>3154</a></span><span class="kw">impl </span>pallet_psm::BenchmarkHelper&lt;u32, AccountId&gt; <span class="kw">for </span>PsmBenchmarkHelper {
-<a href=#3155 id=3155 data-nosnippet>3155</a>	<span class="kw">fn </span>get_asset_id(asset_index: u32) -&gt; u32 {
-<a href=#3156 id=3156 data-nosnippet>3156</a>		asset_index
-<a href=#3157 id=3157 data-nosnippet>3157</a>	}
-<a href=#3158 id=3158 data-nosnippet>3158</a>	<span class="kw">fn </span>create_asset(asset_id: u32, owner: <span class="kw-2">&amp;</span>AccountId, decimals: u8) {
-<a href=#3159 id=3159 data-nosnippet>3159</a>		<span class="kw">use </span>frame_support::traits::fungibles::{metadata::Mutate <span class="kw">as </span>MetadataMutate, Create};
-<a href=#3160 id=3160 data-nosnippet>3160</a>		<span class="kw">if </span>!&lt;Assets <span class="kw">as </span>frame_support::traits::fungibles::Inspect&lt;AccountId&gt;&gt;::asset_exists(asset_id)
-<a href=#3161 id=3161 data-nosnippet>3161</a>		{
-<a href=#3162 id=3162 data-nosnippet>3162</a>			<span class="kw">let _ </span>= &lt;Assets <span class="kw">as </span>Create&lt;AccountId&gt;&gt;::create(asset_id, owner.clone(), <span class="bool-val">true</span>, <span class="number">1</span>);
-<a href=#3163 id=3163 data-nosnippet>3163</a>		}
-<a href=#3164 id=3164 data-nosnippet>3164</a>		<span class="kw">let _ </span>= Balances::force_set_balance(
-<a href=#3165 id=3165 data-nosnippet>3165</a>			RuntimeOrigin::root(),
-<a href=#3166 id=3166 data-nosnippet>3166</a>			owner.clone().into(),
-<a href=#3167 id=3167 data-nosnippet>3167</a>			<span class="number">10u128</span>.pow(<span class="number">18</span>),
-<a href=#3168 id=3168 data-nosnippet>3168</a>		);
-<a href=#3169 id=3169 data-nosnippet>3169</a>		<span class="kw">let _ </span>= &lt;Assets <span class="kw">as </span>MetadataMutate&lt;AccountId&gt;&gt;::set(
-<a href=#3170 id=3170 data-nosnippet>3170</a>			asset_id,
-<a href=#3171 id=3171 data-nosnippet>3171</a>			owner,
-<a href=#3172 id=3172 data-nosnippet>3172</a>			<span class="string">b"Benchmark"</span>.to_vec(),
-<a href=#3173 id=3173 data-nosnippet>3173</a>			<span class="string">b"BNC"</span>.to_vec(),
-<a href=#3174 id=3174 data-nosnippet>3174</a>			decimals,
-<a href=#3175 id=3175 data-nosnippet>3175</a>		);
-<a href=#3176 id=3176 data-nosnippet>3176</a>	}
-<a href=#3177 id=3177 data-nosnippet>3177</a>}
-<a href=#3178 id=3178 data-nosnippet>3178</a>
-<a href=#3179 id=3179 data-nosnippet>3179</a><span class="doccomment">/// Configure the PSM (Peg Stability Module) pallet.
-<a href=#3180 id=3180 data-nosnippet>3180</a></span><span class="kw">impl </span>pallet_psm::Config <span class="kw">for </span>Runtime {
-<a href=#3181 id=3181 data-nosnippet>3181</a>	<span class="kw">type </span>Fungibles = Assets;
-<a href=#3182 id=3182 data-nosnippet>3182</a>	<span class="kw">type </span>AssetId = u32;
-<a href=#3183 id=3183 data-nosnippet>3183</a>	<span class="kw">type </span>MaximumIssuance = NoVaultsCeiling;
-<a href=#3184 id=3184 data-nosnippet>3184</a>	<span class="kw">type </span>ManagerOrigin = EnsurePsmManager;
-<a href=#3185 id=3185 data-nosnippet>3185</a>	<span class="kw">type </span>WeightInfo = pallet_psm::weights::SubstrateWeight&lt;Runtime&gt;;
-<a href=#3186 id=3186 data-nosnippet>3186</a>	<span class="kw">type </span>InternalAsset = PsmInternalAsset;
-<a href=#3187 id=3187 data-nosnippet>3187</a>	<span class="kw">type </span>FeeDestination = PsmInsuranceFundAccount;
-<a href=#3188 id=3188 data-nosnippet>3188</a>	<span class="kw">type </span>PalletId = PsmPalletId;
-<a href=#3189 id=3189 data-nosnippet>3189</a>	<span class="kw">type </span>MinSwapAmount = PsmMinSwapAmount;
-<a href=#3190 id=3190 data-nosnippet>3190</a>	<span class="kw">type </span>MaxExternalAssets = ConstU32&lt;<span class="number">10</span>&gt;;
-<a href=#3191 id=3191 data-nosnippet>3191</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3192 id=3192 data-nosnippet>3192</a>	</span><span class="kw">type </span>BenchmarkHelper = PsmBenchmarkHelper;
-<a href=#3193 id=3193 data-nosnippet>3193</a>}
-<a href=#3194 id=3194 data-nosnippet>3194</a>
-<a href=#3195 id=3195 data-nosnippet>3195</a><span class="doccomment">/// MMR helper types.
-<a href=#3196 id=3196 data-nosnippet>3196</a></span><span class="kw">mod </span>mmr {
-<a href=#3197 id=3197 data-nosnippet>3197</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#3198 id=3198 data-nosnippet>3198</a>	<span class="kw">pub use </span>pallet_mmr::primitives::<span class="kw-2">*</span>;
-<a href=#3199 id=3199 data-nosnippet>3199</a>
-<a href=#3200 id=3200 data-nosnippet>3200</a>	<span class="kw">pub type </span>Leaf = &lt;&lt;Runtime <span class="kw">as </span>pallet_mmr::Config&gt;::LeafData <span class="kw">as </span>LeafDataProvider&gt;::LeafData;
-<a href=#3201 id=3201 data-nosnippet>3201</a>	<span class="kw">pub type </span>Hash = &lt;Hashing <span class="kw">as </span>sp_runtime::traits::Hash&gt;::Output;
-<a href=#3202 id=3202 data-nosnippet>3202</a>	<span class="kw">pub type </span>Hashing = &lt;Runtime <span class="kw">as </span>pallet_mmr::Config&gt;::Hashing;
-<a href=#3203 id=3203 data-nosnippet>3203</a>}
-<a href=#3204 id=3204 data-nosnippet>3204</a>
-<a href=#3205 id=3205 data-nosnippet>3205</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3206 id=3206 data-nosnippet>3206</a></span><span class="kw">pub struct </span>AssetConversionTxHelper;
-<a href=#3207 id=3207 data-nosnippet>3207</a>
-<a href=#3208 id=3208 data-nosnippet>3208</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3209 id=3209 data-nosnippet>3209</a></span><span class="kw">impl
-<a href=#3210 id=3210 data-nosnippet>3210</a>	</span>pallet_asset_conversion_tx_payment::BenchmarkHelperTrait&lt;
-<a href=#3211 id=3211 data-nosnippet>3211</a>		AccountId,
-<a href=#3212 id=3212 data-nosnippet>3212</a>		NativeOrWithId&lt;u32&gt;,
-<a href=#3213 id=3213 data-nosnippet>3213</a>		NativeOrWithId&lt;u32&gt;,
-<a href=#3214 id=3214 data-nosnippet>3214</a>	&gt; <span class="kw">for </span>AssetConversionTxHelper
-<a href=#3215 id=3215 data-nosnippet>3215</a>{
-<a href=#3216 id=3216 data-nosnippet>3216</a>	<span class="kw">fn </span>create_asset_id_parameter(seed: u32) -&gt; (NativeOrWithId&lt;u32&gt;, NativeOrWithId&lt;u32&gt;) {
-<a href=#3217 id=3217 data-nosnippet>3217</a>		(NativeOrWithId::WithId(seed), NativeOrWithId::WithId(seed))
-<a href=#3218 id=3218 data-nosnippet>3218</a>	}
-<a href=#3219 id=3219 data-nosnippet>3219</a>
-<a href=#3220 id=3220 data-nosnippet>3220</a>	<span class="kw">fn </span>setup_balances_and_pool(asset_id: NativeOrWithId&lt;u32&gt;, account: AccountId) {
-<a href=#3221 id=3221 data-nosnippet>3221</a>		<span class="kw">use </span>frame_support::{assert_ok, traits::fungibles::Mutate};
-<a href=#3222 id=3222 data-nosnippet>3222</a>		<span class="kw">let </span>NativeOrWithId::WithId(asset_idx) = asset_id.clone() <span class="kw">else </span>{ <span class="macro">unimplemented!</span>() };
-<a href=#3223 id=3223 data-nosnippet>3223</a>		<span class="macro">assert_ok!</span>(Assets::force_create(
-<a href=#3224 id=3224 data-nosnippet>3224</a>			RuntimeOrigin::root(),
-<a href=#3225 id=3225 data-nosnippet>3225</a>			asset_idx.into(),
-<a href=#3226 id=3226 data-nosnippet>3226</a>			account.clone().into(), <span class="comment">// owner
-<a href=#3227 id=3227 data-nosnippet>3227</a>			</span><span class="bool-val">true</span>,                   <span class="comment">// is_sufficient
-<a href=#3228 id=3228 data-nosnippet>3228</a>			</span><span class="number">1</span>,
-<a href=#3229 id=3229 data-nosnippet>3229</a>		));
-<a href=#3230 id=3230 data-nosnippet>3230</a>
-<a href=#3231 id=3231 data-nosnippet>3231</a>		<span class="kw">let </span>lp_provider = account.clone();
-<a href=#3232 id=3232 data-nosnippet>3232</a>		<span class="kw">let _ </span>= Balances::deposit_creating(<span class="kw-2">&amp;</span>lp_provider, ((u64::MAX <span class="kw">as </span>u128) * <span class="number">100</span>).into());
-<a href=#3233 id=3233 data-nosnippet>3233</a>		<span class="macro">assert_ok!</span>(Assets::mint_into(
-<a href=#3234 id=3234 data-nosnippet>3234</a>			asset_idx.into(),
-<a href=#3235 id=3235 data-nosnippet>3235</a>			<span class="kw-2">&amp;</span>lp_provider,
-<a href=#3236 id=3236 data-nosnippet>3236</a>			((u64::MAX <span class="kw">as </span>u128) * <span class="number">100</span>).into()
-<a href=#3237 id=3237 data-nosnippet>3237</a>		));
-<a href=#3238 id=3238 data-nosnippet>3238</a>
-<a href=#3239 id=3239 data-nosnippet>3239</a>		<span class="kw">let </span>token_native = alloc::boxed::Box::new(NativeOrWithId::Native);
-<a href=#3240 id=3240 data-nosnippet>3240</a>		<span class="kw">let </span>token_second = alloc::boxed::Box::new(asset_id);
-<a href=#3241 id=3241 data-nosnippet>3241</a>
-<a href=#3242 id=3242 data-nosnippet>3242</a>		<span class="macro">assert_ok!</span>(AssetConversion::create_pool(
-<a href=#3243 id=3243 data-nosnippet>3243</a>			RuntimeOrigin::signed(lp_provider.clone()),
-<a href=#3244 id=3244 data-nosnippet>3244</a>			token_native.clone(),
-<a href=#3245 id=3245 data-nosnippet>3245</a>			token_second.clone()
-<a href=#3246 id=3246 data-nosnippet>3246</a>		));
-<a href=#3247 id=3247 data-nosnippet>3247</a>
-<a href=#3248 id=3248 data-nosnippet>3248</a>		<span class="macro">assert_ok!</span>(AssetConversion::add_liquidity(
-<a href=#3249 id=3249 data-nosnippet>3249</a>			RuntimeOrigin::signed(lp_provider.clone()),
-<a href=#3250 id=3250 data-nosnippet>3250</a>			token_native,
-<a href=#3251 id=3251 data-nosnippet>3251</a>			token_second,
-<a href=#3252 id=3252 data-nosnippet>3252</a>			u64::MAX.into(), <span class="comment">// 1 desired
-<a href=#3253 id=3253 data-nosnippet>3253</a>			</span>u64::MAX.into(), <span class="comment">// 2 desired
-<a href=#3254 id=3254 data-nosnippet>3254</a>			</span><span class="number">1</span>,               <span class="comment">// 1 min
-<a href=#3255 id=3255 data-nosnippet>3255</a>			</span><span class="number">1</span>,               <span class="comment">// 2 min
-<a href=#3256 id=3256 data-nosnippet>3256</a>			</span>lp_provider,
-<a href=#3257 id=3257 data-nosnippet>3257</a>		));
-<a href=#3258 id=3258 data-nosnippet>3258</a>	}
-<a href=#3259 id=3259 data-nosnippet>3259</a>}
-<a href=#3260 id=3260 data-nosnippet>3260</a>
-<a href=#3261 id=3261 data-nosnippet>3261</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3262 id=3262 data-nosnippet>3262</a></span><span class="kw">mod </span>benches {
-<a href=#3263 id=3263 data-nosnippet>3263</a>	<span class="macro">polkadot_sdk::frame_benchmarking::define_benchmarks!</span>(
-<a href=#3264 id=3264 data-nosnippet>3264</a>		[frame_benchmarking, BaselineBench::&lt;Runtime&gt;]
-<a href=#3265 id=3265 data-nosnippet>3265</a>		[frame_benchmarking_pallet_pov, Pov]
-<a href=#3266 id=3266 data-nosnippet>3266</a>		[pallet_alliance, Alliance]
-<a href=#3267 id=3267 data-nosnippet>3267</a>		[pallet_assets, Assets]
-<a href=#3268 id=3268 data-nosnippet>3268</a>		[pallet_babe, Babe]
-<a href=#3269 id=3269 data-nosnippet>3269</a>		[pallet_bags_list, VoterList]
-<a href=#3270 id=3270 data-nosnippet>3270</a>		[pallet_balances, Balances]
-<a href=#3271 id=3271 data-nosnippet>3271</a>		[pallet_beefy_mmr, MmrLeaf]
-<a href=#3272 id=3272 data-nosnippet>3272</a>		[pallet_bounties, Bounties]
-<a href=#3273 id=3273 data-nosnippet>3273</a>		[pallet_broker, Broker]
-<a href=#3274 id=3274 data-nosnippet>3274</a>		[pallet_child_bounties, ChildBounties]
-<a href=#3275 id=3275 data-nosnippet>3275</a>		[pallet_collective, Council]
-<a href=#3276 id=3276 data-nosnippet>3276</a>		[pallet_conviction_voting, ConvictionVoting]
-<a href=#3277 id=3277 data-nosnippet>3277</a>		[pallet_contracts, Contracts]
-<a href=#3278 id=3278 data-nosnippet>3278</a>		[pallet_revive, Revive]
-<a href=#3279 id=3279 data-nosnippet>3279</a>		[pallet_core_fellowship, CoreFellowship]
-<a href=#3280 id=3280 data-nosnippet>3280</a>		[pallet_example_tasks, TasksExample]
-<a href=#3281 id=3281 data-nosnippet>3281</a>		[pallet_democracy, Democracy]
-<a href=#3282 id=3282 data-nosnippet>3282</a>		[pallet_asset_conversion, AssetConversion]
-<a href=#3283 id=3283 data-nosnippet>3283</a>		[pallet_asset_rewards, AssetRewards]
-<a href=#3284 id=3284 data-nosnippet>3284</a>		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
-<a href=#3285 id=3285 data-nosnippet>3285</a>		[pallet_transaction_payment, TransactionPayment]
-<a href=#3286 id=3286 data-nosnippet>3286</a>		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
-<a href=#3287 id=3287 data-nosnippet>3287</a>		[pallet_election_provider_support_benchmarking, EPSBench::&lt;Runtime&gt;]
-<a href=#3288 id=3288 data-nosnippet>3288</a>		[pallet_elections_phragmen, Elections]
-<a href=#3289 id=3289 data-nosnippet>3289</a>		[pallet_fast_unstake, FastUnstake]
-<a href=#3290 id=3290 data-nosnippet>3290</a>		[pallet_nis, Nis]
-<a href=#3291 id=3291 data-nosnippet>3291</a>		[pallet_parameters, Parameters]
-<a href=#3292 id=3292 data-nosnippet>3292</a>		[pallet_grandpa, Grandpa]
-<a href=#3293 id=3293 data-nosnippet>3293</a>		[pallet_identity, Identity]
-<a href=#3294 id=3294 data-nosnippet>3294</a>		[pallet_im_online, ImOnline]
-<a href=#3295 id=3295 data-nosnippet>3295</a>		[pallet_indices, Indices]
-<a href=#3296 id=3296 data-nosnippet>3296</a>		[pallet_lottery, Lottery]
-<a href=#3297 id=3297 data-nosnippet>3297</a>		[pallet_membership, TechnicalMembership]
-<a href=#3298 id=3298 data-nosnippet>3298</a>		[pallet_message_queue, MessageQueue]
-<a href=#3299 id=3299 data-nosnippet>3299</a>		[pallet_migrations, MultiBlockMigrations]
-<a href=#3300 id=3300 data-nosnippet>3300</a>		[pallet_mmr, Mmr]
-<a href=#3301 id=3301 data-nosnippet>3301</a>		[pallet_multi_asset_bounties, MultiAssetBounties]
-<a href=#3302 id=3302 data-nosnippet>3302</a>		[pallet_assets_precompiles, AssetsPrecompiles]
-<a href=#3303 id=3303 data-nosnippet>3303</a>		[pallet_vesting_precompiles, VestingPrecompiles]
-<a href=#3304 id=3304 data-nosnippet>3304</a>		[pallet_multisig, Multisig]
-<a href=#3305 id=3305 data-nosnippet>3305</a>		[pallet_offences, OffencesBench::&lt;Runtime&gt;]
-<a href=#3306 id=3306 data-nosnippet>3306</a>		[pallet_oracle, Oracle]
-<a href=#3307 id=3307 data-nosnippet>3307</a>		[pallet_preimage, Preimage]
-<a href=#3308 id=3308 data-nosnippet>3308</a>		[pallet_proxy, Proxy]
-<a href=#3309 id=3309 data-nosnippet>3309</a>		[pallet_ranked_collective, RankedCollective]
-<a href=#3310 id=3310 data-nosnippet>3310</a>		[pallet_referenda, Referenda]
-<a href=#3311 id=3311 data-nosnippet>3311</a>		[pallet_recovery, Recovery]
-<a href=#3312 id=3312 data-nosnippet>3312</a>		[pallet_remark, Remark]
-<a href=#3313 id=3313 data-nosnippet>3313</a>		[pallet_salary, Salary]
-<a href=#3314 id=3314 data-nosnippet>3314</a>		[pallet_scheduler, Scheduler]
-<a href=#3315 id=3315 data-nosnippet>3315</a>		[pallet_glutton, Glutton]
-<a href=#3316 id=3316 data-nosnippet>3316</a>		[pallet_session, SessionBench::&lt;Runtime&gt;]
-<a href=#3317 id=3317 data-nosnippet>3317</a>		[pallet_society, Society]
-<a href=#3318 id=3318 data-nosnippet>3318</a>		[pallet_dap, Dap]
-<a href=#3319 id=3319 data-nosnippet>3319</a>		[pallet_staking, Staking]
-<a href=#3320 id=3320 data-nosnippet>3320</a>		[pallet_state_trie_migration, StateTrieMigration]
-<a href=#3321 id=3321 data-nosnippet>3321</a>		[pallet_sudo, Sudo]
-<a href=#3322 id=3322 data-nosnippet>3322</a>		[frame_system, SystemBench::&lt;Runtime&gt;]
-<a href=#3323 id=3323 data-nosnippet>3323</a>		[frame_system_extensions, SystemExtensionsBench::&lt;Runtime&gt;]
-<a href=#3324 id=3324 data-nosnippet>3324</a>		[pallet_timestamp, Timestamp]
-<a href=#3325 id=3325 data-nosnippet>3325</a>		[pallet_tips, Tips]
-<a href=#3326 id=3326 data-nosnippet>3326</a>		[pallet_transaction_storage, TransactionStorage]
-<a href=#3327 id=3327 data-nosnippet>3327</a>		[pallet_treasury, Treasury]
-<a href=#3328 id=3328 data-nosnippet>3328</a>		[pallet_asset_rate, AssetRate]
-<a href=#3329 id=3329 data-nosnippet>3329</a>		[pallet_uniques, Uniques]
-<a href=#3330 id=3330 data-nosnippet>3330</a>		[pallet_nfts, Nfts]
-<a href=#3331 id=3331 data-nosnippet>3331</a>		[pallet_nft_fractionalization, NftFractionalization]
-<a href=#3332 id=3332 data-nosnippet>3332</a>		[pallet_utility, Utility]
-<a href=#3333 id=3333 data-nosnippet>3333</a>		[pallet_vesting, Vesting]
-<a href=#3334 id=3334 data-nosnippet>3334</a>		[pallet_whitelist, Whitelist]
-<a href=#3335 id=3335 data-nosnippet>3335</a>		[pallet_tx_pause, TxPause]
-<a href=#3336 id=3336 data-nosnippet>3336</a>		[pallet_safe_mode, SafeMode]
-<a href=#3337 id=3337 data-nosnippet>3337</a>		[pallet_example_mbm, PalletExampleMbms]
-<a href=#3338 id=3338 data-nosnippet>3338</a>		[pallet_asset_conversion_ops, AssetConversionMigration]
-<a href=#3339 id=3339 data-nosnippet>3339</a>		[pallet_verify_signature, VerifySignature]
-<a href=#3340 id=3340 data-nosnippet>3340</a>		[pallet_meta_tx, MetaTx]
-<a href=#3341 id=3341 data-nosnippet>3341</a>		[pallet_psm, Psm]
-<a href=#3342 id=3342 data-nosnippet>3342</a>	);
-<a href=#3343 id=3343 data-nosnippet>3343</a>}
-<a href=#3344 id=3344 data-nosnippet>3344</a>
-<a href=#3345 id=3345 data-nosnippet>3345</a><span class="macro">pallet_revive::impl_runtime_apis_plus_revive_traits!</span>(
-<a href=#3346 id=3346 data-nosnippet>3346</a>	Runtime,
-<a href=#3347 id=3347 data-nosnippet>3347</a>	Revive,
-<a href=#3348 id=3348 data-nosnippet>3348</a>	Executive,
-<a href=#3349 id=3349 data-nosnippet>3349</a>	EthExtraImpl,
-<a href=#3350 id=3350 data-nosnippet>3350</a>
-<a href=#3351 id=3351 data-nosnippet>3351</a>	<span class="kw">impl </span>sp_api::Core&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3352 id=3352 data-nosnippet>3352</a>		<span class="kw">fn </span>version() -&gt; RuntimeVersion {
-<a href=#3353 id=3353 data-nosnippet>3353</a>			VERSION
-<a href=#3354 id=3354 data-nosnippet>3354</a>		}
-<a href=#3355 id=3355 data-nosnippet>3355</a>
-<a href=#3356 id=3356 data-nosnippet>3356</a>		<span class="kw">fn </span>execute_block(block: &lt;Block <span class="kw">as </span>BlockT&gt;::LazyBlock) {
-<a href=#3357 id=3357 data-nosnippet>3357</a>			Executive::execute_block(block);
-<a href=#3358 id=3358 data-nosnippet>3358</a>		}
-<a href=#3359 id=3359 data-nosnippet>3359</a>
-<a href=#3360 id=3360 data-nosnippet>3360</a>		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; sp_runtime::ExtrinsicInclusionMode {
-<a href=#3361 id=3361 data-nosnippet>3361</a>			Executive::initialize_block(header)
-<a href=#3362 id=3362 data-nosnippet>3362</a>		}
-<a href=#3363 id=3363 data-nosnippet>3363</a>	}
-<a href=#3364 id=3364 data-nosnippet>3364</a>
-<a href=#3365 id=3365 data-nosnippet>3365</a>	<span class="kw">impl </span>sp_api::Metadata&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3366 id=3366 data-nosnippet>3366</a>		<span class="kw">fn </span>metadata() -&gt; OpaqueMetadata {
-<a href=#3367 id=3367 data-nosnippet>3367</a>			OpaqueMetadata::new(Runtime::metadata().into())
-<a href=#3368 id=3368 data-nosnippet>3368</a>		}
-<a href=#3369 id=3369 data-nosnippet>3369</a>
-<a href=#3370 id=3370 data-nosnippet>3370</a>		<span class="kw">fn </span>metadata_at_version(version: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
-<a href=#3371 id=3371 data-nosnippet>3371</a>			Runtime::metadata_at_version(version)
-<a href=#3372 id=3372 data-nosnippet>3372</a>		}
-<a href=#3373 id=3373 data-nosnippet>3373</a>
-<a href=#3374 id=3374 data-nosnippet>3374</a>		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
-<a href=#3375 id=3375 data-nosnippet>3375</a>			Runtime::metadata_versions()
-<a href=#3376 id=3376 data-nosnippet>3376</a>		}
-<a href=#3377 id=3377 data-nosnippet>3377</a>	}
-<a href=#3378 id=3378 data-nosnippet>3378</a>
-<a href=#3379 id=3379 data-nosnippet>3379</a>	<span class="kw">impl </span>frame_support::view_functions::runtime_api::RuntimeViewFunction&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3380 id=3380 data-nosnippet>3380</a>		<span class="kw">fn </span>execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, frame_support::view_functions::ViewFunctionDispatchError&gt; {
-<a href=#3381 id=3381 data-nosnippet>3381</a>			Runtime::execute_view_function(id, input)
-<a href=#3382 id=3382 data-nosnippet>3382</a>		}
-<a href=#3383 id=3383 data-nosnippet>3383</a>	}
-<a href=#3384 id=3384 data-nosnippet>3384</a>
-<a href=#3385 id=3385 data-nosnippet>3385</a>	<span class="kw">impl </span>sp_block_builder::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3386 id=3386 data-nosnippet>3386</a>		<span class="kw">fn </span>apply_extrinsic(extrinsic: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; ApplyExtrinsicResult {
-<a href=#3387 id=3387 data-nosnippet>3387</a>			Executive::apply_extrinsic(extrinsic)
-<a href=#3388 id=3388 data-nosnippet>3388</a>		}
-<a href=#3389 id=3389 data-nosnippet>3389</a>
-<a href=#3390 id=3390 data-nosnippet>3390</a>		<span class="kw">fn </span>finalize_block() -&gt; &lt;Block <span class="kw">as </span>BlockT&gt;::Header {
-<a href=#3391 id=3391 data-nosnippet>3391</a>			Executive::finalize_block()
-<a href=#3392 id=3392 data-nosnippet>3392</a>		}
-<a href=#3393 id=3393 data-nosnippet>3393</a>
-<a href=#3394 id=3394 data-nosnippet>3394</a>		<span class="kw">fn </span>inherent_extrinsics(data: InherentData) -&gt; Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt; {
-<a href=#3395 id=3395 data-nosnippet>3395</a>			data.create_extrinsics()
-<a href=#3396 id=3396 data-nosnippet>3396</a>		}
-<a href=#3397 id=3397 data-nosnippet>3397</a>
-<a href=#3398 id=3398 data-nosnippet>3398</a>		<span class="kw">fn </span>check_inherents(block: &lt;Block <span class="kw">as </span>BlockT&gt;::LazyBlock, data: InherentData) -&gt; CheckInherentsResult {
-<a href=#3399 id=3399 data-nosnippet>3399</a>			data.check_extrinsics(<span class="kw-2">&amp;</span>block)
-<a href=#3400 id=3400 data-nosnippet>3400</a>		}
-<a href=#3401 id=3401 data-nosnippet>3401</a>	}
-<a href=#3402 id=3402 data-nosnippet>3402</a>
-<a href=#3403 id=3403 data-nosnippet>3403</a>	<span class="kw">impl </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3404 id=3404 data-nosnippet>3404</a>		<span class="kw">fn </span>validate_transaction(
-<a href=#3405 id=3405 data-nosnippet>3405</a>			source: TransactionSource,
-<a href=#3406 id=3406 data-nosnippet>3406</a>			tx: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
-<a href=#3407 id=3407 data-nosnippet>3407</a>			block_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-<a href=#3408 id=3408 data-nosnippet>3408</a>		) -&gt; TransactionValidity {
-<a href=#3409 id=3409 data-nosnippet>3409</a>			Executive::validate_transaction(source, tx, block_hash)
-<a href=#3410 id=3410 data-nosnippet>3410</a>		}
-<a href=#3411 id=3411 data-nosnippet>3411</a>	}
-<a href=#3412 id=3412 data-nosnippet>3412</a>
-<a href=#3413 id=3413 data-nosnippet>3413</a>	<span class="kw">impl </span>sp_offchain::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3414 id=3414 data-nosnippet>3414</a>		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
-<a href=#3415 id=3415 data-nosnippet>3415</a>			Executive::offchain_worker(header)
-<a href=#3416 id=3416 data-nosnippet>3416</a>		}
-<a href=#3417 id=3417 data-nosnippet>3417</a>	}
-<a href=#3418 id=3418 data-nosnippet>3418</a>
-<a href=#3419 id=3419 data-nosnippet>3419</a>	<span class="kw">impl </span>sp_consensus_grandpa::GrandpaApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3420 id=3420 data-nosnippet>3420</a>		<span class="kw">fn </span>grandpa_authorities() -&gt; sp_consensus_grandpa::AuthorityList {
-<a href=#3421 id=3421 data-nosnippet>3421</a>			Grandpa::grandpa_authorities()
-<a href=#3422 id=3422 data-nosnippet>3422</a>		}
-<a href=#3423 id=3423 data-nosnippet>3423</a>
-<a href=#3424 id=3424 data-nosnippet>3424</a>		<span class="kw">fn </span>current_set_id() -&gt; sp_consensus_grandpa::SetId {
-<a href=#3425 id=3425 data-nosnippet>3425</a>			pallet_grandpa::CurrentSetId::&lt;Runtime&gt;::get()
-<a href=#3426 id=3426 data-nosnippet>3426</a>		}
+<a href=#3111 id=3111 data-nosnippet>3111</a>	<span class="doccomment">/// PalletId for deriving the PSM system account.
+<a href=#3112 id=3112 data-nosnippet>3112</a>	</span><span class="kw">pub const </span>PsmPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/pegsm"</span>);
+<a href=#3113 id=3113 data-nosnippet>3113</a>	<span class="doccomment">/// Base deposit held for the footprint of a PSM created via `create_psm`.
+<a href=#3114 id=3114 data-nosnippet>3114</a>	</span><span class="kw">pub const </span>PsmCreationDeposit: Balance = <span class="number">10 </span>* DOLLARS;
+<a href=#3115 id=3115 data-nosnippet>3115</a>	<span class="doccomment">/// Per-byte deposit slope; PSM footprints are fixed-size, so this is zero.
+<a href=#3116 id=3116 data-nosnippet>3116</a>	</span><span class="kw">pub const </span>PsmDepositSlope: Balance = <span class="number">0</span>;
+<a href=#3117 id=3117 data-nosnippet>3117</a>	<span class="kw">pub </span>PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
+<a href=#3118 id=3118 data-nosnippet>3118</a>}
+<a href=#3119 id=3119 data-nosnippet>3119</a>
+<a href=#3120 id=3120 data-nosnippet>3120</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3121 id=3121 data-nosnippet>3121</a></span><span class="kw">pub struct </span>PsmBenchmarkHelper;
+<a href=#3122 id=3122 data-nosnippet>3122</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3123 id=3123 data-nosnippet>3123</a></span><span class="kw">impl </span>pallet_psm::BenchmarkHelper&lt;u32, AccountId&gt; <span class="kw">for </span>PsmBenchmarkHelper {
+<a href=#3124 id=3124 data-nosnippet>3124</a>	<span class="kw">fn </span>get_asset_id(asset_index: u32) -&gt; u32 {
+<a href=#3125 id=3125 data-nosnippet>3125</a>		asset_index
+<a href=#3126 id=3126 data-nosnippet>3126</a>	}
+<a href=#3127 id=3127 data-nosnippet>3127</a>	<span class="kw">fn </span>create_asset(asset_id: u32, owner: <span class="kw-2">&amp;</span>AccountId, decimals: u8) {
+<a href=#3128 id=3128 data-nosnippet>3128</a>		<span class="kw">use </span>frame_support::traits::fungibles::{metadata::Mutate <span class="kw">as </span>MetadataMutate, Create};
+<a href=#3129 id=3129 data-nosnippet>3129</a>		<span class="kw">if </span>!&lt;Assets <span class="kw">as </span>frame_support::traits::fungibles::Inspect&lt;AccountId&gt;&gt;::asset_exists(asset_id)
+<a href=#3130 id=3130 data-nosnippet>3130</a>		{
+<a href=#3131 id=3131 data-nosnippet>3131</a>			<span class="kw">let _ </span>= &lt;Assets <span class="kw">as </span>Create&lt;AccountId&gt;&gt;::create(asset_id, owner.clone(), <span class="bool-val">true</span>, <span class="number">1</span>);
+<a href=#3132 id=3132 data-nosnippet>3132</a>		}
+<a href=#3133 id=3133 data-nosnippet>3133</a>		<span class="kw">let _ </span>= Balances::force_set_balance(
+<a href=#3134 id=3134 data-nosnippet>3134</a>			RuntimeOrigin::root(),
+<a href=#3135 id=3135 data-nosnippet>3135</a>			owner.clone().into(),
+<a href=#3136 id=3136 data-nosnippet>3136</a>			<span class="number">10u128</span>.pow(<span class="number">18</span>),
+<a href=#3137 id=3137 data-nosnippet>3137</a>		);
+<a href=#3138 id=3138 data-nosnippet>3138</a>		<span class="kw">let _ </span>= &lt;Assets <span class="kw">as </span>MetadataMutate&lt;AccountId&gt;&gt;::set(
+<a href=#3139 id=3139 data-nosnippet>3139</a>			asset_id,
+<a href=#3140 id=3140 data-nosnippet>3140</a>			owner,
+<a href=#3141 id=3141 data-nosnippet>3141</a>			<span class="string">b"Benchmark"</span>.to_vec(),
+<a href=#3142 id=3142 data-nosnippet>3142</a>			<span class="string">b"BNC"</span>.to_vec(),
+<a href=#3143 id=3143 data-nosnippet>3143</a>			decimals,
+<a href=#3144 id=3144 data-nosnippet>3144</a>		);
+<a href=#3145 id=3145 data-nosnippet>3145</a>	}
+<a href=#3146 id=3146 data-nosnippet>3146</a>}
+<a href=#3147 id=3147 data-nosnippet>3147</a>
+<a href=#3148 id=3148 data-nosnippet>3148</a><span class="doccomment">/// Configure the PSM (Peg Stability Module) pallet.
+<a href=#3149 id=3149 data-nosnippet>3149</a></span><span class="kw">impl </span>pallet_psm::Config <span class="kw">for </span>Runtime {
+<a href=#3150 id=3150 data-nosnippet>3150</a>	<span class="kw">type </span>Fungibles = Assets;
+<a href=#3151 id=3151 data-nosnippet>3151</a>	<span class="kw">type </span>Consideration = HoldConsideration&lt;
+<a href=#3152 id=3152 data-nosnippet>3152</a>		AccountId,
+<a href=#3153 id=3153 data-nosnippet>3153</a>		Balances,
+<a href=#3154 id=3154 data-nosnippet>3154</a>		PsmHoldReason,
+<a href=#3155 id=3155 data-nosnippet>3155</a>		LinearStoragePrice&lt;PsmCreationDeposit, PsmDepositSlope, Balance&gt;,
+<a href=#3156 id=3156 data-nosnippet>3156</a>	&gt;;
+<a href=#3157 id=3157 data-nosnippet>3157</a>	<span class="kw">type </span>CreateOrigin = pallet_psm::EnsureAssetOwner&lt;Runtime&gt;;
+<a href=#3158 id=3158 data-nosnippet>3158</a>	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
+<a href=#3159 id=3159 data-nosnippet>3159</a>	<span class="kw">type </span>PalletsOrigin = OriginCaller;
+<a href=#3160 id=3160 data-nosnippet>3160</a>	<span class="kw">type </span>AssetId = u32;
+<a href=#3161 id=3161 data-nosnippet>3161</a>	<span class="kw">type </span>WeightInfo = pallet_psm::weights::SubstrateWeight&lt;Runtime&gt;;
+<a href=#3162 id=3162 data-nosnippet>3162</a>	<span class="kw">type </span>PalletId = PsmPalletId;
+<a href=#3163 id=3163 data-nosnippet>3163</a>	<span class="kw">type </span>MaxExternals = ConstU32&lt;<span class="number">10</span>&gt;;
+<a href=#3164 id=3164 data-nosnippet>3164</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3165 id=3165 data-nosnippet>3165</a>	</span><span class="kw">type </span>BenchmarkHelper = PsmBenchmarkHelper;
+<a href=#3166 id=3166 data-nosnippet>3166</a>}
+<a href=#3167 id=3167 data-nosnippet>3167</a>
+<a href=#3168 id=3168 data-nosnippet>3168</a><span class="doccomment">/// MMR helper types.
+<a href=#3169 id=3169 data-nosnippet>3169</a></span><span class="kw">mod </span>mmr {
+<a href=#3170 id=3170 data-nosnippet>3170</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#3171 id=3171 data-nosnippet>3171</a>	<span class="kw">pub use </span>pallet_mmr::primitives::<span class="kw-2">*</span>;
+<a href=#3172 id=3172 data-nosnippet>3172</a>
+<a href=#3173 id=3173 data-nosnippet>3173</a>	<span class="kw">pub type </span>Leaf = &lt;&lt;Runtime <span class="kw">as </span>pallet_mmr::Config&gt;::LeafData <span class="kw">as </span>LeafDataProvider&gt;::LeafData;
+<a href=#3174 id=3174 data-nosnippet>3174</a>	<span class="kw">pub type </span>Hash = &lt;Hashing <span class="kw">as </span>sp_runtime::traits::Hash&gt;::Output;
+<a href=#3175 id=3175 data-nosnippet>3175</a>	<span class="kw">pub type </span>Hashing = &lt;Runtime <span class="kw">as </span>pallet_mmr::Config&gt;::Hashing;
+<a href=#3176 id=3176 data-nosnippet>3176</a>}
+<a href=#3177 id=3177 data-nosnippet>3177</a>
+<a href=#3178 id=3178 data-nosnippet>3178</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3179 id=3179 data-nosnippet>3179</a></span><span class="kw">pub struct </span>AssetConversionTxHelper;
+<a href=#3180 id=3180 data-nosnippet>3180</a>
+<a href=#3181 id=3181 data-nosnippet>3181</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3182 id=3182 data-nosnippet>3182</a></span><span class="kw">impl
+<a href=#3183 id=3183 data-nosnippet>3183</a>	</span>pallet_asset_conversion_tx_payment::BenchmarkHelperTrait&lt;
+<a href=#3184 id=3184 data-nosnippet>3184</a>		AccountId,
+<a href=#3185 id=3185 data-nosnippet>3185</a>		NativeOrWithId&lt;u32&gt;,
+<a href=#3186 id=3186 data-nosnippet>3186</a>		NativeOrWithId&lt;u32&gt;,
+<a href=#3187 id=3187 data-nosnippet>3187</a>	&gt; <span class="kw">for </span>AssetConversionTxHelper
+<a href=#3188 id=3188 data-nosnippet>3188</a>{
+<a href=#3189 id=3189 data-nosnippet>3189</a>	<span class="kw">fn </span>create_asset_id_parameter(seed: u32) -&gt; (NativeOrWithId&lt;u32&gt;, NativeOrWithId&lt;u32&gt;) {
+<a href=#3190 id=3190 data-nosnippet>3190</a>		(NativeOrWithId::WithId(seed), NativeOrWithId::WithId(seed))
+<a href=#3191 id=3191 data-nosnippet>3191</a>	}
+<a href=#3192 id=3192 data-nosnippet>3192</a>
+<a href=#3193 id=3193 data-nosnippet>3193</a>	<span class="kw">fn </span>setup_balances_and_pool(asset_id: NativeOrWithId&lt;u32&gt;, account: AccountId) {
+<a href=#3194 id=3194 data-nosnippet>3194</a>		<span class="kw">use </span>frame_support::{assert_ok, traits::fungibles::Mutate};
+<a href=#3195 id=3195 data-nosnippet>3195</a>		<span class="kw">let </span>NativeOrWithId::WithId(asset_idx) = asset_id.clone() <span class="kw">else </span>{ <span class="macro">unimplemented!</span>() };
+<a href=#3196 id=3196 data-nosnippet>3196</a>		<span class="macro">assert_ok!</span>(Assets::force_create(
+<a href=#3197 id=3197 data-nosnippet>3197</a>			RuntimeOrigin::root(),
+<a href=#3198 id=3198 data-nosnippet>3198</a>			asset_idx.into(),
+<a href=#3199 id=3199 data-nosnippet>3199</a>			account.clone().into(), <span class="comment">// owner
+<a href=#3200 id=3200 data-nosnippet>3200</a>			</span><span class="bool-val">true</span>,                   <span class="comment">// is_sufficient
+<a href=#3201 id=3201 data-nosnippet>3201</a>			</span><span class="number">1</span>,
+<a href=#3202 id=3202 data-nosnippet>3202</a>		));
+<a href=#3203 id=3203 data-nosnippet>3203</a>
+<a href=#3204 id=3204 data-nosnippet>3204</a>		<span class="kw">let </span>lp_provider = account.clone();
+<a href=#3205 id=3205 data-nosnippet>3205</a>		<span class="kw">let _ </span>= Balances::deposit_creating(<span class="kw-2">&amp;</span>lp_provider, ((u64::MAX <span class="kw">as </span>u128) * <span class="number">100</span>).into());
+<a href=#3206 id=3206 data-nosnippet>3206</a>		<span class="macro">assert_ok!</span>(Assets::mint_into(
+<a href=#3207 id=3207 data-nosnippet>3207</a>			asset_idx.into(),
+<a href=#3208 id=3208 data-nosnippet>3208</a>			<span class="kw-2">&amp;</span>lp_provider,
+<a href=#3209 id=3209 data-nosnippet>3209</a>			((u64::MAX <span class="kw">as </span>u128) * <span class="number">100</span>).into()
+<a href=#3210 id=3210 data-nosnippet>3210</a>		));
+<a href=#3211 id=3211 data-nosnippet>3211</a>
+<a href=#3212 id=3212 data-nosnippet>3212</a>		<span class="kw">let </span>token_native = alloc::boxed::Box::new(NativeOrWithId::Native);
+<a href=#3213 id=3213 data-nosnippet>3213</a>		<span class="kw">let </span>token_second = alloc::boxed::Box::new(asset_id);
+<a href=#3214 id=3214 data-nosnippet>3214</a>
+<a href=#3215 id=3215 data-nosnippet>3215</a>		<span class="macro">assert_ok!</span>(AssetConversion::create_pool(
+<a href=#3216 id=3216 data-nosnippet>3216</a>			RuntimeOrigin::signed(lp_provider.clone()),
+<a href=#3217 id=3217 data-nosnippet>3217</a>			token_native.clone(),
+<a href=#3218 id=3218 data-nosnippet>3218</a>			token_second.clone()
+<a href=#3219 id=3219 data-nosnippet>3219</a>		));
+<a href=#3220 id=3220 data-nosnippet>3220</a>
+<a href=#3221 id=3221 data-nosnippet>3221</a>		<span class="macro">assert_ok!</span>(AssetConversion::add_liquidity(
+<a href=#3222 id=3222 data-nosnippet>3222</a>			RuntimeOrigin::signed(lp_provider.clone()),
+<a href=#3223 id=3223 data-nosnippet>3223</a>			token_native,
+<a href=#3224 id=3224 data-nosnippet>3224</a>			token_second,
+<a href=#3225 id=3225 data-nosnippet>3225</a>			u64::MAX.into(), <span class="comment">// 1 desired
+<a href=#3226 id=3226 data-nosnippet>3226</a>			</span>u64::MAX.into(), <span class="comment">// 2 desired
+<a href=#3227 id=3227 data-nosnippet>3227</a>			</span><span class="number">1</span>,               <span class="comment">// 1 min
+<a href=#3228 id=3228 data-nosnippet>3228</a>			</span><span class="number">1</span>,               <span class="comment">// 2 min
+<a href=#3229 id=3229 data-nosnippet>3229</a>			</span>lp_provider,
+<a href=#3230 id=3230 data-nosnippet>3230</a>		));
+<a href=#3231 id=3231 data-nosnippet>3231</a>	}
+<a href=#3232 id=3232 data-nosnippet>3232</a>}
+<a href=#3233 id=3233 data-nosnippet>3233</a>
+<a href=#3234 id=3234 data-nosnippet>3234</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3235 id=3235 data-nosnippet>3235</a></span><span class="kw">mod </span>benches {
+<a href=#3236 id=3236 data-nosnippet>3236</a>	<span class="macro">polkadot_sdk::frame_benchmarking::define_benchmarks!</span>(
+<a href=#3237 id=3237 data-nosnippet>3237</a>		[frame_benchmarking, BaselineBench::&lt;Runtime&gt;]
+<a href=#3238 id=3238 data-nosnippet>3238</a>		[frame_benchmarking_pallet_pov, Pov]
+<a href=#3239 id=3239 data-nosnippet>3239</a>		[pallet_alliance, Alliance]
+<a href=#3240 id=3240 data-nosnippet>3240</a>		[pallet_assets, Assets]
+<a href=#3241 id=3241 data-nosnippet>3241</a>		[pallet_babe, Babe]
+<a href=#3242 id=3242 data-nosnippet>3242</a>		[pallet_bags_list, VoterList]
+<a href=#3243 id=3243 data-nosnippet>3243</a>		[pallet_balances, Balances]
+<a href=#3244 id=3244 data-nosnippet>3244</a>		[pallet_beefy_mmr, MmrLeaf]
+<a href=#3245 id=3245 data-nosnippet>3245</a>		[pallet_bounties, Bounties]
+<a href=#3246 id=3246 data-nosnippet>3246</a>		[pallet_broker, Broker]
+<a href=#3247 id=3247 data-nosnippet>3247</a>		[pallet_child_bounties, ChildBounties]
+<a href=#3248 id=3248 data-nosnippet>3248</a>		[pallet_collective, Council]
+<a href=#3249 id=3249 data-nosnippet>3249</a>		[pallet_conviction_voting, ConvictionVoting]
+<a href=#3250 id=3250 data-nosnippet>3250</a>		[pallet_contracts, Contracts]
+<a href=#3251 id=3251 data-nosnippet>3251</a>		[pallet_revive, Revive]
+<a href=#3252 id=3252 data-nosnippet>3252</a>		[pallet_core_fellowship, CoreFellowship]
+<a href=#3253 id=3253 data-nosnippet>3253</a>		[pallet_example_tasks, TasksExample]
+<a href=#3254 id=3254 data-nosnippet>3254</a>		[pallet_democracy, Democracy]
+<a href=#3255 id=3255 data-nosnippet>3255</a>		[pallet_asset_conversion, AssetConversion]
+<a href=#3256 id=3256 data-nosnippet>3256</a>		[pallet_asset_rewards, AssetRewards]
+<a href=#3257 id=3257 data-nosnippet>3257</a>		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
+<a href=#3258 id=3258 data-nosnippet>3258</a>		[pallet_transaction_payment, TransactionPayment]
+<a href=#3259 id=3259 data-nosnippet>3259</a>		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
+<a href=#3260 id=3260 data-nosnippet>3260</a>		[pallet_election_provider_support_benchmarking, EPSBench::&lt;Runtime&gt;]
+<a href=#3261 id=3261 data-nosnippet>3261</a>		[pallet_elections_phragmen, Elections]
+<a href=#3262 id=3262 data-nosnippet>3262</a>		[pallet_fast_unstake, FastUnstake]
+<a href=#3263 id=3263 data-nosnippet>3263</a>		[pallet_nis, Nis]
+<a href=#3264 id=3264 data-nosnippet>3264</a>		[pallet_parameters, Parameters]
+<a href=#3265 id=3265 data-nosnippet>3265</a>		[pallet_grandpa, Grandpa]
+<a href=#3266 id=3266 data-nosnippet>3266</a>		[pallet_identity, Identity]
+<a href=#3267 id=3267 data-nosnippet>3267</a>		[pallet_im_online, ImOnline]
+<a href=#3268 id=3268 data-nosnippet>3268</a>		[pallet_indices, Indices]
+<a href=#3269 id=3269 data-nosnippet>3269</a>		[pallet_lottery, Lottery]
+<a href=#3270 id=3270 data-nosnippet>3270</a>		[pallet_membership, TechnicalMembership]
+<a href=#3271 id=3271 data-nosnippet>3271</a>		[pallet_message_queue, MessageQueue]
+<a href=#3272 id=3272 data-nosnippet>3272</a>		[pallet_migrations, MultiBlockMigrations]
+<a href=#3273 id=3273 data-nosnippet>3273</a>		[pallet_mmr, Mmr]
+<a href=#3274 id=3274 data-nosnippet>3274</a>		[pallet_multi_asset_bounties, MultiAssetBounties]
+<a href=#3275 id=3275 data-nosnippet>3275</a>		[pallet_assets_precompiles, AssetsPrecompiles]
+<a href=#3276 id=3276 data-nosnippet>3276</a>		[pallet_vesting_precompiles, VestingPrecompiles]
+<a href=#3277 id=3277 data-nosnippet>3277</a>		[pallet_multisig, Multisig]
+<a href=#3278 id=3278 data-nosnippet>3278</a>		[pallet_offences, OffencesBench::&lt;Runtime&gt;]
+<a href=#3279 id=3279 data-nosnippet>3279</a>		[pallet_oracle, Oracle]
+<a href=#3280 id=3280 data-nosnippet>3280</a>		[pallet_preimage, Preimage]
+<a href=#3281 id=3281 data-nosnippet>3281</a>		[pallet_proxy, Proxy]
+<a href=#3282 id=3282 data-nosnippet>3282</a>		[pallet_ranked_collective, RankedCollective]
+<a href=#3283 id=3283 data-nosnippet>3283</a>		[pallet_referenda, Referenda]
+<a href=#3284 id=3284 data-nosnippet>3284</a>		[pallet_recovery, Recovery]
+<a href=#3285 id=3285 data-nosnippet>3285</a>		[pallet_remark, Remark]
+<a href=#3286 id=3286 data-nosnippet>3286</a>		[pallet_salary, Salary]
+<a href=#3287 id=3287 data-nosnippet>3287</a>		[pallet_scheduler, Scheduler]
+<a href=#3288 id=3288 data-nosnippet>3288</a>		[pallet_glutton, Glutton]
+<a href=#3289 id=3289 data-nosnippet>3289</a>		[pallet_session, SessionBench::&lt;Runtime&gt;]
+<a href=#3290 id=3290 data-nosnippet>3290</a>		[pallet_society, Society]
+<a href=#3291 id=3291 data-nosnippet>3291</a>		[pallet_dap, Dap]
+<a href=#3292 id=3292 data-nosnippet>3292</a>		[pallet_staking, Staking]
+<a href=#3293 id=3293 data-nosnippet>3293</a>		[pallet_state_trie_migration, StateTrieMigration]
+<a href=#3294 id=3294 data-nosnippet>3294</a>		[pallet_sudo, Sudo]
+<a href=#3295 id=3295 data-nosnippet>3295</a>		[frame_system, SystemBench::&lt;Runtime&gt;]
+<a href=#3296 id=3296 data-nosnippet>3296</a>		[frame_system_extensions, SystemExtensionsBench::&lt;Runtime&gt;]
+<a href=#3297 id=3297 data-nosnippet>3297</a>		[pallet_timestamp, Timestamp]
+<a href=#3298 id=3298 data-nosnippet>3298</a>		[pallet_tips, Tips]
+<a href=#3299 id=3299 data-nosnippet>3299</a>		[pallet_transaction_storage, TransactionStorage]
+<a href=#3300 id=3300 data-nosnippet>3300</a>		[pallet_treasury, Treasury]
+<a href=#3301 id=3301 data-nosnippet>3301</a>		[pallet_asset_rate, AssetRate]
+<a href=#3302 id=3302 data-nosnippet>3302</a>		[pallet_uniques, Uniques]
+<a href=#3303 id=3303 data-nosnippet>3303</a>		[pallet_nfts, Nfts]
+<a href=#3304 id=3304 data-nosnippet>3304</a>		[pallet_nft_fractionalization, NftFractionalization]
+<a href=#3305 id=3305 data-nosnippet>3305</a>		[pallet_utility, Utility]
+<a href=#3306 id=3306 data-nosnippet>3306</a>		[pallet_vesting, Vesting]
+<a href=#3307 id=3307 data-nosnippet>3307</a>		[pallet_whitelist, Whitelist]
+<a href=#3308 id=3308 data-nosnippet>3308</a>		[pallet_tx_pause, TxPause]
+<a href=#3309 id=3309 data-nosnippet>3309</a>		[pallet_safe_mode, SafeMode]
+<a href=#3310 id=3310 data-nosnippet>3310</a>		[pallet_example_mbm, PalletExampleMbms]
+<a href=#3311 id=3311 data-nosnippet>3311</a>		[pallet_asset_conversion_ops, AssetConversionMigration]
+<a href=#3312 id=3312 data-nosnippet>3312</a>		[pallet_verify_signature, VerifySignature]
+<a href=#3313 id=3313 data-nosnippet>3313</a>		[pallet_meta_tx, MetaTx]
+<a href=#3314 id=3314 data-nosnippet>3314</a>		[pallet_psm, Psm]
+<a href=#3315 id=3315 data-nosnippet>3315</a>	);
+<a href=#3316 id=3316 data-nosnippet>3316</a>}
+<a href=#3317 id=3317 data-nosnippet>3317</a>
+<a href=#3318 id=3318 data-nosnippet>3318</a><span class="macro">pallet_revive::impl_runtime_apis_plus_revive_traits!</span>(
+<a href=#3319 id=3319 data-nosnippet>3319</a>	Runtime,
+<a href=#3320 id=3320 data-nosnippet>3320</a>	Revive,
+<a href=#3321 id=3321 data-nosnippet>3321</a>	Executive,
+<a href=#3322 id=3322 data-nosnippet>3322</a>	EthExtraImpl,
+<a href=#3323 id=3323 data-nosnippet>3323</a>
+<a href=#3324 id=3324 data-nosnippet>3324</a>	<span class="kw">impl </span>sp_api::Core&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3325 id=3325 data-nosnippet>3325</a>		<span class="kw">fn </span>version() -&gt; RuntimeVersion {
+<a href=#3326 id=3326 data-nosnippet>3326</a>			VERSION
+<a href=#3327 id=3327 data-nosnippet>3327</a>		}
+<a href=#3328 id=3328 data-nosnippet>3328</a>
+<a href=#3329 id=3329 data-nosnippet>3329</a>		<span class="kw">fn </span>execute_block(block: &lt;Block <span class="kw">as </span>BlockT&gt;::LazyBlock) {
+<a href=#3330 id=3330 data-nosnippet>3330</a>			Executive::execute_block(block);
+<a href=#3331 id=3331 data-nosnippet>3331</a>		}
+<a href=#3332 id=3332 data-nosnippet>3332</a>
+<a href=#3333 id=3333 data-nosnippet>3333</a>		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; sp_runtime::ExtrinsicInclusionMode {
+<a href=#3334 id=3334 data-nosnippet>3334</a>			Executive::initialize_block(header)
+<a href=#3335 id=3335 data-nosnippet>3335</a>		}
+<a href=#3336 id=3336 data-nosnippet>3336</a>	}
+<a href=#3337 id=3337 data-nosnippet>3337</a>
+<a href=#3338 id=3338 data-nosnippet>3338</a>	<span class="kw">impl </span>sp_api::Metadata&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3339 id=3339 data-nosnippet>3339</a>		<span class="kw">fn </span>metadata() -&gt; OpaqueMetadata {
+<a href=#3340 id=3340 data-nosnippet>3340</a>			OpaqueMetadata::new(Runtime::metadata().into())
+<a href=#3341 id=3341 data-nosnippet>3341</a>		}
+<a href=#3342 id=3342 data-nosnippet>3342</a>
+<a href=#3343 id=3343 data-nosnippet>3343</a>		<span class="kw">fn </span>metadata_at_version(version: u32) -&gt; <span class="prelude-ty">Option</span>&lt;OpaqueMetadata&gt; {
+<a href=#3344 id=3344 data-nosnippet>3344</a>			Runtime::metadata_at_version(version)
+<a href=#3345 id=3345 data-nosnippet>3345</a>		}
+<a href=#3346 id=3346 data-nosnippet>3346</a>
+<a href=#3347 id=3347 data-nosnippet>3347</a>		<span class="kw">fn </span>metadata_versions() -&gt; alloc::vec::Vec&lt;u32&gt; {
+<a href=#3348 id=3348 data-nosnippet>3348</a>			Runtime::metadata_versions()
+<a href=#3349 id=3349 data-nosnippet>3349</a>		}
+<a href=#3350 id=3350 data-nosnippet>3350</a>	}
+<a href=#3351 id=3351 data-nosnippet>3351</a>
+<a href=#3352 id=3352 data-nosnippet>3352</a>	<span class="kw">impl </span>frame_support::view_functions::runtime_api::RuntimeViewFunction&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3353 id=3353 data-nosnippet>3353</a>		<span class="kw">fn </span>execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, frame_support::view_functions::ViewFunctionDispatchError&gt; {
+<a href=#3354 id=3354 data-nosnippet>3354</a>			Runtime::execute_view_function(id, input)
+<a href=#3355 id=3355 data-nosnippet>3355</a>		}
+<a href=#3356 id=3356 data-nosnippet>3356</a>	}
+<a href=#3357 id=3357 data-nosnippet>3357</a>
+<a href=#3358 id=3358 data-nosnippet>3358</a>	<span class="kw">impl </span>sp_block_builder::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3359 id=3359 data-nosnippet>3359</a>		<span class="kw">fn </span>apply_extrinsic(extrinsic: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; ApplyExtrinsicResult {
+<a href=#3360 id=3360 data-nosnippet>3360</a>			Executive::apply_extrinsic(extrinsic)
+<a href=#3361 id=3361 data-nosnippet>3361</a>		}
+<a href=#3362 id=3362 data-nosnippet>3362</a>
+<a href=#3363 id=3363 data-nosnippet>3363</a>		<span class="kw">fn </span>finalize_block() -&gt; &lt;Block <span class="kw">as </span>BlockT&gt;::Header {
+<a href=#3364 id=3364 data-nosnippet>3364</a>			Executive::finalize_block()
+<a href=#3365 id=3365 data-nosnippet>3365</a>		}
+<a href=#3366 id=3366 data-nosnippet>3366</a>
+<a href=#3367 id=3367 data-nosnippet>3367</a>		<span class="kw">fn </span>inherent_extrinsics(data: InherentData) -&gt; Vec&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic&gt; {
+<a href=#3368 id=3368 data-nosnippet>3368</a>			data.create_extrinsics()
+<a href=#3369 id=3369 data-nosnippet>3369</a>		}
+<a href=#3370 id=3370 data-nosnippet>3370</a>
+<a href=#3371 id=3371 data-nosnippet>3371</a>		<span class="kw">fn </span>check_inherents(block: &lt;Block <span class="kw">as </span>BlockT&gt;::LazyBlock, data: InherentData) -&gt; CheckInherentsResult {
+<a href=#3372 id=3372 data-nosnippet>3372</a>			data.check_extrinsics(<span class="kw-2">&amp;</span>block)
+<a href=#3373 id=3373 data-nosnippet>3373</a>		}
+<a href=#3374 id=3374 data-nosnippet>3374</a>	}
+<a href=#3375 id=3375 data-nosnippet>3375</a>
+<a href=#3376 id=3376 data-nosnippet>3376</a>	<span class="kw">impl </span>sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3377 id=3377 data-nosnippet>3377</a>		<span class="kw">fn </span>validate_transaction(
+<a href=#3378 id=3378 data-nosnippet>3378</a>			source: TransactionSource,
+<a href=#3379 id=3379 data-nosnippet>3379</a>			tx: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
+<a href=#3380 id=3380 data-nosnippet>3380</a>			block_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#3381 id=3381 data-nosnippet>3381</a>		) -&gt; TransactionValidity {
+<a href=#3382 id=3382 data-nosnippet>3382</a>			Executive::validate_transaction(source, tx, block_hash)
+<a href=#3383 id=3383 data-nosnippet>3383</a>		}
+<a href=#3384 id=3384 data-nosnippet>3384</a>	}
+<a href=#3385 id=3385 data-nosnippet>3385</a>
+<a href=#3386 id=3386 data-nosnippet>3386</a>	<span class="kw">impl </span>sp_offchain::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3387 id=3387 data-nosnippet>3387</a>		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
+<a href=#3388 id=3388 data-nosnippet>3388</a>			Executive::offchain_worker(header)
+<a href=#3389 id=3389 data-nosnippet>3389</a>		}
+<a href=#3390 id=3390 data-nosnippet>3390</a>	}
+<a href=#3391 id=3391 data-nosnippet>3391</a>
+<a href=#3392 id=3392 data-nosnippet>3392</a>	<span class="kw">impl </span>sp_consensus_grandpa::GrandpaApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3393 id=3393 data-nosnippet>3393</a>		<span class="kw">fn </span>grandpa_authorities() -&gt; sp_consensus_grandpa::AuthorityList {
+<a href=#3394 id=3394 data-nosnippet>3394</a>			Grandpa::grandpa_authorities()
+<a href=#3395 id=3395 data-nosnippet>3395</a>		}
+<a href=#3396 id=3396 data-nosnippet>3396</a>
+<a href=#3397 id=3397 data-nosnippet>3397</a>		<span class="kw">fn </span>current_set_id() -&gt; sp_consensus_grandpa::SetId {
+<a href=#3398 id=3398 data-nosnippet>3398</a>			pallet_grandpa::CurrentSetId::&lt;Runtime&gt;::get()
+<a href=#3399 id=3399 data-nosnippet>3399</a>		}
+<a href=#3400 id=3400 data-nosnippet>3400</a>
+<a href=#3401 id=3401 data-nosnippet>3401</a>		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
+<a href=#3402 id=3402 data-nosnippet>3402</a>			equivocation_proof: sp_consensus_grandpa::EquivocationProof&lt;
+<a href=#3403 id=3403 data-nosnippet>3403</a>				&lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+<a href=#3404 id=3404 data-nosnippet>3404</a>				NumberFor&lt;Block&gt;,
+<a href=#3405 id=3405 data-nosnippet>3405</a>			&gt;,
+<a href=#3406 id=3406 data-nosnippet>3406</a>			key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
+<a href=#3407 id=3407 data-nosnippet>3407</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href=#3408 id=3408 data-nosnippet>3408</a>			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
+<a href=#3409 id=3409 data-nosnippet>3409</a>
+<a href=#3410 id=3410 data-nosnippet>3410</a>			Grandpa::submit_unsigned_equivocation_report(
+<a href=#3411 id=3411 data-nosnippet>3411</a>				equivocation_proof,
+<a href=#3412 id=3412 data-nosnippet>3412</a>				key_owner_proof,
+<a href=#3413 id=3413 data-nosnippet>3413</a>			)
+<a href=#3414 id=3414 data-nosnippet>3414</a>		}
+<a href=#3415 id=3415 data-nosnippet>3415</a>
+<a href=#3416 id=3416 data-nosnippet>3416</a>		<span class="kw">fn </span>generate_key_ownership_proof(
+<a href=#3417 id=3417 data-nosnippet>3417</a>			_set_id: sp_consensus_grandpa::SetId,
+<a href=#3418 id=3418 data-nosnippet>3418</a>			authority_id: GrandpaId,
+<a href=#3419 id=3419 data-nosnippet>3419</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_grandpa::OpaqueKeyOwnershipProof&gt; {
+<a href=#3420 id=3420 data-nosnippet>3420</a>			<span class="kw">use </span>codec::Encode;
+<a href=#3421 id=3421 data-nosnippet>3421</a>
+<a href=#3422 id=3422 data-nosnippet>3422</a>			Historical::prove((sp_consensus_grandpa::KEY_TYPE, authority_id))
+<a href=#3423 id=3423 data-nosnippet>3423</a>				.map(|p| p.encode())
+<a href=#3424 id=3424 data-nosnippet>3424</a>				.map(sp_consensus_grandpa::OpaqueKeyOwnershipProof::new)
+<a href=#3425 id=3425 data-nosnippet>3425</a>		}
+<a href=#3426 id=3426 data-nosnippet>3426</a>	}
 <a href=#3427 id=3427 data-nosnippet>3427</a>
-<a href=#3428 id=3428 data-nosnippet>3428</a>		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
-<a href=#3429 id=3429 data-nosnippet>3429</a>			equivocation_proof: sp_consensus_grandpa::EquivocationProof&lt;
-<a href=#3430 id=3430 data-nosnippet>3430</a>				&lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
-<a href=#3431 id=3431 data-nosnippet>3431</a>				NumberFor&lt;Block&gt;,
-<a href=#3432 id=3432 data-nosnippet>3432</a>			&gt;,
-<a href=#3433 id=3433 data-nosnippet>3433</a>			key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
-<a href=#3434 id=3434 data-nosnippet>3434</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#3435 id=3435 data-nosnippet>3435</a>			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
+<a href=#3428 id=3428 data-nosnippet>3428</a>	<span class="kw">impl </span>pallet_nomination_pools_runtime_api::NominationPoolsApi&lt;Block, AccountId, Balance&gt; <span class="kw">for </span>Runtime {
+<a href=#3429 id=3429 data-nosnippet>3429</a>		<span class="kw">fn </span>pending_rewards(who: AccountId) -&gt; Balance {
+<a href=#3430 id=3430 data-nosnippet>3430</a>			NominationPools::api_pending_rewards(who).unwrap_or_default()
+<a href=#3431 id=3431 data-nosnippet>3431</a>		}
+<a href=#3432 id=3432 data-nosnippet>3432</a>
+<a href=#3433 id=3433 data-nosnippet>3433</a>		<span class="kw">fn </span>points_to_balance(pool_id: PoolId, points: Balance) -&gt; Balance {
+<a href=#3434 id=3434 data-nosnippet>3434</a>			NominationPools::api_points_to_balance(pool_id, points)
+<a href=#3435 id=3435 data-nosnippet>3435</a>		}
 <a href=#3436 id=3436 data-nosnippet>3436</a>
-<a href=#3437 id=3437 data-nosnippet>3437</a>			Grandpa::submit_unsigned_equivocation_report(
-<a href=#3438 id=3438 data-nosnippet>3438</a>				equivocation_proof,
-<a href=#3439 id=3439 data-nosnippet>3439</a>				key_owner_proof,
-<a href=#3440 id=3440 data-nosnippet>3440</a>			)
-<a href=#3441 id=3441 data-nosnippet>3441</a>		}
-<a href=#3442 id=3442 data-nosnippet>3442</a>
-<a href=#3443 id=3443 data-nosnippet>3443</a>		<span class="kw">fn </span>generate_key_ownership_proof(
-<a href=#3444 id=3444 data-nosnippet>3444</a>			_set_id: sp_consensus_grandpa::SetId,
-<a href=#3445 id=3445 data-nosnippet>3445</a>			authority_id: GrandpaId,
-<a href=#3446 id=3446 data-nosnippet>3446</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_grandpa::OpaqueKeyOwnershipProof&gt; {
-<a href=#3447 id=3447 data-nosnippet>3447</a>			<span class="kw">use </span>codec::Encode;
+<a href=#3437 id=3437 data-nosnippet>3437</a>		<span class="kw">fn </span>balance_to_points(pool_id: PoolId, new_funds: Balance) -&gt; Balance {
+<a href=#3438 id=3438 data-nosnippet>3438</a>			NominationPools::api_balance_to_points(pool_id, new_funds)
+<a href=#3439 id=3439 data-nosnippet>3439</a>		}
+<a href=#3440 id=3440 data-nosnippet>3440</a>
+<a href=#3441 id=3441 data-nosnippet>3441</a>		<span class="kw">fn </span>pool_pending_slash(pool_id: PoolId) -&gt; Balance {
+<a href=#3442 id=3442 data-nosnippet>3442</a>			NominationPools::api_pool_pending_slash(pool_id)
+<a href=#3443 id=3443 data-nosnippet>3443</a>		}
+<a href=#3444 id=3444 data-nosnippet>3444</a>
+<a href=#3445 id=3445 data-nosnippet>3445</a>		<span class="kw">fn </span>member_pending_slash(member: AccountId) -&gt; Balance {
+<a href=#3446 id=3446 data-nosnippet>3446</a>			NominationPools::api_member_pending_slash(member)
+<a href=#3447 id=3447 data-nosnippet>3447</a>		}
 <a href=#3448 id=3448 data-nosnippet>3448</a>
-<a href=#3449 id=3449 data-nosnippet>3449</a>			Historical::prove((sp_consensus_grandpa::KEY_TYPE, authority_id))
-<a href=#3450 id=3450 data-nosnippet>3450</a>				.map(|p| p.encode())
-<a href=#3451 id=3451 data-nosnippet>3451</a>				.map(sp_consensus_grandpa::OpaqueKeyOwnershipProof::new)
-<a href=#3452 id=3452 data-nosnippet>3452</a>		}
-<a href=#3453 id=3453 data-nosnippet>3453</a>	}
-<a href=#3454 id=3454 data-nosnippet>3454</a>
-<a href=#3455 id=3455 data-nosnippet>3455</a>	<span class="kw">impl </span>pallet_nomination_pools_runtime_api::NominationPoolsApi&lt;Block, AccountId, Balance&gt; <span class="kw">for </span>Runtime {
-<a href=#3456 id=3456 data-nosnippet>3456</a>		<span class="kw">fn </span>pending_rewards(who: AccountId) -&gt; Balance {
-<a href=#3457 id=3457 data-nosnippet>3457</a>			NominationPools::api_pending_rewards(who).unwrap_or_default()
-<a href=#3458 id=3458 data-nosnippet>3458</a>		}
-<a href=#3459 id=3459 data-nosnippet>3459</a>
-<a href=#3460 id=3460 data-nosnippet>3460</a>		<span class="kw">fn </span>points_to_balance(pool_id: PoolId, points: Balance) -&gt; Balance {
-<a href=#3461 id=3461 data-nosnippet>3461</a>			NominationPools::api_points_to_balance(pool_id, points)
-<a href=#3462 id=3462 data-nosnippet>3462</a>		}
-<a href=#3463 id=3463 data-nosnippet>3463</a>
-<a href=#3464 id=3464 data-nosnippet>3464</a>		<span class="kw">fn </span>balance_to_points(pool_id: PoolId, new_funds: Balance) -&gt; Balance {
-<a href=#3465 id=3465 data-nosnippet>3465</a>			NominationPools::api_balance_to_points(pool_id, new_funds)
-<a href=#3466 id=3466 data-nosnippet>3466</a>		}
-<a href=#3467 id=3467 data-nosnippet>3467</a>
-<a href=#3468 id=3468 data-nosnippet>3468</a>		<span class="kw">fn </span>pool_pending_slash(pool_id: PoolId) -&gt; Balance {
-<a href=#3469 id=3469 data-nosnippet>3469</a>			NominationPools::api_pool_pending_slash(pool_id)
-<a href=#3470 id=3470 data-nosnippet>3470</a>		}
-<a href=#3471 id=3471 data-nosnippet>3471</a>
-<a href=#3472 id=3472 data-nosnippet>3472</a>		<span class="kw">fn </span>member_pending_slash(member: AccountId) -&gt; Balance {
-<a href=#3473 id=3473 data-nosnippet>3473</a>			NominationPools::api_member_pending_slash(member)
-<a href=#3474 id=3474 data-nosnippet>3474</a>		}
-<a href=#3475 id=3475 data-nosnippet>3475</a>
-<a href=#3476 id=3476 data-nosnippet>3476</a>		<span class="kw">fn </span>pool_needs_delegate_migration(pool_id: PoolId) -&gt; bool {
-<a href=#3477 id=3477 data-nosnippet>3477</a>			NominationPools::api_pool_needs_delegate_migration(pool_id)
-<a href=#3478 id=3478 data-nosnippet>3478</a>		}
-<a href=#3479 id=3479 data-nosnippet>3479</a>
-<a href=#3480 id=3480 data-nosnippet>3480</a>		<span class="kw">fn </span>member_needs_delegate_migration(member: AccountId) -&gt; bool {
-<a href=#3481 id=3481 data-nosnippet>3481</a>			NominationPools::api_member_needs_delegate_migration(member)
-<a href=#3482 id=3482 data-nosnippet>3482</a>		}
+<a href=#3449 id=3449 data-nosnippet>3449</a>		<span class="kw">fn </span>pool_needs_delegate_migration(pool_id: PoolId) -&gt; bool {
+<a href=#3450 id=3450 data-nosnippet>3450</a>			NominationPools::api_pool_needs_delegate_migration(pool_id)
+<a href=#3451 id=3451 data-nosnippet>3451</a>		}
+<a href=#3452 id=3452 data-nosnippet>3452</a>
+<a href=#3453 id=3453 data-nosnippet>3453</a>		<span class="kw">fn </span>member_needs_delegate_migration(member: AccountId) -&gt; bool {
+<a href=#3454 id=3454 data-nosnippet>3454</a>			NominationPools::api_member_needs_delegate_migration(member)
+<a href=#3455 id=3455 data-nosnippet>3455</a>		}
+<a href=#3456 id=3456 data-nosnippet>3456</a>
+<a href=#3457 id=3457 data-nosnippet>3457</a>		<span class="kw">fn </span>member_total_balance(member: AccountId) -&gt; Balance {
+<a href=#3458 id=3458 data-nosnippet>3458</a>			NominationPools::api_member_total_balance(member)
+<a href=#3459 id=3459 data-nosnippet>3459</a>		}
+<a href=#3460 id=3460 data-nosnippet>3460</a>
+<a href=#3461 id=3461 data-nosnippet>3461</a>		<span class="kw">fn </span>pool_balance(pool_id: PoolId) -&gt; Balance {
+<a href=#3462 id=3462 data-nosnippet>3462</a>			NominationPools::api_pool_balance(pool_id)
+<a href=#3463 id=3463 data-nosnippet>3463</a>		}
+<a href=#3464 id=3464 data-nosnippet>3464</a>
+<a href=#3465 id=3465 data-nosnippet>3465</a>		<span class="kw">fn </span>pool_accounts(pool_id: PoolId) -&gt; (AccountId, AccountId) {
+<a href=#3466 id=3466 data-nosnippet>3466</a>			NominationPools::api_pool_accounts(pool_id)
+<a href=#3467 id=3467 data-nosnippet>3467</a>		}
+<a href=#3468 id=3468 data-nosnippet>3468</a>	}
+<a href=#3469 id=3469 data-nosnippet>3469</a>
+<a href=#3470 id=3470 data-nosnippet>3470</a>	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance, AccountId&gt; <span class="kw">for </span>Runtime {
+<a href=#3471 id=3471 data-nosnippet>3471</a>		<span class="kw">fn </span>nominations_quota(balance: Balance) -&gt; u32 {
+<a href=#3472 id=3472 data-nosnippet>3472</a>			Staking::api_nominations_quota(balance)
+<a href=#3473 id=3473 data-nosnippet>3473</a>		}
+<a href=#3474 id=3474 data-nosnippet>3474</a>
+<a href=#3475 id=3475 data-nosnippet>3475</a>		<span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page {
+<a href=#3476 id=3476 data-nosnippet>3476</a>			Staking::api_eras_stakers_page_count(era, account)
+<a href=#3477 id=3477 data-nosnippet>3477</a>		}
+<a href=#3478 id=3478 data-nosnippet>3478</a>
+<a href=#3479 id=3479 data-nosnippet>3479</a>		<span class="kw">fn </span>pending_rewards(era: sp_staking::EraIndex, account: AccountId) -&gt; bool {
+<a href=#3480 id=3480 data-nosnippet>3480</a>			Staking::api_pending_rewards(era, account)
+<a href=#3481 id=3481 data-nosnippet>3481</a>		}
+<a href=#3482 id=3482 data-nosnippet>3482</a>	}
 <a href=#3483 id=3483 data-nosnippet>3483</a>
-<a href=#3484 id=3484 data-nosnippet>3484</a>		<span class="kw">fn </span>member_total_balance(member: AccountId) -&gt; Balance {
-<a href=#3485 id=3485 data-nosnippet>3485</a>			NominationPools::api_member_total_balance(member)
-<a href=#3486 id=3486 data-nosnippet>3486</a>		}
-<a href=#3487 id=3487 data-nosnippet>3487</a>
-<a href=#3488 id=3488 data-nosnippet>3488</a>		<span class="kw">fn </span>pool_balance(pool_id: PoolId) -&gt; Balance {
-<a href=#3489 id=3489 data-nosnippet>3489</a>			NominationPools::api_pool_balance(pool_id)
-<a href=#3490 id=3490 data-nosnippet>3490</a>		}
-<a href=#3491 id=3491 data-nosnippet>3491</a>
-<a href=#3492 id=3492 data-nosnippet>3492</a>		<span class="kw">fn </span>pool_accounts(pool_id: PoolId) -&gt; (AccountId, AccountId) {
-<a href=#3493 id=3493 data-nosnippet>3493</a>			NominationPools::api_pool_accounts(pool_id)
-<a href=#3494 id=3494 data-nosnippet>3494</a>		}
-<a href=#3495 id=3495 data-nosnippet>3495</a>	}
+<a href=#3484 id=3484 data-nosnippet>3484</a>	<span class="kw">impl </span>sp_consensus_babe::BabeApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3485 id=3485 data-nosnippet>3485</a>		<span class="kw">fn </span>configuration() -&gt; sp_consensus_babe::BabeConfiguration {
+<a href=#3486 id=3486 data-nosnippet>3486</a>			<span class="kw">let </span>epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
+<a href=#3487 id=3487 data-nosnippet>3487</a>			sp_consensus_babe::BabeConfiguration {
+<a href=#3488 id=3488 data-nosnippet>3488</a>				slot_duration: Babe::slot_duration(),
+<a href=#3489 id=3489 data-nosnippet>3489</a>				epoch_length: EpochDuration::get(),
+<a href=#3490 id=3490 data-nosnippet>3490</a>				c: epoch_config.c,
+<a href=#3491 id=3491 data-nosnippet>3491</a>				authorities: Babe::authorities().to_vec(),
+<a href=#3492 id=3492 data-nosnippet>3492</a>				randomness: Babe::randomness(),
+<a href=#3493 id=3493 data-nosnippet>3493</a>				allowed_slots: epoch_config.allowed_slots,
+<a href=#3494 id=3494 data-nosnippet>3494</a>			}
+<a href=#3495 id=3495 data-nosnippet>3495</a>		}
 <a href=#3496 id=3496 data-nosnippet>3496</a>
-<a href=#3497 id=3497 data-nosnippet>3497</a>	<span class="kw">impl </span>pallet_staking_runtime_api::StakingApi&lt;Block, Balance, AccountId&gt; <span class="kw">for </span>Runtime {
-<a href=#3498 id=3498 data-nosnippet>3498</a>		<span class="kw">fn </span>nominations_quota(balance: Balance) -&gt; u32 {
-<a href=#3499 id=3499 data-nosnippet>3499</a>			Staking::api_nominations_quota(balance)
-<a href=#3500 id=3500 data-nosnippet>3500</a>		}
-<a href=#3501 id=3501 data-nosnippet>3501</a>
-<a href=#3502 id=3502 data-nosnippet>3502</a>		<span class="kw">fn </span>eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -&gt; sp_staking::Page {
-<a href=#3503 id=3503 data-nosnippet>3503</a>			Staking::api_eras_stakers_page_count(era, account)
-<a href=#3504 id=3504 data-nosnippet>3504</a>		}
-<a href=#3505 id=3505 data-nosnippet>3505</a>
-<a href=#3506 id=3506 data-nosnippet>3506</a>		<span class="kw">fn </span>pending_rewards(era: sp_staking::EraIndex, account: AccountId) -&gt; bool {
-<a href=#3507 id=3507 data-nosnippet>3507</a>			Staking::api_pending_rewards(era, account)
-<a href=#3508 id=3508 data-nosnippet>3508</a>		}
-<a href=#3509 id=3509 data-nosnippet>3509</a>	}
-<a href=#3510 id=3510 data-nosnippet>3510</a>
-<a href=#3511 id=3511 data-nosnippet>3511</a>	<span class="kw">impl </span>sp_consensus_babe::BabeApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3512 id=3512 data-nosnippet>3512</a>		<span class="kw">fn </span>configuration() -&gt; sp_consensus_babe::BabeConfiguration {
-<a href=#3513 id=3513 data-nosnippet>3513</a>			<span class="kw">let </span>epoch_config = Babe::epoch_config().unwrap_or(BABE_GENESIS_EPOCH_CONFIG);
-<a href=#3514 id=3514 data-nosnippet>3514</a>			sp_consensus_babe::BabeConfiguration {
-<a href=#3515 id=3515 data-nosnippet>3515</a>				slot_duration: Babe::slot_duration(),
-<a href=#3516 id=3516 data-nosnippet>3516</a>				epoch_length: EpochDuration::get(),
-<a href=#3517 id=3517 data-nosnippet>3517</a>				c: epoch_config.c,
-<a href=#3518 id=3518 data-nosnippet>3518</a>				authorities: Babe::authorities().to_vec(),
-<a href=#3519 id=3519 data-nosnippet>3519</a>				randomness: Babe::randomness(),
-<a href=#3520 id=3520 data-nosnippet>3520</a>				allowed_slots: epoch_config.allowed_slots,
-<a href=#3521 id=3521 data-nosnippet>3521</a>			}
-<a href=#3522 id=3522 data-nosnippet>3522</a>		}
-<a href=#3523 id=3523 data-nosnippet>3523</a>
-<a href=#3524 id=3524 data-nosnippet>3524</a>		<span class="kw">fn </span>current_epoch_start() -&gt; sp_consensus_babe::Slot {
-<a href=#3525 id=3525 data-nosnippet>3525</a>			Babe::current_epoch_start()
-<a href=#3526 id=3526 data-nosnippet>3526</a>		}
-<a href=#3527 id=3527 data-nosnippet>3527</a>
-<a href=#3528 id=3528 data-nosnippet>3528</a>		<span class="kw">fn </span>current_epoch() -&gt; sp_consensus_babe::Epoch {
-<a href=#3529 id=3529 data-nosnippet>3529</a>			Babe::current_epoch()
+<a href=#3497 id=3497 data-nosnippet>3497</a>		<span class="kw">fn </span>current_epoch_start() -&gt; sp_consensus_babe::Slot {
+<a href=#3498 id=3498 data-nosnippet>3498</a>			Babe::current_epoch_start()
+<a href=#3499 id=3499 data-nosnippet>3499</a>		}
+<a href=#3500 id=3500 data-nosnippet>3500</a>
+<a href=#3501 id=3501 data-nosnippet>3501</a>		<span class="kw">fn </span>current_epoch() -&gt; sp_consensus_babe::Epoch {
+<a href=#3502 id=3502 data-nosnippet>3502</a>			Babe::current_epoch()
+<a href=#3503 id=3503 data-nosnippet>3503</a>		}
+<a href=#3504 id=3504 data-nosnippet>3504</a>
+<a href=#3505 id=3505 data-nosnippet>3505</a>		<span class="kw">fn </span>next_epoch() -&gt; sp_consensus_babe::Epoch {
+<a href=#3506 id=3506 data-nosnippet>3506</a>			Babe::next_epoch()
+<a href=#3507 id=3507 data-nosnippet>3507</a>		}
+<a href=#3508 id=3508 data-nosnippet>3508</a>
+<a href=#3509 id=3509 data-nosnippet>3509</a>		<span class="kw">fn </span>generate_key_ownership_proof(
+<a href=#3510 id=3510 data-nosnippet>3510</a>			_slot: sp_consensus_babe::Slot,
+<a href=#3511 id=3511 data-nosnippet>3511</a>			authority_id: sp_consensus_babe::AuthorityId,
+<a href=#3512 id=3512 data-nosnippet>3512</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_babe::OpaqueKeyOwnershipProof&gt; {
+<a href=#3513 id=3513 data-nosnippet>3513</a>			<span class="kw">use </span>codec::Encode;
+<a href=#3514 id=3514 data-nosnippet>3514</a>
+<a href=#3515 id=3515 data-nosnippet>3515</a>			Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
+<a href=#3516 id=3516 data-nosnippet>3516</a>				.map(|p| p.encode())
+<a href=#3517 id=3517 data-nosnippet>3517</a>				.map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
+<a href=#3518 id=3518 data-nosnippet>3518</a>		}
+<a href=#3519 id=3519 data-nosnippet>3519</a>
+<a href=#3520 id=3520 data-nosnippet>3520</a>		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
+<a href=#3521 id=3521 data-nosnippet>3521</a>			equivocation_proof: sp_consensus_babe::EquivocationProof&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
+<a href=#3522 id=3522 data-nosnippet>3522</a>			key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
+<a href=#3523 id=3523 data-nosnippet>3523</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href=#3524 id=3524 data-nosnippet>3524</a>			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
+<a href=#3525 id=3525 data-nosnippet>3525</a>
+<a href=#3526 id=3526 data-nosnippet>3526</a>			Babe::submit_unsigned_equivocation_report(
+<a href=#3527 id=3527 data-nosnippet>3527</a>				equivocation_proof,
+<a href=#3528 id=3528 data-nosnippet>3528</a>				key_owner_proof,
+<a href=#3529 id=3529 data-nosnippet>3529</a>			)
 <a href=#3530 id=3530 data-nosnippet>3530</a>		}
-<a href=#3531 id=3531 data-nosnippet>3531</a>
-<a href=#3532 id=3532 data-nosnippet>3532</a>		<span class="kw">fn </span>next_epoch() -&gt; sp_consensus_babe::Epoch {
-<a href=#3533 id=3533 data-nosnippet>3533</a>			Babe::next_epoch()
-<a href=#3534 id=3534 data-nosnippet>3534</a>		}
-<a href=#3535 id=3535 data-nosnippet>3535</a>
-<a href=#3536 id=3536 data-nosnippet>3536</a>		<span class="kw">fn </span>generate_key_ownership_proof(
-<a href=#3537 id=3537 data-nosnippet>3537</a>			_slot: sp_consensus_babe::Slot,
-<a href=#3538 id=3538 data-nosnippet>3538</a>			authority_id: sp_consensus_babe::AuthorityId,
-<a href=#3539 id=3539 data-nosnippet>3539</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_babe::OpaqueKeyOwnershipProof&gt; {
-<a href=#3540 id=3540 data-nosnippet>3540</a>			<span class="kw">use </span>codec::Encode;
-<a href=#3541 id=3541 data-nosnippet>3541</a>
-<a href=#3542 id=3542 data-nosnippet>3542</a>			Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
-<a href=#3543 id=3543 data-nosnippet>3543</a>				.map(|p| p.encode())
-<a href=#3544 id=3544 data-nosnippet>3544</a>				.map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
-<a href=#3545 id=3545 data-nosnippet>3545</a>		}
-<a href=#3546 id=3546 data-nosnippet>3546</a>
-<a href=#3547 id=3547 data-nosnippet>3547</a>		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
-<a href=#3548 id=3548 data-nosnippet>3548</a>			equivocation_proof: sp_consensus_babe::EquivocationProof&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
-<a href=#3549 id=3549 data-nosnippet>3549</a>			key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
-<a href=#3550 id=3550 data-nosnippet>3550</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#3551 id=3551 data-nosnippet>3551</a>			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
+<a href=#3531 id=3531 data-nosnippet>3531</a>	}
+<a href=#3532 id=3532 data-nosnippet>3532</a>
+<a href=#3533 id=3533 data-nosnippet>3533</a>	<span class="kw">impl </span>sp_authority_discovery::AuthorityDiscoveryApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3534 id=3534 data-nosnippet>3534</a>		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuthorityDiscoveryId&gt; {
+<a href=#3535 id=3535 data-nosnippet>3535</a>			AuthorityDiscovery::authorities()
+<a href=#3536 id=3536 data-nosnippet>3536</a>		}
+<a href=#3537 id=3537 data-nosnippet>3537</a>	}
+<a href=#3538 id=3538 data-nosnippet>3538</a>
+<a href=#3539 id=3539 data-nosnippet>3539</a>	<span class="kw">impl </span>polkadot_sdk::pallet_oracle_runtime_api::OracleApi&lt;Block, u32, u32, u128&gt; <span class="kw">for </span>Runtime {
+<a href=#3540 id=3540 data-nosnippet>3540</a>		<span class="kw">fn </span>get_value(_provider_id: u32, key: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u128&gt; {
+<a href=#3541 id=3541 data-nosnippet>3541</a>			<span class="comment">// ProviderId is unused as we only have 1 provider
+<a href=#3542 id=3542 data-nosnippet>3542</a>			</span>pallet_oracle::Pallet::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>key).map(|v| v.value)
+<a href=#3543 id=3543 data-nosnippet>3543</a>		}
+<a href=#3544 id=3544 data-nosnippet>3544</a>
+<a href=#3545 id=3545 data-nosnippet>3545</a>		<span class="kw">fn </span>get_all_values(_provider_id: u32) -&gt; Vec&lt;(u32, <span class="prelude-ty">Option</span>&lt;u128&gt;)&gt; {
+<a href=#3546 id=3546 data-nosnippet>3546</a>			<span class="kw">use </span>pallet_oracle::DataProviderExtended;
+<a href=#3547 id=3547 data-nosnippet>3547</a>			pallet_oracle::Pallet::&lt;Runtime&gt;::get_all_values()
+<a href=#3548 id=3548 data-nosnippet>3548</a>				.map(|(k, v)| (k, v.map(|tv| tv.value)))
+<a href=#3549 id=3549 data-nosnippet>3549</a>				.collect()
+<a href=#3550 id=3550 data-nosnippet>3550</a>		}
+<a href=#3551 id=3551 data-nosnippet>3551</a>	}
 <a href=#3552 id=3552 data-nosnippet>3552</a>
-<a href=#3553 id=3553 data-nosnippet>3553</a>			Babe::submit_unsigned_equivocation_report(
-<a href=#3554 id=3554 data-nosnippet>3554</a>				equivocation_proof,
-<a href=#3555 id=3555 data-nosnippet>3555</a>				key_owner_proof,
-<a href=#3556 id=3556 data-nosnippet>3556</a>			)
-<a href=#3557 id=3557 data-nosnippet>3557</a>		}
-<a href=#3558 id=3558 data-nosnippet>3558</a>	}
-<a href=#3559 id=3559 data-nosnippet>3559</a>
-<a href=#3560 id=3560 data-nosnippet>3560</a>	<span class="kw">impl </span>sp_authority_discovery::AuthorityDiscoveryApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3561 id=3561 data-nosnippet>3561</a>		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuthorityDiscoveryId&gt; {
-<a href=#3562 id=3562 data-nosnippet>3562</a>			AuthorityDiscovery::authorities()
-<a href=#3563 id=3563 data-nosnippet>3563</a>		}
-<a href=#3564 id=3564 data-nosnippet>3564</a>	}
-<a href=#3565 id=3565 data-nosnippet>3565</a>
-<a href=#3566 id=3566 data-nosnippet>3566</a>	<span class="kw">impl </span>polkadot_sdk::pallet_oracle_runtime_api::OracleApi&lt;Block, u32, u32, u128&gt; <span class="kw">for </span>Runtime {
-<a href=#3567 id=3567 data-nosnippet>3567</a>		<span class="kw">fn </span>get_value(_provider_id: u32, key: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u128&gt; {
-<a href=#3568 id=3568 data-nosnippet>3568</a>			<span class="comment">// ProviderId is unused as we only have 1 provider
-<a href=#3569 id=3569 data-nosnippet>3569</a>			</span>pallet_oracle::Pallet::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>key).map(|v| v.value)
-<a href=#3570 id=3570 data-nosnippet>3570</a>		}
-<a href=#3571 id=3571 data-nosnippet>3571</a>
-<a href=#3572 id=3572 data-nosnippet>3572</a>		<span class="kw">fn </span>get_all_values(_provider_id: u32) -&gt; Vec&lt;(u32, <span class="prelude-ty">Option</span>&lt;u128&gt;)&gt; {
-<a href=#3573 id=3573 data-nosnippet>3573</a>			<span class="kw">use </span>pallet_oracle::DataProviderExtended;
-<a href=#3574 id=3574 data-nosnippet>3574</a>			pallet_oracle::Pallet::&lt;Runtime&gt;::get_all_values()
-<a href=#3575 id=3575 data-nosnippet>3575</a>				.map(|(k, v)| (k, v.map(|tv| tv.value)))
-<a href=#3576 id=3576 data-nosnippet>3576</a>				.collect()
-<a href=#3577 id=3577 data-nosnippet>3577</a>		}
-<a href=#3578 id=3578 data-nosnippet>3578</a>	}
-<a href=#3579 id=3579 data-nosnippet>3579</a>
-<a href=#3580 id=3580 data-nosnippet>3580</a>	<span class="kw">impl </span>frame_system_rpc_runtime_api::AccountNonceApi&lt;Block, AccountId, Nonce&gt; <span class="kw">for </span>Runtime {
-<a href=#3581 id=3581 data-nosnippet>3581</a>		<span class="kw">fn </span>account_nonce(account: AccountId) -&gt; Nonce {
-<a href=#3582 id=3582 data-nosnippet>3582</a>			System::account_nonce(account)
-<a href=#3583 id=3583 data-nosnippet>3583</a>		}
-<a href=#3584 id=3584 data-nosnippet>3584</a>	}
-<a href=#3585 id=3585 data-nosnippet>3585</a>
-<a href=#3586 id=3586 data-nosnippet>3586</a>	<span class="kw">impl </span>assets_api::AssetsApi&lt;
-<a href=#3587 id=3587 data-nosnippet>3587</a>		Block,
-<a href=#3588 id=3588 data-nosnippet>3588</a>		AccountId,
-<a href=#3589 id=3589 data-nosnippet>3589</a>		Balance,
-<a href=#3590 id=3590 data-nosnippet>3590</a>		u32,
-<a href=#3591 id=3591 data-nosnippet>3591</a>	&gt; <span class="kw">for </span>Runtime
-<a href=#3592 id=3592 data-nosnippet>3592</a>	{
-<a href=#3593 id=3593 data-nosnippet>3593</a>		<span class="kw">fn </span>account_balances(account: AccountId) -&gt; Vec&lt;(u32, Balance)&gt; {
-<a href=#3594 id=3594 data-nosnippet>3594</a>			Assets::account_balances(account)
-<a href=#3595 id=3595 data-nosnippet>3595</a>		}
-<a href=#3596 id=3596 data-nosnippet>3596</a>	}
-<a href=#3597 id=3597 data-nosnippet>3597</a>
-<a href=#3598 id=3598 data-nosnippet>3598</a>	<span class="kw">impl </span>pallet_contracts::ContractsApi&lt;Block, AccountId, Balance, BlockNumber, Hash, EventRecord&gt; <span class="kw">for </span>Runtime
-<a href=#3599 id=3599 data-nosnippet>3599</a>	{
-<a href=#3600 id=3600 data-nosnippet>3600</a>		<span class="kw">fn </span>call(
-<a href=#3601 id=3601 data-nosnippet>3601</a>			origin: AccountId,
-<a href=#3602 id=3602 data-nosnippet>3602</a>			dest: AccountId,
-<a href=#3603 id=3603 data-nosnippet>3603</a>			value: Balance,
-<a href=#3604 id=3604 data-nosnippet>3604</a>			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
-<a href=#3605 id=3605 data-nosnippet>3605</a>			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-<a href=#3606 id=3606 data-nosnippet>3606</a>			input_data: Vec&lt;u8&gt;,
-<a href=#3607 id=3607 data-nosnippet>3607</a>		) -&gt; pallet_contracts::ContractExecResult&lt;Balance, EventRecord&gt; {
-<a href=#3608 id=3608 data-nosnippet>3608</a>			<span class="kw">let </span>gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-<a href=#3609 id=3609 data-nosnippet>3609</a>			Contracts::bare_call(
-<a href=#3610 id=3610 data-nosnippet>3610</a>				origin,
-<a href=#3611 id=3611 data-nosnippet>3611</a>				dest,
-<a href=#3612 id=3612 data-nosnippet>3612</a>				value,
-<a href=#3613 id=3613 data-nosnippet>3613</a>				gas_limit,
-<a href=#3614 id=3614 data-nosnippet>3614</a>				storage_deposit_limit,
-<a href=#3615 id=3615 data-nosnippet>3615</a>				input_data,
-<a href=#3616 id=3616 data-nosnippet>3616</a>				pallet_contracts::DebugInfo::UnsafeDebug,
-<a href=#3617 id=3617 data-nosnippet>3617</a>				pallet_contracts::CollectEvents::UnsafeCollect,
-<a href=#3618 id=3618 data-nosnippet>3618</a>				pallet_contracts::Determinism::Enforced,
-<a href=#3619 id=3619 data-nosnippet>3619</a>			)
-<a href=#3620 id=3620 data-nosnippet>3620</a>		}
-<a href=#3621 id=3621 data-nosnippet>3621</a>
-<a href=#3622 id=3622 data-nosnippet>3622</a>		<span class="kw">fn </span>instantiate(
-<a href=#3623 id=3623 data-nosnippet>3623</a>			origin: AccountId,
-<a href=#3624 id=3624 data-nosnippet>3624</a>			value: Balance,
-<a href=#3625 id=3625 data-nosnippet>3625</a>			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
-<a href=#3626 id=3626 data-nosnippet>3626</a>			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-<a href=#3627 id=3627 data-nosnippet>3627</a>			code: pallet_contracts::Code&lt;Hash&gt;,
-<a href=#3628 id=3628 data-nosnippet>3628</a>			data: Vec&lt;u8&gt;,
-<a href=#3629 id=3629 data-nosnippet>3629</a>			salt: Vec&lt;u8&gt;,
-<a href=#3630 id=3630 data-nosnippet>3630</a>		) -&gt; pallet_contracts::ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt;
-<a href=#3631 id=3631 data-nosnippet>3631</a>		{
-<a href=#3632 id=3632 data-nosnippet>3632</a>			<span class="kw">let </span>gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
-<a href=#3633 id=3633 data-nosnippet>3633</a>			Contracts::bare_instantiate(
-<a href=#3634 id=3634 data-nosnippet>3634</a>				origin,
-<a href=#3635 id=3635 data-nosnippet>3635</a>				value,
-<a href=#3636 id=3636 data-nosnippet>3636</a>				gas_limit,
-<a href=#3637 id=3637 data-nosnippet>3637</a>				storage_deposit_limit,
-<a href=#3638 id=3638 data-nosnippet>3638</a>				code,
-<a href=#3639 id=3639 data-nosnippet>3639</a>				data,
-<a href=#3640 id=3640 data-nosnippet>3640</a>				salt,
-<a href=#3641 id=3641 data-nosnippet>3641</a>				pallet_contracts::DebugInfo::UnsafeDebug,
-<a href=#3642 id=3642 data-nosnippet>3642</a>				pallet_contracts::CollectEvents::UnsafeCollect,
-<a href=#3643 id=3643 data-nosnippet>3643</a>			)
-<a href=#3644 id=3644 data-nosnippet>3644</a>		}
-<a href=#3645 id=3645 data-nosnippet>3645</a>
-<a href=#3646 id=3646 data-nosnippet>3646</a>		<span class="kw">fn </span>upload_code(
-<a href=#3647 id=3647 data-nosnippet>3647</a>			origin: AccountId,
-<a href=#3648 id=3648 data-nosnippet>3648</a>			code: Vec&lt;u8&gt;,
-<a href=#3649 id=3649 data-nosnippet>3649</a>			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-<a href=#3650 id=3650 data-nosnippet>3650</a>			determinism: pallet_contracts::Determinism,
-<a href=#3651 id=3651 data-nosnippet>3651</a>		) -&gt; pallet_contracts::CodeUploadResult&lt;Hash, Balance&gt;
-<a href=#3652 id=3652 data-nosnippet>3652</a>		{
-<a href=#3653 id=3653 data-nosnippet>3653</a>			Contracts::bare_upload_code(
-<a href=#3654 id=3654 data-nosnippet>3654</a>				origin,
-<a href=#3655 id=3655 data-nosnippet>3655</a>				code,
-<a href=#3656 id=3656 data-nosnippet>3656</a>				storage_deposit_limit,
-<a href=#3657 id=3657 data-nosnippet>3657</a>				determinism,
-<a href=#3658 id=3658 data-nosnippet>3658</a>			)
-<a href=#3659 id=3659 data-nosnippet>3659</a>		}
-<a href=#3660 id=3660 data-nosnippet>3660</a>
-<a href=#3661 id=3661 data-nosnippet>3661</a>		<span class="kw">fn </span>get_storage(
-<a href=#3662 id=3662 data-nosnippet>3662</a>			address: AccountId,
-<a href=#3663 id=3663 data-nosnippet>3663</a>			key: Vec&lt;u8&gt;,
-<a href=#3664 id=3664 data-nosnippet>3664</a>		) -&gt; pallet_contracts::GetStorageResult {
-<a href=#3665 id=3665 data-nosnippet>3665</a>			Contracts::get_storage(
-<a href=#3666 id=3666 data-nosnippet>3666</a>				address,
-<a href=#3667 id=3667 data-nosnippet>3667</a>				key
-<a href=#3668 id=3668 data-nosnippet>3668</a>			)
-<a href=#3669 id=3669 data-nosnippet>3669</a>		}
-<a href=#3670 id=3670 data-nosnippet>3670</a>	}
-<a href=#3671 id=3671 data-nosnippet>3671</a>
-<a href=#3672 id=3672 data-nosnippet>3672</a>	<span class="kw">impl </span>pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi&lt;
-<a href=#3673 id=3673 data-nosnippet>3673</a>		Block,
-<a href=#3674 id=3674 data-nosnippet>3674</a>		Balance,
-<a href=#3675 id=3675 data-nosnippet>3675</a>	&gt; <span class="kw">for </span>Runtime {
-<a href=#3676 id=3676 data-nosnippet>3676</a>		<span class="kw">fn </span>query_info(uxt: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic, len: u32) -&gt; RuntimeDispatchInfo&lt;Balance&gt; {
-<a href=#3677 id=3677 data-nosnippet>3677</a>			TransactionPayment::query_info(uxt, len)
-<a href=#3678 id=3678 data-nosnippet>3678</a>		}
-<a href=#3679 id=3679 data-nosnippet>3679</a>		<span class="kw">fn </span>query_fee_details(uxt: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic, len: u32) -&gt; FeeDetails&lt;Balance&gt; {
-<a href=#3680 id=3680 data-nosnippet>3680</a>			TransactionPayment::query_fee_details(uxt, len)
-<a href=#3681 id=3681 data-nosnippet>3681</a>		}
-<a href=#3682 id=3682 data-nosnippet>3682</a>		<span class="kw">fn </span>query_weight_to_fee(weight: Weight) -&gt; Balance {
-<a href=#3683 id=3683 data-nosnippet>3683</a>			TransactionPayment::weight_to_fee(weight)
-<a href=#3684 id=3684 data-nosnippet>3684</a>		}
-<a href=#3685 id=3685 data-nosnippet>3685</a>		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
-<a href=#3686 id=3686 data-nosnippet>3686</a>			TransactionPayment::length_to_fee(length)
+<a href=#3553 id=3553 data-nosnippet>3553</a>	<span class="kw">impl </span>frame_system_rpc_runtime_api::AccountNonceApi&lt;Block, AccountId, Nonce&gt; <span class="kw">for </span>Runtime {
+<a href=#3554 id=3554 data-nosnippet>3554</a>		<span class="kw">fn </span>account_nonce(account: AccountId) -&gt; Nonce {
+<a href=#3555 id=3555 data-nosnippet>3555</a>			System::account_nonce(account)
+<a href=#3556 id=3556 data-nosnippet>3556</a>		}
+<a href=#3557 id=3557 data-nosnippet>3557</a>	}
+<a href=#3558 id=3558 data-nosnippet>3558</a>
+<a href=#3559 id=3559 data-nosnippet>3559</a>	<span class="kw">impl </span>assets_api::AssetsApi&lt;
+<a href=#3560 id=3560 data-nosnippet>3560</a>		Block,
+<a href=#3561 id=3561 data-nosnippet>3561</a>		AccountId,
+<a href=#3562 id=3562 data-nosnippet>3562</a>		Balance,
+<a href=#3563 id=3563 data-nosnippet>3563</a>		u32,
+<a href=#3564 id=3564 data-nosnippet>3564</a>	&gt; <span class="kw">for </span>Runtime
+<a href=#3565 id=3565 data-nosnippet>3565</a>	{
+<a href=#3566 id=3566 data-nosnippet>3566</a>		<span class="kw">fn </span>account_balances(account: AccountId) -&gt; Vec&lt;(u32, Balance)&gt; {
+<a href=#3567 id=3567 data-nosnippet>3567</a>			Assets::account_balances(account)
+<a href=#3568 id=3568 data-nosnippet>3568</a>		}
+<a href=#3569 id=3569 data-nosnippet>3569</a>	}
+<a href=#3570 id=3570 data-nosnippet>3570</a>
+<a href=#3571 id=3571 data-nosnippet>3571</a>	<span class="kw">impl </span>pallet_contracts::ContractsApi&lt;Block, AccountId, Balance, BlockNumber, Hash, EventRecord&gt; <span class="kw">for </span>Runtime
+<a href=#3572 id=3572 data-nosnippet>3572</a>	{
+<a href=#3573 id=3573 data-nosnippet>3573</a>		<span class="kw">fn </span>call(
+<a href=#3574 id=3574 data-nosnippet>3574</a>			origin: AccountId,
+<a href=#3575 id=3575 data-nosnippet>3575</a>			dest: AccountId,
+<a href=#3576 id=3576 data-nosnippet>3576</a>			value: Balance,
+<a href=#3577 id=3577 data-nosnippet>3577</a>			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
+<a href=#3578 id=3578 data-nosnippet>3578</a>			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
+<a href=#3579 id=3579 data-nosnippet>3579</a>			input_data: Vec&lt;u8&gt;,
+<a href=#3580 id=3580 data-nosnippet>3580</a>		) -&gt; pallet_contracts::ContractExecResult&lt;Balance, EventRecord&gt; {
+<a href=#3581 id=3581 data-nosnippet>3581</a>			<span class="kw">let </span>gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+<a href=#3582 id=3582 data-nosnippet>3582</a>			Contracts::bare_call(
+<a href=#3583 id=3583 data-nosnippet>3583</a>				origin,
+<a href=#3584 id=3584 data-nosnippet>3584</a>				dest,
+<a href=#3585 id=3585 data-nosnippet>3585</a>				value,
+<a href=#3586 id=3586 data-nosnippet>3586</a>				gas_limit,
+<a href=#3587 id=3587 data-nosnippet>3587</a>				storage_deposit_limit,
+<a href=#3588 id=3588 data-nosnippet>3588</a>				input_data,
+<a href=#3589 id=3589 data-nosnippet>3589</a>				pallet_contracts::DebugInfo::UnsafeDebug,
+<a href=#3590 id=3590 data-nosnippet>3590</a>				pallet_contracts::CollectEvents::UnsafeCollect,
+<a href=#3591 id=3591 data-nosnippet>3591</a>				pallet_contracts::Determinism::Enforced,
+<a href=#3592 id=3592 data-nosnippet>3592</a>			)
+<a href=#3593 id=3593 data-nosnippet>3593</a>		}
+<a href=#3594 id=3594 data-nosnippet>3594</a>
+<a href=#3595 id=3595 data-nosnippet>3595</a>		<span class="kw">fn </span>instantiate(
+<a href=#3596 id=3596 data-nosnippet>3596</a>			origin: AccountId,
+<a href=#3597 id=3597 data-nosnippet>3597</a>			value: Balance,
+<a href=#3598 id=3598 data-nosnippet>3598</a>			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
+<a href=#3599 id=3599 data-nosnippet>3599</a>			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
+<a href=#3600 id=3600 data-nosnippet>3600</a>			code: pallet_contracts::Code&lt;Hash&gt;,
+<a href=#3601 id=3601 data-nosnippet>3601</a>			data: Vec&lt;u8&gt;,
+<a href=#3602 id=3602 data-nosnippet>3602</a>			salt: Vec&lt;u8&gt;,
+<a href=#3603 id=3603 data-nosnippet>3603</a>		) -&gt; pallet_contracts::ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt;
+<a href=#3604 id=3604 data-nosnippet>3604</a>		{
+<a href=#3605 id=3605 data-nosnippet>3605</a>			<span class="kw">let </span>gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+<a href=#3606 id=3606 data-nosnippet>3606</a>			Contracts::bare_instantiate(
+<a href=#3607 id=3607 data-nosnippet>3607</a>				origin,
+<a href=#3608 id=3608 data-nosnippet>3608</a>				value,
+<a href=#3609 id=3609 data-nosnippet>3609</a>				gas_limit,
+<a href=#3610 id=3610 data-nosnippet>3610</a>				storage_deposit_limit,
+<a href=#3611 id=3611 data-nosnippet>3611</a>				code,
+<a href=#3612 id=3612 data-nosnippet>3612</a>				data,
+<a href=#3613 id=3613 data-nosnippet>3613</a>				salt,
+<a href=#3614 id=3614 data-nosnippet>3614</a>				pallet_contracts::DebugInfo::UnsafeDebug,
+<a href=#3615 id=3615 data-nosnippet>3615</a>				pallet_contracts::CollectEvents::UnsafeCollect,
+<a href=#3616 id=3616 data-nosnippet>3616</a>			)
+<a href=#3617 id=3617 data-nosnippet>3617</a>		}
+<a href=#3618 id=3618 data-nosnippet>3618</a>
+<a href=#3619 id=3619 data-nosnippet>3619</a>		<span class="kw">fn </span>upload_code(
+<a href=#3620 id=3620 data-nosnippet>3620</a>			origin: AccountId,
+<a href=#3621 id=3621 data-nosnippet>3621</a>			code: Vec&lt;u8&gt;,
+<a href=#3622 id=3622 data-nosnippet>3622</a>			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
+<a href=#3623 id=3623 data-nosnippet>3623</a>			determinism: pallet_contracts::Determinism,
+<a href=#3624 id=3624 data-nosnippet>3624</a>		) -&gt; pallet_contracts::CodeUploadResult&lt;Hash, Balance&gt;
+<a href=#3625 id=3625 data-nosnippet>3625</a>		{
+<a href=#3626 id=3626 data-nosnippet>3626</a>			Contracts::bare_upload_code(
+<a href=#3627 id=3627 data-nosnippet>3627</a>				origin,
+<a href=#3628 id=3628 data-nosnippet>3628</a>				code,
+<a href=#3629 id=3629 data-nosnippet>3629</a>				storage_deposit_limit,
+<a href=#3630 id=3630 data-nosnippet>3630</a>				determinism,
+<a href=#3631 id=3631 data-nosnippet>3631</a>			)
+<a href=#3632 id=3632 data-nosnippet>3632</a>		}
+<a href=#3633 id=3633 data-nosnippet>3633</a>
+<a href=#3634 id=3634 data-nosnippet>3634</a>		<span class="kw">fn </span>get_storage(
+<a href=#3635 id=3635 data-nosnippet>3635</a>			address: AccountId,
+<a href=#3636 id=3636 data-nosnippet>3636</a>			key: Vec&lt;u8&gt;,
+<a href=#3637 id=3637 data-nosnippet>3637</a>		) -&gt; pallet_contracts::GetStorageResult {
+<a href=#3638 id=3638 data-nosnippet>3638</a>			Contracts::get_storage(
+<a href=#3639 id=3639 data-nosnippet>3639</a>				address,
+<a href=#3640 id=3640 data-nosnippet>3640</a>				key
+<a href=#3641 id=3641 data-nosnippet>3641</a>			)
+<a href=#3642 id=3642 data-nosnippet>3642</a>		}
+<a href=#3643 id=3643 data-nosnippet>3643</a>	}
+<a href=#3644 id=3644 data-nosnippet>3644</a>
+<a href=#3645 id=3645 data-nosnippet>3645</a>	<span class="kw">impl </span>pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi&lt;
+<a href=#3646 id=3646 data-nosnippet>3646</a>		Block,
+<a href=#3647 id=3647 data-nosnippet>3647</a>		Balance,
+<a href=#3648 id=3648 data-nosnippet>3648</a>	&gt; <span class="kw">for </span>Runtime {
+<a href=#3649 id=3649 data-nosnippet>3649</a>		<span class="kw">fn </span>query_info(uxt: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic, len: u32) -&gt; RuntimeDispatchInfo&lt;Balance&gt; {
+<a href=#3650 id=3650 data-nosnippet>3650</a>			TransactionPayment::query_info(uxt, len)
+<a href=#3651 id=3651 data-nosnippet>3651</a>		}
+<a href=#3652 id=3652 data-nosnippet>3652</a>		<span class="kw">fn </span>query_fee_details(uxt: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic, len: u32) -&gt; FeeDetails&lt;Balance&gt; {
+<a href=#3653 id=3653 data-nosnippet>3653</a>			TransactionPayment::query_fee_details(uxt, len)
+<a href=#3654 id=3654 data-nosnippet>3654</a>		}
+<a href=#3655 id=3655 data-nosnippet>3655</a>		<span class="kw">fn </span>query_weight_to_fee(weight: Weight) -&gt; Balance {
+<a href=#3656 id=3656 data-nosnippet>3656</a>			TransactionPayment::weight_to_fee(weight)
+<a href=#3657 id=3657 data-nosnippet>3657</a>		}
+<a href=#3658 id=3658 data-nosnippet>3658</a>		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
+<a href=#3659 id=3659 data-nosnippet>3659</a>			TransactionPayment::length_to_fee(length)
+<a href=#3660 id=3660 data-nosnippet>3660</a>		}
+<a href=#3661 id=3661 data-nosnippet>3661</a>	}
+<a href=#3662 id=3662 data-nosnippet>3662</a>
+<a href=#3663 id=3663 data-nosnippet>3663</a>	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
+<a href=#3664 id=3664 data-nosnippet>3664</a>		Block,
+<a href=#3665 id=3665 data-nosnippet>3665</a>		Balance,
+<a href=#3666 id=3666 data-nosnippet>3666</a>		NativeOrWithId&lt;u32&gt;
+<a href=#3667 id=3667 data-nosnippet>3667</a>	&gt; <span class="kw">for </span>Runtime
+<a href=#3668 id=3668 data-nosnippet>3668</a>	{
+<a href=#3669 id=3669 data-nosnippet>3669</a>		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+<a href=#3670 id=3670 data-nosnippet>3670</a>			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
+<a href=#3671 id=3671 data-nosnippet>3671</a>		}
+<a href=#3672 id=3672 data-nosnippet>3672</a>
+<a href=#3673 id=3673 data-nosnippet>3673</a>		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+<a href=#3674 id=3674 data-nosnippet>3674</a>			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
+<a href=#3675 id=3675 data-nosnippet>3675</a>		}
+<a href=#3676 id=3676 data-nosnippet>3676</a>
+<a href=#3677 id=3677 data-nosnippet>3677</a>		<span class="kw">fn </span>get_reserves(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
+<a href=#3678 id=3678 data-nosnippet>3678</a>			AssetConversion::get_reserves(asset1, asset2).ok()
+<a href=#3679 id=3679 data-nosnippet>3679</a>		}
+<a href=#3680 id=3680 data-nosnippet>3680</a>	}
+<a href=#3681 id=3681 data-nosnippet>3681</a>
+<a href=#3682 id=3682 data-nosnippet>3682</a>	<span class="kw">impl </span>pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi&lt;Block, Balance, RuntimeCall&gt;
+<a href=#3683 id=3683 data-nosnippet>3683</a>		<span class="kw">for </span>Runtime
+<a href=#3684 id=3684 data-nosnippet>3684</a>	{
+<a href=#3685 id=3685 data-nosnippet>3685</a>		<span class="kw">fn </span>query_call_info(call: RuntimeCall, len: u32) -&gt; RuntimeDispatchInfo&lt;Balance&gt; {
+<a href=#3686 id=3686 data-nosnippet>3686</a>			TransactionPayment::query_call_info(call, len)
 <a href=#3687 id=3687 data-nosnippet>3687</a>		}
-<a href=#3688 id=3688 data-nosnippet>3688</a>	}
-<a href=#3689 id=3689 data-nosnippet>3689</a>
-<a href=#3690 id=3690 data-nosnippet>3690</a>	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
-<a href=#3691 id=3691 data-nosnippet>3691</a>		Block,
-<a href=#3692 id=3692 data-nosnippet>3692</a>		Balance,
-<a href=#3693 id=3693 data-nosnippet>3693</a>		NativeOrWithId&lt;u32&gt;
-<a href=#3694 id=3694 data-nosnippet>3694</a>	&gt; <span class="kw">for </span>Runtime
-<a href=#3695 id=3695 data-nosnippet>3695</a>	{
-<a href=#3696 id=3696 data-nosnippet>3696</a>		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
-<a href=#3697 id=3697 data-nosnippet>3697</a>			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
-<a href=#3698 id=3698 data-nosnippet>3698</a>		}
-<a href=#3699 id=3699 data-nosnippet>3699</a>
-<a href=#3700 id=3700 data-nosnippet>3700</a>		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
-<a href=#3701 id=3701 data-nosnippet>3701</a>			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
+<a href=#3688 id=3688 data-nosnippet>3688</a>		<span class="kw">fn </span>query_call_fee_details(call: RuntimeCall, len: u32) -&gt; FeeDetails&lt;Balance&gt; {
+<a href=#3689 id=3689 data-nosnippet>3689</a>			TransactionPayment::query_call_fee_details(call, len)
+<a href=#3690 id=3690 data-nosnippet>3690</a>		}
+<a href=#3691 id=3691 data-nosnippet>3691</a>		<span class="kw">fn </span>query_weight_to_fee(weight: Weight) -&gt; Balance {
+<a href=#3692 id=3692 data-nosnippet>3692</a>			TransactionPayment::weight_to_fee(weight)
+<a href=#3693 id=3693 data-nosnippet>3693</a>		}
+<a href=#3694 id=3694 data-nosnippet>3694</a>		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
+<a href=#3695 id=3695 data-nosnippet>3695</a>			TransactionPayment::length_to_fee(length)
+<a href=#3696 id=3696 data-nosnippet>3696</a>		}
+<a href=#3697 id=3697 data-nosnippet>3697</a>	}
+<a href=#3698 id=3698 data-nosnippet>3698</a>
+<a href=#3699 id=3699 data-nosnippet>3699</a>	<span class="kw">impl </span>pallet_nfts_runtime_api::NftsApi&lt;Block, AccountId, u32, u32&gt; <span class="kw">for </span>Runtime {
+<a href=#3700 id=3700 data-nosnippet>3700</a>		<span class="kw">fn </span>owner(collection: u32, item: u32) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+<a href=#3701 id=3701 data-nosnippet>3701</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::owner(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>item)
 <a href=#3702 id=3702 data-nosnippet>3702</a>		}
 <a href=#3703 id=3703 data-nosnippet>3703</a>
-<a href=#3704 id=3704 data-nosnippet>3704</a>		<span class="kw">fn </span>get_reserves(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
-<a href=#3705 id=3705 data-nosnippet>3705</a>			AssetConversion::get_reserves(asset1, asset2).ok()
+<a href=#3704 id=3704 data-nosnippet>3704</a>		<span class="kw">fn </span>collection_owner(collection: u32) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+<a href=#3705 id=3705 data-nosnippet>3705</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::collection_owner(<span class="kw-2">&amp;</span>collection)
 <a href=#3706 id=3706 data-nosnippet>3706</a>		}
-<a href=#3707 id=3707 data-nosnippet>3707</a>	}
-<a href=#3708 id=3708 data-nosnippet>3708</a>
-<a href=#3709 id=3709 data-nosnippet>3709</a>	<span class="kw">impl </span>pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi&lt;Block, Balance, RuntimeCall&gt;
-<a href=#3710 id=3710 data-nosnippet>3710</a>		<span class="kw">for </span>Runtime
-<a href=#3711 id=3711 data-nosnippet>3711</a>	{
-<a href=#3712 id=3712 data-nosnippet>3712</a>		<span class="kw">fn </span>query_call_info(call: RuntimeCall, len: u32) -&gt; RuntimeDispatchInfo&lt;Balance&gt; {
-<a href=#3713 id=3713 data-nosnippet>3713</a>			TransactionPayment::query_call_info(call, len)
+<a href=#3707 id=3707 data-nosnippet>3707</a>
+<a href=#3708 id=3708 data-nosnippet>3708</a>		<span class="kw">fn </span>attribute(
+<a href=#3709 id=3709 data-nosnippet>3709</a>			collection: u32,
+<a href=#3710 id=3710 data-nosnippet>3710</a>			item: u32,
+<a href=#3711 id=3711 data-nosnippet>3711</a>			key: Vec&lt;u8&gt;,
+<a href=#3712 id=3712 data-nosnippet>3712</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#3713 id=3713 data-nosnippet>3713</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::attribute(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>item, <span class="kw-2">&amp;</span>key)
 <a href=#3714 id=3714 data-nosnippet>3714</a>		}
-<a href=#3715 id=3715 data-nosnippet>3715</a>		<span class="kw">fn </span>query_call_fee_details(call: RuntimeCall, len: u32) -&gt; FeeDetails&lt;Balance&gt; {
-<a href=#3716 id=3716 data-nosnippet>3716</a>			TransactionPayment::query_call_fee_details(call, len)
-<a href=#3717 id=3717 data-nosnippet>3717</a>		}
-<a href=#3718 id=3718 data-nosnippet>3718</a>		<span class="kw">fn </span>query_weight_to_fee(weight: Weight) -&gt; Balance {
-<a href=#3719 id=3719 data-nosnippet>3719</a>			TransactionPayment::weight_to_fee(weight)
-<a href=#3720 id=3720 data-nosnippet>3720</a>		}
-<a href=#3721 id=3721 data-nosnippet>3721</a>		<span class="kw">fn </span>query_length_to_fee(length: u32) -&gt; Balance {
-<a href=#3722 id=3722 data-nosnippet>3722</a>			TransactionPayment::length_to_fee(length)
-<a href=#3723 id=3723 data-nosnippet>3723</a>		}
-<a href=#3724 id=3724 data-nosnippet>3724</a>	}
-<a href=#3725 id=3725 data-nosnippet>3725</a>
-<a href=#3726 id=3726 data-nosnippet>3726</a>	<span class="kw">impl </span>pallet_nfts_runtime_api::NftsApi&lt;Block, AccountId, u32, u32&gt; <span class="kw">for </span>Runtime {
-<a href=#3727 id=3727 data-nosnippet>3727</a>		<span class="kw">fn </span>owner(collection: u32, item: u32) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-<a href=#3728 id=3728 data-nosnippet>3728</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::owner(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>item)
-<a href=#3729 id=3729 data-nosnippet>3729</a>		}
-<a href=#3730 id=3730 data-nosnippet>3730</a>
-<a href=#3731 id=3731 data-nosnippet>3731</a>		<span class="kw">fn </span>collection_owner(collection: u32) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-<a href=#3732 id=3732 data-nosnippet>3732</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::collection_owner(<span class="kw-2">&amp;</span>collection)
-<a href=#3733 id=3733 data-nosnippet>3733</a>		}
-<a href=#3734 id=3734 data-nosnippet>3734</a>
-<a href=#3735 id=3735 data-nosnippet>3735</a>		<span class="kw">fn </span>attribute(
-<a href=#3736 id=3736 data-nosnippet>3736</a>			collection: u32,
-<a href=#3737 id=3737 data-nosnippet>3737</a>			item: u32,
-<a href=#3738 id=3738 data-nosnippet>3738</a>			key: Vec&lt;u8&gt;,
-<a href=#3739 id=3739 data-nosnippet>3739</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#3740 id=3740 data-nosnippet>3740</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::attribute(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>item, <span class="kw-2">&amp;</span>key)
-<a href=#3741 id=3741 data-nosnippet>3741</a>		}
+<a href=#3715 id=3715 data-nosnippet>3715</a>
+<a href=#3716 id=3716 data-nosnippet>3716</a>		<span class="kw">fn </span>custom_attribute(
+<a href=#3717 id=3717 data-nosnippet>3717</a>			account: AccountId,
+<a href=#3718 id=3718 data-nosnippet>3718</a>			collection: u32,
+<a href=#3719 id=3719 data-nosnippet>3719</a>			item: u32,
+<a href=#3720 id=3720 data-nosnippet>3720</a>			key: Vec&lt;u8&gt;,
+<a href=#3721 id=3721 data-nosnippet>3721</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#3722 id=3722 data-nosnippet>3722</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::custom_attribute(
+<a href=#3723 id=3723 data-nosnippet>3723</a>				<span class="kw-2">&amp;</span>account,
+<a href=#3724 id=3724 data-nosnippet>3724</a>				<span class="kw-2">&amp;</span>collection,
+<a href=#3725 id=3725 data-nosnippet>3725</a>				<span class="kw-2">&amp;</span>item,
+<a href=#3726 id=3726 data-nosnippet>3726</a>				<span class="kw-2">&amp;</span>key,
+<a href=#3727 id=3727 data-nosnippet>3727</a>			)
+<a href=#3728 id=3728 data-nosnippet>3728</a>		}
+<a href=#3729 id=3729 data-nosnippet>3729</a>
+<a href=#3730 id=3730 data-nosnippet>3730</a>		<span class="kw">fn </span>system_attribute(
+<a href=#3731 id=3731 data-nosnippet>3731</a>			collection: u32,
+<a href=#3732 id=3732 data-nosnippet>3732</a>			item: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+<a href=#3733 id=3733 data-nosnippet>3733</a>			key: Vec&lt;u8&gt;,
+<a href=#3734 id=3734 data-nosnippet>3734</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#3735 id=3735 data-nosnippet>3735</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::system_attribute(<span class="kw-2">&amp;</span>collection, item.as_ref(), <span class="kw-2">&amp;</span>key)
+<a href=#3736 id=3736 data-nosnippet>3736</a>		}
+<a href=#3737 id=3737 data-nosnippet>3737</a>
+<a href=#3738 id=3738 data-nosnippet>3738</a>		<span class="kw">fn </span>collection_attribute(collection: u32, key: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#3739 id=3739 data-nosnippet>3739</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::collection_attribute(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>key)
+<a href=#3740 id=3740 data-nosnippet>3740</a>		}
+<a href=#3741 id=3741 data-nosnippet>3741</a>	}
 <a href=#3742 id=3742 data-nosnippet>3742</a>
-<a href=#3743 id=3743 data-nosnippet>3743</a>		<span class="kw">fn </span>custom_attribute(
-<a href=#3744 id=3744 data-nosnippet>3744</a>			account: AccountId,
-<a href=#3745 id=3745 data-nosnippet>3745</a>			collection: u32,
-<a href=#3746 id=3746 data-nosnippet>3746</a>			item: u32,
-<a href=#3747 id=3747 data-nosnippet>3747</a>			key: Vec&lt;u8&gt;,
-<a href=#3748 id=3748 data-nosnippet>3748</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#3749 id=3749 data-nosnippet>3749</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::custom_attribute(
-<a href=#3750 id=3750 data-nosnippet>3750</a>				<span class="kw-2">&amp;</span>account,
-<a href=#3751 id=3751 data-nosnippet>3751</a>				<span class="kw-2">&amp;</span>collection,
-<a href=#3752 id=3752 data-nosnippet>3752</a>				<span class="kw-2">&amp;</span>item,
-<a href=#3753 id=3753 data-nosnippet>3753</a>				<span class="kw-2">&amp;</span>key,
-<a href=#3754 id=3754 data-nosnippet>3754</a>			)
-<a href=#3755 id=3755 data-nosnippet>3755</a>		}
-<a href=#3756 id=3756 data-nosnippet>3756</a>
-<a href=#3757 id=3757 data-nosnippet>3757</a>		<span class="kw">fn </span>system_attribute(
-<a href=#3758 id=3758 data-nosnippet>3758</a>			collection: u32,
-<a href=#3759 id=3759 data-nosnippet>3759</a>			item: <span class="prelude-ty">Option</span>&lt;u32&gt;,
-<a href=#3760 id=3760 data-nosnippet>3760</a>			key: Vec&lt;u8&gt;,
-<a href=#3761 id=3761 data-nosnippet>3761</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#3762 id=3762 data-nosnippet>3762</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::system_attribute(<span class="kw-2">&amp;</span>collection, item.as_ref(), <span class="kw-2">&amp;</span>key)
-<a href=#3763 id=3763 data-nosnippet>3763</a>		}
-<a href=#3764 id=3764 data-nosnippet>3764</a>
-<a href=#3765 id=3765 data-nosnippet>3765</a>		<span class="kw">fn </span>collection_attribute(collection: u32, key: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#3766 id=3766 data-nosnippet>3766</a>			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::collection_attribute(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>key)
+<a href=#3743 id=3743 data-nosnippet>3743</a>	<span class="attr">#[api_version(<span class="number">6</span>)]
+<a href=#3744 id=3744 data-nosnippet>3744</a>	</span><span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
+<a href=#3745 id=3745 data-nosnippet>3745</a>		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
+<a href=#3746 id=3746 data-nosnippet>3746</a>			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
+<a href=#3747 id=3747 data-nosnippet>3747</a>		}
+<a href=#3748 id=3748 data-nosnippet>3748</a>
+<a href=#3749 id=3749 data-nosnippet>3749</a>		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::ValidatorSet&lt;BeefyId&gt;&gt; {
+<a href=#3750 id=3750 data-nosnippet>3750</a>			Beefy::validator_set()
+<a href=#3751 id=3751 data-nosnippet>3751</a>		}
+<a href=#3752 id=3752 data-nosnippet>3752</a>
+<a href=#3753 id=3753 data-nosnippet>3753</a>		<span class="kw">fn </span>submit_report_double_voting_unsigned_extrinsic(
+<a href=#3754 id=3754 data-nosnippet>3754</a>			equivocation_proof: sp_consensus_beefy::DoubleVotingProof&lt;
+<a href=#3755 id=3755 data-nosnippet>3755</a>				BlockNumber,
+<a href=#3756 id=3756 data-nosnippet>3756</a>				BeefyId,
+<a href=#3757 id=3757 data-nosnippet>3757</a>				BeefySignature,
+<a href=#3758 id=3758 data-nosnippet>3758</a>			&gt;,
+<a href=#3759 id=3759 data-nosnippet>3759</a>			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+<a href=#3760 id=3760 data-nosnippet>3760</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href=#3761 id=3761 data-nosnippet>3761</a>			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
+<a href=#3762 id=3762 data-nosnippet>3762</a>
+<a href=#3763 id=3763 data-nosnippet>3763</a>			Beefy::submit_unsigned_double_voting_report(
+<a href=#3764 id=3764 data-nosnippet>3764</a>				equivocation_proof,
+<a href=#3765 id=3765 data-nosnippet>3765</a>				key_owner_proof,
+<a href=#3766 id=3766 data-nosnippet>3766</a>			)
 <a href=#3767 id=3767 data-nosnippet>3767</a>		}
-<a href=#3768 id=3768 data-nosnippet>3768</a>	}
-<a href=#3769 id=3769 data-nosnippet>3769</a>
-<a href=#3770 id=3770 data-nosnippet>3770</a>	<span class="attr">#[api_version(<span class="number">6</span>)]
-<a href=#3771 id=3771 data-nosnippet>3771</a>	</span><span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
-<a href=#3772 id=3772 data-nosnippet>3772</a>		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
-<a href=#3773 id=3773 data-nosnippet>3773</a>			pallet_beefy::GenesisBlock::&lt;Runtime&gt;::get()
-<a href=#3774 id=3774 data-nosnippet>3774</a>		}
-<a href=#3775 id=3775 data-nosnippet>3775</a>
-<a href=#3776 id=3776 data-nosnippet>3776</a>		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::ValidatorSet&lt;BeefyId&gt;&gt; {
-<a href=#3777 id=3777 data-nosnippet>3777</a>			Beefy::validator_set()
-<a href=#3778 id=3778 data-nosnippet>3778</a>		}
-<a href=#3779 id=3779 data-nosnippet>3779</a>
-<a href=#3780 id=3780 data-nosnippet>3780</a>		<span class="kw">fn </span>submit_report_double_voting_unsigned_extrinsic(
-<a href=#3781 id=3781 data-nosnippet>3781</a>			equivocation_proof: sp_consensus_beefy::DoubleVotingProof&lt;
-<a href=#3782 id=3782 data-nosnippet>3782</a>				BlockNumber,
-<a href=#3783 id=3783 data-nosnippet>3783</a>				BeefyId,
-<a href=#3784 id=3784 data-nosnippet>3784</a>				BeefySignature,
-<a href=#3785 id=3785 data-nosnippet>3785</a>			&gt;,
+<a href=#3768 id=3768 data-nosnippet>3768</a>
+<a href=#3769 id=3769 data-nosnippet>3769</a>		<span class="kw">fn </span>submit_report_fork_voting_unsigned_extrinsic(
+<a href=#3770 id=3770 data-nosnippet>3770</a>			equivocation_proof:
+<a href=#3771 id=3771 data-nosnippet>3771</a>				sp_consensus_beefy::ForkVotingProof&lt;
+<a href=#3772 id=3772 data-nosnippet>3772</a>					&lt;Block <span class="kw">as </span>BlockT&gt;::Header,
+<a href=#3773 id=3773 data-nosnippet>3773</a>					BeefyId,
+<a href=#3774 id=3774 data-nosnippet>3774</a>					sp_runtime::OpaqueValue
+<a href=#3775 id=3775 data-nosnippet>3775</a>				&gt;,
+<a href=#3776 id=3776 data-nosnippet>3776</a>			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+<a href=#3777 id=3777 data-nosnippet>3777</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href=#3778 id=3778 data-nosnippet>3778</a>			Beefy::submit_unsigned_fork_voting_report(
+<a href=#3779 id=3779 data-nosnippet>3779</a>				equivocation_proof.try_into()<span class="question-mark">?</span>,
+<a href=#3780 id=3780 data-nosnippet>3780</a>				key_owner_proof.decode()<span class="question-mark">?</span>,
+<a href=#3781 id=3781 data-nosnippet>3781</a>			)
+<a href=#3782 id=3782 data-nosnippet>3782</a>		}
+<a href=#3783 id=3783 data-nosnippet>3783</a>
+<a href=#3784 id=3784 data-nosnippet>3784</a>		<span class="kw">fn </span>submit_report_future_block_voting_unsigned_extrinsic(
+<a href=#3785 id=3785 data-nosnippet>3785</a>			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof&lt;BlockNumber, BeefyId&gt;,
 <a href=#3786 id=3786 data-nosnippet>3786</a>			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
 <a href=#3787 id=3787 data-nosnippet>3787</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#3788 id=3788 data-nosnippet>3788</a>			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
-<a href=#3789 id=3789 data-nosnippet>3789</a>
-<a href=#3790 id=3790 data-nosnippet>3790</a>			Beefy::submit_unsigned_double_voting_report(
-<a href=#3791 id=3791 data-nosnippet>3791</a>				equivocation_proof,
-<a href=#3792 id=3792 data-nosnippet>3792</a>				key_owner_proof,
-<a href=#3793 id=3793 data-nosnippet>3793</a>			)
-<a href=#3794 id=3794 data-nosnippet>3794</a>		}
-<a href=#3795 id=3795 data-nosnippet>3795</a>
-<a href=#3796 id=3796 data-nosnippet>3796</a>		<span class="kw">fn </span>submit_report_fork_voting_unsigned_extrinsic(
-<a href=#3797 id=3797 data-nosnippet>3797</a>			equivocation_proof:
-<a href=#3798 id=3798 data-nosnippet>3798</a>				sp_consensus_beefy::ForkVotingProof&lt;
-<a href=#3799 id=3799 data-nosnippet>3799</a>					&lt;Block <span class="kw">as </span>BlockT&gt;::Header,
-<a href=#3800 id=3800 data-nosnippet>3800</a>					BeefyId,
-<a href=#3801 id=3801 data-nosnippet>3801</a>					sp_runtime::OpaqueValue
-<a href=#3802 id=3802 data-nosnippet>3802</a>				&gt;,
-<a href=#3803 id=3803 data-nosnippet>3803</a>			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
-<a href=#3804 id=3804 data-nosnippet>3804</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#3805 id=3805 data-nosnippet>3805</a>			Beefy::submit_unsigned_fork_voting_report(
-<a href=#3806 id=3806 data-nosnippet>3806</a>				equivocation_proof.try_into()<span class="question-mark">?</span>,
-<a href=#3807 id=3807 data-nosnippet>3807</a>				key_owner_proof.decode()<span class="question-mark">?</span>,
-<a href=#3808 id=3808 data-nosnippet>3808</a>			)
-<a href=#3809 id=3809 data-nosnippet>3809</a>		}
-<a href=#3810 id=3810 data-nosnippet>3810</a>
-<a href=#3811 id=3811 data-nosnippet>3811</a>		<span class="kw">fn </span>submit_report_future_block_voting_unsigned_extrinsic(
-<a href=#3812 id=3812 data-nosnippet>3812</a>			equivocation_proof: sp_consensus_beefy::FutureBlockVotingProof&lt;BlockNumber, BeefyId&gt;,
-<a href=#3813 id=3813 data-nosnippet>3813</a>			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
-<a href=#3814 id=3814 data-nosnippet>3814</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#3815 id=3815 data-nosnippet>3815</a>			Beefy::submit_unsigned_future_block_voting_report(
-<a href=#3816 id=3816 data-nosnippet>3816</a>				equivocation_proof,
-<a href=#3817 id=3817 data-nosnippet>3817</a>				key_owner_proof.decode()<span class="question-mark">?</span>,
-<a href=#3818 id=3818 data-nosnippet>3818</a>			)
-<a href=#3819 id=3819 data-nosnippet>3819</a>		}
-<a href=#3820 id=3820 data-nosnippet>3820</a>
-<a href=#3821 id=3821 data-nosnippet>3821</a>		<span class="kw">fn </span>generate_key_ownership_proof(
-<a href=#3822 id=3822 data-nosnippet>3822</a>			_set_id: sp_consensus_beefy::ValidatorSetId,
-<a href=#3823 id=3823 data-nosnippet>3823</a>			authority_id: BeefyId,
-<a href=#3824 id=3824 data-nosnippet>3824</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::OpaqueKeyOwnershipProof&gt; {
-<a href=#3825 id=3825 data-nosnippet>3825</a>			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
-<a href=#3826 id=3826 data-nosnippet>3826</a>				.map(|p| p.encode())
-<a href=#3827 id=3827 data-nosnippet>3827</a>				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
-<a href=#3828 id=3828 data-nosnippet>3828</a>		}
-<a href=#3829 id=3829 data-nosnippet>3829</a>	}
-<a href=#3830 id=3830 data-nosnippet>3830</a>
-<a href=#3831 id=3831 data-nosnippet>3831</a>	<span class="attr">#[api_version(<span class="number">3</span>)]
-<a href=#3832 id=3832 data-nosnippet>3832</a>	</span><span class="kw">impl </span>pallet_mmr::primitives::MmrApi&lt;
-<a href=#3833 id=3833 data-nosnippet>3833</a>		Block,
-<a href=#3834 id=3834 data-nosnippet>3834</a>		mmr::Hash,
-<a href=#3835 id=3835 data-nosnippet>3835</a>		BlockNumber,
-<a href=#3836 id=3836 data-nosnippet>3836</a>	&gt; <span class="kw">for </span>Runtime {
-<a href=#3837 id=3837 data-nosnippet>3837</a>		<span class="kw">fn </span>mmr_root() -&gt; <span class="prelude-ty">Result</span>&lt;mmr::Hash, mmr::Error&gt; {
-<a href=#3838 id=3838 data-nosnippet>3838</a>			<span class="prelude-val">Ok</span>(pallet_mmr::RootHash::&lt;Runtime&gt;::get())
-<a href=#3839 id=3839 data-nosnippet>3839</a>		}
-<a href=#3840 id=3840 data-nosnippet>3840</a>
-<a href=#3841 id=3841 data-nosnippet>3841</a>		<span class="kw">fn </span>mmr_leaf_count() -&gt; <span class="prelude-ty">Result</span>&lt;mmr::LeafIndex, mmr::Error&gt; {
-<a href=#3842 id=3842 data-nosnippet>3842</a>			<span class="prelude-val">Ok</span>(pallet_mmr::NumberOfLeaves::&lt;Runtime&gt;::get())
+<a href=#3788 id=3788 data-nosnippet>3788</a>			Beefy::submit_unsigned_future_block_voting_report(
+<a href=#3789 id=3789 data-nosnippet>3789</a>				equivocation_proof,
+<a href=#3790 id=3790 data-nosnippet>3790</a>				key_owner_proof.decode()<span class="question-mark">?</span>,
+<a href=#3791 id=3791 data-nosnippet>3791</a>			)
+<a href=#3792 id=3792 data-nosnippet>3792</a>		}
+<a href=#3793 id=3793 data-nosnippet>3793</a>
+<a href=#3794 id=3794 data-nosnippet>3794</a>		<span class="kw">fn </span>generate_key_ownership_proof(
+<a href=#3795 id=3795 data-nosnippet>3795</a>			_set_id: sp_consensus_beefy::ValidatorSetId,
+<a href=#3796 id=3796 data-nosnippet>3796</a>			authority_id: BeefyId,
+<a href=#3797 id=3797 data-nosnippet>3797</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::OpaqueKeyOwnershipProof&gt; {
+<a href=#3798 id=3798 data-nosnippet>3798</a>			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
+<a href=#3799 id=3799 data-nosnippet>3799</a>				.map(|p| p.encode())
+<a href=#3800 id=3800 data-nosnippet>3800</a>				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+<a href=#3801 id=3801 data-nosnippet>3801</a>		}
+<a href=#3802 id=3802 data-nosnippet>3802</a>	}
+<a href=#3803 id=3803 data-nosnippet>3803</a>
+<a href=#3804 id=3804 data-nosnippet>3804</a>	<span class="attr">#[api_version(<span class="number">3</span>)]
+<a href=#3805 id=3805 data-nosnippet>3805</a>	</span><span class="kw">impl </span>pallet_mmr::primitives::MmrApi&lt;
+<a href=#3806 id=3806 data-nosnippet>3806</a>		Block,
+<a href=#3807 id=3807 data-nosnippet>3807</a>		mmr::Hash,
+<a href=#3808 id=3808 data-nosnippet>3808</a>		BlockNumber,
+<a href=#3809 id=3809 data-nosnippet>3809</a>	&gt; <span class="kw">for </span>Runtime {
+<a href=#3810 id=3810 data-nosnippet>3810</a>		<span class="kw">fn </span>mmr_root() -&gt; <span class="prelude-ty">Result</span>&lt;mmr::Hash, mmr::Error&gt; {
+<a href=#3811 id=3811 data-nosnippet>3811</a>			<span class="prelude-val">Ok</span>(pallet_mmr::RootHash::&lt;Runtime&gt;::get())
+<a href=#3812 id=3812 data-nosnippet>3812</a>		}
+<a href=#3813 id=3813 data-nosnippet>3813</a>
+<a href=#3814 id=3814 data-nosnippet>3814</a>		<span class="kw">fn </span>mmr_leaf_count() -&gt; <span class="prelude-ty">Result</span>&lt;mmr::LeafIndex, mmr::Error&gt; {
+<a href=#3815 id=3815 data-nosnippet>3815</a>			<span class="prelude-val">Ok</span>(pallet_mmr::NumberOfLeaves::&lt;Runtime&gt;::get())
+<a href=#3816 id=3816 data-nosnippet>3816</a>		}
+<a href=#3817 id=3817 data-nosnippet>3817</a>
+<a href=#3818 id=3818 data-nosnippet>3818</a>		<span class="kw">fn </span>generate_proof(
+<a href=#3819 id=3819 data-nosnippet>3819</a>			block_numbers: Vec&lt;BlockNumber&gt;,
+<a href=#3820 id=3820 data-nosnippet>3820</a>			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
+<a href=#3821 id=3821 data-nosnippet>3821</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;mmr::EncodableOpaqueLeaf&gt;, mmr::LeafProof&lt;mmr::Hash&gt;), mmr::Error&gt; {
+<a href=#3822 id=3822 data-nosnippet>3822</a>			Mmr::generate_proof(block_numbers, best_known_block_number).map(
+<a href=#3823 id=3823 data-nosnippet>3823</a>				|(leaves, proof)| {
+<a href=#3824 id=3824 data-nosnippet>3824</a>					(
+<a href=#3825 id=3825 data-nosnippet>3825</a>						leaves
+<a href=#3826 id=3826 data-nosnippet>3826</a>							.into_iter()
+<a href=#3827 id=3827 data-nosnippet>3827</a>							.map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(<span class="kw-2">&amp;</span>leaf))
+<a href=#3828 id=3828 data-nosnippet>3828</a>							.collect(),
+<a href=#3829 id=3829 data-nosnippet>3829</a>						proof,
+<a href=#3830 id=3830 data-nosnippet>3830</a>					)
+<a href=#3831 id=3831 data-nosnippet>3831</a>				},
+<a href=#3832 id=3832 data-nosnippet>3832</a>			)
+<a href=#3833 id=3833 data-nosnippet>3833</a>		}
+<a href=#3834 id=3834 data-nosnippet>3834</a>
+<a href=#3835 id=3835 data-nosnippet>3835</a>		<span class="kw">fn </span>verify_proof(leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;, proof: mmr::LeafProof&lt;mmr::Hash&gt;)
+<a href=#3836 id=3836 data-nosnippet>3836</a>			-&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt;
+<a href=#3837 id=3837 data-nosnippet>3837</a>		{
+<a href=#3838 id=3838 data-nosnippet>3838</a>			<span class="kw">let </span>leaves = leaves.into_iter().map(|leaf|
+<a href=#3839 id=3839 data-nosnippet>3839</a>				leaf.into_opaque_leaf()
+<a href=#3840 id=3840 data-nosnippet>3840</a>				.try_decode()
+<a href=#3841 id=3841 data-nosnippet>3841</a>				.ok_or(mmr::Error::Verify)).collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;mmr::Leaf&gt;, mmr::Error&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#3842 id=3842 data-nosnippet>3842</a>			Mmr::verify_leaves(leaves, proof)
 <a href=#3843 id=3843 data-nosnippet>3843</a>		}
 <a href=#3844 id=3844 data-nosnippet>3844</a>
-<a href=#3845 id=3845 data-nosnippet>3845</a>		<span class="kw">fn </span>generate_proof(
-<a href=#3846 id=3846 data-nosnippet>3846</a>			block_numbers: Vec&lt;BlockNumber&gt;,
+<a href=#3845 id=3845 data-nosnippet>3845</a>		<span class="kw">fn </span>generate_ancestry_proof(
+<a href=#3846 id=3846 data-nosnippet>3846</a>			prev_block_number: BlockNumber,
 <a href=#3847 id=3847 data-nosnippet>3847</a>			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
-<a href=#3848 id=3848 data-nosnippet>3848</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;mmr::EncodableOpaqueLeaf&gt;, mmr::LeafProof&lt;mmr::Hash&gt;), mmr::Error&gt; {
-<a href=#3849 id=3849 data-nosnippet>3849</a>			Mmr::generate_proof(block_numbers, best_known_block_number).map(
-<a href=#3850 id=3850 data-nosnippet>3850</a>				|(leaves, proof)| {
-<a href=#3851 id=3851 data-nosnippet>3851</a>					(
-<a href=#3852 id=3852 data-nosnippet>3852</a>						leaves
-<a href=#3853 id=3853 data-nosnippet>3853</a>							.into_iter()
-<a href=#3854 id=3854 data-nosnippet>3854</a>							.map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(<span class="kw-2">&amp;</span>leaf))
-<a href=#3855 id=3855 data-nosnippet>3855</a>							.collect(),
-<a href=#3856 id=3856 data-nosnippet>3856</a>						proof,
-<a href=#3857 id=3857 data-nosnippet>3857</a>					)
-<a href=#3858 id=3858 data-nosnippet>3858</a>				},
-<a href=#3859 id=3859 data-nosnippet>3859</a>			)
-<a href=#3860 id=3860 data-nosnippet>3860</a>		}
+<a href=#3848 id=3848 data-nosnippet>3848</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;mmr::AncestryProof&lt;mmr::Hash&gt;, mmr::Error&gt; {
+<a href=#3849 id=3849 data-nosnippet>3849</a>			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
+<a href=#3850 id=3850 data-nosnippet>3850</a>		}
+<a href=#3851 id=3851 data-nosnippet>3851</a>
+<a href=#3852 id=3852 data-nosnippet>3852</a>		<span class="kw">fn </span>verify_proof_stateless(
+<a href=#3853 id=3853 data-nosnippet>3853</a>			root: mmr::Hash,
+<a href=#3854 id=3854 data-nosnippet>3854</a>			leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;,
+<a href=#3855 id=3855 data-nosnippet>3855</a>			proof: mmr::LeafProof&lt;mmr::Hash&gt;
+<a href=#3856 id=3856 data-nosnippet>3856</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt; {
+<a href=#3857 id=3857 data-nosnippet>3857</a>			<span class="kw">let </span>nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
+<a href=#3858 id=3858 data-nosnippet>3858</a>			pallet_mmr::verify_leaves_proof::&lt;mmr::Hashing, <span class="kw">_</span>&gt;(root, nodes, proof)
+<a href=#3859 id=3859 data-nosnippet>3859</a>		}
+<a href=#3860 id=3860 data-nosnippet>3860</a>	}
 <a href=#3861 id=3861 data-nosnippet>3861</a>
-<a href=#3862 id=3862 data-nosnippet>3862</a>		<span class="kw">fn </span>verify_proof(leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;, proof: mmr::LeafProof&lt;mmr::Hash&gt;)
-<a href=#3863 id=3863 data-nosnippet>3863</a>			-&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt;
-<a href=#3864 id=3864 data-nosnippet>3864</a>		{
-<a href=#3865 id=3865 data-nosnippet>3865</a>			<span class="kw">let </span>leaves = leaves.into_iter().map(|leaf|
-<a href=#3866 id=3866 data-nosnippet>3866</a>				leaf.into_opaque_leaf()
-<a href=#3867 id=3867 data-nosnippet>3867</a>				.try_decode()
-<a href=#3868 id=3868 data-nosnippet>3868</a>				.ok_or(mmr::Error::Verify)).collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;mmr::Leaf&gt;, mmr::Error&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#3869 id=3869 data-nosnippet>3869</a>			Mmr::verify_leaves(leaves, proof)
-<a href=#3870 id=3870 data-nosnippet>3870</a>		}
-<a href=#3871 id=3871 data-nosnippet>3871</a>
-<a href=#3872 id=3872 data-nosnippet>3872</a>		<span class="kw">fn </span>generate_ancestry_proof(
-<a href=#3873 id=3873 data-nosnippet>3873</a>			prev_block_number: BlockNumber,
-<a href=#3874 id=3874 data-nosnippet>3874</a>			best_known_block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
-<a href=#3875 id=3875 data-nosnippet>3875</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;mmr::AncestryProof&lt;mmr::Hash&gt;, mmr::Error&gt; {
-<a href=#3876 id=3876 data-nosnippet>3876</a>			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
+<a href=#3862 id=3862 data-nosnippet>3862</a>	<span class="kw">impl </span>sp_mixnet::runtime_api::MixnetApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3863 id=3863 data-nosnippet>3863</a>		<span class="kw">fn </span>session_status() -&gt; sp_mixnet::types::SessionStatus {
+<a href=#3864 id=3864 data-nosnippet>3864</a>			Mixnet::session_status()
+<a href=#3865 id=3865 data-nosnippet>3865</a>		}
+<a href=#3866 id=3866 data-nosnippet>3866</a>
+<a href=#3867 id=3867 data-nosnippet>3867</a>		<span class="kw">fn </span>prev_mixnodes() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_mixnet::types::Mixnode&gt;, sp_mixnet::types::MixnodesErr&gt; {
+<a href=#3868 id=3868 data-nosnippet>3868</a>			Mixnet::prev_mixnodes()
+<a href=#3869 id=3869 data-nosnippet>3869</a>		}
+<a href=#3870 id=3870 data-nosnippet>3870</a>
+<a href=#3871 id=3871 data-nosnippet>3871</a>		<span class="kw">fn </span>current_mixnodes() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_mixnet::types::Mixnode&gt;, sp_mixnet::types::MixnodesErr&gt; {
+<a href=#3872 id=3872 data-nosnippet>3872</a>			Mixnet::current_mixnodes()
+<a href=#3873 id=3873 data-nosnippet>3873</a>		}
+<a href=#3874 id=3874 data-nosnippet>3874</a>
+<a href=#3875 id=3875 data-nosnippet>3875</a>		<span class="kw">fn </span>maybe_register(session_index: sp_mixnet::types::SessionIndex, mixnode: sp_mixnet::types::Mixnode) -&gt; bool {
+<a href=#3876 id=3876 data-nosnippet>3876</a>			Mixnet::maybe_register(session_index, mixnode)
 <a href=#3877 id=3877 data-nosnippet>3877</a>		}
-<a href=#3878 id=3878 data-nosnippet>3878</a>
-<a href=#3879 id=3879 data-nosnippet>3879</a>		<span class="kw">fn </span>verify_proof_stateless(
-<a href=#3880 id=3880 data-nosnippet>3880</a>			root: mmr::Hash,
-<a href=#3881 id=3881 data-nosnippet>3881</a>			leaves: Vec&lt;mmr::EncodableOpaqueLeaf&gt;,
-<a href=#3882 id=3882 data-nosnippet>3882</a>			proof: mmr::LeafProof&lt;mmr::Hash&gt;
-<a href=#3883 id=3883 data-nosnippet>3883</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(), mmr::Error&gt; {
-<a href=#3884 id=3884 data-nosnippet>3884</a>			<span class="kw">let </span>nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
-<a href=#3885 id=3885 data-nosnippet>3885</a>			pallet_mmr::verify_leaves_proof::&lt;mmr::Hashing, <span class="kw">_</span>&gt;(root, nodes, proof)
-<a href=#3886 id=3886 data-nosnippet>3886</a>		}
-<a href=#3887 id=3887 data-nosnippet>3887</a>	}
-<a href=#3888 id=3888 data-nosnippet>3888</a>
-<a href=#3889 id=3889 data-nosnippet>3889</a>	<span class="kw">impl </span>sp_mixnet::runtime_api::MixnetApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3890 id=3890 data-nosnippet>3890</a>		<span class="kw">fn </span>session_status() -&gt; sp_mixnet::types::SessionStatus {
-<a href=#3891 id=3891 data-nosnippet>3891</a>			Mixnet::session_status()
-<a href=#3892 id=3892 data-nosnippet>3892</a>		}
-<a href=#3893 id=3893 data-nosnippet>3893</a>
-<a href=#3894 id=3894 data-nosnippet>3894</a>		<span class="kw">fn </span>prev_mixnodes() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_mixnet::types::Mixnode&gt;, sp_mixnet::types::MixnodesErr&gt; {
-<a href=#3895 id=3895 data-nosnippet>3895</a>			Mixnet::prev_mixnodes()
-<a href=#3896 id=3896 data-nosnippet>3896</a>		}
+<a href=#3878 id=3878 data-nosnippet>3878</a>	}
+<a href=#3879 id=3879 data-nosnippet>3879</a>
+<a href=#3880 id=3880 data-nosnippet>3880</a>	<span class="kw">impl </span>sp_session::SessionKeys&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3881 id=3881 data-nosnippet>3881</a>		<span class="kw">fn </span>generate_session_keys(owner: Vec&lt;u8&gt;, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; sp_session::OpaqueGeneratedSessionKeys {
+<a href=#3882 id=3882 data-nosnippet>3882</a>			SessionKeys::generate(<span class="kw-2">&amp;</span>owner, seed).into()
+<a href=#3883 id=3883 data-nosnippet>3883</a>		}
+<a href=#3884 id=3884 data-nosnippet>3884</a>
+<a href=#3885 id=3885 data-nosnippet>3885</a>		<span class="kw">fn </span>decode_session_keys(
+<a href=#3886 id=3886 data-nosnippet>3886</a>			encoded: Vec&lt;u8&gt;,
+<a href=#3887 id=3887 data-nosnippet>3887</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(Vec&lt;u8&gt;, KeyTypeId)&gt;&gt; {
+<a href=#3888 id=3888 data-nosnippet>3888</a>			SessionKeys::decode_into_raw_public_keys(<span class="kw-2">&amp;</span>encoded)
+<a href=#3889 id=3889 data-nosnippet>3889</a>		}
+<a href=#3890 id=3890 data-nosnippet>3890</a>	}
+<a href=#3891 id=3891 data-nosnippet>3891</a>
+<a href=#3892 id=3892 data-nosnippet>3892</a>	<span class="kw">impl </span>pallet_asset_rewards::AssetRewards&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
+<a href=#3893 id=3893 data-nosnippet>3893</a>		<span class="kw">fn </span>pool_creation_cost() -&gt; Balance {
+<a href=#3894 id=3894 data-nosnippet>3894</a>			StakePoolCreationDeposit::get()
+<a href=#3895 id=3895 data-nosnippet>3895</a>		}
+<a href=#3896 id=3896 data-nosnippet>3896</a>	}
 <a href=#3897 id=3897 data-nosnippet>3897</a>
-<a href=#3898 id=3898 data-nosnippet>3898</a>		<span class="kw">fn </span>current_mixnodes() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_mixnet::types::Mixnode&gt;, sp_mixnet::types::MixnodesErr&gt; {
-<a href=#3899 id=3899 data-nosnippet>3899</a>			Mixnet::current_mixnodes()
-<a href=#3900 id=3900 data-nosnippet>3900</a>		}
-<a href=#3901 id=3901 data-nosnippet>3901</a>
-<a href=#3902 id=3902 data-nosnippet>3902</a>		<span class="kw">fn </span>maybe_register(session_index: sp_mixnet::types::SessionIndex, mixnode: sp_mixnet::types::Mixnode) -&gt; bool {
-<a href=#3903 id=3903 data-nosnippet>3903</a>			Mixnet::maybe_register(session_index, mixnode)
-<a href=#3904 id=3904 data-nosnippet>3904</a>		}
-<a href=#3905 id=3905 data-nosnippet>3905</a>	}
-<a href=#3906 id=3906 data-nosnippet>3906</a>
-<a href=#3907 id=3907 data-nosnippet>3907</a>	<span class="kw">impl </span>sp_session::SessionKeys&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3908 id=3908 data-nosnippet>3908</a>		<span class="kw">fn </span>generate_session_keys(owner: Vec&lt;u8&gt;, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; sp_session::OpaqueGeneratedSessionKeys {
-<a href=#3909 id=3909 data-nosnippet>3909</a>			SessionKeys::generate(<span class="kw-2">&amp;</span>owner, seed).into()
-<a href=#3910 id=3910 data-nosnippet>3910</a>		}
-<a href=#3911 id=3911 data-nosnippet>3911</a>
-<a href=#3912 id=3912 data-nosnippet>3912</a>		<span class="kw">fn </span>decode_session_keys(
-<a href=#3913 id=3913 data-nosnippet>3913</a>			encoded: Vec&lt;u8&gt;,
-<a href=#3914 id=3914 data-nosnippet>3914</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(Vec&lt;u8&gt;, KeyTypeId)&gt;&gt; {
-<a href=#3915 id=3915 data-nosnippet>3915</a>			SessionKeys::decode_into_raw_public_keys(<span class="kw-2">&amp;</span>encoded)
-<a href=#3916 id=3916 data-nosnippet>3916</a>		}
-<a href=#3917 id=3917 data-nosnippet>3917</a>	}
-<a href=#3918 id=3918 data-nosnippet>3918</a>
-<a href=#3919 id=3919 data-nosnippet>3919</a>	<span class="kw">impl </span>pallet_asset_rewards::AssetRewards&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
-<a href=#3920 id=3920 data-nosnippet>3920</a>		<span class="kw">fn </span>pool_creation_cost() -&gt; Balance {
-<a href=#3921 id=3921 data-nosnippet>3921</a>			StakePoolCreationDeposit::get()
-<a href=#3922 id=3922 data-nosnippet>3922</a>		}
-<a href=#3923 id=3923 data-nosnippet>3923</a>	}
-<a href=#3924 id=3924 data-nosnippet>3924</a>
-<a href=#3925 id=3925 data-nosnippet>3925</a>	<span class="kw">impl </span>sp_transaction_storage_proof::runtime_api::TransactionStorageApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3926 id=3926 data-nosnippet>3926</a>		<span class="kw">fn </span>retention_period() -&gt; NumberFor&lt;Block&gt; {
-<a href=#3927 id=3927 data-nosnippet>3927</a>			TransactionStorage::retention_period()
-<a href=#3928 id=3928 data-nosnippet>3928</a>		}
-<a href=#3929 id=3929 data-nosnippet>3929</a>
-<a href=#3930 id=3930 data-nosnippet>3930</a>		<span class="kw">fn </span>indexed_transactions(
-<a href=#3931 id=3931 data-nosnippet>3931</a>			block: NumberFor&lt;Block&gt;,
-<a href=#3932 id=3932 data-nosnippet>3932</a>		) -&gt; Vec&lt;sp_transaction_storage_proof::IndexedTransactionInfo&gt; {
-<a href=#3933 id=3933 data-nosnippet>3933</a>			TransactionStorage::indexed_transactions(block)
-<a href=#3934 id=3934 data-nosnippet>3934</a>		}
-<a href=#3935 id=3935 data-nosnippet>3935</a>	}
-<a href=#3936 id=3936 data-nosnippet>3936</a>
-<a href=#3937 id=3937 data-nosnippet>3937</a>	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-<a href=#3938 id=3938 data-nosnippet>3938</a>	</span><span class="kw">impl </span>frame_try_runtime::TryRuntime&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3939 id=3939 data-nosnippet>3939</a>		<span class="kw">fn </span>on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -&gt; (Weight, Weight) {
-<a href=#3940 id=3940 data-nosnippet>3940</a>			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
-<a href=#3941 id=3941 data-nosnippet>3941</a>			// have a backtrace here. If any of the pre/post migration checks fail, we shall stop
-<a href=#3942 id=3942 data-nosnippet>3942</a>			// right here and right now.
-<a href=#3943 id=3943 data-nosnippet>3943</a>			</span><span class="kw">let </span>weight = Executive::try_runtime_upgrade(checks).unwrap();
-<a href=#3944 id=3944 data-nosnippet>3944</a>			(weight, RuntimeBlockWeights::get().max_block)
-<a href=#3945 id=3945 data-nosnippet>3945</a>		}
-<a href=#3946 id=3946 data-nosnippet>3946</a>
-<a href=#3947 id=3947 data-nosnippet>3947</a>		<span class="kw">fn </span>execute_block(
-<a href=#3948 id=3948 data-nosnippet>3948</a>			block: &lt;Block <span class="kw">as </span>BlockT&gt;::LazyBlock,
-<a href=#3949 id=3949 data-nosnippet>3949</a>			state_root_check: bool,
-<a href=#3950 id=3950 data-nosnippet>3950</a>			signature_check: bool,
-<a href=#3951 id=3951 data-nosnippet>3951</a>			select: frame_try_runtime::TryStateSelect
-<a href=#3952 id=3952 data-nosnippet>3952</a>		) -&gt; Weight {
-<a href=#3953 id=3953 data-nosnippet>3953</a>			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
-<a href=#3954 id=3954 data-nosnippet>3954</a>			// have a backtrace here.
-<a href=#3955 id=3955 data-nosnippet>3955</a>			</span>Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
-<a href=#3956 id=3956 data-nosnippet>3956</a>		}
-<a href=#3957 id=3957 data-nosnippet>3957</a>	}
+<a href=#3898 id=3898 data-nosnippet>3898</a>	<span class="kw">impl </span>sp_transaction_storage_proof::runtime_api::TransactionStorageApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3899 id=3899 data-nosnippet>3899</a>		<span class="kw">fn </span>retention_period() -&gt; NumberFor&lt;Block&gt; {
+<a href=#3900 id=3900 data-nosnippet>3900</a>			TransactionStorage::retention_period()
+<a href=#3901 id=3901 data-nosnippet>3901</a>		}
+<a href=#3902 id=3902 data-nosnippet>3902</a>
+<a href=#3903 id=3903 data-nosnippet>3903</a>		<span class="kw">fn </span>indexed_transactions(
+<a href=#3904 id=3904 data-nosnippet>3904</a>			block: NumberFor&lt;Block&gt;,
+<a href=#3905 id=3905 data-nosnippet>3905</a>		) -&gt; Vec&lt;sp_transaction_storage_proof::IndexedTransactionInfo&gt; {
+<a href=#3906 id=3906 data-nosnippet>3906</a>			TransactionStorage::indexed_transactions(block)
+<a href=#3907 id=3907 data-nosnippet>3907</a>		}
+<a href=#3908 id=3908 data-nosnippet>3908</a>	}
+<a href=#3909 id=3909 data-nosnippet>3909</a>
+<a href=#3910 id=3910 data-nosnippet>3910</a>	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+<a href=#3911 id=3911 data-nosnippet>3911</a>	</span><span class="kw">impl </span>frame_try_runtime::TryRuntime&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3912 id=3912 data-nosnippet>3912</a>		<span class="kw">fn </span>on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -&gt; (Weight, Weight) {
+<a href=#3913 id=3913 data-nosnippet>3913</a>			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+<a href=#3914 id=3914 data-nosnippet>3914</a>			// have a backtrace here. If any of the pre/post migration checks fail, we shall stop
+<a href=#3915 id=3915 data-nosnippet>3915</a>			// right here and right now.
+<a href=#3916 id=3916 data-nosnippet>3916</a>			</span><span class="kw">let </span>weight = Executive::try_runtime_upgrade(checks).unwrap();
+<a href=#3917 id=3917 data-nosnippet>3917</a>			(weight, RuntimeBlockWeights::get().max_block)
+<a href=#3918 id=3918 data-nosnippet>3918</a>		}
+<a href=#3919 id=3919 data-nosnippet>3919</a>
+<a href=#3920 id=3920 data-nosnippet>3920</a>		<span class="kw">fn </span>execute_block(
+<a href=#3921 id=3921 data-nosnippet>3921</a>			block: &lt;Block <span class="kw">as </span>BlockT&gt;::LazyBlock,
+<a href=#3922 id=3922 data-nosnippet>3922</a>			state_root_check: bool,
+<a href=#3923 id=3923 data-nosnippet>3923</a>			signature_check: bool,
+<a href=#3924 id=3924 data-nosnippet>3924</a>			select: frame_try_runtime::TryStateSelect
+<a href=#3925 id=3925 data-nosnippet>3925</a>		) -&gt; Weight {
+<a href=#3926 id=3926 data-nosnippet>3926</a>			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+<a href=#3927 id=3927 data-nosnippet>3927</a>			// have a backtrace here.
+<a href=#3928 id=3928 data-nosnippet>3928</a>			</span>Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
+<a href=#3929 id=3929 data-nosnippet>3929</a>		}
+<a href=#3930 id=3930 data-nosnippet>3930</a>	}
+<a href=#3931 id=3931 data-nosnippet>3931</a>
+<a href=#3932 id=3932 data-nosnippet>3932</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#3933 id=3933 data-nosnippet>3933</a>	</span><span class="kw">impl </span>frame_benchmarking::Benchmark&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#3934 id=3934 data-nosnippet>3934</a>		<span class="kw">fn </span>benchmark_metadata(extra: bool) -&gt; (
+<a href=#3935 id=3935 data-nosnippet>3935</a>			Vec&lt;frame_benchmarking::BenchmarkList&gt;,
+<a href=#3936 id=3936 data-nosnippet>3936</a>			Vec&lt;frame_support::traits::StorageInfo&gt;,
+<a href=#3937 id=3937 data-nosnippet>3937</a>		) {
+<a href=#3938 id=3938 data-nosnippet>3938</a>			<span class="kw">use </span>frame_benchmarking::{baseline, BenchmarkList};
+<a href=#3939 id=3939 data-nosnippet>3939</a>			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
+<a href=#3940 id=3940 data-nosnippet>3940</a>
+<a href=#3941 id=3941 data-nosnippet>3941</a>			<span class="comment">// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
+<a href=#3942 id=3942 data-nosnippet>3942</a>			// issues. To get around that, we separated the Session benchmarks into its own crate,
+<a href=#3943 id=3943 data-nosnippet>3943</a>			// which is why we need these two lines below.
+<a href=#3944 id=3944 data-nosnippet>3944</a>			</span><span class="kw">use </span>pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
+<a href=#3945 id=3945 data-nosnippet>3945</a>			<span class="kw">use </span>pallet_offences_benchmarking::Pallet <span class="kw">as </span>OffencesBench;
+<a href=#3946 id=3946 data-nosnippet>3946</a>			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>EPSBench;
+<a href=#3947 id=3947 data-nosnippet>3947</a>			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+<a href=#3948 id=3948 data-nosnippet>3948</a>			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
+<a href=#3949 id=3949 data-nosnippet>3949</a>			<span class="kw">use </span>baseline::Pallet <span class="kw">as </span>BaselineBench;
+<a href=#3950 id=3950 data-nosnippet>3950</a>
+<a href=#3951 id=3951 data-nosnippet>3951</a>			<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::&lt;BenchmarkList&gt;::new();
+<a href=#3952 id=3952 data-nosnippet>3952</a>			<span class="macro">list_benchmarks!</span>(list, extra);
+<a href=#3953 id=3953 data-nosnippet>3953</a>
+<a href=#3954 id=3954 data-nosnippet>3954</a>			<span class="kw">let </span>storage_info = AllPalletsWithSystem::storage_info();
+<a href=#3955 id=3955 data-nosnippet>3955</a>
+<a href=#3956 id=3956 data-nosnippet>3956</a>			(list, storage_info)
+<a href=#3957 id=3957 data-nosnippet>3957</a>		}
 <a href=#3958 id=3958 data-nosnippet>3958</a>
-<a href=#3959 id=3959 data-nosnippet>3959</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#3960 id=3960 data-nosnippet>3960</a>	</span><span class="kw">impl </span>frame_benchmarking::Benchmark&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#3961 id=3961 data-nosnippet>3961</a>		<span class="kw">fn </span>benchmark_metadata(extra: bool) -&gt; (
-<a href=#3962 id=3962 data-nosnippet>3962</a>			Vec&lt;frame_benchmarking::BenchmarkList&gt;,
-<a href=#3963 id=3963 data-nosnippet>3963</a>			Vec&lt;frame_support::traits::StorageInfo&gt;,
-<a href=#3964 id=3964 data-nosnippet>3964</a>		) {
-<a href=#3965 id=3965 data-nosnippet>3965</a>			<span class="kw">use </span>frame_benchmarking::{baseline, BenchmarkList};
-<a href=#3966 id=3966 data-nosnippet>3966</a>			<span class="kw">use </span>frame_support::traits::StorageInfoTrait;
-<a href=#3967 id=3967 data-nosnippet>3967</a>
-<a href=#3968 id=3968 data-nosnippet>3968</a>			<span class="comment">// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
-<a href=#3969 id=3969 data-nosnippet>3969</a>			// issues. To get around that, we separated the Session benchmarks into its own crate,
-<a href=#3970 id=3970 data-nosnippet>3970</a>			// which is why we need these two lines below.
-<a href=#3971 id=3971 data-nosnippet>3971</a>			</span><span class="kw">use </span>pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
-<a href=#3972 id=3972 data-nosnippet>3972</a>			<span class="kw">use </span>pallet_offences_benchmarking::Pallet <span class="kw">as </span>OffencesBench;
-<a href=#3973 id=3973 data-nosnippet>3973</a>			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>EPSBench;
-<a href=#3974 id=3974 data-nosnippet>3974</a>			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
-<a href=#3975 id=3975 data-nosnippet>3975</a>			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
-<a href=#3976 id=3976 data-nosnippet>3976</a>			<span class="kw">use </span>baseline::Pallet <span class="kw">as </span>BaselineBench;
-<a href=#3977 id=3977 data-nosnippet>3977</a>
-<a href=#3978 id=3978 data-nosnippet>3978</a>			<span class="kw">let </span><span class="kw-2">mut </span>list = Vec::&lt;BenchmarkList&gt;::new();
-<a href=#3979 id=3979 data-nosnippet>3979</a>			<span class="macro">list_benchmarks!</span>(list, extra);
-<a href=#3980 id=3980 data-nosnippet>3980</a>
-<a href=#3981 id=3981 data-nosnippet>3981</a>			<span class="kw">let </span>storage_info = AllPalletsWithSystem::storage_info();
-<a href=#3982 id=3982 data-nosnippet>3982</a>
-<a href=#3983 id=3983 data-nosnippet>3983</a>			(list, storage_info)
-<a href=#3984 id=3984 data-nosnippet>3984</a>		}
-<a href=#3985 id=3985 data-nosnippet>3985</a>
-<a href=#3986 id=3986 data-nosnippet>3986</a>		<span class="attr">#[allow(non_local_definitions)]
-<a href=#3987 id=3987 data-nosnippet>3987</a>		</span><span class="kw">fn </span>dispatch_benchmark(
-<a href=#3988 id=3988 data-nosnippet>3988</a>			config: frame_benchmarking::BenchmarkConfig
-<a href=#3989 id=3989 data-nosnippet>3989</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;frame_benchmarking::BenchmarkBatch&gt;, alloc::string::String&gt; {
-<a href=#3990 id=3990 data-nosnippet>3990</a>			<span class="kw">use </span>frame_benchmarking::{baseline, BenchmarkBatch};
-<a href=#3991 id=3991 data-nosnippet>3991</a>			<span class="kw">use </span>sp_storage::TrackedStorageKey;
-<a href=#3992 id=3992 data-nosnippet>3992</a>
-<a href=#3993 id=3993 data-nosnippet>3993</a>			<span class="comment">// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
-<a href=#3994 id=3994 data-nosnippet>3994</a>			// issues. To get around that, we separated the Session benchmarks into its own crate,
-<a href=#3995 id=3995 data-nosnippet>3995</a>			// which is why we need these two lines below.
-<a href=#3996 id=3996 data-nosnippet>3996</a>			</span><span class="kw">use </span>pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
-<a href=#3997 id=3997 data-nosnippet>3997</a>			<span class="kw">use </span>pallet_offences_benchmarking::Pallet <span class="kw">as </span>OffencesBench;
-<a href=#3998 id=3998 data-nosnippet>3998</a>			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>EPSBench;
-<a href=#3999 id=3999 data-nosnippet>3999</a>			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
-<a href=#4000 id=4000 data-nosnippet>4000</a>			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
-<a href=#4001 id=4001 data-nosnippet>4001</a>			<span class="kw">use </span>baseline::Pallet <span class="kw">as </span>BaselineBench;
-<a href=#4002 id=4002 data-nosnippet>4002</a>
-<a href=#4003 id=4003 data-nosnippet>4003</a>			<span class="kw">impl </span>pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {
-<a href=#4004 id=4004 data-nosnippet>4004</a>				<span class="kw">fn </span>generate_session_keys_and_proof(owner: <span class="self">Self</span>::AccountId) -&gt; (<span class="self">Self</span>::Keys, Vec&lt;u8&gt;) {
-<a href=#4005 id=4005 data-nosnippet>4005</a>					<span class="kw">let </span>keys = SessionKeys::generate(<span class="kw-2">&amp;</span>owner.encode(), <span class="prelude-val">None</span>);
-<a href=#4006 id=4006 data-nosnippet>4006</a>					(keys.keys, keys.proof.encode())
-<a href=#4007 id=4007 data-nosnippet>4007</a>				}
-<a href=#4008 id=4008 data-nosnippet>4008</a>			}
-<a href=#4009 id=4009 data-nosnippet>4009</a>			<span class="kw">impl </span>pallet_offences_benchmarking::Config <span class="kw">for </span>Runtime {}
-<a href=#4010 id=4010 data-nosnippet>4010</a>			<span class="kw">impl </span>pallet_election_provider_support_benchmarking::Config <span class="kw">for </span>Runtime {}
-<a href=#4011 id=4011 data-nosnippet>4011</a>			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {}
-<a href=#4012 id=4012 data-nosnippet>4012</a>			<span class="kw">impl </span>pallet_transaction_payment::BenchmarkConfig <span class="kw">for </span>Runtime {}
-<a href=#4013 id=4013 data-nosnippet>4013</a>			<span class="kw">impl </span>baseline::Config <span class="kw">for </span>Runtime {}
-<a href=#4014 id=4014 data-nosnippet>4014</a>
-<a href=#4015 id=4015 data-nosnippet>4015</a>			<span class="kw">use </span>frame_support::traits::WhitelistedStorageKeys;
-<a href=#4016 id=4016 data-nosnippet>4016</a>			<span class="kw">let </span><span class="kw-2">mut </span>whitelist: Vec&lt;TrackedStorageKey&gt; = AllPalletsWithSystem::whitelisted_storage_keys();
+<a href=#3959 id=3959 data-nosnippet>3959</a>		<span class="attr">#[allow(non_local_definitions)]
+<a href=#3960 id=3960 data-nosnippet>3960</a>		</span><span class="kw">fn </span>dispatch_benchmark(
+<a href=#3961 id=3961 data-nosnippet>3961</a>			config: frame_benchmarking::BenchmarkConfig
+<a href=#3962 id=3962 data-nosnippet>3962</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;frame_benchmarking::BenchmarkBatch&gt;, alloc::string::String&gt; {
+<a href=#3963 id=3963 data-nosnippet>3963</a>			<span class="kw">use </span>frame_benchmarking::{baseline, BenchmarkBatch};
+<a href=#3964 id=3964 data-nosnippet>3964</a>			<span class="kw">use </span>sp_storage::TrackedStorageKey;
+<a href=#3965 id=3965 data-nosnippet>3965</a>
+<a href=#3966 id=3966 data-nosnippet>3966</a>			<span class="comment">// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
+<a href=#3967 id=3967 data-nosnippet>3967</a>			// issues. To get around that, we separated the Session benchmarks into its own crate,
+<a href=#3968 id=3968 data-nosnippet>3968</a>			// which is why we need these two lines below.
+<a href=#3969 id=3969 data-nosnippet>3969</a>			</span><span class="kw">use </span>pallet_session_benchmarking::Pallet <span class="kw">as </span>SessionBench;
+<a href=#3970 id=3970 data-nosnippet>3970</a>			<span class="kw">use </span>pallet_offences_benchmarking::Pallet <span class="kw">as </span>OffencesBench;
+<a href=#3971 id=3971 data-nosnippet>3971</a>			<span class="kw">use </span>pallet_election_provider_support_benchmarking::Pallet <span class="kw">as </span>EPSBench;
+<a href=#3972 id=3972 data-nosnippet>3972</a>			<span class="kw">use </span>frame_system_benchmarking::Pallet <span class="kw">as </span>SystemBench;
+<a href=#3973 id=3973 data-nosnippet>3973</a>			<span class="kw">use </span>frame_system_benchmarking::extensions::Pallet <span class="kw">as </span>SystemExtensionsBench;
+<a href=#3974 id=3974 data-nosnippet>3974</a>			<span class="kw">use </span>baseline::Pallet <span class="kw">as </span>BaselineBench;
+<a href=#3975 id=3975 data-nosnippet>3975</a>
+<a href=#3976 id=3976 data-nosnippet>3976</a>			<span class="kw">impl </span>pallet_session_benchmarking::Config <span class="kw">for </span>Runtime {
+<a href=#3977 id=3977 data-nosnippet>3977</a>				<span class="kw">fn </span>generate_session_keys_and_proof(owner: <span class="self">Self</span>::AccountId) -&gt; (<span class="self">Self</span>::Keys, Vec&lt;u8&gt;) {
+<a href=#3978 id=3978 data-nosnippet>3978</a>					<span class="kw">let </span>keys = SessionKeys::generate(<span class="kw-2">&amp;</span>owner.encode(), <span class="prelude-val">None</span>);
+<a href=#3979 id=3979 data-nosnippet>3979</a>					(keys.keys, keys.proof.encode())
+<a href=#3980 id=3980 data-nosnippet>3980</a>				}
+<a href=#3981 id=3981 data-nosnippet>3981</a>			}
+<a href=#3982 id=3982 data-nosnippet>3982</a>			<span class="kw">impl </span>pallet_offences_benchmarking::Config <span class="kw">for </span>Runtime {}
+<a href=#3983 id=3983 data-nosnippet>3983</a>			<span class="kw">impl </span>pallet_election_provider_support_benchmarking::Config <span class="kw">for </span>Runtime {}
+<a href=#3984 id=3984 data-nosnippet>3984</a>			<span class="kw">impl </span>frame_system_benchmarking::Config <span class="kw">for </span>Runtime {}
+<a href=#3985 id=3985 data-nosnippet>3985</a>			<span class="kw">impl </span>pallet_transaction_payment::BenchmarkConfig <span class="kw">for </span>Runtime {}
+<a href=#3986 id=3986 data-nosnippet>3986</a>			<span class="kw">impl </span>baseline::Config <span class="kw">for </span>Runtime {}
+<a href=#3987 id=3987 data-nosnippet>3987</a>
+<a href=#3988 id=3988 data-nosnippet>3988</a>			<span class="kw">use </span>frame_support::traits::WhitelistedStorageKeys;
+<a href=#3989 id=3989 data-nosnippet>3989</a>			<span class="kw">let </span><span class="kw-2">mut </span>whitelist: Vec&lt;TrackedStorageKey&gt; = AllPalletsWithSystem::whitelisted_storage_keys();
+<a href=#3990 id=3990 data-nosnippet>3990</a>
+<a href=#3991 id=3991 data-nosnippet>3991</a>			<span class="comment">// Treasury Account
+<a href=#3992 id=3992 data-nosnippet>3992</a>			// TODO: this is manual for now, someday we might be able to use a
+<a href=#3993 id=3993 data-nosnippet>3993</a>			// macro for this particular key
+<a href=#3994 id=3994 data-nosnippet>3994</a>			</span><span class="kw">let </span>treasury_key = frame_system::Account::&lt;Runtime&gt;::hashed_key_for(Treasury::account_id());
+<a href=#3995 id=3995 data-nosnippet>3995</a>			whitelist.push(treasury_key.to_vec().into());
+<a href=#3996 id=3996 data-nosnippet>3996</a>
+<a href=#3997 id=3997 data-nosnippet>3997</a>			<span class="kw">let </span><span class="kw-2">mut </span>batches = Vec::&lt;BenchmarkBatch&gt;::new();
+<a href=#3998 id=3998 data-nosnippet>3998</a>			<span class="kw">let </span>params = (<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>whitelist);
+<a href=#3999 id=3999 data-nosnippet>3999</a>			<span class="macro">add_benchmarks!</span>(params, batches);
+<a href=#4000 id=4000 data-nosnippet>4000</a>			<span class="prelude-val">Ok</span>(batches)
+<a href=#4001 id=4001 data-nosnippet>4001</a>		}
+<a href=#4002 id=4002 data-nosnippet>4002</a>	}
+<a href=#4003 id=4003 data-nosnippet>4003</a>
+<a href=#4004 id=4004 data-nosnippet>4004</a>	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#4005 id=4005 data-nosnippet>4005</a>		<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+<a href=#4006 id=4006 data-nosnippet>4006</a>			build_state::&lt;RuntimeGenesisConfig&gt;(config)
+<a href=#4007 id=4007 data-nosnippet>4007</a>		}
+<a href=#4008 id=4008 data-nosnippet>4008</a>
+<a href=#4009 id=4009 data-nosnippet>4009</a>		<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;sp_genesis_builder::PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#4010 id=4010 data-nosnippet>4010</a>			get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="kw-2">&amp;</span>genesis_config_presets::get_preset)
+<a href=#4011 id=4011 data-nosnippet>4011</a>		}
+<a href=#4012 id=4012 data-nosnippet>4012</a>
+<a href=#4013 id=4013 data-nosnippet>4013</a>		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;sp_genesis_builder::PresetId&gt; {
+<a href=#4014 id=4014 data-nosnippet>4014</a>			genesis_config_presets::preset_names()
+<a href=#4015 id=4015 data-nosnippet>4015</a>		}
+<a href=#4016 id=4016 data-nosnippet>4016</a>	}
 <a href=#4017 id=4017 data-nosnippet>4017</a>
-<a href=#4018 id=4018 data-nosnippet>4018</a>			<span class="comment">// Treasury Account
-<a href=#4019 id=4019 data-nosnippet>4019</a>			// TODO: this is manual for now, someday we might be able to use a
-<a href=#4020 id=4020 data-nosnippet>4020</a>			// macro for this particular key
-<a href=#4021 id=4021 data-nosnippet>4021</a>			</span><span class="kw">let </span>treasury_key = frame_system::Account::&lt;Runtime&gt;::hashed_key_for(Treasury::account_id());
-<a href=#4022 id=4022 data-nosnippet>4022</a>			whitelist.push(treasury_key.to_vec().into());
-<a href=#4023 id=4023 data-nosnippet>4023</a>
-<a href=#4024 id=4024 data-nosnippet>4024</a>			<span class="kw">let </span><span class="kw-2">mut </span>batches = Vec::&lt;BenchmarkBatch&gt;::new();
-<a href=#4025 id=4025 data-nosnippet>4025</a>			<span class="kw">let </span>params = (<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>whitelist);
-<a href=#4026 id=4026 data-nosnippet>4026</a>			<span class="macro">add_benchmarks!</span>(params, batches);
-<a href=#4027 id=4027 data-nosnippet>4027</a>			<span class="prelude-val">Ok</span>(batches)
-<a href=#4028 id=4028 data-nosnippet>4028</a>		}
-<a href=#4029 id=4029 data-nosnippet>4029</a>	}
-<a href=#4030 id=4030 data-nosnippet>4030</a>
-<a href=#4031 id=4031 data-nosnippet>4031</a>	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#4032 id=4032 data-nosnippet>4032</a>		<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
-<a href=#4033 id=4033 data-nosnippet>4033</a>			build_state::&lt;RuntimeGenesisConfig&gt;(config)
-<a href=#4034 id=4034 data-nosnippet>4034</a>		}
+<a href=#4018 id=4018 data-nosnippet>4018</a>);
+<a href=#4019 id=4019 data-nosnippet>4019</a>
+<a href=#4020 id=4020 data-nosnippet>4020</a><span class="attr">#[cfg(test)]
+<a href=#4021 id=4021 data-nosnippet>4021</a></span><span class="kw">mod </span>tests {
+<a href=#4022 id=4022 data-nosnippet>4022</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#4023 id=4023 data-nosnippet>4023</a>	<span class="kw">use </span>frame_system::offchain::CreateSignedTransaction;
+<a href=#4024 id=4024 data-nosnippet>4024</a>
+<a href=#4025 id=4025 data-nosnippet>4025</a>	<span class="attr">#[test]
+<a href=#4026 id=4026 data-nosnippet>4026</a>	</span><span class="kw">fn </span>validate_transaction_submitter_bounds() {
+<a href=#4027 id=4027 data-nosnippet>4027</a>		<span class="kw">fn </span>is_submit_signed_transaction&lt;T&gt;()
+<a href=#4028 id=4028 data-nosnippet>4028</a>		<span class="kw">where
+<a href=#4029 id=4029 data-nosnippet>4029</a>			</span>T: CreateSignedTransaction&lt;RuntimeCall&gt;,
+<a href=#4030 id=4030 data-nosnippet>4030</a>		{
+<a href=#4031 id=4031 data-nosnippet>4031</a>		}
+<a href=#4032 id=4032 data-nosnippet>4032</a>
+<a href=#4033 id=4033 data-nosnippet>4033</a>		is_submit_signed_transaction::&lt;Runtime&gt;();
+<a href=#4034 id=4034 data-nosnippet>4034</a>	}
 <a href=#4035 id=4035 data-nosnippet>4035</a>
-<a href=#4036 id=4036 data-nosnippet>4036</a>		<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;sp_genesis_builder::PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#4037 id=4037 data-nosnippet>4037</a>			get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="kw-2">&amp;</span>genesis_config_presets::get_preset)
-<a href=#4038 id=4038 data-nosnippet>4038</a>		}
-<a href=#4039 id=4039 data-nosnippet>4039</a>
-<a href=#4040 id=4040 data-nosnippet>4040</a>		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;sp_genesis_builder::PresetId&gt; {
-<a href=#4041 id=4041 data-nosnippet>4041</a>			genesis_config_presets::preset_names()
-<a href=#4042 id=4042 data-nosnippet>4042</a>		}
-<a href=#4043 id=4043 data-nosnippet>4043</a>	}
-<a href=#4044 id=4044 data-nosnippet>4044</a>
-<a href=#4045 id=4045 data-nosnippet>4045</a>);
-<a href=#4046 id=4046 data-nosnippet>4046</a>
-<a href=#4047 id=4047 data-nosnippet>4047</a><span class="attr">#[cfg(test)]
-<a href=#4048 id=4048 data-nosnippet>4048</a></span><span class="kw">mod </span>tests {
-<a href=#4049 id=4049 data-nosnippet>4049</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#4050 id=4050 data-nosnippet>4050</a>	<span class="kw">use </span>frame_system::offchain::CreateSignedTransaction;
-<a href=#4051 id=4051 data-nosnippet>4051</a>
-<a href=#4052 id=4052 data-nosnippet>4052</a>	<span class="attr">#[test]
-<a href=#4053 id=4053 data-nosnippet>4053</a>	</span><span class="kw">fn </span>validate_transaction_submitter_bounds() {
-<a href=#4054 id=4054 data-nosnippet>4054</a>		<span class="kw">fn </span>is_submit_signed_transaction&lt;T&gt;()
-<a href=#4055 id=4055 data-nosnippet>4055</a>		<span class="kw">where
-<a href=#4056 id=4056 data-nosnippet>4056</a>			</span>T: CreateSignedTransaction&lt;RuntimeCall&gt;,
-<a href=#4057 id=4057 data-nosnippet>4057</a>		{
-<a href=#4058 id=4058 data-nosnippet>4058</a>		}
-<a href=#4059 id=4059 data-nosnippet>4059</a>
-<a href=#4060 id=4060 data-nosnippet>4060</a>		is_submit_signed_transaction::&lt;Runtime&gt;();
-<a href=#4061 id=4061 data-nosnippet>4061</a>	}
-<a href=#4062 id=4062 data-nosnippet>4062</a>
-<a href=#4063 id=4063 data-nosnippet>4063</a>	<span class="attr">#[test]
-<a href=#4064 id=4064 data-nosnippet>4064</a>	</span><span class="kw">fn </span>call_size() {
-<a href=#4065 id=4065 data-nosnippet>4065</a>		<span class="kw">let </span>size = core::mem::size_of::&lt;RuntimeCall&gt;();
-<a href=#4066 id=4066 data-nosnippet>4066</a>		<span class="macro">assert!</span>(
-<a href=#4067 id=4067 data-nosnippet>4067</a>			size &lt;= CALL_PARAMS_MAX_SIZE,
-<a href=#4068 id=4068 data-nosnippet>4068</a>			<span class="string">"size of RuntimeCall {} is more than {CALL_PARAMS_MAX_SIZE} bytes.
-<a href=#4069 id=4069 data-nosnippet>4069</a>			 Some calls have too big arguments, use Box to reduce the size of RuntimeCall.
-<a href=#4070 id=4070 data-nosnippet>4070</a>			 If the limit is too strong, maybe consider increase the limit."</span>,
-<a href=#4071 id=4071 data-nosnippet>4071</a>			size,
-<a href=#4072 id=4072 data-nosnippet>4072</a>		);
-<a href=#4073 id=4073 data-nosnippet>4073</a>	}
-<a href=#4074 id=4074 data-nosnippet>4074</a>}
+<a href=#4036 id=4036 data-nosnippet>4036</a>	<span class="attr">#[test]
+<a href=#4037 id=4037 data-nosnippet>4037</a>	</span><span class="kw">fn </span>call_size() {
+<a href=#4038 id=4038 data-nosnippet>4038</a>		<span class="kw">let </span>size = core::mem::size_of::&lt;RuntimeCall&gt;();
+<a href=#4039 id=4039 data-nosnippet>4039</a>		<span class="macro">assert!</span>(
+<a href=#4040 id=4040 data-nosnippet>4040</a>			size &lt;= CALL_PARAMS_MAX_SIZE,
+<a href=#4041 id=4041 data-nosnippet>4041</a>			<span class="string">"size of RuntimeCall {} is more than {CALL_PARAMS_MAX_SIZE} bytes.
+<a href=#4042 id=4042 data-nosnippet>4042</a>			 Some calls have too big arguments, use Box to reduce the size of RuntimeCall.
+<a href=#4043 id=4043 data-nosnippet>4043</a>			 If the limit is too strong, maybe consider increase the limit."</span>,
+<a href=#4044 id=4044 data-nosnippet>4044</a>			size,
+<a href=#4045 id=4045 data-nosnippet>4045</a>		);
+<a href=#4046 id=4046 data-nosnippet>4046</a>	}
+<a href=#4047 id=4047 data-nosnippet>4047</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

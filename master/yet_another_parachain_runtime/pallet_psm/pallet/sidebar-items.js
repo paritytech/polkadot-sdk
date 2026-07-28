@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_DECIMALS_DIFF"],"enum":["Call","CircuitBreakerLevel","Error","Event","PsmManagerLevel"],"struct":["GenesisConfig","Pallet"],"trait":["Config","PsmInterface"],"type":["Module","PsmDebt"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_DECIMALS_DIFF"],"enum":["Call","CircuitBreakerLevel","Error","Event","HoldReason","PsmManagerLevel"],"struct":["EnsureAssetOwner","ExternalAssetInfo","Pallet","PsmAdminInfo","PsmInfo"],"trait":["Config"],"type":["Module","Psm","PsmAdmin","PsmDebt"]};

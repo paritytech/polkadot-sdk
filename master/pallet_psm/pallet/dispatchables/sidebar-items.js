@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["add_external_asset","mint","redeem","remove_external_asset","set_asset_ceiling_weight","set_asset_status","set_max_psm_debt","set_minting_fee","set_redemption_fee"]};
+window.SIDEBAR_ITEMS = {"fn":["add_external_asset","create_psm","mint","redeem","remove_external_asset","remove_psm","set_asset_ceiling_weight","set_asset_status","set_emergency_admin","set_full_admin","set_max_debt","set_minting_fee","set_redemption_fee"]};

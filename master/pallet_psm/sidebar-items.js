@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["migrations","pallet","weights"],"trait":["BenchmarkHelper"]};
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"trait":["BenchmarkHelper"]};
