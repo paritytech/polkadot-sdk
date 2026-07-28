@@ -169,7 +169,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#19 id=19 data-nosnippet>19</a>
 <a href=#20 id=20 data-nosnippet>20</a></span><span class="kw">use crate</span>::{
 <a href=#21 id=21 data-nosnippet>21</a>	BlockInfoProvider,
-<a href=#22 id=22 data-nosnippet>22</a>	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber, runtime_api::RuntimeApi},
+<a href=#22 id=22 data-nosnippet>22</a>	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 <a href=#23 id=23 data-nosnippet>23</a>};
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>pallet_revive::evm::H256;
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>tokio::sync::mpsc;
@@ -463,125 +463,136 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#313 id=313 data-nosnippet>313</a>			<span class="kw">let </span>block_number = block.block_number();
 <a href=#314 id=314 data-nosnippet>314</a>			<span class="kw">let </span>block_hash = block.block_hash();
 <a href=#315 id=315 data-nosnippet>315</a>
-<a href=#316 id=316 data-nosnippet>316</a>			<span class="kw">let </span>ethereum_hash = <span class="kw">match </span>RuntimeApi::new((<span class="kw-2">*</span>block).clone())
-<a href=#317 id=317 data-nosnippet>317</a>				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
-<a href=#318 id=318 data-nosnippet>318</a>				.<span class="kw">await
-<a href=#319 id=319 data-nosnippet>319</a>			</span>{
-<a href=#320 id=320 data-nosnippet>320</a>				<span class="prelude-val">Ok</span>(h) =&gt; h,
-<a href=#321 id=321 data-nosnippet>321</a>				<span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#322 id=322 data-nosnippet>322</a>					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping"</span>);
-<a href=#323 id=323 data-nosnippet>323</a>					<span class="kw">break </span><span class="prelude-val">Err</span>(err);
-<a href=#324 id=324 data-nosnippet>324</a>				},
-<a href=#325 id=325 data-nosnippet>325</a>			};
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>			<span class="kw">match </span>ethereum_hash {
-<a href=#328 id=328 data-nosnippet>328</a>				<span class="prelude-val">Some</span>(hash) =&gt; {
-<a href=#329 id=329 data-nosnippet>329</a>					<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
-<a href=#330 id=330 data-nosnippet>330</a>						<span class="self">self</span>.receipt_provider().insert_block_receipts_past(<span class="kw-2">&amp;</span>block, <span class="kw-2">&amp;</span>hash).<span class="kw">await
-<a href=#331 id=331 data-nosnippet>331</a>					</span>{
-<a href=#332 id=332 data-nosnippet>332</a>						<span class="macro">log::error!</span>(target: LOG_TARGET,
-<a href=#333 id=333 data-nosnippet>333</a>							<span class="string">"⚠️ Insert failed for #{block_number}: {err:?}, stopping"</span>);
-<a href=#334 id=334 data-nosnippet>334</a>						<span class="kw">break </span><span class="prelude-val">Err</span>(err);
-<a href=#335 id=335 data-nosnippet>335</a>					}
-<a href=#336 id=336 data-nosnippet>336</a>
-<a href=#337 id=337 data-nosnippet>337</a>					last_synced = <span class="prelude-val">Some</span>((block_number, block_hash));
-<a href=#338 id=338 data-nosnippet>338</a>					blocks_synced += <span class="number">1</span>;
-<a href=#339 id=339 data-nosnippet>339</a>
-<a href=#340 id=340 data-nosnippet>340</a>					<span class="kw">if </span>blocks_synced == <span class="number">1 </span>&amp;&amp; set_head {
-<a href=#341 id=341 data-nosnippet>341</a>						<span class="self">self</span>.checkpoint_sync_label(SyncLabel::Head, block_number, block_hash).<span class="kw">await</span>;
-<a href=#342 id=342 data-nosnippet>342</a>					}
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a>					<span class="kw">if </span>at_checkpoint(blocks_synced) {
-<a href=#345 id=345 data-nosnippet>345</a>						<span class="macro">log::debug!</span>(target: LOG_TARGET,
-<a href=#346 id=346 data-nosnippet>346</a>							<span class="string">"⬇️ Backward sync progress: #{block_number} ({blocks_synced} blocks synced)"</span>);
-<a href=#347 id=347 data-nosnippet>347</a>						<span class="kw">if </span>checkpoint_tail {
-<a href=#348 id=348 data-nosnippet>348</a>							<span class="self">self</span>.checkpoint_sync_label(SyncLabel::Tail, block_number, block_hash)
-<a href=#349 id=349 data-nosnippet>349</a>								.<span class="kw">await</span>;
-<a href=#350 id=350 data-nosnippet>350</a>						}
-<a href=#351 id=351 data-nosnippet>351</a>					}
-<a href=#352 id=352 data-nosnippet>352</a>				},
-<a href=#353 id=353 data-nosnippet>353</a>				<span class="prelude-val">None </span>=&gt; {
-<a href=#354 id=354 data-nosnippet>354</a>					<span class="kw">if </span>persist_first_evm_block {
-<a href=#355 id=355 data-nosnippet>355</a>						<span class="kw">let </span>first_evm_block = block_number.saturating_add(<span class="number">1</span>);
+<a href=#316 id=316 data-nosnippet>316</a>			<span class="comment">// A block whose runtime does not expose `eth_block_hash` predates pallet-revive and
+<a href=#317 id=317 data-nosnippet>317</a>			// is treated exactly like a block without an EVM hash: it marks the end of the
+<a href=#318 id=318 data-nosnippet>318</a>			// backward sync.
+<a href=#319 id=319 data-nosnippet>319</a>			</span><span class="kw">let </span>ethereum_hash = <span class="kw">match </span><span class="self">self</span>.runtime_api(block_hash).<span class="kw">await </span>{
+<a href=#320 id=320 data-nosnippet>320</a>				<span class="prelude-val">Ok</span>(runtime_api) =&gt; {
+<a href=#321 id=321 data-nosnippet>321</a>					<span class="kw">match </span>runtime_api.eth_block_hash(pallet_revive::evm::U256::from(block_number)) {
+<a href=#322 id=322 data-nosnippet>322</a>						<span class="prelude-val">Some</span>(future) =&gt; <span class="kw">match </span>future.<span class="kw">await </span>{
+<a href=#323 id=323 data-nosnippet>323</a>							<span class="prelude-val">Ok</span>(hash) =&gt; hash,
+<a href=#324 id=324 data-nosnippet>324</a>							<span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#325 id=325 data-nosnippet>325</a>								<span class="macro">log::error!</span>(target: LOG_TARGET,	<span class="string">"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping"</span>);
+<a href=#326 id=326 data-nosnippet>326</a>								<span class="kw">break </span><span class="prelude-val">Err</span>(err);
+<a href=#327 id=327 data-nosnippet>327</a>							},
+<a href=#328 id=328 data-nosnippet>328</a>						},
+<a href=#329 id=329 data-nosnippet>329</a>						<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#330 id=330 data-nosnippet>330</a>					}
+<a href=#331 id=331 data-nosnippet>331</a>				},
+<a href=#332 id=332 data-nosnippet>332</a>				<span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#333 id=333 data-nosnippet>333</a>					<span class="macro">log::error!</span>(target: LOG_TARGET,	<span class="string">"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping"</span>);
+<a href=#334 id=334 data-nosnippet>334</a>					<span class="kw">break </span><span class="prelude-val">Err</span>(err);
+<a href=#335 id=335 data-nosnippet>335</a>				},
+<a href=#336 id=336 data-nosnippet>336</a>			};
+<a href=#337 id=337 data-nosnippet>337</a>
+<a href=#338 id=338 data-nosnippet>338</a>			<span class="kw">match </span>ethereum_hash {
+<a href=#339 id=339 data-nosnippet>339</a>				<span class="prelude-val">Some</span>(hash) =&gt; {
+<a href=#340 id=340 data-nosnippet>340</a>					<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+<a href=#341 id=341 data-nosnippet>341</a>						<span class="self">self</span>.receipt_provider().insert_block_receipts_past(<span class="kw-2">&amp;</span>block, <span class="kw-2">&amp;</span>hash).<span class="kw">await
+<a href=#342 id=342 data-nosnippet>342</a>					</span>{
+<a href=#343 id=343 data-nosnippet>343</a>						<span class="macro">log::error!</span>(target: LOG_TARGET,
+<a href=#344 id=344 data-nosnippet>344</a>							<span class="string">"⚠️ Insert failed for #{block_number}: {err:?}, stopping"</span>);
+<a href=#345 id=345 data-nosnippet>345</a>						<span class="kw">break </span><span class="prelude-val">Err</span>(err);
+<a href=#346 id=346 data-nosnippet>346</a>					}
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a>					last_synced = <span class="prelude-val">Some</span>((block_number, block_hash));
+<a href=#349 id=349 data-nosnippet>349</a>					blocks_synced += <span class="number">1</span>;
+<a href=#350 id=350 data-nosnippet>350</a>
+<a href=#351 id=351 data-nosnippet>351</a>					<span class="kw">if </span>blocks_synced == <span class="number">1 </span>&amp;&amp; set_head {
+<a href=#352 id=352 data-nosnippet>352</a>						<span class="self">self</span>.checkpoint_sync_label(SyncLabel::Head, block_number, block_hash).<span class="kw">await</span>;
+<a href=#353 id=353 data-nosnippet>353</a>					}
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>					<span class="kw">if </span>at_checkpoint(blocks_synced) {
 <a href=#356 id=356 data-nosnippet>356</a>						<span class="macro">log::debug!</span>(target: LOG_TARGET,
-<a href=#357 id=357 data-nosnippet>357</a>							<span class="string">"🔍 No EVM hash at #{block_number}, setting first_evm_block to #{first_evm_block}"</span>);
-<a href=#358 id=358 data-nosnippet>358</a>						<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
-<a href=#359 id=359 data-nosnippet>359</a>							<span class="self">self</span>.receipt_provider().set_first_evm_block(first_evm_block).<span class="kw">await
-<a href=#360 id=360 data-nosnippet>360</a>						</span>{
-<a href=#361 id=361 data-nosnippet>361</a>							<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Failed to persist first-evm-block: {err:?}"</span>);
-<a href=#362 id=362 data-nosnippet>362</a>						}
-<a href=#363 id=363 data-nosnippet>363</a>					} <span class="kw">else </span>{
-<a href=#364 id=364 data-nosnippet>364</a>						<span class="macro">log::debug!</span>(target: LOG_TARGET,
-<a href=#365 id=365 data-nosnippet>365</a>							<span class="string">"🔍 No EVM hash at #{block_number}, skipping first EVM block update"</span>);
-<a href=#366 id=366 data-nosnippet>366</a>					}
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>					<span class="kw">break </span><span class="prelude-val">Ok</span>(());
-<a href=#369 id=369 data-nosnippet>369</a>				},
-<a href=#370 id=370 data-nosnippet>370</a>			}
-<a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a>			<span class="kw">if </span>block_number &gt; to {
-<a href=#373 id=373 data-nosnippet>373</a>				<span class="kw">let </span>parent_hash = block.block_header().<span class="kw">await</span><span class="question-mark">?</span>.parent_hash;
-<a href=#374 id=374 data-nosnippet>374</a>				<span class="kw">match </span><span class="self">self
-<a href=#375 id=375 data-nosnippet>375</a>					</span>.block_provider()
-<a href=#376 id=376 data-nosnippet>376</a>					.block_by_hash(<span class="kw-2">&amp;</span>parent_hash)
-<a href=#377 id=377 data-nosnippet>377</a>					.<span class="kw">await
-<a href=#378 id=378 data-nosnippet>378</a>					</span>.map_err(Into::into)
-<a href=#379 id=379 data-nosnippet>379</a>					.and_then(|opt| opt.ok_or(ClientError::BlockNotFound))
-<a href=#380 id=380 data-nosnippet>380</a>				{
-<a href=#381 id=381 data-nosnippet>381</a>					<span class="prelude-val">Ok</span>(b) =&gt; block = b,
-<a href=#382 id=382 data-nosnippet>382</a>					<span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#383 id=383 data-nosnippet>383</a>						<span class="macro">log::error!</span>(target: LOG_TARGET,
-<a href=#384 id=384 data-nosnippet>384</a>							<span class="string">"⚠️ Could not fetch parent of #{block_number}: {err:?}, stopping"</span>);
-<a href=#385 id=385 data-nosnippet>385</a>						<span class="kw">break </span><span class="prelude-val">Err</span>(err);
-<a href=#386 id=386 data-nosnippet>386</a>					},
-<a href=#387 id=387 data-nosnippet>387</a>				}
-<a href=#388 id=388 data-nosnippet>388</a>			} <span class="kw">else </span>{
-<a href=#389 id=389 data-nosnippet>389</a>				<span class="kw">break </span><span class="prelude-val">Ok</span>(());
-<a href=#390 id=390 data-nosnippet>390</a>			}
-<a href=#391 id=391 data-nosnippet>391</a>		};
-<a href=#392 id=392 data-nosnippet>392</a>
-<a href=#393 id=393 data-nosnippet>393</a>		<span class="comment">// Checkpoint the last synced block if it wasn't already at a checkpoint interval.
-<a href=#394 id=394 data-nosnippet>394</a>		</span><span class="kw">if </span>loop_result.is_ok() &amp;&amp; checkpoint_tail &amp;&amp; !at_checkpoint(blocks_synced) {
-<a href=#395 id=395 data-nosnippet>395</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>((num, hash)) = last_synced {
-<a href=#396 id=396 data-nosnippet>396</a>				<span class="self">self</span>.checkpoint_sync_label(SyncLabel::Tail, num, hash).<span class="kw">await</span>;
-<a href=#397 id=397 data-nosnippet>397</a>			}
-<a href=#398 id=398 data-nosnippet>398</a>		}
-<a href=#399 id=399 data-nosnippet>399</a>
-<a href=#400 id=400 data-nosnippet>400</a>		<span class="macro">log::info!</span>(target: LOG_TARGET,
-<a href=#401 id=401 data-nosnippet>401</a>			<span class="string">"⬇️ Backward sync: {blocks_synced} blocks synced \
-<a href=#402 id=402 data-nosnippet>402</a>			 (requested #{from}..#{to})"</span>);
+<a href=#357 id=357 data-nosnippet>357</a>							<span class="string">"⬇️ Backward sync progress: #{block_number} ({blocks_synced} blocks synced)"</span>);
+<a href=#358 id=358 data-nosnippet>358</a>						<span class="kw">if </span>checkpoint_tail {
+<a href=#359 id=359 data-nosnippet>359</a>							<span class="self">self</span>.checkpoint_sync_label(SyncLabel::Tail, block_number, block_hash)
+<a href=#360 id=360 data-nosnippet>360</a>								.<span class="kw">await</span>;
+<a href=#361 id=361 data-nosnippet>361</a>						}
+<a href=#362 id=362 data-nosnippet>362</a>					}
+<a href=#363 id=363 data-nosnippet>363</a>				},
+<a href=#364 id=364 data-nosnippet>364</a>				<span class="prelude-val">None </span>=&gt; {
+<a href=#365 id=365 data-nosnippet>365</a>					<span class="kw">if </span>persist_first_evm_block {
+<a href=#366 id=366 data-nosnippet>366</a>						<span class="kw">let </span>first_evm_block = block_number.saturating_add(<span class="number">1</span>);
+<a href=#367 id=367 data-nosnippet>367</a>						<span class="macro">log::debug!</span>(target: LOG_TARGET,
+<a href=#368 id=368 data-nosnippet>368</a>							<span class="string">"🔍 No EVM hash at #{block_number}, setting first_evm_block to #{first_evm_block}"</span>);
+<a href=#369 id=369 data-nosnippet>369</a>						<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+<a href=#370 id=370 data-nosnippet>370</a>							<span class="self">self</span>.receipt_provider().set_first_evm_block(first_evm_block).<span class="kw">await
+<a href=#371 id=371 data-nosnippet>371</a>						</span>{
+<a href=#372 id=372 data-nosnippet>372</a>							<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Failed to persist first-evm-block: {err:?}"</span>);
+<a href=#373 id=373 data-nosnippet>373</a>						}
+<a href=#374 id=374 data-nosnippet>374</a>					} <span class="kw">else </span>{
+<a href=#375 id=375 data-nosnippet>375</a>						<span class="macro">log::debug!</span>(target: LOG_TARGET,
+<a href=#376 id=376 data-nosnippet>376</a>							<span class="string">"🔍 No EVM hash at #{block_number}, skipping first EVM block update"</span>);
+<a href=#377 id=377 data-nosnippet>377</a>					}
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>					<span class="kw">break </span><span class="prelude-val">Ok</span>(());
+<a href=#380 id=380 data-nosnippet>380</a>				},
+<a href=#381 id=381 data-nosnippet>381</a>			}
+<a href=#382 id=382 data-nosnippet>382</a>
+<a href=#383 id=383 data-nosnippet>383</a>			<span class="kw">if </span>block_number &gt; to {
+<a href=#384 id=384 data-nosnippet>384</a>				<span class="kw">let </span>parent_hash = block.block_header().<span class="kw">await</span><span class="question-mark">?</span>.parent_hash;
+<a href=#385 id=385 data-nosnippet>385</a>				<span class="kw">match </span><span class="self">self
+<a href=#386 id=386 data-nosnippet>386</a>					</span>.block_provider()
+<a href=#387 id=387 data-nosnippet>387</a>					.block_by_hash(<span class="kw-2">&amp;</span>parent_hash)
+<a href=#388 id=388 data-nosnippet>388</a>					.<span class="kw">await
+<a href=#389 id=389 data-nosnippet>389</a>					</span>.map_err(Into::into)
+<a href=#390 id=390 data-nosnippet>390</a>					.and_then(|opt| opt.ok_or(ClientError::BlockNotFound))
+<a href=#391 id=391 data-nosnippet>391</a>				{
+<a href=#392 id=392 data-nosnippet>392</a>					<span class="prelude-val">Ok</span>(b) =&gt; block = b,
+<a href=#393 id=393 data-nosnippet>393</a>					<span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#394 id=394 data-nosnippet>394</a>						<span class="macro">log::error!</span>(target: LOG_TARGET,
+<a href=#395 id=395 data-nosnippet>395</a>							<span class="string">"⚠️ Could not fetch parent of #{block_number}: {err:?}, stopping"</span>);
+<a href=#396 id=396 data-nosnippet>396</a>						<span class="kw">break </span><span class="prelude-val">Err</span>(err);
+<a href=#397 id=397 data-nosnippet>397</a>					},
+<a href=#398 id=398 data-nosnippet>398</a>				}
+<a href=#399 id=399 data-nosnippet>399</a>			} <span class="kw">else </span>{
+<a href=#400 id=400 data-nosnippet>400</a>				<span class="kw">break </span><span class="prelude-val">Ok</span>(());
+<a href=#401 id=401 data-nosnippet>401</a>			}
+<a href=#402 id=402 data-nosnippet>402</a>		};
 <a href=#403 id=403 data-nosnippet>403</a>
-<a href=#404 id=404 data-nosnippet>404</a>		loop_result
-<a href=#405 id=405 data-nosnippet>405</a>	}
-<a href=#406 id=406 data-nosnippet>406</a>
-<a href=#407 id=407 data-nosnippet>407</a>	<span class="doccomment">/// Run the background subscription gap filler, processing requests sequentially.
-<a href=#408 id=408 data-nosnippet>408</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>run_subscription_gap_filler(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>rx: mpsc::Receiver&lt;GapFillRequest&gt;) {
-<a href=#409 id=409 data-nosnippet>409</a>		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler started"</span>);
+<a href=#404 id=404 data-nosnippet>404</a>		<span class="comment">// Checkpoint the last synced block if it wasn't already at a checkpoint interval.
+<a href=#405 id=405 data-nosnippet>405</a>		</span><span class="kw">if </span>loop_result.is_ok() &amp;&amp; checkpoint_tail &amp;&amp; !at_checkpoint(blocks_synced) {
+<a href=#406 id=406 data-nosnippet>406</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>((num, hash)) = last_synced {
+<a href=#407 id=407 data-nosnippet>407</a>				<span class="self">self</span>.checkpoint_sync_label(SyncLabel::Tail, num, hash).<span class="kw">await</span>;
+<a href=#408 id=408 data-nosnippet>408</a>			}
+<a href=#409 id=409 data-nosnippet>409</a>		}
 <a href=#410 id=410 data-nosnippet>410</a>
-<a href=#411 id=411 data-nosnippet>411</a>		<span class="kw">while let </span><span class="prelude-val">Some</span>(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().<span class="kw">await </span>{
-<a href=#412 id=412 data-nosnippet>412</a>			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}"</span>);
-<a href=#413 id=413 data-nosnippet>413</a>			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self
-<a href=#414 id=414 data-nosnippet>414</a>				</span>.sync_backward_range(BackwardSyncRange {
-<a href=#415 id=415 data-nosnippet>415</a>					from: from_inclusive,
-<a href=#416 id=416 data-nosnippet>416</a>					to: to_inclusive,
-<a href=#417 id=417 data-nosnippet>417</a>					set_head: <span class="bool-val">false</span>,
-<a href=#418 id=418 data-nosnippet>418</a>					checkpoint_tail: <span class="bool-val">false</span>,
-<a href=#419 id=419 data-nosnippet>419</a>					persist_first_evm_block: <span class="bool-val">false</span>,
-<a href=#420 id=420 data-nosnippet>420</a>				})
-<a href=#421 id=421 data-nosnippet>421</a>				.<span class="kw">await
-<a href=#422 id=422 data-nosnippet>422</a>			</span>{
-<a href=#423 id=423 data-nosnippet>423</a>				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}"</span>);
-<a href=#424 id=424 data-nosnippet>424</a>			} <span class="kw">else </span>{
-<a href=#425 id=425 data-nosnippet>425</a>				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}"</span>);
-<a href=#426 id=426 data-nosnippet>426</a>			}
-<a href=#427 id=427 data-nosnippet>427</a>			<span class="comment">// Mark done unconditionally — mirrors how subscribe_new_blocks handles
-<a href=#428 id=428 data-nosnippet>428</a>			// callback errors: log and move on.
-<a href=#429 id=429 data-nosnippet>429</a>			</span><span class="self">self</span>.subscription_gap_queue().mark_done();
-<a href=#430 id=430 data-nosnippet>430</a>		}
-<a href=#431 id=431 data-nosnippet>431</a>
-<a href=#432 id=432 data-nosnippet>432</a>		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler stopped"</span>);
-<a href=#433 id=433 data-nosnippet>433</a>	}
-<a href=#434 id=434 data-nosnippet>434</a>}
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="macro">log::info!</span>(target: LOG_TARGET,
+<a href=#412 id=412 data-nosnippet>412</a>			<span class="string">"⬇️ Backward sync: {blocks_synced} blocks synced \
+<a href=#413 id=413 data-nosnippet>413</a>			 (requested #{from}..#{to})"</span>);
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a>		loop_result
+<a href=#416 id=416 data-nosnippet>416</a>	}
+<a href=#417 id=417 data-nosnippet>417</a>
+<a href=#418 id=418 data-nosnippet>418</a>	<span class="doccomment">/// Run the background subscription gap filler, processing requests sequentially.
+<a href=#419 id=419 data-nosnippet>419</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>run_subscription_gap_filler(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>rx: mpsc::Receiver&lt;GapFillRequest&gt;) {
+<a href=#420 id=420 data-nosnippet>420</a>		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler started"</span>);
+<a href=#421 id=421 data-nosnippet>421</a>
+<a href=#422 id=422 data-nosnippet>422</a>		<span class="kw">while let </span><span class="prelude-val">Some</span>(GapFillRequest { from_inclusive, to_inclusive }) = rx.recv().<span class="kw">await </span>{
+<a href=#423 id=423 data-nosnippet>423</a>			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler: processing #{from_inclusive} down to #{to_inclusive}"</span>);
+<a href=#424 id=424 data-nosnippet>424</a>			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self
+<a href=#425 id=425 data-nosnippet>425</a>				</span>.sync_backward_range(BackwardSyncRange {
+<a href=#426 id=426 data-nosnippet>426</a>					from: from_inclusive,
+<a href=#427 id=427 data-nosnippet>427</a>					to: to_inclusive,
+<a href=#428 id=428 data-nosnippet>428</a>					set_head: <span class="bool-val">false</span>,
+<a href=#429 id=429 data-nosnippet>429</a>					checkpoint_tail: <span class="bool-val">false</span>,
+<a href=#430 id=430 data-nosnippet>430</a>					persist_first_evm_block: <span class="bool-val">false</span>,
+<a href=#431 id=431 data-nosnippet>431</a>				})
+<a href=#432 id=432 data-nosnippet>432</a>				.<span class="kw">await
+<a href=#433 id=433 data-nosnippet>433</a>			</span>{
+<a href=#434 id=434 data-nosnippet>434</a>				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap fill failed for #{from_inclusive}..#{to_inclusive}: {err:?}"</span>);
+<a href=#435 id=435 data-nosnippet>435</a>			} <span class="kw">else </span>{
+<a href=#436 id=436 data-nosnippet>436</a>				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler: done with #{from_inclusive}..#{to_inclusive}"</span>);
+<a href=#437 id=437 data-nosnippet>437</a>			}
+<a href=#438 id=438 data-nosnippet>438</a>			<span class="comment">// Mark done unconditionally — mirrors how subscribe_new_blocks handles
+<a href=#439 id=439 data-nosnippet>439</a>			// callback errors: log and move on.
+<a href=#440 id=440 data-nosnippet>440</a>			</span><span class="self">self</span>.subscription_gap_queue().mark_done();
+<a href=#441 id=441 data-nosnippet>441</a>		}
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔄 Subscription gap filler stopped"</span>);
+<a href=#444 id=444 data-nosnippet>444</a>	}
+<a href=#445 id=445 data-nosnippet>445</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

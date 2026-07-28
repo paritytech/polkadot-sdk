@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["block_hash","receipt_data"]};
