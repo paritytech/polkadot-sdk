@@ -31,10 +31,7 @@ use futures::TryStreamExt;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
-	evm::{
-		Block, GenericTransaction, H256, HashesOrTransactionInfos, StateOverrideSet,
-		TransactionSigned, U256, decode_revert_reason,
-	},
+	evm::{H256, TransactionSigned, U256, decode_revert_reason},
 };
 use pallet_revive_types::runtime_api::*;
 use runtime_api::RuntimeApi;
@@ -282,7 +279,7 @@ pub struct Client {
 	subscription_lock: Arc<Mutex<()>>,
 
 	/// Block subscription sender side.
-	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
+	block_subscription_tx: tokio::sync::broadcast::Sender<BlockV1>,
 	/// Log subscription sender side.
 	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
 	/// Whether archive mode is enabled
@@ -608,7 +605,7 @@ impl Client {
 	async fn process_block(
 		&self,
 		block: &SubstrateBlock,
-	) -> Result<(Block, Vec<ReceiptInfo>), ClientError> {
+	) -> Result<(BlockV1, Vec<ReceiptInfo>), ClientError> {
 		let block_number = block.block_number();
 
 		macro_rules! time {
@@ -745,6 +742,26 @@ impl Client {
 		}
 	}
 
+	/// Get the block for the given block number or tag, or `None` if it is not known.
+	///
+	/// Prefer this over resolving a hash with [`Self::block_hash_for_tag`] and then fetching the
+	/// block by that hash, which fetches the same block twice.
+	pub async fn block_for_tag(
+		&self,
+		at: BlockId,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		match at {
+			BlockId::Hash(hash) => {
+				let Some(hash) = self.resolve_substrate_hash(&H256::from(hash.block_hash.0)).await
+				else {
+					return Ok(None);
+				};
+				self.block_by_hash(&hash).await
+			},
+			BlockId::Number(tag) => self.block_by_number_or_tag(&tag).await,
+		}
+	}
+
 	/// Resolve a [`BlockNumberOrTag`] to a concrete block number.
 	async fn resolve_tag_to_number(&self, tag: BlockNumberOrTag) -> Result<U256, ClientError> {
 		match tag {
@@ -847,6 +864,20 @@ impl Client {
 	/// Get an EVM transaction receipt by hash.
 	pub async fn receipt(&self, tx_hash: &H256) -> Option<ReceiptInfo> {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
+	}
+
+	/// Get all transaction receipts for the given block.
+	///
+	/// Returns `None` if the block does not exist.
+	pub async fn block_receipts(
+		&self,
+		at: BlockId,
+	) -> Result<Option<Vec<ReceiptInfo>>, ClientError> {
+		let Some(block) = self.block_for_tag(at).await? else {
+			return Ok(None);
+		};
+		let receipts = self.receipt_provider.block_receipts(&block).await?;
+		Ok(Some(receipts.into_iter().map(|(_, receipt)| receipt).collect()))
 	}
 
 	/// Get The post dispatch weight associated with this Ethereum transaction hash.
@@ -1069,10 +1100,10 @@ impl Client {
 	/// Get the transaction traces for the given block.
 	pub async fn trace_call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: BlockId,
 		config: TracerTypeV1,
-		state_overrides: Option<StateOverrideSet>,
+		state_overrides: Option<StateOverrideSetV1>,
 	) -> Result<TraceV1, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash).await?;
@@ -1084,7 +1115,7 @@ impl Client {
 		&self,
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
-	) -> Option<Block> {
+	) -> Option<BlockV1> {
 		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.block_hash());
 
 		if self
@@ -1122,7 +1153,7 @@ impl Client {
 						.map(|(signed_tx, receipt)| receipt.transaction_info(signed_tx))
 						.collect::<Vec<_>>();
 
-					eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+					eth_block.transactions = HashesOrTransactionInfosV1::TransactionInfos(tx_infos);
 				}
 
 				Some(eth_block)
@@ -1188,7 +1219,7 @@ impl Client {
 	}
 
 	/// Gets the block subscription rx side of the channel.
-	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Block> {
+	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<BlockV1> {
 		self.block_subscription_tx.subscribe()
 	}
 
