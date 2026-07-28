@@ -33,7 +33,7 @@
 use cumulus_primitives_core::ParaId;
 use sc_network::PeerId;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	sync::RwLock,
 	time::{Duration, Instant},
 };
@@ -48,7 +48,8 @@ const DEFAULT_BAN_COOLDOWN: Duration = Duration::from_secs(300);
 /// Read view of the maintained peer set, shared with consumers. Generic — no
 /// protocol assumptions.
 pub trait SourcePeers: Send + Sync {
-	/// Peers currently serving `source` (arbitrary order; consumers rotate).
+	/// Peers currently serving `source`, in the order they were resolved
+	/// (`set_peers` order; consumers rotate through it).
 	fn peers(&self, source: ParaId) -> Vec<PeerId>;
 
 	/// A consumer saw `peer` return a *verified-bad* response for `source` — drop
@@ -60,8 +61,8 @@ pub trait SourcePeers: Send + Sync {
 /// Per-source peer state.
 #[derive(Default)]
 struct SourceState {
-	/// Peers currently serving the source.
-	peers: HashSet<PeerId>,
+	/// Peers currently serving the source, in resolve order (deduped).
+	peers: Vec<PeerId>,
 	/// Peers that returned verified-bad data → excluded until the mapped
 	/// `Instant` (a *cooldown*, not permanent — see [`DEFAULT_BAN_COOLDOWN`]).
 	banned: HashMap<PeerId, Instant>,
@@ -103,7 +104,9 @@ impl PeerRegistry {
 				},
 				None => {},
 			}
-			state.peers.insert(peer);
+			if !state.peers.contains(&peer) {
+				state.peers.push(peer);
+			}
 		}
 	}
 }
@@ -111,7 +114,7 @@ impl PeerRegistry {
 impl SourcePeers for PeerRegistry {
 	fn peers(&self, source: ParaId) -> Vec<PeerId> {
 		let map = self.inner.read().expect("peer registry lock poisoned; qed");
-		map.get(&source).map(|s| s.peers.iter().copied().collect()).unwrap_or_default()
+		map.get(&source).map(|s| s.peers.clone()).unwrap_or_default()
 	}
 
 	fn report_bad(&self, source: ParaId, peer: PeerId) {
@@ -121,7 +124,7 @@ impl SourcePeers for PeerRegistry {
 		// reach here (those rotate on the consumer side), so this only fires on
 		// provably-bad data — and even then the peer can rejoin after the cooldown.
 		state.banned.insert(peer, Instant::now() + self.ban_cooldown);
-		state.peers.remove(&peer);
+		state.peers.retain(|p| *p != peer);
 	}
 }
 
