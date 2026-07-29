@@ -36,7 +36,7 @@ use x509_cert::{
 		asn1::{GeneralizedTime, UtcTime},
 		DateTime, Encode as _,
 	},
-	ext::Extension,
+	ext::{pkix::constraints::BasicConstraints, Extension, ToExtension},
 	name::Name,
 	serial_number::SerialNumber,
 	spki::{SubjectPublicKeyInfoOwned, SubjectPublicKeyInfoRef},
@@ -61,12 +61,12 @@ const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-dtls-p256-v1";
 /// number, and therefore the certificate and its certhash.
 const CERTIFICATE_SERIAL_DST: &[u8] = b"substrate-webrtc-dtls-certificate-serial-v1";
 
-/// Minimal certificate profile: self-issued with no extensions.
-struct SelfSignedNoExtensions {
+/// Minimal certificate profile.
+struct SelfSigned {
 	name: Name,
 }
 
-impl Profile for SelfSignedNoExtensions {
+impl Profile for SelfSigned {
 	fn get_issuer(&self, _subject: &Name) -> Name {
 		self.name.clone()
 	}
@@ -81,7 +81,12 @@ impl Profile for SelfSignedNoExtensions {
 		_issuer_spk: SubjectPublicKeyInfoRef<'_>,
 		_tbs: &TbsCertificate,
 	) -> Result<Vec<Extension>, x509_cert::builder::Error> {
-		Ok(Vec::new())
+		// The builder downgrades the certificate to v1 whenever the extension list is empty.
+		// One end-entity constraint keeps us on v3.
+		// Criticality is pinned explicitly rather than inherited from `BasicConstraints`,
+		// whose `Criticality` impl hardcodes `true`; RFC 5280 4.2.1.9 allows either here.
+		let basic_constraints = BasicConstraints { ca: false, path_len_constraint: None };
+		Ok(vec![(false, &basic_constraints).to_extension(&self.name, &[])?])
 	}
 }
 
@@ -126,14 +131,12 @@ pub fn derive_certificate(seed: &[u8; 32]) -> Result<DtlsCertificate, Certificat
 	let name = Name::from_str("CN=polkadot-sdk-webrtc")
 		.expect("polkadot-sdk-webrtc is a valid RDN string; qed");
 
-	// `SelfSignedNoExtensions` makes the certificate self-issued and adds no extensions,
-	// WebRTC peers only check the fingerprint.
-	let certificate =
-		CertificateBuilder::new(SelfSignedNoExtensions { name }, serial, validity, public_key)
-			.and_then(|builder| builder.build::<_, DerSignature>(&signing_key))
-			.map_err(CertificateError::CertificateBuild)?
-			.to_der()
-			.map_err(CertificateError::CertificateEncoding)?;
+	// SelfSigned makes the certificate self-issued, WebRTC peers only check the fingerprint.
+	let certificate = CertificateBuilder::new(SelfSigned { name }, serial, validity, public_key)
+		.and_then(|builder| builder.build::<_, DerSignature>(&signing_key))
+		.map_err(CertificateError::CertificateBuild)?
+		.to_der()
+		.map_err(CertificateError::CertificateEncoding)?;
 
 	DtlsCertificate::load(certificate, private_key).map_err(CertificateError::CertificateLoad)
 }
@@ -204,6 +207,22 @@ mod tests {
 	}
 
 	#[test]
+	fn derive_certificate_uses_version3() {
+		use x509_cert::{der::Decode, Certificate, Version};
+
+		let seed = [1u8; 32];
+		let certificate = derive_certificate(&seed).unwrap();
+		let (certificate_der, _) = certificate.as_parts();
+
+		let parsed = Certificate::from_der(certificate_der).unwrap();
+
+		// The builder silently downgrades to v1 when the extension list is empty, which drops
+		// the `[0] EXPLICIT version` field from the DER and changes the certhash.
+		assert_eq!(parsed.tbs_certificate().version(), Version::V3);
+		assert!(parsed.tbs_certificate().extensions().is_some_and(|ext| !ext.is_empty()));
+	}
+
+	#[test]
 	fn different_seeds_produce_different_certificates() {
 		let first = derive_certificate(&[1u8; 32]).unwrap();
 		let second = derive_certificate(&[2u8; 32]).unwrap();
@@ -220,7 +239,7 @@ mod tests {
 		let certificate = derive_certificate(&[42u8; 32]).unwrap();
 		assert_eq!(
 			certhash(&certificate),
-			"/certhash/uEiC4ytd-wt6JTy7JkHEiYQHWVcVqfuGIxYG08NN5l3Muhg"
+			"/certhash/uEiBU1jyJxUmj0eUBMpzL8lhUYvBy5UdXdhEAH_GbC7Kxcg"
 		);
 	}
 
