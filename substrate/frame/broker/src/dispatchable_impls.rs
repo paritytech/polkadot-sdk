@@ -573,7 +573,7 @@ impl<T: Config> Pallet<T> {
 		// In that case the `workload_end_hint` can still point to the task's own renewal record.
 		let renewable_now =
 			PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
-				.map_or(false, |record| record.includes_task(task));
+				.map_or(false, |record| record.complete_workload_includes(task));
 
 		let next_renewal = if renewable_now {
 			core = Self::do_renew(sovereign_account.clone(), core)?;
@@ -583,7 +583,11 @@ impl<T: Config> Pallet<T> {
 			let record =
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
 					.ok_or(Error::<T>::NotAllowed)?;
-			ensure!(record.includes_task(task), Error::<T>::TaskNotInWorkload);
+			let workload = record.completion.complete().ok_or(Error::<T>::IncompleteAssignment)?;
+			ensure!(
+				workload.iter().any(|item| item.assignment == CoreAssignment::Task(task)),
+				Error::<T>::TaskNotInWorkload
+			);
 			workload_end
 		} else {
 			return Err(Error::<T>::NotAllowed.into());

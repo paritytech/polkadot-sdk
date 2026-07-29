@@ -151,7 +151,7 @@ pub struct PotentialRenewalRecord<Balance> {
 }
 impl<Balance> PotentialRenewalRecord<Balance> {
 	/// Return whether the workload to be renewed is complete and includes the given task.
-	pub fn includes_task(&self, task: TaskId) -> bool {
+	pub fn complete_workload_includes(&self, task: TaskId) -> bool {
 		self.completion.complete().map_or(false, |workload| {
 			workload.iter().any(|item| item.assignment == CoreAssignment::Task(task))
 		})

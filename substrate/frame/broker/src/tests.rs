@@ -2527,6 +2527,29 @@ fn enable_auto_renew_falls_back_to_hint_when_core_carries_foreign_renewal() {
 }
 
 #[test]
+fn enable_auto_renew_fails_for_incomplete_workload() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		endow(1001, 1000);
+
+		// A partially assigned renewal record cannot be renewed, even by a task which is part
+		// of the partial workload:
+		PotentialRenewals::<Test>::insert(
+			PotentialRenewalId { core: 0, when: 10 },
+			PotentialRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Partial(CoreMask::from_chunk(0, 40)),
+			},
+		);
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, 0, 1001, Some(10)),
+			Error::<Test>::IncompleteAssignment
+		);
+	});
+}
+
+#[test]
 fn auto_renewal_fails_for_workload_of_another_task() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
