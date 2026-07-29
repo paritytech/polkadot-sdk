@@ -72,8 +72,14 @@ fn ensure_instance_consideration<T: Config>(
 	item: ItemIndex,
 	to: &T::AccountId,
 ) {
-	let nft =
-		Nft { instance: NextInstanceId::<T>::get(), collection, item, minted_at: 0, last_moved: 0 };
+	let nft = Nft {
+		instance: NextInstanceId::<T>::get(),
+		collection,
+		item,
+		state_nonce: 0,
+		minted_at: 0,
+		last_moved: 0,
+	};
 	T::InstanceConsideration::ensure_successful(
 		owner,
 		Footprint::from_parts(2, nft.encoded_size().saturating_add(to.encoded_size())),
@@ -260,10 +266,14 @@ mod benchmarks {
 		ensure_instance_consideration::<T>(&owner, collection, item, &owner);
 		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
 		Locked::<T>::insert(&owner, LockInfo { retries: u8::MAX, until: 0 });
+		let nft = NftsByOwner::<T>::get(&owner).expect("owner has the minted NFT");
 
 		let call: T::RuntimeCall = Call::<T>::transfer { to: destination }.into();
 		let info = call.get_dispatch_info();
-		let extension = AsScarcity::<T>::new(Some(AsScarcityInfo::AsNft));
+		let extension = AsScarcity::<T>::new(Some(AsScarcityInfo::AsNft {
+			instance: nft.instance,
+			state_nonce: nft.state_nonce,
+		}));
 		let origin: T::RuntimeOrigin = RawOrigin::Signed(owner.clone()).into();
 
 		#[block]

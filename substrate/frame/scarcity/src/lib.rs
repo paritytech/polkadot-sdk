@@ -35,7 +35,9 @@
 //! Transfers are feeless when authorized through the [`AsScarcity`](extension::AsScarcity)
 //! transaction extension. Their transaction priority is the time since the NFT last moved,
 //! capped by the runtime. Moving an NFT consumes it from the old purse key and places it at the
-//! new one; failed dispatch restores it and temporarily locks the purse key.
+//! new one. Each authorization names the permanent instance and its current state nonce, which a
+//! successful transfer increments. Failed dispatch restores the NFT without advancing the nonce
+//! and temporarily locks the purse key.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -137,6 +139,11 @@ pub mod pallet {
 		pub instance: InstanceId,
 		pub collection: CollectionId,
 		pub item: ItemIndex,
+		/// Monotonic version of authorization-relevant state.
+		///
+		/// Purse-key authorizations bind to this value. Every state change that should
+		/// invalidate an outstanding authorization must increment it.
+		pub state_nonce: u64,
 		/// Unix seconds at mint.
 		pub minted_at: u64,
 		/// Unix seconds; equal to `minted_at` until the first transfer.
@@ -284,6 +291,8 @@ pub mod pallet {
 		SupplyOverflow,
 		/// An NFT cannot be transferred to its current purse key.
 		SelfTransfer,
+		/// The NFT's authorization state can no longer be advanced.
+		StateNonceOverflow,
 	}
 
 	#[pallet::pallet]
@@ -410,7 +419,9 @@ pub mod pallet {
 			ensure!(to != owner, Error::<T>::SelfTransfer);
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
 
-			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), ..nft };
+			let state_nonce =
+				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
+			let nft = Nft { state_nonce, last_moved: T::UnixTime::now().as_secs(), ..nft };
 			NftsByOwner::<T>::insert(&to, nft.clone());
 			Instances::<T>::insert(nft.instance, &to);
 			Self::deposit_event(Event::Transferred { instance: nft.instance, to });
@@ -678,7 +689,8 @@ pub mod pallet {
 			let next_instance = instance.checked_add(1).ok_or(Error::<T>::TooManyInstances)?;
 			let next_supply = definition.supply.checked_add(1).ok_or(Error::<T>::SupplyOverflow)?;
 			let now = T::UnixTime::now().as_secs();
-			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now };
+			let nft =
+				Nft { instance, collection, item, state_nonce: 0, minted_at: now, last_moved: now };
 			let instance_ticket = if let Some(owner) = deposit_owner {
 				// Three storage entries back one instance: `NftsByOwner`, the `Instances`
 				// reverse index, and the `InstanceDeposits` ticket itself.
