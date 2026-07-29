@@ -307,8 +307,9 @@ impl HopMaintenanceTask {
 			}
 		}
 
-		// Always clean up expired entries.
-		let freed = self.hop_pool.cleanup_expired();
+		// Always clean up expired entries; the window also snapshots the backlog
+		// gauge, which is why this runs even without a promoter.
+		let freed = self.hop_pool.cleanup_expired(self.buffer_secs);
 		if freed > 0 {
 			tracing::info!(
 				target: "hop",

@@ -14,11 +14,11 @@ doc:
       - `substrate_hop_promotion_backlog` / `substrate_hop_promotion_enabled` — gauges.
       - `substrate_hop_maintenance_tick_duration_seconds` — histogram.
 
-      `removed_total{reason="expired_unpromoted"}` and `promotions_abandoned_total` count entries that left the pool without ever landing on-chain.
+      `removed_total{reason="expired_unpromoted"}` and `promotions_abandoned_total` both count entries that never landed on-chain. They overlap — an abandoned entry is counted again under `expired_unpromoted` when it expires — so alert on either, not on their sum.
 
-      Pool size gauges are snapshot from the authoritative pool counters on every mutation (never inc/dec'd), matching the fork-aware transaction pool and statement store.
+      Pool size gauges are snapshot from the authoritative pool counters on every mutation (never inc/dec'd), matching the fork-aware transaction pool and statement store. `promotion_backlog` is snapshot once per maintenance cycle and includes entries that are backing off.
 
-      `HopParams::build_pool` gains an `Option<&Registry>` parameter and `HopDataPool::new` a `HopMetrics` one; a metrics registration failure only disables metrics. The omni-node passes its existing registry.
+      `HopParams::build_pool` gains an `Option<&Registry>` parameter, `HopDataPool::new` a `HopMetrics` one, and `HopDataPool::cleanup_expired` a promotion-window one; a metrics registration failure only disables metrics. The omni-node passes its existing registry.
 crates:
   - name: sc-hop
     bump: major

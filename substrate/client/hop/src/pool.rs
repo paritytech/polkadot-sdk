@@ -768,7 +768,10 @@ impl HopDataPool {
 	/// Processes entries in bounded batches to keep the index write lock from
 	/// being held across the full HashMap on huge pools. After all batches the
 	/// per-sender `user_usage` map is GC'd in a single pass.
-	pub fn cleanup_expired(&self) -> u64 {
+	///
+	/// `promotion_buffer_secs` only feeds the promotion-backlog gauge, snapshot
+	/// from that same pass.
+	pub fn cleanup_expired(&self, promotion_buffer_secs: u64) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
 		let mut total_freed: u64 = 0;
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
@@ -838,22 +841,40 @@ impl HopDataPool {
 		// new index entry under our held index lock; concurrent
 		// `release_user_quota` only takes `user_usage.read()` which is
 		// excluded). Build a live-sender set in one index pass so retain is
-		// O(senders + entries) instead of O(senders × entries).
-		{
+		// O(senders + entries) instead of O(senders × entries). The same pass
+		// counts the promotion backlog.
+		let backlog = {
 			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
-			let live: HashSet<&SenderId> = index.values().map(|m| &m.sender_id).collect();
+			let mut live: HashSet<&SenderId> = HashSet::new();
+			let mut backlog = 0u64;
+			for meta in index.values() {
+				live.insert(&meta.sender_id);
+				if Self::in_promotion_window(meta, now_secs, promotion_buffer_secs) {
+					backlog = backlog.saturating_add(1);
+				}
+			}
 			usage.retain(|sender_id, counter| {
 				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
 			});
-		}
+			backlog
+		};
 
 		// Let the rate limiter shed stale per-sender state on the same cadence.
 		self.rate_limiter.evict_stale();
 
+		self.metrics.set_promotion_backlog(backlog);
 		self.update_size_metrics();
 
 		total_freed
+	}
+
+	/// Outstanding promotion candidate: unpromoted, near expiry, attempts left.
+	/// Ignores the back-off deadline — a backing-off entry is still outstanding.
+	fn in_promotion_window(meta: &HopEntryMeta, now_secs: u64, buffer_secs: u64) -> bool {
+		!meta.promoted &&
+			now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
+			meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS
 	}
 
 	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
@@ -867,25 +888,18 @@ impl HopDataPool {
 	) -> Vec<HopHash> {
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 		let index = self.index.lock();
-		// The backlog counts every unpromoted, unabandoned entry inside the
-		// promotion window, including those currently backing off, so the
-		// gauge reflects outstanding work rather than this cycle's batch.
-		let mut backlog = 0u64;
-		let mut promotable = Vec::new();
-		for (hash, meta) in index.iter() {
-			let in_window = !meta.promoted &&
-				now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
-				meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS;
-			if in_window {
-				backlog += 1;
-				if current_block >= meta.next_promotion_attempt_at && promotable.len() < limit {
-					promotable.push(*hash);
-				}
-			}
-		}
-		drop(index);
-		self.metrics.set_promotion_backlog(backlog);
-		promotable
+		// `take(limit)` stays lazy: this holds the index lock, so a full scan
+		// would block inserts and acks. The backlog gauge is snapshot in
+		// `cleanup_expired` instead.
+		index
+			.iter()
+			.filter(|(_, meta)| {
+				Self::in_promotion_window(meta, now_secs, buffer_secs) &&
+					current_block >= meta.next_promotion_attempt_at
+			})
+			.map(|(h, _)| *h)
+			.take(limit)
+			.collect()
 	}
 
 	/// Mark an entry as promoted to permanent on-chain storage.
@@ -893,11 +907,15 @@ impl HopDataPool {
 	pub fn mark_promoted(&self, hash: &HopHash) {
 		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
+			// Count the transition, not the call: this setter is idempotent.
+			let newly_promoted = !meta.promoted;
 			meta.promoted = true;
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
 			drop(index);
-			self.metrics.record_promotion_confirmed();
+			if newly_promoted {
+				self.metrics.record_promotion_confirmed();
+			}
 
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(
@@ -1098,10 +1116,86 @@ mod tests {
 		// An entry expiring without promotion counts as data loss.
 		pool.insert(vec![2u8; 30], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_UNPROMOTED), 1);
 		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_PROMOTED), 0);
 		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+	}
+
+	/// Pool with registered metrics, so counters can be read back.
+	fn make_metered_pool(retention_secs: u64) -> (HopDataPool, TempDir) {
+		let registry = prometheus_endpoint::Registry::new();
+		let dir = TempDir::new().unwrap();
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			retention_secs,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::new(Some(&registry)).unwrap(),
+		)
+		.unwrap();
+		(pool, dir)
+	}
+
+	#[test]
+	fn backlog_gauge_counts_backing_off_entries() {
+		let (pool, _dir) = make_metered_pool(/* retention = */ 100);
+		let (_, signer) = test_recipient();
+		let buffer = 300_u64;
+		let hash = pool
+			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		// Outside the window with a buffer of 0, inside it with 300s.
+		pool.cleanup_expired(0);
+		assert_eq!(pool.metrics().promotion_backlog(), 0);
+
+		pool.cleanup_expired(buffer);
+		assert_eq!(pool.metrics().promotion_backlog(), 1);
+
+		// Backing off drops it from `get_promotable` but not from the backlog.
+		pool.record_promotion_attempt(&hash, 60, /* check_interval_blocks = */ 10);
+		assert!(pool.get_promotable(60, buffer, 10).is_empty());
+		pool.cleanup_expired(buffer);
+		assert_eq!(pool.metrics().promotion_backlog(), 1);
+
+		pool.mark_promoted(&hash);
+		pool.cleanup_expired(buffer);
+		assert_eq!(pool.metrics().promotion_backlog(), 0);
+	}
+
+	#[test]
+	fn confirmed_counter_ignores_repeated_mark_promoted() {
+		let (pool, _dir) = make_metered_pool(100);
+		let (_, signer) = test_recipient();
+		let hash = pool
+			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		pool.mark_promoted(&hash);
+		pool.mark_promoted(&hash);
+		assert_eq!(pool.metrics().promotions_confirmed(), 1, "only the transition counts");
+	}
+
+	#[test]
+	fn abandoned_counter_fires_once_at_the_attempt_cap() {
+		use crate::types::MAX_PROMOTION_ATTEMPTS;
+
+		let (pool, _dir) = make_metered_pool(100);
+		let (_, signer) = test_recipient();
+		let hash = pool
+			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		for _ in 0..MAX_PROMOTION_ATTEMPTS {
+			pool.record_promotion_attempt(&hash, 0, /* check_interval_blocks = */ 10);
+		}
+		assert_eq!(pool.metrics().promotions_abandoned(), 1);
+
+		// Past the cap must not re-count.
+		pool.record_promotion_attempt(&hash, 0, 10);
+		assert_eq!(pool.metrics().promotions_abandoned(), 1);
 	}
 
 	#[test]
@@ -1457,7 +1551,7 @@ mod tests {
 		let charged = acct(100, 1);
 		assert_eq!(user_usage(&pool, &SENDER_A), charged);
 
-		let freed = pool.cleanup_expired();
+		let freed = pool.cleanup_expired(0);
 		assert_eq!(freed, charged);
 		assert_eq!(pool.status().total_bytes, 0);
 		assert_eq!(user_usage(&pool, &SENDER_A), 0);
@@ -1476,7 +1570,7 @@ mod tests {
 
 		// Not yet expired — cleanup must be a no-op.
 		assert_eq!(
-			pool.cleanup_expired(),
+			pool.cleanup_expired(0),
 			0,
 			"entry should still be live before retention elapses"
 		);
@@ -1485,7 +1579,7 @@ mod tests {
 		std::thread::sleep(std::time::Duration::from_millis(1_200));
 
 		assert!(
-			pool.cleanup_expired() > 0,
+			pool.cleanup_expired(0) > 0,
 			"entry should be reaped once wall-clock retention elapses"
 		);
 		assert!(!pool.has(&hash));
@@ -1530,7 +1624,7 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert!(!pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
@@ -1547,7 +1641,7 @@ mod tests {
 		// Cleanup at a block where the entry is not yet expired must not
 		// reclaim the sender's slot — a concurrent insert would otherwise
 		// orphan its `Arc`.
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
@@ -1588,7 +1682,7 @@ mod tests {
 		}
 		assert_eq!(pool.status().entry_count, total as usize);
 
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert_eq!(pool.status().entry_count, 0);
 		assert_eq!(pool.status().total_bytes, 0);
 		assert!(pool.user_usage.read().is_empty());
@@ -2197,7 +2291,7 @@ mod tests {
 		pool.mark_promoted(&hash);
 		assert!(pool.has(&hash));
 
-		let freed = pool.cleanup_expired();
+		let freed = pool.cleanup_expired(0);
 		assert!(freed > 0);
 		assert!(!pool.has(&hash));
 	}
