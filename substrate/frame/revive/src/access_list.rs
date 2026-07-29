@@ -349,11 +349,6 @@ impl AccessList {
 	/// Non-mutating sibling of [`touch`](Self::touch): the `Warmth` a touch
 	/// of this entry would return.
 	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
-		// EXPERIMENT: access list disabled - everything prices cold.
-		if true {
-			let _ = entry;
-			return Warmth::cold_non_revertible();
-		}
 		if self.accessed.contains(entry) {
 			Warmth::Hot
 		} else if self.is_full() {
@@ -368,11 +363,6 @@ impl AccessList {
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot entries continue to bill hot.
 	pub fn touch(&mut self, entry: AccessEntry) -> Warmth {
-		// EXPERIMENT: access list disabled - register nothing, always cold.
-		if true {
-			let _ = entry;
-			return Warmth::cold_non_revertible();
-		}
 		let kind = if self.is_full() {
 			// Past the cap: bill by membership, but never journal.
 			self.peek(&entry)
@@ -440,7 +430,6 @@ mod tests {
 	use super::*;
 
 	#[test]
-	#[ignore = "access list disabled"]
 	fn nested_commit_then_parent_rollback_drops_all() {
 		let mut al = AccessList::new();
 		let (a, b, c, d) = (
@@ -491,7 +480,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore = "access list disabled"]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
 		// Fill to the cap with distinct addresses.
@@ -524,7 +512,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore = "access list disabled"]
 	fn call_peek_and_touch_diverge_at_cap_boundary() {
 		let mut al = AccessList::new();
 		// Fill to one below the cap.
@@ -564,7 +551,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore = "access list disabled"]
 	fn peek_does_not_mutate() {
 		let mut al = AccessList::new();
 		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([1; 32]) };

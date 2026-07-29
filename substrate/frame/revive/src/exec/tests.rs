@@ -3156,7 +3156,6 @@ fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), 
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_retouch_marks_slot_hot() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		let key_a = Key::Fix([7; 32]);
@@ -3176,7 +3175,6 @@ fn cold_hot_retouch_marks_slot_hot() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_child_commit_visible_on_next_call() {
 	// A committed child touch on (addr, slot) stays hot on the next child call —
 	// and parent's own touch on `slot` is a separate entry (address discriminates).
@@ -3241,7 +3239,6 @@ fn cold_hot_var_inline_len_distinguishes() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_delegate_call_marks_parent_slot_hot() {
 	// Delegate-call runs the callee's code in the caller's storage context, so
 	// a touch inside the child keys on the parent's address — the same entry
@@ -3272,7 +3269,6 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_revertible_only_inside_nested_frame() {
 	const SLOT: [u8; 32] = [13; 32];
 
@@ -3303,7 +3299,6 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_past_cap_touch_is_not_revertible() {
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		// Fill the remaining access list capacity with distinct slots. Each
@@ -3396,7 +3391,6 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_call_target_warms_across_calls() {
 	let bob_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
@@ -3522,7 +3516,6 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_delegate_call_leaves_target_account_cold() {
 	let bob_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
@@ -3564,7 +3557,6 @@ fn cold_hot_delegate_call_leaves_target_account_cold() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_caller_touch_outlives_callee_revert() {
 	// A caller's touch of a target outlives the target's revert; only the touches
 	// the reverted frame made itself are dropped.
@@ -3599,7 +3591,6 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 	// Two contracts share one code hash: calling the second prices its
 	// account entries cold, but the shared code blob is already hot.
@@ -3625,7 +3616,6 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
@@ -3643,7 +3633,6 @@ fn cold_hot_first_frame_warms_entry_target() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_plain_account_warms_then_code_loads_cold() {
 	// A plain-account call warms account state and contract info, not code. After
 	// code is added, a repeat call reads account and contract info hot, code cold.
@@ -3684,7 +3673,6 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 }
 
 #[test]
-#[ignore = "access list disabled"]
 fn cold_hot_failed_code_load_leaves_code_cold() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let before = ctx.ext.access_list_metrics();

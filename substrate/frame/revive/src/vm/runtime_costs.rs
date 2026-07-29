@@ -224,11 +224,6 @@ impl RuntimeCosts {
 
 	/// Weight of one access-list touch, plus the prepaid rollback for a revertible cold insert.
 	fn access_list_overhead<T: Config>(warmth: Warmth) -> Weight {
-		// EXPERIMENT: access list disabled - no bookkeeping cost.
-		if true {
-			let _ = warmth;
-			return Weight::zero();
-		}
 		let touch_cost =
 			|bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
 		match warmth {
@@ -439,7 +434,6 @@ mod tests {
 	use crate::tests::Test;
 
 	#[test]
-	#[ignore = "access list disabled"]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
 		let cold = ContractStorageKind::Persistent(Warmth::cold_non_revertible());
@@ -485,7 +479,6 @@ mod tests {
 	}
 
 	#[test]
-	#[ignore = "access list disabled"]
 	fn call_base_cold_hot_pricing() {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
