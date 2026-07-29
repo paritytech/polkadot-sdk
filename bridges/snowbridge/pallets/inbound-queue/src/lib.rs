@@ -281,7 +281,7 @@ pub mod pallet {
 			);
 
 			// Burning fees for teleport
-			Self::teleport_fees_from_relayer(channel.para_id, &who, fee)?;
+			Self::burn_for_teleport(channel.para_id, &who, fee)?;
 
 			// Reimburse the relayer from the sovereign account of the destination parachain, only
 			// if funds are available. The relayer has already fronted the teleported fee.
@@ -352,7 +352,7 @@ pub mod pallet {
 		}
 
 		/// Teleport the fee, fronted by the relayer, to the destination parachain.
-		fn teleport_fees_from_relayer(
+		fn burn_for_teleport(
 			para_id: ParaId,
 			who: &T::AccountId,
 			fee: BalanceOf<T>,
