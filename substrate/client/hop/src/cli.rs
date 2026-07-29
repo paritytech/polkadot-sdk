@@ -39,9 +39,8 @@ use crate::{
 		HopError, DEFAULT_BANDWIDTH_BURST_MIB, DEFAULT_BANDWIDTH_PER_MIN_MIB,
 		DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
 		DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB, DEFAULT_MAX_POOL_SIZE_MIB,
-		DEFAULT_MAX_RATE_LIMIT_SENDERS, DEFAULT_MAX_USER_SIZE_MIB,
-		DEFAULT_PROMOTION_BUFFER_SECS, DEFAULT_RETENTION_SECS, DEFAULT_SUBMIT_BURST,
-		DEFAULT_SUBMIT_RATE_PER_MIN,
+		DEFAULT_MAX_RATE_LIMIT_SENDERS, DEFAULT_MAX_USER_SIZE_MIB, DEFAULT_PROMOTION_BUFFER_SECS,
+		DEFAULT_RETENTION_SECS, DEFAULT_SUBMIT_BURST, DEFAULT_SUBMIT_RATE_PER_MIN,
 	},
 };
 use clap::{builder::TypedValueParser, Parser};
@@ -131,8 +130,8 @@ pub struct HopParams {
 	pub bandwidth_burst_mib: u64,
 
 	/// Aggregate (cross-account) sustained bandwidth cap (MiB per minute). Prevents a coordinated
-	/// multi-account attack from saturating the pool even when each individual account stays within
-	/// its own per-account limit. Must be at least 1 when rate limiting is enabled.
+	/// multi-account attack from saturating the pool even when each individual account stays
+	/// within its own per-account limit. Must be at least 1 when rate limiting is enabled.
 	#[arg(
 		long = "hop-global-bandwidth-per-min-mib",
 		default_value_t = DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB,

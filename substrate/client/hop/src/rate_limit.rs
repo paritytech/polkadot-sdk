@@ -18,11 +18,11 @@
 //!
 //! Two layers of token-bucket limiting:
 //!
-//! 1. **Per-account**: two buckets per `SenderId` (request rate + bandwidth).
-//!    Both must admit a call for it to proceed.
-//! 2. **Global**: one aggregate bandwidth bucket shared across all senders.
-//!    A coordinated multi-account attack that stays within per-account limits
-//!    can still exhaust the global bucket, preventing pool exhaustion.
+//! 1. **Per-account**: two buckets per `SenderId` (request rate + bandwidth). Both must admit a
+//!    call for it to proceed.
+//! 2. **Global**: one aggregate bandwidth bucket shared across all senders. A coordinated
+//!    multi-account attack that stays within per-account limits can still exhaust the global
+//!    bucket, preventing pool exhaustion.
 //!
 //! The per-sender map is capped at [`RateLimitConfig::max_tracked_senders`] entries.
 //! When full, the sender with the most remaining token capacity is evicted — keeping
@@ -187,10 +187,10 @@ impl RateLimiter {
 					s.try_lock().map(|guard| {
 						// Normalise to [0.0, 1.0]; take the min across both
 						// buckets so a sender exhausted on either is not evicted.
-						let req_fill = guard.requests.tokens
-							/ guard.requests.capacity.max(f64::EPSILON);
-						let bw_fill = guard.bandwidth.tokens
-							/ guard.bandwidth.capacity.max(f64::EPSILON);
+						let req_fill =
+							guard.requests.tokens / guard.requests.capacity.max(f64::EPSILON);
+						let bw_fill =
+							guard.bandwidth.tokens / guard.bandwidth.capacity.max(f64::EPSILON);
 						(req_fill.min(bw_fill), *id)
 					})
 				})
@@ -452,7 +452,8 @@ mod tests {
 			let mut global = rl.global_bandwidth.lock();
 			global.last -= Duration::from_secs(10); // fast-forward global refill
 		}
-		rl.check(&SENDER_B, 1).expect("sender B should succeed once global bucket refills");
+		rl.check(&SENDER_B, 1)
+			.expect("sender B should succeed once global bucket refills");
 	}
 
 	#[test]
@@ -466,10 +467,7 @@ mod tests {
 
 		// Sender A is blocked by its own per-sender limit even though the
 		// global bucket still has capacity (we sent 100 bytes, global allows 5_000).
-		assert!(
-			rl.check(&SENDER_A, 1).is_err(),
-			"per-sender request limit should still apply"
-		);
+		assert!(rl.check(&SENDER_A, 1).is_err(), "per-sender request limit should still apply");
 
 		// Sender C is unaffected.
 		rl.check(&SENDER_C, 1).unwrap();
