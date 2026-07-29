@@ -348,9 +348,9 @@ impl pallet_preimage::Config for Runtime {
 parameter_types! {
 	pub const EpochDuration: u64 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS as u64,
-		// 100-slot (10-minute) sessions for versi, matching the historical
-		// westend-100 runtime the network ran before.
-		10 * MINUTES as u64
+		// 1-hour sessions for versi, matching production westend, also in
+		// fast-runtime builds.
+		1 * HOURS as u64
 	);
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub const ReportLongevity: u64 =
