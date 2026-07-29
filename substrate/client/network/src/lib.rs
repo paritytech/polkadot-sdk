@@ -264,7 +264,7 @@ pub mod service;
 pub mod transport;
 pub mod types;
 pub mod utils;
-pub mod webrtc;
+mod webrtc;
 
 pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};
@@ -295,6 +295,7 @@ pub use service::{
 	PublicKey,
 };
 pub use types::ProtocolName;
+pub use webrtc::CertificateError;
 
 /// Log target for `sc-network`.
 const LOG_TARGET: &str = "sub-libp2p";
