@@ -39,7 +39,10 @@
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use mmr_lib::{
-	helper::{get_peak_map, get_peaks, is_valid_mmr_size},
+	helper::{
+		get_peak_map, get_peaks, is_valid_mmr_size, parent_offset, pos_height_in_tree,
+		sibling_offset,
+	},
 	leaf_index_to_mmr_size, leaf_index_to_pos, MerkleProof, NodeMerkleProof,
 };
 use polkadot_core_primitives::Hash;
@@ -140,10 +143,12 @@ pub struct MMRExtensionProof {
 	/// empty `connecting_nodes` is the identity extension (the endpoint already is the current
 	/// root).
 	pub leaf_count: u64,
-	/// The O(log n) connecting nodes `(position, hash)` — the extended MMR's peaks / witnesses not
-	/// derivable from the frontier's own peaks (from `gen_ancestry_proof`). Empty for the
-	/// identity.
-	pub connecting_nodes: Vec<(u64, Hash)>,
+	/// The O(log n) connecting-node **hashes** — the extended MMR's witnesses not derivable from
+	/// the frontier's own peaks (from `gen_ancestry_proof`), in `mmr_lib`'s proof order. Their
+	/// positions are *not* stored: an MMR's shape is fixed by its size, so they are re-derived at
+	/// verify time from `(from.leaf_count, self.leaf_count)` (see `ancestry_positions`). Empty for
+	/// the identity.
+	pub connecting_nodes: Vec<Hash>,
 }
 
 impl MMRExtensionProof {
@@ -184,36 +189,132 @@ impl MMRExtensionProof {
 		let new_mmr_size = leaf_index_to_mmr_size(self.leaf_count - 1);
 
 		// Extending from the empty stream: nothing binds (a prefix of nothing is vacuous), so the
-		// connecting nodes must simply BE the new MMR's peaks at their canonical positions.
+		// connecting nodes must simply BE the new MMR's peaks, in canonical (`get_peaks`) order.
 		if from.leaf_count == 0 {
-			let expected = get_peaks(new_mmr_size);
-			if self.connecting_nodes.len() != expected.len() ||
-				self.connecting_nodes.iter().map(|(p, _)| *p).ne(expected.iter().copied())
-			{
+			let peaks = get_peaks(new_mmr_size);
+			if self.connecting_nodes.len() != peaks.len() {
 				return Err(ProofError::InvalidProof);
 			}
-			let peaks: Vec<Hash> = self.connecting_nodes.iter().map(|(_, h)| *h).collect();
-			return MmrFrontier { peaks, leaf_count: self.leaf_count }
-				.root()
-				.ok_or(ProofError::InvalidProof);
+			return MmrFrontier {
+				peaks: self.connecting_nodes.clone(),
+				leaf_count: self.leaf_count,
+			}
+			.root()
+			.ok_or(ProofError::InvalidProof);
 		}
 
 		// General: `from`'s peaks are complete subtrees of the new MMR at their unchanged
 		// positions; combined with the connecting nodes they reconstruct the new root
 		// (`calculate_root` merges them under `SpecMerge`, matching the sender's MMR).
-		let old_positions = get_peaks(from.mmr_size());
+		let old_mmr_size = from.mmr_size();
+		let old_positions = get_peaks(old_mmr_size);
 		if old_positions.len() != from.peaks.len() {
 			return Err(ProofError::InconsistentFrontier);
 		}
+		// The connecting-node positions aren't carried: derive them from the two MMR sizes (an
+		// MMR's shape is fixed by its size) and re-pair them with the stored hashes, in `mmr_lib`'s
+		// proof order. A length mismatch means the proof doesn't fit the claimed extension.
+		let positions = ancestry_positions(old_mmr_size, new_mmr_size);
+		if positions.len() != self.connecting_nodes.len() {
+			return Err(ProofError::InvalidProof);
+		}
+		let proof: Vec<(u64, Hash)> =
+			positions.into_iter().zip(self.connecting_nodes.iter().copied()).collect();
 		let nodes: Vec<(u64, Hash)> =
 			old_positions.into_iter().zip(from.peaks.iter().copied()).collect();
-		NodeMerkleProof::<Hash, SpecMerge<SpecHasher>>::new(
-			new_mmr_size,
-			self.connecting_nodes.clone(),
-		)
-		.calculate_root(nodes)
-		.map(MmrRoot)
-		.map_err(|_| ProofError::InvalidProof)
+		NodeMerkleProof::<Hash, SpecMerge<SpecHasher>>::new(new_mmr_size, proof)
+			.calculate_root(nodes)
+			.map(MmrRoot)
+			.map_err(|_| ProofError::InvalidProof)
+	}
+}
+
+/// Derive the connecting-node positions of an MMR ancestry proof from the old and new MMR sizes
+/// alone — the key to storing [`MMRExtensionProof::connecting_nodes`] as bare hashes. An MMR's
+/// shape is fully determined by its size, so the set and order of nodes `gen_ancestry_proof` emits
+/// (proving the old peaks under the new root) is a pure function of the two sizes. This mirrors
+/// `polkadot-ckb-merkle-mountain-range` 0.8.2's `gen_ancestry_proof` / `gen_node_proof_for_peak`
+/// position bookkeeping — the per-peak sibling walk, the RHS-peak bagging collapse, and the final
+/// position sort — so the derived positions line up with the prover's hash order exactly. It is
+/// pinned to that version; `ancestry_positions_matches_mmr_lib` cross-checks it against the
+/// library. Both sizes must be valid MMR sizes with `old_mmr_size < new_mmr_size` and a non-empty
+/// old MMR (the empty and identity extensions are handled before this is reached).
+// TODO: workaround — upstream this into `paritytech/merkle-mountain-range` as a store-free
+// `ancestry_proof_positions(prev_mmr_size, mmr_size)` factored out of `gen_ancestry_proof` (single
+// source of truth, no version pinning), then replace this + `gen_node_positions_for_peak` with a
+// call to it once released. Cf. the existing `expected_ancestry_proof_size`.
+fn ancestry_positions(old_mmr_size: u64, new_mmr_size: u64) -> Vec<u64> {
+	let mut pos_list = get_peaks(old_mmr_size);
+	let mut proof: Vec<u64> = Vec::new();
+	// A run of trailing new-MMR peaks with no proven descendants is bagged into one item.
+	let mut bagging_track = 0usize;
+	for peak_pos in get_peaks(new_mmr_size) {
+		// The old peaks under this new peak (`pos_list` is ascending, so a leading prefix).
+		let cut = pos_list.iter().position(|&pos| pos > peak_pos).unwrap_or(pos_list.len());
+		let sub: Vec<u64> = pos_list.drain(..cut).collect();
+		if sub.is_empty() {
+			bagging_track += 1;
+		} else {
+			bagging_track = 0;
+		}
+		gen_node_positions_for_peak(&mut proof, sub, peak_pos);
+	}
+	if bagging_track > 1 {
+		// The bagged item takes the leftmost bagged peak's position; drop the rest.
+		let rhs = proof.split_off(proof.len() - bagging_track);
+		proof.push(rhs[0]);
+	}
+	proof.sort_unstable();
+	proof
+}
+
+/// Position-only mirror of `mmr_lib`'s `gen_node_proof_for_peak`: append the proof-node positions
+/// that witness `pos_list` (nodes to prove, all `<= peak_pos`) up to `peak_pos`. The `queue` is a
+/// `(height, pos)` min-heap kept as an ascending `Vec` (positions are unique, so no dedup is
+/// needed); `remove(0)` is `pop_front`. Pure structure — no hashes.
+fn gen_node_positions_for_peak(proof: &mut Vec<u64>, pos_list: Vec<u64>, peak_pos: u64) {
+	// The peak itself is proven: no witnesses under it.
+	if pos_list.len() == 1 && pos_list[0] == peak_pos {
+		return;
+	}
+	// Nothing proven under this peak: the peak's own hash is a witness.
+	if pos_list.is_empty() {
+		proof.push(peak_pos);
+		return;
+	}
+	let mut queue: Vec<(u8, u64)> =
+		pos_list.into_iter().map(|pos| (pos_height_in_tree(pos), pos)).collect();
+	queue.sort_unstable();
+	while !queue.is_empty() {
+		let (height, pos) = queue.remove(0);
+		if pos == peak_pos {
+			if queue.is_empty() {
+				break;
+			}
+			continue;
+		}
+		let (sib_pos, parent_pos) = {
+			let next_height = pos_height_in_tree(pos + 1);
+			let offset = sibling_offset(height);
+			if next_height > height {
+				// pos is a right sibling.
+				(pos - offset, pos + 1)
+			} else {
+				// pos is a left sibling.
+				(pos + offset, pos + parent_offset(height))
+			}
+		};
+		if queue.first().map(|(_, p)| *p) == Some(sib_pos) {
+			// The sibling is also being proven: it cancels, no witness needed.
+			queue.remove(0);
+		} else {
+			proof.push(sib_pos);
+		}
+		if parent_pos < peak_pos {
+			let entry = (height + 1, parent_pos);
+			let idx = queue.partition_point(|x| x < &entry);
+			queue.insert(idx, entry);
+		}
 	}
 }
 
@@ -529,7 +630,7 @@ mod tests {
 		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 		MMRExtensionProof {
 			leaf_count: n as u64,
-			connecting_nodes: ap.prev_peaks_proof.proof_items().to_vec(),
+			connecting_nodes: ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect(),
 		}
 	}
 
@@ -550,12 +651,12 @@ mod tests {
 	/// An extension proof of a given connecting-node count, for sizing the design's *day-scale*
 	/// worst case (≈10⁹ leaves → ~30 nodes) without building a 10⁹-leaf MMR: PoV cost is the
 	/// *encoded* size, which is a pure function of the node count, so synthetic nodes size
-	/// identically to real ones. Each node is `(u64 position, Hash)` = 40 B — 8 B more than the
-	/// design's hash-only (32 B) count.
+	/// identically to real ones. Each node is a bare 32 B `Hash` (positions are derived at verify
+	/// time, not carried), matching the design's hash-only count.
 	fn synthetic_extension(nodes: usize) -> MMRExtensionProof {
 		MMRExtensionProof {
 			leaf_count: u64::MAX / 2, // a day-scale count; value is irrelevant to encoded size
-			connecting_nodes: (0..nodes as u64).map(|i| (i, H256::repeat_byte(i as u8))).collect(),
+			connecting_nodes: (0..nodes as u64).map(|i| H256::repeat_byte(i as u8)).collect(),
 		}
 	}
 
@@ -569,11 +670,34 @@ mod tests {
 		assert_ne!(ext.verify(&frontier_at(&all, 3)), Ok(root_at(&all, 5)));
 		// Tampered connecting node → a different computed root.
 		let mut bad = ext.clone();
-		bad.connecting_nodes[0].1 = H256::repeat_byte(0xff);
+		bad.connecting_nodes[0] = H256::repeat_byte(0xff);
 		assert_ne!(bad.verify(&frontier_at(&all, 2)), Ok(root_at(&all, 5)));
 		// Identity extension yields the frontier's own root.
 		let id = MMRExtensionProof::identity();
 		assert_eq!(id.verify(&frontier_at(&all, 3)), Ok(root_at(&all, 3)));
+	}
+
+	/// The derived connecting-node positions must equal what `gen_ancestry_proof` actually emits,
+	/// for every `(k, n)` shape — the consensus-critical invariant that lets `connecting_nodes`
+	/// store bare hashes. Sweeps enough leaf counts to exercise multi-peak proofs and the
+	/// RHS-peak bagging collapse; if `mmr_lib`'s node set/order ever drifts, this trips.
+	#[test]
+	fn ancestry_positions_matches_mmr_lib() {
+		for n in 2..=64usize {
+			let all = leaves(n as u64);
+			let store = MemStore::<Hash>::default();
+			let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+			for l in &all {
+				mmr.push(*l).unwrap();
+			}
+			for k in 1..n {
+				let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
+				let expected: Vec<u64> =
+					ap.prev_peaks_proof.proof_items().iter().map(|(p, _)| *p).collect();
+				let got = super::ancestry_positions(mmr_size(k), mmr_size(n));
+				assert_eq!(got, expected, "position mismatch at k={k}, n={n}");
+			}
+		}
 	}
 
 	#[test]
@@ -601,7 +725,7 @@ mod tests {
 		let mut ext = extension(&all, 2, 5);
 		// Pad the connecting nodes beyond the defense-in-depth ceiling: must reject, not do the
 		// work.
-		ext.connecting_nodes = vec![(0u64, H256::zero()); MAX_EXTENSION_CONNECTING_NODES + 1];
+		ext.connecting_nodes = vec![H256::zero(); MAX_EXTENSION_CONNECTING_NODES + 1];
 		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NodeLimitExceeded));
 	}
 
@@ -752,17 +876,23 @@ mod tests {
 		for i in 0..N as u64 {
 			mmr.push(H256::from_low_u64_be(i)).unwrap();
 		}
-		// NB: each connecting node is `(u64 position, Hash)` = 40 B, vs the design's hash-only 32 B
-		// count — so measured `encoded` runs ~25% above a "N hashes × 32 B" estimate.
+		// NB: each connecting node is a bare 32 B `Hash` (positions derived from the two leaf
+		// counts at verify time), so measured `encoded` tracks the design's "N hashes × 32 B"
+		// estimate.
 		println!("\n[extension]  MMRExtensionProof to tip N={N}, endpoint `behind` leaves back");
-		println!("     behind | nodes | encoded (40 B/node)");
+		println!("     behind | nodes | encoded (32 B/node)");
 		let mut sample_ext = MMRExtensionProof::identity();
 		for behind in [1usize, 16, 256, 4_096, N / 2] {
 			let k = N - behind;
 			let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 			let ext = MMRExtensionProof {
 				leaf_count: N as u64,
-				connecting_nodes: ap.prev_peaks_proof.proof_items().to_vec(),
+				connecting_nodes: ap
+					.prev_peaks_proof
+					.proof_items()
+					.iter()
+					.map(|(_, h)| *h)
+					.collect(),
 			};
 			// O(log N) connecting nodes — independent of how far the tail stretches.
 			assert!(
