@@ -248,7 +248,9 @@ pub mod well_known_keys {
 
 	/// The currently active host configuration.
 	///
-	/// The storage entry should be accessed as an `AbridgedHostConfiguration` encoded value.
+	/// The storage entry holds an encoded `HostConfiguration<BlockNumber>`. Parachains decode a
+	/// positional prefix of it: `AbridgedHostConfiguration` for the fields they persist, or
+	/// `RelayHostConfigurationPrefix` to also reach `node_features`.
 	pub const ACTIVE_CONFIG: &[u8] =
 		&hex!["06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385"];
 
@@ -981,6 +983,17 @@ pub struct AbridgedHostConfiguration {
 	pub validation_upgrade_delay: BlockNumber,
 	/// Asynchronous backing parameters.
 	pub async_backing_params: AsyncBackingParams,
+}
+
+/// The prefix of the relay `HostConfiguration<BlockNumber>` up to and including `node_features`.
+///
+/// The layout MUST stay a positional prefix of the relay `HostConfiguration<BlockNumber>`; this is
+/// guarded by the `verify_externally_accessible` test in the configuration pallet.
+#[derive(Clone, Encode, Decode, Debug, Default, TypeInfo)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
+pub struct RelayHostConfigurationPrefix {
+	/// The leading fields, which are also the ones parachains store on-chain.
+	pub abridged: AbridgedHostConfiguration,
 	/// The maximum POV block size, in bytes.
 	pub max_pov_size: u32,
 	/// The maximum size of a message that can be put in a downward message queue.

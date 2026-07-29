@@ -458,7 +458,6 @@ pub fn fake_set_validation_data() {
 			allowed_ancestry_len: 0,
 			max_candidate_depth: 0,
 		},
-		..Default::default()
 	});
 	crate::RelevantMessagingState::<Runtime>::put(MessagingStateSnapshot {
 		dmq_mqc_head: Default::default(),

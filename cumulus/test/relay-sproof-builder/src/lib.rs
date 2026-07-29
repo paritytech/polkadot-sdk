@@ -20,6 +20,7 @@ use alloc::collections::btree_map::BTreeMap;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
+	RelayHostConfigurationPrefix,
 };
 use polkadot_primitives::{Header, UpgradeGoAhead};
 use sp_consensus_babe::{
@@ -50,6 +51,7 @@ pub struct RelayStateSproofBuilder {
 	pub para_id: ParaId,
 
 	pub host_config: AbridgedHostConfiguration,
+	pub relay_node_features: relay_chain::NodeFeatures,
 	pub dmq_mqc_head: Option<relay_chain::Hash>,
 	pub upgrade_go_ahead: Option<UpgradeGoAhead>,
 	pub relay_dispatch_queue_remaining_capacity: Option<(u32, u32)>,
@@ -82,8 +84,8 @@ impl Default for RelayStateSproofBuilder {
 					allowed_ancestry_len: 0,
 					max_candidate_depth: 0,
 				},
-				..Default::default()
 			},
+			relay_node_features: Default::default(),
 			dmq_mqc_head: None,
 			upgrade_go_ahead: None,
 			relay_dispatch_queue_remaining_capacity: None,
@@ -191,7 +193,12 @@ impl RelayStateSproofBuilder {
 				backend.insert(vec![(None, vec![(key, Some(value))])], state_version);
 			};
 
-			insert(relay_chain::well_known_keys::ACTIVE_CONFIG.to_vec(), self.host_config.encode());
+			let active_config = RelayHostConfigurationPrefix {
+				abridged: self.host_config.clone(),
+				node_features: self.relay_node_features.clone(),
+				..Default::default()
+			};
+			insert(relay_chain::well_known_keys::ACTIVE_CONFIG.to_vec(), active_config.encode());
 			if let Some(dmq_mqc_head) = self.dmq_mqc_head {
 				insert(
 					relay_chain::well_known_keys::dmq_mqc_head(self.para_id),

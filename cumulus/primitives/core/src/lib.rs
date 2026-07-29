@@ -42,7 +42,7 @@ pub use polkadot_parachain_primitives::primitives::{
 };
 pub use polkadot_primitives::{
 	AbridgedHostConfiguration, AbridgedHrmpChannel, ClaimQueueOffset, CoreSelector,
-	PersistedValidationData,
+	PersistedValidationData, RelayHostConfigurationPrefix,
 };
 pub use scheduling::{
 	SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo, VerifySchedulingSignature,

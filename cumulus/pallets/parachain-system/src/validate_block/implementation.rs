@@ -175,8 +175,12 @@ where
 	);
 
 	// V3 is *dynamically* active only when the para const `V3_SCHEDULING_ENABLED` is on AND the
-	// relay `CandidateReceiptV3` feature is on (read from the committed state proof). This mirrors
-	// the `v3_dynamically_active` value computed in `set_validation_data` (see `lib.rs`).
+	// relay `CandidateReceiptV3` feature is on (read from the committed state proof). This MUST
+	// stay identical to the `v3_dynamically_active` predicate in `set_validation_data` (see
+	// `lib.rs`): disagreement between the two means this PVF rejects blocks their author
+	// considered valid, so the two sites have to be edited together. The const is checked first so
+	// that `&&` short-circuits and a non-V3 runtime never scans the extrinsics or decodes the
+	// config prefix.
 	let v3_dynamically_active = PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
 		read_relay_v3_feature_enabled::<B, PSC>(&block_data, relay_parent_storage_root);
 

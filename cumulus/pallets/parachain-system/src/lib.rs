@@ -1815,7 +1815,6 @@ impl<T: Config> Pallet<T> {
 				allowed_ancestry_len: 0,
 				max_candidate_depth: 0,
 			},
-			..Default::default()
 		};
 		<HostConfiguration<T>>::put(host_config);
 	}
@@ -1928,7 +1927,6 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 						allowed_ancestry_len: 0,
 						max_candidate_depth: 0,
 					},
-					..Default::default()
 				})
 			},
 		})

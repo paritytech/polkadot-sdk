@@ -20,6 +20,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
+	RelayHostConfigurationPrefix,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
@@ -282,8 +283,26 @@ impl RelayChainStateProof {
 
 	/// Read the [`AbridgedHostConfiguration`] from the relay chain state proof.
 	///
+	/// Decodes only the abridged prefix, deliberately *not* via
+	/// [`Self::read_host_configuration_prefix`] with the remainder discarded: this is a mandatory
+	/// read on every block for every parachain, so it must not depend on the layout of relay fields
+	/// past the ones parachains actually persist. Only v3-capable runtimes take on that wider
+	/// dependency, and only via [`Self::read_relay_v3_feature_enabled`].
+	///
 	/// Returns an error if anything failed at reading or decoding.
 	pub fn read_abridged_host_configuration(&self) -> Result<AbridgedHostConfiguration, Error> {
+		read_entry(&self.trie_backend, relay_chain::well_known_keys::ACTIVE_CONFIG, None)
+			.map_err(Error::Config)
+	}
+
+	/// Read the [`RelayHostConfigurationPrefix`] from the relay chain state proof.
+	///
+	/// This decodes further into the `ACTIVE_CONFIG` blob than [`AbridgedHostConfiguration`] does
+	/// in order to reach `node_features`, and so additionally depends on the layout of every relay
+	/// field in between. Only the abridged part is ever persisted on-chain.
+	///
+	/// Returns an error if anything failed at reading or decoding.
+	fn read_host_configuration_prefix(&self) -> Result<RelayHostConfigurationPrefix, Error> {
 		read_entry(&self.trie_backend, relay_chain::well_known_keys::ACTIVE_CONFIG, None)
 			.map_err(Error::Config)
 	}
@@ -293,7 +312,7 @@ impl RelayChainStateProof {
 	/// undecodable (the same entry the mandatory messaging path already requires).
 	pub fn read_relay_v3_feature_enabled(&self) -> Result<bool, Error> {
 		Ok(relay_chain::node_features::FeatureIndex::CandidateReceiptV3
-			.is_set(&self.read_abridged_host_configuration()?.node_features))
+			.is_set(&self.read_host_configuration_prefix()?.node_features))
 	}
 
 	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
