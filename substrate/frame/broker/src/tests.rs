@@ -2587,6 +2587,56 @@ fn auto_renewal_fails_for_workload_of_another_task() {
 }
 
 #[test]
+fn auto_renewal_skips_record_with_future_next_renewal() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Task 1001 has a renewal record further in the future (e.g. due to holding a lease)
+		// and enables auto-renewal with a hint:
+		PotentialRenewals::<Test>::insert(
+			PotentialRenewalId { core: 0, when: 10 },
+			PotentialRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1001) }]
+						.try_into()
+						.unwrap(),
+				),
+			},
+		);
+		endow(1001, 1000);
+		assert_ok!(Broker::do_enable_auto_renew(1001, 0, 1001, Some(10)));
+
+		// In the meantime, the same core index carries another task's expiring workload:
+		PotentialRenewals::<Test>::insert(
+			PotentialRenewalId { core: 0, when: 7 },
+			PotentialRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+						.try_into()
+						.unwrap(),
+				),
+			},
+		);
+
+		// The record is not due for renewal yet, so it must be skipped and left untouched
+		// rather than dropped because of the foreign workload:
+		advance_to(7);
+		assert_eq!(balance(1001), 1000);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
+		);
+
+		// Once due, the renewal is processed normally:
+		advance_to(13);
+		assert_eq!(balance(1001), 900);
+	});
+}
+
+#[test]
 fn enable_auto_renew_immediate_ignores_hint_for_next_renewal() {
 	TestExt::new().endow(1, 1000).endow(1001, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
