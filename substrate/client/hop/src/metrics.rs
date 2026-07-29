@@ -338,6 +338,33 @@ impl HopMetrics {
 			.map(|i| (i.pool_entries.get(), i.pool_bytes.get()))
 			.unwrap_or((0, 0))
 	}
+
+	/// Counter value of `substrate_hop_promotions_confirmed_total`.
+	#[cfg(test)]
+	pub(crate) fn promotions_confirmed(&self) -> u64 {
+		self.inner.as_ref().map(|i| i.promotions_confirmed_total.get()).unwrap_or(0)
+	}
+
+	/// Counter value of `substrate_hop_promotions_abandoned_total`.
+	#[cfg(test)]
+	pub(crate) fn promotions_abandoned(&self) -> u64 {
+		self.inner.as_ref().map(|i| i.promotions_abandoned_total.get()).unwrap_or(0)
+	}
+
+	/// Current value of the `substrate_hop_promotion_backlog` gauge.
+	#[cfg(test)]
+	pub(crate) fn promotion_backlog(&self) -> u64 {
+		self.inner.as_ref().map(|i| i.promotion_backlog.get()).unwrap_or(0)
+	}
+
+	/// Counter value of `substrate_hop_rpc_requests_total{method,outcome}`.
+	#[cfg(test)]
+	pub(crate) fn rpc_count(&self, method: &str, outcome: &str) -> u64 {
+		self.inner
+			.as_ref()
+			.map(|i| i.rpc_requests_total.with_label_values(&[method, outcome]).get())
+			.unwrap_or(0)
+	}
 }
 
 #[cfg(test)]

@@ -384,6 +384,26 @@ mod tests {
 		(rpc, pool, dir)
 	}
 
+	/// Same as [`setup`] but with metrics registered.
+	fn setup_metered() -> (HopRpcServer<MockClient, Block>, Arc<HopDataPool>, TempDir) {
+		let registry = prometheus_endpoint::Registry::new();
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(
+			HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				crate::rate_limit::RateLimitConfig::disabled(),
+				crate::metrics::HopMetrics::new(Some(&registry)).unwrap(),
+			)
+			.unwrap(),
+		);
+		let client = Arc::new(MockClient::new(true));
+		let rpc = HopRpcServer::new(pool.clone(), client);
+		(rpc, pool, dir)
+	}
+
 	fn make_keypair() -> (ed25519::Pair, MultiSigner) {
 		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
 		let signer = MultiSigner::Ed25519(pair.public());
@@ -411,6 +431,25 @@ mod tests {
 		use crate::types::{signing_payload, HOP_ACK_CONTEXT};
 		let payload = signing_payload(HOP_ACK_CONTEXT, hash);
 		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
+	}
+
+	#[test]
+	fn rpc_metrics_record_method_and_outcome() {
+		let (rpc, pool, _dir) = setup_metered();
+		let (pair, _) = make_keypair();
+
+		// Reaches the pool and comes back `not_found`.
+		let unknown = H256([9u8; 32]);
+		assert!(rpc.claim(Bytes(unknown.0.to_vec()), claim_sig(&pair, &unknown)).is_err());
+		assert_eq!(pool.metrics().rpc_count(rpc_methods::CLAIM, "not_found"), 1);
+
+		// Never reaches the pool, still counted.
+		assert!(rpc.ack(Bytes(vec![0u8; 4]), Bytes(vec![0u8; 64])).is_err());
+		assert_eq!(pool.metrics().rpc_count(rpc_methods::ACK, "invalid_hash_length"), 1);
+
+		// Infallible method.
+		assert!(rpc.pool_status().is_ok());
+		assert_eq!(pool.metrics().rpc_count(rpc_methods::POOL_STATUS, OUTCOME_OK), 1);
 	}
 
 	#[test]
