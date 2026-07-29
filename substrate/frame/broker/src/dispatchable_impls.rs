@@ -568,9 +568,9 @@ impl<T: Config> Pallet<T> {
 		// Check if the core is expiring in the next bulk period with the task's own workload;
 		// if so, we will renew it now.
 		//
-		// Core indices are reused across regions, so the core could instead be expiring with
-		// another task's workload, which `task` must not pay to renew. In that case the
-		// `workload_end_hint` can still point to the task's own renewal record.
+		// A core index can be assigned a different workload each bulk period, so the core could
+		// instead be expiring with another task's workload, which `task` must not pay to renew.
+		// In that case the `workload_end_hint` can still point to the task's own renewal record.
 		let renewable_now =
 			PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
 				.map_or(false, |record| record.includes_task(task));
