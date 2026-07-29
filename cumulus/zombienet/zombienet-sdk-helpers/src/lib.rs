@@ -129,7 +129,7 @@ pub async fn assert_para_throughput(
 /// Only receipts for para IDs present in `expected_candidate_ranges` are passed to the closure.
 ///
 /// `min_session_index`, when set, restricts counting and validation to candidates whose relay
-/// parent is at or past the given session (see [`collect_para_throughput`]).
+/// parent is at or past the given session (see `collect_para_throughput`).
 pub async fn assert_para_throughput_with<F>(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
