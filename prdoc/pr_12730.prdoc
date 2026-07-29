@@ -13,9 +13,10 @@ doc:
 
     Storage deposits are paid on the supply side: the creator pays for a
     collection, the issuer pays for each item definition, and the collection
-    owner pays for each metadata entry and ordinarily minted instance. Trusted
-    claim-path mints waive only the instance deposit because their volume is
-    bounded by claim credits.
+    owner pays for each metadata entry and ordinarily minted instance. Runtime
+    pallets may use the `MintWithoutDeposit` integration trait to mint without
+    an instance deposit when state growth is bounded by another scarce resource
+    or protocol rule.
 
     Transfers and burns are feeless and authorized by the owning purse key
     through the `AsScarcity` transaction extension, which elevates a custom
@@ -23,16 +24,18 @@ doc:
     assigns transaction priority proportional to the instance's rest time
     (seconds since it last moved, capped), and restores the instance with a
     quadratic backoff lock when dispatch fails. Burning releases any instance
-    deposit while keeping item supply monotonic. The separate replay-epoch
-    field was removed as unnecessary: the replay model is nonce-free through
-    consumption-on-use, a per-key `provides` tag, transaction mortality, and
-    failure locks.
+    deposit while keeping item supply monotonic. Authorizations bind to both
+    the permanent instance identifier and its current `state_nonce`; successful
+    transfers advance the nonce so an old authorization cannot be replayed
+    after an NFT leaves and returns to a purse key. Consumption-on-use and a
+    per-state `provides` tag prevent concurrent use of the same authorization.
 
-    A `try_state` hook verifies the owner/reverse-index bijection and rejects
-    orphaned instance-deposit tickets and metadata. Metadata growth is priced
-    by a deposit per entry; `define_item` accepts a linearly weighted `Vec`
-    whose batch size is bounded by extrinsic and block length, while each key
-    and value remains individually bounded.
+    A `try_state` hook verifies allocation counters, collection/item
+    references, minted supply, the owner/reverse-index bijection, deposit
+    tickets, locks, and metadata references. Metadata growth is priced by a
+    deposit per entry; `define_item` accepts a linearly weighted `Vec` whose
+    batch size is bounded by extrinsic and block length, while each key and
+    value remains individually bounded.
 crates:
 - name: pallet-scarcity
   bump: major

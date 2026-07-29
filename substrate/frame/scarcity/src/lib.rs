@@ -45,6 +45,20 @@ extern crate alloc;
 
 pub use pallet::*;
 
+/// Runtime-only integration for minting an NFT without an instance storage deposit.
+///
+/// Implementations still enforce all collection, item, supply, and ownership invariants. The
+/// calling runtime pallet is responsible for bounding depositless state growth through some
+/// other scarce resource or protocol rule.
+pub trait MintWithoutDeposit<AccountId> {
+	/// Mint an instance without creating an [`InstanceDeposits`] ticket.
+	fn mint_without_deposit(
+		collection: CollectionId,
+		item: ItemIndex,
+		to: AccountId,
+	) -> Result<InstanceId, sp_runtime::DispatchError>;
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -60,6 +74,8 @@ pub mod weights;
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::weights::WeightInfo;
+	#[cfg(any(test, feature = "try-runtime"))]
+	use alloc::collections::BTreeMap;
 	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*,
@@ -295,6 +311,13 @@ pub mod pallet {
 		StateNonceOverflow,
 	}
 
+	/// A reason for holding funds as Scarcity storage deposits.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds held for collection, item, instance, or metadata storage.
+		StorageDeposit,
+	}
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -339,7 +362,7 @@ pub mod pallet {
 		/// A type representing the weights required by the dispatchables of this pallet.
 		type WeightInfo: crate::weights::WeightInfo;
 
-		/// Unix time source for `minted_at` / `last_moved`; rest-time priority lands in Phase 2.
+		/// Unix time source for `minted_at`, `last_moved`, rest-time priority, and failure locks.
 		type UnixTime: UnixTime;
 
 		/// Deposit for a collection record, charged to the creator.
@@ -383,10 +406,7 @@ pub mod pallet {
 
 		/// Define one immutable item in a collection owned by the signer.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::define_item(
-			metadata.len() as u32,
-			metadata.iter().map(|(_, value)| value.len() as u32).max().unwrap_or(0),
-		))]
+		#[pallet::weight(T::WeightInfo::define_item(metadata.len() as u32))]
 		pub fn define_item(
 			origin: OriginFor<T>,
 			collection: CollectionId,
@@ -660,21 +680,6 @@ pub mod pallet {
 			Self::do_mint_inner(collection, item, to, Some(&info.owner))
 		}
 
-		/// **TRUSTED CALLERS ONLY:** mint an instance without an instance deposit.
-		///
-		/// The caller — the claim pallet wired at runtime composition — is responsible for
-		/// verifying both the claim entitlement and the collection's opt-in before calling this
-		/// function. The deposit waiver is justified only because this path's volume is bounded
-		/// by a scarce external resource: one mint per claim credit.
-		pub fn do_mint_claimed(
-			collection: CollectionId,
-			item: ItemIndex,
-			to: T::AccountId,
-		) -> Result<InstanceId, DispatchError> {
-			ensure!(Collections::<T>::contains_key(collection), Error::<T>::UnknownCollection);
-			Self::do_mint_inner(collection, item, to, None)
-		}
-
 		fn do_mint_inner(
 			collection: CollectionId,
 			item: ItemIndex,
@@ -717,19 +722,100 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> crate::MintWithoutDeposit<T::AccountId> for Pallet<T> {
+		fn mint_without_deposit(
+			collection: CollectionId,
+			item: ItemIndex,
+			to: T::AccountId,
+		) -> Result<InstanceId, DispatchError> {
+			ensure!(Collections::<T>::contains_key(collection), Error::<T>::UnknownCollection);
+			Self::do_mint_inner(collection, item, to, None)
+		}
+	}
+
 	#[cfg(any(test, feature = "try-runtime"))]
 	impl<T: Config> Pallet<T> {
-		/// Check ownership indexes, deposit-ticket ownership, and metadata references.
+		/// Check allocation counters, catalogue references, ownership indexes, deposits, locks,
+		/// and metadata references.
 		pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
+			let next_collection = NextCollectionId::<T>::get();
+			let next_instance = NextInstanceId::<T>::get();
+			let mut collection_count = 0u64;
+
+			for (collection, info) in Collections::<T>::iter() {
+				if collection >= next_collection {
+					return Err(TryRuntimeError::Other(
+						"collection identifier is not below NextCollectionId",
+					));
+				}
+				collection_count += 1;
+
+				let mut item_count = 0u64;
+				for (item, _) in ItemDefs::<T>::iter_prefix(collection) {
+					if item >= info.next_item_index {
+						return Err(TryRuntimeError::Other(
+							"item index is not below the collection's next item index",
+						));
+					}
+					item_count += 1;
+				}
+				if item_count != u64::from(info.next_item_index) {
+					return Err(TryRuntimeError::Other(
+						"collection next item index does not match its item definition count",
+					));
+				}
+			}
+
+			if collection_count != u64::from(next_collection) {
+				return Err(TryRuntimeError::Other(
+					"NextCollectionId does not match the collection count",
+				));
+			}
+
+			let mut total_supply = 0u128;
+			for (collection, item, definition) in ItemDefs::<T>::iter() {
+				let info = Collections::<T>::get(collection)
+					.ok_or(TryRuntimeError::Other("ItemDefs entry has no matching collection"))?;
+				if item >= info.next_item_index {
+					return Err(TryRuntimeError::Other(
+						"item index is not below the collection's next item index",
+					));
+				}
+				total_supply += u128::from(definition.supply);
+			}
+			if total_supply != u128::from(next_instance) {
+				return Err(TryRuntimeError::Other(
+					"NextInstanceId does not match total minted supply",
+				));
+			}
+
+			let mut live_by_item = BTreeMap::<(CollectionId, ItemIndex), u64>::new();
 			for (owner, nft) in NftsByOwner::<T>::iter() {
+				if nft.instance >= next_instance {
+					return Err(TryRuntimeError::Other("NFT instance is not below NextInstanceId"));
+				}
 				if Instances::<T>::get(nft.instance) != Some(owner) {
 					return Err(TryRuntimeError::Other(
 						"NftsByOwner entry has no matching Instances entry",
 					));
 				}
+				let definition = ItemDefs::<T>::get(nft.collection, nft.item)
+					.ok_or(TryRuntimeError::Other("NFT has no matching item definition"))?;
+				let live = live_by_item.entry((nft.collection, nft.item)).or_default();
+				*live += 1;
+				if *live > u64::from(definition.supply) {
+					return Err(TryRuntimeError::Other(
+						"item definition supply is below its live instance count",
+					));
+				}
 			}
 
 			for (instance, owner) in Instances::<T>::iter() {
+				if instance >= next_instance {
+					return Err(TryRuntimeError::Other(
+						"Instances identifier is not below NextInstanceId",
+					));
+				}
 				if !matches!(
 					NftsByOwner::<T>::get(&owner),
 					Some(nft) if nft.instance == instance
@@ -741,10 +827,21 @@ pub mod pallet {
 			}
 
 			for instance in InstanceDeposits::<T>::iter_keys() {
+				if instance >= next_instance {
+					return Err(TryRuntimeError::Other(
+						"InstanceDeposits identifier is not below NextInstanceId",
+					));
+				}
 				if !Instances::<T>::contains_key(instance) {
 					return Err(TryRuntimeError::Other(
 						"InstanceDeposits entry has no matching instance",
 					));
+				}
+			}
+
+			for owner in Locked::<T>::iter_keys() {
+				if !NftsByOwner::<T>::contains_key(owner) {
+					return Err(TryRuntimeError::Other("Locked entry has no matching NFT"));
 				}
 			}
 

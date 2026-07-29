@@ -23,7 +23,8 @@ use crate::{
 	extension::{AsScarcity, AsScarcityInfo, CustomInvalidity, Pre, Val},
 	mock::*,
 	CollectionMetadata, Collections, Error, Event, InstanceDeposits, Instances, ItemDefs,
-	ItemMetadata, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, Nft, NftsByOwner, Origin,
+	ItemMetadata, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, MintWithoutDeposit,
+	NextCollectionId, NextInstanceId, Nft, NftsByOwner, Origin,
 };
 use codec::Encode;
 #[cfg(feature = "try-runtime")]
@@ -38,7 +39,7 @@ use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, DispatchResult,
+	DispatchError, DispatchResult, TryRuntimeError,
 };
 
 const OWNER: u64 = 1;
@@ -191,6 +192,13 @@ fn post_dispatch(pre: Pre<Test>, result: DispatchResult) {
 		0,
 		&result,
 	));
+}
+
+fn assert_try_state_error(expected: &'static str) {
+	match Scarcity::do_try_state() {
+		Err(TryRuntimeError::Other(actual)) => assert_eq!(actual, expected),
+		other => panic!("expected try-state error {expected:?}, got {other:?}"),
+	}
 }
 
 #[test]
@@ -649,15 +657,15 @@ fn mint_writes_consistent_state() {
 }
 
 #[test]
-fn do_mint_claimed_waives_deposit_and_increments_supply() {
+fn mint_without_deposit_waives_deposit_and_increments_supply() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		clear_consideration_events();
 		MockNow::set(1_234);
 
-		assert_eq!(Scarcity::do_mint_claimed(0, 0, RECIPIENT), Ok(0));
+		assert_eq!(Scarcity::mint_without_deposit(0, 0, RECIPIENT), Ok(0));
 
-		let nft = NftsByOwner::<Test>::get(RECIPIENT).expect("claimed NFT is stored by owner");
+		let nft = NftsByOwner::<Test>::get(RECIPIENT).expect("depositless NFT is stored by owner");
 		assert_eq!(nft.instance, 0);
 		assert_eq!(nft.collection, 0);
 		assert_eq!(nft.item, 0);
@@ -674,15 +682,21 @@ fn do_mint_claimed_waives_deposit_and_increments_supply() {
 }
 
 #[test]
-fn do_mint_claimed_checks_collection_item_and_destination() {
+fn mint_without_deposit_checks_collection_item_and_destination() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		define(0);
 
-		assert_noop!(Scarcity::do_mint_claimed(99, 0, RECIPIENT), Error::<Test>::UnknownCollection);
-		assert_noop!(Scarcity::do_mint_claimed(0, 99, RECIPIENT), Error::<Test>::UnknownItem);
-		assert_ok!(Scarcity::do_mint_claimed(0, 0, RECIPIENT));
-		assert_noop!(Scarcity::do_mint_claimed(0, 1, RECIPIENT), Error::<Test>::AddressOccupied);
+		assert_noop!(
+			Scarcity::mint_without_deposit(99, 0, RECIPIENT),
+			Error::<Test>::UnknownCollection
+		);
+		assert_noop!(Scarcity::mint_without_deposit(0, 99, RECIPIENT), Error::<Test>::UnknownItem);
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
+		assert_noop!(
+			Scarcity::mint_without_deposit(0, 1, RECIPIENT),
+			Error::<Test>::AddressOccupied
+		);
 	});
 }
 
@@ -723,12 +737,12 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 }
 
 #[test]
-fn claimed_instance_transfers_through_extension_pipeline() {
+fn depositless_instance_transfers_through_extension_pipeline() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		clear_consideration_events();
 		MockNow::set(10);
-		assert_ok!(Scarcity::do_mint_claimed(0, 0, RECIPIENT));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
 
 		MockNow::set(20);
 		let (validity, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
@@ -738,7 +752,7 @@ fn claimed_instance_transfers_through_extension_pipeline() {
 		post_dispatch(pre, Ok(()));
 
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
-		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has claimed NFT");
+		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has depositless NFT");
 		assert_eq!(moved.instance, 0);
 		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(moved.last_moved, 20);
@@ -929,6 +943,7 @@ fn failed_dispatch_restores_and_locks() {
 		post_dispatch(pre, Err(Error::<Test>::AddressOccupied.into()));
 		assert_eq!(NftsByOwner::<Test>::get(OWNER).map(|nft| nft.state_nonce), Some(0));
 		assert_eq!(Locked::<Test>::get(OWNER), Some(LockInfo { retries: 0, until: 60 }));
+		assert_ok!(Scarcity::do_try_state());
 		// While locked, even a fresh empty destination is rejected at the pool.
 		assert!(validate_transfer(OWNER, 5).is_err());
 
@@ -1090,10 +1105,10 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 }
 
 #[test]
-fn burn_of_claimed_instance_releases_nothing_and_cleans_indexes() {
+fn burn_of_depositless_instance_releases_nothing_and_cleans_indexes() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		assert_ok!(Scarcity::do_mint_claimed(0, 0, RECIPIENT));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
 		clear_consideration_events();
 
@@ -1152,7 +1167,103 @@ fn failed_burn_restores_nft_and_locks_purse_key() {
 }
 
 #[test]
-fn try_state_accepts_issuer_claimed_transferred_and_burned_states() {
+fn try_state_rejects_collection_counter_mismatch() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		NextCollectionId::<Test>::put(2);
+
+		assert_try_state_error("NextCollectionId does not match the collection count");
+	});
+}
+
+#[test]
+fn try_state_rejects_non_sequential_item_catalogue() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let definition = ItemDefs::<Test>::take(0, 0).expect("item definition exists");
+		ItemDefs::<Test>::insert(0, 1, definition);
+
+		assert_try_state_error("item index is not below the collection's next item index");
+	});
+}
+
+#[test]
+fn try_state_rejects_item_counter_mismatch() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		Collections::<Test>::mutate(0, |maybe_info| {
+			maybe_info.as_mut().expect("collection exists").next_item_index = 2;
+		});
+
+		assert_try_state_error(
+			"collection next item index does not match its item definition count",
+		);
+	});
+}
+
+#[test]
+fn try_state_rejects_orphaned_item_definition() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
+		ItemDefs::<Test>::insert(99, 0, definition);
+
+		assert_try_state_error("ItemDefs entry has no matching collection");
+	});
+}
+
+#[test]
+fn try_state_rejects_instance_counter_supply_mismatch() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		NextInstanceId::<Test>::put(2);
+
+		assert_try_state_error("NextInstanceId does not match total minted supply");
+	});
+}
+
+#[test]
+fn try_state_rejects_nft_without_item_definition() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		NftsByOwner::<Test>::mutate(RECIPIENT, |maybe_nft| {
+			maybe_nft.as_mut().expect("minted NFT exists").item = 99;
+		});
+
+		assert_try_state_error("NFT has no matching item definition");
+	});
+}
+
+#[test]
+fn try_state_rejects_live_count_above_item_supply() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		define(0);
+		mint(0, RECIPIENT);
+		ItemDefs::<Test>::mutate(0, 0, |maybe_definition| {
+			maybe_definition.as_mut().expect("item definition exists").supply = 0;
+		});
+		ItemDefs::<Test>::mutate(0, 1, |maybe_definition| {
+			maybe_definition.as_mut().expect("item definition exists").supply = 1;
+		});
+
+		assert_try_state_error("item definition supply is below its live instance count");
+	});
+}
+
+#[test]
+fn try_state_rejects_lock_without_nft() {
+	new_test_ext().execute_with(|| {
+		Locked::<Test>::insert(RECIPIENT, LockInfo { retries: 0, until: 60 });
+
+		assert_try_state_error("Locked entry has no matching NFT");
+	});
+}
+
+#[test]
+fn try_state_accepts_issuer_depositless_transferred_and_burned_states() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		define(0);
@@ -1177,12 +1288,12 @@ fn try_state_accepts_issuer_claimed_transferred_and_burned_states() {
 		assert_ok!(Scarcity::transfer(origin, 4));
 		post_dispatch(pre, Ok(()));
 
-		assert_ok!(Scarcity::do_mint_claimed(0, 0, 5));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, 5));
 		let (_, val, origin) = validate_burn(5).unwrap();
 		let pre = prepare_burn(val, &origin);
 		assert_ok!(Scarcity::burn(origin));
 		post_dispatch(pre, Ok(()));
-		assert_ok!(Scarcity::do_mint_claimed(0, 0, 6));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, 6));
 
 		assert_ok!(Scarcity::do_try_state());
 		#[cfg(feature = "try-runtime")]

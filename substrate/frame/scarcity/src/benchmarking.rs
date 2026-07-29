@@ -25,13 +25,14 @@ use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
-	dispatch::{DispatchInfo, GetDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	traits::{Consideration, Footprint, Get},
 };
 use frame_system::RawOrigin;
 use sp_runtime::{
 	traits::{Dispatchable, TransactionExtension, TxBaseImplication},
 	transaction_validity::TransactionSource,
+	DispatchError,
 };
 
 use super::*;
@@ -80,10 +81,12 @@ fn ensure_instance_consideration<T: Config>(
 		minted_at: 0,
 		last_moved: 0,
 	};
-	T::InstanceConsideration::ensure_successful(
-		owner,
-		Footprint::from_parts(2, nft.encoded_size().saturating_add(to.encoded_size())),
-	);
+	let record_size = nft
+		.encoded_size()
+		.saturating_add(to.encoded_size())
+		.saturating_add(nft.instance.encoded_size())
+		.saturating_add(T::InstanceConsideration::max_encoded_len());
+	T::InstanceConsideration::ensure_successful(owner, Footprint::from_parts(3, record_size));
 }
 
 fn create_definition<T: Config>(
@@ -98,7 +101,9 @@ fn create_definition<T: Config>(
 
 #[benchmarks(
 	where
-		T::RuntimeCall: From<Call<T>> + Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
+		T::RuntimeCall: From<Call<T>>
+			+ Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+			+ GetDispatchInfo,
 )]
 mod benchmarks {
 	use super::*;
@@ -116,17 +121,14 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn define_item(
-		m: Linear<0, 100>,
-		v: Linear<0, { T::MaxValueLen::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn define_item(m: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		ensure_collection_consideration::<T>(&caller);
 		let collection = Pallet::<T>::do_create_collection(caller.clone())?;
 		let metadata = (0..m)
 			.map(|index| {
 				let key = metadata_key::<T>(index);
-				let value = metadata_value::<T>(0x42, v);
+				let value = metadata_value::<T>(0x42, T::MaxValueLen::get());
 				T::MetadataConsideration::ensure_successful(
 					&caller,
 					Footprint::from_parts(1, key.len().saturating_add(value.len())),
@@ -205,23 +207,16 @@ mod benchmarks {
 		ensure_collection_consideration::<T>(&caller);
 		let collection = Pallet::<T>::do_create_collection(caller.clone())?;
 		let key = metadata_key::<T>(0);
-		let initial = metadata_value::<T>(0x11, T::MaxValueLen::get());
-		let replacement = metadata_value::<T>(0x22, T::MaxValueLen::get());
+		let value = metadata_value::<T>(0x22, T::MaxValueLen::get());
 		T::MetadataConsideration::ensure_successful(
 			&caller,
-			Footprint::from_parts(1, key.len().saturating_add(initial.len())),
+			Footprint::from_parts(1, key.len().saturating_add(value.len())),
 		);
-		Pallet::<T>::set_collection_metadata(
-			RawOrigin::Signed(caller.clone()).into(),
-			collection,
-			key.clone(),
-			Some(initial),
-		)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), collection, key.clone(), Some(replacement.clone()));
+		_(RawOrigin::Signed(caller), collection, key.clone(), Some(value.clone()));
 
-		assert_eq!(Pallet::<T>::collection_metadata_of(collection, &key), Some(replacement));
+		assert_eq!(Pallet::<T>::collection_metadata_of(collection, &key), Some(value));
 		frame_system::Pallet::<T>::assert_last_event(
 			Event::<T>::CollectionMetadataSet { collection, key }.into(),
 		);
@@ -233,24 +228,16 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let (collection, item) = create_definition::<T>(&caller)?;
 		let key = metadata_key::<T>(0);
-		let initial = metadata_value::<T>(0x11, T::MaxValueLen::get());
-		let replacement = metadata_value::<T>(0x22, T::MaxValueLen::get());
+		let value = metadata_value::<T>(0x22, T::MaxValueLen::get());
 		T::MetadataConsideration::ensure_successful(
 			&caller,
-			Footprint::from_parts(1, key.len().saturating_add(initial.len())),
+			Footprint::from_parts(1, key.len().saturating_add(value.len())),
 		);
-		Pallet::<T>::set_item_metadata(
-			RawOrigin::Signed(caller.clone()).into(),
-			collection,
-			item,
-			key.clone(),
-			Some(initial),
-		)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), collection, item, key.clone(), Some(replacement.clone()));
+		_(RawOrigin::Signed(caller), collection, item, key.clone(), Some(value.clone()));
 
-		assert_eq!(Pallet::<T>::metadata_of(collection, item, &key), Some(replacement));
+		assert_eq!(Pallet::<T>::metadata_of(collection, item, &key), Some(value));
 		frame_system::Pallet::<T>::assert_last_event(
 			Event::<T>::ItemMetadataSet { collection, item, key }.into(),
 		);
@@ -275,6 +262,7 @@ mod benchmarks {
 			state_nonce: nft.state_nonce,
 		}));
 		let origin: T::RuntimeOrigin = RawOrigin::Signed(owner.clone()).into();
+		let failed_dispatch = Err(DispatchError::Other("benchmark failure"));
 
 		#[block]
 		{
@@ -289,12 +277,21 @@ mod benchmarks {
 					TransactionSource::External,
 				)
 				.expect("worst-case scarcity transfer validates");
-			let _pre = extension
+			let pre = extension
 				.prepare(val, &origin, &call, &info, 0)
 				.expect("validated NFT is prepared");
+			AsScarcity::<T>::post_dispatch_details(
+				pre,
+				&info,
+				&Default::default(),
+				0,
+				&failed_dispatch,
+			)
+			.expect("failed dispatch is restored and locked");
 		}
 
-		assert!(!NftsByOwner::<T>::contains_key(&owner));
+		assert!(NftsByOwner::<T>::contains_key(&owner));
+		assert_eq!(Locked::<T>::get(&owner).map(|lock| lock.retries), Some(u8::MAX));
 		Ok(())
 	}
 

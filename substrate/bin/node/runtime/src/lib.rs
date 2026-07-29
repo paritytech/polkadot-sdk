@@ -546,6 +546,49 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub const ScarcityHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Scarcity(pallet_scarcity::HoldReason::StorageDeposit);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+type ScarcityConsideration = HoldConsideration<
+	AccountId,
+	Balances,
+	ScarcityHoldReason,
+	LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>,
+>;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ScarcityBenchmarkTime;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_support::traits::UnixTime for ScarcityBenchmarkTime {
+	fn now() -> core::time::Duration {
+		core::time::Duration::from_millis(pallet_timestamp::Now::<Runtime>::get())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_scarcity::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_scarcity::weights::SubstrateWeight<Runtime>;
+	type UnixTime = ScarcityBenchmarkTime;
+	type CollectionConsideration = ScarcityConsideration;
+	type ItemDefConsideration = ScarcityConsideration;
+	type InstanceConsideration = ScarcityConsideration;
+	type MetadataConsideration = ScarcityConsideration;
+	type MaxKeyLen = ConstU32<32>;
+	type MaxValueLen = ConstU32<256>;
+	type LockPeriod = ConstU64<60>;
+	type MaxTransferPriority = ConstU64<1_000_000>;
+}
+
 parameter_types! {
 	// NOTE: Currently it is not possible to change the epoch duration after the chain has started.
 	//       Attempting to do so will brick block production.
@@ -2917,6 +2960,10 @@ mod runtime {
 	#[runtime::pallet_index(86)]
 	pub type Psm = pallet_psm::Pallet<Runtime>;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	#[runtime::pallet_index(87)]
+	pub type Scarcity = pallet_scarcity::Pallet<Runtime>;
+
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 
@@ -3309,6 +3356,7 @@ mod benches {
 		[pallet_recovery, Recovery]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]
+		[pallet_scarcity, Scarcity]
 		[pallet_scheduler, Scheduler]
 		[pallet_glutton, Glutton]
 		[pallet_session, SessionBench::<Runtime>]
