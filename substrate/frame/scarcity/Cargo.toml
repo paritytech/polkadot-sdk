@@ -23,6 +23,9 @@ scale-info = { features = ["derive"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
+[dev-dependencies]
+pallet-balances = { workspace = true }
+
 [features]
 default = ["std"]
 std = [
@@ -30,6 +33,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-balances/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",

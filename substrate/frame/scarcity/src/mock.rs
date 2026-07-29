@@ -20,22 +20,20 @@
 #![cfg(test)]
 
 use crate as pallet_scarcity;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{Consideration, ConstU32, ConstU64, Footprint, UnixTime},
+	traits::{fungible, ConstU32, ConstU64, LinearStoragePrice, UnixTime},
 	weights::constants::RocksDbWeight,
 };
-use scale_info::TypeInfo;
-use sp_runtime::{traits::IdentityLookup, BuildStorage, DispatchError};
-use std::{cell::RefCell, thread_local};
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system = 0,
-		Scarcity: pallet_scarcity = 1,
+		Balances: pallet_balances = 1,
+		Scarcity: pallet_scarcity = 2,
 	}
 );
 
@@ -47,65 +45,19 @@ impl frame_system::Config for Test {
 	type DbWeight = RocksDbWeight;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
+	type AccountData = pallet_balances::AccountData<u64>;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type Balance = u64;
+	type ExistentialDeposit = ConstU64<1>;
+	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 parameter_types! {
 	pub static MockNow: u64 = 0;
-	pub static MockDropFails: bool = false;
-}
-
-/// A recorded action performed by the test consideration.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ConsiderationEvent {
-	New { who: u64, footprint: Footprint },
-	Update { who: u64, footprint: Footprint },
-	Drop { who: u64 },
-}
-
-thread_local! {
-	static CONSIDERATION_EVENTS: RefCell<Vec<ConsiderationEvent>> = const { RefCell::new(Vec::new()) };
-}
-
-/// Zero-sized deposit ticket that records charges and releases in thread-local test state.
-#[derive(
-	Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
-)]
-pub struct TestConsideration;
-
-impl Consideration<u64, Footprint> for TestConsideration {
-	fn new(who: &u64, footprint: Footprint) -> Result<Self, DispatchError> {
-		CONSIDERATION_EVENTS.with(|events| {
-			events.borrow_mut().push(ConsiderationEvent::New { who: *who, footprint })
-		});
-		Ok(Self)
-	}
-
-	fn update(self, who: &u64, footprint: Footprint) -> Result<Self, DispatchError> {
-		CONSIDERATION_EVENTS.with(|events| {
-			events.borrow_mut().push(ConsiderationEvent::Update { who: *who, footprint })
-		});
-		Ok(self)
-	}
-
-	fn drop(self, who: &u64) -> Result<(), DispatchError> {
-		CONSIDERATION_EVENTS
-			.with(|events| events.borrow_mut().push(ConsiderationEvent::Drop { who: *who }));
-		if MockDropFails::get() {
-			return Err(DispatchError::Other("test consideration drop failed"));
-		}
-		Ok(())
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_who: &u64, _footprint: Footprint) {}
-}
-
-pub fn consideration_events() -> Vec<ConsiderationEvent> {
-	CONSIDERATION_EVENTS.with(|events| events.borrow().clone())
-}
-
-pub fn clear_consideration_events() {
-	CONSIDERATION_EVENTS.with(|events| events.borrow_mut().clear());
 }
 
 /// Test-controlled Unix time source.
@@ -116,27 +68,45 @@ impl UnixTime for MockUnixTime {
 	}
 }
 
+type TestStoragePrice = LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>;
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type UnixTime = MockUnixTime;
-	type CollectionConsideration = TestConsideration;
-	type ItemDefConsideration = TestConsideration;
-	type InstanceConsideration = TestConsideration;
-	type MetadataConsideration = TestConsideration;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CollectionDeposit = TestStoragePrice;
+	type ItemDeposit = TestStoragePrice;
+	type InstanceDeposit = TestStoragePrice;
+	type MetadataDeposit = TestStoragePrice;
 	type MaxKeyLen = ConstU32<32>;
 	type MaxValueLen = ConstU32<256>;
 	type LockPeriod = ConstU64<60>;
 	type MaxTransferPriority = ConstU64<1_000_000>;
 }
 
+pub fn scarcity_hold_reason() -> RuntimeHoldReason {
+	RuntimeHoldReason::Scarcity(crate::HoldReason::StorageDeposit)
+}
+
+pub fn held(who: u64) -> u64 {
+	<Balances as fungible::InspectHold<u64>>::balance_on_hold(&scarcity_hold_reason(), &who)
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities =
-		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+	let storage = RuntimeGenesisConfig {
+		system: Default::default(),
+		balances: pallet_balances::GenesisConfig::<Test> {
+			balances: (1..=10).map(|account| (account, 1_000_000)).collect(),
+			..Default::default()
+		},
+	}
+	.build_storage()
+	.unwrap();
+	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| {
 		MockNow::set(0);
-		MockDropFails::set(false);
-		clear_consideration_events();
 		System::set_block_number(1);
 	});
 	ext

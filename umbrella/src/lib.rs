@@ -67,7 +67,8 @@ pub use bridge_hub_common;
 #[cfg(feature = "bridge-hub-test-utils")]
 pub use bridge_hub_test_utils;
 
-/// Common types and functions that may be used by substrate-based runtimes of all bridged chains.
+/// Common types and functions that may be used by substrate-based runtimes of all bridged
+/// chains.
 #[cfg(feature = "bridge-runtime-common")]
 pub use bridge_runtime_common;
 
@@ -83,7 +84,8 @@ pub use cumulus_client_cli;
 #[cfg(feature = "cumulus-client-collator")]
 pub use cumulus_client_collator;
 
-/// Parachain collator authority discovery — keeps collators connected via reserved peers on the block-announce protocol.
+/// Parachain collator authority discovery — keeps collators connected via reserved peers on
+/// the block-announce protocol.
 #[cfg(feature = "cumulus-client-collator-discovery")]
 pub use cumulus_client_collator_discovery;
 
@@ -103,7 +105,8 @@ pub use cumulus_client_consensus_relay_chain;
 #[cfg(feature = "cumulus-client-network")]
 pub use cumulus_client_network;
 
-/// Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof.
+/// Inherent that needs to be present in every parachain block. Contains messages and a relay
+/// chain storage-proof.
 #[cfg(feature = "cumulus-client-parachain-inherent")]
 pub use cumulus_client_parachain_inherent;
 
@@ -171,7 +174,8 @@ pub use cumulus_primitives_aura;
 #[cfg(feature = "cumulus-primitives-core")]
 pub use cumulus_primitives_core;
 
-/// Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof.
+/// Inherent that needs to be present in every parachain block. Contains messages and a relay
+/// chain storage-proof.
 #[cfg(feature = "cumulus-primitives-parachain-inherent")]
 pub use cumulus_primitives_parachain_inherent;
 
@@ -223,7 +227,8 @@ pub use emulated_integration_tests_common;
 #[cfg(feature = "ethereum-standards")]
 pub use ethereum_standards;
 
-/// Utility library for managing tree-like ordered data with logic for pruning the tree while finalizing nodes.
+/// Utility library for managing tree-like ordered data with logic for pruning the tree while
+/// finalizing nodes.
 #[cfg(feature = "fork-tree")]
 pub use fork_tree;
 
@@ -259,7 +264,8 @@ pub use frame_executive;
 #[cfg(feature = "frame-metadata-hash-extension")]
 pub use frame_metadata_hash_extension;
 
-/// An externalities provided environment that can load itself from remote nodes or cached files.
+/// An externalities provided environment that can load itself from remote nodes or cached
+/// files.
 #[cfg(feature = "frame-remote-externalities")]
 pub use frame_remote_externalities;
 
@@ -375,7 +381,8 @@ pub use pallet_authority_discovery;
 #[cfg(feature = "pallet-authorship")]
 pub use pallet_authorship;
 
-/// Consensus extension module for BABE consensus. Collects on-chain randomness from VRF outputs and manages epoch transitions.
+/// Consensus extension module for BABE consensus. Collects on-chain randomness from VRF
+/// outputs and manages epoch transitions.
 #[cfg(feature = "pallet-babe")]
 pub use pallet_babe;
 
@@ -399,7 +406,8 @@ pub use pallet_beefy_mmr;
 #[cfg(feature = "pallet-bounties")]
 pub use pallet_bounties;
 
-/// Module implementing GRANDPA on-chain light client used for bridging consensus of substrate-based chains.
+/// Module implementing GRANDPA on-chain light client used for bridging consensus of
+/// substrate-based chains.
 #[cfg(feature = "pallet-bridge-grandpa")]
 pub use pallet_bridge_grandpa;
 
@@ -427,7 +435,8 @@ pub use pallet_child_bounties;
 #[cfg(feature = "pallet-collator-selection")]
 pub use pallet_collator_selection;
 
-/// Collective system: Members of a set of account IDs can make their collective feelings known through dispatched calls from one of two specialized origins.
+/// Collective system: Members of a set of account IDs can make their collective feelings known
+/// through dispatched calls from one of two specialized origins.
 #[cfg(feature = "pallet-collective")]
 pub use pallet_collective;
 
@@ -643,7 +652,8 @@ pub use pallet_proxy;
 #[cfg(feature = "pallet-psm")]
 pub use pallet_psm;
 
-/// Ranked collective system: Members of a set of account IDs can make their collective feelings known through dispatched calls from one of two specialized origins.
+/// Ranked collective system: Members of a set of account IDs can make their collective
+/// feelings known through dispatched calls from one of two specialized origins.
 #[cfg(feature = "pallet-ranked-collective")]
 pub use pallet_ranked_collective;
 
@@ -667,7 +677,8 @@ pub use pallet_revive;
 #[cfg(feature = "pallet-revive-proc-macro")]
 pub use pallet_revive_proc_macro;
 
-/// Wire types used by pallet-revive which have higher stability guarantees than internal pallet-revive types.
+/// Wire types used by pallet-revive which have higher stability guarantees than internal
+/// pallet-revive types.
 #[cfg(feature = "pallet-revive-types")]
 pub use pallet_revive_types;
 
@@ -691,7 +702,8 @@ pub use pallet_safe_mode;
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
 
-/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless rest-time-prioritized transfers.
+/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
+/// rest-time-prioritized transfers.
 #[cfg(feature = "pallet-scarcity")]
 pub use pallet_scarcity;
 
@@ -711,7 +723,8 @@ pub use pallet_session;
 #[cfg(feature = "pallet-session-benchmarking")]
 pub use pallet_session_benchmarking;
 
-/// Pallet to skip payments for calls annotated with `feeless_if` if the respective conditions are satisfied.
+/// Pallet to skip payments for calls annotated with `feeless_if` if the respective conditions
+/// are satisfied.
 #[cfg(feature = "pallet-skip-feeless-payment")]
 pub use pallet_skip_feeless_payment;
 
@@ -727,11 +740,13 @@ pub use pallet_staking;
 #[cfg(feature = "pallet-staking-async")]
 pub use pallet_staking_async;
 
-/// Pallet handling the communication with staking-rc-client. It's role is to glue the staking pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+/// Pallet handling the communication with staking-rc-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-ah-client")]
 pub use pallet_staking_async_ah_client;
 
-/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
+/// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
+/// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
 
@@ -847,19 +862,23 @@ pub use parachains_common_types;
 #[cfg(feature = "parachains-runtimes-test-utils")]
 pub use parachains_runtimes_test_utils;
 
-/// Polkadot Approval Distribution subsystem for the distribution of assignments and approvals for approval checks on candidates over the network.
+/// Polkadot Approval Distribution subsystem for the distribution of assignments and approvals
+/// for approval checks on candidates over the network.
 #[cfg(feature = "polkadot-approval-distribution")]
 pub use polkadot_approval_distribution;
 
-/// Polkadot Bitfiled Distribution subsystem, which gossips signed availability bitfields used to compactly determine which backed candidates are available or not based on a 2/3+ quorum.
+/// Polkadot Bitfiled Distribution subsystem, which gossips signed availability bitfields used
+/// to compactly determine which backed candidates are available or not based on a 2/3+ quorum.
 #[cfg(feature = "polkadot-availability-bitfield-distribution")]
 pub use polkadot_availability_bitfield_distribution;
 
-/// The Availability Distribution subsystem. Requests the required availability data. Also distributes availability data and chunks to requesters.
+/// The Availability Distribution subsystem. Requests the required availability data. Also
+/// distributes availability data and chunks to requesters.
 #[cfg(feature = "polkadot-availability-distribution")]
 pub use polkadot_availability_distribution;
 
-/// The Availability Recovery subsystem. Handles requests for recovering the availability data of included candidates.
+/// The Availability Recovery subsystem. Handles requests for recovering the availability data
+/// of included candidates.
 #[cfg(feature = "polkadot-availability-recovery")]
 pub use polkadot_availability_recovery;
 
@@ -867,7 +886,8 @@ pub use polkadot_availability_recovery;
 #[cfg(feature = "polkadot-cli")]
 pub use polkadot_cli;
 
-/// Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other.
+/// Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each
+/// other.
 #[cfg(feature = "polkadot-collator-protocol")]
 pub use polkadot_collator_protocol;
 
@@ -875,7 +895,8 @@ pub use polkadot_collator_protocol;
 #[cfg(feature = "polkadot-core-primitives")]
 pub use polkadot_core_primitives;
 
-/// Polkadot Dispute Distribution subsystem, which ensures all concerned validators are aware of a dispute and have the relevant votes.
+/// Polkadot Dispute Distribution subsystem, which ensures all concerned validators are aware
+/// of a dispute and have the relevant votes.
 #[cfg(feature = "polkadot-dispute-distribution")]
 pub use polkadot_dispute_distribution;
 
@@ -883,7 +904,8 @@ pub use polkadot_dispute_distribution;
 #[cfg(feature = "polkadot-erasure-coding")]
 pub use polkadot_erasure_coding;
 
-/// Polkadot Gossip Support subsystem. Responsible for keeping track of session changes and issuing a connection request to the relevant validators on every new session.
+/// Polkadot Gossip Support subsystem. Responsible for keeping track of session changes and
+/// issuing a connection request to the relevant validators on every new session.
 #[cfg(feature = "polkadot-gossip-support")]
 pub use polkadot_gossip_support;
 
@@ -907,11 +929,13 @@ pub use polkadot_node_core_approval_voting;
 #[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
 pub use polkadot_node_core_approval_voting_parallel;
 
-/// The Availability Store subsystem. Wrapper over the DB that stores availability data and chunks.
+/// The Availability Store subsystem. Wrapper over the DB that stores availability data and
+/// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]
 pub use polkadot_node_core_av_store;
 
-/// The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates.
+/// The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as
+/// the issuance of statements about candidates.
 #[cfg(feature = "polkadot-node-core-backing")]
 pub use polkadot_node_core_backing;
 
@@ -919,11 +943,13 @@ pub use polkadot_node_core_backing;
 #[cfg(feature = "polkadot-node-core-bitfield-signing")]
 pub use polkadot_node_core_bitfield_signing;
 
-/// Polkadot crate that implements the Candidate Validation subsystem. Handles requests to validate candidates according to a PVF.
+/// Polkadot crate that implements the Candidate Validation subsystem. Handles requests to
+/// validate candidates according to a PVF.
 #[cfg(feature = "polkadot-node-core-candidate-validation")]
 pub use polkadot_node_core_candidate_validation;
 
-/// The Chain API subsystem provides access to chain related utility functions like block number to hash conversions.
+/// The Chain API subsystem provides access to chain related utility functions like block
+/// number to hash conversions.
 #[cfg(feature = "polkadot-node-core-chain-api")]
 pub use polkadot_node_core_chain_api;
 
@@ -943,19 +969,23 @@ pub use polkadot_node_core_parachains_inherent;
 #[cfg(feature = "polkadot-node-core-prospective-parachains")]
 pub use polkadot_node_core_prospective_parachains;
 
-/// Responsible for assembling a relay chain block from a set of available parachain candidates.
+/// Responsible for assembling a relay chain block from a set of available parachain
+/// candidates.
 #[cfg(feature = "polkadot-node-core-provisioner")]
 pub use polkadot_node_core_provisioner;
 
-/// Polkadot crate that implements the PVF validation host. Responsible for coordinating preparation and execution of PVFs.
+/// Polkadot crate that implements the PVF validation host. Responsible for coordinating
+/// preparation and execution of PVFs.
 #[cfg(feature = "polkadot-node-core-pvf")]
 pub use polkadot_node_core_pvf;
 
-/// Polkadot crate that implements the PVF pre-checking subsystem. Responsible for checking and voting for PVFs that are pending approval.
+/// Polkadot crate that implements the PVF pre-checking subsystem. Responsible for checking and
+/// voting for PVFs that are pending approval.
 #[cfg(feature = "polkadot-node-core-pvf-checker")]
 pub use polkadot_node_core_pvf_checker;
 
-/// Polkadot crate that contains functionality related to PVFs that is shared by the PVF host and the PVF workers.
+/// Polkadot crate that contains functionality related to PVFs that is shared by the PVF host
+/// and the PVF workers.
 #[cfg(feature = "polkadot-node-core-pvf-common")]
 pub use polkadot_node_core_pvf_common;
 
@@ -1215,7 +1245,8 @@ pub use sc_rpc_spec_v2;
 #[cfg(feature = "sc-runtime-utilities")]
 pub use sc_runtime_utilities;
 
-/// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool. Manages communication between them.
+/// Substrate service. Starts a thread that spins up the network, client, and extrinsic pool.
+/// Manages communication between them.
 #[cfg(feature = "sc-service")]
 pub use sc_service;
 
@@ -1339,7 +1370,8 @@ pub use sp_core;
 #[cfg(feature = "sp-core-hashing")]
 pub use sp_core_hashing;
 
-/// Procedural macros for calculating static hashes (deprecated in favor of `sp-crypto-hashing-proc-macro`).
+/// Procedural macros for calculating static hashes (deprecated in favor of
+/// `sp-crypto-hashing-proc-macro`).
 #[cfg(feature = "sp-core-hashing-proc-macro")]
 pub use sp_core_hashing_proc_macro;
 
@@ -1435,7 +1467,8 @@ pub use sp_runtime;
 #[cfg(feature = "sp-runtime-interface")]
 pub use sp_runtime_interface;
 
-/// This crate provides procedural macros for usage within the context of the Substrate runtime interface.
+/// This crate provides procedural macros for usage within the context of the Substrate runtime
+/// interface.
 #[cfg(feature = "sp-runtime-interface-proc-macro")]
 pub use sp_runtime_interface_proc_macro;
 
@@ -1443,7 +1476,8 @@ pub use sp_runtime_interface_proc_macro;
 #[cfg(feature = "sp-session")]
 pub use sp_session;
 
-/// A crate which contains primitives that are useful for implementation that uses staking approaches in general. Definitions related to sessions, slashing, etc go here.
+/// A crate which contains primitives that are useful for implementation that uses staking
+/// approaches in general. Definitions related to sessions, slashing, etc go here.
 #[cfg(feature = "sp-staking")]
 pub use sp_staking;
 
@@ -1455,7 +1489,8 @@ pub use sp_state_machine;
 #[cfg(feature = "sp-statement-store")]
 pub use sp_statement_store;
 
-/// Lowest-abstraction level for the Substrate runtime: just exports useful primitives from std or client/alloc to be used with any code that depends on the runtime.
+/// Lowest-abstraction level for the Substrate runtime: just exports useful primitives from std
+/// or client/alloc to be used with any code that depends on the runtime.
 #[cfg(feature = "sp-std")]
 pub use sp_std;
 
@@ -1483,7 +1518,8 @@ pub use sp_transaction_storage_proof;
 #[cfg(feature = "sp-trie")]
 pub use sp_trie;
 
-/// Version module for the Substrate runtime; Provides a function that returns the runtime version.
+/// Version module for the Substrate runtime; Provides a function that returns the runtime
+/// version.
 #[cfg(feature = "sp-version")]
 pub use sp_version;
 
@@ -1507,7 +1543,8 @@ pub use sp_wasm_interface;
 #[cfg(feature = "sp-weights")]
 pub use sp_weights;
 
-/// Utility for building chain-specification files for Substrate-based runtimes based on `sp-genesis-builder`.
+/// Utility for building chain-specification files for Substrate-based runtimes based on
+/// `sp-genesis-builder`.
 #[cfg(feature = "staging-chain-spec-builder")]
 pub use staging_chain_spec_builder;
 
@@ -1535,7 +1572,8 @@ pub use staging_xcm_builder;
 #[cfg(feature = "staging-xcm-executor")]
 pub use staging_xcm_executor;
 
-/// Generate and restore keys for Substrate based chains such as Polkadot, Kusama and a growing number of parachains and Substrate based projects.
+/// Generate and restore keys for Substrate based chains such as Polkadot, Kusama and a growing
+/// number of parachains and Substrate based projects.
 #[cfg(feature = "subkey")]
 pub use subkey;
 
@@ -1579,7 +1617,8 @@ pub use testnet_parachains_constants;
 #[cfg(feature = "tracing-gum")]
 pub use tracing_gum;
 
-/// Generate an overseer including builder pattern and message wrapper from a single annotated struct definition.
+/// Generate an overseer including builder pattern and message wrapper from a single annotated
+/// struct definition.
 #[cfg(feature = "tracing-gum-proc-macro")]
 pub use tracing_gum_proc_macro;
 

@@ -22,6 +22,12 @@
 //! ownership, supply, metadata, and deposits; it knows nothing about what an item means. Item
 //! semantics belong to collection contracts.
 //!
+//! The current collection owner backs all collection state with one aggregate balance hold. To
+//! transfer that responsibility safely, the owner first nominates a successor and the successor
+//! claims the collection. Claiming atomically holds the exact aggregate from the successor,
+//! releases it to the former owner, and transfers collection authority. This lets the successor
+//! reject an unwanted or unaffordable collection.
+//!
 //! Collection metadata supplies defaults inherited by every item. An item's complete metadata
 //! picture is built by iterating both storage prefixes and merging the item's entries over the
 //! collection entries; the item value wins when both scopes contain the same key.
@@ -51,7 +57,7 @@ pub use pallet::*;
 /// calling runtime pallet is responsible for bounding depositless state growth through some
 /// other scarce resource or protocol rule.
 pub trait MintWithoutDeposit<AccountId> {
-	/// Mint an instance without creating an [`InstanceDeposits`] ticket.
+	/// Mint an instance without creating an [`InstanceDeposits`] entry.
 	fn mint_without_deposit(
 		collection: CollectionId,
 		item: ItemIndex,
@@ -77,21 +83,36 @@ pub mod pallet {
 	#[cfg(any(test, feature = "try-runtime"))]
 	use alloc::collections::BTreeMap;
 	use alloc::vec::Vec;
+	#[cfg(any(test, feature = "try-runtime"))]
+	use frame_support::traits::fungible::InspectHold as _;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{Consideration, Footprint, IsSubType, UnixTime},
+		traits::{
+			fungible::{self, MutateHold as _},
+			tokens::Precision,
+			Footprint, IsSubType, UnixTime,
+		},
 		transactional,
 	};
 	use frame_system::pallet_prelude::*;
 	#[cfg(any(test, feature = "try-runtime"))]
+	use sp_runtime::traits::Zero;
+	#[cfg(any(test, feature = "try-runtime"))]
 	use sp_runtime::TryRuntimeError;
-	use sp_runtime::{transaction_validity::TransactionPriority, DispatchError};
+	use sp_runtime::{
+		traits::{CheckedAdd, CheckedSub, Convert},
+		transaction_validity::TransactionPriority,
+		ArithmeticError, DispatchError,
+	};
 
 	pub type CollectionId = u32;
 	/// Index within a collection; `(CollectionId, ItemIndex)` names an item definition.
 	pub type ItemIndex = u32;
 	/// Permanent global serial, assigned at mint.
 	pub type InstanceId = u64;
+	pub type BalanceOf<T> = <<T as Config>::Currency as fungible::Inspect<
+		<T as frame_system::Config>::AccountId,
+	>>::Balance;
 	pub type MetadataKeyOf<T> = BoundedVec<u8, <T as Config>::MaxKeyLen>;
 	pub type MetadataValueOf<T> = BoundedVec<u8, <T as Config>::MaxValueLen>;
 
@@ -99,13 +120,13 @@ pub mod pallet {
 	#[derive(
 		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 	)]
-	#[scale_info(skip_type_params(Ticket))]
-	pub struct MetadataEntry<Value, Ticket> {
+	pub struct MetadataEntry<Value, Balance> {
 		pub value: Value,
-		pub ticket: Ticket,
+		/// Exact amount held as the storage deposit for this entry.
+		pub deposit: Balance,
 	}
 
-	/// Collection issuer and the next automatically assigned item index.
+	/// Collection owner, ownership handoff, item allocation, and deposit accounting.
 	#[derive(
 		CloneNoBound,
 		PartialEqNoBound,
@@ -117,14 +138,17 @@ pub mod pallet {
 		TypeInfo,
 		MaxEncodedLen,
 	)]
-	#[scale_info(skip_type_params(CollectionConsideration))]
-	pub struct CollectionInfo<AccountId: Member, CollectionConsideration: Member> {
-		/// The issuer; v1 permits only this account to define items and mint.
+	pub struct CollectionInfo<AccountId: Member, Balance: Member> {
+		/// Only this account may perform collection-owner-authorized operations.
 		pub owner: AccountId,
+		/// Account nominated by `owner` to claim the collection.
+		pub pending_owner: Option<AccountId>,
 		/// The next item index to allocate, beginning at zero.
 		pub next_item_index: ItemIndex,
-		/// Collection-record storage deposit paid by `owner`.
-		pub ticket: CollectionConsideration,
+		/// Exact deposit for the collection record itself.
+		pub collection_deposit: Balance,
+		/// Exact aggregate deposit held from `owner` for all collection-backed state.
+		pub owner_deposit: Balance,
 	}
 
 	/// Immutable shared definition for every minted copy of an item.
@@ -139,12 +163,11 @@ pub mod pallet {
 		TypeInfo,
 		MaxEncodedLen,
 	)]
-	#[scale_info(skip_type_params(ItemDefConsideration))]
-	pub struct ItemDefinition<ItemDefConsideration: Member> {
+	pub struct ItemDefinition<Balance: Member> {
 		/// Number of instances ever minted from this definition; burns do not decrement it.
 		pub supply: u32,
-		/// Item-definition storage deposit paid by the issuer.
-		pub ticket: ItemDefConsideration,
+		/// Exact storage deposit included in the collection owner's aggregate hold.
+		pub deposit: Balance,
 	}
 
 	/// A minted Scarcity instance.
@@ -190,14 +213,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextCollectionId<T> = StorageValue<_, CollectionId, ValueQuery>;
 
-	/// Immutable item catalogues, grouped by their issuer-owned collection.
+	/// Immutable item catalogues, grouped by their collection.
 	#[pallet::storage]
-	pub type Collections<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		CollectionId,
-		CollectionInfo<T::AccountId, T::CollectionConsideration>,
-	>;
+	pub type Collections<T: Config> =
+		StorageMap<_, Twox64Concat, CollectionId, CollectionInfo<T::AccountId, BalanceOf<T>>>;
 
 	/// Immutable item definitions, indexed within their collection.
 	#[pallet::storage]
@@ -207,7 +226,7 @@ pub mod pallet {
 		CollectionId,
 		Twox64Concat,
 		ItemIndex,
-		ItemDefinition<T::ItemDefConsideration>,
+		ItemDefinition<BalanceOf<T>>,
 	>;
 
 	/// Collection-wide defaults inherited by every item in a collection.
@@ -220,7 +239,7 @@ pub mod pallet {
 		CollectionId,
 		Blake2_128Concat,
 		MetadataKeyOf<T>,
-		MetadataEntry<MetadataValueOf<T>, T::MetadataConsideration>,
+		MetadataEntry<MetadataValueOf<T>, BalanceOf<T>>,
 	>;
 
 	/// Per-item entries which override collection defaults for the same key.
@@ -235,7 +254,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, ItemIndex>,
 			NMapKey<Blake2_128Concat, MetadataKeyOf<T>>,
 		),
-		MetadataEntry<MetadataValueOf<T>, T::MetadataConsideration>,
+		MetadataEntry<MetadataValueOf<T>, BalanceOf<T>>,
 	>;
 
 	/// The next permanent instance identifier to allocate.
@@ -250,10 +269,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Instances<T: Config> = StorageMap<_, Twox64Concat, InstanceId, T::AccountId>;
 
-	/// Per-instance storage-deposit tickets, present only for issuer-path mints.
+	/// Exact per-instance storage deposits, present only for deposit-paying mints.
 	#[pallet::storage]
-	pub type InstanceDeposits<T: Config> =
-		StorageMap<_, Twox64Concat, InstanceId, T::InstanceConsideration>;
+	pub type InstanceDeposits<T: Config> = StorageMap<_, Twox64Concat, InstanceId, BalanceOf<T>>;
 
 	/// Post-failure backoff locks for NFT purse keys.
 	#[pallet::storage]
@@ -262,8 +280,16 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A collection was created and assigned to its issuer.
+		/// A collection was created and assigned to its initial owner.
 		CollectionCreated { collection: CollectionId, owner: T::AccountId },
+		/// The collection owner nominated or cleared a prospective owner.
+		CollectionOwnerNominated { collection: CollectionId, pending_owner: Option<T::AccountId> },
+		/// A nominated account claimed the collection and assumed its aggregate storage deposit.
+		CollectionOwnerChanged {
+			collection: CollectionId,
+			old_owner: T::AccountId,
+			new_owner: T::AccountId,
+		},
 		/// An immutable item definition was assigned within a collection.
 		ItemDefined { collection: CollectionId, item: ItemIndex },
 		/// An instance was minted into an empty purse key.
@@ -293,8 +319,12 @@ pub mod pallet {
 		TooManyCollections,
 		/// The collection does not exist.
 		UnknownCollection,
-		/// Only the collection issuer may define items or mint in v1.
+		/// Only the current collection owner may perform this operation.
 		NoPermission,
+		/// The current collection owner cannot be nominated as its replacement.
+		AlreadyCollectionOwner,
+		/// The signer is not the account currently nominated to claim this collection.
+		NotPendingCollectionOwner,
 		/// The per-collection item index space is exhausted.
 		TooManyItems,
 		/// The requested item definition does not exist.
@@ -365,17 +395,29 @@ pub mod pallet {
 		/// Unix time source for `minted_at`, `last_moved`, rest-time priority, and failure locks.
 		type UnixTime: UnixTime;
 
-		/// Deposit for a collection record, charged to the creator.
-		type CollectionConsideration: Consideration<Self::AccountId, Footprint>;
+		/// Fungible used to hold Scarcity storage deposits.
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
-		/// Deposit for an item definition, charged to the issuer and sized by encoded length.
-		type ItemDefConsideration: Consideration<Self::AccountId, Footprint>;
+		/// Fungible used to hold Scarcity storage deposits.
+		#[cfg(feature = "runtime-benchmarks")]
+		type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ fungible::Mutate<Self::AccountId>;
 
-		/// Deposit for one issuer-minted instance's storage, charged to the collection owner.
-		type InstanceConsideration: Consideration<Self::AccountId, Footprint>;
+		/// Overarching runtime hold reason.
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + From<HoldReason>;
 
-		/// Deposit for one metadata entry, charged to the collection owner.
-		type MetadataConsideration: Consideration<Self::AccountId, Footprint>;
+		/// Price of a collection record.
+		type CollectionDeposit: Convert<Footprint, BalanceOf<Self>>;
+
+		/// Price of an item definition.
+		type ItemDeposit: Convert<Footprint, BalanceOf<Self>>;
+
+		/// Price of one ordinary minted instance.
+		type InstanceDeposit: Convert<Footprint, BalanceOf<Self>>;
+
+		/// Price of one metadata entry.
+		type MetadataDeposit: Convert<Footprint, BalanceOf<Self>>;
 
 		/// Maximum byte length of one metadata key.
 		#[pallet::constant]
@@ -396,7 +438,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Create a collection owned by the signed issuer.
+		/// Create a collection owned by the signer.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_collection())]
 		pub fn create_collection(origin: OriginFor<T>) -> DispatchResult {
@@ -459,15 +501,41 @@ pub mod pallet {
 			let Ok(Origin::Nft { nft, .. }) = origin.into() else {
 				return Err(DispatchError::BadOrigin.into());
 			};
-			let info =
-				Collections::<T>::get(nft.collection).ok_or(Error::<T>::UnknownCollection)?;
-
 			Instances::<T>::remove(nft.instance);
-			if let Some(ticket) = InstanceDeposits::<T>::take(nft.instance) {
-				ticket.drop(&info.owner)?;
+			if let Some(deposit) = InstanceDeposits::<T>::take(nft.instance) {
+				Collections::<T>::try_mutate(nft.collection, |maybe_info| {
+					let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+					Self::decrease_owner_deposit(info, deposit)
+				})?;
 			}
 			Self::deposit_event(Event::Burned { instance: nft.instance });
 			Ok(Pays::No.into())
+		}
+
+		/// Nominate an account to claim ownership of a collection.
+		///
+		/// Only the current owner may nominate or clear a prospective owner. Nomination does not
+		/// change authority or move deposits.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::nominate_collection_owner())]
+		pub fn nominate_collection_owner(
+			origin: OriginFor<T>,
+			collection: CollectionId,
+			pending_owner: Option<T::AccountId>,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Collections::<T>::try_mutate(collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				ensure!(info.owner == owner, Error::<T>::NoPermission);
+				ensure!(
+					pending_owner.as_ref() != Some(&info.owner),
+					Error::<T>::AlreadyCollectionOwner
+				);
+				info.pending_owner = pending_owner.clone();
+				Ok::<_, DispatchError>(())
+			})?;
+			Self::deposit_event(Event::CollectionOwnerNominated { collection, pending_owner });
+			Ok(())
 		}
 
 		/// Set or remove a collection-level metadata default.
@@ -504,31 +572,122 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 			Self::do_set_item_metadata(&owner, collection, item, key, value)
 		}
+
+		/// Claim a collection after nomination by its current owner.
+		///
+		/// The exact aggregate storage deposit is first held from the claimant and then released
+		/// to the previous owner. The operation is atomic: insufficient claimant balance or any
+		/// release failure leaves ownership and both balances unchanged.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::claim_collection_ownership())]
+		#[transactional]
+		pub fn claim_collection_ownership(
+			origin: OriginFor<T>,
+			collection: CollectionId,
+		) -> DispatchResult {
+			let new_owner = ensure_signed(origin)?;
+			Collections::<T>::try_mutate(collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				ensure!(
+					info.pending_owner.as_ref() == Some(&new_owner),
+					Error::<T>::NotPendingCollectionOwner
+				);
+
+				let old_owner = info.owner.clone();
+				let deposit = info.owner_deposit;
+				Self::hold(&new_owner, deposit)?;
+				Self::release(&old_owner, deposit)?;
+				info.owner = new_owner.clone();
+				info.pending_owner = None;
+				Self::deposit_event(Event::CollectionOwnerChanged {
+					collection,
+					old_owner,
+					new_owner: new_owner.clone(),
+				});
+				Ok(())
+			})
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Allocate a collection identifier and record its issuer.
+		fn hold_reason() -> T::RuntimeHoldReason {
+			HoldReason::StorageDeposit.into()
+		}
+
+		fn hold(owner: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			T::Currency::hold(&Self::hold_reason(), owner, amount)
+		}
+
+		fn release(owner: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			T::Currency::release(&Self::hold_reason(), owner, amount, Precision::Exact).map(|_| ())
+		}
+
+		fn increase_owner_deposit(
+			info: &mut CollectionInfo<T::AccountId, BalanceOf<T>>,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let total = info.owner_deposit.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
+			Self::hold(&info.owner, amount)?;
+			info.owner_deposit = total;
+			Ok(())
+		}
+
+		fn decrease_owner_deposit(
+			info: &mut CollectionInfo<T::AccountId, BalanceOf<T>>,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let total =
+				info.owner_deposit.checked_sub(&amount).ok_or(ArithmeticError::Underflow)?;
+			Self::release(&info.owner, amount)?;
+			info.owner_deposit = total;
+			Ok(())
+		}
+
+		fn replace_owner_deposit(
+			info: &mut CollectionInfo<T::AccountId, BalanceOf<T>>,
+			old: BalanceOf<T>,
+			new: BalanceOf<T>,
+		) -> DispatchResult {
+			let total_without_old =
+				info.owner_deposit.checked_sub(&old).ok_or(ArithmeticError::Underflow)?;
+			let total = total_without_old.checked_add(&new).ok_or(ArithmeticError::Overflow)?;
+			if new > old {
+				Self::hold(&info.owner, new.checked_sub(&old).ok_or(ArithmeticError::Underflow)?)?;
+			} else if old > new {
+				Self::release(
+					&info.owner,
+					old.checked_sub(&new).ok_or(ArithmeticError::Underflow)?,
+				)?;
+			}
+			info.owner_deposit = total;
+			Ok(())
+		}
+
+		/// Allocate a collection identifier and record its initial owner.
 		pub fn do_create_collection(owner: T::AccountId) -> Result<CollectionId, DispatchError> {
 			let collection = NextCollectionId::<T>::get();
 			let next_collection =
 				collection.checked_add(1).ok_or(Error::<T>::TooManyCollections)?;
-			let record_size =
-				CollectionInfo { owner: owner.clone(), next_item_index: 0, ticket: () }
-					.encoded_size()
-					.saturating_add(T::CollectionConsideration::max_encoded_len());
-			let ticket =
-				T::CollectionConsideration::new(&owner, Footprint::from_parts(1, record_size))?;
+			let footprint = Footprint::from_mel::<CollectionInfo<T::AccountId, BalanceOf<T>>>();
+			let collection_deposit = T::CollectionDeposit::convert(footprint);
+			Self::hold(&owner, collection_deposit)?;
 
 			NextCollectionId::<T>::put(next_collection);
 			Collections::<T>::insert(
 				collection,
-				CollectionInfo { owner: owner.clone(), next_item_index: 0, ticket },
+				CollectionInfo {
+					owner: owner.clone(),
+					pending_owner: None,
+					next_item_index: 0,
+					collection_deposit,
+					owner_deposit: collection_deposit,
+				},
 			);
 			Self::deposit_event(Event::CollectionCreated { collection, owner });
 			Ok(collection)
 		}
 
-		/// Add an immutable item definition to an issuer-owned collection.
+		/// Add an immutable item definition to an owned collection.
 		#[transactional]
 		pub fn do_define_item(
 			owner: T::AccountId,
@@ -541,14 +700,10 @@ pub mod pallet {
 
 			let item = info.next_item_index;
 			info.next_item_index = item.checked_add(1).ok_or(Error::<T>::TooManyItems)?;
-			let definition_without_ticket = ItemDefinition { supply: 0, ticket: () };
-			let definition_size = definition_without_ticket
-				.encoded_size()
-				.saturating_add(T::ItemDefConsideration::max_encoded_len());
-			let ticket =
-				T::ItemDefConsideration::new(&owner, Footprint::from_parts(1, definition_size))?;
-			let ItemDefinition { supply, ticket: () } = definition_without_ticket;
-			let definition = ItemDefinition { supply, ticket };
+			let footprint = Footprint::from_mel::<ItemDefinition<BalanceOf<T>>>();
+			let deposit = T::ItemDeposit::convert(footprint);
+			Self::increase_owner_deposit(&mut info, deposit)?;
+			let definition = ItemDefinition { supply: 0, deposit };
 
 			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
@@ -581,7 +736,12 @@ pub mod pallet {
 		}
 
 		fn metadata_footprint(key: &MetadataKeyOf<T>, value: &MetadataValueOf<T>) -> Footprint {
-			Footprint::from_parts(1, key.len().saturating_add(value.len()))
+			Footprint::from_parts(
+				1,
+				key.len()
+					.saturating_add(value.len())
+					.saturating_add(BalanceOf::<T>::max_encoded_len()),
+			)
 		}
 
 		fn do_set_collection_metadata(
@@ -590,40 +750,42 @@ pub mod pallet {
 			key: MetadataKeyOf<T>,
 			value: Option<MetadataValueOf<T>>,
 		) -> DispatchResult {
-			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
-			ensure!(info.owner == *owner, Error::<T>::NoPermission);
+			Collections::<T>::try_mutate(collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				ensure!(info.owner == *owner, Error::<T>::NoPermission);
 
-			match (CollectionMetadata::<T>::get(collection, &key), value) {
-				(Some(entry), Some(value)) => {
-					let ticket =
-						entry.ticket.update(owner, Self::metadata_footprint(&key, &value))?;
-					CollectionMetadata::<T>::insert(
-						collection,
-						&key,
-						MetadataEntry { value, ticket },
-					);
-					Self::deposit_event(Event::CollectionMetadataSet { collection, key });
-				},
-				(None, Some(value)) => {
-					let ticket = T::MetadataConsideration::new(
-						owner,
-						Self::metadata_footprint(&key, &value),
-					)?;
-					CollectionMetadata::<T>::insert(
-						collection,
-						&key,
-						MetadataEntry { value, ticket },
-					);
-					Self::deposit_event(Event::CollectionMetadataSet { collection, key });
-				},
-				(Some(entry), None) => {
-					entry.ticket.drop(owner)?;
-					CollectionMetadata::<T>::remove(collection, &key);
-					Self::deposit_event(Event::CollectionMetadataRemoved { collection, key });
-				},
-				(None, None) => {},
-			}
-			Ok(())
+				match (CollectionMetadata::<T>::get(collection, &key), value) {
+					(Some(entry), Some(value)) => {
+						let deposit =
+							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value));
+						Self::replace_owner_deposit(info, entry.deposit, deposit)?;
+						CollectionMetadata::<T>::insert(
+							collection,
+							&key,
+							MetadataEntry { value, deposit },
+						);
+						Self::deposit_event(Event::CollectionMetadataSet { collection, key });
+					},
+					(None, Some(value)) => {
+						let deposit =
+							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value));
+						Self::increase_owner_deposit(info, deposit)?;
+						CollectionMetadata::<T>::insert(
+							collection,
+							&key,
+							MetadataEntry { value, deposit },
+						);
+						Self::deposit_event(Event::CollectionMetadataSet { collection, key });
+					},
+					(Some(entry), None) => {
+						Self::decrease_owner_deposit(info, entry.deposit)?;
+						CollectionMetadata::<T>::remove(collection, &key);
+						Self::deposit_event(Event::CollectionMetadataRemoved { collection, key });
+					},
+					(None, None) => {},
+				}
+				Ok(())
+			})
 		}
 
 		fn do_set_item_metadata(
@@ -633,39 +795,41 @@ pub mod pallet {
 			key: MetadataKeyOf<T>,
 			value: Option<MetadataValueOf<T>>,
 		) -> DispatchResult {
-			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
-			ensure!(info.owner == *owner, Error::<T>::NoPermission);
-			ensure!(ItemDefs::<T>::contains_key(collection, item), Error::<T>::UnknownItem);
+			Collections::<T>::try_mutate(collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				ensure!(info.owner == *owner, Error::<T>::NoPermission);
+				ensure!(ItemDefs::<T>::contains_key(collection, item), Error::<T>::UnknownItem);
 
-			match (ItemMetadata::<T>::get((collection, item, key.clone())), value) {
-				(Some(entry), Some(value)) => {
-					let ticket =
-						entry.ticket.update(owner, Self::metadata_footprint(&key, &value))?;
-					ItemMetadata::<T>::insert(
-						(collection, item, key.clone()),
-						MetadataEntry { value, ticket },
-					);
-					Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
-				},
-				(None, Some(value)) => {
-					let ticket = T::MetadataConsideration::new(
-						owner,
-						Self::metadata_footprint(&key, &value),
-					)?;
-					ItemMetadata::<T>::insert(
-						(collection, item, key.clone()),
-						MetadataEntry { value, ticket },
-					);
-					Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
-				},
-				(Some(entry), None) => {
-					entry.ticket.drop(owner)?;
-					ItemMetadata::<T>::remove((collection, item, key.clone()));
-					Self::deposit_event(Event::ItemMetadataRemoved { collection, item, key });
-				},
-				(None, None) => {},
-			}
-			Ok(())
+				match (ItemMetadata::<T>::get((collection, item, key.clone())), value) {
+					(Some(entry), Some(value)) => {
+						let deposit =
+							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value));
+						Self::replace_owner_deposit(info, entry.deposit, deposit)?;
+						ItemMetadata::<T>::insert(
+							(collection, item, key.clone()),
+							MetadataEntry { value, deposit },
+						);
+						Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
+					},
+					(None, Some(value)) => {
+						let deposit =
+							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value));
+						Self::increase_owner_deposit(info, deposit)?;
+						ItemMetadata::<T>::insert(
+							(collection, item, key.clone()),
+							MetadataEntry { value, deposit },
+						);
+						Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
+					},
+					(Some(entry), None) => {
+						Self::decrease_owner_deposit(info, entry.deposit)?;
+						ItemMetadata::<T>::remove((collection, item, key.clone()));
+						Self::deposit_event(Event::ItemMetadataRemoved { collection, item, key });
+					},
+					(None, None) => {},
+				}
+				Ok(())
+			})
 		}
 
 		/// Mint an instance after enforcing collection ownership and the one-NFT-per-key rule.
@@ -677,15 +841,18 @@ pub mod pallet {
 		) -> Result<InstanceId, DispatchError> {
 			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
 			ensure!(info.owner == owner, Error::<T>::NoPermission);
-			Self::do_mint_inner(collection, item, to, Some(&info.owner))
+			Self::do_mint_inner(collection, item, to, true)
 		}
 
+		#[transactional]
 		fn do_mint_inner(
 			collection: CollectionId,
 			item: ItemIndex,
 			to: T::AccountId,
-			deposit_owner: Option<&T::AccountId>,
+			with_deposit: bool,
 		) -> Result<InstanceId, DispatchError> {
+			let mut info =
+				Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
 			let mut definition =
 				ItemDefs::<T>::get(collection, item).ok_or(Error::<T>::UnknownItem)?;
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
@@ -696,26 +863,29 @@ pub mod pallet {
 			let now = T::UnixTime::now().as_secs();
 			let nft =
 				Nft { instance, collection, item, state_nonce: 0, minted_at: now, last_moved: now };
-			let instance_ticket = if let Some(owner) = deposit_owner {
+			let instance_deposit = if with_deposit {
 				// Three storage entries back one instance: `NftsByOwner`, the `Instances`
-				// reverse index, and the `InstanceDeposits` ticket itself.
+				// reverse index, and the `InstanceDeposits` amount itself.
 				let record_size = nft
 					.encoded_size()
 					.saturating_add(to.encoded_size())
 					.saturating_add(instance.encoded_size())
-					.saturating_add(T::InstanceConsideration::max_encoded_len());
-				Some(T::InstanceConsideration::new(owner, Footprint::from_parts(3, record_size))?)
+					.saturating_add(BalanceOf::<T>::max_encoded_len());
+				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(3, record_size));
+				Self::increase_owner_deposit(&mut info, deposit)?;
+				Some(deposit)
 			} else {
 				None
 			};
 
 			definition.supply = next_supply;
 			NextInstanceId::<T>::put(next_instance);
+			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
 			NftsByOwner::<T>::insert(&to, nft);
 			Instances::<T>::insert(instance, &to);
-			if let Some(ticket) = instance_ticket {
-				InstanceDeposits::<T>::insert(instance, ticket);
+			if let Some(deposit) = instance_deposit {
+				InstanceDeposits::<T>::insert(instance, deposit);
 			}
 			Self::deposit_event(Event::Minted { instance, collection, item, owner: to });
 			Ok(instance)
@@ -729,7 +899,7 @@ pub mod pallet {
 			to: T::AccountId,
 		) -> Result<InstanceId, DispatchError> {
 			ensure!(Collections::<T>::contains_key(collection), Error::<T>::UnknownCollection);
-			Self::do_mint_inner(collection, item, to, None)
+			Self::do_mint_inner(collection, item, to, false)
 		}
 	}
 
@@ -741,6 +911,7 @@ pub mod pallet {
 			let next_collection = NextCollectionId::<T>::get();
 			let next_instance = NextInstanceId::<T>::get();
 			let mut collection_count = 0u64;
+			let mut expected_collection_deposits = BTreeMap::<CollectionId, BalanceOf<T>>::new();
 
 			for (collection, info) in Collections::<T>::iter() {
 				if collection >= next_collection {
@@ -764,6 +935,7 @@ pub mod pallet {
 						"collection next item index does not match its item definition count",
 					));
 				}
+				expected_collection_deposits.insert(collection, info.collection_deposit);
 			}
 
 			if collection_count != u64::from(next_collection) {
@@ -782,6 +954,12 @@ pub mod pallet {
 					));
 				}
 				total_supply += u128::from(definition.supply);
+				let expected = expected_collection_deposits
+					.get_mut(&collection)
+					.ok_or(TryRuntimeError::Other("ItemDefs entry has no deposit aggregate"))?;
+				*expected = expected
+					.checked_add(&definition.deposit)
+					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
 			}
 			if total_supply != u128::from(next_instance) {
 				return Err(TryRuntimeError::Other(
@@ -826,7 +1004,7 @@ pub mod pallet {
 				}
 			}
 
-			for instance in InstanceDeposits::<T>::iter_keys() {
+			for (instance, deposit) in InstanceDeposits::<T>::iter() {
 				if instance >= next_instance {
 					return Err(TryRuntimeError::Other(
 						"InstanceDeposits identifier is not below NextInstanceId",
@@ -837,6 +1015,19 @@ pub mod pallet {
 						"InstanceDeposits entry has no matching instance",
 					));
 				}
+				let owner = Instances::<T>::get(instance).ok_or(TryRuntimeError::Other(
+					"InstanceDeposits entry has no matching owner",
+				))?;
+				let nft = NftsByOwner::<T>::get(owner)
+					.ok_or(TryRuntimeError::Other("InstanceDeposits entry has no matching NFT"))?;
+				let expected = expected_collection_deposits.get_mut(&nft.collection).ok_or(
+					TryRuntimeError::Other(
+						"InstanceDeposits entry has no collection deposit aggregate",
+					),
+				)?;
+				*expected = expected
+					.checked_add(&deposit)
+					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
 			}
 
 			for owner in Locked::<T>::iter_keys() {
@@ -845,15 +1036,21 @@ pub mod pallet {
 				}
 			}
 
-			for (collection, _, _) in CollectionMetadata::<T>::iter() {
+			for (collection, _, entry) in CollectionMetadata::<T>::iter() {
 				if !Collections::<T>::contains_key(collection) {
 					return Err(TryRuntimeError::Other(
 						"CollectionMetadata entry has no matching collection",
 					));
 				}
+				let expected = expected_collection_deposits.get_mut(&collection).ok_or(
+					TryRuntimeError::Other("CollectionMetadata entry has no deposit aggregate"),
+				)?;
+				*expected = expected
+					.checked_add(&entry.deposit)
+					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
 			}
 
-			for ((collection, item, _), _) in ItemMetadata::<T>::iter() {
+			for ((collection, item, _), entry) in ItemMetadata::<T>::iter() {
 				if !Collections::<T>::contains_key(collection) {
 					return Err(TryRuntimeError::Other(
 						"ItemMetadata entry has no matching collection",
@@ -862,6 +1059,36 @@ pub mod pallet {
 				if !ItemDefs::<T>::contains_key(collection, item) {
 					return Err(TryRuntimeError::Other(
 						"ItemMetadata entry has no matching item definition",
+					));
+				}
+				let expected = expected_collection_deposits
+					.get_mut(&collection)
+					.ok_or(TryRuntimeError::Other("ItemMetadata entry has no deposit aggregate"))?;
+				*expected = expected
+					.checked_add(&entry.deposit)
+					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
+			}
+
+			let mut expected_owner_holds = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
+			for (collection, info) in Collections::<T>::iter() {
+				let expected = expected_collection_deposits
+					.get(&collection)
+					.ok_or(TryRuntimeError::Other("collection has no deposit aggregate"))?;
+				if info.owner_deposit != *expected {
+					return Err(TryRuntimeError::Other(
+						"collection owner deposit does not match its stored components",
+					));
+				}
+				let owner_total = expected_owner_holds.entry(info.owner).or_insert_with(Zero::zero);
+				*owner_total = owner_total.checked_add(expected).ok_or(TryRuntimeError::Other(
+					"collection owner deposit aggregate overflowed",
+				))?;
+			}
+
+			for (owner, expected) in expected_owner_holds {
+				if T::Currency::balance_on_hold(&Self::hold_reason(), &owner) != expected {
+					return Err(TryRuntimeError::Other(
+						"collection owner deposit does not match held balance",
 					));
 				}
 			}

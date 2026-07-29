@@ -22,15 +22,14 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::{Consideration, Footprint, Get},
+	traits::{fungible::Mutate as _, Get},
 };
 use frame_system::RawOrigin;
 use sp_runtime::{
-	traits::{Dispatchable, TransactionExtension, TxBaseImplication},
+	traits::{Bounded, Dispatchable, TransactionExtension, TxBaseImplication},
 	transaction_validity::TransactionSource,
 	DispatchError,
 };
@@ -53,48 +52,15 @@ fn metadata_value<T: Config>(byte: u8, len: u32) -> MetadataValueOf<T> {
 		.expect("value length is benchmark-bounded")
 }
 
-fn ensure_collection_consideration<T: Config>(owner: &T::AccountId) {
-	let record_size = CollectionInfo { owner: owner.clone(), next_item_index: 0, ticket: () }
-		.encoded_size()
-		.saturating_add(T::CollectionConsideration::max_encoded_len());
-	T::CollectionConsideration::ensure_successful(owner, Footprint::from_parts(1, record_size));
-}
-
-fn ensure_item_consideration<T: Config>(owner: &T::AccountId) {
-	let definition_size = ItemDefinition { supply: 0, ticket: () }
-		.encoded_size()
-		.saturating_add(T::ItemDefConsideration::max_encoded_len());
-	T::ItemDefConsideration::ensure_successful(owner, Footprint::from_parts(1, definition_size));
-}
-
-fn ensure_instance_consideration<T: Config>(
-	owner: &T::AccountId,
-	collection: CollectionId,
-	item: ItemIndex,
-	to: &T::AccountId,
-) {
-	let nft = Nft {
-		instance: NextInstanceId::<T>::get(),
-		collection,
-		item,
-		state_nonce: 0,
-		minted_at: 0,
-		last_moved: 0,
-	};
-	let record_size = nft
-		.encoded_size()
-		.saturating_add(to.encoded_size())
-		.saturating_add(nft.instance.encoded_size())
-		.saturating_add(T::InstanceConsideration::max_encoded_len());
-	T::InstanceConsideration::ensure_successful(owner, Footprint::from_parts(3, record_size));
+fn fund<T: Config>(account: &T::AccountId) {
+	let _ = T::Currency::set_balance(account, BalanceOf::<T>::max_value() / 4u32.into());
 }
 
 fn create_definition<T: Config>(
 	owner: &T::AccountId,
 ) -> Result<(CollectionId, ItemIndex), BenchmarkError> {
-	ensure_collection_consideration::<T>(owner);
+	fund::<T>(owner);
 	let collection = Pallet::<T>::do_create_collection(owner.clone())?;
-	ensure_item_consideration::<T>(owner);
 	let item = Pallet::<T>::do_define_item(owner.clone(), collection, Vec::new())?;
 	Ok((collection, item))
 }
@@ -111,7 +77,7 @@ mod benchmarks {
 	#[benchmark]
 	fn create_collection() {
 		let caller: T::AccountId = whitelisted_caller();
-		ensure_collection_consideration::<T>(&caller);
+		fund::<T>(&caller);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -123,20 +89,15 @@ mod benchmarks {
 	#[benchmark]
 	fn define_item(m: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		ensure_collection_consideration::<T>(&caller);
+		fund::<T>(&caller);
 		let collection = Pallet::<T>::do_create_collection(caller.clone())?;
 		let metadata = (0..m)
 			.map(|index| {
 				let key = metadata_key::<T>(index);
 				let value = metadata_value::<T>(0x42, T::MaxValueLen::get());
-				T::MetadataConsideration::ensure_successful(
-					&caller,
-					Footprint::from_parts(1, key.len().saturating_add(value.len())),
-				);
 				(key, value)
 			})
 			.collect::<Vec<_>>();
-		ensure_item_consideration::<T>(&caller);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), collection, metadata);
@@ -152,7 +113,6 @@ mod benchmarks {
 		let destination: T::AccountId = account("destination", 0, 0);
 		NftsByOwner::<T>::remove(&destination);
 		let (collection, item) = create_definition::<T>(&caller)?;
-		ensure_instance_consideration::<T>(&caller, collection, item, &destination);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), collection, item, destination.clone());
@@ -168,7 +128,6 @@ mod benchmarks {
 		let destination: T::AccountId = account("destination", 0, 0);
 		NftsByOwner::<T>::remove(&destination);
 		let (collection, item) = create_definition::<T>(&owner)?;
-		ensure_instance_consideration::<T>(&owner, collection, item, &owner);
 		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
 		let nft = NftsByOwner::<T>::take(&owner).expect("owner has the minted NFT");
 		let instance = nft.instance;
@@ -186,7 +145,6 @@ mod benchmarks {
 	fn burn() -> Result<(), BenchmarkError> {
 		let owner: T::AccountId = whitelisted_caller();
 		let (collection, item) = create_definition::<T>(&owner)?;
-		ensure_instance_consideration::<T>(&owner, collection, item, &owner);
 		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
 		let nft = NftsByOwner::<T>::take(&owner).expect("owner has the minted NFT");
 		let instance = nft.instance;
@@ -202,16 +160,29 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn nominate_collection_owner() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let nominee: T::AccountId = account("nominee", 0, 0);
+		fund::<T>(&caller);
+		let collection = Pallet::<T>::do_create_collection(caller.clone())?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), collection, Some(nominee.clone()));
+
+		assert_eq!(
+			Collections::<T>::get(collection).and_then(|info| info.pending_owner),
+			Some(nominee),
+		);
+		Ok(())
+	}
+
+	#[benchmark]
 	fn set_collection_metadata() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		ensure_collection_consideration::<T>(&caller);
+		fund::<T>(&caller);
 		let collection = Pallet::<T>::do_create_collection(caller.clone())?;
 		let key = metadata_key::<T>(0);
 		let value = metadata_value::<T>(0x22, T::MaxValueLen::get());
-		T::MetadataConsideration::ensure_successful(
-			&caller,
-			Footprint::from_parts(1, key.len().saturating_add(value.len())),
-		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), collection, key.clone(), Some(value.clone()));
@@ -229,10 +200,6 @@ mod benchmarks {
 		let (collection, item) = create_definition::<T>(&caller)?;
 		let key = metadata_key::<T>(0);
 		let value = metadata_value::<T>(0x22, T::MaxValueLen::get());
-		T::MetadataConsideration::ensure_successful(
-			&caller,
-			Footprint::from_parts(1, key.len().saturating_add(value.len())),
-		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), collection, item, key.clone(), Some(value.clone()));
@@ -245,12 +212,33 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn claim_collection_ownership() -> Result<(), BenchmarkError> {
+		let owner: T::AccountId = whitelisted_caller();
+		let new_owner: T::AccountId = account("new_owner", 0, 0);
+		fund::<T>(&owner);
+		fund::<T>(&new_owner);
+		let collection = Pallet::<T>::do_create_collection(owner.clone())?;
+		Pallet::<T>::nominate_collection_owner(
+			RawOrigin::Signed(owner.clone()).into(),
+			collection,
+			Some(new_owner.clone()),
+		)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(new_owner.clone()), collection);
+
+		let info = Collections::<T>::get(collection).expect("collection remains after claim");
+		assert_eq!(info.owner, new_owner);
+		assert_eq!(info.pending_owner, None);
+		Ok(())
+	}
+
+	#[benchmark]
 	fn as_scarcity_pipeline() -> Result<(), BenchmarkError> {
 		let owner: T::AccountId = whitelisted_caller();
 		let destination: T::AccountId = account("destination", 0, 0);
 		NftsByOwner::<T>::remove(&destination);
 		let (collection, item) = create_definition::<T>(&owner)?;
-		ensure_instance_consideration::<T>(&owner, collection, item, &owner);
 		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
 		Locked::<T>::insert(&owner, LockInfo { retries: u8::MAX, until: 0 });
 		let nft = NftsByOwner::<T>::get(&owner).expect("owner has the minted NFT");

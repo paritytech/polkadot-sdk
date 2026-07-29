@@ -11,12 +11,15 @@ doc:
     may write either scope; each entry has its own deposit and there is no
     metadata freeze mechanism.
 
-    Storage deposits are paid on the supply side: the creator pays for a
-    collection, the issuer pays for each item definition, and the collection
-    owner pays for each metadata entry and ordinarily minted instance. Runtime
-    pallets may use the `MintWithoutDeposit` integration trait to mint without
-    an instance deposit when state growth is bounded by another scarce resource
-    or protocol rule.
+    Storage deposits are paid on the supply side. The collection owner backs
+    the collection record, item definitions, metadata entries, and ordinarily
+    minted instances with one aggregate balance hold. Collection ownership uses
+    a two-step handoff: the current owner nominates a successor, then the
+    successor claims by atomically assuming the exact aggregate hold. A failed
+    claim, including one caused by insufficient balance, leaves ownership and
+    both parties' holds unchanged. Runtime pallets may use the
+    `MintWithoutDeposit` integration trait to mint without an instance deposit
+    when state growth is bounded by another scarce resource or protocol rule.
 
     Transfers and burns are feeless and authorized by the owning purse key
     through the `AsScarcity` transaction extension, which elevates a custom
@@ -31,11 +34,12 @@ doc:
     per-state `provides` tag prevent concurrent use of the same authorization.
 
     A `try_state` hook verifies allocation counters, collection/item
-    references, minted supply, the owner/reverse-index bijection, deposit
-    tickets, locks, and metadata references. Metadata growth is priced by a
-    deposit per entry; `define_item` accepts a linearly weighted `Vec` whose
-    batch size is bounded by extrinsic and block length, while each key and
-    value remains individually bounded.
+    references, minted supply, the owner/reverse-index bijection, locks,
+    metadata references, each collection's aggregate against its stored
+    deposit components, and each owner's aggregate against the actual held
+    balance. Metadata growth is priced by a deposit per entry; `define_item`
+    accepts a linearly weighted `Vec` whose batch size is bounded by extrinsic
+    and block length, while each key and value remains individually bounded.
 crates:
 - name: pallet-scarcity
   bump: major

@@ -76,8 +76,10 @@ pub trait WeightInfo {
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
+	fn nominate_collection_owner() -> Weight;
 	fn set_collection_metadata() -> Weight;
 	fn set_item_metadata() -> Weight;
+	fn claim_collection_ownership() -> Weight;
 	fn as_scarcity_pipeline() -> Weight;
 }
 
@@ -185,6 +187,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	fn nominate_collection_owner() -> Weight {
+		Weight::from_parts(25_000_000, 4_000)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Scarcity::Collections` (r:1 w:0)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(64), added: 2539, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::CollectionMetadata` (r:1 w:1)
@@ -220,6 +227,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(80_007_000, 28584)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn claim_collection_ownership() -> Weight {
+		Weight::from_parts(100_000_000, 30_000)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -341,6 +353,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
+	fn nominate_collection_owner() -> Weight {
+		Weight::from_parts(25_000_000, 4_000)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Scarcity::Collections` (r:1 w:0)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(64), added: 2539, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::CollectionMetadata` (r:1 w:1)
@@ -376,6 +393,11 @@ impl WeightInfo for () {
 		Weight::from_parts(80_007_000, 28584)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn claim_collection_ownership() -> Weight {
+		Weight::from_parts(100_000_000, 30_000)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)

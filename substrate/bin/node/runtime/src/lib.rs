@@ -547,24 +547,6 @@ impl pallet_preimage::Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub const ScarcityHoldReason: RuntimeHoldReason =
-		RuntimeHoldReason::Scarcity(pallet_scarcity::HoldReason::StorageDeposit);
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-type ScarcityConsideration = HoldConsideration<
-	AccountId,
-	Balances,
-	ScarcityHoldReason,
-	LinearStoragePrice<
-		dynamic_params::storage::BaseDeposit,
-		dynamic_params::storage::ByteDeposit,
-		Balance,
-	>,
->;
-
-#[cfg(feature = "runtime-benchmarks")]
 pub struct ScarcityBenchmarkTime;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -579,10 +561,28 @@ impl pallet_scarcity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_scarcity::weights::SubstrateWeight<Runtime>;
 	type UnixTime = ScarcityBenchmarkTime;
-	type CollectionConsideration = ScarcityConsideration;
-	type ItemDefConsideration = ScarcityConsideration;
-	type InstanceConsideration = ScarcityConsideration;
-	type MetadataConsideration = ScarcityConsideration;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CollectionDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type ItemDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type InstanceDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type MetadataDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
 	type MaxKeyLen = ConstU32<32>;
 	type MaxValueLen = ConstU32<256>;
 	type LockPeriod = ConstU64<60>;

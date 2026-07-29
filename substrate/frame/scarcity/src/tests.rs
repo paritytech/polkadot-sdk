@@ -26,20 +26,19 @@ use crate::{
 	ItemMetadata, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, MintWithoutDeposit,
 	NextCollectionId, NextInstanceId, Nft, NftsByOwner, Origin,
 };
-use codec::Encode;
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::Hooks;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::Pays,
-	traits::{Footprint, OriginTrait},
+	traits::{fungible::MutateHold, tokens::Precision, OriginTrait},
 };
 use sp_runtime::{
 	traits::{TransactionExtension, TxBaseImplication},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, DispatchResult, TryRuntimeError,
+	DispatchResult, TryRuntimeError,
 };
 
 const OWNER: u64 = 1;
@@ -219,36 +218,198 @@ fn create_collection_assigns_incremental_ids_and_owner() {
 }
 
 #[test]
-fn create_collection_charges_creator_and_stores_ticket() {
+fn collection_owner_can_nominate_or_clear_a_successor() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
 
-		let info = Collections::<Test>::get(0).expect("collection exists");
-		assert_eq!(info.ticket, TestConsideration);
-		assert!(matches!(
-			consideration_events().as_slice(),
-			[ConsiderationEvent::New { who: OWNER, footprint }]
-				if footprint.count == 1 && footprint.size > 0
+		assert_noop!(
+			Scarcity::nominate_collection_owner(RuntimeOrigin::signed(OTHER), 0, Some(RECIPIENT)),
+			Error::<Test>::NoPermission
+		);
+		assert_noop!(
+			Scarcity::nominate_collection_owner(RuntimeOrigin::signed(OWNER), 99, Some(OTHER)),
+			Error::<Test>::UnknownCollection
+		);
+		assert_noop!(
+			Scarcity::nominate_collection_owner(RuntimeOrigin::signed(OWNER), 0, Some(OWNER)),
+			Error::<Test>::AlreadyCollectionOwner
+		);
+
+		assert_ok!(Scarcity::nominate_collection_owner(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			Some(OTHER),
 		));
+		let nominated = Collections::<Test>::get(0).expect("collection exists");
+		assert_eq!(nominated.owner, OWNER);
+		assert_eq!(nominated.pending_owner, Some(OTHER));
+		System::assert_has_event(
+			Event::<Test>::CollectionOwnerNominated { collection: 0, pending_owner: Some(OTHER) }
+				.into(),
+		);
+
+		assert_ok!(Scarcity::nominate_collection_owner(RuntimeOrigin::signed(OWNER), 0, None,));
+		assert_eq!(Collections::<Test>::get(0).unwrap().pending_owner, None);
 	});
 }
 
 #[test]
-fn define_item_charges_issuer_by_encoded_size() {
+fn only_the_current_nominee_can_claim_collection_ownership() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
-		clear_consideration_events();
+		assert_noop!(
+			Scarcity::claim_collection_ownership(RuntimeOrigin::signed(OTHER), 0),
+			Error::<Test>::NotPendingCollectionOwner
+		);
+
+		assert_ok!(Scarcity::nominate_collection_owner(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			Some(OTHER),
+		));
+		assert_noop!(
+			Scarcity::claim_collection_ownership(RuntimeOrigin::signed(RECIPIENT), 0),
+			Error::<Test>::NotPendingCollectionOwner
+		);
+		assert_noop!(
+			Scarcity::claim_collection_ownership(RuntimeOrigin::signed(OTHER), 99),
+			Error::<Test>::UnknownCollection
+		);
+	});
+}
+
+#[test]
+fn claim_fails_atomically_when_nominee_cannot_back_the_deposit() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			key(b"name"),
+			Some(value(b"collection")),
+		));
+		let before = Collections::<Test>::get(0).expect("collection exists");
+		let owner_hold = held(OWNER);
+		assert_eq!(held(99), 0);
+
+		assert_ok!(Scarcity::nominate_collection_owner(RuntimeOrigin::signed(OWNER), 0, Some(99),));
+		assert!(
+			Scarcity::claim_collection_ownership(RuntimeOrigin::signed(99), 0).is_err(),
+			"an unfunded nominee cannot assume the collection deposit",
+		);
+
+		let after = Collections::<Test>::get(0).expect("collection remains");
+		assert_eq!(after.owner, OWNER);
+		assert_eq!(after.pending_owner, Some(99));
+		assert_eq!(after.owner_deposit, before.owner_deposit);
+		assert_eq!(held(OWNER), owner_hold);
+		assert_eq!(held(99), 0);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn claim_moves_exact_collection_deposit_and_authority() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			key(b"name"),
+			Some(value(b"collection")),
+		));
+		mint(0, RECIPIENT);
+		let instance_deposit =
+			InstanceDeposits::<Test>::get(0).expect("ordinary mint has a deposit");
+
+		// A second collection proves that claiming one collection does not release the old
+		// owner's unrelated holds.
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+		let old_owner_hold = held(OWNER);
+		let moved_deposit = Collections::<Test>::get(0).unwrap().owner_deposit;
+		let remaining_deposit = Collections::<Test>::get(1).unwrap().owner_deposit;
+		assert_eq!(old_owner_hold, moved_deposit + remaining_deposit);
+
+		assert_ok!(Scarcity::nominate_collection_owner(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			Some(OTHER),
+		));
+		assert_ok!(Scarcity::claim_collection_ownership(RuntimeOrigin::signed(OTHER), 0));
+
+		let claimed = Collections::<Test>::get(0).expect("claimed collection exists");
+		assert_eq!(claimed.owner, OTHER);
+		assert_eq!(claimed.pending_owner, None);
+		assert_eq!(claimed.owner_deposit, moved_deposit);
+		assert_eq!(held(OWNER), remaining_deposit);
+		assert_eq!(held(OTHER), moved_deposit);
+		assert_eq!(Collections::<Test>::get(1).unwrap().owner, OWNER);
+		System::assert_has_event(
+			Event::<Test>::CollectionOwnerChanged {
+				collection: 0,
+				old_owner: OWNER,
+				new_owner: OTHER,
+			}
+			.into(),
+		);
+
+		assert_noop!(
+			Scarcity::define_item(RuntimeOrigin::signed(OWNER), 0, metadata(&[])),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Scarcity::define_item(RuntimeOrigin::signed(OTHER), 0, metadata(&[])));
+		assert_noop!(
+			Scarcity::set_collection_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				key(b"name"),
+				Some(value(b"old owner")),
+			),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OTHER),
+			0,
+			key(b"name"),
+			Some(value(b"new owner")),
+		));
+
+		let before_burn = held(OTHER);
+		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
+		let pre = prepare_burn(val, &origin);
+		assert_ok!(Scarcity::burn(origin));
+		post_dispatch(pre, Ok(()));
+		assert_eq!(held(OTHER), before_burn - instance_deposit);
+		assert_eq!(held(OWNER), remaining_deposit);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn create_collection_holds_and_tracks_its_deposit() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+
+		let info = Collections::<Test>::get(0).expect("collection exists");
+		assert!(info.collection_deposit > 0);
+		assert_eq!(info.owner_deposit, info.collection_deposit);
+		assert_eq!(info.pending_owner, None);
+		assert_eq!(held(OWNER), info.owner_deposit);
+	});
+}
+
+#[test]
+fn define_item_holds_and_tracks_its_deposit() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
+		let held_before = held(OWNER);
 
 		define(0);
 		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
-		assert_eq!(definition.ticket, TestConsideration);
-		assert!(matches!(
-			consideration_events().as_slice(),
-			[ConsiderationEvent::New { who: OWNER, footprint }]
-				if footprint.count == 1
-					&& footprint.size == definition.encoded_size() as u64
-					&& footprint.size > 0
-		));
+		assert!(definition.deposit > 0);
+		assert_eq!(held(OWNER), held_before + definition.deposit);
+		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, held(OWNER),);
 	});
 }
 
@@ -256,15 +417,13 @@ fn define_item_charges_issuer_by_encoded_size() {
 fn mint_charges_collection_owner_and_stores_instance_deposit() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		clear_consideration_events();
+		let held_before = held(OWNER);
 
 		mint(0, RECIPIENT);
-		assert!(InstanceDeposits::<Test>::contains_key(0));
-		assert!(matches!(
-			consideration_events().as_slice(),
-			[ConsiderationEvent::New { who: OWNER, footprint }]
-				if footprint.count == 3 && footprint.size > 0
-		));
+		let deposit = InstanceDeposits::<Test>::get(0).expect("paid mint stores its deposit");
+		assert!(deposit > 0);
+		assert_eq!(held(OWNER), held_before + deposit);
+		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, held(OWNER),);
 	});
 }
 
@@ -468,7 +627,7 @@ fn metadata_deposits_update_in_place_and_release() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		let collection_key = key(b"c");
-		clear_consideration_events();
+		let base_hold = held(OWNER);
 
 		assert_ok!(Scarcity::set_collection_metadata(
 			RuntimeOrigin::signed(OWNER),
@@ -476,35 +635,30 @@ fn metadata_deposits_update_in_place_and_release() {
 			collection_key.clone(),
 			Some(value(b"one")),
 		));
-		assert_eq!(
-			consideration_events(),
-			vec![ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 4) }]
-		);
+		let first_deposit = CollectionMetadata::<Test>::get(0, &collection_key).unwrap().deposit;
+		assert!(first_deposit > 0);
+		assert_eq!(held(OWNER), base_hold + first_deposit);
 
-		clear_consideration_events();
 		assert_ok!(Scarcity::set_collection_metadata(
 			RuntimeOrigin::signed(OWNER),
 			0,
 			collection_key.clone(),
 			Some(value(b"longer")),
 		));
-		assert_eq!(
-			consideration_events(),
-			vec![ConsiderationEvent::Update { who: OWNER, footprint: Footprint::from_parts(1, 7) }],
-			"overwrite must update the existing ticket, not charge a second ticket",
-		);
+		let replacement_deposit =
+			CollectionMetadata::<Test>::get(0, &collection_key).unwrap().deposit;
+		assert!(replacement_deposit > first_deposit);
+		assert_eq!(held(OWNER), base_hold + replacement_deposit);
 
-		clear_consideration_events();
 		assert_ok!(Scarcity::set_collection_metadata(
 			RuntimeOrigin::signed(OWNER),
 			0,
 			collection_key,
 			None,
 		));
-		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
+		assert_eq!(held(OWNER), base_hold);
 
 		let item_key = key(b"i");
-		clear_consideration_events();
 		assert_ok!(Scarcity::set_item_metadata(
 			RuntimeOrigin::signed(OWNER),
 			0,
@@ -512,6 +666,8 @@ fn metadata_deposits_update_in_place_and_release() {
 			item_key.clone(),
 			Some(value(b"one")),
 		));
+		let first_deposit = ItemMetadata::<Test>::get((0, 0, item_key.clone())).unwrap().deposit;
+		assert_eq!(held(OWNER), base_hold + first_deposit);
 		assert_ok!(Scarcity::set_item_metadata(
 			RuntimeOrigin::signed(OWNER),
 			0,
@@ -519,17 +675,15 @@ fn metadata_deposits_update_in_place_and_release() {
 			item_key.clone(),
 			Some(value(b"longer")),
 		));
+		let replacement_deposit =
+			ItemMetadata::<Test>::get((0, 0, item_key.clone())).unwrap().deposit;
+		assert!(replacement_deposit > first_deposit);
+		assert_eq!(held(OWNER), base_hold + replacement_deposit);
 		assert_ok!(
 			Scarcity::set_item_metadata(RuntimeOrigin::signed(OWNER), 0, 0, item_key, None,)
 		);
-		assert_eq!(
-			consideration_events(),
-			vec![
-				ConsiderationEvent::New { who: OWNER, footprint: Footprint::from_parts(1, 4) },
-				ConsiderationEvent::Update { who: OWNER, footprint: Footprint::from_parts(1, 7) },
-				ConsiderationEvent::Drop { who: OWNER },
-			]
-		);
+		assert_eq!(held(OWNER), base_hold);
+		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, base_hold);
 		assert_ok!(Scarcity::do_try_state());
 	});
 }
@@ -538,8 +692,8 @@ fn metadata_deposits_update_in_place_and_release() {
 fn removing_absent_metadata_is_a_no_op() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		clear_consideration_events();
 		let events_before = System::events().len();
+		let held_before = held(OWNER);
 
 		assert_ok!(Scarcity::set_collection_metadata(
 			RuntimeOrigin::signed(OWNER),
@@ -555,7 +709,7 @@ fn removing_absent_metadata_is_a_no_op() {
 			None,
 		));
 
-		assert!(consideration_events().is_empty());
+		assert_eq!(held(OWNER), held_before);
 		assert_eq!(System::events().len(), events_before);
 	});
 }
@@ -564,38 +718,22 @@ fn removing_absent_metadata_is_a_no_op() {
 fn define_item_accepts_more_than_old_cap_and_charges_each_metadata_entry() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Scarcity::create_collection(RuntimeOrigin::signed(OWNER)));
-		clear_consideration_events();
+		let held_before = held(OWNER);
 		let metadata = (0..41)
 			.map(|index| {
 				(key(format!("key-{index}").as_bytes()), value(format!("value-{index}").as_bytes()))
 			})
 			.collect::<Vec<_>>();
-		let expected_footprints = metadata
-			.iter()
-			.map(|(key, value)| Footprint::from_parts(1, key.len().saturating_add(value.len())))
-			.collect::<Vec<_>>();
-
 		assert_ok!(Scarcity::define_item(RuntimeOrigin::signed(OWNER), 0, metadata,));
 
 		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
 		assert_eq!(ItemMetadata::<Test>::iter_prefix((0, 0)).count(), 41);
 		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"key-40")), Some(value(b"value-40")),);
-		let events = consideration_events();
-		assert_eq!(
-			events.first(),
-			Some(&ConsiderationEvent::New {
-				who: OWNER,
-				footprint: Footprint::from_parts(1, definition.encoded_size()),
-			}),
-		);
-		assert_eq!(events.len(), expected_footprints.len() + 1);
-		for (event, footprint) in events[1..].iter().zip(expected_footprints) {
-			assert_eq!(
-				event,
-				&ConsiderationEvent::New { who: OWNER, footprint },
-				"every initial metadata entry must create its own deposit ticket",
-			);
-		}
+		let metadata_deposit = ItemMetadata::<Test>::iter_prefix((0, 0))
+			.map(|(_, entry)| entry.deposit)
+			.sum::<u64>();
+		assert_eq!(held(OWNER), held_before + definition.deposit + metadata_deposit);
+		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, held(OWNER));
 		assert_ok!(Scarcity::do_try_state());
 	});
 }
@@ -660,7 +798,7 @@ fn mint_writes_consistent_state() {
 fn mint_without_deposit_waives_deposit_and_increments_supply() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		clear_consideration_events();
+		let held_before = held(OWNER);
 		MockNow::set(1_234);
 
 		assert_eq!(Scarcity::mint_without_deposit(0, 0, RECIPIENT), Ok(0));
@@ -674,7 +812,7 @@ fn mint_without_deposit_waives_deposit_and_increments_supply() {
 		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
 		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, 1);
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
-		assert!(consideration_events().is_empty());
+		assert_eq!(held(OWNER), held_before);
 		System::assert_has_event(
 			Event::<Test>::Minted { instance: 0, collection: 0, item: 0, owner: RECIPIENT }.into(),
 		);
@@ -740,7 +878,7 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 fn depositless_instance_transfers_through_extension_pipeline() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		clear_consideration_events();
+		let held_before = held(OWNER);
 		MockNow::set(10);
 		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
 
@@ -758,7 +896,7 @@ fn depositless_instance_transfers_through_extension_pipeline() {
 		assert_eq!(moved.last_moved, 20);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
-		assert!(consideration_events().is_empty());
+		assert_eq!(held(OWNER), held_before);
 	});
 }
 
@@ -1065,7 +1203,9 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 		));
 		MockNow::set(10);
 		mint(0, RECIPIENT);
-		clear_consideration_events();
+		let instance_deposit =
+			InstanceDeposits::<Test>::get(0).expect("ordinary mint has a deposit");
+		let held_before = held(OWNER);
 		let supply = ItemDefs::<Test>::get(0, 0).unwrap().supply;
 		let burned_authorization = current_authorization(RECIPIENT);
 
@@ -1088,7 +1228,7 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 			Some(value(b"burn")),
 			"item-definition metadata must outlive a burned instance",
 		);
-		assert_eq!(consideration_events(), vec![ConsiderationEvent::Drop { who: OWNER }]);
+		assert_eq!(held(OWNER), held_before - instance_deposit);
 		System::assert_has_event(Event::<Test>::Burned { instance: 0 }.into());
 
 		assert_no_nft(
@@ -1110,7 +1250,7 @@ fn burn_of_depositless_instance_releases_nothing_and_cleans_indexes() {
 		setup_item();
 		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
-		clear_consideration_events();
+		let held_before = held(OWNER);
 
 		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
 		let pre = prepare_burn(val, &origin);
@@ -1120,7 +1260,7 @@ fn burn_of_depositless_instance_releases_nothing_and_cleans_indexes() {
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert!(!Instances::<Test>::contains_key(0));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
-		assert!(consideration_events().is_empty());
+		assert_eq!(held(OWNER), held_before);
 	});
 }
 
@@ -1148,19 +1288,25 @@ fn failed_burn_restores_nft_and_locks_purse_key() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		mint(0, RECIPIENT);
-		MockDropFails::set(true);
+		let held_amount = held(OWNER);
+		assert_ok!(<Balances as MutateHold<u64>>::release(
+			&scarcity_hold_reason(),
+			&OWNER,
+			held_amount,
+			Precision::Exact,
+		));
 
 		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
 		let pre = prepare_burn(val, &origin);
 		let dispatch = Scarcity::burn(origin);
-		assert_noop!(dispatch, DispatchError::Other("test consideration drop failed"));
-		// The burn's storage transaction restores its reverse index and ticket. The extension
+		let dispatch_error = dispatch.expect_err("the missing hold must make release fail").error;
+		// The burn's storage transaction restores its reverse index and deposit. The extension
 		// still owns the NFT until post-dispatch handles the failed capability call.
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
 		assert!(InstanceDeposits::<Test>::contains_key(0));
 
-		post_dispatch(pre, Err(DispatchError::Other("test consideration drop failed")));
+		post_dispatch(pre, Err(dispatch_error));
 		assert!(NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert_eq!(Locked::<Test>::get(RECIPIENT), Some(LockInfo { retries: 0, until: 60 }));
 	});
@@ -1259,6 +1405,34 @@ fn try_state_rejects_lock_without_nft() {
 		Locked::<Test>::insert(RECIPIENT, LockInfo { retries: 0, until: 60 });
 
 		assert_try_state_error("Locked entry has no matching NFT");
+	});
+}
+
+#[test]
+fn try_state_rejects_incorrect_collection_deposit_aggregate() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		Collections::<Test>::mutate(0, |maybe_info| {
+			maybe_info.as_mut().expect("collection exists").owner_deposit += 1;
+		});
+
+		assert_try_state_error("collection owner deposit does not match its stored components");
+	});
+}
+
+#[test]
+fn try_state_rejects_collection_deposit_hold_mismatch() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		assert_ok!(<Balances as MutateHold<u64>>::release(
+			&scarcity_hold_reason(),
+			&OWNER,
+			1,
+			Precision::Exact,
+		));
+
+		assert_try_state_error("collection owner deposit does not match held balance");
 	});
 }
 
