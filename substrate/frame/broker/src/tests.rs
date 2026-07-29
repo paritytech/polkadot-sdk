@@ -2447,6 +2447,142 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 }
 
 #[test]
+fn enable_auto_renew_fails_for_workload_of_another_task() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+		let region_1 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
+		assert_ok!(Broker::do_assign(region_2, Some(1), 2001, Final));
+		endow(1001, 1000);
+
+		// Task 1001 cannot enable auto-renewal for the core running task 2001's workload, even
+		// with a valid workload end hint:
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_2.core, 1001, Some(7)),
+			Error::<Test>::TaskNotInWorkload
+		);
+
+		// Now both cores are expiring, so enabling auto-renewal would renew immediately. Task
+		// 1001 must not renew (and pay for) task 2001's workload:
+		advance_to(6);
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_2.core, 1001, None),
+			Error::<Test>::NotAllowed
+		);
+		assert_eq!(balance(1001), 1000);
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);
+
+		// Works for the core running its own workload:
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, None));
+		assert_eq!(balance(1001), 900);
+	});
+}
+
+#[test]
+fn enable_auto_renew_falls_back_to_hint_when_core_carries_foreign_renewal() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		endow(2001, 1000);
+
+		// The core is expiring with task 1001's workload, while task 2001 has its own renewal
+		// record on the same core index further in the future:
+		advance_to(6);
+		let sale = SaleInfo::<Test>::get().unwrap();
+		PotentialRenewals::<Test>::insert(
+			PotentialRenewalId { core: region_id.core, when: sale.region_end },
+			PotentialRenewalRecord {
+				price: 100,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+						.try_into()
+						.unwrap(),
+				),
+			},
+		);
+
+		// Task 2001 must not renew task 1001's expiring workload; the hint leads to its own
+		// renewal record instead:
+		assert_ok!(Broker::do_enable_auto_renew(2001, region_id.core, 2001, Some(sale.region_end)));
+		assert_eq!(balance(2001), 1000);
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord {
+				core: region_id.core,
+				task: 2001,
+				next_renewal: sale.region_end
+			}]
+		);
+		// Task 1001's expiring workload was left untouched:
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: region_id.core,
+			when: sale.region_begin
+		})
+		.is_some());
+	});
+}
+
+#[test]
+fn auto_renewal_fails_for_workload_of_another_task() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)));
+		endow(1001, 1000);
+
+		// The workload on the core changes hands before the renewal is processed (e.g. a stale
+		// record created before the task-workload check existed):
+		let renewal_id = PotentialRenewalId { core: region_id.core, when: 7 };
+		let record = PotentialRenewals::<Test>::get(renewal_id).unwrap();
+		PotentialRenewals::<Test>::insert(
+			renewal_id,
+			PotentialRenewalRecord {
+				price: record.price,
+				completion: CompletionStatus::Complete(
+					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
+						.try_into()
+						.unwrap(),
+				),
+			},
+		);
+
+		// The renewal fails instead of charging task 1001 for task 2001's workload:
+		advance_to(7);
+		assert_eq!(balance(1001), 1000);
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: region_id.core, payer: Some(1001) }.into(),
+		);
+		// The mismatched record is dropped:
+		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);
+	});
+}
+
+#[test]
+fn enable_auto_renew_immediate_ignores_hint_for_next_renewal() {
+	TestExt::new().endow(1, 1000).endow(1001, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+		advance_to(6);
+
+		// The core is renewable now, so enabling auto-renewal renews immediately. The hint must
+		// not delay the next renewal past the period just renewed for:
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(100)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
+		);
+	});
+}
+
+#[test]
 fn disable_auto_renew_works() {
 	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 3));

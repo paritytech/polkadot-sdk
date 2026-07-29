@@ -149,6 +149,14 @@ pub struct PotentialRenewalRecord<Balance> {
 	/// incomplete, then the parts of the core which have been scheduled.
 	pub completion: CompletionStatus,
 }
+impl<Balance> PotentialRenewalRecord<Balance> {
+	/// Return whether the workload to be renewed is complete and includes the given task.
+	pub fn includes_task(&self, task: TaskId) -> bool {
+		self.completion.complete().map_or(false, |workload| {
+			workload.iter().any(|item| item.assignment == CoreAssignment::Task(task))
+		})
+	}
+}
 pub type PotentialRenewalRecordOf<T> = PotentialRenewalRecord<BalanceOf<T>>;
 
 /// General status of the system.

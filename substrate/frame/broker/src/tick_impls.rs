@@ -375,6 +375,20 @@ impl<T: Config> Pallet<T> {
 					return None;
 				};
 
+				// The renewal is resolved by core index, which is reused across regions, so
+				// this is not necessarily the workload that was validated when auto-renewal
+				// was enabled. The task must only pay for renewing its own workload.
+				let renewal_id = PotentialRenewalId { core: record.core, when: sale.region_begin };
+				let renews_own_workload = PotentialRenewals::<T>::get(renewal_id)
+					.map_or(false, |renewal| renewal.includes_task(record.task));
+				if !renews_own_workload {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: Some(payer),
+					});
+					return None;
+				}
+
 				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
 					Some(AutoRenewalRecord {
 						core: new_core_index,
