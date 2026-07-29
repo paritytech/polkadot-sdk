@@ -65,6 +65,12 @@ impl<B: Backend> State<B> {
 		&self.metrics
 	}
 
+	/// Publish the current size of the in-memory connected peers store.
+	pub fn note_in_memory_connected_peers(&self) {
+		self.metrics
+			.note_in_memory_connected_peers(self.peer_manager.connected_peer_count());
+	}
+
 	/// Handle a new peer connection.
 	pub async fn handle_peer_connected<Sender: CollatorProtocolSenderTrait>(
 		&mut self,

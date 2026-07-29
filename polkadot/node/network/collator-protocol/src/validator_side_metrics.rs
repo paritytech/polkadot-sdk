@@ -90,6 +90,12 @@ impl Metrics {
 			.map(|metrics| metrics.collator_peer_count.set(collator_peers as u64));
 	}
 
+	pub fn note_in_memory_connected_peers(&self, connected_peers: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.in_memory_connected_peers.set(connected_peers as u64);
+		}
+	}
+
 	fn note_advertisement(&self, outcome: &'static str) {
 		if let Some(metrics) = &self.0 {
 			metrics.advertisements.with_label_values(&[outcome]).inc();
@@ -261,6 +267,9 @@ struct MetricsInner {
 	process_msg: prometheus::Histogram,
 	handle_collation_request_result: prometheus::Histogram,
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
+	/// Similar to `collator_peer_count`, but represents the in-memory peer count from
+	/// `PeerManager`.
+	in_memory_connected_peers: prometheus::Gauge<prometheus::U64>,
 	advertisements: prometheus::CounterVec<prometheus::U64>,
 	collations_seconded: prometheus::CounterVec<prometheus::U64>,
 	collations_blocked_on_parent: prometheus::CounterVec<prometheus::U64>,
@@ -310,6 +319,13 @@ impl metrics::Metrics for Metrics {
 				prometheus::Gauge::new(
 					"polkadot_parachain_collator_peer_count",
 					"Amount of collator peers connected",
+				)?,
+				registry,
+			)?,
+			in_memory_connected_peers: prometheus::register(
+				prometheus::Gauge::new(
+					"polkadot_parachain_collator_protocol_validator_in_memory_connected_peers",
+					"Number of collator peers in the collator protocol's own in-memory store",
 				)?,
 				registry,
 			)?,

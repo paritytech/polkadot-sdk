@@ -303,6 +303,11 @@ async fn run_inner<Context>(
 			},
 		}
 
+		// Refresh the in-memory connected peers. Done once per loop iteration, so that
+		// it covers every event source above and cannot be missed by a handler that forgets to
+		// update it.
+		state.note_in_memory_connected_peers();
+
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
 		// We could optimise to not always re-run this code (have the other functions return
