@@ -1767,9 +1767,7 @@ where
 	let finalized_header = client
 		.header(info.finalized_hash)
 		.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
-		.expect(
-			"best finalized hash was given by client; finalized headers must exist in db; qed",
-		);
+		.expect("best finalized hash was given by client; finalized headers must exist in db; qed");
 
 	let finalized_slot = match find_pre_digest::<Block>(&finalized_header) {
 		Ok(pre_digest) => pre_digest.slot(),
