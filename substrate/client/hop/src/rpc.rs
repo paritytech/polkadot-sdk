@@ -229,7 +229,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::pool::HopDataPool;
+	use crate::{
+		pool::HopDataPool,
+		types::{entry_accounted_size, MAX_DATA_SIZE},
+	};
 	use codec::Encode;
 	use sp_api::{ApiError, CallApiAtParams};
 	use sp_blockchain::{self, Info};
@@ -332,12 +335,17 @@ mod tests {
 		}
 	}
 
+	/// Smallest `max_size` / `max_user_size` the pool constructor accepts.
+	fn min_pool_size() -> u64 {
+		entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize)
+	}
+
 	fn setup(authorized: bool) -> (HopRpcServer<MockClient, Block>, Arc<HopDataPool>, TempDir) {
 		let dir = TempDir::new().unwrap();
 		let pool = Arc::new(
 			HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				crate::rate_limit::RateLimitConfig::disabled(),
@@ -533,6 +541,6 @@ mod tests {
 		let status = rpc.pool_status().unwrap();
 		assert_eq!(status.entry_count, 0);
 		assert_eq!(status.total_bytes, 0);
-		assert_eq!(status.max_bytes, 1024 * 1024);
+		assert_eq!(status.max_bytes, min_pool_size());
 	}
 }

@@ -442,7 +442,6 @@ impl HopDataPool {
 			return Err(e);
 		}
 
-
 		let expires_at = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
 			.unwrap_or_default()
@@ -939,7 +938,7 @@ fn saturating_release(counter: &AtomicU64, accounted: u64) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::types::Recipient;
+	use crate::types::{Recipient, METADATA_COST_PER_RECIPIENT};
 	use sp_core::{crypto::Pair, ed25519, sr25519};
 	use sp_runtime::MultiSigner;
 	use tempfile::TempDir;
@@ -950,6 +949,22 @@ mod tests {
 	/// Accounted cost of an entry with `data_size` bytes and `num_recipients` recipients.
 	fn acct(data_size: u64, num_recipients: usize) -> u64 {
 		entry_accounted_size(data_size, num_recipients)
+	}
+
+	/// Smallest `max_size` / `max_user_size` the constructor accepts: the
+	/// accounted size of one maximum entry (`MAX_DATA_SIZE` bytes, full
+	/// recipient list).
+	fn min_pool_size() -> u64 {
+		entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize)
+	}
+
+	/// Data sizes for two single-recipient entries that together fill a pool
+	/// (or user quota) of exactly [`min_pool_size`] bytes: one `MAX_DATA_SIZE`
+	/// blob plus a remainder blob covering what's left.
+	fn exact_fill_data_sizes() -> (u64, u64) {
+		let big = MAX_DATA_SIZE;
+		let rest = min_pool_size() - acct(big, 1) - METADATA_COST_PER_RECIPIENT;
+		(big, rest)
 	}
 
 	fn make_pool(max_size: u64, retention_secs: u64) -> (HopDataPool, TempDir) {
@@ -983,7 +998,7 @@ mod tests {
 	}
 
 	fn create_test_pool() -> (HopDataPool, TempDir) {
-		make_pool(1024 * 1024, 100)
+		make_pool(min_pool_size(), 100)
 	}
 
 	fn test_recipient() -> (ed25519::Pair, MultiSigner) {
@@ -1117,18 +1132,41 @@ mod tests {
 
 	#[test]
 	fn test_pool_full() {
-		// Capacity exactly holds one 60-byte entry with one recipient (60 + 40 = 100).
-		let (pool, _dir) = make_pool(acct(60, 1), 100);
+		// Two single-recipient entries fill the minimum-size pool to the byte;
+		// even a tiny third insert must then be rejected. The fillers come from
+		// two senders so the per-user cap (== max_size here) is not what trips.
+		let (pool, _dir) = make_pool(min_pool_size(), 100);
 		let (_, signer) = test_recipient();
+		let (big, rest) = exact_fill_data_sizes();
 
-		let data1 = vec![0u8; 60];
-		let data2 = vec![1u8; 50];
+		pool.insert(
+			vec![0u8; big as usize],
+			bv(vec![signer.clone()]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
+		pool.insert(
+			vec![1u8; rest as usize],
+			bv(vec![signer.clone()]),
+			SENDER_B,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
+		assert_eq!(pool.status().total_bytes, min_pool_size());
 
-		pool.insert(data1, bv(vec![signer.clone()]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
-			.unwrap();
-		let result =
-			pool.insert(data2, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
-
+		let result = pool.insert(
+			vec![2u8; 50],
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		);
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 	}
 
@@ -1315,12 +1353,23 @@ mod tests {
 
 	#[test]
 	fn test_per_user_cap_is_hard_limit() {
-		// Pool big enough for multiple users; user cap sized to one 60-byte entry (+ metadata).
-		let (pool, _dir) = make_pool_with_user_cap(10_000, acct(60, 1), 100);
+		// Pool big enough for multiple users; user cap at the minimum, filled to
+		// the byte by two entries.
+		let (pool, _dir) = make_pool_with_user_cap(min_pool_size() * 2, min_pool_size(), 100);
 		let (_, signer) = test_recipient();
+		let (big, rest) = exact_fill_data_sizes();
 
 		pool.insert(
-			vec![0u8; 60],
+			vec![0u8; big as usize],
+			bv(vec![signer.clone()]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
+		pool.insert(
+			vec![1u8; rest as usize],
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1331,7 +1380,7 @@ mod tests {
 
 		// User A is at the cap; next insert is rejected regardless of pool headroom.
 		let result = pool.insert(
-			vec![1u8; 10],
+			vec![2u8; 10],
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1341,18 +1390,19 @@ mod tests {
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// User B has their own independent cap.
-		pool.insert(vec![2u8; 60], bv(vec![signer]), SENDER_B, dummy_auth().0, dummy_auth().1, 0)
+		pool.insert(vec![3u8; 60], bv(vec![signer]), SENDER_B, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 	}
 
 	#[test]
 	fn test_quota_released_after_ack() {
-		let (pool, _dir) = make_pool_with_user_cap(10_000, acct(100, 1), 100);
+		let (pool, _dir) = make_pool_with_user_cap(min_pool_size() * 2, min_pool_size(), 100);
 		let (pair, signer) = test_recipient();
+		let (big, rest) = exact_fill_data_sizes();
 
 		let hash = pool
 			.insert(
-				vec![0u8; 100],
+				vec![0u8; big as usize],
 				bv(vec![signer.clone()]),
 				SENDER_A,
 				dummy_auth().0,
@@ -1360,10 +1410,19 @@ mod tests {
 				0,
 			)
 			.unwrap();
+		pool.insert(
+			vec![1u8; rest as usize],
+			bv(vec![signer.clone()]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
 
 		// At cap; next insert rejected.
 		let result = pool.insert(
-			vec![1u8; 10],
+			vec![2u8; 10],
 			bv(vec![signer.clone()]),
 			SENDER_A,
 			dummy_auth().0,
@@ -1378,13 +1437,13 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 
 		// Quota freed — user can insert again.
-		pool.insert(vec![2u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+		pool.insert(vec![3u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
 			.unwrap();
 	}
 
 	#[test]
 	fn test_cleanup_expired_releases_quota() {
-		let (pool, _dir) = make_pool(10_000, 0);
+		let (pool, _dir) = make_pool(min_pool_size(), 0);
 		let (_, signer) = test_recipient();
 
 		pool.insert(vec![0u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
@@ -1402,7 +1461,7 @@ mod tests {
 	fn test_cleanup_expired_honors_wall_clock_retention() {
 		// Retention is measured in real seconds, not blocks: insert with a 1 s
 		// retention, sleep past it, and assert cleanup reaps the entry.
-		let (pool, _dir) = make_pool(10_000, 1);
+		let (pool, _dir) = make_pool(min_pool_size(), 1);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -1453,7 +1512,7 @@ mod tests {
 		// After cleanup_expired runs and a sender has no live entries with a
 		// non-zero counter, their map slot must be removed so the map cannot
 		// grow unbounded across the lifetime of a long-running node.
-		let (pool, _dir) = make_pool(10_000, 10);
+		let (pool, _dir) = make_pool(min_pool_size(), 10);
 		let (pair, signer) = test_recipient();
 
 		let hash = pool
@@ -1474,7 +1533,7 @@ mod tests {
 		// A sender with live (non-expired) entries must keep their counter
 		// even when the counter dropped to 0 between submissions — otherwise
 		// concurrent in-flight inserts could orphan their `Arc`.
-		let (pool, _dir) = make_pool(10_000, 100);
+		let (pool, _dir) = make_pool(min_pool_size(), 100);
 		let (_, signer) = test_recipient();
 
 		pool.insert(vec![0u8; 50], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
@@ -1496,10 +1555,10 @@ mod tests {
 		let total = BATCHES * PER_BATCH;
 
 		let dir = TempDir::new().unwrap();
-		// Pool sized for ~25k tiny entries (4 bytes each + recipient overhead).
-		let entry_bytes = std::mem::size_of::<u32>() as u64;
+		// The minimum allowed pool comfortably holds ~25k tiny entries
+		// (4 bytes each + recipient overhead).
 		let pool = HopDataPool::new(
-			(acct(entry_bytes, 1) * total as u64) + 1024,
+			min_pool_size(),
 			u64::MAX,
 			0,
 			dir.path().to_path_buf(),
@@ -1537,8 +1596,8 @@ mod tests {
 		let hash;
 		{
 			let pool = HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -1561,8 +1620,8 @@ mod tests {
 
 		{
 			let pool = HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -1583,8 +1642,8 @@ mod tests {
 		let dir = TempDir::new().unwrap();
 		{
 			let _pool = HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -1598,8 +1657,8 @@ mod tests {
 		assert!(blob_path.exists());
 
 		let _pool = HopDataPool::new(
-			1024 * 1024,
-			1024 * 1024,
+			min_pool_size(),
+			min_pool_size(),
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
@@ -1613,8 +1672,8 @@ mod tests {
 		let dir = TempDir::new().unwrap();
 		{
 			let _pool = HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -1628,8 +1687,8 @@ mod tests {
 		assert!(meta_path.exists());
 
 		let pool = HopDataPool::new(
-			1024 * 1024,
-			1024 * 1024,
+			min_pool_size(),
+			min_pool_size(),
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
@@ -1769,8 +1828,11 @@ mod tests {
 		use std::{sync::Barrier, thread};
 
 		let (_, signer) = test_recipient();
-		// Capacity for exactly 4 entries of 50 bytes (accounted = 90 each).
-		let (pool, _dir) = make_pool(acct(50, 1) * 4, 100);
+		// Capacity for exactly 4 entries: each thread inserts a blob whose
+		// accounted size is a quarter of the minimum-size pool.
+		let per_entry = min_pool_size() / 4;
+		let data_len = (per_entry - METADATA_COST_PER_RECIPIENT) as usize;
+		let (pool, _dir) = make_pool(per_entry * 4, 100);
 		let pool = Arc::new(pool);
 		let barrier = Arc::new(Barrier::new(10));
 
@@ -1782,7 +1844,7 @@ mod tests {
 				thread::spawn(move || {
 					barrier.wait();
 					pool.insert(
-						vec![i; 50],
+						vec![i; data_len],
 						bv(vec![signer]),
 						SENDER_A,
 						dummy_auth().0,
@@ -1797,7 +1859,7 @@ mod tests {
 		let successes = results.iter().filter(|r| r.is_ok()).count();
 
 		assert!(successes <= 4, "Got {} successes, max should be 4", successes);
-		assert!(pool.status().total_bytes <= acct(50, 1) * 4);
+		assert!(pool.status().total_bytes <= per_entry * 4);
 	}
 
 	#[test]
@@ -1805,10 +1867,11 @@ mod tests {
 		use std::{sync::Barrier, thread};
 
 		let (_, signer) = test_recipient();
-		// Per-user cap holds 3 entries of 100 bytes. Pool has plenty of room so the
-		// *user* cap is what actually constrains the test.
-		let per_entry = acct(100, 1);
-		let (pool, _dir) = make_pool_with_user_cap(per_entry * 20, per_entry * 3, 100);
+		// Per-user cap (the minimum allowed) holds exactly 3 entries. Pool has
+		// plenty of room so the *user* cap is what actually constrains the test.
+		let per_entry = min_pool_size() / 3;
+		let data_len = (per_entry - METADATA_COST_PER_RECIPIENT) as usize;
+		let (pool, _dir) = make_pool_with_user_cap(min_pool_size() * 3, per_entry * 3, 100);
 		let pool = Arc::new(pool);
 		let barrier = Arc::new(Barrier::new(10));
 
@@ -1820,7 +1883,7 @@ mod tests {
 				thread::spawn(move || {
 					barrier.wait();
 					pool.insert(
-						vec![i; 100],
+						vec![i; data_len],
 						bv(vec![signer]),
 						SENDER_A,
 						dummy_auth().0,
@@ -1896,7 +1959,7 @@ mod tests {
 		// not delete the winner's blob/meta files; the winning hash must remain
 		// readable via claim().
 		let (kp, signer) = test_recipient();
-		let (pool, _dir) = make_pool(1024 * 1024, 100);
+		let (pool, _dir) = make_pool(min_pool_size(), 100);
 		let pool = Arc::new(pool);
 		let data = vec![0xABu8; 4096];
 		let barrier = Arc::new(Barrier::new(2));
@@ -1936,8 +1999,8 @@ mod tests {
 		let dir = TempDir::new().unwrap();
 		let pool = Arc::new(
 			HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -1974,8 +2037,8 @@ mod tests {
 		// recovery rebuilds the in-memory index from `.meta` files on disk.
 		drop(pool);
 		let pool2 = HopDataPool::new(
-			1024 * 1024,
-			1024 * 1024,
+			min_pool_size(),
+			min_pool_size(),
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
@@ -2032,7 +2095,7 @@ mod tests {
 	fn test_get_promotable_within_buffer() {
 		// retention=3600s; a freshly-inserted entry is in the promotion window only
 		// if the buffer is at least as large as the time-to-expiry.
-		let (pool, _dir) = make_pool(1024 * 1024, 3600);
+		let (pool, _dir) = make_pool(min_pool_size(), 3600);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -2051,7 +2114,7 @@ mod tests {
 
 	#[test]
 	fn test_get_promotable_excludes_promoted() {
-		let (pool, _dir) = make_pool(1024 * 1024, 100);
+		let (pool, _dir) = make_pool(min_pool_size(), 100);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -2075,8 +2138,8 @@ mod tests {
 		let hash;
 		{
 			let pool = HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -2097,8 +2160,8 @@ mod tests {
 
 		{
 			let pool = HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
@@ -2112,7 +2175,7 @@ mod tests {
 
 	#[test]
 	fn test_cleanup_expired_removes_promoted() {
-		let (pool, _dir) = make_pool(1024 * 1024, 0);
+		let (pool, _dir) = make_pool(min_pool_size(), 0);
 		let (_, signer) = test_recipient();
 
 		let hash = pool
@@ -2142,7 +2205,7 @@ mod tests {
 			max_tracked_senders: 1_000_000,
 		};
 		let pool =
-			HopDataPool::new(1024 * 1024, 1024 * 1024, 100, dir.path().to_path_buf(), cfg).unwrap();
+			HopDataPool::new(min_burst, min_burst, 100, dir.path().to_path_buf(), cfg).unwrap();
 		let (_, signer) = test_recipient();
 
 		pool.insert(
@@ -2199,8 +2262,8 @@ mod tests {
 		fs::write(&blob_path, b"x").unwrap();
 
 		let pool = HopDataPool::new(
-			1024 * 1024,
-			1024 * 1024,
+			min_pool_size(),
+			min_pool_size(),
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
@@ -2215,7 +2278,7 @@ mod tests {
 	fn test_promotion_backoff_skips_until_due_then_gives_up() {
 		use crate::types::MAX_PROMOTION_ATTEMPTS;
 
-		let (pool, _dir) = make_pool(1024 * 1024, /* retention = */ 100);
+		let (pool, _dir) = make_pool(min_pool_size(), /* retention = */ 100);
 		let (_, signer) = test_recipient();
 		let hash = pool
 			.insert(vec![1u8; 100], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
