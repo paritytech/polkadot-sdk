@@ -50,7 +50,6 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_runtime::traits::Zero;
-use sp_std::convert::TryInto;
 use xcm::prelude::{
 	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
@@ -96,7 +95,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId: Into<[u8; 32]>> {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -282,7 +281,7 @@ pub mod pallet {
 			);
 
 			// Burning fees for teleport
-			Self::burn_fees(channel.para_id, &who, fee)?;
+			Self::teleport_fees_from_relayer(channel.para_id, &who, fee)?;
 
 			// Reimburse the relayer from the sovereign account of the destination parachain, only
 			// if funds are available. The relayer has already fronted the teleported fee.
@@ -352,13 +351,16 @@ pub mod pallet {
 				.saturating_add(T::PricingParameters::get().rewards.local)
 		}
 
-		/// Burn the amount of the fee embedded into the XCM for teleports
-		fn burn_fees(para_id: ParaId, who: &T::AccountId, fee: BalanceOf<T>) -> DispatchResult {
+		/// Teleport the fee, fronted by the relayer, to the destination parachain.
+		fn teleport_fees_from_relayer(
+			para_id: ParaId,
+			who: &T::AccountId,
+			fee: BalanceOf<T>,
+		) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
 			let dest = Location::new(1, [Parachain(para_id.into())]);
-			let relayer_id: [u8; 32] =
-				who.encode().try_into().map_err(|_| Error::<T>::InvalidAccountConversion)?;
+			let relayer_id: [u8; 32] = who.clone().into();
 			let relayer = Location::new(0, [AccountId32 { network: None, id: relayer_id }]);
 			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
