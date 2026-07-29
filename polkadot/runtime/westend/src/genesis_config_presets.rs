@@ -153,6 +153,39 @@ fn default_parachains_host_configuration(
 	}
 }
 
+/// Host configuration for the versi V3-activation network (used by the staging preset, which
+/// versi's chainspec generator builds from). All knobs at genesis, so no post-reset sudo pass.
+fn versi_parachains_host_configuration(
+) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
+{
+	use polkadot_primitives::{AsyncBackingParams, ExecutorParam, ExecutorParams, PvfExecKind};
+
+	let mut config = default_parachains_host_configuration();
+	config.scheduler_params.num_cores = 9;
+	config.scheduler_params.max_validators_per_core = Some(5);
+	// lookahead 5 and group_rotation_frequency 20 inherited from the default.
+
+	// The genesis default {0, 0} silently kills relay-parent-offset paras.
+	config.async_backing_params =
+		AsyncBackingParams { max_candidate_depth: 5, allowed_ancestry_len: 2 };
+
+	// Default executor params cause HardTimeout storms on 1-CPU pods.
+	config.executor_params = ExecutorParams::from(
+		&[
+			ExecutorParam::MaxMemoryPages(8192),
+			ExecutorParam::PvfExecTimeout(PvfExecKind::Backing, 2500),
+			ExecutorParam::PvfExecTimeout(PvfExecKind::Approval, 15000),
+		][..],
+	);
+
+	config
+}
+
+#[test]
+fn versi_parachains_host_configuration_is_consistent() {
+	versi_parachains_host_configuration().panic_if_not_consistent();
+}
+
 #[test]
 fn default_parachains_host_configuration_is_consistent() {
 	default_parachains_host_configuration().panic_if_not_consistent();
@@ -390,7 +423,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 		},
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
-		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
+		configuration: ConfigurationConfig { config: versi_parachains_host_configuration() },
 		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
 	})
 }
