@@ -8,9 +8,9 @@ doc:
     ## Changes
 
     - Initialize `latest_block` from the actual best block.
-    - Make `update_latest` monotonic, so the startup backlog replayed by subxt 0.50's chainHead subscription can no longer walk a head backwards.
+    - Ignore the blocks that the subscriptions replay when they (re)initialise, instead of walking a tracked head backwards.
     - Pass the already resolved block to `fetch_receipt_data` instead of a hash.
-    - Only request receipt data when the block contains pallet-revive extrinsics.
+    - Only request receipt data when the block contains pallet-revive extrinsics, or when an extrinsic decode fails and its type is yet unknown.
     - Raise the `differential-tests` job timeout from 60 to 120 minutes; the full corpus no longer finishes within 60 minutes since the subxt 0.50 bump. Further investigation of the slowdown will be tackled separately.
 crates:
 - name: pallet-revive-eth-rpc

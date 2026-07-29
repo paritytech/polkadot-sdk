@@ -103,8 +103,7 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 				}
 			},
 			SubscriptionType::BestBlocks => {
-				// Accept a lower height best block that is above the finalized one since this
-				// is a real reorg.
+				// Above the finalized height, so treat it as a reorg rather than a replay.
 				let finalized_number = self.latest_finalized_block.read().await.block_number();
 				let mut latest = self.latest_block.write().await;
 				if block.block_number() >= latest.block_number() ||

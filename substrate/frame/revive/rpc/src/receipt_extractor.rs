@@ -178,10 +178,10 @@ fn extract_eth_transacts<C: OfflineClientAtBlockT<SrcChainConfig>>(
 		match ext.decode_call_data_fields_as::<EthTransact>() {
 			Some(Ok(call)) => extrinsics.push((call, ext_idx)),
 			Some(Err(err)) => {
-				log::debug!(target: LOG_TARGET,
+				log::error!(target: LOG_TARGET,
 					"Failed to decode the EthTransact call in extrinsic {ext_idx} of block \
 					#{block_number}: {err:?}");
-				return Err(ClientError::ExtrinsicDecodeFailed(ext_idx, block_number));
+				return Err(subxt::Error::from(err).into());
 			},
 			// Not a revive transaction.
 			None => {},
@@ -963,9 +963,11 @@ mod tests {
 		extrinsic.encode()
 	}
 
+	const PAYLOAD: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
+
 	fn eth_transact_extrinsic() -> Vec<u8> {
 		encode_bare(revive_dev_runtime::RuntimeCall::Revive(pallet_revive::Call::eth_transact {
-			payload: vec![0xde, 0xad, 0xbe, 0xef],
+			payload: PAYLOAD.to_vec(),
 		}))
 	}
 
@@ -999,6 +1001,7 @@ mod tests {
 		assert!(!undecoded, "every extrinsic decoded");
 		assert_eq!(calls.len(), 1, "only the revive extrinsic is collected");
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
+		assert_eq!(calls[0].0.payload, PAYLOAD, "the call fields are decoded");
 	}
 
 	#[tokio::test]
@@ -1008,6 +1011,7 @@ mod tests {
 
 		assert_eq!(calls.len(), 1, "an undecodable extrinsic must not hide a decoded one");
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
+		assert_eq!(calls[0].0.payload, PAYLOAD, "the call fields are decoded");
 		assert!(undecoded, "it may be a revive one, so report it");
 	}
 }

@@ -171,9 +171,6 @@ pub enum ClientError {
 	/// Receipt data length mismatch.
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
-	/// An extrinsic could not be decoded.
-	#[error("Failed to decode extrinsic {0} of block #{1}")]
-	ExtrinsicDecodeFailed(usize, SubstrateBlockNumber),
 	/// Transaction submission timeout.
 	#[error("Transaction submission timeout")]
 	Timeout,
