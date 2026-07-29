@@ -284,10 +284,10 @@ impl RelayChainStateProof {
 	/// Read the [`AbridgedHostConfiguration`] from the relay chain state proof.
 	///
 	/// Decodes only the abridged prefix, deliberately *not* via
-	/// [`Self::read_host_configuration_prefix`] with the remainder discarded: this is a mandatory
-	/// read on every block for every parachain, so it must not depend on the layout of relay fields
-	/// past the ones parachains actually persist. Only v3-capable runtimes take on that wider
-	/// dependency, and only via [`Self::read_relay_v3_feature_enabled`].
+	/// `read_host_configuration_prefix` with the remainder discarded: this is a mandatory read on
+	/// every block for every parachain, so it must not depend on the layout of relay fields past the
+	/// ones parachains actually persist. Only v3-capable runtimes take on that wider dependency, and
+	/// only via [`Self::read_relay_v3_feature_enabled`].
 	///
 	/// Returns an error if anything failed at reading or decoding.
 	pub fn read_abridged_host_configuration(&self) -> Result<AbridgedHostConfiguration, Error> {
