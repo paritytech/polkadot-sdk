@@ -1,0 +1,50 @@
+title: "sc-hop: harden data pool against DOS vectors"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Follow-up to #11662 hardening the HOP node service:
+
+      - Aggregate cross-account bandwidth bucket in `RateLimiter` — a coordinated
+        set of authorized accounts can no longer saturate the pool by each
+        staying within its per-account limit.
+      - Per-sender rate-limiter map bounded at `max_tracked_senders`; when full,
+        the sender with the most remaining capacity is evicted so exhausted
+        senders stay tracked.
+      - `HopDataPool::new` rejects `max_size`, `max_user_size`, and both
+        `bandwidth_burst` values that are smaller than the accounted cost of a
+        max-size blob at full recipient fan-out — new `HopError::InvalidConfig`.
+      - `hop_claim` / `hop_ack` map `NotRecipient` to `NotFound` to close an
+        existence oracle.
+      - `HopDataPool::index` switched from `RwLock` to `Mutex`; `ack` and
+        `insert` hold the write lock across their `meta` write to keep on-disk
+        state and the in-memory index in sync.
+      - Startup recovery cleans orphan `.tmp.*` files left by prior crashes.
+      - Runtime API dispatch is now dynamic (`ApiExt::has_api_with`), removing
+        the previous supertrait requirement on `NodeRuntimeApi`; runtimes
+        without `HopRuntimeApi` fall back to cleanup-only automatically.
+      - `HopRuntimeApi::max_promotion_size` is removed; size enforcement folds
+        into `can_account_promote(who, data_len)`.
+      - Wall-clock retention: `--hop-retention-blocks` /
+        `--hop-promotion-buffer-blocks` renamed to `*-secs`.
+
+  - audience: Node Operator
+    description: |
+      New flags: `--hop-global-bandwidth-per-min-mib` (1024),
+      `--hop-global-bandwidth-burst-mib` (2048), `--hop-max-rate-limit-senders`
+      (100 000).
+
+      Renamed: `--hop-retention-blocks` → `--hop-retention-secs`,
+      `--hop-promotion-buffer-blocks` → `--hop-promotion-buffer-secs`.
+
+      A HOP-enabled node no longer requires the runtime to implement
+      `HopRuntimeApi` (falls back to cleanup-only), and pool-init failures log
+      a warning instead of aborting startup.
+
+crates:
+  - name: sc-hop
+    bump: patch
+  - name: sp-hop
+    bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch
