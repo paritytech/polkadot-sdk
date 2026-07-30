@@ -67,7 +67,8 @@ use std::{
 pub enum AddFilterError {
 	/// The subscription already has the maximum number of active filters
 	LimitReached,
-	/// The matcher stopped before the filter request could be queued
+	/// The filter could not be registered: the store or the matcher is gone, or the subscription
+	/// is no longer active
 	Stopped,
 }
 
@@ -257,7 +258,14 @@ impl MultiFilterSubscriptionState {
 		let batch =
 			match snapshot_provider.replay_batch(&replay.filter, replay.cursor, replay.watermark) {
 				Ok(batch) => batch,
-				Err(_) => {
+				Err(e) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Stopping subscription: replaying filter {:?} from {} failed: {:?}",
+						filter_id,
+						replay.cursor,
+						e
+					);
 					self.stopped = true;
 					return None;
 				},
@@ -310,7 +318,7 @@ pub enum MultiFilterSubscriptionEvent {
 	},
 	/// Live statement event matched one or more active filters
 	NewStatement(LiveStatementEvent),
-	/// Subscription stopped because local resource limits were reached
+	/// Subscription stopped: the subscriber fell behind its buffer, or replaying a filter failed
 	Stop,
 }
 
@@ -584,7 +592,8 @@ struct IndexedSubscription {
 	seq_id: SeqID,
 	// The filter key within the subscription.
 	filter_key: SubscriptionFilterKey,
-	// Store sequence-number boundary captured when this subscription was created.
+	// Store sequence-number boundary captured when this entry was registered: at subscription
+	// creation for a fixed filter, at `add_filter` for a dynamic one.
 	watermark: u64,
 }
 
@@ -826,9 +835,10 @@ impl SubscriptionsInfo {
 	}
 
 	// Deliver the statement at store sequence number `seq` to every matching subscription.
-	// Fixed-filter subscriptions whose watermark is above `seq` are skipped: their subscribe-time
-	// snapshot already covers the statement (see
-	// `StatementStoreSubscriptionApi::subscribe_statement`).
+	// Subscriptions and filters registered above `seq` are skipped: the statement predates them, so
+	// it is covered by the subscribe-time snapshot
+	// (`StatementStoreSubscriptionApi::subscribe_statement`) for a fixed filter, or by the
+	// admission-cursor replay (`ReplaySnapshotProvider::replay_batch`) for a dynamic one.
 	fn notify_matching_filters(&mut self, seq: u64, statement: &Statement) {
 		let mut matches = HashMap::new();
 		self.collect_match_all_subscribers(seq, statement, &mut matches);
@@ -876,8 +886,8 @@ impl SubscriptionsInfo {
 	}
 
 	// Record a subscription filter as matched, unless the statement's sequence number is below the
-	// subscription's watermark (exactly-once delivery: such statements are covered by the
-	// subscribe-time snapshot instead).
+	// watermark captured when it was registered (exactly-once delivery: such statements are covered
+	// by the subscribe-time snapshot or the admission-cursor replay instead).
 	fn record_match(
 		matches: &mut HashMap<SeqID, MatchedSubscription>,
 		subscription: &IndexedSubscription,
@@ -1364,9 +1374,8 @@ mod tests {
 		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(10);
 		let mut statement = signed_statement(42);
 		statement.set_topic(0, topic);
-		// The statement's hash is part of the replay snapshot, but its body is gone from the
-		// store by the time the lazy replay tries to load it (evicted between snapshot
-		// collection and replay).
+		// The statement has an admission entry inside the replay range, but its body is no longer
+		// retrievable, so the replay skips that sequence number.
 		let provider = Arc::new(TestReplaySnapshotProvider::with_snapshot(
 			std::slice::from_ref(&statement),
 			&[],
