@@ -1268,6 +1268,88 @@ fn instantiation_from_contract() {
 }
 
 #[test]
+fn reentrant_instantiate_at_same_address_is_rejected() {
+	// EIP-684: while `B1` constructs at address `X`, its constructor re-enters the deployer to
+	// instantiate the same code+salt. That resolves to `X` again and must be rejected rather
+	// than run a second constructor for one account.
+	let salt = [42u8; 32];
+
+	let constructor_ch = MockLoader::insert(Constructor, |ctx, _| {
+		// Re-enter the deployer (BOB) while we are still being constructed.
+		ctx.ext
+			.call(
+				&CallResources::NoLimits,
+				&BOB_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
+			.unwrap();
+		exec_success()
+	});
+
+	let invocations = Rc::new(RefCell::new(0u32));
+	let second_instantiate_error = Rc::new(RefCell::new(None::<DispatchError>));
+	let factory_ch = MockLoader::insert(Call, {
+		let invocations = Rc::clone(&invocations);
+		let second_instantiate_error = Rc::clone(&second_instantiate_error);
+		move |ctx, _| {
+			*invocations.borrow_mut() += 1;
+			let n = *invocations.borrow();
+			// Bound the recursion in case the guard fails to reject the collision.
+			if n <= 2 {
+				let min_balance = <Test as Config>::Currency::minimum_balance();
+				let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+				let result = ctx.ext.instantiate(
+					&CallResources::NoLimits,
+					Code::Existing(constructor_ch),
+					value,
+					vec![],
+					Some(&salt),
+				);
+				if n == 2 {
+					if let Err(err) = &result {
+						*second_instantiate_error.borrow_mut() = Some(err.error);
+					}
+				}
+			}
+			exec_success()
+		}
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.existential_deposit(15)
+		.build()
+		.execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			set_balance(&ALICE, min_balance * 1000);
+			place_contract(&BOB, factory_ch);
+			let origin = Origin::from_account_id(ALICE);
+			let mut meter =
+				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
+
+			// `B1` still constructs; only the colliding re-entrant instantiate fails.
+			assert_ok!(MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut meter,
+				Pallet::<Test>::convert_native_to_evm(min_balance * 100),
+				vec![],
+				&ExecConfig::new_substrate_tx(),
+			));
+
+			// Initial call plus one re-entry; without the guard it would recurse further.
+			assert_eq!(*invocations.borrow(), 2);
+			assert_eq!(
+				*second_instantiate_error.borrow(),
+				Some(<Error<Test>>::DuplicateContract.into())
+			);
+		});
+}
+
+#[test]
 fn instantiation_traps() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
 	let instantiator_ch = MockLoader::insert(Call, {
