@@ -127,6 +127,9 @@ impl HopDataPool {
 		let mut index = HashMap::new();
 		let mut user_usage: HashMap<SenderId, AtomicU64> = HashMap::new();
 		let mut current_size = 0u64;
+		// Orphan `.blob`s are not counted: without a `.meta` they were never a
+		// claimable entry.
+		let mut dropped = 0u64;
 
 		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
 		for i in 0..SHARD_COUNT {
@@ -156,6 +159,7 @@ impl HopDataPool {
 					let Some(hash) = parse_hex_hash(&stem) else {
 						tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
 						let _ = fs::remove_file(&path);
+						dropped += 1;
 						continue;
 					};
 
@@ -164,6 +168,7 @@ impl HopDataPool {
 						Err(e) => {
 							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing unreadable .meta");
 							let _ = fs::remove_file(&path);
+							dropped += 1;
 							continue;
 						},
 					};
@@ -172,6 +177,7 @@ impl HopDataPool {
 						Err(e) => {
 							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing corrupt .meta");
 							let _ = fs::remove_file(&path);
+							dropped += 1;
 							continue;
 						},
 					};
@@ -187,6 +193,7 @@ impl HopDataPool {
 						let _ = fs::remove_file(Self::entry_path(
 							&data_dir, &hash, BLOBS_DIR, BLOB_EXT,
 						));
+						dropped += 1;
 						continue;
 					}
 
@@ -194,6 +201,7 @@ impl HopDataPool {
 					if !blob_path.exists() {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .meta (no .blob)");
 						let _ = fs::remove_file(&path);
+						dropped += 1;
 						continue;
 					}
 
@@ -247,10 +255,12 @@ impl HopDataPool {
 			target: "hop",
 			entries = index.len(),
 			total_bytes = current_size,
+			dropped,
 			"Recovered HOP pool from disk"
 		);
 
 		metrics.set_pool_status(index.len() as u64, current_size, max_size);
+		metrics.record_removed(removal_reasons::STARTUP_DROPPED, dropped);
 
 		Ok(Self {
 			index: Mutex::new(index),
@@ -270,12 +280,13 @@ impl HopDataPool {
 		&self.metrics
 	}
 
-	/// Snapshot the pool size gauges from the authoritative index and size
-	/// counter. Called after every mutation; must not be called with the index
-	/// lock held.
-	fn update_size_metrics(&self) {
-		let entries = self.index.lock().len() as u64;
-		self.metrics.set_pool_size(entries, self.current_size.load(Ordering::Relaxed));
+	/// Snapshot the pool size gauges after a mutation. Call from inside the
+	/// index critical section with `entries` read from the locked index:
+	/// publishing after the unlock would let an earlier writer overtake a later
+	/// one and leave the gauge stale. Costs no extra lock acquisition.
+	fn publish_size_metrics(&self, entries: usize) {
+		self.metrics
+			.set_pool_size(entries as u64, self.current_size.load(Ordering::Relaxed));
 	}
 
 	/// Charge `accounted` bytes against `sender_id`'s per-user quota, creating
@@ -370,10 +381,8 @@ impl HopDataPool {
 		let accounted = entry_accounted_size(data.len() as u64, recipients.len());
 		let result =
 			self.insert_inner(data, recipients, sender_id, signer, signature, submit_timestamp);
+		// Gauges are published by `insert_inner` under the index lock.
 		self.metrics.record_insert(&result, accounted);
-		if result.is_ok() {
-			self.update_size_metrics();
-		}
 		result
 	}
 
@@ -492,6 +501,7 @@ impl HopDataPool {
 				return Err(e);
 			}
 			index.insert(hash, meta);
+			self.publish_size_metrics(index.len());
 		}
 
 		tracing::info!(
@@ -537,16 +547,19 @@ impl HopDataPool {
 	/// Remove a corrupt entry from the index and best-effort delete its files.
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
+		// The quota release stays outside the index lock, as before.
 		let removed = {
 			let mut index = self.index.lock();
-			index.remove(hash)
+			index.remove(hash).map(|meta| {
+				let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+				self.publish_size_metrics(index.len());
+				(meta.sender_id, accounted)
+			})
 		};
-		if let Some(meta) = removed {
-			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			self.release_user_quota(&meta.sender_id, accounted);
+		if let Some((sender_id, accounted)) = removed {
+			self.release_user_quota(&sender_id, accounted);
 			self.metrics.record_removed(removal_reasons::CORRUPT, 1);
-			self.update_size_metrics();
 		}
 		let _ = fs::remove_file(self.blob_path(hash));
 		let _ = fs::remove_file(self.meta_path(hash));
@@ -681,10 +694,10 @@ impl HopDataPool {
 			let sender = meta.sender_id;
 			index.remove(hash);
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			self.publish_size_metrics(index.len());
 			self.release_user_quota(&sender, accounted);
 			drop(index);
 			self.metrics.record_removed(removal_reasons::ACKED, 1);
-			self.update_size_metrics();
 
 			// Delete files from disk (best-effort; orphans cleaned on restart).
 			let _ = fs::remove_file(self.blob_path(hash));
@@ -769,8 +782,9 @@ impl HopDataPool {
 	/// being held across the full HashMap on huge pools. After all batches the
 	/// per-sender `user_usage` map is GC'd in a single pass.
 	///
-	/// `promotion_buffer_secs` only feeds the promotion-backlog gauge, snapshot
-	/// from that same pass.
+	/// `promotion_buffer_secs` does not affect what is cleaned up. As in
+	/// [`Self::get_promotable`] the caller owns the promotion window; here it
+	/// only scopes the backlog gauge, snapshot from the phase-4 pass.
 	pub fn cleanup_expired(&self, promotion_buffer_secs: u64) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
 		let mut total_freed: u64 = 0;
@@ -808,9 +822,9 @@ impl HopDataPool {
 				freed =
 					freed.saturating_add(entry_accounted_size(meta.size, meta.recipients.len()));
 				if meta.promoted {
-					promoted += 1;
+					promoted = promoted.saturating_add(1);
 				} else {
-					unpromoted += 1;
+					unpromoted = unpromoted.saturating_add(1);
 				}
 			}
 			self.current_size.fetch_sub(freed, Ordering::Relaxed);
@@ -842,21 +856,25 @@ impl HopDataPool {
 		// `release_user_quota` only takes `user_usage.read()` which is
 		// excluded). Build a live-sender set in one index pass so retain is
 		// O(senders + entries) instead of O(senders × entries). The same pass
-		// counts the promotion backlog.
+		// counts the promotion backlog and publishes the size gauges.
 		let backlog = {
 			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
 			let mut live: HashSet<&SenderId> = HashSet::new();
 			let mut backlog = 0u64;
+			// The window test exists only to feed a gauge.
+			let count_backlog = self.metrics.is_enabled();
 			for meta in index.values() {
 				live.insert(&meta.sender_id);
-				if Self::in_promotion_window(meta, now_secs, promotion_buffer_secs) {
+				if count_backlog && Self::in_promotion_window(meta, now_secs, promotion_buffer_secs)
+				{
 					backlog = backlog.saturating_add(1);
 				}
 			}
 			usage.retain(|sender_id, counter| {
 				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
 			});
+			self.publish_size_metrics(index.len());
 			backlog
 		};
 
@@ -864,7 +882,6 @@ impl HopDataPool {
 		self.rate_limiter.evict_stale();
 
 		self.metrics.set_promotion_backlog(backlog);
-		self.update_size_metrics();
 
 		total_freed
 	}
@@ -2373,18 +2390,20 @@ mod tests {
 		fs::write(&meta_path, meta.encode()).unwrap();
 		fs::write(&blob_path, b"x").unwrap();
 
+		let registry = prometheus_endpoint::Registry::new();
 		let pool = HopDataPool::new(
 			1024 * 1024,
 			1024 * 1024,
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
-			HopMetrics::disabled(),
+			HopMetrics::new(Some(&registry)).unwrap(),
 		)
 		.unwrap();
 		assert!(!meta_path.exists(), "stale-version .meta should be removed");
 		assert!(!blob_path.exists(), "matching .blob should also be removed");
 		assert_eq!(pool.status().entry_count, 0);
+		assert_eq!(pool.metrics().removed_count(removal_reasons::STARTUP_DROPPED), 1);
 	}
 
 	#[test]
