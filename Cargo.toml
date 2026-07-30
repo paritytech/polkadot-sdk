@@ -452,6 +452,7 @@ members = [
 	"substrate/frame/salary",
 	"substrate/frame/sassafras",
 	"substrate/frame/scarcity",
+	"substrate/frame/scarcity/claims",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
 	"substrate/frame/session",
@@ -1075,6 +1076,7 @@ pallet-root-offences = { default-features = false, path = "substrate/frame/root-
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
 pallet-scarcity = { path = "substrate/frame/scarcity", default-features = false }
+pallet-scarcity-claims = { path = "substrate/frame/scarcity/claims", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }

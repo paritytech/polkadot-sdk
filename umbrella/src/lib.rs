@@ -702,6 +702,10 @@ pub use pallet_safe_mode;
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
 
+/// Merkle-authorized, contract-selected claims for Scarcity NFTs.
+#[cfg(feature = "pallet-scarcity-claims")]
+pub use pallet_scarcity_claims;
+
 /// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
 /// rest-time-prioritized transfers.
 #[cfg(feature = "pallet-scarcity")]

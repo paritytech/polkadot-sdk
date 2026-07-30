@@ -591,6 +591,34 @@ impl pallet_scarcity::Config for Runtime {
 }
 
 parameter_types! {
+	/// At most ten percent of a block may be spent executing one selector contract.
+	pub ScarcityClaimsSelectorWeightLimit: Weight =
+		Perbill::from_percent(10) * RuntimeBlockWeights::get().max_block;
+	/// A stateful collection selector may charge its owner for bounded contract storage.
+	pub const ScarcityClaimsSelectorDepositLimit: Balance = deposit(16, 64 * 1024);
+}
+
+impl pallet_scarcity_claims::ReviveSelectorConfig for Runtime {
+	type SelectorWeightLimit = ScarcityClaimsSelectorWeightLimit;
+	type SelectorDepositLimit = ScarcityClaimsSelectorDepositLimit;
+}
+
+impl pallet_scarcity_claims::Config for Runtime {
+	// Development configuration only. A production Asset Hub must replace this with the
+	// authenticated XCM origin of the Personhood root producer.
+	type RootOrigin = EnsureRoot<AccountId>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type CollectionSelector = pallet_scarcity_claims::ReviveCollectionSelector<Runtime>;
+	// Contract execution is separately bounded by `SelectorWeightLimit`; benchmarks measure the
+	// claims pallet's proof, signature, accounting, and Scarcity minting work.
+	#[cfg(feature = "runtime-benchmarks")]
+	type CollectionSelector = pallet_scarcity_claims::BenchmarkSelector<Runtime>;
+	type MaxProofLen = ConstU32<2048>;
+	type MaxProofDepth = ConstU32<32>;
+	type WeightInfo = pallet_scarcity_claims::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	// NOTE: Currently it is not possible to change the epoch duration after the chain has started.
 	//       Attempting to do so will brick block production.
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
@@ -2966,6 +2994,9 @@ mod runtime {
 	#[runtime::pallet_index(87)]
 	pub type Scarcity = pallet_scarcity::Pallet<Runtime>;
 
+	#[runtime::pallet_index(88)]
+	pub type ScarcityClaims = pallet_scarcity_claims::Pallet<Runtime>;
+
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 
@@ -3341,6 +3372,7 @@ mod benches {
 		[pallet_recovery, Recovery]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]
+		[pallet_scarcity_claims, ScarcityClaims]
 		[pallet_scarcity, Scarcity]
 		[pallet_scheduler, Scheduler]
 		[pallet_glutton, Glutton]
