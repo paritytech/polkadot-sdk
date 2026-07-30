@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785251898108,
+  "lastUpdate": 1785413482958,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "53065c0e42437b5d946dc51810855f8ccd8c6821",
-          "message": "wasm-builder: Only overwrite wasm files if they changed (#10448)\n\nWhen running two different `cargo` commands, they may both compile the\nsame wasm files. When the second `cargo` command produces the same wasm\nfiles, we are now not gonna overwrite it. This has the advantage that we\ncan run the first command again without it trying to recompile the\nproject. Right now it would lead to the wasm files always getting\nrecreated, which is wasting a lot of time :)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
-          "timestamp": "2025-11-28T09:52:17Z",
-          "tree_id": "354dac8266f0c72834c01010c3c88d833123765f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/53065c0e42437b5d946dc51810855f8ccd8c6821"
-        },
-        "date": 1764329339739,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013209310040000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02246742883333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007319565773333319,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15789763947333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007664136413333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "277bed389cd2229821426edeacdbc799b1f3fc2c",
+          "message": "Collator revamp - tests for subsystem startup and registered parachains pruning (#12675)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T10:28:06Z",
+          "tree_id": "ab6e61bc8dcb9903721933021fc60eb9c8c6241f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/277bed389cd2229821426edeacdbc799b1f3fc2c"
+        },
+        "date": 1785413448896,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14788985644666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010069994406666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007828073346666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022924472619999997,
             "unit": "seconds"
           }
         ]
