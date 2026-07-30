@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785251975604,
+  "lastUpdate": 1785413569409,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "49bd017a06989799141af0809c0fbdd48d67b733",
-          "message": "[Release|CI/CD] Send release notifications to communication channels only in case of a stable release (#10419)\n\nCloses: https://github.com/paritytech/devops/issues/3831",
-          "timestamp": "2025-11-26T07:09:05Z",
-          "tree_id": "e8e6ac85c1830c106ffa4d06034d7006cd637fbb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/49bd017a06989799141af0809c0fbdd48d67b733"
-        },
-        "date": 1764145173204,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03470669677999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04497283534399992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09186190385199997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "277bed389cd2229821426edeacdbc799b1f3fc2c",
+          "message": "Collator revamp - tests for subsystem startup and registered parachains pruning (#12675)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T10:28:06Z",
+          "tree_id": "ab6e61bc8dcb9903721933021fc60eb9c8c6241f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/277bed389cd2229821426edeacdbc799b1f3fc2c"
+        },
+        "date": 1785413535411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039418457622,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08461893119799994,
             "unit": "seconds"
           }
         ]
