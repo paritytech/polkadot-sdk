@@ -15941,9 +15941,9 @@ dependencies = [
 
 [[package]]
 name = "picoalloc"
-version = "5.2.0"
+version = "5.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e1912f9b1d3aea43590e3986afdcf4ed1d9662edae24744a095738157d65b6a"
+checksum = "3ce68d5282de9d0a9fe76f0189dbcc08ec7713695673f4611ebab9d1c785bf21"
 
 [[package]]
 name = "picosimd"

@@ -858,8 +858,11 @@ pub trait Storage {
 			if maybe_cursor_out.len() < cursor_len {
 				maybe_cursor_out.resize(cursor_len, 0);
 				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
-				debug_assert!(cached_cursor_len.is_some());
-				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+				assert_eq!(
+					cached_cursor_len.map(|len| len as usize),
+					Some(cursor_len),
+					"the cursor cached by the host must match the length it reported"
+				);
 			}
 			maybe_cursor_out.truncate(cursor_len);
 			result.maybe_cursor = Some(maybe_cursor_out);
@@ -893,6 +896,11 @@ pub trait Storage {
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
+	// The `version` argument is ignored: the state version is a property of the execution
+	// environment now. The host learns it from the `system_version` field of the runtime's
+	// `RuntimeVersion` and sets it on the externalities before dispatching the runtime call
+	// (see `Externalities::set_runtime_state_version`), so the value passed by the runtime
+	// here is redundant.
 	#[version(2)]
 	fn root(&mut self, _version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		self.storage_root()
@@ -1068,9 +1076,6 @@ pub trait DefaultChildStorage {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
 			let out_len = core::cmp::min(data.len(), value_out.len());
-			// if value_out.len() >= data.len() {
-			// 	value_out[..data.len()].copy_from_slice(data);
-			// }
 			value_out[..out_len].copy_from_slice(&data[..out_len]);
 			data.len() as u32
 		})
@@ -1280,8 +1285,11 @@ pub trait DefaultChildStorage {
 			if maybe_cursor_out.len() < cursor_len {
 				maybe_cursor_out.resize(cursor_len, 0);
 				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
-				debug_assert!(cached_cursor_len.is_some());
-				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+				assert_eq!(
+					cached_cursor_len.map(|len| len as usize),
+					Some(cursor_len),
+					"the cursor cached by the host must match the length it reported"
+				);
 			}
 			maybe_cursor_out.truncate(cursor_len);
 			result.maybe_cursor = Some(maybe_cursor_out);
@@ -1411,8 +1419,11 @@ pub trait DefaultChildStorage {
 			if maybe_cursor_out.len() < cursor_len {
 				maybe_cursor_out.resize(cursor_len, 0);
 				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
-				debug_assert!(cached_cursor_len.is_some());
-				debug_assert_eq!(cached_cursor_len.unwrap_or(0) as usize, cursor_len);
+				assert_eq!(
+					cached_cursor_len.map(|len| len as usize),
+					Some(cursor_len),
+					"the cursor cached by the host must match the length it reported"
+				);
 			}
 			maybe_cursor_out.truncate(cursor_len);
 			result.maybe_cursor = Some(maybe_cursor_out);
@@ -1941,10 +1952,10 @@ pub trait Misc {
 	}
 
 	/// Get the last storage cursor stored by `storage::clear_prefix`,
-	/// `default_child_storage::clear_prefix` and `default_child_storage::kill_prefix`. The length
-	/// of the cursor is known to the caller from the result of the call to aforementioned
-	/// functions, so the caller is required to provide the buffer of sufficient length, otherwise,
-	/// it will panic.
+	/// `default_child_storage::clear_prefix` and `default_child_storage::storage_kill`. Returns
+	/// `None` if there is no stored cursor, otherwise returns the length of the cursor in bytes.
+	/// The cursor is written to `out` and consumed only if `out` is large enough to hold it;
+	/// otherwise, the cursor is retained and can be requested again with a larger buffer.
 	// ERRATA: The RFC requires passing a raw pointer without a length, which is not safe.
 	// Currently, we accept a fat pointer.
 	fn last_cursor(
@@ -3378,6 +3389,13 @@ pub trait Offchain {
 
 		let peer_id: Vec<u8> = codec::Decode::decode(&mut &encoded_peer_id[..]).map_err(|_| ())?;
 		if peer_id.len() != out.0.len() {
+			log::warn!(
+				target: LOG_TARGET,
+				"`network_peer_id`: peer id length ({}) does not match the output buffer \
+				length ({})",
+				peer_id.len(),
+				out.0.len(),
+			);
 			return Err(());
 		}
 
@@ -3683,10 +3701,11 @@ pub trait Offchain {
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 		out: PassFatPointerAndWrite<&mut [u32]>,
 	) {
-		assert_eq!(
+		assert!(
+			out.len() >= ids.len(),
+			"Output buffer of length {} cannot hold {} response statuses in http_response_wait",
 			out.len(),
-			ids.len(),
-			"Output buffer length must match input ids length in http_response_wait"
+			ids.len()
 		);
 		let statuses = self
 			.extension::<OffchainWorkerExt>()

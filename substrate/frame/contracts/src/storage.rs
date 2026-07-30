@@ -334,13 +334,15 @@ impl<T: Config> ContractInfo<T> {
 				None,
 			);
 
+			// `loops` is used here rather than `backend` to keep the same behavior as the
+			// pre-RFC-145 `KillStorageResult` conversion, which counted iterations.
 			if outcome.maybe_cursor.is_some() {
-				remaining_key_budget.saturating_reduce(outcome.backend);
+				remaining_key_budget.saturating_reduce(outcome.loops);
 				break;
 			} else {
 				entry.remove();
 				// charge at least one key even if none were removed.
-				remaining_key_budget = remaining_key_budget.saturating_sub(outcome.backend.max(1));
+				remaining_key_budget = remaining_key_budget.saturating_sub(outcome.loops.max(1));
 			}
 		}
 

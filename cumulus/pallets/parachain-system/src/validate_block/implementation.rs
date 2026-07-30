@@ -555,8 +555,13 @@ fn host_storage_root(out: &mut [u8]) {
 	with_externalities(|ext| {
 		let root = ext.storage_root();
 		let encoded = root.encode();
-		let write_len = encoded.len().min(out.len());
-		out[..write_len].copy_from_slice(&encoded[..write_len]);
+		let out_len = out.len();
+		let encoded_len = encoded.len();
+		assert!(
+			out_len >= encoded_len,
+			"Output buffer ({out_len} bytes) provided to store the storage root hash is not large enough ({encoded_len} bytes needed)"
+		);
+		out[..encoded_len].copy_from_slice(&encoded[..]);
 	})
 }
 

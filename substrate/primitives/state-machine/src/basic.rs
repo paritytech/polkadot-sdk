@@ -43,6 +43,7 @@ pub struct BasicExternalities {
 	extensions: Extensions,
 	state_version: StateVersion,
 	last_cursor: Option<Vec<u8>>,
+	last_cursor_snapshots: Vec<Option<Vec<u8>>>,
 }
 
 impl BasicExternalities {
@@ -53,6 +54,7 @@ impl BasicExternalities {
 			extensions: Default::default(),
 			state_version: StateVersion::default(),
 			last_cursor: None,
+			last_cursor_snapshots: Vec::new(),
 		}
 	}
 
@@ -318,15 +320,22 @@ impl Externalities for BasicExternalities {
 	}
 
 	fn storage_start_transaction(&mut self) {
+		self.last_cursor_snapshots.push(self.last_cursor.clone());
 		self.overlay.start_transaction()
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(drop)
+		self.overlay.rollback_transaction().map_err(drop)?;
+		if let Some(snapshot) = self.last_cursor_snapshots.pop() {
+			self.last_cursor = snapshot;
+		}
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(drop)
+		self.overlay.commit_transaction().map_err(drop)?;
+		self.last_cursor_snapshots.pop();
+		Ok(())
 	}
 
 	fn wipe(&mut self) {}

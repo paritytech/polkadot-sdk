@@ -98,7 +98,9 @@ where
 
 		let outcome = clear_prefix(P::name_hash(), Some(key_budget), None);
 
-		meter.consume(T::WeightInfo::reset_pallet_migration(outcome.backend));
+		// `loops` is used here rather than `backend` to keep the same behavior as the
+		// pre-RFC-145 `KillStorageResult` conversion, which counted iterations.
+		meter.consume(T::WeightInfo::reset_pallet_migration(outcome.loops));
 
 		Ok(Some(outcome.maybe_cursor.is_none()))
 	}
