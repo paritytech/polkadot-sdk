@@ -404,7 +404,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	// Share one filter registry between the RPC handlers and the background task that periodically
 	// evicts expired and no-longer-applicable filters.
-	let filter_registry = FilterManager::new();
+	let filter_registry = FilterManager::new(client.clone());
 	let rpc_api =
 		rpc_module(is_dev, client.clone(), allow_unprotected_txs, filter_registry.clone())?;
 	let rpc_server_handle = start_rpc_servers(
@@ -417,14 +417,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	)?;
 
 	// Periodically evict abandoned and no-longer-applicable polling filters.
-	let cleanup_client = client.clone();
 	task_manager.spawn_essential_handle().spawn(
 		"eth-rpc-filter-cleanup",
 		None,
-		filter_registry.run_cleanup(move || {
-			let client = cleanup_client.clone();
-			async move { client.block_number().await.ok() }
-		}),
+		filter_registry.run_cleanup(),
 	);
 
 	task_manager
@@ -463,8 +459,7 @@ fn rpc_module(
 	allow_unprotected_txs: bool,
 	filter_registry: FilterManager,
 ) -> Result<RpcModule<()>, sc_service::Error> {
-	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_filter_registry(filter_registry)
+	let eth_api = EthRpcServerImpl::new(client.clone(), filter_registry)
 		.with_accounts(if is_dev {
 			vec![
 				crate::Account::from(subxt_signer::eth::dev::alith()),

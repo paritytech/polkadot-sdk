@@ -25,13 +25,6 @@
 //! a jsonrpsee sink; a polling filter instead *owns* its channel here and drains it on each
 //! `eth_getFilterChanges`. Sharing one event source keeps the two APIs from diverging.
 //!
-//! Memory is bounded on two axes:
-//! - the number of installed filters is capped at [`MAX_FILTERS`], so a client cannot exhaust
-//!   memory by opening filters it never polls or uninstalls;
-//! - each filter holds only a broadcast *cursor* (a handle into the shared, fixed-capacity ring
-//!   buffer) rather than its own growing backlog, so a million filters cost a million cursors and
-//!   one shared buffer, not a million buffers.
-//!
 //! A filter not polled within [`FILTER_TIMEOUT`] is evicted by a background task ([`run_cleanup`]),
 //! as are log filters whose fixed `toBlock` the chain has already passed. The trade-off versus
 //! go-ethereum's unbounded per-filter backlog is that a filter polled too slowly can miss events
@@ -40,11 +33,15 @@
 //!
 //! [`run_cleanup`]: FilterManager::run_cleanup
 
-use crate::{client::SubstrateBlockNumber, *};
+use crate::{
+	client::{Client, SubstrateBlockNumber},
+	*,
+};
+use serde::{Deserialize, Serialize};
+use sp_core::ConstU32;
+use sp_runtime::BoundedBTreeMap;
 use std::{
-	collections::HashMap,
-	fmt,
-	sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+	sync::{Arc, Mutex},
 	time::{Duration, Instant},
 };
 use tokio::sync::broadcast;
@@ -56,16 +53,41 @@ const FILTER_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// How often the background task sweeps expired and no-longer-applicable filters.
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 
-/// Upper bound on concurrently installed filters. Installing beyond this is rejected so that a
-/// client cannot exhaust memory by opening filters without ever polling or uninstalling them.
-pub const MAX_FILTERS: usize = 8_192;
+/// Upper bound on concurrently installed filters, so a client cannot exhaust memory by opening
+/// filters it never polls or uninstalls.
+///
+/// The worst case is single-digit megabytes. On a 64-bit target a [`FilterEntry`] is 432 bytes — a
+/// 16-byte broadcast cursor, a 16-byte [`Instant`], and, for a log filter, a 400-byte [`Filter`] —
+/// so a full registry is ~3.6 MiB of entries and keys, plus the map's own node overhead. A filter
+/// that names many addresses or topics adds roughly 20 bytes per address and 32 per topic on top of
+/// that, and `eth_newFilter` requests are already bounded by the RPC server's max request size.
+///
+/// The events themselves are *not* multiplied by this number: each entry holds only a cursor into
+/// the client's two shared ring buffers, which stay fixed at 256 blocks (1040 bytes each) and 1000
+/// logs (232 bytes each) however many filters exist. Those are the same rings `eth_subscribe`
+/// already consumes, so they are not new cost, and the `Vec` a single `eth_getFilterChanges` builds
+/// is bounded by them.
+pub const MAX_FILTERS: u32 = 8_192;
 
 /// Identifier handed to a client for an installed filter.
 ///
-/// A newtype rather than a bare [`U256`] so the filter-manager interface cannot be confused with
-/// the many other `U256`-typed values in the eth-rpc, and so that ids are minted in exactly one
-/// place.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+/// A newtype rather than a bare [`U256`] so the filter API cannot be confused with the many other
+/// `U256`-typed values in the eth-rpc, and so that ids are minted in exactly one place. It is
+/// transparent over its [`U256`], so on the wire it is the `0x`-prefixed quantity clients expect.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	Debug,
+	Serialize,
+	Deserialize,
+	derive_more::From,
+)]
+#[serde(transparent)]
 pub struct FilterId(U256);
 
 impl FilterId {
@@ -77,264 +99,216 @@ impl FilterId {
 	}
 }
 
-impl From<U256> for FilterId {
-	fn from(value: U256) -> Self {
-		Self(value)
-	}
-}
-
-impl From<FilterId> for U256 {
-	fn from(value: FilterId) -> Self {
-		value.0
-	}
-}
-
-impl fmt::Display for FilterId {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
-
 /// Installing a filter failed because [`MAX_FILTERS`] are already installed.
 #[derive(Debug, PartialEq, Eq)]
 pub struct TooManyFilters;
 
-/// Poll state mutated on every `eth_getFilterChanges`. Guarded on its own so concurrent polls of
-/// different filters only need a shared read lock on the registry.
-enum PollState {
-	/// A log filter: drains streamed logs and keeps those the `matcher` selects, using the same
-	/// address/topics logic as `eth_subscribe`.
-	Logs { receiver: broadcast::Receiver<Log>, matcher: LogsSubscriptionFilter, last_poll: Instant },
-	/// A block filter: drains and reports the hashes of blocks imported since the previous poll.
-	Block { receiver: broadcast::Receiver<Block>, last_poll: Instant },
+/// What a filter watches, and the cursor it reads from.
+enum FilterState {
+	/// A log filter: reports the streamed logs its filter selects. The filter is kept so
+	/// `eth_getFilterLogs` can replay its whole range and cleanup can test its `toBlock`.
+	Logs { receiver: broadcast::Receiver<Log>, filter: LogsSubscriptionFilter },
+	/// A block filter: reports the hashes of blocks imported since the previous poll.
+	Block { receiver: broadcast::Receiver<Block> },
 }
 
-impl PollState {
-	fn last_poll(&self) -> Instant {
-		match self {
-			PollState::Logs { last_poll, .. } | PollState::Block { last_poll, .. } => *last_poll,
-		}
-	}
-
-	/// Refresh the deadline; called whenever the filter is successfully polled.
-	fn touch(&mut self) {
-		let now = Instant::now();
-		match self {
-			PollState::Logs { last_poll, .. } | PollState::Block { last_poll, .. } => {
-				*last_poll = now
-			},
-		}
-	}
-
-	/// Drain everything reported since the previous poll.
-	fn drain(&mut self) -> FilterResults {
-		match self {
-			PollState::Logs { receiver, matcher, .. } => {
-				let mut logs = Vec::new();
-				drain_receiver(receiver, "log", |log| {
-					if matcher.matches(&log) {
-						logs.push(log);
-					}
-				});
-				FilterResults::Logs(logs)
-			},
-			PollState::Block { receiver, .. } => {
-				let mut hashes = Vec::new();
-				drain_receiver(receiver, "block", |block| hashes.push(block.hash));
-				FilterResults::Hashes(hashes)
-			},
-		}
-	}
-}
-
-/// Drain a broadcast receiver of everything currently buffered, handing each item to `on_item`.
-///
-/// A `Lagged` cursor means the shared ring advanced past this filter (it was polled too slowly) and
-/// the skipped items are lost for it; that is the deliberate cost of bounding memory rather than
-/// keeping an unbounded per-filter backlog. Draining continues past the gap.
-fn drain_receiver<T: Clone>(
-	receiver: &mut broadcast::Receiver<T>,
-	kind: &str,
-	mut on_item: impl FnMut(T),
-) {
-	loop {
-		match receiver.try_recv() {
-			Ok(item) => on_item(item),
-			Err(broadcast::error::TryRecvError::Empty) |
-			Err(broadcast::error::TryRecvError::Closed) => break,
-			Err(broadcast::error::TryRecvError::Lagged(skipped)) => {
-				log::warn!(target: LOG_TARGET, "{kind} filter lagged; {skipped} events dropped");
-			},
-		}
-	}
-}
-
-/// An installed filter: its immutable definition plus the mutable poll state.
+/// An installed filter, and the deadline it is evicted at if left unpolled.
 struct FilterEntry {
-	/// The original request of a log filter, kept so `eth_getFilterLogs` can replay its whole
-	/// range and cleanup can test its `toBlock`; `None` for a block filter. Immutable, so it is
-	/// read directly under the registry lock without touching the per-entry [`Mutex`].
-	filter: Option<Filter>,
-	state: Mutex<PollState>,
+	state: FilterState,
+	last_poll: Instant,
 }
 
 impl FilterEntry {
+	fn new(state: FilterState) -> Self {
+		Self { state, last_poll: Instant::now() }
+	}
+
+	/// The request behind a log filter, so `eth_getFilterLogs` can replay its whole range. `None`
+	/// for a block filter.
+	fn filter(&self) -> Option<&Filter> {
+		match &self.state {
+			FilterState::Logs { filter, .. } => Some(filter.as_ref()),
+			FilterState::Block { .. } => None,
+		}
+	}
+
+	/// Whether the filter has gone unpolled for longer than [`FILTER_TIMEOUT`].
+	fn is_expired(&self) -> bool {
+		self.last_poll.elapsed() > FILTER_TIMEOUT
+	}
+
+	/// Everything reported since the previous poll.
+	fn drain(&mut self) -> FilterResults {
+		match &mut self.state {
+			FilterState::Logs { receiver, filter } =>
+				FilterResults::Logs(buffered(receiver).filter(|log| filter.matches(log)).collect()),
+			FilterState::Block { receiver } =>
+				FilterResults::Hashes(buffered(receiver).map(|block| block.hash).collect()),
+		}
+	}
+
 	/// Whether to keep this filter during a cleanup sweep at the given chain head.
 	///
-	/// Drops filters not polled within [`FILTER_TIMEOUT`], and — when `head` is known — log filters
-	/// whose fixed `toBlock` the head has already passed, since no future streamed log can fall in
-	/// their range and so a poll could only ever return empty.
+	/// Drops filters past their deadline, and — when `head` is known — log filters whose fixed
+	/// `toBlock` the head has already passed, since no future streamed log can fall in their range
+	/// and so a poll could only ever return empty.
 	fn should_retain(&self, head: Option<SubstrateBlockNumber>) -> bool {
-		let last_poll = self.state.lock().unwrap_or_else(|p| p.into_inner()).last_poll();
-		if last_poll.elapsed() > FILTER_TIMEOUT {
+		if self.is_expired() {
 			return false;
 		}
-		if let (Some(head), Some(filter)) = (head, &self.filter) {
-			if let FilterBlockOption::Range {
-				to_block: Some(BlockNumberOrTag::Number(to)), ..
-			} = &filter.block_option
-			{
-				if *to < head {
-					return false;
-				}
-			}
+		let (Some(head), Some(filter)) = (head, self.filter()) else { return true };
+		!matches!(
+			filter.block_option,
+			FilterBlockOption::Range { to_block: Some(BlockNumberOrTag::Number(to)), .. }
+				if to < head
+		)
+	}
+}
+
+/// Everything currently buffered for `receiver`, skipping past the gap a lagging cursor leaves: the
+/// shared ring is fixed-capacity, so a filter polled too slowly loses the events it missed.
+fn buffered<T: Clone>(receiver: &mut broadcast::Receiver<T>) -> impl Iterator<Item = T> {
+	std::iter::from_fn(move || loop {
+		match receiver.try_recv() {
+			Ok(item) => return Some(item),
+			Err(broadcast::error::TryRecvError::Lagged(_)) => continue,
+			Err(_) => return None,
 		}
-		true
+	})
+}
+
+/// The installed filters, bounded by [`MAX_FILTERS`].
+type Filters = BoundedBTreeMap<FilterId, FilterEntry, ConstU32<MAX_FILTERS>>;
+
+/// Where filters get their events from, and where cleanup gets the chain head.
+#[derive(Clone)]
+enum Events {
+	Client(Client),
+	/// Standalone channels, so the registry can be unit-tested without a live node.
+	#[cfg(test)]
+	Channels(broadcast::Sender<Block>, broadcast::Sender<Log>),
+}
+
+impl Events {
+	fn blocks(&self) -> broadcast::Receiver<Block> {
+		match self {
+			Self::Client(client) => client.get_block_subscription_rx(),
+			#[cfg(test)]
+			Self::Channels(blocks, _) => blocks.subscribe(),
+		}
+	}
+
+	fn logs(&self) -> broadcast::Receiver<Log> {
+		match self {
+			Self::Client(client) => client.get_log_subscription_rx(),
+			#[cfg(test)]
+			Self::Channels(_, logs) => logs.subscribe(),
+		}
+	}
+
+	/// The latest block number, or `None` while it is momentarily unavailable.
+	async fn head(&self) -> Option<SubstrateBlockNumber> {
+		match self {
+			Self::Client(client) => client.block_number().await.ok(),
+			#[cfg(test)]
+			Self::Channels(..) => None,
+		}
 	}
 }
 
 /// Thread-safe registry of installed filters, shared by the RPC server across all connections.
-///
-/// The registry lock is an [`RwLock`] because polls (reads) vastly outnumber installs and
-/// uninstalls (writes): a poll takes the read lock to find its entry and then a per-entry
-/// [`Mutex`], so different filters poll concurrently, while only structural changes take the write
-/// lock.
 #[derive(Clone)]
 pub struct FilterManager {
-	inner: Arc<RwLock<HashMap<FilterId, FilterEntry>>>,
-}
-
-impl Default for FilterManager {
-	fn default() -> Self {
-		Self::new()
-	}
+	filters: Arc<Mutex<Filters>>,
+	events: Events,
 }
 
 impl FilterManager {
-	/// Create an empty registry.
-	pub fn new() -> Self {
-		Self { inner: Arc::new(RwLock::new(HashMap::new())) }
+	/// Create an empty registry fed by `client`'s block and log channels.
+	pub fn new(client: Client) -> Self {
+		Self { filters: Default::default(), events: Events::Client(client) }
 	}
 
-	fn read(&self) -> RwLockReadGuard<'_, HashMap<FilterId, FilterEntry>> {
+	fn lock(&self) -> std::sync::MutexGuard<'_, Filters> {
 		// The guarded sections never panic, so the lock cannot actually be poisoned; recover the
 		// guard regardless to keep the RPC handlers panic-free.
-		self.inner.read().unwrap_or_else(|poisoned| poisoned.into_inner())
+		self.filters.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 	}
 
-	fn write(&self) -> RwLockWriteGuard<'_, HashMap<FilterId, FilterEntry>> {
-		self.inner.write().unwrap_or_else(|poisoned| poisoned.into_inner())
-	}
-
-	/// Install a log filter fed by `receiver`, selecting streamed logs by `filter`'s address and
-	/// topics. Fails if [`MAX_FILTERS`] are already installed.
-	pub fn install_logs(
-		&self,
-		filter: Filter,
-		receiver: broadcast::Receiver<Log>,
-	) -> Result<FilterId, TooManyFilters> {
-		let matcher = LogsSubscriptionFilter::from_filter(&filter);
-		self.install(Some(filter), PollState::Logs { receiver, matcher, last_poll: Instant::now() })
-	}
-
-	/// Install a block filter fed by `receiver`. Only blocks imported after installation are
-	/// reported, because the receiver starts at the current channel head — there is no manual
-	/// `head + 1` bookkeeping. Fails if [`MAX_FILTERS`] are already installed.
-	pub fn install_block(
-		&self,
-		receiver: broadcast::Receiver<Block>,
-	) -> Result<FilterId, TooManyFilters> {
-		self.install(None, PollState::Block { receiver, last_poll: Instant::now() })
-	}
-
-	fn install(
-		&self,
-		filter: Option<Filter>,
-		state: PollState,
-	) -> Result<FilterId, TooManyFilters> {
-		let mut filters = self.write();
-		if filters.len() >= MAX_FILTERS {
-			return Err(TooManyFilters);
+	/// Look up the entry under `id` and refresh its deadline.
+	///
+	/// Returns `None` — and evicts the entry — if it is unknown or has gone unpolled past
+	/// [`FILTER_TIMEOUT`], matching go-ethereum, which treats a filter past its deadline as gone.
+	///
+	/// Takes a closure rather than returning the entry, which lives behind the registry [`Mutex`]
+	/// and so cannot outlive its guard.
+	fn get_mut<R>(&self, id: &FilterId, f: impl FnOnce(&mut FilterEntry) -> R) -> Option<R> {
+		let mut filters = self.lock();
+		let entry = filters.get_mut(id)?;
+		if !entry.is_expired() {
+			entry.last_poll = Instant::now();
+			return Some(f(entry));
 		}
+		filters.remove(id);
+		None
+	}
+
+	/// Install `state` under a freshly minted id. Fails if [`MAX_FILTERS`] are already installed.
+	fn insert(&self, state: FilterState) -> Result<FilterId, TooManyFilters> {
+		let mut filters = self.lock();
 		let id = loop {
 			let candidate = FilterId::random();
 			if !filters.contains_key(&candidate) {
 				break candidate;
 			}
 		};
-		filters.insert(id, FilterEntry { filter, state: Mutex::new(state) });
+		filters.try_insert(id, FilterEntry::new(state)).map_err(|_| TooManyFilters)?;
 		Ok(id)
 	}
 
+	/// Remove the filter under `id`, returning whether it existed.
+	pub fn remove(&self, id: &FilterId) -> bool {
+		self.lock().remove(id).is_some()
+	}
+
+	/// Install a log filter selecting streamed logs by `filter`'s address and topics.
+	///
+	/// Only logs from blocks imported after installation are reported, because the subscription
+	/// starts at the current channel head; `filter`'s `fromBlock`/`toBlock` bound only the
+	/// historical replay served by `eth_getFilterLogs`.
+	pub fn install_logs(&self, filter: Filter) -> Result<FilterId, TooManyFilters> {
+		self.insert(FilterState::Logs { receiver: self.events.logs(), filter: filter.into() })
+	}
+
+	/// Install a block filter reporting the hashes of blocks imported after installation.
+	pub fn install_block(&self) -> Result<FilterId, TooManyFilters> {
+		self.insert(FilterState::Block { receiver: self.events.blocks() })
+	}
+
 	/// Drain everything reported since the previous poll: matching logs for a log filter, or block
-	/// hashes for a block filter. Returns `None` (evicting the filter) if it is unknown or has not
-	/// been polled within [`FILTER_TIMEOUT`].
-	pub fn poll_changes(&self, id: FilterId) -> Option<FilterResults> {
-		{
-			let filters = self.read();
-			let entry = filters.get(&id)?;
-			let mut state = entry.state.lock().unwrap_or_else(|p| p.into_inner());
-			if state.last_poll().elapsed() <= FILTER_TIMEOUT {
-				state.touch();
-				return Some(state.drain());
-			}
-		}
-		// Expired: escalate to the write lock and remove it, matching go-ethereum, which treats a
-		// filter past its deadline as gone.
-		self.write().remove(&id);
-		None
+	/// hashes for a block filter. `None` if the filter is unknown or expired.
+	pub fn poll_changes(&self, id: &FilterId) -> Option<FilterResults> {
+		self.get_mut(id, FilterEntry::drain)
 	}
 
-	/// Return the original [`Filter`] of a log filter, so `eth_getFilterLogs` can replay its whole
-	/// range. Returns `None` for an unknown, expired, or block filter.
-	pub fn logs_filter(&self, id: FilterId) -> Option<Filter> {
-		{
-			let filters = self.read();
-			let entry = filters.get(&id)?;
-			let mut state = entry.state.lock().unwrap_or_else(|p| p.into_inner());
-			if state.last_poll().elapsed() <= FILTER_TIMEOUT {
-				state.touch();
-				return entry.filter.clone();
-			}
-		}
-		self.write().remove(&id);
-		None
+	/// The [`Filter`] behind a log filter, so `eth_getFilterLogs` can replay its whole range.
+	/// `None` for an unknown, expired, or block filter.
+	pub fn logs_filter(&self, id: &FilterId) -> Option<Filter> {
+		self.get_mut(id, |entry| entry.filter().cloned()).flatten()
 	}
 
-	/// Remove a filter, returning whether it existed.
-	pub fn uninstall(&self, id: FilterId) -> bool {
-		self.write().remove(&id).is_some()
+	/// Sweep expired and no-longer-applicable filters.
+	fn evict(&self, head: Option<SubstrateBlockNumber>) {
+		self.lock().retain(|_, entry| entry.should_retain(head));
 	}
 
-	/// Sweep expired and no-longer-applicable filters. `head`, when known, additionally drops log
-	/// filters whose fixed `toBlock` the chain has passed.
-	pub fn evict(&self, head: Option<SubstrateBlockNumber>) {
-		self.write().retain(|_, entry| entry.should_retain(head));
-	}
-
-	/// Run the periodic cleanup loop; intended to be spawned as a long-lived task. `current_head`
-	/// yields the latest block number (or `None` while momentarily unavailable) for staleness
-	/// checks.
-	pub async fn run_cleanup<F, Fut>(self, current_head: F)
-	where
-		F: Fn() -> Fut,
-		Fut: std::future::Future<Output = Option<SubstrateBlockNumber>>,
-	{
+	/// Run the periodic cleanup sweep; intended to be spawned as a long-lived task.
+	pub async fn run_cleanup(self) {
 		let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
 		interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 		loop {
 			interval.tick().await;
-			self.evict(current_head().await);
+			self.evict(self.events.head().await);
 		}
 	}
 }
@@ -342,6 +316,17 @@ impl FilterManager {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	/// A registry fed by standalone channels, returned alongside the senders that drive it.
+	fn manager() -> (FilterManager, broadcast::Sender<Block>, broadcast::Sender<Log>) {
+		let (blocks, _) = broadcast::channel(8);
+		let (logs, _) = broadcast::channel(8);
+		let manager = FilterManager {
+			filters: Default::default(),
+			events: Events::Channels(blocks.clone(), logs.clone()),
+		};
+		(manager, blocks, logs)
+	}
 
 	fn log_from(address: u8) -> Log {
 		Log { address: H160::repeat_byte(address), ..Default::default() }
@@ -358,78 +343,79 @@ mod tests {
 
 	/// Push `last_poll` far enough into the past that the filter counts as expired.
 	fn expire(manager: &FilterManager, id: FilterId) {
-		let filters = manager.write();
-		let mut state = filters.get(&id).expect("filter exists").state.lock().unwrap();
 		let past = Instant::now().checked_sub(FILTER_TIMEOUT * 2).expect("test clock in range");
-		match &mut *state {
-			PollState::Logs { last_poll, .. } | PollState::Block { last_poll, .. } => {
-				*last_poll = past
-			},
-		}
+		manager.lock().get_mut(&id).expect("filter exists").last_poll = past;
+	}
+
+	/// Keeps the memory footprint documented on [`MAX_FILTERS`] honest, since it is derived from
+	/// the size of an entry.
+	#[test]
+	fn full_registry_stays_within_the_documented_bound() {
+		let worst_case = MAX_FILTERS as usize * (size_of::<FilterEntry>() + size_of::<FilterId>());
+		assert!(
+			worst_case < 8 * 1024 * 1024,
+			"a full registry is now {worst_case} bytes; revisit the note on MAX_FILTERS"
+		);
 	}
 
 	#[test]
 	fn install_returns_unique_ids() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Block>(4);
-		let a = manager.install_block(tx.subscribe()).unwrap();
-		let b = manager.install_block(tx.subscribe()).unwrap();
+		let (manager, ..) = manager();
+		let a = manager.install_block().unwrap();
+		let b = manager.install_block().unwrap();
 		assert_ne!(a, b, "each installed filter should get a distinct id");
 	}
 
 	#[test]
 	fn unknown_filter_is_not_found() {
-		let manager = FilterManager::new();
+		let (manager, ..) = manager();
 		let id = FilterId::from(U256::from(42u64));
-		assert!(manager.poll_changes(id).is_none());
-		assert!(manager.logs_filter(id).is_none());
-		assert!(!manager.uninstall(id));
+		assert!(manager.poll_changes(&id).is_none());
+		assert!(manager.logs_filter(&id).is_none());
+		assert!(!manager.remove(&id));
 	}
 
 	#[test]
-	fn uninstall_removes_filter() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Log>(4);
-		let id = manager.install_logs(Filter::new(), tx.subscribe()).unwrap();
-		assert!(manager.uninstall(id));
-		assert!(!manager.uninstall(id), "a filter can only be uninstalled once");
-		assert!(manager.poll_changes(id).is_none(), "a polled-after-uninstall filter is gone");
+	fn remove_uninstalls_filter() {
+		let (manager, ..) = manager();
+		let id = manager.install_logs(Filter::new()).unwrap();
+		assert!(manager.remove(&id));
+		assert!(!manager.remove(&id), "a filter can only be uninstalled once");
+		assert!(manager.poll_changes(&id).is_none(), "a polled-after-uninstall filter is gone");
 	}
 
 	#[test]
 	fn log_filter_reports_only_matching_logs() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Log>(8);
-		let id = manager.install_logs(filter_for(0xAA), tx.subscribe()).unwrap();
+		let (manager, _blocks, logs) = manager();
+		let id = manager.install_logs(filter_for(0xAA)).unwrap();
 
 		// Only logs sent after the filter subscribed are seen, and only matching ones are kept.
-		tx.send(log_from(0xAA)).unwrap();
-		tx.send(log_from(0xBB)).unwrap();
-		tx.send(log_from(0xAA)).unwrap();
+		logs.send(log_from(0xAA)).unwrap();
+		logs.send(log_from(0xBB)).unwrap();
+		logs.send(log_from(0xAA)).unwrap();
 
-		let Some(FilterResults::Logs(logs)) = manager.poll_changes(id) else {
+		let Some(FilterResults::Logs(matched)) = manager.poll_changes(&id) else {
 			panic!("expected logs");
 		};
-		assert_eq!(logs.len(), 2, "only the two 0xAA logs match the filter");
-		assert!(logs.iter().all(|l| l.address == H160::repeat_byte(0xAA)));
+		assert_eq!(matched.len(), 2, "only the two 0xAA logs match the filter");
+		assert!(matched.iter().all(|log| log.address == H160::repeat_byte(0xAA)));
 
 		// A second poll with nothing new returns an empty set rather than the previous logs.
-		let Some(FilterResults::Logs(logs)) = manager.poll_changes(id) else {
+		let Some(FilterResults::Logs(matched)) = manager.poll_changes(&id) else {
 			panic!("expected logs");
 		};
-		assert!(logs.is_empty(), "changes since the last poll should be empty");
+		assert!(matched.is_empty(), "changes since the last poll should be empty");
 	}
 
 	#[test]
 	fn block_filter_reports_new_block_hashes() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Block>(8);
-		let id = manager.install_block(tx.subscribe()).unwrap();
+		let (manager, blocks, _logs) = manager();
+		let id = manager.install_block().unwrap();
 
-		tx.send(block_with_hash(1)).unwrap();
-		tx.send(block_with_hash(2)).unwrap();
+		blocks.send(block_with_hash(1)).unwrap();
+		blocks.send(block_with_hash(2)).unwrap();
 
-		let Some(FilterResults::Hashes(hashes)) = manager.poll_changes(id) else {
+		let Some(FilterResults::Hashes(hashes)) = manager.poll_changes(&id) else {
 			panic!("expected hashes");
 		};
 		assert_eq!(hashes, vec![H256::repeat_byte(1), H256::repeat_byte(2)]);
@@ -437,54 +423,45 @@ mod tests {
 
 	#[test]
 	fn logs_filter_returns_none_for_block_filter() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Block>(4);
-		let id = manager.install_block(tx.subscribe()).unwrap();
-		assert!(manager.logs_filter(id).is_none(), "block filters have no replayable log range");
+		let (manager, ..) = manager();
+		let id = manager.install_block().unwrap();
+		assert!(manager.logs_filter(&id).is_none(), "block filters have no replayable log range");
 	}
 
 	#[test]
 	fn install_is_capped() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Block>(4);
+		let (manager, ..) = manager();
 		for _ in 0..MAX_FILTERS {
-			manager.install_block(tx.subscribe()).expect("under the cap");
+			manager.install_block().expect("under the cap");
 		}
-		assert_eq!(
-			manager.install_block(tx.subscribe()),
-			Err(TooManyFilters),
-			"installing beyond the cap is rejected"
-		);
+		assert_eq!(manager.install_block(), Err(TooManyFilters), "the cap is enforced");
 	}
 
 	#[test]
 	fn expired_filter_is_evicted_on_poll() {
-		let manager = FilterManager::new();
-		let (tx, _rx) = broadcast::channel::<Block>(4);
-		let id = manager.install_block(tx.subscribe()).unwrap();
+		let (manager, ..) = manager();
+		let id = manager.install_block().unwrap();
 		expire(&manager, id);
-		assert!(manager.poll_changes(id).is_none(), "an expired filter should not be polled");
-		assert!(!manager.uninstall(id), "an expired filter should already be evicted");
+		assert!(manager.poll_changes(&id).is_none(), "an expired filter should not be polled");
+		assert!(!manager.remove(&id), "an expired filter should already be evicted");
 	}
 
 	#[test]
 	fn cleanup_drops_expired_and_stale_filters() {
-		let manager = FilterManager::new();
-		let (blocks, _b) = broadcast::channel::<Block>(4);
-		let (logs, _l) = broadcast::channel::<Log>(4);
+		let (manager, ..) = manager();
 
 		// Fresh block filter: kept.
-		let fresh = manager.install_block(blocks.subscribe()).unwrap();
+		let fresh = manager.install_block().unwrap();
 		// Expired filter: dropped on the deadline alone.
-		let stale_deadline = manager.install_block(blocks.subscribe()).unwrap();
+		let stale_deadline = manager.install_block().unwrap();
 		expire(&manager, stale_deadline);
 		// Log filter bounded to block 5: dropped once the head passes it, even though fresh.
-		let bounded = manager.install_logs(Filter::new().to_block(5u64), logs.subscribe()).unwrap();
+		let bounded = manager.install_logs(Filter::new().to_block(5u64)).unwrap();
 
 		manager.evict(Some(10));
 
-		assert!(manager.poll_changes(fresh).is_some(), "fresh filter survives");
-		assert!(manager.poll_changes(stale_deadline).is_none(), "expired filter dropped");
-		assert!(manager.poll_changes(bounded).is_none(), "filter past its toBlock dropped");
+		assert!(manager.poll_changes(&fresh).is_some(), "fresh filter survives");
+		assert!(manager.poll_changes(&stale_deadline).is_none(), "expired filter dropped");
+		assert!(manager.poll_changes(&bounded).is_none(), "filter past its toBlock dropped");
 	}
 }

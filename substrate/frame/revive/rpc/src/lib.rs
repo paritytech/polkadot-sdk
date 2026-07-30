@@ -92,13 +92,16 @@ pub struct EthRpcServerImpl {
 
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
-	pub fn new(client: client::Client) -> Self {
+	///
+	/// `filter_registry` is passed in rather than created here so the caller can share it with the
+	/// background task that sweeps expired filters.
+	pub fn new(client: client::Client, filter_registry: FilterManager) -> Self {
 		Self {
 			client,
 			accounts: vec![],
 			allow_unprotected_txs: false,
 			use_pending_for_estimate_gas: false,
-			filter_registry: FilterManager::new(),
+			filter_registry,
 		}
 	}
 
@@ -117,12 +120,6 @@ impl EthRpcServerImpl {
 	/// Sets whether estimate_gas uses Pending block when no block is specified.
 	pub fn with_use_pending_for_estimate_gas(mut self, use_pending_for_estimate_gas: bool) -> Self {
 		self.use_pending_for_estimate_gas = use_pending_for_estimate_gas;
-		self
-	}
-
-	/// Sets the filter registry, so the caller can share it with its background cleanup task.
-	pub fn with_filter_registry(mut self, filter_registry: FilterManager) -> Self {
-		self.filter_registry = filter_registry;
 		self
 	}
 }
@@ -461,45 +458,35 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(FilterResults::Logs(logs))
 	}
 
-	async fn new_filter(&self, filter: Filter) -> RpcResult<U256> {
-		// Subscribe to the shared log channel now, so the filter reports logs from blocks imported
-		// after installation, matching go-ethereum. Its `fromBlock`/`toBlock` only bound the
-		// historical replay served by `eth_getFilterLogs`.
-		let id = self
-			.filter_registry
-			.install_logs(filter, self.client.get_log_subscription_rx())
-			.map_err(|_| EthRpcError::TooManyFilters)?;
-		Ok(id.into())
+	async fn new_filter(&self, filter: Filter) -> RpcResult<FilterId> {
+		// The filter subscribes to the shared log channel now, so it reports logs from blocks
+		// imported after installation, matching go-ethereum. Its `fromBlock`/`toBlock` only bound
+		// the historical replay served by `eth_getFilterLogs`.
+		Ok(self.filter_registry.install_logs(filter).map_err(|_| EthRpcError::TooManyFilters)?)
 	}
 
-	async fn new_block_filter(&self) -> RpcResult<U256> {
-		// The receiver starts at the current channel head, so only blocks imported after this point
-		// are reported — no manual head bookkeeping.
-		let id = self
-			.filter_registry
-			.install_block(self.client.get_block_subscription_rx())
-			.map_err(|_| EthRpcError::TooManyFilters)?;
-		Ok(id.into())
+	async fn new_block_filter(&self) -> RpcResult<FilterId> {
+		// The subscription starts at the current channel head, so only blocks imported after this
+		// point are reported — no manual head bookkeeping.
+		Ok(self.filter_registry.install_block().map_err(|_| EthRpcError::TooManyFilters)?)
 	}
 
-	async fn get_filter_changes(&self, filter_id: U256) -> RpcResult<FilterResults> {
+	async fn get_filter_changes(&self, filter_id: FilterId) -> RpcResult<FilterResults> {
 		self.filter_registry
-			.poll_changes(filter_id.into())
+			.poll_changes(&filter_id)
 			.ok_or_else(|| EthRpcError::FilterNotFound.into())
 	}
 
-	async fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<Log>> {
+	async fn get_filter_logs(&self, filter_id: FilterId) -> RpcResult<Vec<Log>> {
 		// `eth_getFilterLogs` replays the filter's whole range, exactly as `eth_getLogs` would, so
 		// it reuses the same range resolution rather than the streamed changes.
-		let filter = self
-			.filter_registry
-			.logs_filter(filter_id.into())
-			.ok_or(EthRpcError::FilterNotFound)?;
+		let filter =
+			self.filter_registry.logs_filter(&filter_id).ok_or(EthRpcError::FilterNotFound)?;
 		Ok(self.client.logs(Some(filter)).await?)
 	}
 
-	async fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
-		Ok(self.filter_registry.uninstall(filter_id.into()))
+	async fn uninstall_filter(&self, filter_id: FilterId) -> RpcResult<bool> {
+		Ok(self.filter_registry.remove(&filter_id))
 	}
 
 	async fn get_storage_at(

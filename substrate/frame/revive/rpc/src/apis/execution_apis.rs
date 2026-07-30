@@ -102,27 +102,27 @@ pub trait EthRpc {
 	/// Creates a log filter, returning its id. Use `eth_getFilterChanges` to poll it for the logs
 	/// that matched since the last poll.
 	#[method(name = "eth_newFilter")]
-	async fn new_filter(&self, filter: Filter) -> RpcResult<U256>;
+	async fn new_filter(&self, filter: Filter) -> RpcResult<FilterId>;
 
 	/// Creates a block filter, returning its id. Use `eth_getFilterChanges` to poll it for the
 	/// hashes of blocks added since the last poll.
 	#[method(name = "eth_newBlockFilter")]
-	async fn new_block_filter(&self) -> RpcResult<U256>;
+	async fn new_block_filter(&self) -> RpcResult<FilterId>;
 
 	/// Polls the filter with the given id, returning what changed since the last poll: matching
 	/// logs for a log filter, or block hashes for a block filter. The result is a union of the two
 	/// (`FilterResults`) because the id alone does not tell the caller which kind it is, mirroring
 	/// `eth_getFilterChanges`, which returns either shape.
 	#[method(name = "eth_getFilterChanges")]
-	async fn get_filter_changes(&self, filter_id: U256) -> RpcResult<FilterResults>;
+	async fn get_filter_changes(&self, filter_id: FilterId) -> RpcResult<FilterResults>;
 
 	/// Returns all logs matching the log filter with the given id, over its full range.
 	#[method(name = "eth_getFilterLogs")]
-	async fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<Log>>;
+	async fn get_filter_logs(&self, filter_id: FilterId) -> RpcResult<Vec<Log>>;
 
 	/// Uninstalls the filter with the given id. Returns `true` if the filter existed.
 	#[method(name = "eth_uninstallFilter")]
-	async fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool>;
+	async fn uninstall_filter(&self, filter_id: FilterId) -> RpcResult<bool>;
 
 	/// Returns the value from a storage position at a given address.
 	#[method(name = "eth_getStorageAt")]
