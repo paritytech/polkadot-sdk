@@ -118,6 +118,10 @@ pub use cumulus_client_pov_recovery;
 #[cfg(feature = "cumulus-client-proof-size-recording")]
 pub use cumulus_client_proof_size_recording;
 
+/// Per-block proof store for unincluded segment resubmission.
+#[cfg(feature = "cumulus-client-resubmission-store")]
+pub use cumulus_client_resubmission_store;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
@@ -1248,6 +1252,10 @@ pub use sc_state_db;
 /// Substrate statement store.
 #[cfg(feature = "sc-statement-store")]
 pub use sc_statement_store;
+
+/// Substrate storage-chain bitswap peer rotation and indexed transaction fetching service.
+#[cfg(feature = "sc-storage-chain-sync")]
+pub use sc_storage_chain_sync;
 
 /// Storage monitor service for substrate.
 #[cfg(feature = "sc-storage-monitor")]
