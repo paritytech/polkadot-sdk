@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785251856658,
+  "lastUpdate": 1785413440315,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cf129b7ee727ee7996a82503a83fece35e63e33d",
-          "message": "Accept custom capacity for block notifier buffer (#10451)\n\nWhen creating a block notifier allow setting a custom capacity\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T10:47:30Z",
-          "tree_id": "47729d2e40793ec5b0d2543cb38b202e6403a0cc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf129b7ee727ee7996a82503a83fece35e63e33d"
-        },
-        "date": 1764332601008,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2108431959666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.236406330166668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.190442554866667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "277bed389cd2229821426edeacdbc799b1f3fc2c",
+          "message": "Collator revamp - tests for subsystem startup and registered parachains pruning (#12675)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T10:28:06Z",
+          "tree_id": "ab6e61bc8dcb9903721933021fc60eb9c8c6241f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/277bed389cd2229821426edeacdbc799b1f3fc2c"
+        },
+        "date": 1785413406561,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14179796823333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.100825676633331,
             "unit": "seconds"
           }
         ]
