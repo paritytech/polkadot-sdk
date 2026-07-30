@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785413569409,
+  "lastUpdate": 1785430438920,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b291e6f8b49a42d03646256b91458f6d9b0fd2aa",
-          "message": "Uncomment release notifications (#10434)",
-          "timestamp": "2025-11-26T11:02:35Z",
-          "tree_id": "d67511f3003dc5ebe13f6d310f738ff57da4de8d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b291e6f8b49a42d03646256b91458f6d9b0fd2aa"
-        },
-        "date": 1764159012567,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.954,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03460822290400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04479286955799993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08461893119799994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da5c966029ce352120d5928d789ee3df0f97db46",
+          "message": "Collator revamp: collator interop zombienet test (#11189)\n\nA zombienet-sdk test verifying that collators without ApprovedPeer UMP\nsignal support and V1 collators work with validators using the\nexperimental implementation.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T15:09:27Z",
+          "tree_id": "645a071583327320abf0a3c6bbe68f3fe93333dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/da5c966029ce352120d5928d789ee3df0f97db46"
+        },
+        "date": 1785430405397,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.102,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07922087543599994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03978085840800001,
             "unit": "seconds"
           }
         ]
