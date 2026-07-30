@@ -230,23 +230,30 @@
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement"
-  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test"
+- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-relay-rollback"
+  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_1_relay_rollback"
   runner-type: "default"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
-  additional-setup: |
+  additional-setup: &v3-old-parachain-setup |
     BIN_DIR="$(pwd)/bin_old"
     mkdir -p $BIN_DIR
-    echo "downloading test-parachain as test-parachain-old in $BIN_DIR"
-    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/test-parachain-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/test-parachain
-    chmod 755 $BIN_DIR/test-parachain-old
+    echo "downloading polkadot-parachain as polkadot-parachain-old in $BIN_DIR"
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-parachain-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot-parachain
+    chmod 755 $BIN_DIR/polkadot-parachain-old
     ls -ltr $BIN_DIR
     export PATH=$BIN_DIR:$PATH
     echo "PATH=$PATH" >> $GITHUB_ENV
-  additional-env:
-    OLD_CUMULUS_IMAGE: "docker.io/paritypr/test-parachain:master-187cddde"
-    OLD_CUMULUS_COMMAND: "test-parachain-old"
+  additional-env: &v3-old-parachain-env
+    OLD_CUMULUS_COMMAND: "polkadot-parachain-old"
+
+- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-para-rollback"
+  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_2_para_rollback"
+  runner-type: "default"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+  additional-setup: *v3-old-parachain-setup
+  additional-env: *v3-old-parachain-env
 
 - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
   test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"

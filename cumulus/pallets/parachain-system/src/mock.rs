@@ -293,6 +293,7 @@ pub struct BlockTests {
 
 	included_para_head: Option<relay_chain::HeadData>,
 	pending_blocks: VecDeque<relay_chain::HeadData>,
+	pre_inherent_digests: Vec<sp_runtime::DigestItem>,
 }
 
 impl BlockTests {
@@ -356,6 +357,11 @@ impl BlockTests {
 		F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData),
 	{
 		self.inherent_data_hook = Some(Box::new(f));
+		self
+	}
+
+	pub fn with_pre_inherent_digests(mut self, digests: Vec<sp_runtime::DigestItem>) -> Self {
+		self.pre_inherent_digests = digests;
 		self
 	}
 
@@ -444,6 +450,9 @@ impl BlockTests {
 			};
 
 			// execute the block
+			for digest in &self.pre_inherent_digests {
+				System::deposit_log(digest.clone());
+			}
 			ParachainSystem::on_initialize(*n);
 			ParachainSystem::create_inherent(&inherent_data)
 				.expect("got an inherent")

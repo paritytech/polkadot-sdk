@@ -5,12 +5,27 @@
 //! runtime on the para. The relay side is toggled with a `set_node_feature` extrinsic; the para
 //! side via a runtime upgrade to the v3 test runtime.
 //!
-//! Para 2902 walks all four (relay, para) states:
-//!   off/off → V2, on/off → V2, on/on → V3, off/on → V2.
+//! Para 2902 walks up into V3 and then back out, once per rollback direction. The first three steps
+//! are the same for both cases:
+//!
+//!   off/off → V2, on/off → V2, on/on → V3
+//!
+//! and then the case parameter picks which side gives up V3:
+//!
+//! * `relay_rollback` — final step off/on → V2. The node feature is disabled while the para keeps
+//!   the v3 runtime, i.e. the V2 fallback with the v3 const still on.
+//! * `para_rollback` — final step on/off → V2. The para is upgraded to a V3-disabled runtime while
+//!   the feature stays on, so the collator is still in V3 mode when the code swaps. That makes it
+//!   the V3 to V2 shape switch, not merely a change of claim queue depth.
+//!
+//! Both land every para on V2 and must keep them producing; the runtime bound on
+//! `claim_queue_offset` has to tolerate whichever state the collator was in.
 //!
 //! Paras 2900 and 2902 run a mix of a v3-capable collator (current image) and a v2-only collator
-//! (`OLD_CUMULUS_IMAGE`). On 2900 both emit V2; on 2902's V3 phase only the v3 collator can build,
-//! so it carries the para.
+//! (`OLD_CUMULUS_IMAGE` / `OLD_CUMULUS_COMMAND`, falling back to the current image and command when
+//! unset; CI points them at an old `polkadot-parachain`, which serves the generated chain spec JSON
+//! just as well). On 2900 both emit V2; on 2902's V3 phase only the v3 collator can build, so it
+//! carries the para.
 //!
 //! [`v3_relay_feature_rollback_keeps_para_producing`] is a focused companion: it starts already in
 //! the on/on steady state (relay feature on, para on the `v3_rpo_2` runtime — V3 with relay parent
@@ -24,9 +39,11 @@ use crate::utils::{
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assign_cores, current_session_index, wait_for_runtime_upgrade,
+	assert_finality_lag, assign_cores, current_session_index, submit_sudo_runtime_upgrade,
+	wait_for_pvf_prepare, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::{node_features::FeatureIndex, CandidateDescriptorVersion, Id as ParaId};
+use rstest::rstest;
 use serde_json::json;
 use std::collections::HashMap;
 use zombienet_sdk::{
@@ -39,8 +56,20 @@ use zombienet_sdk::{
 /// they are applied in. Mirrors `polkadot_runtime_parachains::shared::SESSION_DELAY`.
 const SESSION_DELAY: u32 = 2;
 
+/// Which side gives up V3 in the final step, see the module docs.
+#[derive(Copy, Clone, Debug)]
+enum Rollback {
+	/// Disable the `CandidateReceiptV3` node feature, para keeps the v3 runtime.
+	Relay,
+	/// Upgrade the para to a V3-disabled runtime, node feature stays on.
+	Para,
+}
+
+#[rstest]
+#[case::relay_rollback(Rollback::Relay)]
+#[case::para_rollback(Rollback::Para)]
 #[tokio::test(flavor = "multi_thread")]
-async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
+async fn v3_dynamic_enablement_test(#[case] rollback: Rollback) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -49,6 +78,10 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 
 	let v3_wasm = cumulus_test_runtime::v3::WASM_BINARY
 		.ok_or_else(|| anyhow!("cumulus-test-runtime v3 WASM not built (needs WASM build)"))?;
+	// Rollback target for the final step: default features, i.e. V3 scheduling disabled, at
+	// `spec_version` 3, so it is a normal forward `set_code` from the v3 runtime's 2.
+	let v3_disabled_wasm = cumulus_test_runtime::spec_version_incremented::WASM_BINARY
+		.ok_or_else(|| anyhow!("cumulus-test-runtime spec_version_incremented WASM not built"))?;
 	let old_cumulus_image = std::env::var("OLD_CUMULUS_IMAGE").unwrap_or(images.cumulus.clone());
 	let old_cumulus_command =
 		std::env::var("OLD_CUMULUS_COMMAND").unwrap_or("test-parachain".into());
@@ -204,6 +237,10 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 	wait_for_runtime_upgrade(&para_client_v3).await?;
+	// Distinct validation codes prepared so far: the default runtime (2900 and 2902 share it), the
+	// elastic-scaling one (2901), and now 2902's v3 runtime. Waiting keeps PVF re-preparation from
+	// depressing the throughput measured below.
+	wait_for_pvf_prepare(&network, 3).await?;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
@@ -213,20 +250,52 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	// on/on → off/on: disable the relay feature while 2902 keeps the v3 runtime. It must fall back
-	// to V2 and keep producing (the case this fix enables); anchor to the enactment session so the
-	// V3 tail is skipped. All three paras are V2 here.
-	log::info!("state off/on (relay off, para on) → V2 (fallback)");
-	disable_node_features(&relay_client, &[4]).await?;
-	let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
-	assert_candidates_version(
-		&relay_client,
-		CandidateDescriptorVersion::V2,
-		HashMap::from([(para_2900, 7..11), (para_2901, 17..31), (para_2902, 7..11)]),
-		10,
-		Some(enactment_session),
-	)
-	.await?;
+	// on/on → the rollback under test. Both directions land every para on V2 and must keep them
+	// producing at the same rate; the difference is the state the collator is in when the switch
+	// happens, so each case exercises a different transition.
+	match rollback {
+		// Relay side: disable the node feature while 2902 keeps the v3 runtime, so it falls back to
+		// V2 with the v3 const still on. Session gated, so anchor to the enactment session to skip
+		// the V3 tail.
+		Rollback::Relay => {
+			log::info!("state off/on (relay off, para on) → V2 (fallback)");
+			disable_node_features(&relay_client, &[4]).await?;
+			let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
+			assert_candidates_version(
+				&relay_client,
+				CandidateDescriptorVersion::V2,
+				HashMap::from([(para_2900, 7..11), (para_2901, 17..31), (para_2902, 7..11)]),
+				10,
+				Some(enactment_session),
+			)
+			.await?;
+		},
+		// Para side: upgrade 2902 to a V3-disabled runtime while the node feature stays on, so the
+		// collator is still in V3 mode at the moment of the swap — the V3→V2 shape switch, not just
+		// a change of claim queue depth. Not session gated (the new runtime applies at the next
+		// para block), but anchor one session ahead anyway so V3 collations that were in flight
+		// when the code was swapped are not counted as a version violation.
+		Rollback::Para => {
+			log::info!("state on/off (relay on, para rolled back off v3) → V2");
+			submit_sudo_runtime_upgrade(&para_client_v3, v3_disabled_wasm, &dev::alice()).await?;
+			wait_for_runtime_upgrade(&para_client_v3).await?;
+			// Fourth distinct validation code: 2902's V3-disabled runtime.
+			wait_for_pvf_prepare(&network, 4).await?;
+			// One session is enough here, unlike the relay arm's `SESSION_DELAY`: this is not a
+			// session-gated config change, and `wait_for_runtime_upgrade` above has already seen
+			// the code-swap block finalized, so every relay parent from the next session on is
+			// past it.
+			let post_rollback_session = current_session_index(&relay_client).await? + 1;
+			assert_candidates_version(
+				&relay_client,
+				CandidateDescriptorVersion::V2,
+				HashMap::from([(para_2900, 7..11), (para_2901, 17..31), (para_2902, 7..11)]),
+				10,
+				Some(post_rollback_session),
+			)
+			.await?;
+		},
+	}
 
 	assert_validator_backed_candidates(relay_node, 30).await?;
 	for i in 4..=9 {
@@ -238,7 +307,7 @@ async fn v3_dynamic_enablement_test() -> Result<(), anyhow::Error> {
 	assert_finality_lag(&para_node_slot.wait_client().await?, 15).await?;
 	assert_finality_lag(&para_node_v3.wait_client().await?, 6).await?;
 
-	log::info!("V3 dynamic enablement test (relay then para enablement) finished successfully");
+	log::info!("V3 dynamic enablement test ({rollback:?} rollback) finished successfully");
 
 	Ok(())
 }

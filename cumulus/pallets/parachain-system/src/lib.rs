@@ -203,6 +203,9 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
+const V3_CLAIM_QUEUE_LOOKAHEAD: u8 = 2;
+const V2_CLAIM_QUEUE_LOOKAHEAD: u8 = 1;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -716,18 +719,24 @@ pub mod pallet {
 				};
 			}
 
-			// Ensure the `CoreInfo` digest exists at most once and bound `claim_queue_offset`. On
-			// the v2 fallback the collator looks up at the relay parent, so the bound widens by
-			// `relay_parent_offset`; under active v3 it looks up at the (fresh) scheduling parent.
+			// Ensure the `CoreInfo` digest exists at most once and bound `claim_queue_offset`.
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					let mut max_allowed_offset = Self::max_claim_queue_offset();
-					if !v3_dynamically_active {
-						max_allowed_offset = max_allowed_offset
-							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>());
-					}
+					// Bound the offset with the widest lookup either scheduling version can make,
+					// in either dynamic state: v3 reads the claim queue at the scheduling
+					// parent (the fresh relay tip), the v2 fallback reads it at the relay
+					// parent, which is already `relay_parent_offset` behind. Keying the base
+					// value off the v3 const instead leaves no slack for a v3-capable para
+					// that rolls back to a v3-disabled runtime with `relay_parent_offset ==
+					// 0`: the collator stamps offset 2 while the bound is 1, and the para
+					// stalls with a panic every slot. This is a self-check, not core-selection
+					// enforcement (the relay does that via the `SelectCore` UMP signal), so
+					// being permissive costs at most a candidate the relay does not match to a
+					// claim.
+					let max_allowed_offset = V3_CLAIM_QUEUE_LOOKAHEAD
+						.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>());
 					assert!(
 						core_info.claim_queue_offset.0 <= max_allowed_offset,
 						"claim_queue_offset {} exceeds maximum allowed {}",
@@ -1178,10 +1187,10 @@ impl<T: Config> Pallet<T> {
 	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
 		if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
-			return 1;
+			return V2_CLAIM_QUEUE_LOOKAHEAD;
 		}
 
-		2
+		V3_CLAIM_QUEUE_LOOKAHEAD
 	}
 }
 

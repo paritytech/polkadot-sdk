@@ -7,10 +7,11 @@ doc:
       falls back to v2 candidates instead of stalling. "V3 active" is derived dynamically from the
       para constant and the relay feature read from the committed state proof — the inherent and
       `validate_block` read the same entry, so author and PVF cannot disagree. On the fallback,
-      `validate_block` accepts the v2 candidate, the inherent keeps the relay-parent-descendant
-      check active, and the claim-queue-offset bound widens by `relay_parent_offset`; under active
-      v3 the check is skipped and `max_claim_queue_offset()` applies. Reading `node_features` now
-      goes via a new decode-only `RelayHostConfigurationPrefix`.
+      `validate_block` accepts the v2 candidate and the inherent keeps the relay-parent-descendant
+      check active. The bound on the `CoreInfo` digest's `claim_queue_offset` now allows the widest
+      lookup either scheduling version can make, `V3_CLAIM_QUEUE_LOOKAHEAD + relay_parent_offset`,
+      so a collator whose view of the para runtime lags by a block cannot stall the chain. Reading
+      `node_features` goes via a new decode-only `RelayHostConfigurationPrefix`.
 crates:
   - name: cumulus-pallet-parachain-system
     bump: minor

@@ -249,8 +249,8 @@ pub mod well_known_keys {
 	/// The currently active host configuration.
 	///
 	/// The storage entry holds an encoded `HostConfiguration<BlockNumber>`. Parachains decode a
-	/// positional prefix of it: `AbridgedHostConfiguration` for the fields they persist, or
-	/// `RelayHostConfigurationPrefix` to also reach `node_features`.
+	/// positional prefix of it: `AbridgedHostConfiguration` for the fields they persist, or the
+	/// extended prefix defined on the cumulus side to also reach `node_features`.
 	pub const ACTIVE_CONFIG: &[u8] =
 		&hex!["06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385"];
 
@@ -983,63 +983,6 @@ pub struct AbridgedHostConfiguration {
 	pub validation_upgrade_delay: BlockNumber,
 	/// Asynchronous backing parameters.
 	pub async_backing_params: AsyncBackingParams,
-}
-
-/// The prefix of the relay `HostConfiguration<BlockNumber>` up to and including `node_features`.
-///
-/// The layout MUST stay a positional prefix of the relay `HostConfiguration<BlockNumber>`; this is
-/// guarded by the `verify_externally_accessible` test in the configuration pallet.
-#[derive(Clone, Encode, Decode, Debug, Default, TypeInfo)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
-pub struct RelayHostConfigurationPrefix {
-	/// The leading fields, which are also the ones parachains store on-chain.
-	pub abridged: AbridgedHostConfiguration,
-	/// The maximum POV block size, in bytes.
-	pub max_pov_size: u32,
-	/// The maximum size of a message that can be put in a downward message queue.
-	pub max_downward_message_size: u32,
-	/// The maximum number of outbound HRMP channels a parachain is allowed to open.
-	pub hrmp_max_parachain_outbound_channels: u32,
-	/// The deposit that the sender should provide for opening an HRMP channel.
-	pub hrmp_sender_deposit: Balance,
-	/// The deposit that the recipient should provide for accepting opening an HRMP channel.
-	pub hrmp_recipient_deposit: Balance,
-	/// The maximum number of messages allowed in an HRMP channel at once.
-	pub hrmp_channel_max_capacity: u32,
-	/// The maximum total size of messages in bytes allowed in an HRMP channel at once.
-	pub hrmp_channel_max_total_size: u32,
-	/// The maximum number of inbound HRMP channels a parachain is allowed to accept.
-	pub hrmp_max_parachain_inbound_channels: u32,
-	/// The maximum size of a message that could ever be put into an HRMP channel.
-	pub hrmp_channel_max_message_size: u32,
-	/// The executor environment parameters.
-	pub executor_params: ExecutorParams,
-	/// How long to keep code on-chain, in blocks.
-	pub code_retention_period: BlockNumber,
-	/// The maximum number of validators to use for parachain consensus. `None` means no maximum.
-	pub max_validators: Option<u32>,
-	/// The amount of sessions to keep for disputes.
-	pub dispute_period: SessionIndex,
-	/// How long after dispute conclusion to accept statements.
-	pub dispute_post_conclusion_acceptance_period: BlockNumber,
-	/// The number of consensus slots before an un-approved assignment counts as a no-show.
-	pub no_show_slots: u32,
-	/// The number of delay tranches in total.
-	pub n_delay_tranches: u32,
-	/// The width of the zeroth delay tranche for approval assignments.
-	pub zeroth_delay_tranche_width: u32,
-	/// The number of validators needed to approve a block.
-	pub needed_approvals: u32,
-	/// The number of samples to do of the `RelayVRFModulo` approval assignment criterion.
-	pub relay_vrf_modulo_samples: u32,
-	/// The maximum number of sessions a PVF pre-checking vote may observe before it is rejected.
-	pub pvf_voting_ttl: SessionIndex,
-	/// The lower bound number of blocks an upgrade can be scheduled.
-	pub minimum_validation_upgrade_delay: BlockNumber,
-	/// The minimum number of valid backing statements required to consider a candidate backable.
-	pub minimum_backing_votes: u32,
-	/// Node features enablement, including the `CandidateReceiptV3` gate.
-	pub node_features: NodeFeatures,
 }
 
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be

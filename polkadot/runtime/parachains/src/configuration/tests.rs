@@ -513,30 +513,21 @@ fn verify_externally_accessible() {
 	// This test verifies that the value can be accessed through the well known keys and the
 	// host configuration decodes into the abridged version.
 	//
-	// A FAILURE of this test means the positional field layout of `HostConfiguration` has
-	// diverged from the prefix that `RelayHostConfigurationPrefix` expects. Because parachains
-	// SCALE-decode that prefix directly from the `ACTIVE_CONFIG` blob on every mandatory
-	// `set_validation_data` inherent, any such divergence breaks active-config decoding for every
-	// parachain that has not yet upgraded to a matching runtime. Any relay-side change that causes
-	// this test to fail requires a coordinated parachain runtime migration and must not be shipped
-	// casually.
+	// A FAILURE here means the positional field layout of `HostConfiguration` has diverged from
+	// `AbridgedHostConfiguration`, which every parachain decodes out of the `ACTIVE_CONFIG` blob —
+	// so it needs a coordinated parachain runtime migration and must not be shipped casually.
+	//
+	// Note this only covers the abridged prefix. The longer prefix that reaches `node_features` is
+	// guarded on the cumulus side, by `verify_relay_host_configuration_prefix` in
+	// `cumulus-pallet-parachain-system`, so a reordering between `async_backing_params` and
+	// `node_features` fails there and not here.
 
-	use polkadot_primitives::{
-		node_features::FeatureIndex, well_known_keys, AbridgedHostConfiguration, NodeFeatures,
-		RelayHostConfigurationPrefix,
-	};
+	use polkadot_primitives::{well_known_keys, AbridgedHostConfiguration};
 
 	new_test_ext(Default::default()).execute_with(|| {
 		let mut ground_truth = HostConfiguration::default();
 		ground_truth.async_backing_params =
 			AsyncBackingParams { allowed_ancestry_len: 111, max_candidate_depth: 222 };
-		// Set a couple of the trailing fields to non-default values so the field-by-field
-		// assertion below would catch a misaligned decode of the prefix.
-		ground_truth.max_pov_size = 12_345;
-		let mut node_features = NodeFeatures::EMPTY;
-		node_features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
-		node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-		ground_truth.node_features = node_features;
 
 		// Make sure that the configuration is stored in the storage.
 		ActiveConfig::<Test>::put(ground_truth.clone());
@@ -544,61 +535,25 @@ fn verify_externally_accessible() {
 		// Extract the active config via the well known key.
 		let raw_active_config = sp_io::storage::get(well_known_keys::ACTIVE_CONFIG)
 			.expect("config must be present in storage under ACTIVE_CONFIG");
-		let config_prefix = RelayHostConfigurationPrefix::decode(&mut &raw_active_config[..])
-			.expect("HostConfiguration must be decodable into RelayHostConfigurationPrefix");
-
-		assert_eq!(
-			config_prefix,
-			RelayHostConfigurationPrefix {
-				abridged: AbridgedHostConfiguration {
-					max_code_size: ground_truth.max_code_size,
-					max_head_data_size: ground_truth.max_head_data_size,
-					max_upward_queue_count: ground_truth.max_upward_queue_count,
-					max_upward_queue_size: ground_truth.max_upward_queue_size,
-					max_upward_message_size: ground_truth.max_upward_message_size,
-					max_upward_message_num_per_candidate: ground_truth
-						.max_upward_message_num_per_candidate,
-					hrmp_max_message_num_per_candidate: ground_truth
-						.hrmp_max_message_num_per_candidate,
-					validation_upgrade_cooldown: ground_truth.validation_upgrade_cooldown,
-					validation_upgrade_delay: ground_truth.validation_upgrade_delay,
-					async_backing_params: ground_truth.async_backing_params,
-				},
-				max_pov_size: ground_truth.max_pov_size,
-				max_downward_message_size: ground_truth.max_downward_message_size,
-				hrmp_max_parachain_outbound_channels: ground_truth
-					.hrmp_max_parachain_outbound_channels,
-				hrmp_sender_deposit: ground_truth.hrmp_sender_deposit,
-				hrmp_recipient_deposit: ground_truth.hrmp_recipient_deposit,
-				hrmp_channel_max_capacity: ground_truth.hrmp_channel_max_capacity,
-				hrmp_channel_max_total_size: ground_truth.hrmp_channel_max_total_size,
-				hrmp_max_parachain_inbound_channels: ground_truth
-					.hrmp_max_parachain_inbound_channels,
-				hrmp_channel_max_message_size: ground_truth.hrmp_channel_max_message_size,
-				executor_params: ground_truth.executor_params.clone(),
-				code_retention_period: ground_truth.code_retention_period,
-				max_validators: ground_truth.max_validators,
-				dispute_period: ground_truth.dispute_period,
-				dispute_post_conclusion_acceptance_period: ground_truth
-					.dispute_post_conclusion_acceptance_period,
-				no_show_slots: ground_truth.no_show_slots,
-				n_delay_tranches: ground_truth.n_delay_tranches,
-				zeroth_delay_tranche_width: ground_truth.zeroth_delay_tranche_width,
-				needed_approvals: ground_truth.needed_approvals,
-				relay_vrf_modulo_samples: ground_truth.relay_vrf_modulo_samples,
-				pvf_voting_ttl: ground_truth.pvf_voting_ttl,
-				minimum_validation_upgrade_delay: ground_truth.minimum_validation_upgrade_delay,
-				minimum_backing_votes: ground_truth.minimum_backing_votes,
-				node_features: ground_truth.node_features.clone(),
-			},
-		);
-
-		// `AbridgedHostConfiguration` is what parachains persist on-chain, so it must remain
-		// independently decodable from the same blob — i.e. still a positional prefix in its own
-		// right. This is what keeps the stored encoding stable and migration-free.
 		let abridged_config = AbridgedHostConfiguration::decode(&mut &raw_active_config[..])
 			.expect("HostConfiguration must be decodable into AbridgedHostConfiguration");
-		assert_eq!(abridged_config, config_prefix.abridged);
+
+		assert_eq!(
+			abridged_config,
+			AbridgedHostConfiguration {
+				max_code_size: ground_truth.max_code_size,
+				max_head_data_size: ground_truth.max_head_data_size,
+				max_upward_queue_count: ground_truth.max_upward_queue_count,
+				max_upward_queue_size: ground_truth.max_upward_queue_size,
+				max_upward_message_size: ground_truth.max_upward_message_size,
+				max_upward_message_num_per_candidate: ground_truth
+					.max_upward_message_num_per_candidate,
+				hrmp_max_message_num_per_candidate: ground_truth.hrmp_max_message_num_per_candidate,
+				validation_upgrade_cooldown: ground_truth.validation_upgrade_cooldown,
+				validation_upgrade_delay: ground_truth.validation_upgrade_delay,
+				async_backing_params: ground_truth.async_backing_params,
+			},
+		);
 	});
 }
 

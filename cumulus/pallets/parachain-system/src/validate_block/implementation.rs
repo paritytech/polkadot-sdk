@@ -55,6 +55,11 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// inherent, anchored to the trusted `relay_parent_storage_root` param. Reading from committed
 /// relay state (not a node-local source) keeps the decision deterministic across validators.
 ///
+/// Sound for the whole bundle: `validate_validation_data` runs for every block in the execution
+/// loop and asserts that the block's `relay_parent_storage_root` equals the bundle-level one passed
+/// here, so all blocks share one relay parent and therefore one state proof — the feature bit read
+/// from the first block's proof is the same bit for all of them.
+///
 /// Panics if the mandatory `set_validation_data` inherent is missing or the proof is invalid.
 fn read_relay_v3_feature_enabled<B: BlockT, PSC: crate::Config>(
 	block_data: &ParachainBlockData<B::LazyBlock>,
