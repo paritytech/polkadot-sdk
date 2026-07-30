@@ -88,7 +88,7 @@ pub struct TraceCallConfig {
 
 	/// Optional state overrides to apply before executing the traced call.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub state_overrides: Option<StateOverrideSet>,
+	pub state_overrides: Option<StateOverrideSetV1>,
 }
 
 /// A transaction trace

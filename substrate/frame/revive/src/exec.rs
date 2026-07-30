@@ -1235,6 +1235,15 @@ where
 			input_data,
 			self.exec_config,
 		)? {
+			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
+			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
+			if frame.entry_point == ExportedFunction::Constructor &&
+				self.frames().any(|f| {
+					f.entry_point == ExportedFunction::Constructor &&
+						f.account_id == frame.account_id
+				}) {
+				return Err(Error::<T>::DuplicateContract.into());
+			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
