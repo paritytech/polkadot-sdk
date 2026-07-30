@@ -316,13 +316,15 @@ impl Metrics {
 #[derive(Clone)]
 struct MetricsInner {
 	collation_requests: prometheus::CounterVec<prometheus::U64>,
+	// Used in the legacy implementation to time message handling. Kept in the revamp for backward
+	// compatibility.
 	process_msg: prometheus::Histogram,
-	// Improved version of `process_msg`
+	// Improved version of `process_msg` used in the revamped collator protocol.
 	process_msg_duration: prometheus::HistogramVec,
 	handle_collation_request_result: prometheus::Histogram,
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
-	/// Similar to `collator_peer_count`, but represents the in-memory peer count from
-	/// `PeerManager`.
+	// Similar to `collator_peer_count`, but represents the in-memory peer count from
+	// `PeerManager`.
 	in_memory_connected_peers: prometheus::Gauge<prometheus::U64>,
 	advertisements: prometheus::CounterVec<prometheus::U64>,
 	collations_seconded: prometheus::CounterVec<prometheus::U64>,
