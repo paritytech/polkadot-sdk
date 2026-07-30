@@ -371,6 +371,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(vec![])
 	}
 
+	/// Whether to set `TCP_NODELAY` on the JSON-RPC server's connections.
+	fn rpc_tcp_nodelay(&self) -> Result<bool> {
+		Ok(false)
+	}
+
 	/// RPC rate limit trust proxy headers.
 	fn rpc_rate_limit_trust_proxy_headers(&self) -> Result<bool> {
 		Ok(false)
@@ -552,6 +557,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				addr: rpc_addrs,
 				methods: self.rpc_methods()?,
 				max_connections: self.rpc_max_connections()?,
+				tcp_nodelay: self.rpc_tcp_nodelay()?,
 				cors: self.rpc_cors(is_dev)?,
 				max_request_size: self.rpc_max_request_size()?,
 				max_response_size: self.rpc_max_response_size()?,

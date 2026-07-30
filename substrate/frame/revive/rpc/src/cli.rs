@@ -361,6 +361,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		addr: rpc_addrs,
 		methods: rpc_params.rpc_methods.into(),
 		max_connections: rpc_params.rpc_max_connections,
+		tcp_nodelay: rpc_params.rpc_tcp_nodelay,
 		cors: rpc_params.rpc_cors(is_dev)?,
 		max_request_size: rpc_params.rpc_max_request_size,
 		max_response_size: rpc_params.rpc_max_response_size,

@@ -244,6 +244,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		rpc: RpcConfiguration {
 			addr: Default::default(),
 			max_connections: Default::default(),
+			tcp_nodelay: false,
 			cors: None,
 			methods: Default::default(),
 			max_request_size: Default::default(),

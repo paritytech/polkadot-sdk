@@ -864,6 +864,7 @@ pub fn node_config(
 		rpc: RpcConfiguration {
 			addr: None,
 			max_connections: Default::default(),
+			tcp_nodelay: false,
 			cors: None,
 			methods: Default::default(),
 			max_request_size: Default::default(),
@@ -1018,6 +1019,7 @@ pub fn run_relay_chain_validator_node(
 			rate_limit_whitelisted_ips: config.rpc.rate_limit_whitelisted_ips.clone(),
 			retry_random_port: true,
 			is_optional: false,
+			tcp_nodelay: false,
 		}]);
 	}
 

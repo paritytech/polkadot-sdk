@@ -85,14 +85,6 @@ pub struct RpcParams {
 	#[arg(long)]
 	pub rpc_rate_limit: Option<NonZeroU32>,
 
-	/// Set `TCP_NODELAY` on accepted JSON-RPC connections.
-	///
-	/// Disables Nagle's algorithm, which otherwise delays a small write until the previous one
-	/// has been acknowledged. Messages that would otherwise be coalesced are then sent
-	/// separately, which can increase the number of emitted TCP packets.
-	#[arg(long)]
-	pub rpc_tcp_nodelay: bool,
-
 	/// Disable RPC rate limiting for certain ip addresses.
 	///
 	/// Each IP address must be in CIDR notation such as `1.2.3.4/24`.
@@ -108,6 +100,14 @@ pub struct RpcParams {
 	/// proxy always sets these headers.
 	#[arg(long)]
 	pub rpc_rate_limit_trust_proxy_headers: bool,
+
+	/// Set `TCP_NODELAY` on accepted JSON-RPC connections.
+	///
+	/// Disables Nagle's algorithm, which otherwise delays a small write until the previous one
+	/// has been acknowledged. Messages that would otherwise be coalesced are then sent
+	/// separately, which can increase the number of emitted TCP packets.
+	#[arg(long)]
+	pub rpc_tcp_nodelay: bool,
 
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
@@ -156,6 +156,7 @@ pub struct RpcParams {
 	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses, this can be
 	/// enabled more than once (optional)  • retry-random-port: If the port is already in use,
 	/// retry with a random port (optional)
+	///  • tcp-nodelay: Set `TCP_NODELAY` on this endpoint's connections (optional)
 	///
 	/// Use with care, this flag is unstable and subject to change.
 	#[arg(

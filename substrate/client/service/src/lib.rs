@@ -410,8 +410,7 @@ pub fn start_rpc_servers(
 				rate_limit: rpc_configuration.rate_limit,
 				rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
 				rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
-				// No endpoint was configured, so there is no per-endpoint value to carry over.
-				tcp_nodelay: false,
+				tcp_nodelay: rpc_configuration.tcp_nodelay,
 				retry_random_port: true,
 				is_optional: false,
 			},
@@ -428,8 +427,7 @@ pub fn start_rpc_servers(
 				rate_limit: rpc_configuration.rate_limit,
 				rate_limit_trust_proxy_headers: rpc_configuration.rate_limit_trust_proxy_headers,
 				rate_limit_whitelisted_ips: rpc_configuration.rate_limit_whitelisted_ips.clone(),
-				// No endpoint was configured, so there is no per-endpoint value to carry over.
-				tcp_nodelay: false,
+				tcp_nodelay: rpc_configuration.tcp_nodelay,
 				retry_random_port: true,
 				is_optional: true,
 			},

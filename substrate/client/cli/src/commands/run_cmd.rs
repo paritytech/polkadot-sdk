@@ -326,6 +326,10 @@ impl CliConfiguration for RunCmd {
 		Ok(self.rpc_params.rpc_rate_limit_whitelisted_ips.clone())
 	}
 
+	fn rpc_tcp_nodelay(&self) -> Result<bool> {
+		Ok(self.rpc_params.rpc_tcp_nodelay)
+	}
+
 	fn rpc_rate_limit_trust_proxy_headers(&self) -> Result<bool> {
 		Ok(self.rpc_params.rpc_rate_limit_trust_proxy_headers)
 	}
