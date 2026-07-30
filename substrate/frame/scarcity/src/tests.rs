@@ -27,6 +27,7 @@ use crate::{
 	MetadataValueOf, MintWithoutDeposit, NextCollectionId, NextInstanceId, Nft, NftsByOwner,
 	Origin,
 };
+use codec::Encode;
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::Hooks;
 use frame_support::{assert_noop, assert_ok, dispatch::Pays, traits::OriginTrait};
@@ -450,6 +451,7 @@ fn mint_charges_collection_owner_and_stores_instance_deposit() {
 		assert!(deposit > 0);
 		assert_eq!(held(OWNER), held_before + deposit);
 		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, held(OWNER),);
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 1);
 	});
 }
 
@@ -1110,10 +1112,12 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		setup_item();
 		MockNow::set(10);
 		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"moves")]);
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 1);
 
 		MockNow::set(20);
 		let (validity, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
 		assert_eq!(validity.priority, 10);
+		assert_eq!(validity.provides, vec![("Scarcity", (0u64, 0u64)).encode()]);
 		let pre = prepare_transfer(val, &origin, OTHER);
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		let post_info = Scarcity::transfer(origin, OTHER).unwrap();
@@ -1125,8 +1129,12 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		assert_eq!(moved.last_moved, 20);
 		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
+		assert_eq!(frame_system::Account::<Test>::get(OTHER).sufficients, 1);
 		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"unique")), Some(value(b"moves")),);
-		System::assert_has_event(Event::<Test>::Transferred { instance: 0, to: OTHER }.into());
+		System::assert_has_event(
+			Event::<Test>::Transferred { instance: 0, from: RECIPIENT, to: OTHER }.into(),
+		);
 		assert_ok!(Scarcity::do_try_state());
 	});
 }
@@ -1426,7 +1434,9 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 		post_dispatch(pre, Ok(()));
 
 		assert_eq!(post_info.pays_fee, Pays::No);
+		assert_eq!(post_info.actual_weight, Some(<() as crate::weights::WeightInfo>::burn(1)),);
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
 		assert!(!Instances::<Test>::contains_key(0));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
 		assert!(!InstanceMetadataCount::<Test>::contains_key(0));
@@ -1505,7 +1515,12 @@ fn collection_owner_can_force_burn_an_instance() {
 			Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 99),
 			Error::<Test>::UnknownInstance
 		);
-		assert_ok!(Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 0));
+		let post_info = Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 0).unwrap();
+		assert_eq!(post_info.pays_fee, Pays::Yes);
+		assert_eq!(
+			post_info.actual_weight,
+			Some(<() as crate::weights::WeightInfo>::force_burn(1)),
+		);
 
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert!(!Instances::<Test>::contains_key(0));
@@ -1513,6 +1528,7 @@ fn collection_owner_can_force_burn_an_instance() {
 		assert!(!InstanceMetadataCount::<Test>::contains_key(0));
 		assert_eq!(InstanceMetadata::<Test>::iter_prefix(0).count(), 0);
 		assert!(!Locked::<Test>::contains_key(RECIPIENT));
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
 		let definition = ItemDefs::<Test>::get(0, 0).expect("definition remains");
 		assert_eq!(definition.supply, 1);
 		assert_eq!(definition.live_supply, 0);
@@ -1561,6 +1577,8 @@ fn collection_owner_can_force_transfer_an_instance() {
 		assert_eq!(moved.last_moved, 25);
 		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(target));
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
+		assert_eq!(frame_system::Account::<Test>::get(target).sufficients, 1);
 		assert_eq!(InstanceDeposits::<Test>::get(0), Some(deposit));
 		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"effect")), Some(value(b"healing")),);
 		assert_eq!(held(OWNER), held_before);
@@ -1862,6 +1880,17 @@ fn try_state_rejects_instance_identifier_at_or_above_next() {
 		NextInstanceId::<Test>::put(0);
 
 		assert_try_state_error("NFT instance is not below NextInstanceId");
+	});
+}
+
+#[test]
+fn try_state_rejects_nft_owner_without_sufficient_reference() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		System::dec_sufficients(&RECIPIENT);
+
+		assert_try_state_error("NFT owner has no System sufficient reference");
 	});
 }
 

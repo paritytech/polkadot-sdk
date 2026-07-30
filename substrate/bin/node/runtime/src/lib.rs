@@ -180,7 +180,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 268,
+	spec_version: 269,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -1702,14 +1702,17 @@ where
 			frame_system::CheckEra::<Runtime>::from(era),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
-					tip, None,
+			(
+				ScarcityTxExtension::new(None),
+				pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+						tip, None,
+					),
 				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
-			(ScarcityTxExtension::new(None), frame_system::WeightReclaim::<Runtime>::new()),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -1762,12 +1765,17 @@ where
 			frame_system::CheckEra::<Runtime>::from(Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(0),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			(
+				ScarcityTxExtension::new(None),
+				pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+						0, None,
+					),
+				),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
-			(ScarcityTxExtension::new(None), frame_system::WeightReclaim::<Runtime>::new()),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}
 }
@@ -2999,6 +3007,11 @@ pub type BlockId = generic::BlockId<Block>;
 ///
 /// When you change this, you **MUST** modify [`sign`] in `bin/node/testing/src/keyring.rs`!
 ///
+/// `AsScarcity` has a security-critical position: `CheckNonce` must run first while the origin is
+/// signed, and `SkipCheckIfFeeless<ChargeAssetTxPayment>` must run afterward so it observes
+/// `Origin::Nft` and skips payment. Keep the relative order
+/// `CheckNonce -> AsScarcity -> SkipCheckIfFeeless<ChargeAssetTxPayment>`.
+///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
 	frame_system::AuthorizeCall<Runtime>,
@@ -3009,13 +3022,16 @@ pub type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	pallet_skip_feeless_payment::SkipCheckIfFeeless<
-		Runtime,
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
-	>,
+	(
+		pallet_scarcity::extension::AsScarcity<Runtime>,
+		pallet_skip_feeless_payment::SkipCheckIfFeeless<
+			Runtime,
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		>,
+	),
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
-	(pallet_scarcity::extension::AsScarcity<Runtime>, frame_system::WeightReclaim<Runtime>),
+	frame_system::WeightReclaim<Runtime>,
 );
 
 /// Scarcity authorization extension used by signed development-runtime transactions.
@@ -3039,11 +3055,16 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckEra::from(crate::generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None)
+			(
+				ScarcityTxExtension::new(None),
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+					tip, None,
+				)
 				.into(),
+			),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
-			(ScarcityTxExtension::new(None), frame_system::WeightReclaim::<Runtime>::new()),
+			frame_system::WeightReclaim::<Runtime>::new(),
 		)
 	}
 }
@@ -4071,7 +4092,36 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::dispatch::GetDispatchInfo;
 	use frame_system::offchain::CreateSignedTransaction;
+	use sp_runtime::{traits::DispatchTransaction, BuildStorage};
+
+	fn scarcity_tx_extension(nonce: Nonce, state_nonce: u64) -> TxExtension {
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			(
+				ScarcityTxExtension::new(Some(pallet_scarcity::extension::AsScarcityInfo::AsNft {
+					instance: 0,
+					state_nonce,
+				})),
+				pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+						0, None,
+					),
+				),
+			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+			frame_system::WeightReclaim::<Runtime>::new(),
+		)
+	}
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {
@@ -4094,5 +4144,112 @@ mod tests {
 			 If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
+	}
+
+	#[test]
+	fn zero_balance_scarcity_purse_can_transfer() {
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+
+		ext.execute_with(|| {
+			System::set_block_number(1);
+			Timestamp::set_timestamp(1_000);
+			let from = AccountId::new([1u8; 32]);
+			let to = AccountId::new([2u8; 32]);
+			System::inc_sufficients(&from);
+			pallet_scarcity::NftsByOwner::<Runtime>::insert(
+				&from,
+				pallet_scarcity::Nft {
+					instance: 0,
+					collection: 0,
+					item: 0,
+					minted_at: 0,
+					last_moved: 0,
+					state_nonce: 0,
+				},
+			);
+			pallet_scarcity::Instances::<Runtime>::insert(0, &from);
+
+			assert_eq!(Balances::free_balance(&from), 0);
+			assert_eq!(System::account_nonce(&from), 0);
+			assert_eq!(frame_system::Account::<Runtime>::get(&from).sufficients, 1);
+
+			let call = RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer {
+				to: to.clone(),
+			});
+			let info = call.get_dispatch_info();
+			let result = scarcity_tx_extension(0, 0).dispatch_transaction(
+				RuntimeOrigin::signed(from.clone()),
+				call,
+				&info,
+				0,
+				0,
+			);
+			assert!(matches!(result, Ok(Ok(_))), "transaction failed: {result:?}");
+
+			assert_eq!(Balances::free_balance(&from), 0);
+			assert_eq!(frame_system::Account::<Runtime>::get(&from).sufficients, 0);
+			assert_eq!(frame_system::Account::<Runtime>::get(&to).sufficients, 1);
+			assert!(!pallet_scarcity::NftsByOwner::<Runtime>::contains_key(&from));
+			assert_eq!(
+				pallet_scarcity::NftsByOwner::<Runtime>::get(&to).map(|nft| nft.instance),
+				Some(0),
+			);
+			assert!(System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::SkipFeelessPayment(
+					pallet_skip_feeless_payment::Event::FeeSkipped { .. }
+				)
+			)));
+		});
+	}
+
+	#[test]
+	fn failed_scarcity_transfer_is_feeless_and_consumes_account_nonce() {
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+
+		ext.execute_with(|| {
+			System::set_block_number(1);
+			Timestamp::set_timestamp(1_000);
+			let from = AccountId::new([1u8; 32]);
+			let to = AccountId::new([2u8; 32]);
+			System::inc_sufficients(&from);
+			pallet_scarcity::NftsByOwner::<Runtime>::insert(
+				&from,
+				pallet_scarcity::Nft {
+					instance: 0,
+					collection: 0,
+					item: 0,
+					minted_at: 0,
+					last_moved: 0,
+					state_nonce: u64::MAX,
+				},
+			);
+			pallet_scarcity::Instances::<Runtime>::insert(0, &from);
+
+			let call = RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer {
+				to: to.clone(),
+			});
+			let info = call.get_dispatch_info();
+			let result = scarcity_tx_extension(0, u64::MAX).dispatch_transaction(
+				RuntimeOrigin::signed(from.clone()),
+				call,
+				&info,
+				0,
+				0,
+			);
+			assert!(matches!(result, Ok(Err(_))), "transaction did not reach dispatch: {result:?}");
+
+			assert_eq!(Balances::free_balance(&from), 0);
+			assert_eq!(System::account_nonce(&from), 1);
+			assert_eq!(frame_system::Account::<Runtime>::get(&from).sufficients, 1);
+			assert_eq!(
+				pallet_scarcity::NftsByOwner::<Runtime>::get(&from).map(|nft| nft.state_nonce),
+				Some(u64::MAX),
+			);
+			assert!(!pallet_scarcity::NftsByOwner::<Runtime>::contains_key(&to));
+			assert!(pallet_scarcity::Locked::<Runtime>::contains_key(&from));
+		});
 	}
 }

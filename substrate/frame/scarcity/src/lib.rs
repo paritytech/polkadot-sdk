@@ -33,6 +33,13 @@
 //! successor reject an unwanted or unaffordable collection while allowing the runtime to choose
 //! how storage consideration is implemented.
 //!
+//! Footprints count logical records and their encoded payloads rather than exact trie keys and
+//! hash prefixes. A runtime can account for backend overhead in its per-record base price and
+//! calibrate its byte price to the desired storage policy.
+//!
+//! Each live NFT also maintains one System sufficient reference for its purse. This keeps nonce
+//! storage alive for an NFT-only account without requiring it to hold a fee-paying balance.
+//!
 //! Cleanup proceeds from leaves to roots so every call remains bounded. The collection owner
 //! force-burns live instances (or holders burn their own), removes item metadata, deletes empty
 //! item definitions, removes collection metadata, and finally deletes the empty collection.
@@ -358,8 +365,8 @@ pub mod pallet {
 			item: ItemIndex,
 			owner: T::AccountId,
 		},
-		/// An instance moved to a new purse key.
-		Transferred { instance: InstanceId, to: T::AccountId },
+		/// A holder moved an instance from one purse key to another.
+		Transferred { instance: InstanceId, from: T::AccountId, to: T::AccountId },
 		/// A collection owner forced an instance from one purse key to another.
 		ForceTransferred { instance: InstanceId, from: T::AccountId, to: T::AccountId },
 		/// An instance was permanently removed.
@@ -490,10 +497,13 @@ pub mod pallet {
 		/// Price of an item definition.
 		type ItemDeposit: Convert<Footprint, BalanceOf<Self>>;
 
-		/// Price of one ordinary minted instance.
+		/// Price of one ordinary minted instance, including its System sufficient reference.
 		type InstanceDeposit: Convert<Footprint, BalanceOf<Self>>;
 
 		/// Price of one metadata entry.
+		///
+		/// The footprint contains one logical record plus the encoded key and value. Trie-key and
+		/// hash-prefix overhead can be priced through the converter's per-record base.
 		type MetadataDeposit: Convert<Footprint, BalanceOf<Self>>;
 
 		/// Maximum byte length of one metadata key.
@@ -564,6 +574,9 @@ pub mod pallet {
 		/// Transfer an NFT held by the `Origin::Nft` purse-key origin.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::feeless_if(|origin: &OriginFor<T>, _to: &T::AccountId| -> bool {
+			Pallet::<T>::is_nft_origin(origin)
+		})]
 		pub fn transfer(origin: OriginFor<T>, to: T::AccountId) -> DispatchResultWithPostInfo {
 			let Ok(Origin::Nft { owner, nft }) = origin.into() else {
 				return Err(DispatchError::BadOrigin.into());
@@ -571,12 +584,15 @@ pub mod pallet {
 			ensure!(to != owner, Error::<T>::SelfTransfer);
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
 
+			let from = owner;
 			let state_nonce =
 				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
 			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), state_nonce, ..nft };
+			frame_system::Pallet::<T>::dec_sufficients(&from);
+			frame_system::Pallet::<T>::inc_sufficients(&to);
 			NftsByOwner::<T>::insert(&to, nft.clone());
 			Instances::<T>::insert(nft.instance, &to);
-			Self::deposit_event(Event::Transferred { instance: nft.instance, to });
+			Self::deposit_event(Event::Transferred { instance: nft.instance, from, to });
 			Ok(Pays::No.into())
 		}
 
@@ -587,13 +603,16 @@ pub mod pallet {
 		/// removed and its exact deposits are released.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::burn(T::MaxInstanceMetadata::get()))]
+		#[pallet::feeless_if(|origin: &OriginFor<T>| -> bool {
+			Pallet::<T>::is_nft_origin(origin)
+		})]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let Ok(Origin::Nft { nft, .. }) = origin.into() else {
+			let Ok(Origin::Nft { owner, nft }) = origin.into() else {
 				return Err(DispatchError::BadOrigin.into());
 			};
-			Self::do_burn(nft)?;
-			Ok(Pays::No.into())
+			let metadata_count = Self::do_burn(owner, nft)?;
+			Ok((Some(T::WeightInfo::burn(metadata_count)), Pays::No).into())
 		}
 
 		/// Nominate an account to claim ownership of a collection.
@@ -709,9 +728,13 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::force_burn(T::MaxInstanceMetadata::get()))]
 		#[transactional]
-		pub fn force_burn(origin: OriginFor<T>, instance: InstanceId) -> DispatchResult {
+		pub fn force_burn(
+			origin: OriginFor<T>,
+			instance: InstanceId,
+		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			Self::do_force_burn(&owner, instance)
+			let metadata_count = Self::do_force_burn(&owner, instance)?;
+			Ok(Some(T::WeightInfo::force_burn(metadata_count)).into())
 		}
 
 		/// Delete an unused item definition owned by the signer.
@@ -762,6 +785,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn is_nft_origin(origin: &OriginFor<T>) -> bool {
+			let converted: Result<Origin<T>, OriginFor<T>> = origin.clone().into();
+			matches!(converted, Ok(Origin::Nft { .. }))
+		}
+
 		fn increase_owner_deposit(
 			info: CollectionInfoOf<T>,
 			amount: BalanceOf<T>,
@@ -942,6 +970,8 @@ pub mod pallet {
 		}
 
 		fn metadata_footprint(key: &MetadataKeyOf<T>, value: &MetadataValueOf<T>) -> Footprint {
+			// Logical record footprint. Runtime pricing may include trie/hash overhead in its
+			// per-record base rather than coupling this pallet to a storage backend.
 			Footprint::from_parts(
 				1,
 				key.len()
@@ -1110,7 +1140,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_burn(nft: Nft) -> DispatchResult {
+		fn do_burn(purse: T::AccountId, nft: Nft) -> Result<u32, DispatchError> {
 			let instance = nft.instance;
 			let expected_metadata_count = InstanceMetadataCount::<T>::take(instance);
 			let mut actual_metadata_count = 0u32;
@@ -1132,11 +1162,12 @@ pub mod pallet {
 			let info = Self::decrease_owner_deposit(info, deposit)?;
 			Collections::<T>::insert(nft.collection, info);
 			Instances::<T>::remove(instance);
+			frame_system::Pallet::<T>::dec_sufficients(&purse);
 			Self::deposit_event(Event::Burned { instance });
-			Ok(())
+			Ok(actual_metadata_count)
 		}
 
-		fn do_force_burn(owner: &T::AccountId, instance: InstanceId) -> DispatchResult {
+		fn do_force_burn(owner: &T::AccountId, instance: InstanceId) -> Result<u32, DispatchError> {
 			let purse = Instances::<T>::get(instance).ok_or(Error::<T>::UnknownInstance)?;
 			let nft = NftsByOwner::<T>::get(&purse).ok_or(Error::<T>::UnknownInstance)?;
 			ensure!(nft.instance == instance, Error::<T>::UnknownInstance);
@@ -1146,7 +1177,7 @@ pub mod pallet {
 
 			NftsByOwner::<T>::remove(&purse);
 			Locked::<T>::remove(&purse);
-			Self::do_burn(nft)
+			Self::do_burn(purse, nft)
 		}
 
 		fn do_force_transfer(
@@ -1166,6 +1197,8 @@ pub mod pallet {
 			let state_nonce =
 				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
 			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), state_nonce, ..nft };
+			frame_system::Pallet::<T>::dec_sufficients(&from);
+			frame_system::Pallet::<T>::inc_sufficients(&to);
 			NftsByOwner::<T>::remove(&from);
 			Locked::<T>::remove(&from);
 			NftsByOwner::<T>::insert(&to, nft);
@@ -1260,15 +1293,21 @@ pub mod pallet {
 			let nft =
 				Nft { instance, collection, item, minted_at: now, last_moved: now, state_nonce: 0 };
 			let instance_deposit = if with_deposit {
-				// Four storage entries back one instance: `NftsByOwner`, the `Instances`
-				// reverse index, `InstanceDeposits`, and `InstanceMetadataCount`.
+				// Five storage entries back one instance: `NftsByOwner`, the `Instances`
+				// reverse index, `InstanceDeposits`, `InstanceMetadataCount`, and the System
+				// account kept alive by the NFT's sufficient reference. This measures their
+				// logical encoded payload; the runtime's per-record base can price trie and
+				// hash-prefix overhead.
 				let record_size = nft
 					.encoded_size()
-					.saturating_add(to.encoded_size())
-					.saturating_add(instance.encoded_size())
+					.saturating_add(to.encoded_size().saturating_mul(2))
+					.saturating_add(instance.encoded_size().saturating_mul(3))
 					.saturating_add(BalanceOf::<T>::max_encoded_len())
-					.saturating_add(u32::max_encoded_len());
-				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(4, record_size));
+					.saturating_add(u32::max_encoded_len())
+					.saturating_add(
+						frame_system::AccountInfo::<T::Nonce, T::AccountData>::max_encoded_len(),
+					);
+				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(5, record_size));
 				info = Self::increase_owner_deposit(info, deposit)?;
 				Some(deposit)
 			} else {
@@ -1284,6 +1323,7 @@ pub mod pallet {
 			NftsByOwner::<T>::insert(&to, nft);
 			Instances::<T>::insert(instance, &to);
 			InstanceMetadataCount::<T>::insert(instance, 0);
+			frame_system::Pallet::<T>::inc_sufficients(&to);
 			if let Some(deposit) = instance_deposit {
 				InstanceDeposits::<T>::insert(instance, deposit);
 			}
@@ -1370,6 +1410,12 @@ pub mod pallet {
 
 			let mut live_by_item = BTreeMap::<(CollectionId, ItemIndex), u64>::new();
 			for (owner, nft) in NftsByOwner::<T>::iter() {
+				let account = frame_system::Account::<T>::get(&owner);
+				if account.sufficients == 0 {
+					return Err(TryRuntimeError::Other(
+						"NFT owner has no System sufficient reference",
+					));
+				}
 				if nft.instance >= next_instance {
 					return Err(TryRuntimeError::Other("NFT instance is not below NextInstanceId"));
 				}

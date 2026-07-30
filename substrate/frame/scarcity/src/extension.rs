@@ -16,6 +16,22 @@
 // limitations under the License.
 
 //! Scarcity transaction extension.
+//!
+//! # Runtime ordering
+//!
+//! [`AsScarcity`] changes a signed origin into [`Origin::Nft`] during validation. Runtime
+//! integrators must place it **after** the signed-account nonce extension (normally
+//! `frame_system::CheckNonce`) and **before** any transaction-payment extension:
+//!
+//! ```text
+//! CheckNonce -> AsScarcity -> SkipCheckIfFeeless<ChargeAssetTxPayment>
+//! ```
+//!
+//! Placing it before `CheckNonce` makes the nonce extension see a non-system origin and silently
+//! skip replay protection. Placing it after payment prevents
+//! `pallet_skip_feeless_payment::SkipCheckIfFeeless` from observing [`Origin::Nft`], so an NFT
+//! purse must front the transaction fee before the feeless dispatch can refund it. That prevents
+//! balance-less purse keys from transacting.
 
 use crate::{pallet::*, weights::WeightInfo, Config, Nft};
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -27,7 +43,6 @@ use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
-use sp_io::hashing::twox_64;
 use sp_runtime::{
 	traits::{
 		DispatchInfoOf, Implication, PostDispatchInfoOf, TransactionExtension, ValidateResult,
@@ -100,6 +115,10 @@ pub enum Pre<T: Config + Send + Sync> {
 /// successful or failed dispatch. The instance identifier prevents an authorization from acting
 /// on a different NFT if a purse key is reused, while the state nonce invalidates it if the same
 /// instance is moved away and later returned.
+///
+/// Runtime ordering is security-critical: place this extension after the account-nonce extension
+/// and before transaction payment. See the [module-level ordering
+/// requirements](crate::extension#runtime-ordering).
 #[derive(
 	Encode,
 	Decode,
@@ -200,7 +219,7 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 		}
 		let priority = now.saturating_sub(nft.last_moved).min(T::MaxTransferPriority::get());
 		let validity = ValidTransaction::with_tag_prefix("Scarcity")
-			.and_provides(twox_64(&("scarcity", nft.instance, nft.state_nonce).encode()))
+			.and_provides((nft.instance, nft.state_nonce))
 			.priority(priority)
 			.into();
 		origin.set_caller_from(Origin::Nft { owner: owner.clone(), nft });
