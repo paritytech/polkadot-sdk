@@ -24,23 +24,19 @@ extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::Decode;
 use core::any::TypeId;
-use polkadot_sdk::{
-	pallet_revive::{
-		pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations,
-		runtime_decl_for_revive_api::ReviveApi,
-	},
-	sp_io::TestExternalities,
-	sp_metadata_ir::frame_metadata::{
-		v16::{
-			ItemDeprecationInfo, RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16,
-		},
-		RuntimeMetadata, RuntimeMetadataPrefixed,
-	},
+use pallet_revive::{
+	pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations,
+	runtime_decl_for_revive_api::ReviveApi,
 };
 use scale_info::{
 	form::PortableForm, interner::UntrackedSymbol, Field, Type, TypeDef, TypeDefArray,
 	TypeDefBitSequence, TypeDefCompact, TypeDefComposite, TypeDefPrimitive, TypeDefSequence,
 	TypeDefTuple, TypeDefVariant,
+};
+use sp_io::TestExternalities;
+use sp_metadata_ir::frame_metadata::{
+	v16::{ItemDeprecationInfo, RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16},
+	RuntimeMetadata, RuntimeMetadataPrefixed,
 };
 
 const UNVERSIONED_RUNTIME_APIS: [&str; 28] = [

@@ -42,6 +42,8 @@ pub(crate) use block_sync::{ChainMetadata, SyncLabel, SyncStateKey};
 pub mod cli;
 pub mod client;
 pub mod example;
+pub mod in_process;
+pub mod service;
 pub mod subxt_client;
 
 #[cfg(test)]

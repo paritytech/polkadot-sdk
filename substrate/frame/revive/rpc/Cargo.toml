@@ -79,6 +79,21 @@ revive-dev-runtime = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 
+[features]
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
+	"revive-dev-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-system/try-runtime",
+	"pallet-revive/try-runtime",
+	"revive-dev-runtime/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
 [build-dependencies]
 git2 = { workspace = true }
 revive-dev-runtime = { workspace = true, default-features = true }

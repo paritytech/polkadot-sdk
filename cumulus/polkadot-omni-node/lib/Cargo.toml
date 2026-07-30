@@ -40,6 +40,7 @@ frame-benchmarking-cli = { workspace = true, default-features = true }
 frame-support = { optional = true, workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
+pallet-revive-eth-rpc = { optional = true, workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
@@ -125,6 +126,9 @@ wait-timeout = { workspace = true }
 
 [features]
 default = []
+# Serve an Ethereum JSON-RPC endpoint for `pallet-revive` from inside the node.
+# Experimental: the transport between the endpoint and the node is still being reworked.
+eth-rpc = ["dep:pallet-revive-eth-rpc"]
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [
@@ -132,6 +136,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"pallet-revive-eth-rpc?/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -142,6 +147,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-revive-eth-rpc?/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",

@@ -1,0 +1,45 @@
+title: '[pallet-revive] Serve the ETH RPC from inside the node'
+
+doc:
+- audience: Node Operator
+  description: |-
+    `polkadot-omni-node` built with the new `eth-rpc` feature can serve the Ethereum
+    JSON-RPC endpoint itself, instead of running a separate `eth-rpc` process that
+    connects back over a loopback WebSocket. Pass `--eth-rpc` to enable it; the
+    endpoint listens on localhost, on `--eth-rpc-port` (8545 by default), and stores
+    its receipt database under `<data path>/eth-rpc`.
+
+    The feature is experimental. The transport between the endpoint and the node is
+    still being reworked, so its shape may change.
+
+- audience: Node Dev
+  description: |-
+    `pallet-revive-eth-rpc` gains `in_process::InProcessRpcClient`, a `subxt`
+    `RpcClientT` that dispatches JSON-RPC calls into a node's in-memory `RpcModule`
+    rather than over a socket, and `service::start_embedded`, which builds the ETH
+    RPC client on top of it and spawns the server on an existing `TaskManager`.
+
+    Requests are still serialized to JSON and their SCALE payloads still decoded by
+    subxt; only the transport changes. Skipping that work needs subxt's `Backend`
+    trait, which is sealed today.
+
+    `revive-dev-runtime` now depends on the individual `polkadot-sdk` crates instead
+    of the umbrella crate. The umbrella re-exports `polkadot-omni-node-lib`, which
+    made a node depending on `pallet-revive-eth-rpc` (which build-depends on the dev
+    runtime to generate its subxt metadata) a cyclic package dependency.
+
+    `pallet-revive-eth-rpc` gains `try-runtime` and `runtime-benchmarks` features that
+    forward to the dependencies gating trait items on them. Without them a node taking
+    the crate as a dependency cannot be built with `--all-features`.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-omni-node
+  bump: patch
+- name: revive-dev-runtime
+  bump: patch
+- name: revive-dev-node
+  bump: patch

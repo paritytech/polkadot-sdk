@@ -25,6 +25,10 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use currency::*;
+use frame::{
+	runtime::{apis, prelude::*},
+	traits::Block as BlockT,
+};
 use frame_support::weights::{
 	constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
 	Weight,
@@ -38,20 +42,10 @@ use pallet_revive::{
 	AccountId32Mapper,
 };
 use pallet_transaction_payment::{ConstFeeMultiplier, FeeDetails, Multiplier, RuntimeDispatchInfo};
-use polkadot_sdk::{
-	polkadot_sdk_frame::{
-		deps::sp_genesis_builder,
-		runtime::{apis, prelude::*},
-		traits::Block as BlockT,
-	},
-	*,
-};
 use sp_weights::ConstantMultiplier;
 
-pub use polkadot_sdk::{
-	parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature},
-	polkadot_sdk_frame::runtime::types_common::OpaqueBlock,
-};
+pub use frame::runtime::types_common::OpaqueBlock;
+pub use parachains_common::{AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature};
 
 pub mod currency {
 	use super::Balance;
@@ -64,9 +58,9 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
-		RuntimeGenesisConfig, SudoConfig,
+		currency::DOLLARS, Balance, BalancesConfig, ReviveConfig, RuntimeGenesisConfig, SudoConfig,
 	};
+	use sp_keyring::Sr25519Keyring;
 
 	use alloc::{vec, vec::Vec};
 	use pallet_revive::AddressMapper;

@@ -588,7 +588,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
-			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			#[cfg(feature = "eth-rpc")]
+			let eth_rpc_config = crate::common::eth_rpc::EthRpcConfig::new(
+				&node_extra_args.eth_rpc,
+				&parachain_config,
+			);
+
+			let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
@@ -605,6 +611,17 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					client.clone(),
 				))),
 			})?;
+
+			#[cfg(feature = "eth-rpc")]
+			if let Some(eth_rpc_config) = eth_rpc_config {
+				crate::common::eth_rpc::start(
+					eth_rpc_config,
+					&_rpc_handlers,
+					&mut task_manager,
+					prometheus_registry.as_ref(),
+				)
+				.await?;
+			}
 
 			// Spawn the storage monitor
 			if let Some(database_path) = database_path {

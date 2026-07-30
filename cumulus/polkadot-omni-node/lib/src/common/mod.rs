@@ -21,6 +21,8 @@
 pub(crate) mod aura;
 pub mod chain_spec;
 pub mod command;
+#[cfg(feature = "eth-rpc")]
+pub mod eth_rpc;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
@@ -145,4 +147,8 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+
+	/// Options for the embedded Ethereum JSON-RPC endpoint.
+	#[cfg(feature = "eth-rpc")]
+	pub eth_rpc: eth_rpc::EthRpcParams,
 }
