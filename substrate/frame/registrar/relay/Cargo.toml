@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+<<<<<<< HEAD
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -27,11 +28,17 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
+=======
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+<<<<<<< HEAD
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -46,9 +53,21 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+=======
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+<<<<<<< HEAD
 	"sp-runtime/try-runtime",
+=======
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 ]

@@ -21,6 +21,7 @@
 //! registrar pallet (`pallet-registrar-relay`). This crate is deliberately free of any FRAME,
 //! XCM, or network-specific dependency, so a single version of the wire types serves Westend,
 //! Kusama and Polkadot, and so both pallets can depend on it without forming a dependency cycle.
+<<<<<<< HEAD
 //!
 //! For the same reason the types here are plain: a para id is a `u32` (byte-compatible with the
 //! relay chain's `Id` newtype), head data and validation code are `Vec<u8>`, and a validation
@@ -41,10 +42,18 @@ use sp_core::H256;
 ///
 /// Byte-compatible with the relay chain's `Id`, which is a transparent `u32` newtype.
 pub type ParaId = u32;
+=======
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 
 /// Registrar control-plane messages sent to the relay chain.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
+<<<<<<< HEAD
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MessageToRelay<AccountId> {
 	/// Version 1 of the registrar control-plane messages to the relay chain.
@@ -91,14 +100,32 @@ pub enum MessageToRelayV1<AccountId> {
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 	},
+=======
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MessageToRelay {
+	/// Version 1 of the registrar control-plane messages to the relay chain.
+	#[codec(index = 0)]
+	V1(MessageToRelayV1),
+}
+
+/// Version 1 payloads for [`MessageToRelay`].
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MessageToRelayV1 {
+	#[codec(index = 0)]
+	TODO,
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 }
 
 /// Registrar report messages sent back to the parachain.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
+<<<<<<< HEAD
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
+=======
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 pub enum MessageToPara {
 	/// Version 1 of the registrar report messages to the parachain.
 	#[codec(index = 0)]
@@ -106,6 +133,7 @@ pub enum MessageToPara {
 }
 
 /// Version 1 payloads for [`MessageToPara`].
+<<<<<<< HEAD
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
@@ -197,4 +225,10 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+=======
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MessageToParaV1 {
+	#[codec(index = 0)]
+	TODO,
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 }

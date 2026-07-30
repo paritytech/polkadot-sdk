@@ -20,6 +20,7 @@
 //! Relay half of the parachain registrar. Runs on the relay chain, applying registrations
 //! authorized on a parachain (`pallet-registrar-para`) and driving the relay's legacy `paras`
 //! state.
+<<<<<<< HEAD
 //!
 //! ## Two-phase registration
 //!
@@ -126,10 +127,20 @@ pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
 /// [`PendingRegistration`] as this pallet stores it.
 pub type PendingRegistrationOf<T> =
 	PendingRegistration<<T as frame_system::Config>::AccountId, <T as Config>::MaxHeadDataSize>;
+=======
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+pub use pallet::*;
+
+/// Used to send an XCM `Transact` to the registrar pallet on the remote parachain.
+pub trait SendToPara {}
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+<<<<<<< HEAD
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{BlakeTwo256, Hash};
@@ -175,11 +186,19 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+=======
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// Sends messages to the parachain.
+		type SendToPara: SendToPara;
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+<<<<<<< HEAD
 	/// Registrations waiting on their validation code, by para id.
 	///
 	/// Counted so [`Config::MaxPendingRegistrations`] can be enforced with a single read.
@@ -492,4 +511,9 @@ pub mod pallet {
 			}
 		}
 	}
+=======
+	// - TODO: Extrinsic to accept the messages from the para.
+
+	// - TODO: Accept unsigned TX for PVF upload
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 }

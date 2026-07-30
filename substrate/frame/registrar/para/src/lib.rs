@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+<<<<<<< HEAD
 //! # Parachain registrar pallet
 //!
 //! The user-facing half of parachain registration. It hands out para ids, takes the manager's
@@ -158,10 +159,24 @@ pub type ParaInfoOf<T> = ParaInfo<
 	<T as Config>::RegistrationConsideration,
 	ProvidedBlockNumberOf<T>,
 >;
+=======
+//! # User Interface Pallet For Parachain Registrations
+//!
+//! This pallet exposes the extrinsics that can be used to manage parachain registrations. It
+//! communicates over XCM with the `pallet-registrar-relay`
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+pub use pallet::*;
+
+/// Used to send an XCM `Transact` to the registrar pallet on the remote relay chain.
+pub trait SendToRelay {}
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+<<<<<<< HEAD
 	use frame_support::pallet_prelude::{DispatchResult, *};
 	use frame_system::pallet_prelude::*;
 
@@ -223,11 +238,19 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+=======
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// Sends messages to the relay chain.
+		type SendToRelay: SendToRelay;
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+<<<<<<< HEAD
 	/// Hold reasons for runtimes that pay the considerations out of held funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
@@ -570,4 +593,22 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+=======
+	// - TODO: reserve — reserve a ParaId; holds the ParaId deposit.
+
+	// - TODO: register — register code+head for a reserved ParaId; holds the code deposit,
+	//   XCM-authorizes on the relay.
+
+	// - TODO: deregister — free the ParaId; releases both deposits.
+
+	// - TODO: swap — swap the slots of two paras. (Do we still need this? leases are deprecated)
+
+	// - TODO: add_lock — add the manager lock.
+
+	// - TODO: remove_lock — remove the manager lock.
+
+	// - TODO: schedule_code_upgrade — schedule a validation-code upgrade (XCM to the relay).
+
+	// - TODO: set_current_head — set the current head data (XCM to the relay).
+>>>>>>> a5dfc85b ([AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663))
 }
