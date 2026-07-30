@@ -1159,6 +1159,7 @@ mod tests {
 	struct TestReplaySnapshotProvider {
 		statements: HashMap<sp_statement_store::Hash, Vec<u8>>,
 		snapshot_hashes: Vec<sp_statement_store::Hash>,
+		batch_len: u64,
 	}
 
 	impl TestReplaySnapshotProvider {
@@ -1169,6 +1170,7 @@ mod tests {
 					.map(|statement| (statement.hash(), statement.encode()))
 					.collect(),
 				snapshot_hashes: snapshot.iter().map(Statement::hash).collect(),
+				batch_len: snapshot.len() as u64,
 			}
 		}
 	}
@@ -1185,7 +1187,7 @@ mod tests {
 			cursor: u64,
 			watermark: u64,
 		) -> Result<ReplayBatch> {
-			let end = watermark.min(self.snapshot_hashes.len() as u64);
+			let end = watermark.min(self.snapshot_hashes.len() as u64).min(cursor + self.batch_len);
 			let statements = self.snapshot_hashes[cursor as usize..end as usize]
 				.iter()
 				.filter_map(|hash| self.statements.get(hash).cloned())
@@ -1410,6 +1412,51 @@ mod tests {
 			Ok(MultiFilterSubscriptionEvent::NewStatement(event))
 				if event.hash == statement.hash() && event.matched_filter_ids == vec![filter_id]
 		));
+	}
+
+	#[test]
+	fn multi_filter_replay_resumes_from_the_returned_cursor() {
+		let mut subscriptions = SubscriptionsInfo::new();
+		let sub_id = SeqID::from(11);
+		let filter_id = FilterId::new(1);
+		let topic = Topic::from([9u8; 32]);
+		let filter = OptimizedTopicFilter::MatchAny(vec![topic].into_iter().collect());
+		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(10);
+		let replayed: Vec<Statement> = (0..3u8)
+			.map(|seed| {
+				let mut statement = signed_statement(seed);
+				statement.set_topic(0, topic);
+				statement
+			})
+			.collect();
+		let mut provider = TestReplaySnapshotProvider::with_snapshot(&replayed, &replayed);
+		provider.batch_len = 1;
+
+		subscriptions.subscribe_empty(sub_id, Arc::new(provider), tx);
+		subscriptions.add_filter(
+			sub_id,
+			filter_id,
+			filter,
+			replayed.iter().map(Statement::hash).collect(),
+		);
+
+		let mut delivered = Vec::new();
+		let mut replay_done = 0;
+		while let Ok(event) = rx.try_recv() {
+			match event {
+				MultiFilterSubscriptionEvent::ReplayStatements { filter_id: id, statements } => {
+					assert_eq!(id, filter_id);
+					delivered.extend(statements);
+				},
+				MultiFilterSubscriptionEvent::ReplayDone { filter_id: id } => {
+					assert_eq!(id, filter_id);
+					replay_done += 1;
+				},
+				other => panic!("expected replay events, got {other:?}"),
+			}
+		}
+		assert_eq!(delivered, replayed.iter().map(Statement::encode).collect::<Vec<_>>());
+		assert_eq!(replay_done, 1);
 	}
 
 	#[test]

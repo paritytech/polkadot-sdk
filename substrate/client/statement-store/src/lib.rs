@@ -2833,6 +2833,10 @@ mod tests {
 		.unwrap();
 		assert_eq!(store.submit_index.read().next_seq, 1);
 
+		let replay = store.replay_batch(&OptimizedTopicFilter::Any, 0, 1).unwrap();
+		assert_eq!(replay.statements, vec![first.encode()]);
+		assert!(replay.done);
+
 		let third = signed_statement(12);
 		assert_eq!(store.submit(third.clone(), StatementSource::Network), SubmitResult::New);
 		assert_eq!(
@@ -2874,6 +2878,24 @@ mod tests {
 			store.replay_batch(&filter, 0, watermark).unwrap().statements,
 			vec![statement.encode()]
 		);
+	}
+
+	#[test]
+	fn admission_cursor_resumes_from_the_middle_of_the_range() {
+		let (store, _temp) = test_store();
+		let first = signed_statement(1);
+		let second = signed_statement(2);
+		let third = signed_statement(3);
+		for statement in [&first, &second, &third] {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		let batch = store.replay_batch(&OptimizedTopicFilter::Any, 1, 3).unwrap();
+		assert_eq!(batch.statements, vec![second.encode(), third.encode()]);
+		assert_eq!(batch.cursor, 3);
+		assert!(batch.done);
 	}
 
 	#[test]
