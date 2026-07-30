@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785430481701,
+  "lastUpdate": 1785441528785,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109252977+YichiZhang0613@users.noreply.github.com",
-            "name": "Yichi Zhang",
-            "username": "YichiZhang0613"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "62b21e9e2366293998ba02fc00bbb258eeca661e",
-          "message": "Fix assertion (#10427)\n\n# Description\nAccording to assertion message and comment(\"at least\"),\n`T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE` should be changed\ninto `T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE`\n```rust\n// Debug buffer should at least be large enough to accommodate a simple error message\nconst MIN_DEBUG_BUF_SIZE: u32 = 256;\nassert!(\n\tT::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,\n\t\"Debug buffer should have minimum size of {} (current setting is {})\",\n\tMIN_DEBUG_BUF_SIZE,\n\tT::MaxDebugBufferLen::get(),\n);\n```\nFor this assertion, the assertion message indicates assertion will fail\nwhen max_storage_size > storage_size_limit, which means it requires\nmax_storage_size <= storage_size_limit, but assertion predicate is\n`max_storage_size < storage_size_limit`. Based on the code semantics,\nassertion predicate should be changed into `max_storage_size <=\nstorage_size_limit`.\n```rust\nassert!(\n\tmax_storage_size < storage_size_limit,\n\t\"Maximal storage size {} exceeds the storage limit {}\",\n\tmax_storage_size,\n\tstorage_size_limit\n);\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-26T14:13:29Z",
-          "tree_id": "976b57b3433098dc60244b796403289d1622e31c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/62b21e9e2366293998ba02fc00bbb258eeca661e"
-        },
-        "date": 1764170787779,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008648617949999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005039855209999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026672416400000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010259483920000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3",
+          "message": "statement-store: replay subscriptions from persisted admission cursor (#12697)\n\n## Summary\n\nImpl #12153\n\n- persist an active-statement admission sequence in parity-db and\nrestore it on startup\n- replay dynamically attached subscription filters from a cursor up to a\nregistration watermark instead of materializing a full hash snapshot\n- bound replay batches by raw statement bytes while preserving\nreplay-before-live ordering and re-admission semantics\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T18:15:12Z",
+          "tree_id": "27b534d0d7740f5bdfb9183bfb428e1a47b9e70f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3"
+        },
+        "date": 1785441495604,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002565401999999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009669794799999973,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009136875229999996,
             "unit": "seconds"
           }
         ]
