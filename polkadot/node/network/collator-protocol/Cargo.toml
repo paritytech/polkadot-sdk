@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "29.1.1"
+version = "29.1.2"
 description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
 authors.workspace = true
 edition.workspace = true

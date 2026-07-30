@@ -3770,8 +3770,8 @@ reason = "changed"
 [[crate]]
 # polkadot/node/network/collator-protocol
 name = "polkadot-collator-protocol"
-from = "29.1.0"
-to = "29.1.1"
+from = "29.1.1"
+to = "29.1.2"
 bump = "patch"
 reason = "changed"
 
@@ -4120,8 +4120,8 @@ to = "0.1.0"
 [[crate]]
 # cumulus/polkadot-omni-node/lib
 name = "polkadot-omni-node-lib"
-from = "0.14.0"
-to = "0.14.1"
+from = "0.14.1"
+to = "0.14.2"
 bump = "patch"
 reason = "changed"
 
