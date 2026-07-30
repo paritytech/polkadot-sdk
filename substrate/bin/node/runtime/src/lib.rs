@@ -546,29 +546,15 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
-// Scarcity is wired into the development runtime only as a benchmark host. Enabling it on a live
-// runtime also requires adding `AsScarcity` to that runtime's transaction-extension pipeline.
-#[cfg(feature = "runtime-benchmarks")]
-pub struct ScarcityBenchmarkTime;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl frame_support::traits::UnixTime for ScarcityBenchmarkTime {
-	fn now() -> core::time::Duration {
-		core::time::Duration::from_millis(pallet_timestamp::Now::<Runtime>::get())
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub const ScarcityHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Scarcity(pallet_scarcity::HoldReason::StorageDeposit);
 }
 
-#[cfg(feature = "runtime-benchmarks")]
 impl pallet_scarcity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_scarcity::weights::SubstrateWeight<Runtime>;
-	type UnixTime = ScarcityBenchmarkTime;
+	type UnixTime = Timestamp;
 	type Balance = Balance;
 	type Consideration = HoldConsideration<
 		AccountId,
@@ -1723,7 +1709,7 @@ where
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
-			frame_system::WeightReclaim::<Runtime>::new(),
+			(ScarcityTxExtension::new(None), frame_system::WeightReclaim::<Runtime>::new()),
 		);
 
 		let raw_payload = SignedPayload::new(call, tx_ext)
@@ -1781,7 +1767,7 @@ where
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
-			frame_system::WeightReclaim::<Runtime>::new(),
+			(ScarcityTxExtension::new(None), frame_system::WeightReclaim::<Runtime>::new()),
 		)
 	}
 }
@@ -2977,7 +2963,6 @@ mod runtime {
 	#[runtime::pallet_index(86)]
 	pub type Psm = pallet_psm::Pallet<Runtime>;
 
-	#[cfg(feature = "runtime-benchmarks")]
 	#[runtime::pallet_index(87)]
 	pub type Scarcity = pallet_scarcity::Pallet<Runtime>;
 
@@ -3030,8 +3015,11 @@ pub type TxExtension = (
 	>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
-	frame_system::WeightReclaim<Runtime>,
+	(pallet_scarcity::extension::AsScarcity<Runtime>, frame_system::WeightReclaim<Runtime>),
 );
+
+/// Scarcity authorization extension used by signed development-runtime transactions.
+pub type ScarcityTxExtension = pallet_scarcity::extension::AsScarcity<Runtime>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct EthExtraImpl;
@@ -3055,7 +3043,7 @@ impl EthExtra for EthExtraImpl {
 				.into(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
-			frame_system::WeightReclaim::<Runtime>::new(),
+			(ScarcityTxExtension::new(None), frame_system::WeightReclaim::<Runtime>::new()),
 		)
 	}
 }

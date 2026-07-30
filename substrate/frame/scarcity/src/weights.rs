@@ -80,7 +80,8 @@ pub trait WeightInfo {
 	fn set_collection_metadata() -> Weight;
 	fn set_item_metadata() -> Weight;
 	fn set_instance_metadata() -> Weight;
-	fn burn_instance(m: u32, ) -> Weight;
+	fn force_burn(m: u32, ) -> Weight;
+	fn force_transfer() -> Weight;
 	fn delete_item() -> Weight;
 	fn delete_collection() -> Weight;
 	fn claim_collection_ownership() -> Weight;
@@ -302,7 +303,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scarcity::Locked` (r:0 w:1)
 	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// The range of component `m` is `[0, 100]`.
-	fn burn_instance(m: u32, ) -> Weight {
+	fn force_burn(m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `754 + m * (331 ±0)`
 		//  Estimated: `4036 + m * (2814 ±0)`
@@ -315,6 +316,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(8_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2814).saturating_mul(m.into()))
+	}
+	// Temporary conservative weight. The PR benchmark bot will regenerate this file.
+	fn force_transfer() -> Weight {
+		Weight::from_parts(100_000_000, 10_000)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(121), added: 2596, mode: `MaxEncodedLen`)
@@ -596,7 +603,7 @@ impl WeightInfo for () {
 	/// Storage: `Scarcity::Locked` (r:0 w:1)
 	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// The range of component `m` is `[0, 100]`.
-	fn burn_instance(m: u32, ) -> Weight {
+	fn force_burn(m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `754 + m * (331 ±0)`
 		//  Estimated: `4036 + m * (2814 ±0)`
@@ -609,6 +616,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(8_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2814).saturating_mul(m.into()))
+	}
+	// Temporary conservative weight. The PR benchmark bot will regenerate this file.
+	fn force_transfer() -> Weight {
+		Weight::from_parts(100_000_000, 10_000)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(121), added: 2596, mode: `MaxEncodedLen`)

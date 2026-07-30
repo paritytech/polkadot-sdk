@@ -31,16 +31,17 @@
 //! how storage consideration is implemented.
 //!
 //! Cleanup proceeds from leaves to roots so every call remains bounded. The collection owner
-//! burns live instances (or holders burn their own), removes item metadata, deletes empty item
-//! definitions, removes collection metadata, and finally deletes the empty collection. Instance
-//! metadata is bounded and removed automatically on burn. Allocated identifiers are never reused.
+//! force-burns live instances (or holders burn their own), removes item metadata, deletes empty
+//! item definitions, removes collection metadata, and finally deletes the empty collection.
+//! Instance metadata is bounded and removed automatically on burn. Allocated identifiers are
+//! never reused.
 //!
 //! Collection metadata supplies defaults inherited by every item definition, and item metadata
 //! supplies defaults shared by every instance minted from that definition. A minted instance may
 //! override either scope without affecting other instances. [`Pallet::instance_metadata_of`]
-//! resolves one key in instance, item, then collection order. [`Pallet::metadata_of`] resolves the
-//! item and collection scopes, while [`Pallet::collection_metadata_of`] reads only the collection
-//! scope.
+//! resolves one key in instance, item, then collection order. [`Pallet::item_metadata_of`]
+//! resolves the item and collection scopes, while [`Pallet::collection_metadata_of`] reads only
+//! the collection scope.
 //!
 //! Keys and values are bounded raw bytes. Numeric metadata is a convention rather than a pallet
 //! type: games should use SCALE-encoded `u128` values when they need a shared numeric convention,
@@ -49,10 +50,13 @@
 //! Transfers are feeless when authorized through the [`AsScarcity`](extension::AsScarcity)
 //! transaction extension. Their transaction priority is the time since the NFT last moved,
 //! capped by the runtime. Moving an NFT consumes it from the old purse key and places it at the
-//! new one. Each authorization names the permanent instance and is carried by a signed
-//! transaction; runtimes using [`AsScarcity`](extension::AsScarcity) must include an account-nonce
-//! transaction extension such as `frame_system::CheckNonce`. Failed dispatch restores the NFT and
-//! temporarily locks the purse key.
+//! new one. Each authorization names the permanent instance and its current state nonce. The state
+//! nonce invalidates an authorization whenever that instance moves, including collection-owner
+//! force-transfers away from and back to the same purse. The authorization is carried by a signed
+//! transaction; runtimes using [`AsScarcity`](extension::AsScarcity) must also include an
+//! account-nonce transaction extension such as `frame_system::CheckNonce` to prevent replay of the
+//! signed transaction itself. Failed dispatch restores the NFT and temporarily locks the purse
+//! key.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -203,6 +207,11 @@ pub mod pallet {
 		pub minted_at: u64,
 		/// Unix seconds; equal to `minted_at` until the first transfer.
 		pub last_moved: u64,
+		/// Monotonic ownership-state revision, incremented by every successful transfer.
+		///
+		/// Purse-key authorizations bind to this value so moving an instance away and back cannot
+		/// revive an authorization created for its earlier ownership state.
+		pub state_nonce: u64,
 	}
 
 	/// Post-failure backoff lock for an NFT purse key.
@@ -348,6 +357,8 @@ pub mod pallet {
 		},
 		/// An instance moved to a new purse key.
 		Transferred { instance: InstanceId, to: T::AccountId },
+		/// A collection owner forced an instance from one purse key to another.
+		ForceTransferred { instance: InstanceId, from: T::AccountId, to: T::AccountId },
 		/// An instance was permanently removed.
 		Burned { instance: InstanceId },
 		/// A collection-level metadata default was inserted or overwritten.
@@ -402,6 +413,8 @@ pub mod pallet {
 		TooManyInstanceMetadata,
 		/// An NFT cannot be transferred to its current purse key.
 		SelfTransfer,
+		/// An NFT has exhausted its ownership-state nonce.
+		StateNonceOverflow,
 	}
 
 	/// Hold reason available to runtimes which back [`Config::Consideration`] with fungible holds.
@@ -555,7 +568,9 @@ pub mod pallet {
 			ensure!(to != owner, Error::<T>::SelfTransfer);
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
 
-			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), ..nft };
+			let state_nonce =
+				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
+			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), state_nonce, ..nft };
 			NftsByOwner::<T>::insert(&to, nft.clone());
 			Instances::<T>::insert(nft.instance, &to);
 			Self::deposit_event(Event::Transferred { instance: nft.instance, to });
@@ -683,16 +698,16 @@ pub mod pallet {
 			Self::do_set_instance_metadata(&owner, instance, key, value, true)
 		}
 
-		/// Permanently remove one live instance as its collection owner.
+		/// Force-burn one live instance as its collection owner.
 		///
 		/// The collection layer intentionally applies no holder-level ACL. A contract-owned
 		/// collection can enforce its own consent and game rules before calling this operation.
 		#[pallet::call_index(10)]
-		#[pallet::weight(T::WeightInfo::burn_instance(T::MaxInstanceMetadata::get()))]
+		#[pallet::weight(T::WeightInfo::force_burn(T::MaxInstanceMetadata::get()))]
 		#[transactional]
-		pub fn burn_instance(origin: OriginFor<T>, instance: InstanceId) -> DispatchResult {
+		pub fn force_burn(origin: OriginFor<T>, instance: InstanceId) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
-			Self::do_burn_instance(&owner, instance)
+			Self::do_force_burn(&owner, instance)
 		}
 
 		/// Delete an unused item definition owned by the signer.
@@ -721,6 +736,23 @@ pub mod pallet {
 		pub fn delete_collection(origin: OriginFor<T>, collection: CollectionId) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			Self::do_delete_collection(&owner, collection)
+		}
+
+		/// Force-transfer one live instance as its collection owner.
+		///
+		/// The collection layer intentionally applies no holder-level ACL. A contract-owned
+		/// collection can enforce its own consent and game rules before calling this operation.
+		/// The move increments the instance state nonce, invalidating prior holder authorizations.
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::force_transfer())]
+		#[transactional]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			instance: InstanceId,
+			to: T::AccountId,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_force_transfer(&owner, instance, to)
 		}
 	}
 
@@ -869,7 +901,7 @@ pub mod pallet {
 		/// Effective value for `key` on `(collection, item)`.
 		///
 		/// An item-level entry wins; otherwise the collection-level default is returned.
-		pub fn metadata_of(
+		pub fn item_metadata_of(
 			collection: CollectionId,
 			item: ItemIndex,
 			key: &MetadataKeyOf<T>,
@@ -893,7 +925,7 @@ pub mod pallet {
 			}
 			InstanceMetadata::<T>::get(instance, key)
 				.map(|entry| entry.value)
-				.or_else(|| Self::metadata_of(nft.collection, nft.item, key))
+				.or_else(|| Self::item_metadata_of(nft.collection, nft.item, key))
 		}
 
 		/// Only the collection-level value for `key`, without item-level resolution.
@@ -1099,7 +1131,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_burn_instance(owner: &T::AccountId, instance: InstanceId) -> DispatchResult {
+		fn do_force_burn(owner: &T::AccountId, instance: InstanceId) -> DispatchResult {
 			let purse = Instances::<T>::get(instance).ok_or(Error::<T>::UnknownInstance)?;
 			let nft = NftsByOwner::<T>::get(&purse).ok_or(Error::<T>::UnknownInstance)?;
 			ensure!(nft.instance == instance, Error::<T>::UnknownInstance);
@@ -1110,6 +1142,31 @@ pub mod pallet {
 			NftsByOwner::<T>::remove(&purse);
 			Locked::<T>::remove(&purse);
 			Self::do_burn(nft)
+		}
+
+		fn do_force_transfer(
+			owner: &T::AccountId,
+			instance: InstanceId,
+			to: T::AccountId,
+		) -> DispatchResult {
+			let from = Instances::<T>::get(instance).ok_or(Error::<T>::UnknownInstance)?;
+			let nft = NftsByOwner::<T>::get(&from).ok_or(Error::<T>::UnknownInstance)?;
+			ensure!(nft.instance == instance, Error::<T>::UnknownInstance);
+			let info =
+				Collections::<T>::get(nft.collection).ok_or(Error::<T>::UnknownCollection)?;
+			ensure!(info.owner == *owner, Error::<T>::NoPermission);
+			ensure!(to != from, Error::<T>::SelfTransfer);
+			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
+
+			let state_nonce =
+				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
+			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), state_nonce, ..nft };
+			NftsByOwner::<T>::remove(&from);
+			Locked::<T>::remove(&from);
+			NftsByOwner::<T>::insert(&to, nft);
+			Instances::<T>::insert(instance, &to);
+			Self::deposit_event(Event::ForceTransferred { instance, from, to });
+			Ok(())
 		}
 
 		fn do_delete_item(
@@ -1195,7 +1252,8 @@ pub mod pallet {
 			let next_live_supply =
 				definition.live_supply.checked_add(1).ok_or(Error::<T>::SupplyOverflow)?;
 			let now = T::UnixTime::now().as_secs();
-			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now };
+			let nft =
+				Nft { instance, collection, item, minted_at: now, last_moved: now, state_nonce: 0 };
 			let instance_deposit = if with_deposit {
 				// Four storage entries back one instance: `NftsByOwner`, the `Instances`
 				// reverse index, `InstanceDeposits`, and `InstanceMetadataCount`.

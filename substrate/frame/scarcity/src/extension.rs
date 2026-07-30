@@ -52,6 +52,8 @@ pub enum AsScarcityInfo {
 	AsNft {
 		/// The permanent instance expected at the purse key.
 		instance: InstanceId,
+		/// The ownership-state revision expected for that instance.
+		state_nonce: u64,
 	},
 }
 
@@ -68,8 +70,8 @@ pub enum CustomInvalidity {
 	TransferToSelf = 3,
 	/// The transfer destination already holds an NFT.
 	DestinationOccupied = 4,
-	/// The purse key holds a different instance.
-	NftInstanceMismatch = 5,
+	/// The purse key holds a different instance or ownership-state revision.
+	NftStateMismatch = 5,
 }
 
 impl From<CustomInvalidity> for TransactionValidityError {
@@ -81,7 +83,7 @@ impl From<CustomInvalidity> for TransactionValidityError {
 /// Information carried from validation to preparation.
 pub enum Val<T: Config + Send + Sync> {
 	NotUsing,
-	UsingNft { owner: T::AccountId, instance: InstanceId },
+	UsingNft { owner: T::AccountId, instance: InstanceId, state_nonce: u64 },
 }
 
 /// Information carried from preparation to post-dispatch.
@@ -92,10 +94,12 @@ pub enum Pre<T: Config + Send + Sync> {
 
 /// Purse-key authorization for Scarcity transfers and burns.
 ///
-/// An authorization names the permanent instance and must be used alongside the runtime's normal
-/// signed-account nonce extension, such as `frame_system::CheckNonce`. The account nonce prevents
-/// replay after successful or failed dispatch; the instance identifier prevents an authorization
-/// from acting on a different NFT if a purse key is reused.
+/// An authorization names the permanent instance and its ownership-state nonce, and must be used
+/// alongside the runtime's normal signed-account nonce extension, such as
+/// `frame_system::CheckNonce`. The account nonce prevents replay of a signed transaction after
+/// successful or failed dispatch. The instance identifier prevents an authorization from acting
+/// on a different NFT if a purse key is reused, while the state nonce invalidates it if the same
+/// instance is moved away and later returned.
 #[derive(
 	Encode,
 	Decode,
@@ -164,7 +168,7 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 			Some(Call::<T>::burn {}) => None,
 			_ => return Ok((ValidTransaction::default(), Val::NotUsing, origin)),
 		};
-		let Some(AsScarcityInfo::AsNft { instance }) = self.0.as_ref() else {
+		let Some(AsScarcityInfo::AsNft { instance, state_nonce }) = self.0.as_ref() else {
 			return Ok((ValidTransaction::default(), Val::NotUsing, origin));
 		};
 
@@ -179,8 +183,8 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 			}
 		}
 		let nft = NftsByOwner::<T>::get(&owner).ok_or(CustomInvalidity::NoNft)?;
-		if nft.instance != *instance {
-			return Err(CustomInvalidity::NftInstanceMismatch.into());
+		if nft.instance != *instance || nft.state_nonce != *state_nonce {
+			return Err(CustomInvalidity::NftStateMismatch.into());
 		}
 		if let Some(to) = transfer_to {
 			// Pre-validate the destination so ordinary user error is rejected at the pool and
@@ -196,11 +200,15 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 		}
 		let priority = now.saturating_sub(nft.last_moved).min(T::MaxTransferPriority::get());
 		let validity = ValidTransaction::with_tag_prefix("Scarcity")
-			.and_provides(twox_64(&("scarcity", nft.instance).encode()))
+			.and_provides(twox_64(&("scarcity", nft.instance, nft.state_nonce).encode()))
 			.priority(priority)
 			.into();
 		origin.set_caller_from(Origin::Nft { owner: owner.clone(), nft });
-		Ok((validity, Val::UsingNft { owner, instance: *instance }, origin))
+		Ok((
+			validity,
+			Val::UsingNft { owner, instance: *instance, state_nonce: *state_nonce },
+			origin,
+		))
 	}
 
 	fn prepare(
@@ -213,13 +221,13 @@ impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
 			Val::NotUsing => Ok(Pre::NotUsing),
-			Val::UsingNft { owner, instance } => {
+			Val::UsingNft { owner, instance, state_nonce } => {
 				let nft = NftsByOwner::<T>::try_mutate_exists(
 					&owner,
 					|maybe_nft| -> Result<Nft, TransactionValidityError> {
 						let nft = maybe_nft.as_ref().ok_or(CustomInvalidity::NoNft)?;
-						if nft.instance != instance {
-							return Err(CustomInvalidity::NftInstanceMismatch.into());
+						if nft.instance != instance || nft.state_nonce != state_nonce {
+							return Err(CustomInvalidity::NftStateMismatch.into());
 						}
 						// Dispatch assumes the source purse is empty. Taking the NFT here
 						// prevents same-block double use and lets post-dispatch restore the exact

@@ -88,7 +88,7 @@ pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 		),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		pallet_revive::evm::tx_extension::SetOrigin::default(),
-		frame_system::WeightReclaim::new(),
+		(kitchensink_runtime::ScarcityTxExtension::new(None), frame_system::WeightReclaim::new()),
 	)
 }
 

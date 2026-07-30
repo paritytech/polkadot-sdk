@@ -86,13 +86,13 @@ fn burn_call() -> RuntimeCall {
 	RuntimeCall::Scarcity(crate::Call::burn {})
 }
 
-fn authorization(instance: u64) -> AsScarcityInfo {
-	AsScarcityInfo::AsNft { instance }
+fn authorization(instance: u64, state_nonce: u64) -> AsScarcityInfo {
+	AsScarcityInfo::AsNft { instance, state_nonce }
 }
 
 fn current_authorization(owner: u64) -> AsScarcityInfo {
 	let nft = NftsByOwner::<Test>::get(owner).expect("authorization requires an NFT");
-	authorization(nft.instance)
+	authorization(nft.instance, nft.state_nonce)
 }
 
 fn scarcity_extension(info: AsScarcityInfo) -> AsScarcity<Test> {
@@ -102,7 +102,9 @@ fn scarcity_extension(info: AsScarcityInfo) -> AsScarcity<Test> {
 fn extension_for_val(val: &Val<Test>) -> AsScarcity<Test> {
 	match val {
 		Val::NotUsing => AsScarcity::new(None),
-		Val::UsingNft { instance, .. } => scarcity_extension(authorization(*instance)),
+		Val::UsingNft { instance, state_nonce, .. } => {
+			scarcity_extension(authorization(*instance, *state_nonce))
+		},
 	}
 }
 
@@ -174,11 +176,11 @@ fn assert_no_nft(error: TransactionValidityError) {
 	));
 }
 
-fn assert_instance_mismatch(error: TransactionValidityError) {
+fn assert_state_mismatch(error: TransactionValidityError) {
 	assert!(matches!(
 		error,
 		TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
-			if code == CustomInvalidity::NftInstanceMismatch as u8
+			if code == CustomInvalidity::NftStateMismatch as u8
 	));
 }
 
@@ -394,10 +396,10 @@ fn claim_moves_exact_collection_deposit_and_authority() {
 
 		let before_burn = held(OTHER);
 		assert_noop!(
-			Scarcity::burn_instance(RuntimeOrigin::signed(OWNER), 0),
+			Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 0),
 			Error::<Test>::NoPermission
 		);
-		assert_ok!(Scarcity::burn_instance(RuntimeOrigin::signed(OTHER), 0));
+		assert_ok!(Scarcity::force_burn(RuntimeOrigin::signed(OTHER), 0));
 		assert_eq!(held(OTHER), before_burn - instance_deposit - instance_metadata_deposit);
 		assert_eq!(held(OWNER), remaining_deposit);
 		assert_ok!(Scarcity::do_try_state());
@@ -514,9 +516,9 @@ fn metadata_resolution_prefers_item_then_falls_back_to_collection() {
 		));
 
 		assert_eq!(Scarcity::collection_metadata_of(0, &shared), Some(value(b"collection")));
-		assert_eq!(Scarcity::metadata_of(0, 0, &shared), Some(value(b"item")));
-		assert_eq!(Scarcity::metadata_of(0, 0, &inherited), Some(value(b"default")));
-		assert_eq!(Scarcity::metadata_of(0, 0, &absent), None);
+		assert_eq!(Scarcity::item_metadata_of(0, 0, &shared), Some(value(b"item")));
+		assert_eq!(Scarcity::item_metadata_of(0, 0, &inherited), Some(value(b"default")));
+		assert_eq!(Scarcity::item_metadata_of(0, 0, &absent), None);
 		assert_ok!(Scarcity::do_try_state());
 	});
 }
@@ -558,7 +560,7 @@ fn instance_metadata_overrides_item_and_collection_without_affecting_other_mints
 		assert_eq!(Scarcity::instance_metadata_of(1, &shared), Some(value(b"item")));
 		assert_eq!(Scarcity::instance_metadata_of(1, &inherited), Some(value(b"default")));
 		assert_eq!(Scarcity::instance_metadata_of(1, &unique), None);
-		assert_eq!(Scarcity::metadata_of(0, 0, &shared), Some(value(b"item")));
+		assert_eq!(Scarcity::item_metadata_of(0, 0, &shared), Some(value(b"item")));
 		assert_eq!(InstanceMetadataCount::<Test>::get(0), 2);
 		assert_eq!(InstanceMetadataCount::<Test>::get(1), 0);
 		assert_ok!(Scarcity::do_try_state());
@@ -881,7 +883,7 @@ fn define_item_accepts_more_than_old_cap_and_charges_each_metadata_entry() {
 
 		let definition = ItemDefs::<Test>::get(0, 0).expect("item definition exists");
 		assert_eq!(ItemMetadata::<Test>::iter_prefix((0, 0)).count(), 41);
-		assert_eq!(Scarcity::metadata_of(0, 0, &key(b"key-40")), Some(value(b"value-40")),);
+		assert_eq!(Scarcity::item_metadata_of(0, 0, &key(b"key-40")), Some(value(b"value-40")),);
 		let metadata_deposit = ItemMetadata::<Test>::iter_prefix((0, 0))
 			.map(|(_, entry)| entry.deposit)
 			.sum::<u64>();
@@ -1121,6 +1123,7 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has NFT");
 		assert_eq!(moved.instance, 0);
 		assert_eq!(moved.last_moved, 20);
+		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"unique")), Some(value(b"moves")),);
 		System::assert_has_event(Event::<Test>::Transferred { instance: 0, to: OTHER }.into());
@@ -1147,6 +1150,7 @@ fn depositless_instance_transfers_through_extension_pipeline() {
 		let moved = NftsByOwner::<Test>::get(OTHER).expect("recipient has depositless NFT");
 		assert_eq!(moved.instance, 0);
 		assert_eq!(moved.last_moved, 20);
+		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
 		assert_eq!(held(OWNER), held_before);
@@ -1205,12 +1209,12 @@ fn stale_authorization_cannot_act_on_reused_purse() {
 			NftsByOwner::<Test>::get(RECIPIENT).expect("a different NFT reused the purse");
 		assert_eq!(replacement.instance, 1);
 
-		assert_instance_mismatch(
+		assert_state_mismatch(
 			validate_transfer_as(RECIPIENT, OTHER, stale_authorization.clone())
 				.err()
 				.expect("the transfer authorization names the burned instance"),
 		);
-		assert_instance_mismatch(
+		assert_state_mismatch(
 			validate_burn_as(RECIPIENT, stale_authorization)
 				.err()
 				.expect("the burn authorization names the burned instance"),
@@ -1227,7 +1231,7 @@ fn prepare_rechecks_authorized_state_before_consuming_nft() {
 		let (_, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
 
 		NftsByOwner::<Test>::mutate(RECIPIENT, |maybe_nft| {
-			maybe_nft.as_mut().expect("minted NFT exists").instance = 1;
+			maybe_nft.as_mut().expect("minted NFT exists").state_nonce = 1;
 		});
 		let call = transfer_call(OTHER);
 		let error = extension_for_val(&val)
@@ -1235,11 +1239,11 @@ fn prepare_rechecks_authorized_state_before_consuming_nft() {
 			.err()
 			.expect("changed state must fail preparation");
 
-		assert_instance_mismatch(error);
+		assert_state_mismatch(error);
 		assert_eq!(
-			NftsByOwner::<Test>::get(RECIPIENT).map(|nft| nft.instance),
+			NftsByOwner::<Test>::get(RECIPIENT).map(|nft| nft.state_nonce),
 			Some(1),
-			"a failed preparation must not consume the replacement state",
+			"a failed preparation must not consume the changed state",
 		);
 	});
 }
@@ -1316,7 +1320,7 @@ fn success_clears_lock() {
 fn non_transfer_calls_pass_through() {
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::Scarcity(crate::Call::create_collection {});
-		let (validity, val, origin) = scarcity_extension(authorization(0))
+		let (validity, val, origin) = scarcity_extension(authorization(0, 0))
 			.validate(
 				RuntimeOrigin::signed(OWNER),
 				&call,
@@ -1432,7 +1436,7 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 		assert_eq!(definition.supply, supply);
 		assert_eq!(definition.live_supply, 0);
 		assert_eq!(
-			Scarcity::metadata_of(0, 0, &metadata_key),
+			Scarcity::item_metadata_of(0, 0, &metadata_key),
 			Some(value(b"burn")),
 			"item-definition metadata must outlive a burned instance",
 		);
@@ -1494,14 +1498,14 @@ fn collection_owner_can_force_burn_an_instance() {
 		let held_before = held(OWNER);
 
 		assert_noop!(
-			Scarcity::burn_instance(RuntimeOrigin::signed(OTHER), 0),
+			Scarcity::force_burn(RuntimeOrigin::signed(OTHER), 0),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Scarcity::burn_instance(RuntimeOrigin::signed(OWNER), 99),
+			Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 99),
 			Error::<Test>::UnknownInstance
 		);
-		assert_ok!(Scarcity::burn_instance(RuntimeOrigin::signed(OWNER), 0));
+		assert_ok!(Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 0));
 
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert!(!Instances::<Test>::contains_key(0));
@@ -1515,6 +1519,127 @@ fn collection_owner_can_force_burn_an_instance() {
 		assert_eq!(held(OWNER), held_before - instance_deposit - metadata_deposit);
 		System::assert_has_event(Event::<Test>::Burned { instance: 0 }.into());
 		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn collection_owner_can_force_transfer_an_instance() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		define(0);
+		MockNow::set(10);
+		mint_with_metadata(0, RECIPIENT, &[(b"effect", b"healing")]);
+		mint(1, OTHER);
+		Locked::<Test>::insert(RECIPIENT, LockInfo { retries: 1, until: 60 });
+		let deposit = InstanceDeposits::<Test>::get(0).expect("ordinary mint has a deposit");
+		let held_before = held(OWNER);
+		let target = 4;
+
+		assert_noop!(
+			Scarcity::force_transfer(RuntimeOrigin::signed(OTHER), 0, target),
+			Error::<Test>::NoPermission
+		);
+		assert_noop!(
+			Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 99, target),
+			Error::<Test>::UnknownInstance
+		);
+		assert_noop!(
+			Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 0, RECIPIENT),
+			Error::<Test>::SelfTransfer
+		);
+		assert_noop!(
+			Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 0, OTHER),
+			Error::<Test>::AddressOccupied
+		);
+
+		MockNow::set(25);
+		assert_ok!(Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 0, target));
+
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		let moved = NftsByOwner::<Test>::get(target).expect("target owns the NFT");
+		assert_eq!(moved.instance, 0);
+		assert_eq!(moved.last_moved, 25);
+		assert_eq!(moved.state_nonce, 1);
+		assert_eq!(Instances::<Test>::get(0), Some(target));
+		assert_eq!(InstanceDeposits::<Test>::get(0), Some(deposit));
+		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"effect")), Some(value(b"healing")),);
+		assert_eq!(held(OWNER), held_before);
+		assert!(!Locked::<Test>::contains_key(RECIPIENT));
+		System::assert_has_event(
+			Event::<Test>::ForceTransferred { instance: 0, from: RECIPIENT, to: target }.into(),
+		);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn force_transfer_away_and_back_invalidates_old_authorization() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		let stale = current_authorization(RECIPIENT);
+
+		assert_ok!(Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 0, OTHER));
+		assert_ok!(Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 0, RECIPIENT));
+		let returned = NftsByOwner::<Test>::get(RECIPIENT).expect("NFT returned to its purse");
+		assert_eq!(returned.instance, 0);
+		assert_eq!(returned.state_nonce, 2);
+
+		assert_state_mismatch(
+			validate_transfer_as(RECIPIENT, OTHER, stale.clone())
+				.err()
+				.expect("the transfer authorization names an old ownership state"),
+		);
+		assert_state_mismatch(
+			validate_burn_as(RECIPIENT, stale)
+				.err()
+				.expect("the burn authorization names an old ownership state"),
+		);
+		assert!(validate_transfer(RECIPIENT, OTHER).is_ok());
+	});
+}
+
+#[test]
+fn force_transfer_nonce_overflow_is_atomic() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		Locked::<Test>::insert(RECIPIENT, LockInfo { retries: 1, until: 60 });
+		NftsByOwner::<Test>::mutate(RECIPIENT, |maybe_nft| {
+			maybe_nft.as_mut().expect("minted NFT exists").state_nonce = u64::MAX;
+		});
+		let before = NftsByOwner::<Test>::get(RECIPIENT).expect("minted NFT exists");
+
+		assert_noop!(
+			Scarcity::force_transfer(RuntimeOrigin::signed(OWNER), 0, OTHER),
+			Error::<Test>::StateNonceOverflow
+		);
+
+		assert_eq!(NftsByOwner::<Test>::get(RECIPIENT), Some(before));
+		assert!(!NftsByOwner::<Test>::contains_key(OTHER));
+		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
+		assert_eq!(Locked::<Test>::get(RECIPIENT), Some(LockInfo { retries: 1, until: 60 }));
+	});
+}
+
+#[test]
+fn holder_transfer_nonce_overflow_restores_the_nft() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		NftsByOwner::<Test>::mutate(RECIPIENT, |maybe_nft| {
+			maybe_nft.as_mut().expect("minted NFT exists").state_nonce = u64::MAX;
+		});
+
+		let (_, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
+		let pre = prepare_transfer(val, &origin, OTHER);
+		let dispatch = Scarcity::transfer(origin, OTHER);
+		assert_noop!(dispatch, Error::<Test>::StateNonceOverflow);
+		post_dispatch(pre, Err(Error::<Test>::StateNonceOverflow.into()));
+
+		assert_eq!(NftsByOwner::<Test>::get(RECIPIENT).map(|nft| nft.state_nonce), Some(u64::MAX),);
+		assert!(!NftsByOwner::<Test>::contains_key(OTHER));
+		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
 	});
 }
 
@@ -1539,7 +1664,7 @@ fn delete_item_requires_dependencies_to_be_removed_and_never_reuses_its_id() {
 			Scarcity::delete_item(RuntimeOrigin::signed(OWNER), 0, 0),
 			Error::<Test>::ItemInUse
 		);
-		assert_ok!(Scarcity::burn_instance(RuntimeOrigin::signed(OWNER), 0));
+		assert_ok!(Scarcity::force_burn(RuntimeOrigin::signed(OWNER), 0));
 		assert_noop!(
 			Scarcity::delete_item(RuntimeOrigin::signed(OWNER), 0, 0),
 			Error::<Test>::ItemMetadataNotEmpty

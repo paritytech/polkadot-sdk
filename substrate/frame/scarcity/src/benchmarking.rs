@@ -222,7 +222,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), collection, item, key.clone(), Some(value.clone()));
 
-		assert_eq!(Pallet::<T>::metadata_of(collection, item, &key), Some(value));
+		assert_eq!(Pallet::<T>::item_metadata_of(collection, item, &key), Some(value));
 		frame_system::Pallet::<T>::assert_last_event(
 			Event::<T>::ItemMetadataSet { collection, item, key }.into(),
 		);
@@ -250,9 +250,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn burn_instance(
-		m: Linear<0, { T::MaxInstanceMetadata::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn force_burn(m: Linear<0, { T::MaxInstanceMetadata::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let destination: T::AccountId = account("destination", 0, 0);
 		let (collection, item) = create_definition::<T>(&caller)?;
@@ -272,6 +270,29 @@ mod benchmarks {
 		assert!(!NftsByOwner::<T>::contains_key(destination));
 		assert!(!Instances::<T>::contains_key(instance));
 		assert_eq!(InstanceMetadata::<T>::iter_prefix(instance).count(), 0);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_transfer() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let from: T::AccountId = account("from", 0, 0);
+		let to: T::AccountId = account("to", 0, 0);
+		NftsByOwner::<T>::remove(&to);
+		let (collection, item) = create_definition::<T>(&caller)?;
+		let instance =
+			Pallet::<T>::do_mint(caller.clone(), collection, item, from.clone(), Vec::new())?;
+		Locked::<T>::insert(&from, LockInfo { retries: u8::MAX, until: u64::MAX });
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), instance, to.clone());
+
+		let nft = NftsByOwner::<T>::get(&to).expect("destination owns the transferred NFT");
+		assert_eq!(nft.instance, instance);
+		assert_eq!(nft.state_nonce, 1);
+		assert_eq!(Instances::<T>::get(instance), Some(to));
+		assert!(!NftsByOwner::<T>::contains_key(from.clone()));
+		assert!(!Locked::<T>::contains_key(from));
 		Ok(())
 	}
 
@@ -335,8 +356,10 @@ mod benchmarks {
 
 		let call: T::RuntimeCall = Call::<T>::transfer { to: destination }.into();
 		let info = call.get_dispatch_info();
-		let extension =
-			AsScarcity::<T>::new(Some(AsScarcityInfo::AsNft { instance: nft.instance }));
+		let extension = AsScarcity::<T>::new(Some(AsScarcityInfo::AsNft {
+			instance: nft.instance,
+			state_nonce: nft.state_nonce,
+		}));
 		let origin: T::RuntimeOrigin = RawOrigin::Signed(owner.clone()).into();
 		let failed_dispatch = Err(DispatchError::Other("benchmark failure"));
 

@@ -145,7 +145,10 @@ pub fn create_extrinsic(
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
-			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
+			(
+				kitchensink_runtime::ScarcityTxExtension::new(None),
+				frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
+			),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -163,7 +166,7 @@ pub fn create_extrinsic(
 			(),
 			None,
 			(),
-			(),
+			((), ()),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -1115,6 +1118,7 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
+				let as_scarcity = kitchensink_runtime::ScarcityTxExtension::new(None);
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
@@ -1129,7 +1133,7 @@ mod tests {
 					tx_payment,
 					metadata_hash,
 					set_eth_origin,
-					weight_reclaim,
+					(as_scarcity, weight_reclaim),
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
@@ -1146,7 +1150,7 @@ mod tests {
 						(),
 						None,
 						(),
-						(),
+						((), ()),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
