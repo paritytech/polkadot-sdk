@@ -20,8 +20,11 @@
 //! `pallet-scarcity` defines NFT collections and item definitions, then mints instances using a
 //! coinage-style ownership model: each purse key can hold at most one NFT. The pallet knows
 //! ownership, supply, metadata, and deposits; it knows nothing about what an item means. Item
-//! semantics and access-control policy belong to collection contracts. At this storage layer the
-//! collection owner has full control over its definitions, metadata, and live instances.
+//! semantics and access-control policy can live in a higher-level runtime pallet or collection
+//! contract. At this storage layer the collection owner has full control over its definitions,
+//! metadata, and live instances, including force-transfer and force-burn. A runtime must
+//! separately expose Scarcity calls to its chosen contract environment; this crate does not
+//! provide a contract adapter.
 //!
 //! The current collection owner backs all collection state with one aggregate consideration
 //! ticket. To transfer that responsibility safely, the owner first nominates a successor and the
@@ -700,8 +703,9 @@ pub mod pallet {
 
 		/// Force-burn one live instance as its collection owner.
 		///
-		/// The collection layer intentionally applies no holder-level ACL. A contract-owned
-		/// collection can enforce its own consent and game rules before calling this operation.
+		/// The collection layer intentionally applies no holder-level ACL. When a runtime exposes
+		/// this call to its contract environment, a contract-owned collection can enforce its own
+		/// consent and game rules before calling it.
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::force_burn(T::MaxInstanceMetadata::get()))]
 		#[transactional]
@@ -740,9 +744,10 @@ pub mod pallet {
 
 		/// Force-transfer one live instance as its collection owner.
 		///
-		/// The collection layer intentionally applies no holder-level ACL. A contract-owned
-		/// collection can enforce its own consent and game rules before calling this operation.
-		/// The move increments the instance state nonce, invalidating prior holder authorizations.
+		/// The collection layer intentionally applies no holder-level ACL. When a runtime exposes
+		/// this call to its contract environment, a contract-owned collection can enforce its own
+		/// consent and game rules before calling it. The move increments the instance state nonce,
+		/// invalidating prior holder authorizations.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::force_transfer())]
 		#[transactional]
