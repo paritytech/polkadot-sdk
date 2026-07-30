@@ -345,9 +345,21 @@ where
 					.begin_operation()
 					.expect("create BlockImportOperation should not fail.");
 
+				// This must match the host-function set the node itself uses, otherwise any runtime
+				// importing something outside it cannot be instantiated and the `expect` below
+				// panics. The set here is content-identical to
+				// `polkadot_omni_node_lib::common::types::ParachainHostFunctions`, i.e.
+				// `cumulus_client_service::ParachainHostFunctions` (which already includes
+				// `HostFunctionsRfc163`) plus statement-store.
+				//
+				// Referencing those shared types directly would be drift-proof, but would pull
+				// `cumulus-client-service` into the relay binary too, so the tuple is spelled out
+				// here instead.
 				let executor: WasmExecutor<(
 					cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
 					sp_io::SubstrateHostFunctions,
+					sp_crypto_ec_utils::HostFunctionsRfc163,
+					sp_statement_store::runtime_api::HostFunctions,
 				)> = WasmExecutor::builder().build();
 
 				let state_version =
