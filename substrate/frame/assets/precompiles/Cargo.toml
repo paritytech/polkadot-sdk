@@ -17,24 +17,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 const-crypto = { version = "0.3.0", default-features = false }
-ethereum-standards = { workspace = true }
+ethereum-standards.workspace = true
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 k256 = { workspace = true, features = ["ecdsa"], optional = true }
 log = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-revive = { workspace = true }
-pallet-timestamp = { workspace = true }
+pallet-assets.workspace = true
+pallet-revive.workspace = true
+pallet-timestamp.workspace = true
 scale-info = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-xcm = { workspace = true }
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = false }
-pallet-revive-fixtures = { workspace = true, default-features = false }
+pallet-balances = { default-features = false, path = "../../balances" }
+pallet-revive-fixtures = { default-features = false, path = "../../revive/fixtures" }
 test-case = { workspace = true }
 
 [features]
@@ -47,8 +47,6 @@ std = [
 	"k256?/std",
 	"log/std",
 	"pallet-assets/std",
-	"pallet-balances/std",
-	"pallet-revive-fixtures/std",
 	"pallet-revive/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
@@ -63,7 +61,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"k256",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -73,7 +70,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
