@@ -125,36 +125,37 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: kitchensink_runtime::TxExtension = (
-		frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
-			period,
-			best_block.saturated_into(),
-		)),
-		frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-		frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
+	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			kitchensink_runtime::ScarcityTxExtension::new(None),
+			(
+				kitchensink_runtime::ScarcityTxExtension::new(None),
+				frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+			),
+			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+				period,
+				best_block.saturated_into(),
+			)),
+			frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
+			frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
 					kitchensink_runtime::Runtime,
 				>::from(tip, None),
 			),
-		),
-		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-		pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
-		frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
-	);
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<kitchensink_runtime::Runtime>::default(),
+			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
+		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			(),
+			((), ()),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -162,7 +163,7 @@ pub fn create_extrinsic(
 			best_hash,
 			(),
 			(),
-			((), ()),
+			(),
 			None,
 			(),
 			(),
@@ -1121,7 +1122,7 @@ mod tests {
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					authorize_call,
+					(as_scarcity, authorize_call),
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1129,7 +1130,7 @@ mod tests {
 					check_era,
 					check_nonce,
 					check_weight,
-					(as_scarcity, tx_payment),
+					tx_payment,
 					metadata_hash,
 					set_eth_origin,
 					weight_reclaim,
@@ -1138,7 +1139,7 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						(),
+						((), ()),
 						(),
 						spec_version,
 						transaction_version,
@@ -1146,7 +1147,7 @@ mod tests {
 						genesis_hash,
 						(),
 						(),
-						((), ()),
+						(),
 						None,
 						(),
 						(),

@@ -19,19 +19,24 @@
 //!
 //! # Runtime ordering
 //!
-//! [`AsScarcity`] changes a signed origin into [`Origin::Nft`] during validation. Runtime
-//! integrators must place it **after** the signed-account nonce extension (normally
-//! `frame_system::CheckNonce`) and **before** any transaction-payment extension:
+//! [`AsScarcity`] changes a signed origin into [`Origin::Nft`] during validation. Following
+//! Coinage's purse model, runtime integrators must place it with the origin modifiers, **before**
+//! `frame_system::AuthorizeCall`, signed-account checks, and transaction payment:
 //!
 //! ```text
-//! CheckNonce -> AsScarcity -> SkipCheckIfFeeless<ChargeAssetTxPayment>
+//! AsScarcity -> AuthorizeCall -> ... -> CheckNonce -> ... ->
+//!     SkipCheckIfFeeless<ChargeAssetTxPayment>
 //! ```
 //!
-//! Placing it before `CheckNonce` makes the nonce extension see a non-system origin and silently
-//! skip replay protection. Placing it after payment prevents
-//! `pallet_skip_feeless_payment::SkipCheckIfFeeless` from observing [`Origin::Nft`], so an NFT
-//! purse must front the transaction fee before the feeless dispatch can refund it. That prevents
-//! balance-less purse keys from transacting.
+//! The account checks deliberately see a non-system origin and skip it, so an NFT-only purse needs
+//! neither a System account nor a balance. [`AsScarcity`] consumes the NFT during preparation to
+//! prevent concurrent use. A successful move increments its state nonce. Failed dispatch restores
+//! the same state and applies a temporary backoff lock; once that lock expires, the same signed
+//! transaction can be submitted again. This is the same retry model as Coinage.
+//!
+//! Placing this extension after payment prevents
+//! `pallet_skip_feeless_payment::SkipCheckIfFeeless` from observing [`Origin::Nft`] and makes a
+//! balance-less purse unable to transact.
 
 use crate::{pallet::*, weights::WeightInfo, Config, Nft};
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -109,16 +114,15 @@ pub enum Pre<T: Config + Send + Sync> {
 
 /// Purse-key authorization for Scarcity transfers and burns.
 ///
-/// An authorization names the permanent instance and its ownership-state nonce, and must be used
-/// alongside the runtime's normal signed-account nonce extension, such as
-/// `frame_system::CheckNonce`. The account nonce prevents replay of a signed transaction after
-/// successful or failed dispatch. The instance identifier prevents an authorization from acting
-/// on a different NFT if a purse key is reused, while the state nonce invalidates it if the same
-/// instance is moved away and later returned.
+/// An authorization names the permanent instance and its ownership-state nonce. The instance
+/// identifier prevents an authorization from acting on a different NFT if a purse key is reused,
+/// while the state nonce invalidates it if the same instance is moved away and later returned.
+/// Like Coinage, failed dispatch restores the same purse state behind a temporary lock rather than
+/// consuming a System account nonce.
 ///
-/// Runtime ordering is security-critical: place this extension after the account-nonce extension
-/// and before transaction payment. See the [module-level ordering
-/// requirements](crate::extension#runtime-ordering).
+/// Runtime ordering is security-critical: place this extension before
+/// `frame_system::AuthorizeCall`, signed-account checks, and transaction payment. See the
+/// [module-level ordering requirements](crate::extension#runtime-ordering).
 #[derive(
 	Encode,
 	Decode,

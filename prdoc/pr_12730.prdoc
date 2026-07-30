@@ -44,23 +44,26 @@ doc:
     permanent instance identifier and its `state_nonce`. Every successful
     holder or collection-owner transfer increments `state_nonce`, so moving an
     instance away and back to the same purse cannot revive an earlier
-    authorization. The signed account's normal nonce extension (such as
-    `frame_system::CheckNonce`) separately prevents replay of the signed
-    transaction itself. Consumption-on-use and a per-instance-state `provides`
-    tag containing the encoded `(InstanceId, state_nonce)` tuple prevent
-    concurrent use of the same authorization without a hash-collision risk.
+    authorization. Following Coinage's purse model, NFT-authorized operations
+    do not use the purse key's System account nonce. Consumption-on-use and a
+    per-instance-state `provides` tag containing the encoded
+    `(InstanceId, state_nonce)` tuple prevent concurrent use of the same
+    authorization without a hash-collision risk. A failed dispatch restores
+    the same NFT state behind an exponential backoff lock, so the same signed
+    transaction can be submitted again after the lock expires.
 
     The pallet and `AsScarcity` extension are included in the development
     runtime for ordinary signed transactions, using timestamp time and balance
     holds for storage consideration. Extension ordering is security-critical:
-    `CheckNonce` runs before `AsScarcity`, while the origin is signed, and
-    transaction payment runs after it, when NFT-authorized transfers and burns
-    carry `Origin::Nft` and require no balance. Each live NFT maintains a
-    System sufficient reference for its purse, keeping nonce storage available
-    even when the purse has no balance. This PR does not expose Scarcity calls
-    to `pallet-contracts` or `pallet-revive`; a runtime-specific call filter,
-    chain extension, or precompile remains necessary before a contract can act
-    as a collection owner from contract code.
+    `AsScarcity` runs with the origin modifiers before `AuthorizeCall`,
+    signed-account checks including `CheckNonce`, and transaction payment.
+    Those account checks deliberately skip the resulting `Origin::Nft`, while
+    payment observes it and skips feeless transfers and burns. NFT-only purse
+    keys therefore require neither a System account nor a balance. This PR
+    does not expose Scarcity calls to `pallet-contracts` or `pallet-revive`; a
+    runtime-specific call filter, chain extension, or precompile remains
+    necessary before a contract can act as a collection owner from contract
+    code.
 
     A `try_state` hook verifies allocation bounds, dependency and metadata
     counters, live supply, collection/item references, the owner/reverse-index

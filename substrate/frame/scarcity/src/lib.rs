@@ -37,9 +37,6 @@
 //! hash prefixes. A runtime can account for backend overhead in its per-record base price and
 //! calibrate its byte price to the desired storage policy.
 //!
-//! Each live NFT also maintains one System sufficient reference for its purse. This keeps nonce
-//! storage alive for an NFT-only account without requiring it to hold a fee-paying balance.
-//!
 //! Cleanup proceeds from leaves to roots so every call remains bounded. The collection owner
 //! force-burns live instances (or holders burn their own), removes item metadata, deletes empty
 //! item definitions, removes collection metadata, and finally deletes the empty collection.
@@ -62,11 +59,11 @@
 //! capped by the runtime. Moving an NFT consumes it from the old purse key and places it at the
 //! new one. Each authorization names the permanent instance and its current state nonce. The state
 //! nonce invalidates an authorization whenever that instance moves, including collection-owner
-//! force-transfers away from and back to the same purse. The authorization is carried by a signed
-//! transaction; runtimes using [`AsScarcity`](extension::AsScarcity) must also include an
-//! account-nonce transaction extension such as `frame_system::CheckNonce` to prevent replay of the
-//! signed transaction itself. Failed dispatch restores the NFT and temporarily locks the purse
-//! key.
+//! force-transfers away from and back to the same purse. Following Coinage's purse model,
+//! [`AsScarcity`](extension::AsScarcity) replaces the signed origin before ordinary account checks,
+//! so an NFT-only purse does not need a System account. Failed dispatch restores the NFT and
+//! temporarily locks the purse key; after the lock expires, the same signed transaction may be
+//! submitted again if its NFT state is still current.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -497,7 +494,7 @@ pub mod pallet {
 		/// Price of an item definition.
 		type ItemDeposit: Convert<Footprint, BalanceOf<Self>>;
 
-		/// Price of one ordinary minted instance, including its System sufficient reference.
+		/// Price of one ordinary minted instance.
 		type InstanceDeposit: Convert<Footprint, BalanceOf<Self>>;
 
 		/// Price of one metadata entry.
@@ -588,8 +585,6 @@ pub mod pallet {
 			let state_nonce =
 				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
 			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), state_nonce, ..nft };
-			frame_system::Pallet::<T>::dec_sufficients(&from);
-			frame_system::Pallet::<T>::inc_sufficients(&to);
 			NftsByOwner::<T>::insert(&to, nft.clone());
 			Instances::<T>::insert(nft.instance, &to);
 			Self::deposit_event(Event::Transferred { instance: nft.instance, from, to });
@@ -608,10 +603,10 @@ pub mod pallet {
 		})]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let Ok(Origin::Nft { owner, nft }) = origin.into() else {
+			let Ok(Origin::Nft { owner: _, nft }) = origin.into() else {
 				return Err(DispatchError::BadOrigin.into());
 			};
-			let metadata_count = Self::do_burn(owner, nft)?;
+			let metadata_count = Self::do_burn(nft)?;
 			Ok((Some(T::WeightInfo::burn(metadata_count)), Pays::No).into())
 		}
 
@@ -1140,7 +1135,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_burn(purse: T::AccountId, nft: Nft) -> Result<u32, DispatchError> {
+		fn do_burn(nft: Nft) -> Result<u32, DispatchError> {
 			let instance = nft.instance;
 			let expected_metadata_count = InstanceMetadataCount::<T>::take(instance);
 			let mut actual_metadata_count = 0u32;
@@ -1162,7 +1157,6 @@ pub mod pallet {
 			let info = Self::decrease_owner_deposit(info, deposit)?;
 			Collections::<T>::insert(nft.collection, info);
 			Instances::<T>::remove(instance);
-			frame_system::Pallet::<T>::dec_sufficients(&purse);
 			Self::deposit_event(Event::Burned { instance });
 			Ok(actual_metadata_count)
 		}
@@ -1177,7 +1171,7 @@ pub mod pallet {
 
 			NftsByOwner::<T>::remove(&purse);
 			Locked::<T>::remove(&purse);
-			Self::do_burn(purse, nft)
+			Self::do_burn(nft)
 		}
 
 		fn do_force_transfer(
@@ -1197,8 +1191,6 @@ pub mod pallet {
 			let state_nonce =
 				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
 			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), state_nonce, ..nft };
-			frame_system::Pallet::<T>::dec_sufficients(&from);
-			frame_system::Pallet::<T>::inc_sufficients(&to);
 			NftsByOwner::<T>::remove(&from);
 			Locked::<T>::remove(&from);
 			NftsByOwner::<T>::insert(&to, nft);
@@ -1293,21 +1285,17 @@ pub mod pallet {
 			let nft =
 				Nft { instance, collection, item, minted_at: now, last_moved: now, state_nonce: 0 };
 			let instance_deposit = if with_deposit {
-				// Five storage entries back one instance: `NftsByOwner`, the `Instances`
-				// reverse index, `InstanceDeposits`, `InstanceMetadataCount`, and the System
-				// account kept alive by the NFT's sufficient reference. This measures their
-				// logical encoded payload; the runtime's per-record base can price trie and
-				// hash-prefix overhead.
+				// Four storage entries back one instance: `NftsByOwner`, the `Instances`
+				// reverse index, `InstanceDeposits`, and `InstanceMetadataCount`. This measures
+				// their logical encoded payload; the runtime's per-record base can price trie
+				// and hash-prefix overhead.
 				let record_size = nft
 					.encoded_size()
 					.saturating_add(to.encoded_size().saturating_mul(2))
 					.saturating_add(instance.encoded_size().saturating_mul(3))
 					.saturating_add(BalanceOf::<T>::max_encoded_len())
-					.saturating_add(u32::max_encoded_len())
-					.saturating_add(
-						frame_system::AccountInfo::<T::Nonce, T::AccountData>::max_encoded_len(),
-					);
-				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(5, record_size));
+					.saturating_add(u32::max_encoded_len());
+				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(4, record_size));
 				info = Self::increase_owner_deposit(info, deposit)?;
 				Some(deposit)
 			} else {
@@ -1323,7 +1311,6 @@ pub mod pallet {
 			NftsByOwner::<T>::insert(&to, nft);
 			Instances::<T>::insert(instance, &to);
 			InstanceMetadataCount::<T>::insert(instance, 0);
-			frame_system::Pallet::<T>::inc_sufficients(&to);
 			if let Some(deposit) = instance_deposit {
 				InstanceDeposits::<T>::insert(instance, deposit);
 			}
@@ -1410,12 +1397,6 @@ pub mod pallet {
 
 			let mut live_by_item = BTreeMap::<(CollectionId, ItemIndex), u64>::new();
 			for (owner, nft) in NftsByOwner::<T>::iter() {
-				let account = frame_system::Account::<T>::get(&owner);
-				if account.sufficients == 0 {
-					return Err(TryRuntimeError::Other(
-						"NFT owner has no System sufficient reference",
-					));
-				}
 				if nft.instance >= next_instance {
 					return Err(TryRuntimeError::Other("NFT instance is not below NextInstanceId"));
 				}

@@ -451,7 +451,7 @@ fn mint_charges_collection_owner_and_stores_instance_deposit() {
 		assert!(deposit > 0);
 		assert_eq!(held(OWNER), held_before + deposit);
 		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, held(OWNER),);
-		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 1);
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
 	});
 }
 
@@ -1112,7 +1112,7 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		setup_item();
 		MockNow::set(10);
 		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"moves")]);
-		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 1);
+		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
 
 		MockNow::set(20);
 		let (validity, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
@@ -1130,7 +1130,7 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
 		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
-		assert_eq!(frame_system::Account::<Test>::get(OTHER).sufficients, 1);
+		assert_eq!(frame_system::Account::<Test>::get(OTHER).sufficients, 0);
 		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"unique")), Some(value(b"moves")),);
 		System::assert_has_event(
 			Event::<Test>::Transferred { instance: 0, from: RECIPIENT, to: OTHER }.into(),
@@ -1578,7 +1578,7 @@ fn collection_owner_can_force_transfer_an_instance() {
 		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(Instances::<Test>::get(0), Some(target));
 		assert_eq!(frame_system::Account::<Test>::get(RECIPIENT).sufficients, 0);
-		assert_eq!(frame_system::Account::<Test>::get(target).sufficients, 1);
+		assert_eq!(frame_system::Account::<Test>::get(target).sufficients, 0);
 		assert_eq!(InstanceDeposits::<Test>::get(0), Some(deposit));
 		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"effect")), Some(value(b"healing")),);
 		assert_eq!(held(OWNER), held_before);
@@ -1884,13 +1884,14 @@ fn try_state_rejects_instance_identifier_at_or_above_next() {
 }
 
 #[test]
-fn try_state_rejects_nft_owner_without_sufficient_reference() {
+fn try_state_accepts_nft_owner_without_system_account() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		mint(0, RECIPIENT);
-		System::dec_sufficients(&RECIPIENT);
+		let nft_only_purse = 99;
+		mint(0, nft_only_purse);
 
-		assert_try_state_error("NFT owner has no System sufficient reference");
+		assert!(!frame_system::Account::<Test>::contains_key(nft_only_purse));
+		assert_ok!(Scarcity::do_try_state());
 	});
 }
 
