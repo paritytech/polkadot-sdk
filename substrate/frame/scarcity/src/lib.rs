@@ -26,6 +26,14 @@
 //! separately expose Scarcity calls to its chosen contract environment; this crate does not
 //! provide a contract adapter.
 //!
+//! Purse keys are coinage-style receiving addresses, not identities: the pallet applies no
+//! destination consent. Any collection owner can mint into — or force-transfer an instance to —
+//! any empty purse key, and because each key holds at most one NFT, an unsolicited instance
+//! blocks that key from receiving anything else until its holder burns it or transfers it away.
+//! Holders should treat purse keys as disposable, minting to fresh keys they control, and
+//! runtimes or contracts that need receive-consent or long-lived well-known destinations must
+//! enforce that policy above this storage layer.
+//!
 //! The current collection owner backs all collection state with one aggregate consideration
 //! ticket. To transfer that responsibility safely, the owner first nominates a successor and the
 //! successor claims the collection. Claiming atomically creates an equivalent ticket for the
@@ -63,7 +71,9 @@
 //! [`AsScarcity`](extension::AsScarcity) replaces the signed origin before ordinary account checks,
 //! so an NFT-only purse does not need a System account. Failed dispatch restores the NFT and
 //! temporarily locks the purse key; after the lock expires, the same signed transaction may be
-//! submitted again if its NFT state is still current.
+//! submitted again if its NFT state is still current. Callers must sign mortal transactions with
+//! an era shorter than [`Config::LockPeriod`] so that retrying is always a fresh signing
+//! decision; see the [replay and mortality rules](extension#replay-and-mortality).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -552,6 +562,9 @@ pub mod pallet {
 		}
 
 		/// Mint an instance of an immutable item definition into an empty purse key.
+		///
+		/// The destination gives no consent; any empty key is a valid target. See the module
+		/// documentation on purse-key occupancy.
 		///
 		/// `metadata` contains instance-specific overrides. Item metadata remains the shared
 		/// default for every instance minted from the definition.

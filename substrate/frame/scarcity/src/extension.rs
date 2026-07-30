@@ -37,6 +37,23 @@
 //! Placing this extension after payment prevents
 //! `pallet_skip_feeless_payment::SkipCheckIfFeeless` from observing [`Origin::Nft`] and makes a
 //! balance-less purse unable to transact.
+//!
+//! # Replay and mortality
+//!
+//! Purse authorization is not account-nonce-based: a signed NFT transaction stays valid for as
+//! long as its purse still holds the named instance at the named state nonce. Two rules bound
+//! stale intent, exactly as in Coinage:
+//!
+//! * Callers must sign **mortal** transactions with an era shorter than [`Config::LockPeriod`].
+//!   A successful move invalidates every outstanding authorization by incrementing the state
+//!   nonce, but an unexecuted transaction is otherwise replayable by anyone who has seen it
+//!   until its era expires.
+//! * Because the era ends before the shortest failure lock does, a failed transaction can never
+//!   re-enter a block: every retry after a failure is a fresh signing decision rather than a
+//!   third-party replay of the old transaction.
+//!
+//! A holder can also cancel an outstanding authorization at any time by moving the NFT, which
+//! increments its state nonce.
 
 use crate::{pallet::*, weights::WeightInfo, Config, Nft};
 use codec::{Decode, DecodeWithMemTracking, Encode};
