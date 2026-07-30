@@ -807,22 +807,27 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#657 id=657 data-nosnippet>657</a>	</span><span class="kw">pub fn </span>advertisements(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::collections::BTreeSet&lt;<span class="kw">super</span>::common::Advertisement&gt; {
 <a href=#658 id=658 data-nosnippet>658</a>		<span class="self">self</span>.collation_manager.advertisements()
 <a href=#659 id=659 data-nosnippet>659</a>	}
-<a href=#660 id=660 data-nosnippet>660</a>}
-<a href=#661 id=661 data-nosnippet>661</a>
-<a href=#662 id=662 data-nosnippet>662</a><span class="comment">// Specific implementation for PersistentDb to support disk persistence.
-<a href=#663 id=663 data-nosnippet>663</a></span><span class="kw">impl </span>State&lt;PersistentDb&gt; {
-<a href=#664 id=664 data-nosnippet>664</a>	<span class="doccomment">/// Persist the reputation database to disk asynchronously (fire-and-forget).
-<a href=#665 id=665 data-nosnippet>665</a>	/// Called on periodic timer.
-<a href=#666 id=666 data-nosnippet>666</a>	</span><span class="kw">pub fn </span>background_persist_reputations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#667 id=667 data-nosnippet>667</a>		<span class="self">self</span>.peer_manager.persist_to_disk_async();
-<a href=#668 id=668 data-nosnippet>668</a>	}
-<a href=#669 id=669 data-nosnippet>669</a>
-<a href=#670 id=670 data-nosnippet>670</a>	<span class="doccomment">/// Persist the reputation database to disk and wait for completion.
-<a href=#671 id=671 data-nosnippet>671</a>	/// Called on graceful shutdown.
-<a href=#672 id=672 data-nosnippet>672</a>	</span><span class="kw">pub async fn </span>persist_reputations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#673 id=673 data-nosnippet>673</a>		<span class="self">self</span>.peer_manager.persist_and_wait().<span class="kw">await</span>;
-<a href=#674 id=674 data-nosnippet>674</a>	}
-<a href=#675 id=675 data-nosnippet>675</a>}
+<a href=#660 id=660 data-nosnippet>660</a>
+<a href=#661 id=661 data-nosnippet>661</a>	<span class="attr">#[cfg(test)]
+<a href=#662 id=662 data-nosnippet>662</a>	</span><span class="kw">pub async fn </span>processed_finalized_block_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
+<a href=#663 id=663 data-nosnippet>663</a>		<span class="self">self</span>.peer_manager.processed_finalized_block_number().<span class="kw">await
+<a href=#664 id=664 data-nosnippet>664</a>	</span>}
+<a href=#665 id=665 data-nosnippet>665</a>}
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a><span class="comment">// Specific implementation for PersistentDb to support disk persistence.
+<a href=#668 id=668 data-nosnippet>668</a></span><span class="kw">impl </span>State&lt;PersistentDb&gt; {
+<a href=#669 id=669 data-nosnippet>669</a>	<span class="doccomment">/// Persist the reputation database to disk asynchronously (fire-and-forget).
+<a href=#670 id=670 data-nosnippet>670</a>	/// Called on periodic timer.
+<a href=#671 id=671 data-nosnippet>671</a>	</span><span class="kw">pub fn </span>background_persist_reputations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#672 id=672 data-nosnippet>672</a>		<span class="self">self</span>.peer_manager.persist_to_disk_async();
+<a href=#673 id=673 data-nosnippet>673</a>	}
+<a href=#674 id=674 data-nosnippet>674</a>
+<a href=#675 id=675 data-nosnippet>675</a>	<span class="doccomment">/// Persist the reputation database to disk and wait for completion.
+<a href=#676 id=676 data-nosnippet>676</a>	/// Called on graceful shutdown.
+<a href=#677 id=677 data-nosnippet>677</a>	</span><span class="kw">pub async fn </span>persist_reputations(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#678 id=678 data-nosnippet>678</a>		<span class="self">self</span>.peer_manager.persist_and_wait().<span class="kw">await</span>;
+<a href=#679 id=679 data-nosnippet>679</a>	}
+<a href=#680 id=680 data-nosnippet>680</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
