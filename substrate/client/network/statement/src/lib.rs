@@ -74,8 +74,8 @@ use governor::{
 	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts,
-	PrometheusError, Registry, U64,
+	exponential_buckets, register, Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramOpts,
+	Opts, PrometheusError, Registry, U64,
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
@@ -208,6 +208,17 @@ struct Metrics {
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: Histogram,
 	statement_flooding_detected: Counter<U64>,
+	send_failures: CounterVec<U64>,
+	undelivered_statements: CounterVec<U64>,
+}
+
+mod send_failure {
+	/// The network layer rejected the send.
+	pub const NETWORK: &str = "network";
+	/// The send did not complete within `SEND_TIMEOUT`.
+	pub const TIMEOUT: &str = "timeout";
+	/// The chunk was never handed to the network because the peer had no message sink.
+	pub const NO_SINK: &str = "no_sink";
 }
 
 impl Metrics {
@@ -339,6 +350,26 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
 					"Number of peers disconnected for exceeding statement rate limits",
+				)?,
+				r,
+			)?,
+			send_failures: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_send_failures_total",
+						"Total statement sends that never reached the peer, by reason",
+					),
+					&["reason"],
+				)?,
+				r,
+			)?,
+			undelivered_statements: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_undelivered_total",
+						"Total statements that were marked known to a peer but whose send failed, so the peer never received them, by reason",
+					),
+					&["reason"],
 				)?,
 				r,
 			)?,
@@ -612,6 +643,15 @@ enum ChunkResult {
 	SkipOversized,
 }
 
+enum SendOutcome {
+	/// The notification was accepted by the network layer.
+	Sent,
+	/// The network layer rejected the send.
+	NetworkError(error::Error),
+	/// The send did not complete within `SEND_TIMEOUT`.
+	TimedOut,
+}
+
 /// Result of sending a chunk of statements.
 enum SendChunkResult {
 	/// Successfully sent a chunk of N statements.
@@ -629,7 +669,7 @@ struct PendingSendResult {
 	peer: PeerId,
 	statement_count: usize,
 	bytes_sent: u64,
-	result: Result<Result<(), sc_network::error::Error>, tokio::time::error::Elapsed>,
+	result: SendOutcome,
 }
 
 /// Type alias for the pending sends future collection, this is a list of in-flight sends to peers.
@@ -690,6 +730,17 @@ fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> C
 		ChunkResult::SkipOversized
 	} else {
 		ChunkResult::Send(count)
+	}
+}
+
+async fn send_with_timeout<F>(send: F) -> SendOutcome
+where
+	F: Future<Output = Result<(), error::Error>>,
+{
+	match timeout(SEND_TIMEOUT, send).await {
+		Ok(Ok(())) => SendOutcome::Sent,
+		Ok(Err(error)) => SendOutcome::NetworkError(error),
+		Err(_elapsed) => SendOutcome::TimedOut,
 	}
 }
 
@@ -845,6 +896,21 @@ where
 		}
 	}
 
+	/// Record a send that never reached the peer.
+	///
+	/// Statements are marked known before the send is attempted, so a failure silently
+	/// suppresses them for that peer until its next initial sync. Counting them here is the
+	/// only way that loss is visible in monitoring.
+	fn record_send_failure(&self, reason: &str, statement_count: usize) {
+		self.metrics.as_ref().map(|metrics| {
+			metrics.send_failures.with_label_values(&[reason]).inc();
+			metrics
+				.undelivered_statements
+				.with_label_values(&[reason])
+				.inc_by(statement_count as u64);
+		});
+	}
+
 	/// Send a single chunk of statements to a peer.
 	///
 	/// Encodes the chunk according to the peer's protocol version:
@@ -873,16 +939,32 @@ where
 
 				let sent_latency_timer =
 					self.metrics.as_ref().map(|m| m.sent_latency_seconds.start_timer());
-				let send_result = timeout(
-					SEND_TIMEOUT,
+				let outcome = send_with_timeout(
 					self.notification_service.send_async_notification(peer, encoded),
 				)
 				.await;
 				drop(sent_latency_timer);
 
-				if let Err(e) = send_result {
-					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
-					return SendChunkResult::Failed;
+				match outcome {
+					SendOutcome::Sent => {},
+					SendOutcome::NetworkError(error) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to send {} statements ({bytes_to_send} bytes) to {peer}: {error}",
+							chunk.len(),
+						);
+						self.record_send_failure(send_failure::NETWORK, chunk.len());
+						return SendChunkResult::Failed;
+					},
+					SendOutcome::TimedOut => {
+						log::warn!(
+							target: LOG_TARGET,
+							"Send of {} statements ({bytes_to_send} bytes) to {peer} timed out after {SEND_TIMEOUT:?}",
+							chunk.len(),
+						);
+						self.record_send_failure(send_failure::TIMEOUT, chunk.len());
+						return SendChunkResult::Failed;
+					},
 				}
 
 				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
@@ -1417,7 +1499,12 @@ where
 					};
 					let bytes_sent = encoded.len() as u64;
 					let Some(message_sink) = self.notification_service.message_sink(who) else {
-						log::debug!(target: LOG_TARGET, "Failed to get message sink for peer {who}");
+						let abandoned = statements.len() - offset;
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
+						);
+						self.record_send_failure(send_failure::NO_SINK, abandoned);
 						return;
 					};
 					let peer = *who;
@@ -1426,8 +1513,7 @@ where
 					self.pending_sends.push(Box::pin(async move {
 						let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
 						let result =
-							timeout(SEND_TIMEOUT, message_sink.send_async_notification(encoded))
-								.await;
+							send_with_timeout(message_sink.send_async_notification(encoded)).await;
 						drop(sent_latency_timer);
 						PendingSendResult { peer, statement_count: chunk_end, bytes_sent, result }
 					}));
@@ -1447,7 +1533,7 @@ where
 	fn handle_send_result(&mut self, send_result: PendingSendResult) {
 		let PendingSendResult { peer, statement_count, bytes_sent, result } = send_result;
 		match result {
-			Ok(Ok(())) => {
+			SendOutcome::Sent => {
 				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", statement_count, peer);
 				self.metrics.as_ref().map(|metrics| {
 					metrics.propagated_statements.inc_by(statement_count as u64);
@@ -1455,11 +1541,19 @@ where
 					metrics.propagated_statements_chunks.observe(statement_count as f64);
 				});
 			},
-			Ok(Err(error)) => {
-				log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {error:?}");
+			SendOutcome::NetworkError(error) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Failed to send {statement_count} statements ({bytes_sent} bytes) to {peer}: {error}",
+				);
+				self.record_send_failure(send_failure::NETWORK, statement_count);
 			},
-			Err(error) => {
-				log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {error:?}");
+			SendOutcome::TimedOut => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Send of {statement_count} statements ({bytes_sent} bytes) to {peer} timed out after {SEND_TIMEOUT:?}",
+				);
+				self.record_send_failure(send_failure::TIMEOUT, statement_count);
 			},
 		}
 	}
@@ -1667,7 +1761,7 @@ mod tests {
 
 	use super::*;
 	use std::sync::{
-		atomic::{AtomicBool, Ordering},
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Mutex,
 	};
 
@@ -1854,6 +1948,8 @@ mod tests {
 	struct TestNotificationService {
 		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
 		block_sends: Arc<AtomicBool>,
+		fail_sends: Arc<AtomicBool>,
+		sinks_available: Arc<AtomicUsize>,
 	}
 
 	impl TestNotificationService {
@@ -1861,6 +1957,8 @@ mod tests {
 			Self {
 				sent_notifications: Arc::new(Mutex::new(Vec::new())),
 				block_sends: Arc::new(AtomicBool::new(false)),
+				fail_sends: Arc::new(AtomicBool::new(false)),
+				sinks_available: Arc::new(AtomicUsize::new(usize::MAX)),
 			}
 		}
 
@@ -1874,6 +1972,14 @@ mod tests {
 
 		fn block_sends(&self) {
 			self.block_sends.store(true, Ordering::Relaxed);
+		}
+
+		fn fail_sends(&self) {
+			self.fail_sends.store(true, Ordering::Relaxed);
+		}
+
+		fn serve_sinks(&self, count: usize) {
+			self.sinks_available.store(count, Ordering::Relaxed);
 		}
 	}
 
@@ -1920,6 +2026,9 @@ mod tests {
 			peer: &PeerId,
 			notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {
+			if self.fail_sends.load(Ordering::Relaxed) {
+				return Err(sc_network::error::Error::ConnectionClosed);
+			}
 			self.sent_notifications.lock().unwrap().push((*peer, notification));
 			Ok(())
 		}
@@ -1948,6 +2057,9 @@ mod tests {
 			&self,
 			peer: &PeerId,
 		) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
+			self.sinks_available
+				.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+				.ok()?;
 			Some(Box::new(TestMessageSink {
 				peer: *peer,
 				sent_notifications: self.sent_notifications.clone(),
@@ -2553,6 +2665,96 @@ mod tests {
 		// Verify cleanup
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn initial_sync_network_error_does_not_count_as_sent() {
+		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
+		let peer_id = peer_ids[0];
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		// Two statements small enough to share one chunk, so a statement count cannot be
+		// mistaken for a chunk count.
+		let hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
+			.into_iter()
+			.map(|payload| {
+				let mut statement = Statement::new();
+				statement.set_plain_data(payload);
+				let hash = statement.hash();
+				statement_store.statements.lock().unwrap().insert(hash, statement);
+				hash
+			})
+			.collect();
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+
+		// The network layer rejects the send with a real error, not a timeout.
+		notification_service.fail_sends();
+		handler.process_initial_sync_burst().await;
+
+		assert!(notification_service.get_sent_notifications().is_empty());
+		for hash in &hashes {
+			assert!(!handler.peers.get(&peer_id).unwrap().known_statements.contains(hash));
+		}
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NETWORK]).get(), 1,);
+		assert_eq!(
+			metrics.undelivered_statements.with_label_values(&[send_failure::NETWORK]).get(),
+			hashes.len() as u64,
+			"both statements in the chunk were lost, counted individually"
+		);
+		assert_eq!(
+			metrics.send_failures.with_label_values(&[send_failure::TIMEOUT]).get(),
+			0,
+			"a network error must not be attributed to a timeout"
+		);
+	}
+
+	#[tokio::test]
+	async fn missing_sink_counts_every_abandoned_statement() {
+		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
+		let peer_id = peer_ids[0];
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		// 100 KB each, so the batch spans three 1 MiB chunks. Two chunks must remain after the
+		// sink disappears, otherwise "the whole remainder" and "the current chunk" are the same
+		// number and the test proves nothing.
+		let total = 25;
+		for i in 0..total {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; 100 * 1024];
+			data[0] = i as u8;
+			statement.set_plain_data(data);
+			statement_store
+				.recent_statements
+				.lock()
+				.unwrap()
+				.insert(statement.hash(), statement);
+		}
+
+		// Serve the first chunk, then behave as if the peer went away.
+		notification_service.serve_sinks(1);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let delivered =
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id).len();
+		assert!(delivered > 0);
+		assert!(
+			total - delivered > delivered,
+			"the abandoned remainder must exceed one full chunk, delivered {delivered} of {total}"
+		);
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NO_SINK]).get(), 1,);
+		assert_eq!(
+			metrics.undelivered_statements.with_label_values(&[send_failure::NO_SINK]).get(),
+			(total - delivered) as u64,
+			"every statement after the delivered chunk counts as undelivered"
+		);
 	}
 
 	#[tokio::test]
