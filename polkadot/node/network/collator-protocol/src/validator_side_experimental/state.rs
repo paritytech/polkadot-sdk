@@ -657,6 +657,11 @@ impl<B: Backend> State<B> {
 	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
 	}
+
+	#[cfg(test)]
+	pub async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		self.peer_manager.processed_finalized_block_number().await
+	}
 }
 
 // Specific implementation for PersistentDb to support disk persistence.
