@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785430352713,
+  "lastUpdate": 1785441401477,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e73397897316a7446fe4985292aa4cf3c6ea62df",
-          "message": "collator-protocol: don't disconnect on slot end when we have pending collations (#10446)\n\nWe pre-connect one slot in advance and we disconnect when our slot ends\neven when we have pending collations which is wrong. This change fixes\nthis by keeping the connections open until the collation is requested or\nrelay parent expires.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T13:34:15Z",
-          "tree_id": "2333702b47e0cbba9efbd7eafcf6b7e6c781264e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e73397897316a7446fe4985292aa4cf3c6ea62df"
-        },
-        "date": 1764342822071,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013177617693333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257540130666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15821082261333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007275052806666662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00998844674666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3",
+          "message": "statement-store: replay subscriptions from persisted admission cursor (#12697)\n\n## Summary\n\nImpl #12153\n\n- persist an active-statement admission sequence in parity-db and\nrestore it on startup\n- replay dynamically attached subscription filters from a cursor up to a\nregistration watermark instead of materializing a full hash snapshot\n- bound replay batches by raw statement bytes while preserving\nreplay-before-live ordering and re-admission semantics\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T18:15:12Z",
+          "tree_id": "27b534d0d7740f5bdfb9183bfb428e1a47b9e70f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3"
+        },
+        "date": 1785441368748,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14643810346666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007517127786666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022799277066666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009905265993333329,
             "unit": "seconds"
           }
         ]
