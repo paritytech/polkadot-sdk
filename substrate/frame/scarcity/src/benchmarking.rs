@@ -25,7 +25,7 @@ use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::{fungible::Mutate as _, Get},
+	traits::{Consideration, Get},
 };
 use frame_system::RawOrigin;
 use sp_runtime::{
@@ -53,7 +53,7 @@ fn metadata_value<T: Config>(byte: u8, len: u32) -> MetadataValueOf<T> {
 }
 
 fn fund<T: Config>(account: &T::AccountId) {
-	let _ = T::Currency::set_balance(account, BalanceOf::<T>::max_value() / 4u32.into());
+	T::Consideration::ensure_successful(account, BalanceOf::<T>::max_value() / 4u32.into());
 }
 
 fn create_definition<T: Config>(

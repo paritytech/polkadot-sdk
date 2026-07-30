@@ -22,10 +22,16 @@
 use crate as pallet_scarcity;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{fungible, ConstU32, ConstU64, LinearStoragePrice, UnixTime},
+	traits::{
+		fungible::{self, HoldConsideration},
+		ConstU32, ConstU64, LinearStoragePrice, UnixTime,
+	},
 	weights::constants::RocksDbWeight,
 };
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
+use sp_runtime::{
+	traits::{Identity, IdentityLookup},
+	BuildStorage,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -70,12 +76,19 @@ impl UnixTime for MockUnixTime {
 
 type TestStoragePrice = LinearStoragePrice<ConstU64<1>, ConstU64<1>, u64>;
 
+parameter_types! {
+	pub const ScarcityHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Scarcity(crate::HoldReason::StorageDeposit);
+}
+
+type TestConsideration = HoldConsideration<u64, Balances, ScarcityHoldReason, Identity, u64>;
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type UnixTime = MockUnixTime;
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type Balance = u64;
+	type Consideration = TestConsideration;
 	type CollectionDeposit = TestStoragePrice;
 	type ItemDeposit = TestStoragePrice;
 	type InstanceDeposit = TestStoragePrice;

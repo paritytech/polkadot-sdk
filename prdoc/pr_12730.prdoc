@@ -14,11 +14,13 @@ doc:
 
     Storage deposits are paid on the supply side. The collection owner backs
     the collection record, item definitions, metadata entries, and ordinarily
-    minted instances with one aggregate balance hold. Collection ownership uses
-    a two-step handoff: the current owner nominates a successor, then the
-    successor claims by atomically assuming the exact aggregate hold. A failed
-    claim, including one caused by insufficient balance, leaves ownership and
-    both parties' holds unchanged. Runtime pallets may use the
+    minted instances with one aggregate consideration ticket. The runtime
+    chooses the consideration mechanism; for example, it may use a fungible
+    hold, no consideration, or another runtime-defined policy. Collection
+    ownership uses a two-step handoff: the current owner nominates a successor,
+    then the successor claims by atomically establishing an equivalent ticket
+    before the former owner's ticket is dropped. A failed claim leaves
+    ownership and both tickets unchanged. Runtime pallets may use the
     `MintWithoutDeposit` integration trait to mint without an instance deposit
     when state growth is bounded by another scarce resource or protocol rule.
     Initial instance metadata is also depositless through this integration.
@@ -45,10 +47,10 @@ doc:
 
     A `try_state` hook verifies allocation bounds, dependency and metadata
     counters, live supply, collection/item references, the owner/reverse-index
-    bijection, locks, metadata references, each collection's aggregate against
-    its stored deposit components, and each owner's aggregate against the
-    actual held balance. Metadata growth is priced by a deposit per entry;
-    `define_item` accepts a linearly weighted `Vec` whose batch size is bounded
+    bijection, locks, metadata references, and each collection's accounted
+    aggregate against its stored deposit components. Metadata growth is priced
+    by a deposit per entry. `define_item` accepts a linearly weighted `Vec`
+    whose batch size is bounded
     by extrinsic and block length, while each key and value remains
     individually bounded. Per-instance metadata has an explicit configured
     bound so burn cleanup remains bounded.

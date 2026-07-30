@@ -29,11 +29,7 @@ use crate::{
 };
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::Hooks;
-use frame_support::{
-	assert_noop, assert_ok,
-	dispatch::Pays,
-	traits::{fungible::MutateHold, tokens::Precision, OriginTrait},
-};
+use frame_support::{assert_noop, assert_ok, dispatch::Pays, traits::OriginTrait};
 use sp_runtime::{
 	traits::{TransactionExtension, TxBaseImplication},
 	transaction_validity::{
@@ -1644,18 +1640,15 @@ fn failed_burn_restores_nft_and_locks_purse_key() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		mint(0, RECIPIENT);
-		let held_amount = held(OWNER);
-		assert_ok!(<Balances as MutateHold<u64>>::release(
-			&scarcity_hold_reason(),
-			&OWNER,
-			held_amount,
-			Precision::Exact,
-		));
+		ItemDefs::<Test>::mutate(0, 0, |maybe_definition| {
+			maybe_definition.as_mut().expect("item exists").live_supply = 0;
+		});
 
 		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
 		let pre = prepare_burn(val, &origin);
 		let dispatch = Scarcity::burn(origin);
-		let dispatch_error = dispatch.expect_err("the missing hold must make release fail").error;
+		let dispatch_error =
+			dispatch.expect_err("the inconsistent live supply must make burn fail").error;
 		// The burn's storage transaction restores its reverse index and deposit. The extension
 		// still owns the NFT until post-dispatch handles the failed capability call.
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
@@ -1849,21 +1842,6 @@ fn try_state_rejects_incorrect_collection_deposit_aggregate() {
 		});
 
 		assert_try_state_error("collection owner deposit does not match its stored components");
-	});
-}
-
-#[test]
-fn try_state_rejects_collection_deposit_hold_mismatch() {
-	new_test_ext().execute_with(|| {
-		setup_item();
-		assert_ok!(<Balances as MutateHold<u64>>::release(
-			&scarcity_hold_reason(),
-			&OWNER,
-			1,
-			Precision::Exact,
-		));
-
-		assert_try_state_error("collection owner deposit does not match held balance");
 	});
 }
 

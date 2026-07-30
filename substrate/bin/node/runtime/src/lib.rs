@@ -559,12 +559,24 @@ impl frame_support::traits::UnixTime for ScarcityBenchmarkTime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub const ScarcityHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Scarcity(pallet_scarcity::HoldReason::StorageDeposit);
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_scarcity::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_scarcity::weights::SubstrateWeight<Runtime>;
 	type UnixTime = ScarcityBenchmarkTime;
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type Balance = Balance;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ScarcityHoldReason,
+		sp_runtime::traits::Identity,
+		Balance,
+	>;
 	type CollectionDeposit = LinearStoragePrice<
 		dynamic_params::storage::BaseDeposit,
 		dynamic_params::storage::ByteDeposit,
