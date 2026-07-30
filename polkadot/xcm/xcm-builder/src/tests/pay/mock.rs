@@ -16,6 +16,8 @@
 
 use super::*;
 
+use codec::Decode;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32, Disabled, Everything, Nothing},
@@ -27,7 +29,7 @@ use sp_runtime::{
 	traits::{MaybeEquivalence, TryConvertInto},
 	AccountId32, BuildStorage,
 };
-use xcm::LocalRuntimeCall;
+use xcm::DoubleEncodedT;
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::ParaId;
 
@@ -281,7 +283,12 @@ pub(crate) type SovereignAccountOf = (
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

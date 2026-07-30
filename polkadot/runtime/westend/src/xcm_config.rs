@@ -20,6 +20,7 @@ use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
 };
+use codec::Decode;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Disabled, Equals, Everything, Nothing},
@@ -34,7 +35,7 @@ use sp_core::ConstU32;
 use westend_runtime_constants::{currency::CENTS, system_parachain::*};
 use xcm::{
 	latest::{prelude::*, WESTEND_GENESIS_HASH},
-	LocalRuntimeCall,
+	DoubleEncodedT,
 };
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
@@ -248,7 +249,12 @@ impl xcm_executor::Config for XcmConfig {
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

@@ -16,6 +16,7 @@
 
 //! Mock to test [`SingleAssetExchangeAdapter`].
 
+use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, ord_parameter_types, parameter_types,
@@ -33,7 +34,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, IdentityLookup, MaybeEquivalence, TryConvert, TryConvertInto},
 	BuildStorage, Permill,
 };
-use xcm::{prelude::*, LocalRuntimeCall};
+use xcm::{prelude::*, DoubleEncodedT};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 use crate::{FungibleAdapter, IsConcrete, MatchedConvertedConcreteId, StartsWith};
@@ -305,7 +306,12 @@ parameter_types! {
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId, NoNetwork>;
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	// We turn off sending for these tests

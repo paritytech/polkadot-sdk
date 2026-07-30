@@ -19,6 +19,8 @@ use super::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 
+use codec::Decode;
+
 use polkadot_sdk::{
 	staging_xcm as xcm, staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor, *,
 };
@@ -32,7 +34,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
-use xcm::{latest::prelude::*, LocalRuntimeCall};
+use xcm::{latest::prelude::*, DoubleEncodedT};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
@@ -178,7 +180,12 @@ pub type XcmRouter = WithUniqueTopic<(
 	XcmpQueue,
 )>;
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

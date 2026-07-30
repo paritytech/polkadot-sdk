@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::Decode;
 pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -34,7 +35,7 @@ use sp_runtime::{
 	traits::{Convert, Identity, IdentityLookup, TryConvertInto},
 	AccountId32, BuildStorage,
 };
-use xcm::{prelude::*, LocalRuntimeCall};
+use xcm::{prelude::*, DoubleEncodedT};
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
@@ -558,7 +559,12 @@ impl Contains<(Location, Vec<Asset>)> for XcmTeleportFiltered {
 	}
 }
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

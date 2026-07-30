@@ -19,6 +19,7 @@ use super::{
 	XcmpQueue,
 };
 use crate::{TransactionByteFee, CENTS};
+use codec::Decode;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -38,7 +39,7 @@ use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::{
 	latest::{prelude::*, WESTEND_GENESIS_HASH},
-	LocalRuntimeCall,
+	DoubleEncodedT,
 };
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
@@ -297,7 +298,12 @@ parameter_types! {
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

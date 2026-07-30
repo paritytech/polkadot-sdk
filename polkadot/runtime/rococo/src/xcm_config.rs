@@ -24,6 +24,8 @@ use super::{
 
 use crate::governance::StakingAdmin;
 
+use codec::Decode;
+
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Disabled, Equals, Everything, Nothing},
@@ -38,7 +40,7 @@ use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use sp_core::ConstU32;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
-	LocalRuntimeCall,
+	DoubleEncodedT,
 };
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -270,7 +272,12 @@ pub type LocalPalletOriginToLocation = (
 	TreasurerToPlurality,
 );
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

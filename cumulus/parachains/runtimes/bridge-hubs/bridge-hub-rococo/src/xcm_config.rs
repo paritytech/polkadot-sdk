@@ -20,6 +20,8 @@ use super::{
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmpQueue,
 };
 
+use codec::Decode;
+
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -42,7 +44,7 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
-	LocalRuntimeCall,
+	DoubleEncodedT,
 };
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
@@ -258,7 +260,12 @@ parameter_types! {
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
 }
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

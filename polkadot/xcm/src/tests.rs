@@ -15,7 +15,7 @@
 // along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	double_encoded::{LocalRuntimeCall, DECODE_RECURSION_LIMIT_MSG},
+	double_encoded::{DoubleEncodedT, DECODE_RECURSION_LIMIT_MSG},
 	*,
 };
 use alloc::vec;
@@ -28,7 +28,11 @@ enum TestCall {
 	Xcm { xcm: Box<VersionedXcm<TestCall>> },
 }
 
-impl LocalRuntimeCall for TestCall {}
+impl DoubleEncodedT for TestCall {
+	fn try_get_decode_fn<I: Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>> {
+		Some(Self::decode)
+	}
+}
 
 impl TestCall {
 	fn new_xcm(xcm: VersionedXcm<Self>) -> Self {

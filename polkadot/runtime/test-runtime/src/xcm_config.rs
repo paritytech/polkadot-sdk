@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::Decode;
 use frame_support::{
 	parameter_types,
 	traits::{Disabled, Everything, Get, Nothing},
@@ -22,7 +23,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use polkadot_runtime_common::xcm_sender::{ChildParachainRouter, PriceForMessageDelivery};
 use polkadot_runtime_parachains::FeeTracker;
-use xcm::{latest::prelude::*, LocalRuntimeCall};
+use xcm::{latest::prelude::*, DoubleEncodedT};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
 	SignedAccountId32AsNative, SignedToAccountId32, WithUniqueTopic,
@@ -166,7 +167,12 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = ();
 }
 
-impl LocalRuntimeCall for crate::RuntimeCall {}
+impl DoubleEncodedT for crate::RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for crate::Runtime {
 	// The config types here are entirely configurable, since the only one that is sorely needed

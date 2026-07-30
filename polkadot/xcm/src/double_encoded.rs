@@ -106,22 +106,6 @@ impl DoubleEncodedT for () {
 	}
 }
 
-/// Marker trait representing a local runtime call.
-///
-/// Local runtime calls can be decoded locally, so we automatically implement `DoubleEncodedT`
-/// accordingly.
-pub trait LocalRuntimeCall: Decode {}
-
-impl<T> DoubleEncodedT for T
-where
-	T: LocalRuntimeCall,
-{
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
-
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.
 #[derive(Encode, DecodeWithMemTracking, scale_info::TypeInfo)]

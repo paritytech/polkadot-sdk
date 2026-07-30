@@ -32,7 +32,7 @@ use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
 
-use polkadot_sdk::{staging_xcm::LocalRuntimeCall, *};
+use polkadot_sdk::{staging_xcm::DoubleEncodedT, *};
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -1519,7 +1519,12 @@ parameter_types! {
 	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_contracts::Config for Runtime {
 	type Time = Timestamp;

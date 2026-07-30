@@ -16,6 +16,8 @@
 
 //! Relay chain runtime mock.
 
+use codec::Decode;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Contains, Disabled, Everything, Nothing},
@@ -28,7 +30,7 @@ use sp_runtime::traits::IdentityLookup;
 
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{configuration, origin, shared};
-use xcm::{latest::prelude::*, LocalRuntimeCall};
+use xcm::{latest::prelude::*, DoubleEncodedT};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
@@ -186,7 +188,12 @@ impl Config for XcmConfig {
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

@@ -45,7 +45,7 @@ pub mod latest {
 }
 
 mod double_encoded;
-pub use double_encoded::{DoubleEncoded, DoubleEncodedT, LocalRuntimeCall};
+pub use double_encoded::{DoubleEncoded, DoubleEncodedT};
 
 mod utils;
 

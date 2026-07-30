@@ -22,6 +22,7 @@ use super::{
 	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
 use crate::{governance::pallet_custom_origins::Treasurer, Balance, RuntimeHoldReason};
+use codec::Decode;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -40,7 +41,7 @@ use polkadot_runtime_common::{
 use sp_core::ConstU32;
 use xcm::{
 	latest::{prelude::*, WESTEND_GENESIS_HASH},
-	LocalRuntimeCall,
+	DoubleEncodedT,
 };
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
@@ -287,7 +288,12 @@ pub type LocalPalletOriginToLocation = (
 	TreasurerToPlurality,
 );
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

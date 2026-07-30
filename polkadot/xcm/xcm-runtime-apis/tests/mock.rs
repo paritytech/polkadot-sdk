@@ -17,6 +17,7 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
+use codec::Decode;
 use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
@@ -32,7 +33,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use xcm::{prelude::*, LocalRuntimeCall, Version as XcmVersion};
+use xcm::{prelude::*, DoubleEncodedT, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
 	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, InspectMessageQueues, IsConcrete,
@@ -446,7 +447,12 @@ where
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId>;
 
-impl LocalRuntimeCall for RuntimeCall {}
+impl DoubleEncodedT for RuntimeCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 
 impl pallet_xcm::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
