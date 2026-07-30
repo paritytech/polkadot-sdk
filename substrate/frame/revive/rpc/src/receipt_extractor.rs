@@ -954,6 +954,8 @@ mod tests {
 		assert_eq!(logs[&2][0].log_index, U256::from(3));
 	}
 
+	const ETH_TRANSACT_PAYLOAD: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
+
 	/// SCALE-encode a bare extrinsic the way a block body carries it, length prefix included.
 	fn encode_bare(call: revive_dev_runtime::RuntimeCall) -> Vec<u8> {
 		let extrinsic: revive_dev_runtime::UncheckedExtrinsic =
@@ -963,11 +965,9 @@ mod tests {
 		extrinsic.encode()
 	}
 
-	const PAYLOAD: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
-
 	fn eth_transact_extrinsic() -> Vec<u8> {
 		encode_bare(revive_dev_runtime::RuntimeCall::Revive(pallet_revive::Call::eth_transact {
-			payload: PAYLOAD.to_vec(),
+			payload: ETH_TRANSACT_PAYLOAD.to_vec(),
 		}))
 	}
 
@@ -1001,7 +1001,7 @@ mod tests {
 		assert!(!undecoded, "every extrinsic decoded");
 		assert_eq!(calls.len(), 1, "only the revive extrinsic is collected");
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
-		assert_eq!(calls[0].0.payload, PAYLOAD, "the call fields are decoded");
+		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
 	}
 
 	#[tokio::test]
@@ -1011,7 +1011,7 @@ mod tests {
 
 		assert_eq!(calls.len(), 1, "an undecodable extrinsic must not hide a decoded one");
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
-		assert_eq!(calls[0].0.payload, PAYLOAD, "the call fields are decoded");
+		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
 		assert!(undecoded, "it may be a revive one, so report it");
 	}
 }
