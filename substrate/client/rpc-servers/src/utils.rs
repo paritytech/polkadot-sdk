@@ -92,6 +92,7 @@ pub(crate) struct RpcSettings {
 	pub(crate) rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	pub(crate) cors: CorsLayer,
 	pub(crate) host_filter: Option<HostFilterLayer>,
+	pub(crate) tcp_nodelay: bool,
 }
 
 /// Represent a single RPC endpoint with its configuration.
@@ -127,6 +128,8 @@ pub struct RpcEndpoint {
 	pub is_optional: bool,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
+	/// Whether to set `TCP_NODELAY` on this endpoint's connections.
+	pub tcp_nodelay: bool,
 }
 
 impl RpcEndpoint {
@@ -162,6 +165,7 @@ impl RpcEndpoint {
 				rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
 				host_filter,
 				cors,
+				tcp_nodelay: self.tcp_nodelay,
 			},
 		})
 	}
@@ -178,6 +182,12 @@ impl Listener {
 	/// Accepts a new connection.
 	pub(crate) async fn accept(&mut self) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
 		let (sock, remote_addr) = self.listener.accept().await?;
+		// jsonrpsee only does this in its own accept loop, which we do not use.
+		if self.cfg.tcp_nodelay {
+			if let Err(e) = sock.set_nodelay(true) {
+				log::debug!(target: "rpc", "Failed to set TCP_NODELAY for {remote_addr}: {e:?}");
+			}
+		}
 		Ok((sock, remote_addr))
 	}
 

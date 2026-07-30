@@ -144,7 +144,16 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 			}
 			let runner = cli.create_runner(&cli.run)?;
 
-			runner.run_node_until_exit(|config| async move {
+			runner.run_node_until_exit(|mut config| async move {
+				// eth-rpc talks to this node using the chainHead API, which splits the response to
+				// a query into multiple messages. With the TCP Nagle algorithm enabled this can add
+				// significant delay to runtime API calls.
+				if let Some(addrs) = config.rpc.addr.as_mut() {
+					for addr in addrs.iter_mut() {
+						addr.tcp_nodelay = true;
+					}
+				}
+
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => {
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
