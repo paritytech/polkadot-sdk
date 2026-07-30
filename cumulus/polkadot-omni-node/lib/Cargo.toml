@@ -126,8 +126,6 @@ wait-timeout = { workspace = true }
 
 [features]
 default = []
-# Serve an Ethereum JSON-RPC endpoint for `pallet-revive` from inside the node.
-# Experimental: the transport between the endpoint and the node is still being reworked.
 eth-rpc = ["dep:pallet-revive-eth-rpc"]
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
