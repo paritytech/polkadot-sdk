@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785430310054,
+  "lastUpdate": 1785441359870,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "142ceec0b8a6d6da6516770f6c1b2bcb46396a58",
-          "message": "staking: do not remove an invulnerable in case of bad solution (#10454)\n\nInvulnerables are not automatically removed from the Invulnerables\nstorage when their solution is rejected.\nRemoval should occur only through governance, not automatically. \nAn operational or network issue that leads to an incomplete submission\nis much more likely than a bad faith action from an invulnerable.\n\nClose https://github.com/paritytech-secops/srlabs_findings/issues/602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T14:57:41Z",
-          "tree_id": "87e3c0007818f8466336c3a539e6907f2f23ffcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/142ceec0b8a6d6da6516770f6c1b2bcb46396a58"
-        },
-        "date": 1764347585324,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.325725670666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2027852080666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14125892073333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3",
+          "message": "statement-store: replay subscriptions from persisted admission cursor (#12697)\n\n## Summary\n\nImpl #12153\n\n- persist an active-statement admission sequence in parity-db and\nrestore it on startup\n- replay dynamically attached subscription filters from a cursor up to a\nregistration watermark instead of materializing a full hash snapshot\n- bound replay batches by raw statement bytes while preserving\nreplay-before-live ordering and re-admission semantics\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T18:15:12Z",
+          "tree_id": "27b534d0d7740f5bdfb9183bfb428e1a47b9e70f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3"
+        },
+        "date": 1785441326677,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 311748.5666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 4.8999999999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.102170196033335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1411343856,
             "unit": "seconds"
           }
         ]
