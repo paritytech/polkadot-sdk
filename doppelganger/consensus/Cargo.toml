@@ -27,6 +27,15 @@ polkadot-runtime-parachains = { workspace = true, default-features = true }
 
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+# RFC-163 elliptic-curve host functions. Needed by the throwaway WasmExecutor below that
+# resolves the state version: without them, instantiating any runtime importing
+# `ext_host_calls_bls12_381_*` / `ext_host_calls_ed_on_bls12_381_bandersnatch_mul` fails.
+# Same dep line as polkadot/node/core/pvf/common and cumulus/client/service.
+sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["rfc163"] }
+# Statement-store host functions: People/individuality imports
+# `ext_statement_store_remove_by_version_1`. Part of the omni-node's canonical set
+# (cumulus/polkadot-omni-node/lib/src/common/types.rs).
+sp-statement-store = { workspace = true, default-features = true }
 
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
