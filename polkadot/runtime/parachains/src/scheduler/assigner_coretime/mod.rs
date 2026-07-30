@@ -137,7 +137,6 @@ impl<N> Schedule<N> {
 	}
 
 	/// Accessor for assignments (needed by tests).
-	#[cfg(test)]
 	pub fn assignments(&self) -> &[(CoreAssignment, PartsOf57600)] {
 		&self.assignments
 	}
