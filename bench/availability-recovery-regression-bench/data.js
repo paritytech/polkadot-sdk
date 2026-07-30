@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785413440315,
+  "lastUpdate": 1785430310054,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e73397897316a7446fe4985292aa4cf3c6ea62df",
-          "message": "collator-protocol: don't disconnect on slot end when we have pending collations (#10446)\n\nWe pre-connect one slot in advance and we disconnect when our slot ends\neven when we have pending collations which is wrong. This change fixes\nthis by keeping the connections open until the collation is requested or\nrelay parent expires.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T13:34:15Z",
-          "tree_id": "2333702b47e0cbba9efbd7eafcf6b7e6c781264e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e73397897316a7446fe4985292aa4cf3c6ea62df"
-        },
-        "date": 1764342788983,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19872335109999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.389079758166668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.100825676633331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da5c966029ce352120d5928d789ee3df0f97db46",
+          "message": "Collator revamp: collator interop zombienet test (#11189)\n\nA zombienet-sdk test verifying that collators without ApprovedPeer UMP\nsignal support and V1 collators work with validators using the\nexperimental implementation.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T15:09:27Z",
+          "tree_id": "645a071583327320abf0a3c6bbe68f3fe93333dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/da5c966029ce352120d5928d789ee3df0f97db46"
+        },
+        "date": 1785430276241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.1779253136,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14125892073333335,
             "unit": "seconds"
           }
         ]
