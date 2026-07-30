@@ -26854,6 +26854,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
+ "scale-info",
  "tokio",
  "zombienet-configuration",
  "zombienet-orchestrator",
