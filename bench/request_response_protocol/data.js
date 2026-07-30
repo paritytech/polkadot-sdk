@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785429507363,
+  "lastUpdate": 1785440489902,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -110699,6 +110699,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2550752797,
             "range": "± 15380984",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3",
+          "message": "statement-store: replay subscriptions from persisted admission cursor (#12697)\n\n## Summary\n\nImpl #12153\n\n- persist an active-statement admission sequence in parity-db and\nrestore it on startup\n- replay dynamically attached subscription filters from a cursor up to a\nregistration watermark instead of materializing a full hash snapshot\n- bound replay batches by raw statement bytes while preserving\nreplay-before-live ordering and re-admission semantics\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T18:15:12Z",
+          "tree_id": "27b534d0d7740f5bdfb9183bfb428e1a47b9e70f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/68ef8f9cf89d90460d6ca69a2aebf81d75e4d2e3"
+        },
+        "date": 1785440453275,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22000849,
+            "range": "± 160683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22696049,
+            "range": "± 194783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23914475,
+            "range": "± 200523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 29001744,
+            "range": "± 292097",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67365218,
+            "range": "± 1155513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 438038799,
+            "range": "± 4859210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2931424152,
+            "range": "± 227928196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19476159,
+            "range": "± 102461",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19320694,
+            "range": "± 179096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19982497,
+            "range": "± 194508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24710844,
+            "range": "± 214194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70167400,
+            "range": "± 742747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 422061155,
+            "range": "± 3974158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2930138504,
+            "range": "± 17097830",
             "unit": "ns/iter"
           }
         ]
