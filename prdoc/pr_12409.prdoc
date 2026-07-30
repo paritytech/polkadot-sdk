@@ -20,3 +20,5 @@ doc:
 crates:
 - name: pallet-multi-asset-bounties
   bump: minor
+  validate: false
+  note: Adds only a new extrinsic (`increase_value`) and a new event variant. Additive on-chain — no storage migration, no change to existing call indices, storage, or behaviour.
