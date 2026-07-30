@@ -27,20 +27,29 @@ use std::time::Duration;
 pub mod removal_reasons {
 	/// All recipients acknowledged; the entry served its purpose.
 	pub const ACKED: &str = "acked";
-	/// Expired after landing on-chain.
+	/// Expired after the node observed the entry on-chain.
 	pub const EXPIRED_PROMOTED: &str = "expired_promoted";
-	/// Expired without ever landing on-chain; the data is lost.
+	/// Expired without the node ever observing the entry on-chain. An upper
+	/// bound on loss: re-checking stops at `MAX_PROMOTION_ATTEMPTS`.
 	pub const EXPIRED_UNPROMOTED: &str = "expired_unpromoted";
 	/// Blob failed its content-hash integrity check.
 	pub const CORRUPT: &str = "corrupt";
+	/// Lost to startup recovery: `.meta` unreadable, undecodable, stale-version,
+	/// or missing its blob.
+	pub const STARTUP_DROPPED: &str = "startup_dropped";
 }
 
-/// `method` label values for the RPC metrics.
+/// `method` label values: the wire names, so they join against the RPC
+/// middleware's `substrate_rpc_calls_*`.
 pub mod rpc_methods {
-	pub const SUBMIT: &str = "submit";
-	pub const CLAIM: &str = "claim";
-	pub const ACK: &str = "ack";
-	pub const POOL_STATUS: &str = "pool_status";
+	/// `hop_submit`.
+	pub const SUBMIT: &str = "hop_submit";
+	/// `hop_claim`.
+	pub const CLAIM: &str = "hop_claim";
+	/// `hop_ack`.
+	pub const ACK: &str = "hop_ack";
+	/// `hop_poolStatus`.
+	pub const POOL_STATUS: &str = "hop_poolStatus";
 }
 
 /// `outcome` label for successful operations.
@@ -178,7 +187,8 @@ impl Inner {
 			promotions_abandoned_total: register(
 				Counter::new(
 					"substrate_hop_promotions_abandoned_total",
-					"Total number of HOP entries that exhausted all promotion attempts",
+					"Total number of HOP entries that exhausted all promotion attempts; \
+					 an upper bound on loss, the last submission may still have landed",
 				)?,
 				registry,
 			)?,
@@ -229,6 +239,11 @@ impl HopMetrics {
 		Self { inner: None }
 	}
 
+	/// Whether metrics were registered.
+	pub(crate) fn is_enabled(&self) -> bool {
+		self.inner.is_some()
+	}
+
 	/// Set the pool gauges to absolute values (used after disk recovery).
 	pub(crate) fn set_pool_status(&self, entries: u64, bytes: u64, max_bytes: u64) {
 		if let Some(inner) = &self.inner {
@@ -241,7 +256,8 @@ impl HopMetrics {
 	/// Snapshot the pool size gauges. Gauges are set from the authoritative
 	/// counts rather than inc/dec'd: a `Gauge<U64>` wraps on underflow, so any
 	/// missed or double-counted delta would poison the gauge forever, while a
-	/// snapshot self-corrects on the next update.
+	/// snapshot self-corrects on the next update. Callers publish under the
+	/// pool's index lock, so mutations arrive here in lock order.
 	pub(crate) fn set_pool_size(&self, entries: u64, bytes: u64) {
 		if let Some(inner) = &self.inner {
 			inner.pool_entries.set(entries);
@@ -293,7 +309,9 @@ impl HopMetrics {
 	}
 
 	/// Record one entry that reached the promotion attempt cap and will expire
-	/// without further attempts.
+	/// without further attempts. An upper bound on loss, like
+	/// [`removal_reasons::EXPIRED_UNPROMOTED`]: the last submission may have
+	/// landed after all.
 	pub(crate) fn record_promotion_abandoned(&self) {
 		if let Some(inner) = &self.inner {
 			inner.promotions_abandoned_total.inc();
@@ -370,6 +388,25 @@ impl HopMetrics {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn duplicate_registration_fails_and_falls_back_to_disabled() {
+		let registry = Registry::new();
+		assert!(HopMetrics::new(Some(&registry)).unwrap().is_enabled());
+
+		// `HopParams::build_pool` degrades this error into disabled metrics.
+		assert!(matches!(HopMetrics::new(Some(&registry)), Err(PrometheusError::AlreadyReg)));
+
+		let fallback = HopMetrics::new(Some(&registry)).unwrap_or_else(|_| HopMetrics::disabled());
+		assert!(!fallback.is_enabled());
+		fallback.record_removed(removal_reasons::ACKED, 1);
+		assert_eq!(fallback.removed_count(removal_reasons::ACKED), 0);
+	}
+
+	#[test]
+	fn no_registry_means_disabled() {
+		assert!(!HopMetrics::new(None).unwrap().is_enabled());
+	}
 
 	#[test]
 	fn disabled_metrics_are_no_ops() {
