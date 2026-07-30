@@ -37,7 +37,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2026-07-30, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `7656a8b0fccd`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `189ea5a442f2`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -103,8 +103,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `168`
 		//  Estimated: `28584`
-		// Minimum execution time: 56_999_000 picoseconds.
-		Weight::from_parts(59_954_000, 28584)
+		// Minimum execution time: 56_142_000 picoseconds.
+		Weight::from_parts(59_192_000, 28584)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -123,10 +123,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `28584 + m * (2822 ±0)`
-		// Minimum execution time: 68_342_000 picoseconds.
-		Weight::from_parts(66_867_735, 28584)
-			// Standard Error: 44_142
-			.saturating_add(Weight::from_parts(53_583_519, 0).saturating_mul(m.into()))
+		// Minimum execution time: 67_743_000 picoseconds.
+		Weight::from_parts(71_512_721, 28584)
+			// Standard Error: 55_005
+			.saturating_add(Weight::from_parts(54_216_922, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(m.into())))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
@@ -138,7 +138,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scarcity::ItemDefs` (r:1 w:1)
 	/// Proof: `Scarcity::ItemDefs` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NextInstanceId` (r:1 w:1)
 	/// Proof: `Scarcity::NextInstanceId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -147,6 +147,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(11322), added: 13797, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadata` (r:100 w:100)
 	/// Proof: `Scarcity::InstanceMetadata` (`max_values`: None, `max_size`: Some(339), added: 2814, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadataCount` (r:0 w:1)
@@ -160,30 +162,32 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `580`
 		//  Estimated: `28584 + m * (2814 ±0)`
-		// Minimum execution time: 86_086_000 picoseconds.
-		Weight::from_parts(92_147_633, 28584)
-			// Standard Error: 51_855
-			.saturating_add(Weight::from_parts(52_297_317, 0).saturating_mul(m.into()))
-			.saturating_add(T::DbWeight::get().reads(8_u64))
+		// Minimum execution time: 93_456_000 picoseconds.
+		Weight::from_parts(84_510_329, 28584)
+			// Standard Error: 58_439
+			.saturating_add(Weight::from_parts(52_756_553, 0).saturating_mul(m.into()))
+			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(m.into())))
-			.saturating_add(T::DbWeight::get().writes(8_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2814).saturating_mul(m.into()))
 	}
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Instances` (r:0 w:1)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `427`
-		//  Estimated: `3545`
-		// Minimum execution time: 18_055_000 picoseconds.
-		Weight::from_parts(19_467_000, 3545)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+		//  Estimated: `3593`
+		// Minimum execution time: 25_460_000 picoseconds.
+		Weight::from_parts(27_427_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Scarcity::InstanceMetadataCount` (r:1 w:1)
 	/// Proof: `Scarcity::InstanceMetadataCount` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `MaxEncodedLen`)
@@ -204,10 +208,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `609 + m * (331 ±0)`
 		//  Estimated: `4036 + m * (2814 ±0)`
-		// Minimum execution time: 71_117_000 picoseconds.
-		Weight::from_parts(76_968_989, 4036)
-			// Standard Error: 3_475
-			.saturating_add(Weight::from_parts(5_728_301, 0).saturating_mul(m.into()))
+		// Minimum execution time: 72_609_000 picoseconds.
+		Weight::from_parts(77_743_480, 4036)
+			// Standard Error: 3_818
+			.saturating_add(Weight::from_parts(5_666_915, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(m.into())))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
@@ -220,8 +224,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `267`
 		//  Estimated: `3602`
-		// Minimum execution time: 14_608_000 picoseconds.
-		Weight::from_parts(15_928_000, 3602)
+		// Minimum execution time: 14_776_000 picoseconds.
+		Weight::from_parts(16_102_000, 3602)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -237,8 +241,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `28584`
-		// Minimum execution time: 70_811_000 picoseconds.
-		Weight::from_parts(74_866_000, 28584)
+		// Minimum execution time: 69_347_000 picoseconds.
+		Weight::from_parts(72_942_000, 28584)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -256,15 +260,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `438`
 		//  Estimated: `28584`
-		// Minimum execution time: 80_196_000 picoseconds.
-		Weight::from_parts(84_724_000, 28584)
+		// Minimum execution time: 79_530_000 picoseconds.
+		Weight::from_parts(83_864_000, 28584)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Scarcity::Instances` (r:1 w:0)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:0)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadata` (r:1 w:1)
@@ -277,17 +281,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
 	fn set_instance_metadata() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `673`
+		//  Measured:  `683`
 		//  Estimated: `28584`
-		// Minimum execution time: 84_054_000 picoseconds.
-		Weight::from_parts(88_230_000, 28584)
+		// Minimum execution time: 83_951_000 picoseconds.
+		Weight::from_parts(88_543_000, 28584)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Scarcity::Instances` (r:1 w:1)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadataCount` (r:1 w:1)
@@ -300,28 +304,45 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Scarcity::ItemDefs` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Locked` (r:0 w:1)
 	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// The range of component `m` is `[0, 100]`.
 	fn force_burn(m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `770 + m * (331 ±0)`
+		//  Measured:  `882 + m * (331 ±0)`
 		//  Estimated: `4036 + m * (2814 ±0)`
-		// Minimum execution time: 85_668_000 picoseconds.
-		Weight::from_parts(92_193_219, 4036)
-			// Standard Error: 3_481
-			.saturating_add(Weight::from_parts(5_720_295, 0).saturating_mul(m.into()))
-			.saturating_add(T::DbWeight::get().reads(8_u64))
+		// Minimum execution time: 92_799_000 picoseconds.
+		Weight::from_parts(100_034_871, 4036)
+			// Standard Error: 4_574
+			.saturating_add(Weight::from_parts(5_713_596, 0).saturating_mul(m.into()))
+			.saturating_add(T::DbWeight::get().reads(9_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(m.into())))
-			.saturating_add(T::DbWeight::get().writes(8_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2814).saturating_mul(m.into()))
 	}
-	// Temporary conservative weight. The PR benchmark bot will regenerate this file.
+	/// Storage: `Scarcity::Instances` (r:1 w:1)
+	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+	/// Storage: `Scarcity::NftsByOwner` (r:2 w:2)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+	/// Storage: `Scarcity::Collections` (r:1 w:0)
+	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Scarcity::Locked` (r:0 w:1)
+	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn force_transfer() -> Weight {
-		Weight::from_parts(100_000_000, 10_000)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
+		// Proof Size summary in bytes:
+		//  Measured:  `945`
+		//  Estimated: `6196`
+		// Minimum execution time: 50_001_000 picoseconds.
+		Weight::from_parts(53_140_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
@@ -335,8 +356,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `434`
 		//  Estimated: `4036`
-		// Minimum execution time: 63_000_000 picoseconds.
-		Weight::from_parts(66_549_000, 4036)
+		// Minimum execution time: 61_953_000 picoseconds.
+		Weight::from_parts(64_911_000, 4036)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
@@ -352,8 +373,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `4036`
-		// Minimum execution time: 58_728_000 picoseconds.
-		Weight::from_parts(62_075_000, 4036)
+		// Minimum execution time: 56_939_000 picoseconds.
+		Weight::from_parts(60_227_000, 4036)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -367,8 +388,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `532`
 		//  Estimated: `7082`
-		// Minimum execution time: 93_347_000 picoseconds.
-		Weight::from_parts(97_796_000, 7082)
+		// Minimum execution time: 90_725_000 picoseconds.
+		Weight::from_parts(94_553_000, 7082)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
@@ -377,13 +398,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scarcity::Locked` (r:1 w:1)
 	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:2 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	fn as_scarcity_pipeline() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `634`
-		//  Estimated: `6100`
-		// Minimum execution time: 26_294_000 picoseconds.
-		Weight::from_parts(27_860_000, 6100)
+		//  Measured:  `644`
+		//  Estimated: `6116`
+		// Minimum execution time: 25_864_000 picoseconds.
+		Weight::from_parts(27_397_000, 6116)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -403,8 +424,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `168`
 		//  Estimated: `28584`
-		// Minimum execution time: 56_999_000 picoseconds.
-		Weight::from_parts(59_954_000, 28584)
+		// Minimum execution time: 56_142_000 picoseconds.
+		Weight::from_parts(59_192_000, 28584)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -423,10 +444,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `28584 + m * (2822 ±0)`
-		// Minimum execution time: 68_342_000 picoseconds.
-		Weight::from_parts(66_867_735, 28584)
-			// Standard Error: 44_142
-			.saturating_add(Weight::from_parts(53_583_519, 0).saturating_mul(m.into()))
+		// Minimum execution time: 67_743_000 picoseconds.
+		Weight::from_parts(71_512_721, 28584)
+			// Standard Error: 55_005
+			.saturating_add(Weight::from_parts(54_216_922, 0).saturating_mul(m.into()))
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(m.into())))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
@@ -438,7 +459,7 @@ impl WeightInfo for () {
 	/// Storage: `Scarcity::ItemDefs` (r:1 w:1)
 	/// Proof: `Scarcity::ItemDefs` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NextInstanceId` (r:1 w:1)
 	/// Proof: `Scarcity::NextInstanceId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -447,6 +468,8 @@ impl WeightInfo for () {
 	/// Proof: `Parameters::Parameters` (`max_values`: None, `max_size`: Some(11322), added: 13797, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadata` (r:100 w:100)
 	/// Proof: `Scarcity::InstanceMetadata` (`max_values`: None, `max_size`: Some(339), added: 2814, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadataCount` (r:0 w:1)
@@ -460,30 +483,32 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `580`
 		//  Estimated: `28584 + m * (2814 ±0)`
-		// Minimum execution time: 86_086_000 picoseconds.
-		Weight::from_parts(92_147_633, 28584)
-			// Standard Error: 51_855
-			.saturating_add(Weight::from_parts(52_297_317, 0).saturating_mul(m.into()))
-			.saturating_add(RocksDbWeight::get().reads(8_u64))
+		// Minimum execution time: 93_456_000 picoseconds.
+		Weight::from_parts(84_510_329, 28584)
+			// Standard Error: 58_439
+			.saturating_add(Weight::from_parts(52_756_553, 0).saturating_mul(m.into()))
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(m.into())))
-			.saturating_add(RocksDbWeight::get().writes(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2814).saturating_mul(m.into()))
 	}
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Instances` (r:0 w:1)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `427`
-		//  Estimated: `3545`
-		// Minimum execution time: 18_055_000 picoseconds.
-		Weight::from_parts(19_467_000, 3545)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+		//  Estimated: `3593`
+		// Minimum execution time: 25_460_000 picoseconds.
+		Weight::from_parts(27_427_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Scarcity::InstanceMetadataCount` (r:1 w:1)
 	/// Proof: `Scarcity::InstanceMetadataCount` (`max_values`: None, `max_size`: Some(20), added: 2495, mode: `MaxEncodedLen`)
@@ -504,10 +529,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `609 + m * (331 ±0)`
 		//  Estimated: `4036 + m * (2814 ±0)`
-		// Minimum execution time: 71_117_000 picoseconds.
-		Weight::from_parts(76_968_989, 4036)
-			// Standard Error: 3_475
-			.saturating_add(Weight::from_parts(5_728_301, 0).saturating_mul(m.into()))
+		// Minimum execution time: 72_609_000 picoseconds.
+		Weight::from_parts(77_743_480, 4036)
+			// Standard Error: 3_818
+			.saturating_add(Weight::from_parts(5_666_915, 0).saturating_mul(m.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(m.into())))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
@@ -520,8 +545,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `267`
 		//  Estimated: `3602`
-		// Minimum execution time: 14_608_000 picoseconds.
-		Weight::from_parts(15_928_000, 3602)
+		// Minimum execution time: 14_776_000 picoseconds.
+		Weight::from_parts(16_102_000, 3602)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -537,8 +562,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `28584`
-		// Minimum execution time: 70_811_000 picoseconds.
-		Weight::from_parts(74_866_000, 28584)
+		// Minimum execution time: 69_347_000 picoseconds.
+		Weight::from_parts(72_942_000, 28584)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -556,15 +581,15 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `438`
 		//  Estimated: `28584`
-		// Minimum execution time: 80_196_000 picoseconds.
-		Weight::from_parts(84_724_000, 28584)
+		// Minimum execution time: 79_530_000 picoseconds.
+		Weight::from_parts(83_864_000, 28584)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Scarcity::Instances` (r:1 w:0)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:0)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadata` (r:1 w:1)
@@ -577,17 +602,17 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
 	fn set_instance_metadata() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `673`
+		//  Measured:  `683`
 		//  Estimated: `28584`
-		// Minimum execution time: 84_054_000 picoseconds.
-		Weight::from_parts(88_230_000, 28584)
+		// Minimum execution time: 83_951_000 picoseconds.
+		Weight::from_parts(88_543_000, 28584)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Scarcity::Instances` (r:1 w:1)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:1 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceMetadataCount` (r:1 w:1)
@@ -600,28 +625,45 @@ impl WeightInfo for () {
 	/// Proof: `Scarcity::ItemDefs` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Locked` (r:0 w:1)
 	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// The range of component `m` is `[0, 100]`.
 	fn force_burn(m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `770 + m * (331 ±0)`
+		//  Measured:  `882 + m * (331 ±0)`
 		//  Estimated: `4036 + m * (2814 ±0)`
-		// Minimum execution time: 85_668_000 picoseconds.
-		Weight::from_parts(92_193_219, 4036)
-			// Standard Error: 3_481
-			.saturating_add(Weight::from_parts(5_720_295, 0).saturating_mul(m.into()))
-			.saturating_add(RocksDbWeight::get().reads(8_u64))
+		// Minimum execution time: 92_799_000 picoseconds.
+		Weight::from_parts(100_034_871, 4036)
+			// Standard Error: 4_574
+			.saturating_add(Weight::from_parts(5_713_596, 0).saturating_mul(m.into()))
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(m.into())))
-			.saturating_add(RocksDbWeight::get().writes(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2814).saturating_mul(m.into()))
 	}
-	// Temporary conservative weight. The PR benchmark bot will regenerate this file.
+	/// Storage: `Scarcity::Instances` (r:1 w:1)
+	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
+	/// Storage: `Scarcity::NftsByOwner` (r:2 w:2)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+	/// Storage: `Scarcity::Collections` (r:1 w:0)
+	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Scarcity::Locked` (r:0 w:1)
+	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn force_transfer() -> Weight {
-		Weight::from_parts(100_000_000, 10_000)
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+		// Proof Size summary in bytes:
+		//  Measured:  `945`
+		//  Estimated: `6196`
+		// Minimum execution time: 50_001_000 picoseconds.
+		Weight::from_parts(53_140_000, 6196)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	/// Storage: `Scarcity::Collections` (r:1 w:1)
 	/// Proof: `Scarcity::Collections` (`max_values`: None, `max_size`: Some(137), added: 2612, mode: `MaxEncodedLen`)
@@ -635,8 +677,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `434`
 		//  Estimated: `4036`
-		// Minimum execution time: 63_000_000 picoseconds.
-		Weight::from_parts(66_549_000, 4036)
+		// Minimum execution time: 61_953_000 picoseconds.
+		Weight::from_parts(64_911_000, 4036)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
@@ -652,8 +694,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `364`
 		//  Estimated: `4036`
-		// Minimum execution time: 58_728_000 picoseconds.
-		Weight::from_parts(62_075_000, 4036)
+		// Minimum execution time: 56_939_000 picoseconds.
+		Weight::from_parts(60_227_000, 4036)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -667,8 +709,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `532`
 		//  Estimated: `7082`
-		// Minimum execution time: 93_347_000 picoseconds.
-		Weight::from_parts(97_796_000, 7082)
+		// Minimum execution time: 90_725_000 picoseconds.
+		Weight::from_parts(94_553_000, 7082)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
@@ -677,13 +719,13 @@ impl WeightInfo for () {
 	/// Storage: `Scarcity::Locked` (r:1 w:1)
 	/// Proof: `Scarcity::Locked` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::NftsByOwner` (r:2 w:1)
-	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Proof: `Scarcity::NftsByOwner` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
 	fn as_scarcity_pipeline() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `634`
-		//  Estimated: `6100`
-		// Minimum execution time: 26_294_000 picoseconds.
-		Weight::from_parts(27_860_000, 6100)
+		//  Measured:  `644`
+		//  Estimated: `6116`
+		// Minimum execution time: 25_864_000 picoseconds.
+		Weight::from_parts(27_397_000, 6116)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
