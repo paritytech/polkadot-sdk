@@ -36,7 +36,6 @@ either = { workspace = true, default-features = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-hash2curve = { workspace = true }
 ip_network = { workspace = true }
 libp2p = { features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"], workspace = true }
 linked_hash_set = { workspace = true }
@@ -58,7 +57,7 @@ sc-utils = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sha2 = { version = "0.11", features = ["oid"], default-features = true }
+sha2 = { workspace = true, default-features = true, features = ["oid"] }
 smallvec = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

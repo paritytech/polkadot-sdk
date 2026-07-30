@@ -22,10 +22,9 @@
 //! advertised WebRTC multiaddresses. Reusing a certificate across restarts keeps the
 //! certhash stable, similarly to how reusing the node secret key keeps the peer id stable.
 
-use hash2curve::{hash_to_scalar, ExpandMsgXmd};
 use p256::{
 	ecdsa::{DerSignature, SigningKey},
-	elliptic_curve::consts::U48,
+	elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest},
 	pkcs8::EncodePrivateKey,
 	NistP256, NonZeroScalar, SecretKey,
 };
@@ -33,15 +32,16 @@ use sha2::{Digest, Sha256};
 use x509_cert::{
 	builder::{Builder, CertificateBuilder, Profile},
 	der::{
-		asn1::{GeneralizedTime, UtcTime},
-		DateTime, Encode as _,
+		self,
+		asn1::{GeneralizedTime, ObjectIdentifier, UtcTime},
+		oid::AssociatedOid,
+		DateTime, Encode as _, EncodeValue, FixedTag, Length, Tag, Writer,
 	},
-	ext::{pkix::constraints::BasicConstraints, Extension, ToExtension},
+	ext::{pkix::constraints::BasicConstraints, AsExtension, Extension},
 	name::Name,
 	serial_number::SerialNumber,
-	spki::{SubjectPublicKeyInfoOwned, SubjectPublicKeyInfoRef},
+	spki::SubjectPublicKeyInfoOwned,
 	time::{Time, Validity},
-	TbsCertificate,
 };
 
 use litep2p::transport::webrtc::DtlsCertificate;
@@ -61,32 +61,31 @@ const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-dtls-p256-v1";
 /// number, and therefore the certificate and its certhash.
 const CERTIFICATE_SERIAL_DST: &[u8] = b"substrate-webrtc-dtls-certificate-serial-v1";
 
-/// Minimal certificate profile.
-struct SelfSigned {
-	name: Name,
+/// The certificate needs at least one extension to stay at v3,
+/// and `BasicConstraints` is the minimal end-entity choice.
+struct BasicExtension(BasicConstraints);
+
+impl AssociatedOid for BasicExtension {
+	const OID: ObjectIdentifier = BasicConstraints::OID;
 }
 
-impl Profile for SelfSigned {
-	fn get_issuer(&self, _subject: &Name) -> Name {
-		self.name.clone()
+impl FixedTag for BasicExtension {
+	const TAG: Tag = Tag::Sequence;
+}
+
+impl EncodeValue for BasicExtension {
+	fn value_len(&self) -> der::Result<Length> {
+		self.0.value_len()
 	}
 
-	fn get_subject(&self) -> Name {
-		self.name.clone()
+	fn encode_value(&self, writer: &mut impl Writer) -> der::Result<()> {
+		self.0.encode_value(writer)
 	}
+}
 
-	fn build_extensions(
-		&self,
-		_spk: SubjectPublicKeyInfoRef<'_>,
-		_issuer_spk: SubjectPublicKeyInfoRef<'_>,
-		_tbs: &TbsCertificate,
-	) -> Result<Vec<Extension>, x509_cert::builder::Error> {
-		// The builder downgrades the certificate to v1 whenever the extension list is empty.
-		// One end-entity constraint keeps us on v3.
-		// Criticality is pinned explicitly rather than inherited from `BasicConstraints`,
-		// whose `Criticality` impl hardcodes `true`; RFC 5280 4.2.1.9 allows either here.
-		let basic_constraints = BasicConstraints { ca: false, path_len_constraint: None };
-		Ok(vec![(false, &basic_constraints).to_extension(&self.name, &[])?])
+impl AsExtension for BasicExtension {
+	fn critical(&self, _subject: &Name, _extensions: &[Extension]) -> bool {
+		false
 	}
 }
 
@@ -96,7 +95,7 @@ impl Profile for SelfSigned {
 pub enum CertificateError {
 	/// Failed to derive the P-256 signing key from the seed via RFC 9380 hash-to-field.
 	#[error("failed to derive a P-256 scalar from the seed: {0}")]
-	ScalarDerivation(#[from] hash2curve::ExpandMsgXmdError),
+	ScalarDerivation(#[from] p256::elliptic_curve::Error),
 	/// The RFC 9380 derivation produced a zero scalar.
 	#[error("derived a zero P-256 scalar from the seed")]
 	ZeroScalar,
@@ -132,15 +131,36 @@ pub fn derive_certificate(
 	webrtc_seed: Option<u64>,
 ) -> Result<DtlsCertificate, CertificateError> {
 	let (signing_key, private_key) = derive_keys(seed, webrtc_seed)?;
-	let public_key = SubjectPublicKeyInfoOwned::from_key(signing_key.verifying_key())?;
+	let public_key = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())?;
 	let serial = derive_serial(seed)?;
 	let validity = generate_validity();
 	let name = Name::from_str("CN=polkadot-sdk-webrtc")
 		.expect("polkadot-sdk-webrtc is a valid RDN string; qed");
 
-	// SelfSigned makes the certificate self-issued, WebRTC peers only check the fingerprint.
-	let certificate = CertificateBuilder::new(SelfSigned { name }, serial, validity, public_key)
-		.and_then(|builder| builder.build::<_, DerSignature>(&signing_key))
+	// `Profile::Manual` opts out of the builder's default extension set,
+	//  and a `None` issuer makes the certificate self-issued.
+	//  WebRTC peers only check the fingerprint.
+	let mut builder = CertificateBuilder::new(
+		Profile::Manual { issuer: None },
+		serial,
+		validity,
+		name,
+		public_key,
+		&signing_key,
+	)
+	.map_err(CertificateError::CertificateBuild)?;
+
+	// The builder downgrades the certificate to v1 whenever the extension list is empty.
+	// One end-entity constraint keeps us on v3.
+	builder
+		.add_extension(&BasicExtension(BasicConstraints {
+			ca: false,
+			path_len_constraint: None,
+		}))
+		.map_err(CertificateError::CertificateBuild)?;
+
+	let certificate = builder
+		.build::<DerSignature>()
 		.map_err(CertificateError::CertificateBuild)?
 		.to_der()
 		.map_err(CertificateError::CertificateEncoding)?;
@@ -161,7 +181,7 @@ fn derive_keys(
 	// Derive the P-256 signing key via RFC 9380 hash-to-field.
 	// This stretches the seed into pseudorandom bytes via `expand_message_xmd`,
 	// with field reduction for producing an EC private key.
-	let scalar = hash_to_scalar::<NistP256, ExpandMsgXmd<Sha256>, U48>(
+	let scalar = NistP256::hash_to_scalar::<ExpandMsgXmd<Sha256>>(
 		&[&seed],
 		&[CERTIFICATE_KEY_DST, dst_suffix],
 	)?;
@@ -196,7 +216,7 @@ fn generate_validity() -> Validity {
 	let not_after = DateTime::new(9999, 12, 31, 23, 59, 59)
 		.map(GeneralizedTime::from_date_time)
 		.expect("9999-12-31 23:59:59 is a valid date, the maximum DER DateTime supports; qed");
-	Validity::new(Time::UtcTime(not_before), Time::GeneralTime(not_after))
+	Validity { not_before: Time::UtcTime(not_before), not_after: Time::GeneralTime(not_after) }
 }
 
 #[cfg(test)]
@@ -235,8 +255,8 @@ mod tests {
 
 		// The builder silently downgrades to v1 when the extension list is empty, which drops
 		// the `[0] EXPLICIT version` field from the DER and changes the certhash.
-		assert_eq!(parsed.tbs_certificate().version(), Version::V3);
-		assert!(parsed.tbs_certificate().extensions().is_some_and(|ext| !ext.is_empty()));
+		assert_eq!(parsed.tbs_certificate.version, Version::V3);
+		assert!(parsed.tbs_certificate.extensions.as_ref().is_some_and(|ext| !ext.is_empty()));
 	}
 
 	#[test]
@@ -283,8 +303,8 @@ mod tests {
 		let serial = |certificate: &DtlsCertificate| {
 			Certificate::from_der(certificate.as_parts().0)
 				.unwrap()
-				.tbs_certificate()
-				.serial_number()
+				.tbs_certificate
+				.serial_number
 				.clone()
 		};
 		assert_eq!(serial(&unseeded), serial(&first));
@@ -333,7 +353,7 @@ mod tests {
 		let (certificate_der, _) = certificate.as_parts();
 
 		let parsed = Certificate::from_der(certificate_der).unwrap();
-		let validity = parsed.tbs_certificate().validity();
+		let validity = parsed.tbs_certificate.validity;
 		assert_eq!(validity.not_before.to_date_time(), DateTime::new(2000, 1, 1, 0, 0, 0).unwrap());
 		assert_eq!(
 			validity.not_after.to_date_time(),
@@ -344,15 +364,15 @@ mod tests {
 		// the certificate's own public key.
 		let public_key = VerifyingKey::from_sec1_bytes(
 			parsed
-				.tbs_certificate()
-				.subject_public_key_info()
+				.tbs_certificate
+				.subject_public_key_info
 				.subject_public_key
 				.as_bytes()
 				.unwrap(),
 		)
 		.unwrap();
-		let tbs = parsed.tbs_certificate().to_der().unwrap();
-		let signature = DerSignature::try_from(parsed.signature().as_bytes().unwrap()).unwrap();
+		let tbs = parsed.tbs_certificate.to_der().unwrap();
+		let signature = DerSignature::try_from(parsed.signature.as_bytes().unwrap()).unwrap();
 		public_key.verify(&tbs, &signature).unwrap();
 	}
 }

@@ -17,9 +17,6 @@ doc:
 
     `derive_certificate` derives a P-256 signing key from the 32-byte node key seed via RFC 9380 `hash_to_field` then builds a minimal self-signed X.509 certificate and loads it into litep2p's `DtlsCertificate`.
 
-    #### Note
-
-    WebRTC certificate derivation needs `sha2` 0.11 to match the `digest` 0.11 traits used by `p256` 0.14 and `hash2curve` 0.14. I didn't bump the main version because it was not straightforward, precisely, `sp-core` has `w3f-bls` as a dependency, which is not compatible with `sha2` 0.11. Do you have any suggestions to handle this? Should this version pinning be kept?
 crates:
 - name: sc-cli
   bump: major
