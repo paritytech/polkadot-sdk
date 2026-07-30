@@ -3,7 +3,7 @@ title: "HOP: ephemeral data pool service for Substrate nodes"
 doc:
   - audience: Node Dev
     description: |
-      Adds `sc-hop` and `sp-hop` crates implementing the Hand-Off Protocol (HOP)
+      Adds the `sc-hop` crate implementing the Hand-Off Protocol (HOP)
       node service. HOP enables peer-to-peer data sharing when recipients are
       offline by holding data in a temporary node-side pool until it is either
       claimed or promoted to on-chain storage via the `HopRuntimeApi` runtime
@@ -13,17 +13,17 @@ doc:
       - Disk-backed data pool (`HopDataPool`) with 256-way sharded blob/meta storage
         and crash-recovery from disk on restart.
       - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
-      - Submission gated by `HopRuntimeApi::can_account_promote(who, data_len)` —
-        the runtime defines its own authorization policy (including any
-        size-tiered rules) and the node is agnostic; bounded by the crate-level
-        `MAX_DATA_SIZE` (8 MiB).
+      - Submission gated by two runtime API calls: `HopRuntimeApi::max_promotion_size`
+        sets the per-submission size cap (authoritative; no separate node-side
+        ceiling), and `HopRuntimeApi::can_account_promote(who, data_len)` defines
+        the per-account authorization policy.
       - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
         `BoundedVec` (`RecipientVec`) so oversized lists are rejected before
         SCALE decoding and signature verification. Duplicate recipients are also
         rejected.
-      - Fixed hard per-user quota (no dynamic scaling with active users) plus
-        bounded per-recipient metadata overhead charged against both pool
-        capacity and per-user usage to close the metadata-amplification DoS.
+      - Per-user quota plus bounded per-recipient metadata overhead charged
+        against both pool capacity and per-user usage to close the
+        metadata-amplification DoS.
       - Domain-separated signing contexts for submit / claim / ack
         (`hop-submit-v1:`, `hop-claim-v1:`, `hop-ack-v1:`) so a signature issued
         for one operation cannot be replayed as another.
@@ -32,23 +32,6 @@ doc:
       - Background maintenance task (`HopMaintenanceTask`) that promotes near-expiry
         entries to on-chain storage, garbage-collects expired ones, and evicts
         stale per-sender rate-limit state.
-
-      **`sp-hop`** defines the `HopRuntimeApi` runtime API trait:
-      `can_account_promote` and `create_promotion_extrinsic`. The promotion
-      extrinsic carries the submitter's `MultiSigner`, `hop_submit`-time
-      `MultiSignature`, and `submit_timestamp` (ms since unix epoch) so the
-      runtime pallet can re-verify the user's consent on-chain instead of
-      trusting the collator. "Submit implies consent to promote" is the
-      protocol semantic, so the signature is reused — no second user signature
-      is needed. The timestamp is bound into the signed payload
-      (`blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`)
-      so the runtime can reject signatures whose submit time is too far from
-      the on-chain clock, preventing indefinite replay of an old `(data,
-      signer, signature)` tuple.
-
-      `hop_submit` takes `submit_timestamp` as an additional argument; clients
-      must include the timestamp they signed over.
-
 
       Integration requires flattening `HopParams` into your CLI, constructing a
       `HopDataPool`, and merging `HopRpcServer` into the RPC module. See `sc-hop`

@@ -178,10 +178,20 @@ where
 
 		let data_len = data.0.len();
 
+		// Reject oversized payloads before the per-account authorization lookup so
+		// a flood of too-big submits cannot force runtime state reads. The cap is
+		// the runtime-declared `max_promotion_size`; the runtime is authoritative.
+		// The crate-level `MAX_DATA_SIZE` cap in the pool still applies independently.
+		let runtime_max = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
+			.map_err(HopError::from)?;
+		if data_len > runtime_max as usize {
+			return Err(HopError::DataTooLarge(data_len, runtime_max as u64).into());
+		}
+
 		// Check authorization before verifying the signature: a flood of unauthorized
 		// requests must not force a signature verification per submit.
 		// `can_account_promote` returns false for any reason the runtime rejects:
-		// unauthorized account, exhausted quota, or data_len exceeding the runtime's limit.
+		// unauthorized account or exhausted per-account quota.
 		let account_id: AccountId32 = signer.clone().into_account();
 		let authorized = runtime_api::can_account_promote::<Block, _>(
 			&*self.client,
@@ -248,11 +258,19 @@ mod tests {
 
 	struct MockClient {
 		authorized: AtomicBool,
+		max_promotion_size: u32,
 	}
 
 	impl MockClient {
 		fn new(authorized: bool) -> Self {
-			Self { authorized: AtomicBool::new(authorized) }
+			Self {
+				authorized: AtomicBool::new(authorized),
+				max_promotion_size: MAX_DATA_SIZE as u32,
+			}
+		}
+
+		fn with_max_promotion_size(authorized: bool, max_promotion_size: u32) -> Self {
+			Self { authorized: AtomicBool::new(authorized), max_promotion_size }
 		}
 	}
 
@@ -304,6 +322,7 @@ mod tests {
 
 		fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
 			match params.function {
+				"HopRuntimeApi_max_promotion_size" => Ok(self.max_promotion_size.encode()),
 				"HopRuntimeApi_can_account_promote" => {
 					Ok(self.authorized.load(Ordering::Relaxed).encode())
 				},
@@ -480,6 +499,44 @@ mod tests {
 		// Accounted bytes include per-recipient metadata overhead, not just the blob.
 		assert_eq!(submit_result.pool_status.total_bytes, crate::types::entry_accounted_size(5, 1),);
 		assert_eq!(pool.status().entry_count, 1);
+	}
+
+	#[test]
+	fn submit_rejects_data_over_runtime_max_promotion_size() {
+		// The runtime advertises the largest blob that fits a block when promoted
+		// via `HopRuntimeApi::max_promotion_size`; the node must reject anything
+		// larger at the RPC boundary — even for an authorized account — so data
+		// that can never be promoted is not admitted into the pool.
+		let limit: u32 = 100;
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(
+			HopDataPool::new(
+				min_pool_size(),
+				min_pool_size(),
+				100,
+				dir.path().to_path_buf(),
+				crate::rate_limit::RateLimitConfig::disabled(),
+			)
+			.unwrap(),
+		);
+		let client = Arc::new(MockClient::with_max_promotion_size(true, limit));
+		let rpc = HopRpcServer::new(pool.clone(), client);
+
+		let (pair, signer) = make_keypair();
+		let data = vec![0u8; limit as usize + 1];
+		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
+
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
+		assert!(result.is_err(), "oversized submission must be rejected");
+		let err = result.unwrap_err();
+		assert!(err.message().contains("Data too large"), "got: {}", err.message());
+		assert_eq!(pool.status().entry_count, 0, "rejected data must not enter the pool");
 	}
 
 	#[test]

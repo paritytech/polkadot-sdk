@@ -255,10 +255,10 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 	}
 }
 
-/// Crate-level upper bound on a HOP entry's data size (8 MiB). Used to
+/// Crate-level upper bound on a HOP entry's data size (2 MiB). Used to
 /// validate pool configuration (e.g. that `bandwidth_burst >= MAX_DATA_SIZE`)
 /// so a single submission cannot overshoot a bandwidth bucket by construction.
-pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
+pub const MAX_DATA_SIZE: u64 = 2 * 1024 * 1024;
 
 /// Default retention period in seconds (24 hours).
 pub const DEFAULT_RETENTION_SECS: u64 = 86_400;
