@@ -58,6 +58,10 @@ pub struct NetworkParams {
 	/// Public address that other nodes will use to connect to this node.
 	///
 	/// This can be used if there's a proxy in front of this node.
+	///
+	/// Experimental: for WebRTC addresses (`/ip4/<ip>/udp/<port>/webrtc-direct`) the node's
+	/// `/certhash/<hash>` is appended automatically if missing. Requires
+	/// `--experimental-webrtc` and a WebRTC listen address, litep2p backend only.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 

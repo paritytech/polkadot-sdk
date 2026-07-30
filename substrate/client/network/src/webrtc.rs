@@ -45,6 +45,7 @@ use x509_cert::{
 };
 
 use litep2p::transport::webrtc::DtlsCertificate;
+use sc_network_types::multihash::{Code, Multihash};
 use std::str::FromStr;
 
 /// RFC 9380 hash-to-field domain-separation tag (DST)
@@ -153,10 +154,7 @@ pub fn derive_certificate(
 	// The builder downgrades the certificate to v1 whenever the extension list is empty.
 	// One end-entity constraint keeps us on v3.
 	builder
-		.add_extension(&BasicExtension(BasicConstraints {
-			ca: false,
-			path_len_constraint: None,
-		}))
+		.add_extension(&BasicExtension(BasicConstraints { ca: false, path_len_constraint: None }))
 		.map_err(CertificateError::CertificateBuild)?;
 
 	let certificate = builder
@@ -166,6 +164,12 @@ pub fn derive_certificate(
 		.map_err(CertificateError::CertificateEncoding)?;
 
 	DtlsCertificate::load(certificate, private_key).map_err(CertificateError::CertificateLoad)
+}
+
+/// Compute the multihash of `certificate`'s DER encoding, i.e. the value of the `/certhash`
+/// component of the node's WebRTC multiaddresses.
+pub fn certhash(certificate: &DtlsCertificate) -> Multihash {
+	Code::Sha2_256.digest(certificate.as_parts().0)
 }
 
 /// Returns the derivated signing and private keys.
@@ -222,15 +226,13 @@ fn generate_validity() -> Validity {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_network_types::{
-		multiaddr::{Multiaddr, Protocol},
-		multihash::Code,
-	};
+	use sc_network_types::multiaddr::{Multiaddr, Protocol};
 
 	/// Compute the `/certhash/<hash>` multiaddress component of a certificate.
 	fn certhash(certificate: &DtlsCertificate) -> String {
-		let hash = Code::Sha2_256.digest(certificate.as_parts().0);
-		Multiaddr::empty().with(Protocol::Certhash(hash)).to_string()
+		Multiaddr::empty()
+			.with(Protocol::Certhash(super::certhash(certificate)))
+			.to_string()
 	}
 
 	#[test]
