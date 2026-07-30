@@ -18,7 +18,7 @@
 //! # Parachain HRMP pallet
 //!
 //! User-facing half of HRMP channel management. Runs on a parachain, holding channel deposits and
-//! driving open / accept / close on the relay-chain counterpart ([`pallet-hrmp-relay`]) over XCM.
+//! driving open / accept / close on the relay-chain counterpart (`pallet-hrmp-relay`) over XCM.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

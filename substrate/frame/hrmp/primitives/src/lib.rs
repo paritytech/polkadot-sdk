@@ -17,8 +17,8 @@
 
 //! # HRMP-channel shared primitives
 //!
-//! Types shared by the parachain pallet ([`pallet-hrmp-para`]) and relay-chain pallet
-//! ([`pallet-hrmp-relay`]). This crate is deliberately free of any FRAME, XCM, or network-specific
+//! Types shared by the parachain pallet (`pallet-hrmp-para`) and relay-chain pallet
+//! (`pallet-hrmp-relay`). This crate is deliberately free of any FRAME, XCM, or network-specific
 //! dependency, so a single version of the wire types serves Westend, Kusama and Polkadot, and so
 //! both pallets can depend on it without forming a dependency cycle.
 

@@ -17,8 +17,8 @@
 
 //! # Parachain-registrar shared primitives
 //!
-//! Types shared by the parachain registrar pallet ([`pallet-registrar-para`]) and relay-chain
-//! registrar pallet ([`pallet-registrar-relay`]). This crate is deliberately free of any FRAME,
+//! Types shared by the parachain registrar pallet (`pallet-registrar-para`) and relay-chain
+//! registrar pallet (`pallet-registrar-relay`). This crate is deliberately free of any FRAME,
 //! XCM, or network-specific dependency, so a single version of the wire types serves Westend,
 //! Kusama and Polkadot, and so both pallets can depend on it without forming a dependency cycle.
 

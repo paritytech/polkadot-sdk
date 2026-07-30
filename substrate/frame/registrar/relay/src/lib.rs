@@ -18,7 +18,7 @@
 //! # Relay-chain registrar pallet
 //!
 //! Relay half of the parachain registrar. Runs on the relay chain, applying registrations
-//! authorized on a parachain ([`pallet-registrar-para`]) and driving the relay's legacy `paras`
+//! authorized on a parachain (`pallet-registrar-para`) and driving the relay's legacy `paras`
 //! state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
