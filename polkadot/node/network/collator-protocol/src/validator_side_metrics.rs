@@ -56,6 +56,48 @@ impl ScoreBand {
 	}
 }
 
+/// The `handler` metric label of the `process_msg_duration` histogram.
+#[derive(Clone, Copy)]
+pub enum TimedHandler {
+	/// Handling a new peer connection.
+	PeerConnected,
+	/// Handling a peer disconnection.
+	PeerDisconnected,
+	/// Handling a peer's declaration of the para it collates for.
+	Declare,
+	/// Handling a collation advertisement.
+	Advertisement,
+	/// Handling a change of our own view.
+	OurViewChange,
+	/// Handling a block finality notification.
+	FinalizedBlock,
+	/// Handling the result of a collation fetch request.
+	FetchedCollation,
+	/// Handling a candidate seconded by the backing subsystem.
+	Seconded,
+	/// Handling a collation reported as invalid by the backing subsystem.
+	InvalidCollation,
+	/// Launching new collation fetch requests. Runs on every subsystem loop iteration.
+	LaunchFetchRequests,
+}
+
+impl TimedHandler {
+	fn label(&self) -> &'static str {
+		match self {
+			Self::PeerConnected => "peer_connected",
+			Self::PeerDisconnected => "peer_disconnected",
+			Self::Declare => "declare",
+			Self::Advertisement => "advertisement",
+			Self::OurViewChange => "our_view_change",
+			Self::FinalizedBlock => "finalized_block",
+			Self::FetchedCollation => "fetched_collation",
+			Self::Seconded => "seconded",
+			Self::InvalidCollation => "invalid_collation",
+			Self::LaunchFetchRequests => "launch_fetch_requests",
+		}
+	}
+}
+
 #[derive(Clone, Default)]
 pub struct Metrics(Option<MetricsInner>);
 
@@ -72,6 +114,16 @@ impl Metrics {
 	/// Provide a timer for `process_msg` which observes on drop.
 	pub fn time_process_msg(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
 		self.0.as_ref().map(|metrics| metrics.process_msg.start_timer())
+	}
+
+	/// Provide a timer for one of the subsystem's handlers, which observes on drop.
+	pub fn time_handler(
+		&self,
+		handler: TimedHandler,
+	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| {
+			metrics.process_msg_duration.with_label_values(&[handler.label()]).start_timer()
+		})
 	}
 
 	/// Provide a timer for `handle_collation_request_result` which observes on drop.
@@ -265,6 +317,8 @@ impl Metrics {
 struct MetricsInner {
 	collation_requests: prometheus::CounterVec<prometheus::U64>,
 	process_msg: prometheus::Histogram,
+	// Improved version of `process_msg`
+	process_msg_duration: prometheus::HistogramVec,
 	handle_collation_request_result: prometheus::Histogram,
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
 	/// Similar to `collator_peer_count`, but represents the in-memory peer count from
@@ -303,6 +357,20 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collator_protocol_validator_process_msg",
 						"Time spent within `collator_protocol_validator::process_msg`",
 					)
+				)?,
+				registry,
+			)?,
+			process_msg_duration: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collator_protocol_validator_process_msg_duration",
+						"Time spent handling a single event, by handler.",
+					)
+					// The default buckets start at 5ms, which is far too coarse here: most of these
+					// handlers are expected to complete in tens of microseconds. These span 100us
+					// to ~2s.
+					.buckets(prometheus::exponential_buckets(0.0001, 3.0, 10)?),
+					&["handler"],
 				)?,
 				registry,
 			)?,

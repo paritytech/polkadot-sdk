@@ -26,6 +26,7 @@ use crate::{
 		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
+	validator_side_metrics::TimedHandler,
 	LOG_TARGET,
 };
 use fatality::Split;
@@ -78,6 +79,8 @@ impl<B: Backend> State<B> {
 		peer_id: PeerId,
 		version: CollationVersion,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::PeerConnected);
+
 		let outcome = self
 			.peer_manager
 			.try_accept_connection(
@@ -120,6 +123,8 @@ impl<B: Backend> State<B> {
 
 	/// Handle a peer disconnection.
 	pub async fn handle_peer_disconnected(&mut self, peer_id: PeerId) {
+		let _timer = self.metrics.time_handler(TimedHandler::PeerDisconnected);
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?peer_id,
@@ -140,6 +145,8 @@ impl<B: Backend> State<B> {
 		peer_id: PeerId,
 		para_id: ParaId,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::Declare);
+
 		if !self.peer_manager.declared(sender, peer_id, para_id).await {
 			self.collation_manager.remove_peer(&peer_id);
 		}
@@ -153,6 +160,8 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		new_view: OurView,
 	) -> FatalResult<()> {
+		let _timer = self.metrics.time_handler(TimedHandler::OurViewChange);
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?new_view,
@@ -205,6 +214,8 @@ impl<B: Backend> State<B> {
 		hash: Hash,
 		number: BlockNumber,
 	) -> FatalResult<()> {
+		let _timer = self.metrics.time_handler(TimedHandler::FinalizedBlock);
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?hash,
@@ -250,6 +261,8 @@ impl<B: Backend> State<B> {
 		maybe_prospective_candidate: Option<ProspectiveCandidate>,
 		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::Advertisement);
+
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
@@ -352,7 +365,8 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		res: CollationFetchResponse,
 	) {
-		let _timer = self.metrics.time_handle_collation_request_result();
+		let _timer = self.metrics.time_handler(TimedHandler::FetchedCollation);
+
 		let fetch_result = res.1.is_ok();
 		let advertisement = res.0;
 
@@ -438,6 +452,8 @@ impl<B: Backend> State<B> {
 		receipt: CandidateReceipt,
 		scheduling_parent: Hash,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::InvalidCollation);
+
 		let candidate_hash = receipt.hash();
 
 		gum::debug!(
@@ -486,6 +502,8 @@ impl<B: Backend> State<B> {
 		statement: SignedFullStatement,
 		scheduling_parent: Hash,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::Seconded);
+
 		let receipt = match statement.payload() {
 			Statement::Seconded(receipt) => receipt,
 			Statement::Valid(_) => {
@@ -582,6 +600,8 @@ impl<B: Backend> State<B> {
 		&mut self,
 		sender: &mut Sender,
 	) -> Option<Duration> {
+		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
+
 		let peer_manager = &self.peer_manager;
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
