@@ -81,6 +81,9 @@ pub trait WeightInfo {
 	fn set_item_metadata() -> Weight;
 	fn claim_collection_ownership() -> Weight;
 	fn set_instance_metadata() -> Weight;
+	fn burn_instance(m: u32, ) -> Weight;
+	fn delete_item() -> Weight;
+	fn delete_collection() -> Weight;
 	fn as_scarcity_pipeline() -> Weight;
 }
 
@@ -252,6 +255,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	fn set_instance_metadata() -> Weight {
 		Self::set_item_metadata()
+	}
+	fn burn_instance(m: u32, ) -> Weight {
+		Self::burn(m)
+	}
+	fn delete_item() -> Weight {
+		Self::set_item_metadata()
+	}
+	fn delete_collection() -> Weight {
+		Self::create_collection()
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -437,6 +449,15 @@ impl WeightInfo for () {
 	}
 	fn set_instance_metadata() -> Weight {
 		Self::set_item_metadata()
+	}
+	fn burn_instance(m: u32, ) -> Weight {
+		Self::burn(m)
+	}
+	fn delete_item() -> Weight {
+		Self::set_item_metadata()
+	}
+	fn delete_collection() -> Weight {
+		Self::create_collection()
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)

@@ -546,6 +546,8 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
+// Scarcity is wired into the development runtime only as a benchmark host. Enabling it on a live
+// runtime also requires adding `AsScarcity` to that runtime's transaction-extension pipeline.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ScarcityBenchmarkTime;
 

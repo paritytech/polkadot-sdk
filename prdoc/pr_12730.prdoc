@@ -6,10 +6,11 @@ doc:
     coinage-style ownership model: one instance per fresh purse public key,
     with a stable `InstanceId` reverse index as the external handle. Item
     identity is immutable once written and may be minted many times. Metadata
-    is a two-level mutable key/value store: collection entries provide
-    defaults and item entries override the same key. Only the collection owner
-    may write either scope; each entry has its own deposit and there is no
-    metadata freeze mechanism.
+    is a three-level mutable key/value store: collection entries provide
+    defaults, item entries override the same key for every mint of that
+    definition, and instance entries override both for one minted NFT. Only
+    the collection owner may write these scopes; each entry has its own
+    deposit and there is no metadata freeze mechanism.
 
     Storage deposits are paid on the supply side. The collection owner backs
     the collection record, item definitions, metadata entries, and ordinarily
@@ -20,26 +21,37 @@ doc:
     both parties' holds unchanged. Runtime pallets may use the
     `MintWithoutDeposit` integration trait to mint without an instance deposit
     when state growth is bounded by another scarce resource or protocol rule.
+    Initial instance metadata is also depositless through this integration.
+
+    The collection owner has full collection-scoped lifecycle control. It may
+    force-burn individual instances, delete item definitions after their live
+    instances and item metadata are removed, and delete a collection after its
+    items and collection metadata are removed. Holder burns remain available.
+    Cleanup is incremental and bounded, all deposits are released exactly, and
+    collection, item, and instance identifiers are never reused.
 
     Transfers and burns are feeless and authorized by the owning purse key
     through the `AsScarcity` transaction extension, which elevates a custom
     `Origin::Nft` capability origin, consumes the instance in `prepare`,
     assigns transaction priority proportional to the instance's rest time
     (seconds since it last moved, capped), and restores the instance with a
-    quadratic backoff lock when dispatch fails. Burning releases any instance
-    deposit while keeping item supply monotonic. Authorizations bind to both
-    the permanent instance identifier and its current `state_nonce`; successful
-    transfers advance the nonce so an old authorization cannot be replayed
-    after an NFT leaves and returns to a purse key. Consumption-on-use and a
-    per-state `provides` tag prevent concurrent use of the same authorization.
+    exponential backoff lock when dispatch fails. Burning releases instance
+    and instance-metadata deposits while keeping minted-ever item supply
+    monotonic and decrementing live supply. Authorizations bind to the
+    permanent instance identifier and rely on the signed account's normal
+    nonce extension (such as `frame_system::CheckNonce`) for replay protection.
+    Consumption-on-use and a per-instance `provides` tag prevent concurrent
+    use of the same authorization.
 
-    A `try_state` hook verifies allocation counters, collection/item
-    references, minted supply, the owner/reverse-index bijection, locks,
-    metadata references, each collection's aggregate against its stored
-    deposit components, and each owner's aggregate against the actual held
-    balance. Metadata growth is priced by a deposit per entry; `define_item`
-    accepts a linearly weighted `Vec` whose batch size is bounded by extrinsic
-    and block length, while each key and value remains individually bounded.
+    A `try_state` hook verifies allocation bounds, dependency and metadata
+    counters, live supply, collection/item references, the owner/reverse-index
+    bijection, locks, metadata references, each collection's aggregate against
+    its stored deposit components, and each owner's aggregate against the
+    actual held balance. Metadata growth is priced by a deposit per entry;
+    `define_item` accepts a linearly weighted `Vec` whose batch size is bounded
+    by extrinsic and block length, while each key and value remains
+    individually bounded. Per-instance metadata has an explicit configured
+    bound so burn cleanup remains bounded.
 crates:
 - name: pallet-scarcity
   bump: major

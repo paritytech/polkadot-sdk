@@ -20,13 +20,19 @@
 //! `pallet-scarcity` defines NFT collections and item definitions, then mints instances using a
 //! coinage-style ownership model: each purse key can hold at most one NFT. The pallet knows
 //! ownership, supply, metadata, and deposits; it knows nothing about what an item means. Item
-//! semantics belong to collection contracts.
+//! semantics and access-control policy belong to collection contracts. At this storage layer the
+//! collection owner has full control over its definitions, metadata, and live instances.
 //!
 //! The current collection owner backs all collection state with one aggregate balance hold. To
 //! transfer that responsibility safely, the owner first nominates a successor and the successor
 //! claims the collection. Claiming atomically holds the exact aggregate from the successor,
 //! releases it to the former owner, and transfers collection authority. This lets the successor
 //! reject an unwanted or unaffordable collection.
+//!
+//! Cleanup proceeds from leaves to roots so every call remains bounded. The collection owner
+//! burns live instances (or holders burn their own), removes item metadata, deletes empty item
+//! definitions, removes collection metadata, and finally deletes the empty collection. Instance
+//! metadata is bounded and removed automatically on burn. Allocated identifiers are never reused.
 //!
 //! Collection metadata supplies defaults inherited by every item definition, and item metadata
 //! supplies defaults shared by every instance minted from that definition. A minted instance may
@@ -42,9 +48,10 @@
 //! Transfers are feeless when authorized through the [`AsScarcity`](extension::AsScarcity)
 //! transaction extension. Their transaction priority is the time since the NFT last moved,
 //! capped by the runtime. Moving an NFT consumes it from the old purse key and places it at the
-//! new one. Each authorization names the permanent instance and its current state nonce, which a
-//! successful transfer increments. Failed dispatch restores the NFT without advancing the nonce
-//! and temporarily locks the purse key.
+//! new one. Each authorization names the permanent instance and is carried by a signed
+//! transaction; runtimes using [`AsScarcity`](extension::AsScarcity) must include an account-nonce
+//! transaction extension such as `frame_system::CheckNonce`. Failed dispatch restores the NFT and
+//! temporarily locks the purse key.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -150,6 +157,10 @@ pub mod pallet {
 		pub pending_owner: Option<AccountId>,
 		/// The next item index to allocate, beginning at zero.
 		pub next_item_index: ItemIndex,
+		/// Number of item definitions which have not been deleted.
+		pub item_count: u32,
+		/// Number of collection-level metadata entries.
+		pub metadata_count: u32,
 		/// Exact deposit for the collection record itself.
 		pub collection_deposit: Balance,
 		/// Exact aggregate deposit held from `owner` for all collection-backed state.
@@ -171,6 +182,10 @@ pub mod pallet {
 	pub struct ItemDefinition<Balance: Member> {
 		/// Number of instances ever minted from this definition; burns do not decrement it.
 		pub supply: u32,
+		/// Number of currently live instances; every burn decrements it.
+		pub live_supply: u32,
+		/// Number of item-level metadata entries.
+		pub metadata_count: u32,
 		/// Exact storage deposit included in the collection owner's aggregate hold.
 		pub deposit: Balance,
 	}
@@ -183,11 +198,6 @@ pub mod pallet {
 		pub instance: InstanceId,
 		pub collection: CollectionId,
 		pub item: ItemIndex,
-		/// Monotonic version of authorization-relevant state.
-		///
-		/// Purse-key authorizations bind to this value. Every state change that should
-		/// invalidate an outstanding authorization must increment it.
-		pub state_nonce: u64,
 		/// Unix seconds at mint.
 		pub minted_at: u64,
 		/// Unix seconds; equal to `minted_at` until the first transfer.
@@ -236,7 +246,7 @@ pub mod pallet {
 
 	/// Collection-wide defaults inherited by every item in a collection.
 	///
-	/// With no collection deletion call, entries persist until the owner removes them explicitly.
+	/// Entries must be removed individually before the collection can be deleted.
 	#[pallet::storage]
 	pub type CollectionMetadata<T: Config> = StorageDoubleMap<
 		_,
@@ -250,8 +260,8 @@ pub mod pallet {
 	/// Per-item defaults which override collection defaults for the same key.
 	///
 	/// These entries are shared by every instance minted from the item definition. Item
-	/// definitions outlive minted instances, so burning an instance never removes them. With no
-	/// item deletion call, entries persist until the owner removes them.
+	/// definitions outlive minted instances, so burning an instance never removes them. Entries
+	/// must be removed individually before the item definition can be deleted.
 	#[pallet::storage]
 	pub type ItemMetadata<T: Config> = StorageNMap<
 		_,
@@ -299,6 +309,9 @@ pub mod pallet {
 	>;
 
 	/// Post-failure backoff locks for NFT purse keys.
+	///
+	/// A separate lock explicitly rejects transactions during backoff. Updating `last_moved`
+	/// would only lower transaction priority and would not enforce a delay.
 	#[pallet::storage]
 	pub type Locked<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, LockInfo>;
 
@@ -315,8 +328,12 @@ pub mod pallet {
 			old_owner: T::AccountId,
 			new_owner: T::AccountId,
 		},
+		/// An empty collection was deleted and its remaining deposit released.
+		CollectionDeleted { collection: CollectionId },
 		/// An immutable item definition was assigned within a collection.
 		ItemDefined { collection: CollectionId, item: ItemIndex },
+		/// An unused item definition was deleted and its deposit released.
+		ItemDeleted { collection: CollectionId, item: ItemIndex },
 		/// An instance was minted into an empty purse key.
 		Minted {
 			instance: InstanceId,
@@ -358,6 +375,16 @@ pub mod pallet {
 		TooManyItems,
 		/// The requested item definition does not exist.
 		UnknownItem,
+		/// An item with live instances cannot be deleted.
+		ItemInUse,
+		/// Item metadata must be removed before deleting the item.
+		ItemMetadataNotEmpty,
+		/// Item definitions must be deleted before deleting the collection.
+		CollectionItemsNotEmpty,
+		/// Collection metadata must be removed before deleting the collection.
+		CollectionMetadataNotEmpty,
+		/// Stored dependency counters or deposits do not permit deletion.
+		DeletionInvariant,
 		/// The destination purse key already holds an NFT.
 		AddressOccupied,
 		/// The permanent instance identifier space is exhausted.
@@ -370,8 +397,6 @@ pub mod pallet {
 		TooManyInstanceMetadata,
 		/// An NFT cannot be transferred to its current purse key.
 		SelfTransfer,
-		/// The NFT's authorization state can no longer be advanced.
-		StateNonceOverflow,
 	}
 
 	/// A reason for holding funds as Scarcity storage deposits.
@@ -527,9 +552,7 @@ pub mod pallet {
 			ensure!(to != owner, Error::<T>::SelfTransfer);
 			ensure!(!NftsByOwner::<T>::contains_key(&to), Error::<T>::AddressOccupied);
 
-			let state_nonce =
-				nft.state_nonce.checked_add(1).ok_or(Error::<T>::StateNonceOverflow)?;
-			let nft = Nft { state_nonce, last_moved: T::UnixTime::now().as_secs(), ..nft };
+			let nft = Nft { last_moved: T::UnixTime::now().as_secs(), ..nft };
 			NftsByOwner::<T>::insert(&to, nft.clone());
 			Instances::<T>::insert(nft.instance, &to);
 			Self::deposit_event(Event::Transferred { instance: nft.instance, to });
@@ -548,22 +571,7 @@ pub mod pallet {
 			let Ok(Origin::Nft { nft, .. }) = origin.into() else {
 				return Err(DispatchError::BadOrigin.into());
 			};
-			Instances::<T>::remove(nft.instance);
-			let expected_metadata_count = InstanceMetadataCount::<T>::take(nft.instance);
-			let mut actual_metadata_count = 0u32;
-			let mut deposit = InstanceDeposits::<T>::take(nft.instance).unwrap_or_else(Zero::zero);
-			for (_, entry) in InstanceMetadata::<T>::drain_prefix(nft.instance) {
-				actual_metadata_count = actual_metadata_count.saturating_add(1);
-				deposit = deposit.checked_add(&entry.deposit).ok_or(ArithmeticError::Overflow)?;
-			}
-			debug_assert_eq!(actual_metadata_count, expected_metadata_count);
-			if !deposit.is_zero() {
-				Collections::<T>::try_mutate(nft.collection, |maybe_info| {
-					let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
-					Self::decrease_owner_deposit(info, deposit)
-				})?;
-			}
-			Self::deposit_event(Event::Burned { instance: nft.instance });
+			Self::do_burn(nft)?;
 			Ok(Pays::No.into())
 		}
 
@@ -680,6 +688,46 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 			Self::do_set_instance_metadata(&owner, instance, key, value, true)
 		}
+
+		/// Permanently remove one live instance as its collection owner.
+		///
+		/// The collection layer intentionally applies no holder-level ACL. A contract-owned
+		/// collection can enforce its own consent and game rules before calling this operation.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::burn_instance(T::MaxInstanceMetadata::get()))]
+		#[transactional]
+		pub fn burn_instance(origin: OriginFor<T>, instance: InstanceId) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_burn_instance(&owner, instance)
+		}
+
+		/// Delete an unused item definition owned by the signer.
+		///
+		/// Every live instance must be burned and every item metadata entry removed first.
+		/// Deleted item indices are never reused.
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::delete_item())]
+		#[transactional]
+		pub fn delete_item(
+			origin: OriginFor<T>,
+			collection: CollectionId,
+			item: ItemIndex,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_delete_item(&owner, collection, item)
+		}
+
+		/// Delete an empty collection owned by the signer.
+		///
+		/// Every item definition and collection metadata entry must be removed first. Deleted
+		/// collection identifiers are never reused.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::delete_collection())]
+		#[transactional]
+		pub fn delete_collection(origin: OriginFor<T>, collection: CollectionId) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_delete_collection(&owner, collection)
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -756,6 +804,8 @@ pub mod pallet {
 					owner: owner.clone(),
 					pending_owner: None,
 					next_item_index: 0,
+					item_count: 0,
+					metadata_count: 0,
 					collection_deposit,
 					owner_deposit: collection_deposit,
 				},
@@ -777,10 +827,12 @@ pub mod pallet {
 
 			let item = info.next_item_index;
 			info.next_item_index = item.checked_add(1).ok_or(Error::<T>::TooManyItems)?;
+			info.item_count = info.item_count.checked_add(1).ok_or(Error::<T>::TooManyItems)?;
 			let footprint = Footprint::from_mel::<ItemDefinition<BalanceOf<T>>>();
 			let deposit = T::ItemDeposit::convert(footprint);
 			Self::increase_owner_deposit(&mut info, deposit)?;
-			let definition = ItemDefinition { supply: 0, deposit };
+			let definition =
+				ItemDefinition { supply: 0, live_supply: 0, metadata_count: 0, deposit };
 
 			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
@@ -861,6 +913,8 @@ pub mod pallet {
 						Self::deposit_event(Event::CollectionMetadataSet { collection, key });
 					},
 					(None, Some(value)) => {
+						info.metadata_count =
+							info.metadata_count.checked_add(1).ok_or(ArithmeticError::Overflow)?;
 						let deposit =
 							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value));
 						Self::increase_owner_deposit(info, deposit)?;
@@ -872,6 +926,8 @@ pub mod pallet {
 						Self::deposit_event(Event::CollectionMetadataSet { collection, key });
 					},
 					(Some(entry), None) => {
+						info.metadata_count =
+							info.metadata_count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
 						Self::decrease_owner_deposit(info, entry.deposit)?;
 						CollectionMetadata::<T>::remove(collection, &key);
 						Self::deposit_event(Event::CollectionMetadataRemoved { collection, key });
@@ -892,7 +948,8 @@ pub mod pallet {
 			Collections::<T>::try_mutate(collection, |maybe_info| {
 				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
 				ensure!(info.owner == *owner, Error::<T>::NoPermission);
-				ensure!(ItemDefs::<T>::contains_key(collection, item), Error::<T>::UnknownItem);
+				let mut definition =
+					ItemDefs::<T>::get(collection, item).ok_or(Error::<T>::UnknownItem)?;
 
 				match (ItemMetadata::<T>::get((collection, item, key.clone())), value) {
 					(Some(entry), Some(value)) => {
@@ -906,6 +963,10 @@ pub mod pallet {
 						Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
 					},
 					(None, Some(value)) => {
+						definition.metadata_count = definition
+							.metadata_count
+							.checked_add(1)
+							.ok_or(ArithmeticError::Overflow)?;
 						let deposit =
 							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value));
 						Self::increase_owner_deposit(info, deposit)?;
@@ -913,11 +974,17 @@ pub mod pallet {
 							(collection, item, key.clone()),
 							MetadataEntry { value, deposit },
 						);
+						ItemDefs::<T>::insert(collection, item, definition);
 						Self::deposit_event(Event::ItemMetadataSet { collection, item, key });
 					},
 					(Some(entry), None) => {
+						definition.metadata_count = definition
+							.metadata_count
+							.checked_sub(1)
+							.ok_or(ArithmeticError::Underflow)?;
 						Self::decrease_owner_deposit(info, entry.deposit)?;
 						ItemMetadata::<T>::remove((collection, item, key.clone()));
+						ItemDefs::<T>::insert(collection, item, definition);
 						Self::deposit_event(Event::ItemMetadataRemoved { collection, item, key });
 					},
 					(None, None) => {},
@@ -991,6 +1058,95 @@ pub mod pallet {
 			})
 		}
 
+		fn do_burn(nft: Nft) -> DispatchResult {
+			let instance = nft.instance;
+			let expected_metadata_count = InstanceMetadataCount::<T>::take(instance);
+			let mut actual_metadata_count = 0u32;
+			let mut deposit = InstanceDeposits::<T>::take(instance).unwrap_or_else(Zero::zero);
+			for (_, entry) in InstanceMetadata::<T>::drain_prefix(instance) {
+				actual_metadata_count = actual_metadata_count.saturating_add(1);
+				deposit = deposit.checked_add(&entry.deposit).ok_or(ArithmeticError::Overflow)?;
+			}
+			debug_assert_eq!(actual_metadata_count, expected_metadata_count);
+
+			ItemDefs::<T>::try_mutate(nft.collection, nft.item, |maybe_definition| {
+				let definition = maybe_definition.as_mut().ok_or(Error::<T>::UnknownItem)?;
+				definition.live_supply =
+					definition.live_supply.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
+				Ok::<_, DispatchError>(())
+			})?;
+			Collections::<T>::try_mutate(nft.collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				Self::decrease_owner_deposit(info, deposit)
+			})?;
+			Instances::<T>::remove(instance);
+			Self::deposit_event(Event::Burned { instance });
+			Ok(())
+		}
+
+		fn do_burn_instance(owner: &T::AccountId, instance: InstanceId) -> DispatchResult {
+			let purse = Instances::<T>::get(instance).ok_or(Error::<T>::UnknownInstance)?;
+			let nft = NftsByOwner::<T>::get(&purse).ok_or(Error::<T>::UnknownInstance)?;
+			ensure!(nft.instance == instance, Error::<T>::UnknownInstance);
+			let info =
+				Collections::<T>::get(nft.collection).ok_or(Error::<T>::UnknownCollection)?;
+			ensure!(info.owner == *owner, Error::<T>::NoPermission);
+
+			NftsByOwner::<T>::remove(&purse);
+			Locked::<T>::remove(&purse);
+			Self::do_burn(nft)
+		}
+
+		fn do_delete_item(
+			owner: &T::AccountId,
+			collection: CollectionId,
+			item: ItemIndex,
+		) -> DispatchResult {
+			Collections::<T>::try_mutate(collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				ensure!(info.owner == *owner, Error::<T>::NoPermission);
+				let definition =
+					ItemDefs::<T>::get(collection, item).ok_or(Error::<T>::UnknownItem)?;
+				ensure!(definition.live_supply == 0, Error::<T>::ItemInUse);
+				ensure!(definition.metadata_count == 0, Error::<T>::ItemMetadataNotEmpty);
+				ensure!(
+					ItemMetadata::<T>::iter_prefix((collection, item)).next().is_none(),
+					Error::<T>::DeletionInvariant
+				);
+
+				info.item_count =
+					info.item_count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
+				Self::decrease_owner_deposit(info, definition.deposit)?;
+				ItemDefs::<T>::remove(collection, item);
+				Self::deposit_event(Event::ItemDeleted { collection, item });
+				Ok(())
+			})
+		}
+
+		fn do_delete_collection(owner: &T::AccountId, collection: CollectionId) -> DispatchResult {
+			let mut info =
+				Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
+			ensure!(info.owner == *owner, Error::<T>::NoPermission);
+			ensure!(info.item_count == 0, Error::<T>::CollectionItemsNotEmpty);
+			ensure!(info.metadata_count == 0, Error::<T>::CollectionMetadataNotEmpty);
+			ensure!(
+				ItemDefs::<T>::iter_prefix(collection).next().is_none(),
+				Error::<T>::DeletionInvariant
+			);
+			ensure!(
+				CollectionMetadata::<T>::iter_prefix(collection).next().is_none(),
+				Error::<T>::DeletionInvariant
+			);
+			ensure!(info.owner_deposit == info.collection_deposit, Error::<T>::DeletionInvariant);
+
+			let deposit = info.collection_deposit;
+			Self::decrease_owner_deposit(&mut info, deposit)?;
+			ensure!(info.owner_deposit.is_zero(), Error::<T>::DeletionInvariant);
+			Collections::<T>::remove(collection);
+			Self::deposit_event(Event::CollectionDeleted { collection });
+			Ok(())
+		}
+
 		/// Mint an instance after enforcing collection ownership and the one-NFT-per-key rule.
 		pub fn do_mint(
 			owner: T::AccountId,
@@ -1025,9 +1181,10 @@ pub mod pallet {
 			let instance = NextInstanceId::<T>::get();
 			let next_instance = instance.checked_add(1).ok_or(Error::<T>::TooManyInstances)?;
 			let next_supply = definition.supply.checked_add(1).ok_or(Error::<T>::SupplyOverflow)?;
+			let next_live_supply =
+				definition.live_supply.checked_add(1).ok_or(Error::<T>::SupplyOverflow)?;
 			let now = T::UnixTime::now().as_secs();
-			let nft =
-				Nft { instance, collection, item, state_nonce: 0, minted_at: now, last_moved: now };
+			let nft = Nft { instance, collection, item, minted_at: now, last_moved: now };
 			let instance_deposit = if with_deposit {
 				// Four storage entries back one instance: `NftsByOwner`, the `Instances`
 				// reverse index, `InstanceDeposits`, and `InstanceMetadataCount`.
@@ -1045,6 +1202,7 @@ pub mod pallet {
 			};
 
 			definition.supply = next_supply;
+			definition.live_supply = next_live_supply;
 			NextInstanceId::<T>::put(next_instance);
 			let collection_owner = info.owner.clone();
 			Collections::<T>::insert(collection, info);
@@ -1091,7 +1249,6 @@ pub mod pallet {
 		pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
 			let next_collection = NextCollectionId::<T>::get();
 			let next_instance = NextInstanceId::<T>::get();
-			let mut collection_count = 0u64;
 			let mut expected_collection_deposits = BTreeMap::<CollectionId, BalanceOf<T>>::new();
 
 			for (collection, info) in Collections::<T>::iter() {
@@ -1100,32 +1257,10 @@ pub mod pallet {
 						"collection identifier is not below NextCollectionId",
 					));
 				}
-				collection_count += 1;
-
-				let mut item_count = 0u64;
-				for (item, _) in ItemDefs::<T>::iter_prefix(collection) {
-					if item >= info.next_item_index {
-						return Err(TryRuntimeError::Other(
-							"item index is not below the collection's next item index",
-						));
-					}
-					item_count += 1;
-				}
-				if item_count != u64::from(info.next_item_index) {
-					return Err(TryRuntimeError::Other(
-						"collection next item index does not match its item definition count",
-					));
-				}
 				expected_collection_deposits.insert(collection, info.collection_deposit);
 			}
 
-			if collection_count != u64::from(next_collection) {
-				return Err(TryRuntimeError::Other(
-					"NextCollectionId does not match the collection count",
-				));
-			}
-
-			let mut total_supply = 0u128;
+			let mut actual_item_counts = BTreeMap::<CollectionId, u32>::new();
 			for (collection, item, definition) in ItemDefs::<T>::iter() {
 				let info = Collections::<T>::get(collection)
 					.ok_or(TryRuntimeError::Other("ItemDefs entry has no matching collection"))?;
@@ -1134,7 +1269,15 @@ pub mod pallet {
 						"item index is not below the collection's next item index",
 					));
 				}
-				total_supply += u128::from(definition.supply);
+				if definition.live_supply > definition.supply {
+					return Err(TryRuntimeError::Other(
+						"item live supply exceeds its minted supply",
+					));
+				}
+				let item_count = actual_item_counts.entry(collection).or_default();
+				*item_count = item_count
+					.checked_add(1)
+					.ok_or(TryRuntimeError::Other("collection item count overflowed"))?;
 				let expected = expected_collection_deposits
 					.get_mut(&collection)
 					.ok_or(TryRuntimeError::Other("ItemDefs entry has no deposit aggregate"))?;
@@ -1142,10 +1285,13 @@ pub mod pallet {
 					.checked_add(&definition.deposit)
 					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
 			}
-			if total_supply != u128::from(next_instance) {
-				return Err(TryRuntimeError::Other(
-					"NextInstanceId does not match total minted supply",
-				));
+			for (collection, info) in Collections::<T>::iter() {
+				let actual = actual_item_counts.get(&collection).copied().unwrap_or_default();
+				if info.item_count != actual {
+					return Err(TryRuntimeError::Other(
+						"collection item count does not match stored definitions",
+					));
+				}
 			}
 
 			let mut live_by_item = BTreeMap::<(CollectionId, ItemIndex), u64>::new();
@@ -1162,9 +1308,17 @@ pub mod pallet {
 					.ok_or(TryRuntimeError::Other("NFT has no matching item definition"))?;
 				let live = live_by_item.entry((nft.collection, nft.item)).or_default();
 				*live += 1;
-				if *live > u64::from(definition.supply) {
+				if *live > u64::from(definition.live_supply) {
 					return Err(TryRuntimeError::Other(
-						"item definition supply is below its live instance count",
+						"item live supply is below its stored instance count",
+					));
+				}
+			}
+			for (collection, item, definition) in ItemDefs::<T>::iter() {
+				let actual = live_by_item.get(&(collection, item)).copied().unwrap_or_default();
+				if u64::from(definition.live_supply) != actual {
+					return Err(TryRuntimeError::Other(
+						"item live supply does not match stored instances",
 					));
 				}
 			}
@@ -1270,18 +1424,26 @@ pub mod pallet {
 				}
 			}
 
-			for owner in Locked::<T>::iter_keys() {
+			for (owner, lock) in Locked::<T>::iter() {
 				if !NftsByOwner::<T>::contains_key(owner) {
 					return Err(TryRuntimeError::Other("Locked entry has no matching NFT"));
 				}
+				if lock.retries == 0 {
+					return Err(TryRuntimeError::Other("Locked retry count must begin at one"));
+				}
 			}
 
+			let mut actual_collection_metadata_counts = BTreeMap::<CollectionId, u32>::new();
 			for (collection, _, entry) in CollectionMetadata::<T>::iter() {
 				if !Collections::<T>::contains_key(collection) {
 					return Err(TryRuntimeError::Other(
 						"CollectionMetadata entry has no matching collection",
 					));
 				}
+				let count = actual_collection_metadata_counts.entry(collection).or_default();
+				*count = count
+					.checked_add(1)
+					.ok_or(TryRuntimeError::Other("collection metadata count overflowed"))?;
 				let expected = expected_collection_deposits.get_mut(&collection).ok_or(
 					TryRuntimeError::Other("CollectionMetadata entry has no deposit aggregate"),
 				)?;
@@ -1289,7 +1451,17 @@ pub mod pallet {
 					.checked_add(&entry.deposit)
 					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
 			}
+			for (collection, info) in Collections::<T>::iter() {
+				let actual =
+					actual_collection_metadata_counts.get(&collection).copied().unwrap_or_default();
+				if info.metadata_count != actual {
+					return Err(TryRuntimeError::Other(
+						"collection metadata count does not match stored entries",
+					));
+				}
+			}
 
+			let mut actual_item_metadata_counts = BTreeMap::<(CollectionId, ItemIndex), u32>::new();
 			for ((collection, item, _), entry) in ItemMetadata::<T>::iter() {
 				if !Collections::<T>::contains_key(collection) {
 					return Err(TryRuntimeError::Other(
@@ -1301,12 +1473,27 @@ pub mod pallet {
 						"ItemMetadata entry has no matching item definition",
 					));
 				}
+				let count = actual_item_metadata_counts.entry((collection, item)).or_default();
+				*count = count
+					.checked_add(1)
+					.ok_or(TryRuntimeError::Other("item metadata count overflowed"))?;
 				let expected = expected_collection_deposits
 					.get_mut(&collection)
 					.ok_or(TryRuntimeError::Other("ItemMetadata entry has no deposit aggregate"))?;
 				*expected = expected
 					.checked_add(&entry.deposit)
 					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
+			}
+			for (collection, item, definition) in ItemDefs::<T>::iter() {
+				let actual = actual_item_metadata_counts
+					.get(&(collection, item))
+					.copied()
+					.unwrap_or_default();
+				if definition.metadata_count != actual {
+					return Err(TryRuntimeError::Other(
+						"item metadata count does not match stored entries",
+					));
+				}
 			}
 
 			let mut expected_owner_holds = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
