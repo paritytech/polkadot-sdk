@@ -153,10 +153,7 @@ pub fn derive_certificate(
 	// The builder downgrades the certificate to v1 whenever the extension list is empty.
 	// One end-entity constraint keeps us on v3.
 	builder
-		.add_extension(&BasicExtension(BasicConstraints {
-			ca: false,
-			path_len_constraint: None,
-		}))
+		.add_extension(&BasicExtension(BasicConstraints { ca: false, path_len_constraint: None }))
 		.map_err(CertificateError::CertificateBuild)?;
 
 	let certificate = builder
