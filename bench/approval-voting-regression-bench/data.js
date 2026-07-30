@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785251936434,
+  "lastUpdate": 1785413526166,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "08a4a548cb1f5a817d319725f9c1420a7bbe1d3e",
-          "message": "Disable polkavm logging in `pallet-revive` (#10385)\n\nThis PR adds configurable control over PolkaVM logging in\n`pallet-revive` to address performance degradation (details:\nhttps://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)\n\n- Upgrades PolkaVM to v0.30.0 which provides\n`set_imperfect_logger_filtering_workaround()`\n- Adds `pvm_logs` flag to `DebugSettings` to control PolkaVM interpreter\nlogging\n- Disables PolkaVM logs by default (when `pvm_logs=false`), enabling\nthem only when explicitly configured\n- Fixes performance issue where excessive PolkaVM logging was impacting\nblock proposal times\n\nThe logging can be re-enabled via debug settings when needed for\ntroubleshooting.\n\nAdditionally:\n- PolkaVM has been bumped globally across whole codebase.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-26T14:51:51Z",
-          "tree_id": "9cc449884442043a3546c974f7fc16f9ee2d99aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/08a4a548cb1f5a817d319725f9c1420a7bbe1d3e"
-        },
-        "date": 1764173275261,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63627.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.669202012189992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.547130224460001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5455823902100003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.0182040439599898,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4317987912299971,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000018582729999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5806862113000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.539734963110001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7637901846411355,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021321040000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000018582729999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021321040000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006065387920000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.656387454269999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "277bed389cd2229821426edeacdbc799b1f3fc2c",
+          "message": "Collator revamp - tests for subsystem startup and registered parachains pruning (#12675)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-30T10:28:06Z",
+          "tree_id": "ab6e61bc8dcb9903721933021fc60eb9c8c6241f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/277bed389cd2229821426edeacdbc799b1f3fc2c"
+        },
+        "date": 1785413492056,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.69,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002400357,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002354106,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002354106,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.832866240849992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3528319981000103,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8747531108999805,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.463829476542729,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.668687818869999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005356464500000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002400357,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6343180179100023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6594178532100003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.637500977360001,
             "unit": "seconds"
           }
         ]
