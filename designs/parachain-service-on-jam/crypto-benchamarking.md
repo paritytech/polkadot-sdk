@@ -4,6 +4,25 @@ Comparison of in-PVM vs on-host execution of the hash and signature functions
 the Parachain Service / PVF stack needs, to decide which (if any) require
 Gray Paper host calls and which can stay PVM guest code (see design doc §4.3).
 
+## What is benchmarked
+
+The PVF-relevant subset of
+[`sp_io`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/primitives/io/src/lib.rs)
+host functions (`sp_io::trie` reduces to blake2_256/keccak_256 + plain Rust,
+so it is not benchmarked separately):
+
+- `Hashing`: `blake2_128`, `blake2_256`, `keccak_256`,
+  `keccak_512`, `sha2_256`, `twox_64`, `twox_128`, `twox_256`
+- `Crypto`: `ed25519_verify` (dalek + zebra), `sr25519_verify`,
+  `ecdsa_verify` (k256 + libsecp256k1), `secp256k1_ecdsa_recover`
+  (k256 + libsecp256k1); intentionally skipped: `*_batch_verify`
+  (deprecated, sequential under the hood), `*_prehashed` (delta vs the
+  non-prehashed variant is a known blake2 hash), compressed-key variants
+  (serialization only)
+
+Implementations match `sp_crypto_hashing`: `blake2b_simd`, `sha2`, `sha3`,
+`twox-hash` (1/2/4 seeded XxHash64 passes).
+
 ## Results
 
 Setup: PolkaVM **64-bit, recompiler backend, synchronous gas metering** (polkajam's
@@ -23,9 +42,10 @@ instantiation are excluded (steady-state). All artifacts are built from the
 same source and verified to produce identical outputs. Guest artifacts are
 built with two build-configuration fixes (see *Build tweaks* below).
 
-Ratios are vs the **best host build per algorithm**: host native for
-blake2/keccak/sha2, host portable for twox (where `target-cpu=native` is a
-~1.5× pessimization — baselines were checked per algorithm, not assumed).
+Ratios are vs the **best host build per algorithm and machine** —
+`target-cpu=native` is not always a win (it pessimizes twox ~1.5× on
+machine A and keccak ~1.7× on machine B), so baselines were checked per
+cell, not assumed.
 
 Two machines, because the ratios turn out to be strongly
 microarchitecture-dependent (see *Hardware dependence* below):
@@ -71,8 +91,6 @@ host-portable build; see appendix for the host-native results.
 | secp256k1_ecdsa_recover (`k256`) | 143.5 µs | 443.4 µs | 3.1× | 124.1 µs | 338.5 µs | 2.7× |
 | secp256k1_ecdsa_recover (`libsecp256k1`) | 131.8 µs | 240.0 µs | 1.8× | 118.6 µs | 170.6 µs | 1.4× |
 
-- Not benchmarked: `*_batch_verify` 
-
 ### Hardware dependence
 
 The PVM-vs-host ratios are not a constant of the workload — they depend
@@ -100,6 +118,47 @@ The absolute PVM costs — the numbers the refine-budget question actually
 needs — improve on the newer machine across the board (e.g. ed25519 verify
 103 µs → 68 µs, blake2 1 MiB 1.47 ms → 0.89 ms).
 
+### Hand-written assembly PoC (blake2b) — for LLM values of "hand"
+
+A proof-of-concept to check how much of the PVM penalty is code generation
+rather than the VM itself: the blake2b compression loop was hand-rolled in
+RISC-V assembly (by an LLM — no human hands were harmed): a/b state rows
+pinned in registers, strict 2-operand form (no recompiler `mov`s), message
+schedule as constant offsets, block loop inlined. Exported as
+`blake2_256_asm` in `bench-hash`;
+details, the performance model, and the full analysis/verification flow are
+in [blake2-riscv-asm-handoff.md](blake2-riscv-asm-handoff.md).
+
+Results (machine B; "host" = host native, AVX2 — the best host build for
+blake2). All cells from one run (`output_asm_00_toaster`, representative of
+5 consistent runs); the `blake2b_simd` cells match the machine-B tables
+above within ~1% (run-to-run drift):
+
+| size | PVM `blake2b_simd` | vs host | PVM asm | vs host | asm vs simd |
+|---:|---:|---:|---:|---:|---:|
+| 32 B | 131 ns | 1.37× | **112 ns** | **1.17×** | 0.85× |
+| 128 B | 126 ns | 1.39× | **115 ns** | **1.27×** | 0.92× |
+| 512 B | 454 ns | 1.37× | **400 ns** | **1.21×** | 0.88× |
+| 4 KiB | 3.48 µs | 1.35× | **3.03 µs** | **1.18×** | 0.87× |
+| 64 KiB | 55.37 µs | 1.35× | **48.15 µs** | **1.17×** | 0.87× |
+| 1 MiB | 895.67 µs | 1.37× | **771.42 µs** | **1.18×** | 0.86× |
+
+- Takeaway: roughly half of blake2's PVM gap was LLVM's code generation for
+  the 13-register target (504 → 304 PVM instructions per 2 rounds); the
+  rest (1.09× vs the *scalar* host-portable build at bulk sizes, not shown
+  above) is structural (state doesn't fit in registers, the dependency
+  chain crosses memory) and is the floor for this ISA. Small sizes keep
+  ~15 ns of fixed per-call setup, hence the higher 32–128 B ratios.
+- The ~40% instruction-count cut also lowers metered gas by a similar
+  amount regardless of wall-clock (gas is charged per instruction executed,
+  summed per basic block).
+- This is a per-primitive ceiling check, not a proposal to hand-write
+  production crypto; it shows guest-code blake2 gets within 1.2–1.3× of a
+  production host at every size, strengthening the guest-code path.
+- The asm code is **not production ready**: benchmark-grade only — no test
+  suite, no fuzzing, no review; its only validation is the checksum
+  cross-check against `blake2b_simd` over the benchmark size grid.
+
 ## Host-call overhead (not yet measured)
 
 A PVF runs in a **nested PVM** (`machine`/`invoke`); its host calls are not
@@ -118,23 +177,6 @@ A host call pays off when `PVM_time − host_time > n × crossing + copy(len)`.
 Crossing and copy costs are not measured yet (benchtool `bench-ecalli`,
 polkajam's host-call benchmarks) — no winners can be declared. Calls made by
 the service's own refine code pay a single crossing.
-
-## What is benchmarked
-
-The PVF-relevant subset of
-[`sp_io`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/primitives/io/src/lib.rs)
-host functions (`sp_io::trie` reduces to blake2_256/keccak_256 + plain Rust,
-so it is not benchmarked separately):
-
-- `Hashing` (this report): `blake2_128`, `blake2_256`, `keccak_256`,
-  `keccak_512`, `sha2_256`, `twox_64`, `twox_128`, `twox_256`
-- `Crypto` (this report): `ed25519_verify` (dalek + zebra), `sr25519_verify`,
-  `ecdsa_verify` (k256 + libsecp256k1), `secp256k1_ecdsa_recover`
-  (k256 + libsecp256k1); prehashed/compressed/batch variants intentionally
-  skipped (see above)
-
-Implementations match `sp_crypto_hashing`: `blake2b_simd`, `sha2`, `sha3`,
-`twox-hash` (1/2/4 seeded XxHash64 passes).
 
 ## Build tweaks
 
@@ -196,6 +238,7 @@ Raw data for both machines: `tools/benchtool/output_00` (machine A) and
 branch.
 
 ### Signatures, host-portable build — machine A
+CPU: AMD Ryzen 9 5950X (Zen 3): AVX2, SHA-NI.
 
 | benchmark | host portable | PVM (64-bit, sync gas) | ratio |
 |---|---:|---:|---:|
@@ -219,7 +262,7 @@ branch.
 | recover-k256 | 124.11 µs | 338.46 µs | 2.73× |
 | recover-libsecp | 118.64 µs | 170.56 µs | 1.44× |
 
-### Signatures, host-native build
+### Signatures, host-native build — machine A
 
 | benchmark | host native | PVM (64-bit, sync gas) | ratio |
 |---|---:|---:|---:|
@@ -230,13 +273,6 @@ branch.
 | ecdsa-libsecp | 129.20 µs | 241.51 µs | 1.87× |
 | recover-k256 | 140.69 µs | 453.49 µs | 3.22× |
 | recover-libsecp | 145.47 µs | 252.30 µs | 1.73× |
-
-*pvm* = PVM guest blob (recompiler, sync gas) · *native* = host native
-build (`-C target-cpu=native`, build machine only) · *portable* = host
-portable build (runs on any x86-64; crates may runtime-dispatch, e.g.
-sha2 uses SHA-NI where available)
-
-This table is from machine A.
 
 ### Hashing — machine A
 
@@ -334,6 +370,7 @@ sha2 uses SHA-NI where available)
 | 1 MiB | 355.95 µs | 361.37 µs | 231.07 µs | 0.98x | 1.54x | 1.56x |
 
 ### Hashing — machine B
+CPU: AMD Ryzen Threadripper PRO 7995WX (Zen 4): AVX2, SHA-NI, AVX-512.
 
 #### blake2_128
 
