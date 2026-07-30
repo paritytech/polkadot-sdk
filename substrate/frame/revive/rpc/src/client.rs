@@ -27,8 +27,6 @@ use crate::{
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
-use codec::{Decode, Encode};
-use core::future::Future;
 use futures::TryStreamExt;
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
@@ -1112,24 +1110,12 @@ impl Client {
 			return Ok(vec![]);
 		}
 
-		let recorded = self.state_call_recorded::<Vec<(u32, TraceV1)>>(
-			"ReviveApi_trace_block",
-			(&block, &config).encode(),
-			parent_hash,
-		);
-		let (traces, degraded) = Self::recorded_or_fallback(
-			"trace_block",
-			async { Ok((recorded.await?, false)) },
-			|reason| async move {
-				let runtime_api = self.runtime_api(parent_hash).await?;
-				let traces = runtime_api
-					.trace_block(block, config)
-					.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_block"))?
-					.await?;
-				Ok((traces, reason == RecordedUnavailable::MethodMissing))
-			},
-		)
-		.await?;
+		let (traces, degraded) = self
+			.runtime_api(parent_hash)
+			.await?
+			.trace_block(block, config)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_block"))?
+			.await?;
 
 		let mut hashes = self
 			.receipt_provider
@@ -1172,84 +1158,17 @@ impl Client {
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
-		let trace: Option<TraceV1> = Self::recorded_or_fallback(
-			"trace_tx",
-			self.state_call_recorded(
-				"ReviveApi_trace_tx",
-				(&block, &transaction_index, &config).encode(),
-				parent_hash,
-			),
-			|reason| async move {
-				let runtime_api = self.runtime_api(parent_hash).await?;
-				match runtime_api
-					.trace_tx(block, transaction_index, config)
-					.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
-					.await
-				{
-					Err(ClientError::EthExtrinsicNotFound)
-						if reason == RecordedUnavailable::MethodMissing =>
-					{
-						Err(ClientError::TraceUnavailable)
-					},
-					trace => trace.map(Some),
-				}
-			},
-		)
-		.await?;
-
-		trace.ok_or(ClientError::EthExtrinsicNotFound)
-	}
-
-	/// Invoke the node's `state_callRecorded` RPC: run the runtime API `method` at the state of
-	/// `at`, with a proof-size recorder registered, and decode the SCALE result. `call_data` is
-	/// the complete SCALE-encoded argument list, exactly as for `state_call`.
-	async fn state_call_recorded<R: Decode>(
-		&self,
-		method: &str,
-		call_data: Vec<u8>,
-		at: H256,
-	) -> Result<R, ClientError> {
-		let result: sp_core::Bytes = self
-			.rpc_client
-			.request("state_callRecorded", rpc_params![method, sp_core::Bytes(call_data), at])
+		let (trace, degraded) = self
+			.runtime_api(parent_hash)
+			.await?
+			.trace_tx(block, transaction_index, config)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
 			.await?;
-		Ok(R::decode(&mut &result.0[..])?)
-	}
 
-	/// Run `recorded`; on a node that cannot service it (see
-	/// [`ClientError::recorded_unavailable_reason`]) run `fallback` with the reason instead,
-	/// otherwise propagate. `method` is used only for logging.
-	async fn recorded_or_fallback<R, Fb, Fut>(
-		method: &str,
-		recorded: impl Future<Output = Result<R, ClientError>>,
-		fallback: Fb,
-	) -> Result<R, ClientError>
-	where
-		Fb: FnOnce(RecordedUnavailable) -> Fut,
-		Fut: Future<Output = Result<R, ClientError>>,
-	{
-		match recorded.await {
-			Ok(result) => Ok(result),
-			Err(e) => match e.recorded_unavailable_reason() {
-				Some(reason @ RecordedUnavailable::MethodMissing) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"{method}: node does not expose `state_callRecorded` (older binary, or \
-						 unsafe RPC methods disabled); falling back to recorder-less replay — \
-						 traces may be INCOMPLETE on PoV/parachain chains",
-					);
-					fallback(reason).await
-				},
-				Some(reason @ RecordedUnavailable::NoRecorder) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"{method}: node registers no proof-size recorder; using plain replay \
-						 (correct, no reclaim to honour)",
-					);
-					fallback(reason).await
-				},
-				None => Err(e),
-			},
+		match trace {
+			Some(trace) => Ok(trace),
+			None if degraded => Err(ClientError::TraceUnavailable),
+			None => Err(ClientError::EthExtrinsicNotFound),
 		}
 	}
 
@@ -1437,43 +1356,4 @@ mod tests {
 		assert!(ClientError::BlockNotFound.recorded_unavailable_reason().is_none());
 	}
 
-	#[tokio::test]
-	async fn recorded_or_fallback_propagates_genuine_errors() {
-		let fell_back = std::cell::Cell::new(false);
-		let out: Result<u32, ClientError> = Client::recorded_or_fallback(
-			"test",
-			async { Err(rpc_user_error(-32000)) },
-			|_| async {
-				fell_back.set(true);
-				Ok(2)
-			},
-		)
-		.await;
-		assert!(matches!(out, Err(ClientError::RpcError(_))), "genuine error must propagate");
-		assert!(!fell_back.get(), "fallback must not run for a genuine failure");
-	}
-
-	#[tokio::test]
-	async fn fallback_receives_the_unavailability_reason() {
-		let seen = std::cell::Cell::new(None);
-		let fallback = |reason| {
-			seen.set(Some(reason));
-			async { Ok(2) }
-		};
-
-		let out: Result<u32, ClientError> =
-			Client::recorded_or_fallback("test", async { Err(rpc_user_error(-32601)) }, fallback)
-				.await;
-		assert_eq!(out.unwrap(), 2);
-		assert_eq!(seen.get(), Some(RecordedUnavailable::MethodMissing));
-
-		let out: Result<u32, ClientError> = Client::recorded_or_fallback(
-			"test",
-			async { Err(rpc_user_error(CALL_RECORDED_UNSUPPORTED_ERROR_CODE)) },
-			fallback,
-		)
-		.await;
-		assert_eq!(out.unwrap(), 2);
-		assert_eq!(seen.get(), Some(RecordedUnavailable::NoRecorder));
-	}
 }
