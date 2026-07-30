@@ -19,6 +19,4 @@ doc:
     This is an additive change (new call and event variant); there is no storage migration.
 crates:
 - name: pallet-multi-asset-bounties
-  bump: major
-  validate: false
-  note: Adds only a new extrinsic (`increase_value`) and a new event variant. Additive on-chain — no storage migration, no change to existing call indices, storage, or behaviour. The major bump is solely from the `Call`/`Event` enum-variant additions, which is safe to backport.
+  bump: minor
