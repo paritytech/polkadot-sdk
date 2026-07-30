@@ -44,10 +44,10 @@
 //! long as its purse still holds the named instance at the named state nonce. Two rules bound
 //! stale intent, exactly as in Coinage:
 //!
-//! * Callers must sign **mortal** transactions with an era shorter than [`Config::LockPeriod`].
-//!   A successful move invalidates every outstanding authorization by incrementing the state
-//!   nonce, but an unexecuted transaction is otherwise replayable by anyone who has seen it
-//!   until its era expires.
+//! * Callers must sign **mortal** transactions with an era shorter than [`Config::LockPeriod`]. A
+//!   successful move invalidates every outstanding authorization by incrementing the state nonce,
+//!   but an unexecuted transaction is otherwise replayable by anyone who has seen it until its era
+//!   expires.
 //! * Because the era ends before the shortest failure lock does, a failed transaction can never
 //!   re-enter a block: every retry after a failure is a fresh signing decision rather than a
 //!   third-party replay of the old transaction.
