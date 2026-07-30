@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785250840984,
+  "lastUpdate": 1785410468802,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -110375,6 +110375,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3314149667,
             "range": "± 90890370",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a5dfc85b5e7ad411e7799bddb3c70ccc299d5f68",
+          "message": "[AHMv2] Scaffold HRMP And Registrar User Interface Pallets (#12663)\n\nContext here:\nhttps://docs.google.com/document/d/1yCsvN-A_8tHH4M_z1BQnWgOpAyGmvr0wyJrGspXYm_E/edit?tab=t.fgap8ynjebgt\n\nSome new nearly empty pallets as setup for new AHM v2. Adding:\n- hrmp-para, hrmp-relay, hrmp-primitives\n- registrar-para, registrar-relay, registrar-primitives\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>",
+          "timestamp": "2026-07-30T09:52:41Z",
+          "tree_id": "3f29944f97cf2f1b18333d1501cf96cc109830fa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a5dfc85b5e7ad411e7799bddb3c70ccc299d5f68"
+        },
+        "date": 1785410434913,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19695551,
+            "range": "± 121973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19930227,
+            "range": "± 274456",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21304767,
+            "range": "± 108483",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26222102,
+            "range": "± 119418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61035955,
+            "range": "± 842916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 364382991,
+            "range": "± 4056551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2630339746,
+            "range": "± 105166137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16991829,
+            "range": "± 243760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16970306,
+            "range": "± 136631",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17645134,
+            "range": "± 219824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21961598,
+            "range": "± 100500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63887953,
+            "range": "± 399093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376772684,
+            "range": "± 5902795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2715002546,
+            "range": "± 23817754",
             "unit": "ns/iter"
           }
         ]
