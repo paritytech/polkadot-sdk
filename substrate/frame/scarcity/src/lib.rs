@@ -28,11 +28,12 @@
 //! releases it to the former owner, and transfers collection authority. This lets the successor
 //! reject an unwanted or unaffordable collection.
 //!
-//! Collection metadata supplies defaults inherited by every item. An item's complete metadata
-//! picture is built by iterating both storage prefixes and merging the item's entries over the
-//! collection entries; the item value wins when both scopes contain the same key.
-//! [`Pallet::metadata_of`] performs that resolution for one key, while
-//! [`Pallet::collection_metadata_of`] reads only the collection scope.
+//! Collection metadata supplies defaults inherited by every item definition, and item metadata
+//! supplies defaults shared by every instance minted from that definition. A minted instance may
+//! override either scope without affecting other instances. [`Pallet::instance_metadata_of`]
+//! resolves one key in instance, item, then collection order. [`Pallet::metadata_of`] resolves the
+//! item and collection scopes, while [`Pallet::collection_metadata_of`] reads only the collection
+//! scope.
 //!
 //! Keys and values are bounded raw bytes. Numeric metadata is a convention rather than a pallet
 //! type: games should use SCALE-encoded `u128` values when they need a shared numeric convention,
@@ -51,17 +52,23 @@ extern crate alloc;
 
 pub use pallet::*;
 
-/// Runtime-only integration for minting an NFT without an instance storage deposit.
+/// Runtime-only integration for minting an NFT without instance-scoped storage deposits.
 ///
 /// Implementations still enforce all collection, item, supply, and ownership invariants. The
 /// calling runtime pallet is responsible for bounding depositless state growth through some
 /// other scarce resource or protocol rule.
 pub trait MintWithoutDeposit<AccountId> {
-	/// Mint an instance without creating an [`InstanceDeposits`] entry.
+	/// Bounded metadata key accepted by the implementation.
+	type MetadataKey;
+	/// Bounded metadata value accepted by the implementation.
+	type MetadataValue;
+
+	/// Mint an instance and its initial metadata without storage deposits.
 	fn mint_without_deposit(
 		collection: CollectionId,
 		item: ItemIndex,
 		to: AccountId,
+		metadata: alloc::vec::Vec<(Self::MetadataKey, Self::MetadataValue)>,
 	) -> Result<InstanceId, sp_runtime::DispatchError>;
 }
 
@@ -96,11 +103,9 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	#[cfg(any(test, feature = "try-runtime"))]
-	use sp_runtime::traits::Zero;
-	#[cfg(any(test, feature = "try-runtime"))]
 	use sp_runtime::TryRuntimeError;
 	use sp_runtime::{
-		traits::{CheckedAdd, CheckedSub, Convert},
+		traits::{CheckedAdd, CheckedSub, Convert, Zero},
 		transaction_validity::TransactionPriority,
 		ArithmeticError, DispatchError,
 	};
@@ -242,10 +247,11 @@ pub mod pallet {
 		MetadataEntry<MetadataValueOf<T>, BalanceOf<T>>,
 	>;
 
-	/// Per-item entries which override collection defaults for the same key.
+	/// Per-item defaults which override collection defaults for the same key.
 	///
-	/// Item definitions outlive minted instances, so burning an instance never removes these
-	/// entries. With no item deletion call, entries persist until the owner removes them.
+	/// These entries are shared by every instance minted from the item definition. Item
+	/// definitions outlive minted instances, so burning an instance never removes them. With no
+	/// item deletion call, entries persist until the owner removes them.
 	#[pallet::storage]
 	pub type ItemMetadata<T: Config> = StorageNMap<
 		_,
@@ -272,6 +278,25 @@ pub mod pallet {
 	/// Exact per-instance storage deposits, present only for deposit-paying mints.
 	#[pallet::storage]
 	pub type InstanceDeposits<T: Config> = StorageMap<_, Twox64Concat, InstanceId, BalanceOf<T>>;
+
+	/// Number of metadata overrides stored for each live instance.
+	///
+	/// This entry exists even when the count is zero so burn cleanup remains bounded and
+	/// `try_state` can verify that every live instance has explicit metadata accounting.
+	#[pallet::storage]
+	pub type InstanceMetadataCount<T: Config> =
+		StorageMap<_, Twox64Concat, InstanceId, u32, ValueQuery>;
+
+	/// Per-instance entries which override item and collection metadata for the same key.
+	#[pallet::storage]
+	pub type InstanceMetadata<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		InstanceId,
+		Blake2_128Concat,
+		MetadataKeyOf<T>,
+		MetadataEntry<MetadataValueOf<T>, BalanceOf<T>>,
+	>;
 
 	/// Post-failure backoff locks for NFT purse keys.
 	#[pallet::storage]
@@ -311,6 +336,10 @@ pub mod pallet {
 		ItemMetadataSet { collection: CollectionId, item: ItemIndex, key: MetadataKeyOf<T> },
 		/// An item-level metadata override was removed.
 		ItemMetadataRemoved { collection: CollectionId, item: ItemIndex, key: MetadataKeyOf<T> },
+		/// An instance-level metadata override was inserted or overwritten.
+		InstanceMetadataSet { instance: InstanceId, key: MetadataKeyOf<T> },
+		/// An instance-level metadata override was removed.
+		InstanceMetadataRemoved { instance: InstanceId, key: MetadataKeyOf<T> },
 	}
 
 	#[pallet::error]
@@ -335,6 +364,10 @@ pub mod pallet {
 		TooManyInstances,
 		/// An item definition's minted supply is exhausted.
 		SupplyOverflow,
+		/// The requested live instance does not exist.
+		UnknownInstance,
+		/// The configured per-instance metadata entry limit was reached.
+		TooManyInstanceMetadata,
 		/// An NFT cannot be transferred to its current purse key.
 		SelfTransfer,
 		/// The NFT's authorization state can no longer be advanced.
@@ -427,6 +460,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxValueLen: Get<u32>;
 
+		/// Maximum number of metadata overrides stored on one live instance.
+		///
+		/// This bounds burn cleanup independently of how many mutation calls are submitted.
+		#[pallet::constant]
+		type MaxInstanceMetadata: Get<u32>;
+
 		/// Base lock period after a failed purse-key dispatch, in seconds.
 		#[pallet::constant]
 		type LockPeriod: Get<u64>;
@@ -446,7 +485,10 @@ pub mod pallet {
 			Self::do_create_collection(owner).map(|_| ())
 		}
 
-		/// Define one immutable item in a collection owned by the signer.
+		/// Define one immutable item and its shared metadata defaults.
+		///
+		/// The supplied metadata is inherited by every instance minted from this definition.
+		/// Instance-specific values belong on [`Self::mint`] or [`Self::set_instance_metadata`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::define_item(metadata.len() as u32))]
 		pub fn define_item(
@@ -459,16 +501,20 @@ pub mod pallet {
 		}
 
 		/// Mint an instance of an immutable item definition into an empty purse key.
+		///
+		/// `metadata` contains instance-specific overrides. Item metadata remains the shared
+		/// default for every instance minted from the definition.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::mint())]
+		#[pallet::weight(T::WeightInfo::mint(metadata.len() as u32))]
 		pub fn mint(
 			origin: OriginFor<T>,
 			collection: CollectionId,
 			item: ItemIndex,
 			to: T::AccountId,
+			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
-			Self::do_mint(owner, collection, item, to).map(|_| ())
+			Self::do_mint(owner, collection, item, to, metadata).map(|_| ())
 		}
 
 		/// Transfer an NFT held by the `Origin::Nft` purse-key origin.
@@ -493,16 +539,25 @@ pub mod pallet {
 		/// Burn an NFT held by the `Origin::Nft` purse-key origin.
 		///
 		/// Item-definition supply counts minted-ever instances and is deliberately monotonic.
-		/// Item metadata belongs to the definition, not this instance, and remains untouched.
+		/// Item metadata belongs to the definition and remains untouched. Instance metadata is
+		/// removed and its exact deposits are released.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::burn())]
+		#[pallet::weight(T::WeightInfo::burn(T::MaxInstanceMetadata::get()))]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let Ok(Origin::Nft { nft, .. }) = origin.into() else {
 				return Err(DispatchError::BadOrigin.into());
 			};
 			Instances::<T>::remove(nft.instance);
-			if let Some(deposit) = InstanceDeposits::<T>::take(nft.instance) {
+			let expected_metadata_count = InstanceMetadataCount::<T>::take(nft.instance);
+			let mut actual_metadata_count = 0u32;
+			let mut deposit = InstanceDeposits::<T>::take(nft.instance).unwrap_or_else(Zero::zero);
+			for (_, entry) in InstanceMetadata::<T>::drain_prefix(nft.instance) {
+				actual_metadata_count = actual_metadata_count.saturating_add(1);
+				deposit = deposit.checked_add(&entry.deposit).ok_or(ArithmeticError::Overflow)?;
+			}
+			debug_assert_eq!(actual_metadata_count, expected_metadata_count);
+			if !deposit.is_zero() {
 				Collections::<T>::try_mutate(nft.collection, |maybe_info| {
 					let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
 					Self::decrease_owner_deposit(info, deposit)
@@ -555,10 +610,11 @@ pub mod pallet {
 			Self::do_set_collection_metadata(&owner, collection, key, value)
 		}
 
-		/// Set or remove an item-level metadata override.
+		/// Set or remove a metadata default shared by every instance of an item.
 		///
-		/// Only the collection owner may mutate metadata. `None` releases an existing entry's
-		/// deposit; when the key is absent it is a successful no-op.
+		/// This scope overrides the collection default without changing any instance-specific
+		/// override. Only the collection owner may mutate metadata. `None` releases an existing
+		/// entry's deposit; when the key is absent it is a successful no-op.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_item_metadata())]
 		#[transactional]
@@ -607,6 +663,23 @@ pub mod pallet {
 				Ok(())
 			})
 		}
+
+		/// Set or remove an instance-specific metadata override.
+		///
+		/// Only the collection owner may mutate metadata. `None` releases an existing entry's
+		/// deposit; when the key is absent it is a successful no-op.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::set_instance_metadata())]
+		#[transactional]
+		pub fn set_instance_metadata(
+			origin: OriginFor<T>,
+			instance: InstanceId,
+			key: MetadataKeyOf<T>,
+			value: Option<MetadataValueOf<T>>,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			Self::do_set_instance_metadata(&owner, instance, key, value, true)
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -627,7 +700,9 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let total = info.owner_deposit.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
-			Self::hold(&info.owner, amount)?;
+			if !amount.is_zero() {
+				Self::hold(&info.owner, amount)?;
+			}
 			info.owner_deposit = total;
 			Ok(())
 		}
@@ -638,7 +713,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let total =
 				info.owner_deposit.checked_sub(&amount).ok_or(ArithmeticError::Underflow)?;
-			Self::release(&info.owner, amount)?;
+			if !amount.is_zero() {
+				Self::release(&info.owner, amount)?;
+			}
 			info.owner_deposit = total;
 			Ok(())
 		}
@@ -725,6 +802,23 @@ pub mod pallet {
 			ItemMetadata::<T>::get((collection, item, key.clone()))
 				.map(|entry| entry.value)
 				.or_else(|| Self::collection_metadata_of(collection, key))
+		}
+
+		/// Effective value for `key` on a live minted instance.
+		///
+		/// An instance-level entry wins, followed by the item definition and then collection.
+		pub fn instance_metadata_of(
+			instance: InstanceId,
+			key: &MetadataKeyOf<T>,
+		) -> Option<MetadataValueOf<T>> {
+			let owner = Instances::<T>::get(instance)?;
+			let nft = NftsByOwner::<T>::get(owner)?;
+			if nft.instance != instance {
+				return None;
+			}
+			InstanceMetadata::<T>::get(instance, key)
+				.map(|entry| entry.value)
+				.or_else(|| Self::metadata_of(nft.collection, nft.item, key))
 		}
 
 		/// Only the collection-level value for `key`, without item-level resolution.
@@ -832,16 +926,82 @@ pub mod pallet {
 			})
 		}
 
+		fn do_set_instance_metadata(
+			owner: &T::AccountId,
+			instance: InstanceId,
+			key: MetadataKeyOf<T>,
+			value: Option<MetadataValueOf<T>>,
+			with_deposit: bool,
+		) -> DispatchResult {
+			let purse = Instances::<T>::get(instance).ok_or(Error::<T>::UnknownInstance)?;
+			let nft = NftsByOwner::<T>::get(purse).ok_or(Error::<T>::UnknownInstance)?;
+			ensure!(nft.instance == instance, Error::<T>::UnknownInstance);
+
+			Collections::<T>::try_mutate(nft.collection, |maybe_info| {
+				let info = maybe_info.as_mut().ok_or(Error::<T>::UnknownCollection)?;
+				ensure!(info.owner == *owner, Error::<T>::NoPermission);
+
+				match (InstanceMetadata::<T>::get(instance, &key), value) {
+					(Some(entry), Some(value)) => {
+						let deposit = if with_deposit {
+							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value))
+						} else {
+							Zero::zero()
+						};
+						Self::replace_owner_deposit(info, entry.deposit, deposit)?;
+						InstanceMetadata::<T>::insert(
+							instance,
+							&key,
+							MetadataEntry { value, deposit },
+						);
+						Self::deposit_event(Event::InstanceMetadataSet { instance, key });
+					},
+					(None, Some(value)) => {
+						let count = InstanceMetadataCount::<T>::get(instance);
+						ensure!(
+							count < T::MaxInstanceMetadata::get(),
+							Error::<T>::TooManyInstanceMetadata
+						);
+						let next_count = count.checked_add(1).ok_or(ArithmeticError::Overflow)?;
+						let deposit = if with_deposit {
+							T::MetadataDeposit::convert(Self::metadata_footprint(&key, &value))
+						} else {
+							Zero::zero()
+						};
+						Self::increase_owner_deposit(info, deposit)?;
+						InstanceMetadata::<T>::insert(
+							instance,
+							&key,
+							MetadataEntry { value, deposit },
+						);
+						InstanceMetadataCount::<T>::insert(instance, next_count);
+						Self::deposit_event(Event::InstanceMetadataSet { instance, key });
+					},
+					(Some(entry), None) => {
+						let count = InstanceMetadataCount::<T>::get(instance);
+						let next_count = count.checked_sub(1).ok_or(ArithmeticError::Underflow)?;
+						Self::decrease_owner_deposit(info, entry.deposit)?;
+						InstanceMetadata::<T>::remove(instance, &key);
+						InstanceMetadataCount::<T>::insert(instance, next_count);
+						Self::deposit_event(Event::InstanceMetadataRemoved { instance, key });
+					},
+					(None, None) => {},
+				}
+				Ok(())
+			})
+		}
+
 		/// Mint an instance after enforcing collection ownership and the one-NFT-per-key rule.
 		pub fn do_mint(
 			owner: T::AccountId,
 			collection: CollectionId,
 			item: ItemIndex,
 			to: T::AccountId,
+			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 		) -> Result<InstanceId, DispatchError> {
 			let info = Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
 			ensure!(info.owner == owner, Error::<T>::NoPermission);
-			Self::do_mint_inner(collection, item, to, true)
+			Self::do_mint_inner(collection, item, to, metadata, true)
 		}
 
 		#[transactional]
@@ -849,8 +1009,13 @@ pub mod pallet {
 			collection: CollectionId,
 			item: ItemIndex,
 			to: T::AccountId,
+			metadata: Vec<(MetadataKeyOf<T>, MetadataValueOf<T>)>,
 			with_deposit: bool,
 		) -> Result<InstanceId, DispatchError> {
+			ensure!(
+				metadata.len() <= T::MaxInstanceMetadata::get() as usize,
+				Error::<T>::TooManyInstanceMetadata
+			);
 			let mut info =
 				Collections::<T>::get(collection).ok_or(Error::<T>::UnknownCollection)?;
 			let mut definition =
@@ -864,14 +1029,15 @@ pub mod pallet {
 			let nft =
 				Nft { instance, collection, item, state_nonce: 0, minted_at: now, last_moved: now };
 			let instance_deposit = if with_deposit {
-				// Three storage entries back one instance: `NftsByOwner`, the `Instances`
-				// reverse index, and the `InstanceDeposits` amount itself.
+				// Four storage entries back one instance: `NftsByOwner`, the `Instances`
+				// reverse index, `InstanceDeposits`, and `InstanceMetadataCount`.
 				let record_size = nft
 					.encoded_size()
 					.saturating_add(to.encoded_size())
 					.saturating_add(instance.encoded_size())
-					.saturating_add(BalanceOf::<T>::max_encoded_len());
-				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(3, record_size));
+					.saturating_add(BalanceOf::<T>::max_encoded_len())
+					.saturating_add(u32::max_encoded_len());
+				let deposit = T::InstanceDeposit::convert(Footprint::from_parts(4, record_size));
 				Self::increase_owner_deposit(&mut info, deposit)?;
 				Some(deposit)
 			} else {
@@ -880,12 +1046,23 @@ pub mod pallet {
 
 			definition.supply = next_supply;
 			NextInstanceId::<T>::put(next_instance);
+			let collection_owner = info.owner.clone();
 			Collections::<T>::insert(collection, info);
 			ItemDefs::<T>::insert(collection, item, definition);
 			NftsByOwner::<T>::insert(&to, nft);
 			Instances::<T>::insert(instance, &to);
+			InstanceMetadataCount::<T>::insert(instance, 0);
 			if let Some(deposit) = instance_deposit {
 				InstanceDeposits::<T>::insert(instance, deposit);
+			}
+			for (key, value) in metadata {
+				Self::do_set_instance_metadata(
+					&collection_owner,
+					instance,
+					key,
+					Some(value),
+					with_deposit,
+				)?;
 			}
 			Self::deposit_event(Event::Minted { instance, collection, item, owner: to });
 			Ok(instance)
@@ -893,13 +1070,17 @@ pub mod pallet {
 	}
 
 	impl<T: Config> crate::MintWithoutDeposit<T::AccountId> for Pallet<T> {
+		type MetadataKey = MetadataKeyOf<T>;
+		type MetadataValue = MetadataValueOf<T>;
+
 		fn mint_without_deposit(
 			collection: CollectionId,
 			item: ItemIndex,
 			to: T::AccountId,
+			metadata: Vec<(Self::MetadataKey, Self::MetadataValue)>,
 		) -> Result<InstanceId, DispatchError> {
 			ensure!(Collections::<T>::contains_key(collection), Error::<T>::UnknownCollection);
-			Self::do_mint_inner(collection, item, to, false)
+			Self::do_mint_inner(collection, item, to, metadata, false)
 		}
 	}
 
@@ -994,6 +1175,11 @@ pub mod pallet {
 						"Instances identifier is not below NextInstanceId",
 					));
 				}
+				if !InstanceMetadataCount::<T>::contains_key(instance) {
+					return Err(TryRuntimeError::Other(
+						"live instance has no metadata count entry",
+					));
+				}
 				if !matches!(
 					NftsByOwner::<T>::get(&owner),
 					Some(nft) if nft.instance == instance
@@ -1028,6 +1214,60 @@ pub mod pallet {
 				*expected = expected
 					.checked_add(&deposit)
 					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
+			}
+
+			let mut actual_instance_metadata_counts = BTreeMap::<InstanceId, u32>::new();
+			for (instance, _, entry) in InstanceMetadata::<T>::iter() {
+				if instance >= next_instance {
+					return Err(TryRuntimeError::Other(
+						"InstanceMetadata identifier is not below NextInstanceId",
+					));
+				}
+				let owner = Instances::<T>::get(instance).ok_or(TryRuntimeError::Other(
+					"InstanceMetadata entry has no matching instance",
+				))?;
+				let nft = NftsByOwner::<T>::get(owner)
+					.ok_or(TryRuntimeError::Other("InstanceMetadata entry has no matching NFT"))?;
+				if nft.instance != instance {
+					return Err(TryRuntimeError::Other(
+						"InstanceMetadata entry resolves to a different NFT",
+					));
+				}
+				let count = actual_instance_metadata_counts.entry(instance).or_default();
+				*count = count
+					.checked_add(1)
+					.ok_or(TryRuntimeError::Other("instance metadata count overflowed"))?;
+				if *count > T::MaxInstanceMetadata::get() {
+					return Err(TryRuntimeError::Other(
+						"instance metadata count exceeds configured maximum",
+					));
+				}
+				let expected = expected_collection_deposits.get_mut(&nft.collection).ok_or(
+					TryRuntimeError::Other("InstanceMetadata entry has no deposit aggregate"),
+				)?;
+				*expected = expected
+					.checked_add(&entry.deposit)
+					.ok_or(TryRuntimeError::Other("collection deposit aggregate overflowed"))?;
+			}
+
+			for (instance, declared_count) in InstanceMetadataCount::<T>::iter() {
+				if !Instances::<T>::contains_key(instance) {
+					return Err(TryRuntimeError::Other(
+						"InstanceMetadataCount entry has no matching instance",
+					));
+				}
+				let actual_count =
+					actual_instance_metadata_counts.get(&instance).copied().unwrap_or_default();
+				if declared_count != actual_count {
+					return Err(TryRuntimeError::Other(
+						"instance metadata count does not match stored entries",
+					));
+				}
+				if declared_count > T::MaxInstanceMetadata::get() {
+					return Err(TryRuntimeError::Other(
+						"instance metadata count exceeds configured maximum",
+					));
+				}
 			}
 
 			for owner in Locked::<T>::iter_keys() {

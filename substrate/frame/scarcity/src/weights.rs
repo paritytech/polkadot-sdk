@@ -73,13 +73,14 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn create_collection() -> Weight;
 	fn define_item(m: u32, ) -> Weight;
-	fn mint() -> Weight;
+	fn mint(m: u32, ) -> Weight;
 	fn transfer() -> Weight;
-	fn burn() -> Weight;
+	fn burn(m: u32, ) -> Weight;
 	fn nominate_collection_owner() -> Weight;
 	fn set_collection_metadata() -> Weight;
 	fn set_item_metadata() -> Weight;
 	fn claim_collection_ownership() -> Weight;
+	fn set_instance_metadata() -> Weight;
 	fn as_scarcity_pipeline() -> Weight;
 }
 
@@ -146,7 +147,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceDeposits` (r:0 w:1)
 	/// Proof: `Scarcity::InstanceDeposits` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
-	fn mint() -> Weight {
+	fn mint(_m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `547`
 		//  Estimated: `28584`
@@ -178,7 +179,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Instances` (r:0 w:1)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
-	fn burn() -> Weight {
+	fn burn(_m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `462`
 		//  Estimated: `4036`
@@ -248,6 +249,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(95_265_000, 7082)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+	fn set_instance_metadata() -> Weight {
+		Self::set_item_metadata()
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -328,7 +332,7 @@ impl WeightInfo for () {
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::InstanceDeposits` (r:0 w:1)
 	/// Proof: `Scarcity::InstanceDeposits` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
-	fn mint() -> Weight {
+	fn mint(_m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `547`
 		//  Estimated: `28584`
@@ -360,7 +364,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(571), added: 3046, mode: `MaxEncodedLen`)
 	/// Storage: `Scarcity::Instances` (r:0 w:1)
 	/// Proof: `Scarcity::Instances` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
-	fn burn() -> Weight {
+	fn burn(_m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `462`
 		//  Estimated: `4036`
@@ -430,6 +434,9 @@ impl WeightInfo for () {
 		Weight::from_parts(95_265_000, 7082)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	fn set_instance_metadata() -> Weight {
+		Self::set_item_metadata()
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)

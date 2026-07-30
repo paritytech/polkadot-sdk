@@ -22,9 +22,10 @@
 use crate::{
 	extension::{AsScarcity, AsScarcityInfo, CustomInvalidity, Pre, Val},
 	mock::*,
-	CollectionMetadata, Collections, Error, Event, InstanceDeposits, Instances, ItemDefs,
-	ItemMetadata, LockInfo, Locked, MetadataKeyOf, MetadataValueOf, MintWithoutDeposit,
-	NextCollectionId, NextInstanceId, Nft, NftsByOwner, Origin,
+	CollectionMetadata, Collections, Error, Event, InstanceDeposits, InstanceMetadata,
+	InstanceMetadataCount, Instances, ItemDefs, ItemMetadata, LockInfo, Locked, MetadataKeyOf,
+	MetadataValueOf, MintWithoutDeposit, NextCollectionId, NextInstanceId, Nft, NftsByOwner,
+	Origin,
 };
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::Hooks;
@@ -70,7 +71,11 @@ fn setup_item() {
 }
 
 fn mint(item: u32, to: u64) {
-	assert_ok!(Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, item, to));
+	assert_ok!(Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, item, to, metadata(&[])));
+}
+
+fn mint_with_metadata(item: u32, to: u64, entries: &[(&[u8], &[u8])]) {
+	assert_ok!(Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, item, to, metadata(entries),));
 }
 
 fn nft_origin(owner: u64, nft: Nft) -> RuntimeOrigin {
@@ -319,9 +324,12 @@ fn claim_moves_exact_collection_deposit_and_authority() {
 			key(b"name"),
 			Some(value(b"collection")),
 		));
-		mint(0, RECIPIENT);
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"claimed")]);
 		let instance_deposit =
 			InstanceDeposits::<Test>::get(0).expect("ordinary mint has a deposit");
+		let instance_metadata_deposit = InstanceMetadata::<Test>::get(0, key(b"unique"))
+			.expect("metadata exists")
+			.deposit;
 
 		// A second collection proves that claiming one collection does not release the old
 		// owner's unrelated holds.
@@ -374,13 +382,28 @@ fn claim_moves_exact_collection_deposit_and_authority() {
 			key(b"name"),
 			Some(value(b"new owner")),
 		));
+		assert_noop!(
+			Scarcity::set_instance_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				key(b"unique"),
+				Some(value(b"claimed")),
+			),
+			Error::<Test>::NoPermission
+		);
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OTHER),
+			0,
+			key(b"unique"),
+			Some(value(b"updated")),
+		));
 
 		let before_burn = held(OTHER);
 		let (_, val, origin) = validate_burn(RECIPIENT).unwrap();
 		let pre = prepare_burn(val, &origin);
 		assert_ok!(Scarcity::burn(origin));
 		post_dispatch(pre, Ok(()));
-		assert_eq!(held(OTHER), before_burn - instance_deposit);
+		assert_eq!(held(OTHER), before_burn - instance_deposit - instance_metadata_deposit);
 		assert_eq!(held(OWNER), remaining_deposit);
 		assert_ok!(Scarcity::do_try_state());
 	});
@@ -493,6 +516,120 @@ fn metadata_resolution_prefers_item_then_falls_back_to_collection() {
 		assert_eq!(Scarcity::metadata_of(0, 0, &shared), Some(value(b"item")));
 		assert_eq!(Scarcity::metadata_of(0, 0, &inherited), Some(value(b"default")));
 		assert_eq!(Scarcity::metadata_of(0, 0, &absent), None);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn instance_metadata_overrides_item_and_collection_without_affecting_other_mints() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let shared = key(b"shared");
+		let inherited = key(b"inherited");
+		let unique = key(b"unique");
+
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			shared.clone(),
+			Some(value(b"collection")),
+		));
+		assert_ok!(Scarcity::set_collection_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			inherited.clone(),
+			Some(value(b"default")),
+		));
+		assert_ok!(Scarcity::set_item_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			0,
+			shared.clone(),
+			Some(value(b"item")),
+		));
+
+		mint_with_metadata(0, RECIPIENT, &[(b"shared", b"instance"), (b"unique", b"first")]);
+		mint(0, OTHER);
+
+		assert_eq!(Scarcity::instance_metadata_of(0, &shared), Some(value(b"instance")));
+		assert_eq!(Scarcity::instance_metadata_of(0, &inherited), Some(value(b"default")));
+		assert_eq!(Scarcity::instance_metadata_of(0, &unique), Some(value(b"first")));
+		assert_eq!(Scarcity::instance_metadata_of(1, &shared), Some(value(b"item")));
+		assert_eq!(Scarcity::instance_metadata_of(1, &inherited), Some(value(b"default")));
+		assert_eq!(Scarcity::instance_metadata_of(1, &unique), None);
+		assert_eq!(Scarcity::metadata_of(0, 0, &shared), Some(value(b"item")));
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 2);
+		assert_eq!(InstanceMetadataCount::<Test>::get(1), 0);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
+fn instance_metadata_mutation_is_collection_owner_only_and_updates_deposits() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		let metadata_key = key(b"instance");
+		let held_before = held(OWNER);
+
+		assert_noop!(
+			Scarcity::set_instance_metadata(
+				RuntimeOrigin::signed(OTHER),
+				0,
+				metadata_key.clone(),
+				Some(value(b"denied")),
+			),
+			Error::<Test>::NoPermission
+		);
+		assert_noop!(
+			Scarcity::set_instance_metadata(
+				RuntimeOrigin::signed(OWNER),
+				99,
+				metadata_key.clone(),
+				Some(value(b"missing")),
+			),
+			Error::<Test>::UnknownInstance
+		);
+
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			metadata_key.clone(),
+			Some(value(b"one")),
+		));
+		let first_deposit =
+			InstanceMetadata::<Test>::get(0, &metadata_key).expect("entry exists").deposit;
+		assert!(first_deposit > 0);
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 1);
+		assert_eq!(held(OWNER), held_before + first_deposit);
+
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			metadata_key.clone(),
+			Some(value(b"longer")),
+		));
+		let replacement_deposit =
+			InstanceMetadata::<Test>::get(0, &metadata_key).expect("entry exists").deposit;
+		assert!(replacement_deposit > first_deposit);
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 1);
+		assert_eq!(held(OWNER), held_before + replacement_deposit);
+		System::assert_has_event(
+			Event::<Test>::InstanceMetadataSet { instance: 0, key: metadata_key.clone() }.into(),
+		);
+
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			metadata_key.clone(),
+			None,
+		));
+		assert!(!InstanceMetadata::<Test>::contains_key(0, &metadata_key));
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 0);
+		assert_eq!(held(OWNER), held_before);
+		System::assert_has_event(
+			Event::<Test>::InstanceMetadataRemoved { instance: 0, key: metadata_key }.into(),
+		);
 		assert_ok!(Scarcity::do_try_state());
 	});
 }
@@ -692,6 +829,7 @@ fn metadata_deposits_update_in_place_and_release() {
 fn removing_absent_metadata_is_a_no_op() {
 	new_test_ext().execute_with(|| {
 		setup_item();
+		mint(0, RECIPIENT);
 		let events_before = System::events().len();
 		let held_before = held(OWNER);
 
@@ -708,9 +846,17 @@ fn removing_absent_metadata_is_a_no_op() {
 			key(b"missing"),
 			None,
 		));
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			key(b"missing"),
+			None,
+		));
 
 		assert_eq!(held(OWNER), held_before);
 		assert_eq!(System::events().len(), events_before);
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 0);
+		assert_ok!(Scarcity::do_try_state());
 	});
 }
 
@@ -743,11 +889,11 @@ fn mint_requires_owner_and_existing_def() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		assert_noop!(
-			Scarcity::mint(RuntimeOrigin::signed(OTHER), 0, 0, RECIPIENT),
+			Scarcity::mint(RuntimeOrigin::signed(OTHER), 0, 0, RECIPIENT, metadata(&[])),
 			Error::<Test>::NoPermission
 		);
 		assert_noop!(
-			Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, 1, RECIPIENT),
+			Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, 1, RECIPIENT, metadata(&[])),
 			Error::<Test>::UnknownItem
 		);
 	});
@@ -760,9 +906,46 @@ fn mint_enforces_one_nft_per_key() {
 		define(0);
 		mint(0, RECIPIENT);
 		assert_noop!(
-			Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, 1, RECIPIENT),
+			Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, 1, RECIPIENT, metadata(&[])),
 			Error::<Test>::AddressOccupied
 		);
+	});
+}
+
+#[test]
+fn mint_enforces_instance_metadata_limit_atomically() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let too_many =
+			metadata(&[(b"one", b"1"), (b"two", b"2"), (b"three", b"3"), (b"four", b"4")]);
+
+		assert_noop!(
+			Scarcity::mint(RuntimeOrigin::signed(OWNER), 0, 0, RECIPIENT, too_many),
+			Error::<Test>::TooManyInstanceMetadata
+		);
+		assert_eq!(NextInstanceId::<Test>::get(), 0);
+		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, 0);
+		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
+		assert!(!InstanceMetadataCount::<Test>::contains_key(0));
+
+		mint_with_metadata(0, RECIPIENT, &[(b"one", b"1"), (b"two", b"2"), (b"three", b"3")]);
+		assert_noop!(
+			Scarcity::set_instance_metadata(
+				RuntimeOrigin::signed(OWNER),
+				0,
+				key(b"four"),
+				Some(value(b"4")),
+			),
+			Error::<Test>::TooManyInstanceMetadata
+		);
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			key(b"one"),
+			Some(value(b"updated")),
+		));
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 3);
+		assert_ok!(Scarcity::do_try_state());
 	});
 }
 
@@ -777,6 +960,8 @@ fn mint_writes_consistent_state() {
 		let nft = NftsByOwner::<Test>::get(RECIPIENT).expect("minted NFT is stored by owner");
 		assert_eq!(nft.instance, 0);
 		assert_eq!(Instances::<Test>::get(0), Some(RECIPIENT));
+		assert!(InstanceMetadataCount::<Test>::contains_key(0));
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 0);
 		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, 1);
 		assert_eq!(nft.state_nonce, 0);
 		assert_eq!(nft.minted_at, 1_234);
@@ -795,13 +980,34 @@ fn mint_writes_consistent_state() {
 }
 
 #[test]
+fn mint_charges_for_initial_instance_metadata() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let held_before = held(OWNER);
+
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"value")]);
+
+		let instance_deposit =
+			InstanceDeposits::<Test>::get(0).expect("ordinary mint has a deposit");
+		let metadata_deposit = InstanceMetadata::<Test>::get(0, key(b"unique"))
+			.expect("metadata exists")
+			.deposit;
+		assert!(metadata_deposit > 0);
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 1);
+		assert_eq!(held(OWNER), held_before + instance_deposit + metadata_deposit);
+		assert_eq!(Collections::<Test>::get(0).unwrap().owner_deposit, held(OWNER));
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
 fn mint_without_deposit_waives_deposit_and_increments_supply() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		let held_before = held(OWNER);
 		MockNow::set(1_234);
 
-		assert_eq!(Scarcity::mint_without_deposit(0, 0, RECIPIENT), Ok(0));
+		assert_eq!(Scarcity::mint_without_deposit(0, 0, RECIPIENT, metadata(&[])), Ok(0));
 
 		let nft = NftsByOwner::<Test>::get(RECIPIENT).expect("depositless NFT is stored by owner");
 		assert_eq!(nft.instance, 0);
@@ -820,19 +1026,59 @@ fn mint_without_deposit_waives_deposit_and_increments_supply() {
 }
 
 #[test]
+fn mint_without_deposit_waives_initial_instance_metadata_deposits() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		let held_before = held(OWNER);
+		let metadata_key = key(b"unique");
+
+		assert_eq!(
+			Scarcity::mint_without_deposit(
+				0,
+				0,
+				RECIPIENT,
+				vec![(metadata_key.clone(), value(b"free"))],
+			),
+			Ok(0)
+		);
+
+		let entry = InstanceMetadata::<Test>::get(0, &metadata_key).expect("metadata exists");
+		assert_eq!(entry.value, value(b"free"));
+		assert_eq!(entry.deposit, 0);
+		assert_eq!(InstanceMetadataCount::<Test>::get(0), 1);
+		assert_eq!(held(OWNER), held_before);
+
+		assert_ok!(Scarcity::set_instance_metadata(
+			RuntimeOrigin::signed(OWNER),
+			0,
+			metadata_key.clone(),
+			Some(value(b"now-deposited")),
+		));
+		let charged = InstanceMetadata::<Test>::get(0, &metadata_key).expect("metadata remains");
+		assert!(charged.deposit > 0);
+		assert_eq!(held(OWNER), held_before + charged.deposit);
+		assert_eq!(Scarcity::instance_metadata_of(0, &metadata_key), Some(value(b"now-deposited")),);
+		assert_ok!(Scarcity::do_try_state());
+	});
+}
+
+#[test]
 fn mint_without_deposit_checks_collection_item_and_destination() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		define(0);
 
 		assert_noop!(
-			Scarcity::mint_without_deposit(99, 0, RECIPIENT),
+			Scarcity::mint_without_deposit(99, 0, RECIPIENT, metadata(&[])),
 			Error::<Test>::UnknownCollection
 		);
-		assert_noop!(Scarcity::mint_without_deposit(0, 99, RECIPIENT), Error::<Test>::UnknownItem);
-		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
 		assert_noop!(
-			Scarcity::mint_without_deposit(0, 1, RECIPIENT),
+			Scarcity::mint_without_deposit(0, 99, RECIPIENT, metadata(&[])),
+			Error::<Test>::UnknownItem
+		);
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT, metadata(&[])));
+		assert_noop!(
+			Scarcity::mint_without_deposit(0, 1, RECIPIENT, metadata(&[])),
 			Error::<Test>::AddressOccupied
 		);
 	});
@@ -854,7 +1100,7 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 	new_test_ext().execute_with(|| {
 		setup_item();
 		MockNow::set(10);
-		mint(0, RECIPIENT);
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"moves")]);
 
 		MockNow::set(20);
 		let (validity, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
@@ -870,7 +1116,9 @@ fn transfer_moves_ownership_and_updates_reverse_index() {
 		assert_eq!(moved.state_nonce, 1);
 		assert_eq!(moved.last_moved, 20);
 		assert_eq!(Instances::<Test>::get(0), Some(OTHER));
+		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"unique")), Some(value(b"moves")),);
 		System::assert_has_event(Event::<Test>::Transferred { instance: 0, to: OTHER }.into());
+		assert_ok!(Scarcity::do_try_state());
 	});
 }
 
@@ -880,7 +1128,7 @@ fn depositless_instance_transfers_through_extension_pipeline() {
 		setup_item();
 		let held_before = held(OWNER);
 		MockNow::set(10);
-		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT, metadata(&[])));
 
 		MockNow::set(20);
 		let (validity, val, origin) = validate_transfer(RECIPIENT, OTHER).unwrap();
@@ -1202,9 +1450,12 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 			Some(value(b"burn")),
 		));
 		MockNow::set(10);
-		mint(0, RECIPIENT);
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"removed")]);
 		let instance_deposit =
 			InstanceDeposits::<Test>::get(0).expect("ordinary mint has a deposit");
+		let instance_metadata_deposit = InstanceMetadata::<Test>::get(0, key(b"unique"))
+			.expect("metadata exists")
+			.deposit;
 		let held_before = held(OWNER);
 		let supply = ItemDefs::<Test>::get(0, 0).unwrap().supply;
 		let burned_authorization = current_authorization(RECIPIENT);
@@ -1222,13 +1473,16 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert!(!Instances::<Test>::contains_key(0));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		assert!(!InstanceMetadataCount::<Test>::contains_key(0));
+		assert_eq!(InstanceMetadata::<Test>::iter_prefix(0).count(), 0);
+		assert_eq!(Scarcity::instance_metadata_of(0, &key(b"unique")), None);
 		assert_eq!(ItemDefs::<Test>::get(0, 0).unwrap().supply, supply);
 		assert_eq!(
 			Scarcity::metadata_of(0, 0, &metadata_key),
 			Some(value(b"burn")),
 			"item-definition metadata must outlive a burned instance",
 		);
-		assert_eq!(held(OWNER), held_before - instance_deposit);
+		assert_eq!(held(OWNER), held_before - instance_deposit - instance_metadata_deposit);
 		System::assert_has_event(Event::<Test>::Burned { instance: 0 }.into());
 
 		assert_no_nft(
@@ -1248,7 +1502,12 @@ fn burn_releases_instance_deposit_and_preserves_supply_and_item_metadata() {
 fn burn_of_depositless_instance_releases_nothing_and_cleans_indexes() {
 	new_test_ext().execute_with(|| {
 		setup_item();
-		assert_ok!(Scarcity::mint_without_deposit(0, 0, RECIPIENT));
+		assert_ok!(Scarcity::mint_without_deposit(
+			0,
+			0,
+			RECIPIENT,
+			metadata(&[(b"unique", b"free")]),
+		));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
 		let held_before = held(OWNER);
 
@@ -1260,7 +1519,10 @@ fn burn_of_depositless_instance_releases_nothing_and_cleans_indexes() {
 		assert!(!NftsByOwner::<Test>::contains_key(RECIPIENT));
 		assert!(!Instances::<Test>::contains_key(0));
 		assert!(!InstanceDeposits::<Test>::contains_key(0));
+		assert!(!InstanceMetadataCount::<Test>::contains_key(0));
+		assert_eq!(InstanceMetadata::<Test>::iter_prefix(0).count(), 0);
 		assert_eq!(held(OWNER), held_before);
+		assert_ok!(Scarcity::do_try_state());
 	});
 }
 
@@ -1370,6 +1632,40 @@ fn try_state_rejects_instance_counter_supply_mismatch() {
 }
 
 #[test]
+fn try_state_rejects_instance_metadata_count_mismatch() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"value")]);
+		InstanceMetadataCount::<Test>::insert(0, 2);
+
+		assert_try_state_error("instance metadata count does not match stored entries");
+	});
+}
+
+#[test]
+fn try_state_rejects_live_instance_without_metadata_count() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint(0, RECIPIENT);
+		InstanceMetadataCount::<Test>::remove(0);
+
+		assert_try_state_error("live instance has no metadata count entry");
+	});
+}
+
+#[test]
+fn try_state_rejects_orphaned_instance_metadata() {
+	new_test_ext().execute_with(|| {
+		setup_item();
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"value")]);
+		let entry = InstanceMetadata::<Test>::take(0, key(b"unique")).expect("metadata exists");
+		InstanceMetadata::<Test>::insert(99, key(b"unique"), entry);
+
+		assert_try_state_error("InstanceMetadata identifier is not below NextInstanceId");
+	});
+}
+
+#[test]
 fn try_state_rejects_nft_without_item_definition() {
 	new_test_ext().execute_with(|| {
 		setup_item();
@@ -1454,7 +1750,7 @@ fn try_state_accepts_issuer_depositless_transferred_and_burned_states() {
 			key(b"default"),
 			Some(value(b"item")),
 		));
-		mint(0, RECIPIENT);
+		mint_with_metadata(0, RECIPIENT, &[(b"unique", b"ordinary")]);
 		mint(1, OTHER);
 
 		let (_, val, origin) = validate_transfer(RECIPIENT, 4).unwrap();
@@ -1462,12 +1758,12 @@ fn try_state_accepts_issuer_depositless_transferred_and_burned_states() {
 		assert_ok!(Scarcity::transfer(origin, 4));
 		post_dispatch(pre, Ok(()));
 
-		assert_ok!(Scarcity::mint_without_deposit(0, 0, 5));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, 5, metadata(&[(b"unique", b"free")]),));
 		let (_, val, origin) = validate_burn(5).unwrap();
 		let pre = prepare_burn(val, &origin);
 		assert_ok!(Scarcity::burn(origin));
 		post_dispatch(pre, Ok(()));
-		assert_ok!(Scarcity::mint_without_deposit(0, 0, 6));
+		assert_ok!(Scarcity::mint_without_deposit(0, 0, 6, metadata(&[(b"unique", b"live")]),));
 
 		assert_ok!(Scarcity::do_try_state());
 		#[cfg(feature = "try-runtime")]

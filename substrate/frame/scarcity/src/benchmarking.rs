@@ -108,17 +108,25 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn mint() -> Result<(), BenchmarkError> {
+	fn mint(m: Linear<0, { T::MaxInstanceMetadata::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let destination: T::AccountId = account("destination", 0, 0);
 		NftsByOwner::<T>::remove(&destination);
 		let (collection, item) = create_definition::<T>(&caller)?;
+		let metadata = (0..m)
+			.map(|index| {
+				let key = metadata_key::<T>(index);
+				let value = metadata_value::<T>(0x44, T::MaxValueLen::get());
+				(key, value)
+			})
+			.collect::<Vec<_>>();
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), collection, item, destination.clone());
+		_(RawOrigin::Signed(caller), collection, item, destination.clone(), metadata);
 
 		let nft = NftsByOwner::<T>::get(&destination).expect("destination owns the minted NFT");
 		assert_eq!(Instances::<T>::get(nft.instance), Some(destination));
+		assert_eq!(InstanceMetadataCount::<T>::get(nft.instance), m);
 		Ok(())
 	}
 
@@ -128,7 +136,7 @@ mod benchmarks {
 		let destination: T::AccountId = account("destination", 0, 0);
 		NftsByOwner::<T>::remove(&destination);
 		let (collection, item) = create_definition::<T>(&owner)?;
-		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
+		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone(), Vec::new())?;
 		let nft = NftsByOwner::<T>::take(&owner).expect("owner has the minted NFT");
 		let instance = nft.instance;
 		let origin: T::RuntimeOrigin = Origin::<T>::Nft { owner, nft }.into();
@@ -142,13 +150,21 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn burn() -> Result<(), BenchmarkError> {
+	fn burn(m: Linear<0, { T::MaxInstanceMetadata::get() }>) -> Result<(), BenchmarkError> {
 		let owner: T::AccountId = whitelisted_caller();
 		let (collection, item) = create_definition::<T>(&owner)?;
-		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
+		let metadata = (0..m)
+			.map(|index| {
+				let key = metadata_key::<T>(index);
+				let value = metadata_value::<T>(0x44, T::MaxValueLen::get());
+				(key, value)
+			})
+			.collect::<Vec<_>>();
+		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone(), metadata)?;
 		let nft = NftsByOwner::<T>::take(&owner).expect("owner has the minted NFT");
 		let instance = nft.instance;
 		assert!(InstanceDeposits::<T>::contains_key(instance));
+		assert_eq!(InstanceMetadataCount::<T>::get(instance), m);
 		let origin: T::RuntimeOrigin = Origin::<T>::Nft { owner, nft }.into();
 
 		#[extrinsic_call]
@@ -156,6 +172,8 @@ mod benchmarks {
 
 		assert!(!Instances::<T>::contains_key(instance));
 		assert!(!InstanceDeposits::<T>::contains_key(instance));
+		assert!(!InstanceMetadataCount::<T>::contains_key(instance));
+		assert_eq!(InstanceMetadata::<T>::iter_prefix(instance).count(), 0);
 		Ok(())
 	}
 
@@ -212,6 +230,26 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_instance_metadata() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let destination: T::AccountId = account("destination", 0, 0);
+		let (collection, item) = create_definition::<T>(&caller)?;
+		let instance =
+			Pallet::<T>::do_mint(caller.clone(), collection, item, destination, Vec::new())?;
+		let key = metadata_key::<T>(0);
+		let value = metadata_value::<T>(0x66, T::MaxValueLen::get());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), instance, key.clone(), Some(value.clone()));
+
+		assert_eq!(Pallet::<T>::instance_metadata_of(instance, &key), Some(value));
+		frame_system::Pallet::<T>::assert_last_event(
+			Event::<T>::InstanceMetadataSet { instance, key }.into(),
+		);
+		Ok(())
+	}
+
+	#[benchmark]
 	fn claim_collection_ownership() -> Result<(), BenchmarkError> {
 		let owner: T::AccountId = whitelisted_caller();
 		let new_owner: T::AccountId = account("new_owner", 0, 0);
@@ -239,7 +277,7 @@ mod benchmarks {
 		let destination: T::AccountId = account("destination", 0, 0);
 		NftsByOwner::<T>::remove(&destination);
 		let (collection, item) = create_definition::<T>(&owner)?;
-		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone())?;
+		Pallet::<T>::do_mint(owner.clone(), collection, item, owner.clone(), Vec::new())?;
 		Locked::<T>::insert(&owner, LockInfo { retries: u8::MAX, until: 0 });
 		let nft = NftsByOwner::<T>::get(&owner).expect("owner has the minted NFT");
 
