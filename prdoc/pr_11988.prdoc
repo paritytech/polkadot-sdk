@@ -43,8 +43,4 @@ doc:
 
 crates:
   - name: sc-hop
-    bump: patch
-  - name: sp-hop
-    bump: patch
-  - name: polkadot-omni-node-lib
-    bump: patch
+    bump: major
