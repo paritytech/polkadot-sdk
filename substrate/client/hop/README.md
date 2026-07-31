@@ -230,12 +230,14 @@ recorder is a no-op.
 | `substrate_hop_pool_entries` / `_pool_bytes` / `_pool_max_bytes` | gauge | |
 | `substrate_hop_pool_inserts_total` | counter | `outcome`: `ok` or the `HopError` variant |
 | `substrate_hop_pool_inserted_bytes_total` | counter | |
-| `substrate_hop_pool_removed_total` | counter | `reason`: `acked`, `expired_promoted`, `expired_unpromoted`, `corrupt`, `startup_dropped` |
+| `substrate_hop_pool_removed_total` | counter | `reason` (values below) |
 | `substrate_hop_rpc_requests_total` | counter | `method` (wire name, e.g. `hop_submit`), `outcome` |
 | `substrate_hop_promotion_submissions_total` | counter | `outcome`: `submitted`, `failed` |
 | `substrate_hop_promotions_confirmed_total` / `_abandoned_total` | counter | |
 | `substrate_hop_promotion_backlog` / `_promotion_enabled` | gauge | |
 | `substrate_hop_maintenance_tick_duration_seconds` | histogram | |
+
+`reason` values: `acked`, `expired_promoted`, `expired_unpromoted`, `corrupt`, `startup_dropped`.
 
 `submitted` means accepted by the local transaction pool; `confirmed` means
 observed on-chain.
