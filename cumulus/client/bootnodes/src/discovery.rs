@@ -84,11 +84,15 @@ pub struct BootnodeDiscoveryParams {
 	/// streams them to the caller — the seam a peer-set manager (or any other
 	/// cross-parachain discoverer) uses to learn a source parachain's node set.
 	pub discovered_tx: Option<UnboundedSender<(PeerId, Vec<Multiaddr>)>>,
+	/// Capability tag mixed into the DHT provider key (empty = the plain RFC-0008 key). Set to a
+	/// capability (e.g. `b"spec-msg/v1"`) to resolve *only* nodes advertising that capability.
+	pub capability: Vec<u8>,
 }
 
 /// Parachain bootnode discovery service.
 pub struct BootnodeDiscovery {
 	para_id_scale_compact: Vec<u8>,
+	capability: Vec<u8>,
 	parachain_network: Arc<dyn NetworkService>,
 	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
@@ -122,10 +126,12 @@ impl BootnodeDiscovery {
 			relay_chain_network,
 			paranode_protocol_name,
 			discovered_tx,
+			capability,
 		}: BootnodeDiscoveryParams,
 	) -> Self {
 		Self {
 			para_id_scale_compact: CompactRef(&para_id).encode(),
+			capability,
 			parachain_network,
 			parachain_genesis_hash,
 			parachain_fork_id,
@@ -153,12 +159,7 @@ impl BootnodeDiscovery {
 	}
 
 	fn epoch_key(&self, randomness: Randomness) -> KademliaKey {
-		self.para_id_scale_compact
-			.clone()
-			.into_iter()
-			.chain(randomness.into_iter())
-			.collect::<Vec<_>>()
-			.into()
+		crate::key::provider_key(&self.para_id_scale_compact, &self.capability, &randomness)
 	}
 
 	/// Start bootnode discovery.
