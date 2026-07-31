@@ -1118,6 +1118,8 @@ pub mod pallet {
 		///
 		/// The fee includes both XCM delivery fee and relay chain execution cost.
 		FeesPaid { who: T::AccountId, fees: BalanceOf<T> },
+		/// Key deposit was reconciled against relay chain's state
+		KeysStateReconciled { who: T::AccountId, has_keys: bool },
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
@@ -1145,6 +1147,8 @@ pub mod pallet {
 		ValidatorSetSendFailed,
 		/// A validator set was dropped.
 		ValidatorSetDropped,
+		/// Key deposit was not reconciled
+		KeyDepositUnavailable,
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -1389,13 +1393,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// Release the key deposit if one was held (no-op if nothing held).
-			let _ = T::Currency::release_all(
-				&HoldReason::Keys.into(),
-				&stash,
-				frame_support::traits::tokens::Precision::BestEffort,
-			);
-
 			// Forward purge request to RC
 			// Note: RC will fail with NoKeys if the account has no keys set
 			let fees = T::SendToRelayChain::purge_keys(
@@ -1410,6 +1407,38 @@ pub mod pallet {
 
 			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");
 
+			Ok(())
+		}
+
+		/// Reconcile the key deposit with the relay chain's session-key state for `stash`.
+		///
+		/// Sent by `ah-client` after every `set_keys`/`purge_keys` attempt.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		pub fn relay_keys_state(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			has_keys: bool,
+		) -> DispatchResult {
+			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+
+			let deposit = T::KeyDeposit::get();
+			if has_keys {
+				if !deposit.is_zero() &&
+					T::Currency::balance_on_hold(&HoldReason::Keys.into(), &stash) < deposit &&
+					T::Currency::set_on_hold(&HoldReason::Keys.into(), &stash, deposit).is_err()
+				{
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::KeyDepositUnavailable));
+				}
+			} else {
+				let _ = T::Currency::release_all(
+					&HoldReason::Keys.into(),
+					&stash,
+					frame_support::traits::tokens::Precision::BestEffort,
+				);
+			}
+
+			Self::deposit_event(Event::KeysStateReconciled { who: stash, has_keys });
 			Ok(())
 		}
 	}
