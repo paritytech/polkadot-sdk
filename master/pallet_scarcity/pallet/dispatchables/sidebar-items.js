@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["burn","claim_collection_ownership","create_collection","define_item","delete_collection","delete_item","force_burn","force_transfer","mint","nominate_collection_owner","set_collection_metadata","set_instance_metadata","set_item_metadata","transfer"]};

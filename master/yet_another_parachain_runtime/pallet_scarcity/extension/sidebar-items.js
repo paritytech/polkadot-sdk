@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AsScarcityInfo","CustomInvalidity","Pre","Val"],"struct":["AsScarcity"]};
