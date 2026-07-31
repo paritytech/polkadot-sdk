@@ -216,6 +216,13 @@ impl ProspectiveCandidate {
 		}
 	}
 
+	pub fn output_head_data_hash(&self) -> Option<Hash> {
+		match self {
+			Self::ByHash { .. } => None,
+			Self::ByOutputHead { output_head_data_hash, .. } => Some(*output_head_data_hash),
+		}
+	}
+
 	pub fn parent_head_data_hash(&self) -> Hash {
 		match self {
 			Self::ByHash { parent_head_data_hash, .. } |
