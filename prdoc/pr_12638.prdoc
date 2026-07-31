@@ -9,7 +9,7 @@ crates:
 - name: cumulus-pallet-parachain-system
   bump: patch
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: major
 - name: polkadot-parachain-primitives
   bump: patch
 - name: xcm-simulator
