@@ -249,7 +249,7 @@
     curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
     chmod 755 $BIN_DIR/polkadot-old
     echo "downloading polkadot-parachain as polkadot-parachain-old in $BIN_DIR"
-    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-parachain-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot-parachain
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-parachain-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2603/polkadot-parachain
     chmod 755 $BIN_DIR/polkadot-parachain-old
     for bin in polkadot-execute-worker polkadot-prepare-worker; do
       echo "downloading $bin in $BIN_DIR"
@@ -263,4 +263,4 @@
     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
     OLD_POLKADOT_COMMAND: "polkadot-old"
     OLD_PARACHAIN_COMMAND: "polkadot-parachain-old"
-    OLD_PARACHAIN_IMAGE: "docker.io/parity/polkadot-parachain:stable2512"
+    OLD_PARACHAIN_IMAGE: "docker.io/parity/polkadot-parachain:stable2603"

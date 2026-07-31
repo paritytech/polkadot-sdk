@@ -19,12 +19,11 @@ use zombienet_sdk::{
 };
 
 #[rstest]
-#[case::v2(None, false)]
-#[case::v3(Some("v3"), true)]
+#[case::v2(false)]
+#[case::v3(true)]
 #[tokio::test(flavor = "multi_thread")]
 async fn doesnt_break_parachains_test(
-	#[case] collator_chain: Option<&str>,
-	#[case] use_v3: bool,
+	#[case] use_v3_candidates: bool,
 ) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -32,8 +31,11 @@ async fn doesnt_break_parachains_test(
 
 	let images = zombienet_sdk::environment::get_images_from_env();
 
+	// V3 candidates need the `v3` para chain spec; the V2 case uses the default one.
+	let collator_chain = use_v3_candidates.then_some("v3");
+
 	// V3 case additionally sets node-features bits 3+4 so the collator emits V3 descriptors.
-	let genesis_overrides = if use_v3 {
+	let genesis_overrides = if use_v3_candidates {
 		json!({
 			"configuration": {
 				"config": {
@@ -60,7 +62,7 @@ async fn doesnt_break_parachains_test(
 
 	// `--authoring=slot-based` only for the V3 case.
 	let mut collator_args = vec![("-lparachain=debug,aura=debug").into()];
-	if use_v3 {
+	if use_v3_candidates {
 		collator_args.push("--authoring=slot-based".into());
 	}
 
@@ -112,7 +114,7 @@ async fn doesnt_break_parachains_test(
 	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&network, 1).await?;
 
-	if use_v3 {
+	if use_v3_candidates {
 		// V3 candidates at single-core throughput.
 		crate::utils::assert_candidates_version(
 			&relay_client,

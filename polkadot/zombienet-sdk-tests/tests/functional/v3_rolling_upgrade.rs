@@ -5,16 +5,26 @@
 //!
 //! Runs a network where some validators use the current binary (V3-capable) and others use an
 //! older binary (`OLD_POLKADOT_IMAGE`) that does not understand V3 descriptors. The V3
-//! `CandidateReceiptV3` node feature is enabled on the relay chain, but the parachain runtime has
+//! `CandidateReceiptV3` node feature is enabled on the relay chain, while the parachain runtime has
 //! V3 scheduling **disabled** (`async-backing`).
 //!
-//! The parachain is served by a mixed collator fleet:
+//! The parachain is served by a mixed collator fleet on one core:
 //! - a **V3-capable** collator (the current `test-parachain`), and
 //! - a **V2-only** collator (an older `polkadot-parachain` release, predating V3, supplied via
 //!   `OLD_PARACHAIN_COMMAND` / `OLD_PARACHAIN_IMAGE`).
 //!
+//! Both emit V2, because the descriptor version follows the *para* runtime: with V3 disabled there,
+//! `validate_v3_scheduling` takes its V1/V2 path and accepts candidates from either binary. The
+//! relay feature being on is what makes this interesting — it must not change what a V3-disabled
+//! para produces.
+//!
+//! The old collator must be stable2603 or newer: that is the first release carrying the
+//! `KeyToIncludeInRelayProof` mechanism (#10678), which the `async-backing` runtime requires. An
+//! older binary cannot serve the key request, fails every `set_validation_data`, and authors
+//! nothing at all — halving throughput rather than exercising the mixed fleet.
+//!
 //! Verifies that:
-//! - V2 candidates are backed by the mixed fleet.
+//! - V2 candidates from both binaries are backed for the same para.
 //! - Statement and availability distribution work across binary versions.
 //! - GRANDPA finality does not stall.
 //! - Parachain throughput is sustained.
@@ -160,13 +170,13 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	for (name, node) in [("collator-3000", &para_node), ("old-collator-3000", &old_para_node)] {
 		node.wait_metric_with_timeout(
 			"substrate_proposer_block_constructed_count",
-			|v| v >= 1.0,
+			|v| v >= 15.0,
 			30u64,
 		)
 		.await
 		.map_err(|e| {
 			anyhow!(
-				"Collator {name} did not author any parachain blocks \
+				"Collator {name} authored fewer than 15 parachain blocks \
 				 (metric substrate_proposer_block_constructed_count): {e}"
 			)
 		})?;
