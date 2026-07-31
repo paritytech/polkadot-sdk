@@ -572,7 +572,10 @@ where
 				}
 				let mut authority_set = self.authority_set.inner_locked();
 				let old_set = authority_set.clone();
-				authority_set.authority_set_changes.insert(number);
+				authority_set
+					.authority_set_changes
+					.insert(number)
+					.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
 
 				crate::aux_schema::update_authority_set::<Block, _, _>(
 					&authority_set,
