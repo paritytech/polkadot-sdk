@@ -201,7 +201,7 @@ impl CoretimeInterface for CoretimeAllocator {
 				},
 			]);
 
-			match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
+			match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
 				Ok(_) => tracing::debug!(
 					target: "runtime::coretime",
 					"Core assignment sent successfully."
