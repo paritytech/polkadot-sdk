@@ -1,0 +1,20 @@
+title: '[pallet-session] fix orphaned consumer reference and locked deposit when keys
+  are purged by a different account'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/270
+
+    `set_keys` places a key deposit and consumer reference on the dispatching account, but the keys
+    are stored against its `ValidatorId`. `purge_keys` reversed both against the dispatching
+    account, so after a stash/controller change purging from the new controller freed them from the
+    wrong account, leaving the original one with an unremovable consumer reference and locked
+    deposit.
+
+    Fixed by recording the placing account per `ValidatorId` (new `KeyRegistrant` map) and always
+    reversing the deposit and consumer reference against it, so either the stash or controller may
+    purge. The map starts empty and needs no migration; pre-existing keys fall back to the previous
+    behaviour.
+crates:
+- name: pallet-session
+  bump: minor

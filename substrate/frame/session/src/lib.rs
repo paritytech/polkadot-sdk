@@ -553,6 +553,8 @@ pub mod pallet {
 					// key.
 					frame_system::Pallet::<T>::inc_providers(&account);
 				}
+				// Record deposit/consumer owner for correct purge (#270).
+				KeyRegistrant::<T>::insert(&val, &account);
 			}
 
 			let initial_validators_0 =
@@ -633,6 +635,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ExternallySetKeys<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, (), OptionQuery>;
+
+	/// The account that placed the deposit and consumer reference for a validator's locally-set
+	/// keys, so [`purge_keys`](Call::purge_keys) reverses them against it even when dispatched by a
+	/// different account resolving to the same [`Config::ValidatorId`] (such as after a controller
+	/// change). Externally-set keys have no entry (see [`ExternallySetKeys`]); pre-existing entries
+	/// are absent and fall back to the dispatcher.
+	#[pallet::storage]
+	pub type KeyRegistrant<T: Config> =
+		StorageMap<_, Twox64Concat, T::ValidatorId, T::AccountId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -948,6 +959,9 @@ impl<T: Config> Pallet<T> {
 
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
+
+			// Record the deposit/consumer owner so purge reverses it against this exact account.
+			KeyRegistrant::<T>::insert(&who, account);
 		}
 
 		Ok(())
@@ -1007,19 +1021,28 @@ impl<T: Config> Pallet<T> {
 			Self::clear_key_owner(*id, key_data);
 		}
 
-		// Use release_all to handle the case where the exact amount might not be available
-		let _ = T::Currency::release_all(
-			&HoldReason::Keys.into(),
-			account,
-			frame_support::traits::tokens::Precision::BestEffort,
-		);
-
 		if ExternallySetKeys::<T>::take(account).is_none() {
-			// Consumer was incremented locally via `do_set_keys`, so decrement it.
-			frame_system::Pallet::<T>::dec_consumers(account);
+			// Local keys: reverse deposit/consumer against the placing account, not the dispatcher.
+			Self::release_local_registration(&who, account);
 		}
 
 		Ok(())
+	}
+
+	/// Release the deposit and consumer reference for `who`'s locally-set keys against the account
+	/// recorded in [`KeyRegistrant`] (the one that placed them), or `fallback` for pre-existing
+	/// keys with no recorded registrant.
+	fn release_local_registration(who: &T::ValidatorId, fallback: &T::AccountId) {
+		let registrant = KeyRegistrant::<T>::take(who);
+		let target = registrant.as_ref().unwrap_or(fallback);
+
+		// release_all: the exact held amount might not be available.
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			target,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+		frame_system::Pallet::<T>::dec_consumers(target);
 	}
 
 	pub fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
@@ -1151,6 +1174,15 @@ impl<T: Config> Pallet<T> {
 			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
 			"DisabledValidators is not sorted"
 		);
+
+		// Every registrant must have live keys (kept in sync with `NextKeys`).
+		for (who, _account) in KeyRegistrant::<T>::iter() {
+			ensure!(
+				NextKeys::<T>::contains_key(&who),
+				"KeyRegistrant entry without a corresponding NextKeys entry"
+			);
+		}
+
 		Ok(())
 	}
 }
@@ -1218,14 +1250,9 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 		let old_keys = Self::inner_set_keys(&who, keys)?;
-		// Transitioning from local to external: clean up deposit and consumer ref.
+		// Local -> external: release deposit/consumer against the placing account.
 		if old_keys.is_some() && !ExternallySetKeys::<T>::contains_key(account) {
-			let _ = T::Currency::release_all(
-				&HoldReason::Keys.into(),
-				account,
-				frame_support::traits::tokens::Precision::BestEffort,
-			);
-			frame_system::Pallet::<T>::dec_consumers(account);
+			Self::release_local_registration(&who, account);
 		}
 		ExternallySetKeys::<T>::insert(account, ());
 		Ok(())
@@ -1240,13 +1267,9 @@ impl<T: Config + historical::Config> SessionInterface for Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
-		let _ = T::Currency::release_all(
-			&HoldReason::Keys.into(),
-			account,
-			frame_support::traits::tokens::Precision::BestEffort,
-		);
 		if ExternallySetKeys::<T>::take(account).is_none() {
-			frame_system::Pallet::<T>::dec_consumers(account);
+			// Local keys: release deposit/consumer against the placing account.
+			Self::release_local_registration(&who, account);
 		}
 		Ok(())
 	}

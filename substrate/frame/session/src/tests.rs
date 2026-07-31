@@ -627,6 +627,86 @@ fn existing_validators_without_hold_are_except() {
 	});
 }
 
+#[test]
+fn purge_keys_after_controller_change_frees_original_account() {
+	// An account that sets keys as its own controller must not be left with an unremovable consumer
+	// reference (and locked deposit) after the controller changes and the keys are purged from it.
+	new_test_ext().execute_with(|| {
+		let stash = 4u64;
+		let new_controller = 69u64;
+
+		// Initially `stash` is its own controller: it resolves to validator id `stash`.
+		ValidatorAccounts::mutate(|m| {
+			m.insert(stash, stash);
+		});
+		let stash_consumers_before = System::consumers(&stash);
+
+		// Set keys as the stash/controller: a deposit and a consumer reference are placed on it.
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(stash),
+			UintAuthorityId(stash).into(),
+			create_set_keys_proof(stash, &UintAuthorityId(stash)),
+		));
+		assert_eq!(KeyRegistrant::<Test>::get(stash), Some(stash));
+		assert_eq!(session_hold(stash), KeyDeposit::get());
+		// +1 from session's `inc_consumers`, +1 from the balances hold.
+		assert_eq!(System::consumers(&stash), stash_consumers_before + 2);
+
+		// Change the controller: the stash is now controlled by `new_controller`, and no longer
+		// resolves to a validator id on its own.
+		ValidatorAccounts::mutate(|m| {
+			m.remove(&stash);
+			m.insert(new_controller, stash);
+		});
+		let controller_consumers_before = System::consumers(&new_controller);
+
+		// Purge the keys from the *new controller*.
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(new_controller)));
+
+		// The deposit and both consumer references are removed from the original stash account...
+		assert_eq!(session_hold(stash), 0);
+		assert_eq!(System::consumers(&stash), stash_consumers_before);
+		assert!(!KeyRegistrant::<Test>::contains_key(stash));
+		assert_eq!(Session::load_keys(&stash), None);
+		// ...and the controller that dispatched the purge is left untouched.
+		assert_eq!(System::consumers(&new_controller), controller_consumers_before);
+		assert_eq!(session_hold(new_controller), 0);
+	});
+}
+
+#[test]
+fn purge_keys_after_controller_change_works_from_stash() {
+	// The stash can also purge directly after a controller change (converting into a validator id
+	// via `TryFrom`), still freeing its deposit and consumer reference.
+	new_test_ext().execute_with(|| {
+		let stash = 4u64;
+		let new_controller = 69u64;
+
+		ValidatorAccounts::mutate(|m| {
+			m.insert(stash, stash);
+		});
+		let stash_consumers_before = System::consumers(&stash);
+
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(stash),
+			UintAuthorityId(stash).into(),
+			create_set_keys_proof(stash, &UintAuthorityId(stash)),
+		));
+
+		ValidatorAccounts::mutate(|m| {
+			m.remove(&stash);
+			m.insert(new_controller, stash);
+		});
+
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(stash)));
+
+		assert_eq!(session_hold(stash), 0);
+		assert_eq!(System::consumers(&stash), stash_consumers_before);
+		assert!(!KeyRegistrant::<Test>::contains_key(stash));
+		assert_eq!(Session::load_keys(&stash), None);
+	});
+}
+
 #[cfg(feature = "historical")]
 mod externally_set_keys_tracking {
 	use super::*;
