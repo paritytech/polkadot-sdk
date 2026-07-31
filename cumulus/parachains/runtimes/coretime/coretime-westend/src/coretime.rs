@@ -175,8 +175,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		// Add 5% to each component and round to 2 significant figures.
 		let call_weight = Weight::from_parts(980_000_000, 3800);
 
-		// A maximum of 28 assignments fit in one message. Fortunately the relay chain allows
-		// chunking, so we just split the assignments into chunks of 28 and send multiple messages.
+		// A maximum of 28 assignments fit in one message, so we split the assignments and send as multiple messages.
 		// This will get reassembled into a full list of assignments on the relay chain side.
 
 		for chunk in assignment.chunks(28) {
