@@ -1481,7 +1481,8 @@ impl<T: Config> Pallet<T> {
 
 		let mut prev_msg_metadata = None;
 		let mut last_processed_block = HrmpWatermark::<T>::get();
-		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
+		let mut last_processed_msg = LastProcessedHrmpMessage::<T>::get()
+			.unwrap_or(InboundMessageId { sent_at: 0, reverse_idx: 0 });
 		for (sender, msg) in processed_messages {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
@@ -1493,7 +1494,7 @@ impl<T: Config> Pallet<T> {
 			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
 				last_processed_block = last_processed_msg.sent_at;
 			}
-			last_processed_msg.sent_at = msg.sent_at;
+			last_processed_msg = InboundMessageId { sent_at: msg.sent_at, reverse_idx: 0 };
 		}
 
 		LastHrmpMqcHeads::<T>::put(&mqc_heads);
