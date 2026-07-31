@@ -993,6 +993,9 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn record_provides(source: ParaId, root: StreamsRoot) {
 		RecentProvides::<T>::mutate(source, |window| {
 			// Drop oldest entries until there is room for one more within the window.
+			// `remove(0)` is O(n), but the shift is dominated by the whole-window SCALE
+			// decode/encode this `mutate` already does; a ring buffer would only complicate the
+			// newest-first short-circuit scan in `provides_contains` for no storage saving.
 			while window.len() >= MAX_PROVIDES_WINDOW_SIZE as usize {
 				window.remove(0);
 			}
