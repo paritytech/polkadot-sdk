@@ -214,7 +214,6 @@ impl HopMaintenanceTask {
 	) -> Self {
 		let check_interval_blocks =
 			(check_interval_secs.max(1) / crate::types::HOP_BLOCK_TIME_SECS.max(1)).max(1) as u32;
-		hop_pool.metrics().set_promotion_enabled(promoter.is_some());
 		Self {
 			hop_pool,
 			promoter,
@@ -235,7 +234,6 @@ impl HopMaintenanceTask {
 
 	/// Execute a single maintenance cycle: promote near-expiry entries and clean up expired ones.
 	pub fn tick(&self) {
-		let started = std::time::Instant::now();
 		let current_block = (self.best_block)();
 
 		// Promote near-expiry entries one at a time to bound peak memory.
@@ -289,7 +287,6 @@ impl HopMaintenanceTask {
 					current_block,
 					self.check_interval_blocks,
 				);
-				self.hop_pool.metrics().record_promotion_submission(result.is_ok());
 				match result {
 					Ok(()) => tracing::info!(
 						target: "hop",
@@ -307,8 +304,7 @@ impl HopMaintenanceTask {
 			}
 		}
 
-		// Always clean up expired entries; the window also snapshots the backlog
-		// gauge, which is why this runs even without a promoter.
+		// Always clean up expired entries.
 		let freed = self.hop_pool.cleanup_expired(self.buffer_secs);
 		if freed > 0 {
 			tracing::info!(
@@ -318,7 +314,7 @@ impl HopMaintenanceTask {
 			);
 		}
 
-		self.hop_pool.metrics().observe_tick_duration(started.elapsed());
+		self.hop_pool.metrics().record_maintenance_tick();
 	}
 }
 

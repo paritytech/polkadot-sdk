@@ -259,7 +259,7 @@ impl HopDataPool {
 			"Recovered HOP pool from disk"
 		);
 
-		metrics.set_pool_status(index.len() as u64, current_size, max_size);
+		metrics.set_pool_status(current_size, max_size);
 		metrics.record_removed(removal_reasons::STARTUP_DROPPED, dropped);
 
 		Ok(Self {
@@ -280,13 +280,11 @@ impl HopDataPool {
 		&self.metrics
 	}
 
-	/// Snapshot the pool size gauges after a mutation. Call from inside the
-	/// index critical section with `entries` read from the locked index:
-	/// publishing after the unlock would let an earlier writer overtake a later
-	/// one and leave the gauge stale. Costs no extra lock acquisition.
-	fn publish_size_metrics(&self, entries: usize) {
-		self.metrics
-			.set_pool_size(entries as u64, self.current_size.load(Ordering::Relaxed));
+	/// Snapshot the pool bytes gauge after a mutation, from inside the index
+	/// critical section: publishing after the unlock would let an earlier
+	/// writer overtake a later one and leave the gauge stale.
+	fn publish_size_metrics(&self) {
+		self.metrics.set_pool_bytes(self.current_size.load(Ordering::Relaxed));
 	}
 
 	/// Charge `accounted` bytes against `sender_id`'s per-user quota, creating
@@ -370,23 +368,6 @@ impl HopDataPool {
 	///
 	/// Returns the hash of the data.
 	pub fn insert(
-		&self,
-		data: Vec<u8>,
-		recipients: RecipientVec,
-		sender_id: SenderId,
-		signer: MultiSigner,
-		signature: MultiSignature,
-		submit_timestamp: u64,
-	) -> Result<HopHash, HopError> {
-		let accounted = entry_accounted_size(data.len() as u64, recipients.len());
-		let result =
-			self.insert_inner(data, recipients, sender_id, signer, signature, submit_timestamp);
-		// Gauges are published by `insert_inner` under the index lock.
-		self.metrics.record_insert(&result, accounted);
-		result
-	}
-
-	fn insert_inner(
 		&self,
 		data: Vec<u8>,
 		recipients: RecipientVec,
@@ -501,8 +482,9 @@ impl HopDataPool {
 				return Err(e);
 			}
 			index.insert(hash, meta);
-			self.publish_size_metrics(index.len());
+			self.publish_size_metrics();
 		}
+		self.metrics.record_inserted_bytes(accounted);
 
 		tracing::info!(
 			target: "hop",
@@ -547,13 +529,12 @@ impl HopDataPool {
 	/// Remove a corrupt entry from the index and best-effort delete its files.
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
-		// The quota release stays outside the index lock, as before.
 		let removed = {
 			let mut index = self.index.lock();
 			index.remove(hash).map(|meta| {
 				let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-				self.publish_size_metrics(index.len());
+				self.publish_size_metrics();
 				(meta.sender_id, accounted)
 			})
 		};
@@ -694,7 +675,7 @@ impl HopDataPool {
 			let sender = meta.sender_id;
 			index.remove(hash);
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			self.publish_size_metrics(index.len());
+			self.publish_size_metrics();
 			self.release_user_quota(&sender, accounted);
 			drop(index);
 			self.metrics.record_removed(removal_reasons::ACKED, 1);
@@ -856,7 +837,7 @@ impl HopDataPool {
 		// `release_user_quota` only takes `user_usage.read()` which is
 		// excluded). Build a live-sender set in one index pass so retain is
 		// O(senders + entries) instead of O(senders × entries). The same pass
-		// counts the promotion backlog and publishes the size gauges.
+		// counts the promotion backlog and publishes the pool bytes gauge.
 		let backlog = {
 			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
@@ -874,7 +855,7 @@ impl HopDataPool {
 			usage.retain(|sender_id, counter| {
 				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
 			});
-			self.publish_size_metrics(index.len());
+			self.publish_size_metrics();
 			backlog
 		};
 
@@ -965,13 +946,9 @@ impl HopDataPool {
 			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
 			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
 			meta.next_promotion_attempt_at = current_block.saturating_add(backoff);
-			let abandoned = meta.promotion_attempts == MAX_PROMOTION_ATTEMPTS;
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
 			drop(index);
-			if abandoned {
-				self.metrics.record_promotion_abandoned();
-			}
 
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(
@@ -1124,11 +1101,11 @@ mod tests {
 				0,
 			)
 			.unwrap();
-		assert_eq!(pool.metrics().pool_gauges(), (1, acct(50, 1)));
+		assert_eq!(pool.metrics().pool_bytes(), acct(50, 1));
 		let ack = sign_ed(&pair, HOP_ACK_CONTEXT, &hash);
 		pool.ack(&hash, &ack).unwrap();
 		assert_eq!(pool.metrics().removed_count(removal_reasons::ACKED), 1);
-		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+		assert_eq!(pool.metrics().pool_bytes(), 0);
 
 		// An entry expiring without promotion counts as data loss.
 		pool.insert(vec![2u8; 30], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
@@ -1136,7 +1113,7 @@ mod tests {
 		pool.cleanup_expired(0);
 		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_UNPROMOTED), 1);
 		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_PROMOTED), 0);
-		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+		assert_eq!(pool.metrics().pool_bytes(), 0);
 	}
 
 	/// Pool with registered metrics, so counters can be read back.
@@ -1193,26 +1170,6 @@ mod tests {
 		pool.mark_promoted(&hash);
 		pool.mark_promoted(&hash);
 		assert_eq!(pool.metrics().promotions_confirmed(), 1, "only the transition counts");
-	}
-
-	#[test]
-	fn abandoned_counter_fires_once_at_the_attempt_cap() {
-		use crate::types::MAX_PROMOTION_ATTEMPTS;
-
-		let (pool, _dir) = make_metered_pool(100);
-		let (_, signer) = test_recipient();
-		let hash = pool
-			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
-			.unwrap();
-
-		for _ in 0..MAX_PROMOTION_ATTEMPTS {
-			pool.record_promotion_attempt(&hash, 0, /* check_interval_blocks = */ 10);
-		}
-		assert_eq!(pool.metrics().promotions_abandoned(), 1);
-
-		// Past the cap must not re-count.
-		pool.record_promotion_attempt(&hash, 0, 10);
-		assert_eq!(pool.metrics().promotions_abandoned(), 1);
 	}
 
 	#[test]
