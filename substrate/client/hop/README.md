@@ -228,7 +228,26 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 - Hash: Blake2-256.
 - On-disk layout: 256 shard directories of blob files under
   `<data_dir>/blobs/{00..ff}/<hash>.blob`, plus a parity-db instance at
-  `<data_dir>/meta-db/` holding the metadata column keyed by content hash.
+  `<data_dir>/meta-db/` holding the metadata column keyed by content hash and a
+  second column holding pool-wide metadata (currently just the schema version).
+
+## Database schema version
+
+The parity-db instance carries a schema version under the key `version`,
+checked on every open. A database written by a newer binary is rejected with
+error code `1022` rather than misread; a database with no version row is
+stamped with the current one. Column-layout changes are applied before the
+database is opened, appending any columns an older layout is missing.
+
+Startup also imports leftover metadata from the pre-KV-store layout: if
+`<data_dir>/meta/{00..ff}/<hash>.meta` files are present they are read
+into the metadata column and the tree is removed. The record format is
+unchanged between the two layouts, so this is a move rather than a conversion.
+Sidecar files that are unreadable, fail to decode, carry an unsupported
+`HOP_META_VERSION`, or have no matching blob are skipped, leaving their blobs
+to the orphan pass. The import runs before startup recovery, so imported
+entries count towards `hop_poolStatus` and their blobs are not treated as
+orphans.
 
 ## Graceful degradation
 

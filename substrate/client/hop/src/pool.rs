@@ -18,6 +18,12 @@
 //! content-addressed blob files at `<data_dir>/blobs/{shard}/{hash}.blob`.
 //! In-memory counters are caches rebuilt at startup. RMW ops serialise on
 //! `rmw_lock` since parity-db has no CAS.
+//!
+//! The database carries a schema version row in [`COL_DB_META`], checked on
+//! every open so a database written by a newer binary is rejected rather than
+//! misread. Startup also imports any leftover `<data_dir>/meta/` metadata files
+//! from the pre-KV-store layout and removes that tree; see
+//! [`HopDataPool::import_legacy_meta_files`].
 
 use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
@@ -61,10 +67,28 @@ const META_DB_DIR: &str = "meta-db";
 /// lives in parity-db.
 const SHARD_COUNT: u16 = 256;
 
+/// Pre-KV-store metadata layout: `<data_dir>/meta/{shard}/{hash}.meta`, one
+/// SCALE-encoded `HopEntryMeta` per file. Imported into [`COL_META`] and
+/// removed on the first startup after the upgrade.
+const LEGACY_META_DIR: &str = "meta";
+const LEGACY_META_EXT: &str = "meta";
+
 /// parity-db column holding `HopHash` → SCALE-encoded `HopEntryMeta`.
 const COL_META: u8 = 0;
+/// parity-db column holding pool-wide metadata. Kept separate from
+/// [`COL_META`] so the startup scan can iterate entry rows without having to
+/// recognise and skip non-entry keys.
+const COL_DB_META: u8 = 1;
 /// Total number of parity-db columns this pool uses.
-const COL_COUNT: u8 = 1;
+const COL_COUNT: u8 = 2;
+
+/// Key of the schema version row in [`COL_DB_META`].
+const KEY_DB_VERSION: &[u8] = b"version";
+/// On-disk schema version this binary writes and understands.
+const CURRENT_DB_VERSION: u32 = 1;
+/// Upper bound on rows buffered per `commit` while importing legacy metadata,
+/// so a large pool doesn't build one unbounded transaction.
+const MIGRATION_CHUNK: usize = 10_000;
 
 /// HOP data pool: parity-db metadata + content-addressed blob files.
 pub struct HopDataPool {
@@ -112,13 +136,18 @@ impl HopDataPool {
 			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))?;
 		}
 
-		// btree_index lets us iterate `(key, value)` pairs — the hash is the key.
 		let db_path = data_dir.join(META_DB_DIR);
 		fs::create_dir_all(&db_path)?;
-		let mut db_options = parity_db::Options::with_columns(&db_path, COL_COUNT);
-		db_options.columns[COL_META as usize].btree_index = true;
-		let db =
-			parity_db::Db::open_or_create(&db_options).map_err(|e| HopError::Db(e.to_string()))?;
+		// Column layout upgrades happen while the DB is closed, since parity-db
+		// refuses to open a path whose stored column config differs from ours.
+		Self::migrate_columns(&db_path)?;
+		let db = parity_db::Db::open_or_create(&Self::db_options(&db_path))
+			.map_err(|e| HopError::Db(e.to_string()))?;
+		Self::check_db_version(&db)?;
+
+		// Import pre-KV-store metadata before the scan below, so the imported
+		// rows feed the counter caches and their blobs count as live.
+		Self::import_legacy_meta_files(&db, &data_dir)?;
 
 		// Rebuild counters + live-hash set, dropping any unsupported-version rows.
 		let mut user_usage: HashMap<SenderId, AtomicU64> = HashMap::new();
@@ -186,7 +215,12 @@ impl HopDataPool {
 			}
 		}
 
-		// Reap orphan `.blob` and leftover `.tmp.*` files.
+		// Reap orphan `.blob` and leftover `.tmp.*` files. Deliberately
+		// unconditional: an empty meta column is a legitimate state for a pool
+		// that has drained, so refusing to reap when it is empty would leak
+		// genuine orphans forever. The case where the column is empty only
+		// because metadata hasn't been read yet is prevented upstream, by
+		// `import_legacy_meta_files` running before this scan.
 		for i in 0..SHARD_COUNT {
 			let shard = format!("{:02x}", i as u8);
 			let blob_shard_dir = data_dir.join(BLOBS_DIR).join(&shard);
@@ -235,6 +269,203 @@ impl HopDataPool {
 			data_dir,
 			rate_limiter: Arc::new(RateLimiter::new(rate_limit_cfg)),
 		})
+	}
+
+	/// Column layout this pool expects of its parity-db instance.
+	///
+	/// `btree_index` on [`COL_META`] is what lets startup recovery iterate
+	/// `(key, value)` pairs; [`COL_DB_META`] stays at the default hash index
+	/// since it is only ever point-queried.
+	fn db_options(db_path: &Path) -> parity_db::Options {
+		let mut options = parity_db::Options::with_columns(db_path, COL_COUNT);
+		options.columns[COL_META as usize].btree_index = true;
+		options
+	}
+
+	/// Append any columns an older on-disk layout is missing.
+	///
+	/// Must run before the DB is opened. No-op for a path with no database yet
+	/// (`open_or_create` will lay down every column) and for one already at
+	/// [`COL_COUNT`], so this is safe to call on every startup. Appended
+	/// columns take their options from [`Self::db_options`], which keeps the
+	/// migration and the open path from ever disagreeing.
+	fn migrate_columns(db_path: &Path) -> Result<(), HopError> {
+		let Some(metadata) =
+			parity_db::Options::load_metadata(db_path).map_err(|e| HopError::Db(e.to_string()))?
+		else {
+			return Ok(());
+		};
+		if metadata.columns.len() >= COL_COUNT as usize {
+			return Ok(());
+		}
+		let desired = Self::db_options(db_path).columns;
+		let mut migrate_options = parity_db::Options::with_columns(db_path, 0);
+		migrate_options.columns = metadata.columns;
+		tracing::info!(
+			target: "hop",
+			from = migrate_options.columns.len(),
+			to = COL_COUNT,
+			"Extending HOP database column layout",
+		);
+		// `add_column` takes options by value and pushes onto
+		// `migrate_options.columns`, so `skip` is evaluated once against the
+		// pre-migration length.
+		for column in desired.into_iter().skip(migrate_options.columns.len()) {
+			parity_db::Db::add_column(&mut migrate_options, column)
+				.map_err(|e| HopError::Db(e.to_string()))?;
+		}
+		Ok(())
+	}
+
+	/// Reconcile the on-disk schema version with [`CURRENT_DB_VERSION`].
+	///
+	/// A database with no version row is stamped with the current version; one
+	/// written by a newer binary is rejected rather than silently misread.
+	fn check_db_version(db: &parity_db::Db) -> Result<(), HopError> {
+		match db.get(COL_DB_META, KEY_DB_VERSION).map_err(|e| HopError::Db(e.to_string()))? {
+			Some(bytes) => {
+				let version = u32::from_le_bytes(
+					bytes
+						.try_into()
+						.map_err(|_| HopError::Db("Malformed HOP database version".into()))?,
+				);
+				if version > CURRENT_DB_VERSION {
+					return Err(HopError::Db(format!(
+						"Unsupported HOP database version {version}; this binary supports up to \
+						 {CURRENT_DB_VERSION}"
+					)));
+				}
+				// Only version 1 exists so far. Future forward migrations
+				// dispatch here on `version < CURRENT_DB_VERSION` and stamp the
+				// new version last, so a crash mid-migration re-runs it.
+				Ok(())
+			},
+			None => db
+				.commit([(
+					COL_DB_META,
+					KEY_DB_VERSION.to_vec(),
+					Some(CURRENT_DB_VERSION.to_le_bytes().to_vec()),
+				)])
+				.map_err(|e| HopError::Db(e.to_string())),
+		}
+	}
+
+	/// Import pre-KV-store `<data_dir>/meta/{shard}/{hash}.meta` files
+	/// into [`COL_META`], then remove the tree.
+	///
+	/// Runs before startup recovery iterates the column, so imported rows are
+	/// picked up by the normal scan: counters, per-user usage and the expiry
+	/// index all come for free, and the orphan pass sees the imported hashes as
+	/// live instead of unlinking every blob in the pool.
+	///
+	/// Gated on the directory existing rather than on the schema version, so an
+	/// import interrupted by a crash is retried on the next boot. Idempotent: a
+	/// row already in the column always wins over the legacy file. Per-file
+	/// problems are logged and skipped, leaving the blob to the orphan pass —
+	/// the same outcome the pre-migration recovery scan produced.
+	fn import_legacy_meta_files(db: &parity_db::Db, data_dir: &Path) -> Result<(), HopError> {
+		let legacy_dir = data_dir.join(LEGACY_META_DIR);
+		if !legacy_dir.exists() {
+			return Ok(());
+		}
+
+		let mut ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
+		let mut imported: u64 = 0;
+		let mut skipped: u64 = 0;
+
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
+			let Ok(entries) = fs::read_dir(legacy_dir.join(&shard)) else { continue };
+			for entry in entries.flatten() {
+				let path = entry.path();
+				// Leftover `.tmp.*` files need no special handling: the whole
+				// tree is removed once the import completes.
+				if path.extension().and_then(|e| e.to_str()) != Some(LEGACY_META_EXT) {
+					continue;
+				}
+				let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+				let Some(hash) = parse_hex_hash(stem) else {
+					tracing::warn!(target: "hop", path = ?path, "Skipping legacy .meta with invalid name");
+					skipped += 1;
+					continue;
+				};
+				let bytes = match fs::read(&path) {
+					Ok(b) => b,
+					Err(e) => {
+						tracing::warn!(target: "hop", path = ?path, error = %e, "Skipping unreadable legacy .meta");
+						skipped += 1;
+						continue;
+					},
+				};
+				let meta = match HopEntryMeta::decode(&mut bytes.as_slice()) {
+					Ok(meta) => meta,
+					Err(e) => {
+						tracing::warn!(target: "hop", path = ?path, error = %e, "Skipping corrupt legacy .meta");
+						skipped += 1;
+						continue;
+					},
+				};
+				if meta.version != HOP_META_VERSION {
+					tracing::warn!(
+						target: "hop",
+						path = ?path,
+						version = meta.version,
+						expected = HOP_META_VERSION,
+						"Skipping legacy .meta with unsupported version",
+					);
+					skipped += 1;
+					continue;
+				}
+				if !Self::entry_path(data_dir, &hash, BLOBS_DIR, BLOB_EXT).exists() {
+					tracing::warn!(target: "hop", hash = ?stem, "Skipping legacy .meta with no .blob");
+					skipped += 1;
+					continue;
+				}
+				// A row already in the column is newer than the legacy file.
+				if db
+					.get(COL_META, hash.as_bytes())
+					.map_err(|e| HopError::Db(e.to_string()))?
+					.is_some()
+				{
+					skipped += 1;
+					continue;
+				}
+
+				ops.push((COL_META, hash.as_bytes().to_vec(), Some(bytes)));
+				imported += 1;
+				if ops.len() >= MIGRATION_CHUNK {
+					db.commit(ops.drain(..)).map_err(|e| HopError::Db(e.to_string()))?;
+				}
+			}
+		}
+
+		if !ops.is_empty() {
+			db.commit(ops).map_err(|e| HopError::Db(e.to_string()))?;
+		}
+
+		// Rows are committed at this point, so a failure here is not fatal: the
+		// next boot rescans, skips every file as already-present, and retries.
+		if let Err(e) = fs::remove_dir_all(&legacy_dir) {
+			tracing::warn!(
+				target: "hop",
+				path = ?legacy_dir,
+				error = %e,
+				"Failed to remove legacy meta directory after import",
+			);
+		}
+
+		// The pre-KV-store build created all 256 shard directories on every
+		// boot, so an empty tree is the normal case for an upgraded idle node
+		// and must not look like an event.
+		if imported > 0 || skipped > 0 {
+			tracing::info!(
+				target: "hop",
+				imported,
+				skipped,
+				"Imported legacy HOP metadata into the KV store",
+			);
+		}
+		Ok(())
 	}
 
 	/// Get + decode a meta row. Decode failures surface as `Db(...)` since the
@@ -1046,6 +1277,48 @@ mod tests {
 		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
 	}
 
+	/// A `HopEntryMeta` matching `data` for `sender`, expiring far in the future.
+	fn legacy_meta(data: &[u8], sender: SenderId) -> HopEntryMeta {
+		let (_, signer) = test_recipient();
+		HopEntryMeta::new(
+			data.len() as u64,
+			u64::MAX,
+			bv(vec![signer]),
+			sender,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+	}
+
+	/// Lay down a pre-KV-store entry by hand: `blobs/{shard}/{hash}.blob` plus a
+	/// SCALE-encoded `meta/{shard}/{hash}.meta` companion file, with no `meta-db/`
+	/// involved. Returns the content hash.
+	fn write_legacy_entry(dir: &Path, data: &[u8], meta_bytes: &[u8]) -> HopHash {
+		let hash = H256(blake2_256(data));
+		let blob_path = HopDataPool::entry_path(dir, &hash, BLOBS_DIR, BLOB_EXT);
+		fs::create_dir_all(blob_path.parent().unwrap()).unwrap();
+		fs::write(&blob_path, data).unwrap();
+		write_legacy_meta_only(dir, &hash, meta_bytes);
+		hash
+	}
+
+	/// Write only the legacy `.meta` file for `hash`, with no blob.
+	fn write_legacy_meta_only(dir: &Path, hash: &HopHash, meta_bytes: &[u8]) {
+		let meta_path = HopDataPool::entry_path(dir, hash, LEGACY_META_DIR, LEGACY_META_EXT);
+		fs::create_dir_all(meta_path.parent().unwrap()).unwrap();
+		fs::write(&meta_path, meta_bytes).unwrap();
+	}
+
+	/// Read the raw schema version row, or `None` if it is absent.
+	fn read_db_version(dir: &Path) -> Option<u32> {
+		let db = parity_db::Db::open_or_create(&HopDataPool::db_options(&dir.join(META_DB_DIR)))
+			.unwrap();
+		db.get(COL_DB_META, KEY_DB_VERSION)
+			.unwrap()
+			.map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+	}
+
 	#[test]
 	fn test_insert_and_get() {
 		let (pool, _dir) = create_test_pool();
@@ -1633,9 +1906,7 @@ mod tests {
 		let fake_hash = H256([0xbbu8; 32]);
 		{
 			let db_path = dir.path().join(META_DB_DIR);
-			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
-			opts.columns[COL_META as usize].btree_index = true;
-			let db = parity_db::Db::open_or_create(&opts).unwrap();
+			let db = parity_db::Db::open_or_create(&HopDataPool::db_options(&db_path)).unwrap();
 			db.commit([(
 				COL_META,
 				fake_hash.as_bytes().to_vec(),
@@ -2229,9 +2500,7 @@ mod tests {
 
 		{
 			let db_path = dir.path().join(META_DB_DIR);
-			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
-			opts.columns[COL_META as usize].btree_index = true;
-			let db = parity_db::Db::open_or_create(&opts).unwrap();
+			let db = parity_db::Db::open_or_create(&HopDataPool::db_options(&db_path)).unwrap();
 			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))])
 				.unwrap();
 		}
@@ -2288,5 +2557,293 @@ mod tests {
 			pool.get_promotable(now + 10_000, buffer, 10).is_empty(),
 			"entry should give up after MAX_PROMOTION_ATTEMPTS"
 		);
+	}
+
+	#[test]
+	fn test_legacy_meta_files_migrated() {
+		// The upgrade path: a data dir holding only the pre-KV-store layout, no
+		// `meta-db/` at all. Both entries must survive the first boot rather
+		// than being reaped as orphans.
+		let dir = TempDir::new().unwrap();
+		let data_a = vec![1u8; 100];
+		let data_b = vec![2u8; 250];
+		let hash_a =
+			write_legacy_entry(dir.path(), &data_a, &legacy_meta(&data_a, SENDER_A).encode());
+		let hash_b =
+			write_legacy_entry(dir.path(), &data_b, &legacy_meta(&data_b, SENDER_B).encode());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(pool.has(&hash_a));
+		assert!(pool.has(&hash_b));
+		assert_eq!(pool.get(&hash_a).unwrap(), data_a);
+		assert_eq!(pool.get(&hash_b).unwrap(), data_b);
+		assert_eq!(pool.status().entry_count, 2);
+		assert_eq!(pool.status().total_bytes, acct(100, 1) + acct(250, 1));
+		assert_eq!(user_usage(&pool, &SENDER_A), acct(100, 1));
+		assert_eq!(user_usage(&pool, &SENDER_B), acct(250, 1));
+		// The legacy tree is reclaimed, not left to leak on disk.
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_survives_second_restart() {
+		// Restart durability must hold across the upgrade boundary, not just for
+		// the boot that performed the import.
+		let dir = TempDir::new().unwrap();
+		let data = vec![7u8; 64];
+		let hash = write_legacy_entry(dir.path(), &data, &legacy_meta(&data, SENDER_A).encode());
+
+		for _ in 0..2 {
+			let pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap();
+			assert!(pool.has(&hash));
+			assert_eq!(pool.get(&hash).unwrap(), data);
+			assert_eq!(pool.status().entry_count, 1);
+			assert_eq!(pool.status().total_bytes, acct(64, 1));
+		}
+	}
+
+	#[test]
+	fn test_legacy_meta_without_blob_skipped() {
+		let dir = TempDir::new().unwrap();
+		let orphan_hash = H256([0x5au8; 32]);
+		write_legacy_meta_only(dir.path(), &orphan_hash, &legacy_meta(&[], SENDER_A).encode());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&orphan_hash));
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_version_mismatch_dropped() {
+		// An unsupported record version is not imported, and the blob it points
+		// at is then reaped by the normal orphan pass.
+		let dir = TempDir::new().unwrap();
+		let data = vec![3u8; 32];
+		let mut meta = legacy_meta(&data, SENDER_A);
+		meta.version = 0;
+		let hash = write_legacy_entry(dir.path(), &data, &meta.encode());
+		let blob_path = HopDataPool::entry_path(dir.path(), &hash, BLOBS_DIR, BLOB_EXT);
+		assert!(blob_path.exists());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!blob_path.exists());
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_corrupt_file_skipped() {
+		// An undecodable `.meta` file must not abort startup.
+		let dir = TempDir::new().unwrap();
+		let data = vec![9u8; 16];
+		let hash = write_legacy_entry(dir.path(), &data, b"not valid SCALE data");
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_meta_does_not_clobber_existing_row() {
+		// A row already in the KV store is newer than any leftover `.meta` file, so
+		// the import must not overwrite it.
+		let dir = TempDir::new().unwrap();
+		let data = vec![4u8; 48];
+		let (_, signer) = test_recipient();
+
+		let hash;
+		let live_expires_at;
+		{
+			let pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap();
+			hash = pool
+				.insert(data.clone(), bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+				.unwrap();
+			live_expires_at = pool.fetch_meta(&hash).unwrap().unwrap().expires_at;
+		}
+
+		// Same hash, deliberately different expiry, written as a legacy `.meta` file.
+		let mut stale = legacy_meta(&data, SENDER_A);
+		stale.expires_at = live_expires_at.wrapping_add(999_999);
+		write_legacy_meta_only(dir.path(), &hash, &stale.encode());
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(pool.has(&hash));
+		assert_eq!(pool.status().entry_count, 1);
+		assert_eq!(pool.fetch_meta(&hash).unwrap().unwrap().expires_at, live_expires_at);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_legacy_empty_meta_dir_removed() {
+		// What an upgraded but idle node has on disk: 256 empty shard dirs. The
+		// boot must be uneventful and the tree reclaimed anyway.
+		let dir = TempDir::new().unwrap();
+		for i in 0..SHARD_COUNT {
+			fs::create_dir_all(dir.path().join(LEGACY_META_DIR).join(format!("{:02x}", i as u8)))
+				.unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert_eq!(pool.status().entry_count, 0);
+		assert!(!dir.path().join(LEGACY_META_DIR).exists());
+	}
+
+	#[test]
+	fn test_db_version_stamped_on_fresh_pool() {
+		let dir = TempDir::new().unwrap();
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap();
+		}
+		assert_eq!(read_db_version(dir.path()), Some(CURRENT_DB_VERSION));
+	}
+
+	#[test]
+	fn test_future_db_version_rejected() {
+		// A database written by a newer binary must be refused, not misread.
+		let dir = TempDir::new().unwrap();
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap();
+		}
+		{
+			let db = parity_db::Db::open_or_create(&HopDataPool::db_options(
+				&dir.path().join(META_DB_DIR),
+			))
+			.unwrap();
+			db.commit([(
+				COL_DB_META,
+				KEY_DB_VERSION.to_vec(),
+				Some((CURRENT_DB_VERSION + 1).to_le_bytes().to_vec()),
+			)])
+			.unwrap();
+		}
+
+		let result = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		);
+		assert!(matches!(result, Err(HopError::Db(_))), "future db version must be rejected");
+	}
+
+	#[test]
+	fn test_column_layout_migration() {
+		// A database laid down with the previous single-column layout must be
+		// extended in place, with its rows intact.
+		let dir = TempDir::new().unwrap();
+		let data = vec![8u8; 80];
+		let hash = H256(blake2_256(&data));
+		let blob_path = HopDataPool::entry_path(dir.path(), &hash, BLOBS_DIR, BLOB_EXT);
+		fs::create_dir_all(blob_path.parent().unwrap()).unwrap();
+		fs::write(&blob_path, &data).unwrap();
+
+		let db_path = dir.path().join(META_DB_DIR);
+		fs::create_dir_all(&db_path).unwrap();
+		{
+			let mut options = parity_db::Options::with_columns(&db_path, 1);
+			options.columns[COL_META as usize].btree_index = true;
+			let db = parity_db::Db::open_or_create(&options).unwrap();
+			db.commit([(
+				COL_META,
+				hash.as_bytes().to_vec(),
+				Some(legacy_meta(&data, SENDER_A).encode()),
+			)])
+			.unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(pool.has(&hash));
+		assert_eq!(pool.get(&hash).unwrap(), data);
+		assert_eq!(pool.status().entry_count, 1);
+		drop(pool);
+		assert_eq!(read_db_version(dir.path()), Some(CURRENT_DB_VERSION));
 	}
 }
