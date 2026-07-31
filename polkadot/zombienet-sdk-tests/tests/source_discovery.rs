@@ -80,8 +80,12 @@ async fn source_discovery_penpal() -> Result<(), anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("penpal-rococo-2000")
 				.with_collator(|n| {
-					n.with_name("penpal-a")
-						.with_args(vec![("-lsource-discovery=trace,bootnodes=trace").into()])
+					// `--spec-msg-serve`: advertise under the capability key that source-discovery
+					// resolves against (so B finds A, and vice-versa).
+					n.with_name("penpal-a").with_args(vec![
+						("-lsource-discovery=trace,bootnodes=trace").into(),
+						"--spec-msg-serve".into(),
+					])
 				})
 		})
 		.with_parachain(|p| {
@@ -90,8 +94,10 @@ async fn source_discovery_penpal() -> Result<(), anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("penpal-rococo-2001")
 				.with_collator(|n| {
-					n.with_name("penpal-b")
-						.with_args(vec![("-lsource-discovery=trace,bootnodes=trace").into()])
+					n.with_name("penpal-b").with_args(vec![
+						("-lsource-discovery=trace,bootnodes=trace").into(),
+						"--spec-msg-serve".into(),
+					])
 				})
 		})
 		.build()
