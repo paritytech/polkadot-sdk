@@ -84,12 +84,6 @@ pub const DISCOVERY_ROUND_TIMEOUT: Duration = Duration::from_secs(30);
 /// `fallback` full sweep are unaffected; this only rate-limits the retry.
 pub const PEERLESS_RETRY_INTERVAL: Duration = Duration::from_secs(30);
 
-/// Capability tag a spec-msg receiver discovers under (and a serving collator advertises via
-/// `cumulus_client_bootnodes::start_capability_advertisement`). Mixed into the relay-DHT provider
-/// key so `get_providers` resolves *only* serving collators, never diluted by a source parachain's
-/// non-serving collators under the plain RFC-0008 key. Both sides must use the same tag.
-pub const SPEC_MSG_CAPABILITY: &[u8] = b"spec-msg/v1";
-
 /// Resolves the peers of a source parachain over the relay chain DHT, given that
 /// source's genesis hash. The production impl ([`BootnodeSourceDiscovery`])
 /// reuses `cumulus-client-bootnodes` (RFC-0008 `/paranode` discovery) and
@@ -278,6 +272,10 @@ pub struct BootnodeSourceDiscovery {
 	/// side derives it from the relay chain spec, so the client must match. `None`
 	/// for every current relay.
 	relay_chain_fork_id: Option<String>,
+	/// Capability tag mixed into the DHT provider key: resolves only collators
+	/// advertising this capability (empty = plain RFC-0008). Injected by the caller
+	/// so this crate stays consumer-agnostic.
+	capability: Vec<u8>,
 	/// Per-source discovery round timeout.
 	timeout: Duration,
 }
@@ -286,18 +284,20 @@ impl BootnodeSourceDiscovery {
 	/// New resolver over the given relay/parachain network handles. Source genesis
 	/// hashes are supplied per [`SourceDiscovery::discover`] call (from
 	/// `SourceDiscoveryApi::source_discovery_info()`), so no per-source config is
-	/// held here.
+	/// held here. `capability` scopes the DHT provider key (empty = plain RFC-0008).
 	pub fn new(
 		parachain_network: Arc<dyn NetworkService>,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		relay_chain_network: Arc<dyn NetworkService>,
 		relay_chain_fork_id: Option<String>,
+		capability: Vec<u8>,
 	) -> Self {
 		Self {
 			parachain_network,
 			relay_chain_interface,
 			relay_chain_network,
 			relay_chain_fork_id,
+			capability,
 			timeout: DISCOVERY_ROUND_TIMEOUT,
 		}
 	}
@@ -342,8 +342,8 @@ impl SourceDiscovery for BootnodeSourceDiscovery {
 				self.relay_chain_fork_id.as_deref(),
 			),
 			discovered_tx: Some(tx),
-			// Resolve only serving collators: query the capability-scoped provider key.
-			capability: SPEC_MSG_CAPABILITY.to_vec(),
+			// Resolve only collators advertising our capability (empty = plain RFC-0008).
+			capability: self.capability.clone(),
 		});
 
 		// Drive one discovery round, collecting resolved peers until it completes

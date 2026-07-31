@@ -79,6 +79,11 @@ use std::{
 // `idle_connection_timeout`.
 const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
 
+/// Capability tag for speculative-messaging source discovery, shared by the `--spec-msg-serve`
+/// advertiser and the source-discovery resolver so both key the same DHT provider namespace. This
+/// spec-msg-specific value lives at the integration edge; the discovery crate stays agnostic.
+const SPEC_MSG_CAPABILITY: &[u8] = b"spec-msg/v1";
+
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
@@ -493,6 +498,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface.clone(),
 					relay_chain_network.clone(),
 					relay_chain_fork_id.clone(),
+					SPEC_MSG_CAPABILITY.to_vec(),
 				));
 				task_manager.spawn_handle().spawn(
 					"cumulus-source-discovery",
@@ -703,7 +709,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				start_capability_advertisement(StartCapabilityAdvertisementParams {
 					task_manager: &mut task_manager,
 					para_id,
-					capability: cumulus_client_source_discovery::SPEC_MSG_CAPABILITY.to_vec(),
+					capability: SPEC_MSG_CAPABILITY.to_vec(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					relay_chain_network: relay_chain_network.clone(),
 					parachain_network: network.clone(),
