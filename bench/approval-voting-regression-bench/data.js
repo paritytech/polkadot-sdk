@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785499087938,
+  "lastUpdate": 1785528085874,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "142ceec0b8a6d6da6516770f6c1b2bcb46396a58",
-          "message": "staking: do not remove an invulnerable in case of bad solution (#10454)\n\nInvulnerables are not automatically removed from the Invulnerables\nstorage when their solution is rejected.\nRemoval should occur only through governance, not automatically. \nAn operational or network issue that leads to an incomplete submission\nis much more likely than a bad faith action from an invulnerable.\n\nClose https://github.com/paritytech-secops/srlabs_findings/issues/602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T14:57:41Z",
-          "tree_id": "87e3c0007818f8466336c3a539e6907f2f23ffcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/142ceec0b8a6d6da6516770f6c1b2bcb46396a58"
-        },
-        "date": 1764347651410,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63621.83,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.713394366911083,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001794875,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4847695858999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.361897080480006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000168387,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001794875,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.525907402780002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43176161650000144,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000168387,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4783446287300004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9457696808700047,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0057492481900000055,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.489594917509999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.393921952440004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0df0f42125bfda204e89d11a905637ae8533b03b",
+          "message": "pallet-scarcity: coinage-style NFT ownership with feeless rest-time-prioritized transfers (#12730)\n\n## Summary\n\nA new FRAME pallet for **Scarcity** collectibles (Parity's\ngaming/Trinity initiative): NFT-like instances under a **coinage-style\nownership model** — one instance per fresh, balance-less purse public\nkey — with **feeless transfers** authorized by the purse key itself\nthrough a `TransactionExtension`, prioritized by the instance's *rest\ntime* (seconds since it last moved).\n\nDraft: seeking directional review on the transaction-extension approach\nand priority calibration before polish (benchmarks are placeholder\nweights).\n\n## Model\n\n- **`Collection → ItemDefinition → instance`**: item definitions are\nimmutable once written (typed, on-chain-comparable `Stat` pairs + an\nopaque metadata blob; `Kind`/`next_variant` tagging for a later fusion\nmechanic). The same definition can be minted many times; each copy is a\ndiscrete instance with a permanent `InstanceId`.\n- **One instance per key, globally** (the coinage rule): `NftsByOwner:\nMap<AccountId, Nft>` plus a stable reverse index `Instances:\nMap<InstanceId, AccountId>`. Wallets derive a fresh key per instance\nfrom the root secret; instance identity (not key identity) is the stable\nexternal handle.\n- **No mutable state**: the pallet stores immutable definitions and mint\nfacts only; application state belongs to higher layers keyed by\n`InstanceId`.\n\n## The `AsScarcity` transaction extension\n\nMirrors the origin-modifier pattern (validate → elevate a custom\n`Origin::Nft { owner, nft }` → consume the instance in `prepare` →\nrestore + quadratic backoff lock on failed dispatch):\n\n- **Feeless by construction**: intended to sit in the runtime's\norigin-modifier group so the origin is non-`Signed` before\n`CheckNonce`/payment run — purse keys need neither nonce nor balance.\n- **Priority = `min(now − last_moved, cap)`**: recently-moved instances\nsink under congestion; rested ones rise. This is the anti-spam for free\ntransfers (a per-instance wall-clock rate limit).\n- **Nonce-free replay model**: consumption-on-transfer + `provides` pool\ntag + transaction mortality + failure locks; destination pre-validation\nat the pool keeps user error from reaching dispatch.\n- A strictly-monotonic `moves` counter on each instance serves as the\nauthorization epoch for future detached-signature flows.\n\n## Testing\n\n21 unit tests, including direct\n`validate`/`prepare`/`post_dispatch_details` pipeline coverage: priority\nscaling + cap, same-block double-use, restore-and-lock on failed\ndispatch with quadratic backoff, pool-side rejections\n(side-effect-free), one-instance-per-key on both mint and transfer,\nreverse-index consistency, item-definition immutability.\n\n## Deliberately out of scope here\n\nClaim/distribution (a separate ring-membership-based pallet downstream),\nfusion, burn, storage deposits (companion allowance systems),\nbenchmarking (placeholder `WeightInfo`), and runtime integration (to\nfollow; requires the origin-modifier placement noted above).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-31T18:18:36Z",
+          "tree_id": "0892ad145ade3598f8b5aac97fa391b97250a695",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0df0f42125bfda204e89d11a905637ae8533b03b"
+        },
+        "date": 1785528052273,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63562.78999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.663573862269999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001837191,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.819521818439956,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6400443840200007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.65971901824,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018316419999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001837191,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005740217429999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6840998562899974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8037773773599627,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4590614681628455,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018316419999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3625671028299937,
             "unit": "seconds"
           }
         ]
