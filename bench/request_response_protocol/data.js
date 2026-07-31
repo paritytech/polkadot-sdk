@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785440489902,
+  "lastUpdate": 1785498224028,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -110807,6 +110807,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2930138504,
             "range": "± 17097830",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0",
+          "message": "statement-store: avoid blocking event loop during propagation (#12657)\n\n## Summary\n\n- queue statement propagation sends in a handler-owned\n`FuturesUnordered`\n- poll send completions from the main event loop so network backpressure\nfrom a slow peer does not block unrelated handler events\n- preserve propagation timeout and metrics accounting while leaving\ninitial sync unchanged\n\nThis is a propagation-only extraction of the outbound send lifecycle.\n\n## Observability\n\nStatements are marked known to a peer *before* the send is attempted, so\na failed send suppresses them for that peer until its next initial sync.\nTwo counters make that loss visible, both labelled by `reason` with the\nvalues `network`, `timeout` and `no_sink`:\n\n- `substrate_sync_statement_send_failures_total` — sends that never\nreached the peer\n- `substrate_sync_statement_undelivered_total` — the statements those\nsends were carrying\n\nSend timeouts moved from `debug` to `warn`, and every failure log line\nnow carries the peer, the statement count and the byte size.\n\nTODO:\n\n- [ ] https://github.com/paritytech/polkadot-sdk/issues/12764\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-31T10:13:23Z",
+          "tree_id": "a716bef7fc6c19fc36534d8e29d6c9d72f3d5a81",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0"
+        },
+        "date": 1785498191399,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21658398,
+            "range": "± 345806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22050110,
+            "range": "± 359753",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24129912,
+            "range": "± 379065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28745582,
+            "range": "± 367021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66300457,
+            "range": "± 1454111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 428699259,
+            "range": "± 5240406",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2836539416,
+            "range": "± 100045198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18423454,
+            "range": "± 208587",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18523479,
+            "range": "± 150207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18865100,
+            "range": "± 197685",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23813337,
+            "range": "± 161396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66405467,
+            "range": "± 769158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 399114071,
+            "range": "± 5204800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2895085688,
+            "range": "± 27783006",
             "unit": "ns/iter"
           }
         ]
