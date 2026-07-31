@@ -77,6 +77,12 @@ pub const DISCOVERY_REFRESH_INTERVAL: Duration = Duration::from_secs(2 * 60);
 /// how long we wait before returning what (if anything) resolved.
 pub const DISCOVERY_ROUND_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Capability tag a spec-msg receiver discovers under (and a serving collator advertises via
+/// `cumulus_client_bootnodes::start_capability_advertisement`). Mixed into the relay-DHT provider
+/// key so `get_providers` resolves *only* serving collators, never diluted by a source parachain's
+/// non-serving collators under the plain RFC-0008 key. Both sides must use the same tag.
+pub const SPEC_MSG_CAPABILITY: &[u8] = b"spec-msg/v1";
+
 /// Resolves the peers of a source parachain over the relay chain DHT, given that
 /// source's genesis hash. The production impl ([`BootnodeSourceDiscovery`])
 /// reuses `cumulus-client-bootnodes` (RFC-0008 `/paranode` discovery) and
@@ -294,6 +300,8 @@ impl SourceDiscovery for BootnodeSourceDiscovery {
 				self.relay_chain_fork_id.as_deref(),
 			),
 			discovered_tx: Some(tx),
+			// Resolve only serving collators: query the capability-scoped provider key.
+			capability: SPEC_MSG_CAPABILITY.to_vec(),
 		});
 
 		// Drive one discovery round, collecting resolved peers until it completes

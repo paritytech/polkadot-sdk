@@ -29,7 +29,10 @@ use crate::{
 	},
 };
 use codec::Encode;
-use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
+use cumulus_client_bootnodes::{
+	start_bootnode_tasks, start_capability_advertisement, StartBootnodeTasksParams,
+	StartCapabilityAdvertisementParams,
+};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -689,6 +692,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				sync_service: sync_service.clone(),
 				prometheus_registry: prometheus_registry.as_ref(),
 			})?;
+
+			// Spec-msg serving nodes additionally advertise under the capability-scoped DHT key, so
+			// spec-msg receivers (`cumulus-client-source-discovery`) resolve only serving
+			// collators. Runs alongside the plain bootnode advertisement below.
+			if collator_options.spec_msg_serve {
+				start_capability_advertisement(StartCapabilityAdvertisementParams {
+					task_manager: &mut task_manager,
+					para_id,
+					capability: cumulus_client_source_discovery::SPEC_MSG_CAPABILITY.to_vec(),
+					relay_chain_interface: relay_chain_interface.clone(),
+					relay_chain_network: relay_chain_network.clone(),
+					parachain_network: network.clone(),
+				});
+			}
 
 			start_bootnode_tasks(StartBootnodeTasksParams {
 				embedded_dht_bootnode: collator_options.embedded_dht_bootnode,

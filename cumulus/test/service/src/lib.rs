@@ -736,6 +736,7 @@ impl TestNodeBuilder {
 			relay_chain_mode: self.relay_chain_mode,
 			embedded_dht_bootnode: true,
 			dht_bootnode_discovery: true,
+			spec_msg_serve: false,
 		};
 
 		relay_chain_config.network.node_name =
