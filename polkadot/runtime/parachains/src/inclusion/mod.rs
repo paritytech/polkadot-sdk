@@ -382,13 +382,11 @@ pub mod pallet {
 
 const LOG_TARGET: &str = "runtime::inclusion";
 
-/// Maximum length of a sender's `provides` window for speculative messaging. The window holds the
-/// most-recent `StreamsRoot`s a sender has committed; a receiver's `requires` root matches when it
-/// is present here.
+/// Maximum length of a sender's `provides` window for speculative messaging. Holds the most-recent
+/// `StreamsRoot`s a sender has committed; a receiver's `requires` root matches when present here.
 ///
-/// Sized per the design (`W = 128`): W must cover the authoring→backing→inclusion pipeline
-/// *including elastic-scaling bursts* (up to ~36 sender blocks / 18 s at 500 ms block time), with
-/// ample slack. Cost is `W × 32 B` per sender (~4 KB), ~800 KB relay-wide at 200 parachains.
+/// `W = 128` must cover the authoring→backing→inclusion pipeline including elastic-scaling bursts,
+/// so a valid `requires` can't miss a still-recent `provides`; sized with slack.
 pub const MAX_PROVIDES_WINDOW_SIZE: u32 = 128;
 
 /// The reason that a candidate's outputs were rejected for.
