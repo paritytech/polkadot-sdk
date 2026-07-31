@@ -222,36 +222,19 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 
 ## Metrics
 
-Registered on the node's Prometheus registry when there is one; otherwise every
-recorder is a no-op.
-
 | Metric | Type | Labels |
 |---|---|---|
 | `substrate_hop_pool_entries` / `_pool_bytes` / `_pool_max_bytes` | gauge | |
-| `substrate_hop_pool_inserts_total` | counter | `outcome`: `ok` or the `HopError` variant |
 | `substrate_hop_pool_inserted_bytes_total` | counter | |
 | `substrate_hop_pool_removed_total` | counter | `reason` (values below) |
-| `substrate_hop_rpc_requests_total` | counter | `method` (wire name, e.g. `hop_submit`), `outcome` |
-| `substrate_hop_promotion_submissions_total` | counter | `outcome`: `submitted`, `failed` |
-| `substrate_hop_promotions_confirmed_total` / `_abandoned_total` | counter | |
-| `substrate_hop_promotion_backlog` / `_promotion_enabled` | gauge | |
-| `substrate_hop_maintenance_tick_duration_seconds` | histogram | |
+| `substrate_hop_rpc_errors_total` | counter | `method` (wire name, e.g. `hop_submit`), `reason` (`HopError` variant) |
+| `substrate_hop_promotions_confirmed_total` | counter | |
+| `substrate_hop_promotion_backlog` | gauge | |
+| `substrate_hop_maintenance_ticks_total` | counter | |
 
-`reason` values: `acked`, `expired_promoted`, `expired_unpromoted`, `corrupt`, `startup_dropped`.
-
-`submitted` means accepted by the local transaction pool; `confirmed` means
-observed on-chain.
-
-`removed_total{reason="expired_unpromoted"}` and `promotions_abandoned_total`
-are **upper bounds** on loss, not measurements: re-checking stops at
-`MAX_PROMOTION_ATTEMPTS`, so a final submission that did land on-chain is never
-observed locally and still counts as unpromoted. They also overlap — an
-abandoned entry is counted again under `expired_unpromoted` when it expires — so
-alert on either, not on their sum.
-
-`rpc_requests_total` overlaps the RPC middleware's `substrate_rpc_calls_*`; it
-exists only for the `HopError` granularity the middleware cannot see, and shares
-its `method` label values.
+`reason` values, all pre-created at registration: `acked`, `expired_promoted`,
+`expired_unpromoted` (an upper bound on loss; re-checking stops at
+`MAX_PROMOTION_ATTEMPTS`), `corrupt`, `startup_dropped`.
 
 ## Limits and fixed parameters
 

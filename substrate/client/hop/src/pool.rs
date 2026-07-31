@@ -280,10 +280,10 @@ impl HopDataPool {
 		&self.metrics
 	}
 
-	/// Snapshot the pool size gauges after a mutation. Call from inside the
-	/// index critical section with `entries` read from the locked index:
-	/// publishing after the unlock would let an earlier writer overtake a later
-	/// one and leave the gauge stale. Costs no extra lock acquisition.
+	/// Snapshot the pool size gauges after a mutation, from inside the index
+	/// critical section with `entries` read from the locked index: publishing
+	/// after the unlock would let an earlier writer overtake a later one and
+	/// leave the gauges stale.
 	fn publish_size_metrics(&self, entries: usize) {
 		self.metrics
 			.set_pool_size(entries as u64, self.current_size.load(Ordering::Relaxed));
@@ -370,23 +370,6 @@ impl HopDataPool {
 	///
 	/// Returns the hash of the data.
 	pub fn insert(
-		&self,
-		data: Vec<u8>,
-		recipients: RecipientVec,
-		sender_id: SenderId,
-		signer: MultiSigner,
-		signature: MultiSignature,
-		submit_timestamp: u64,
-	) -> Result<HopHash, HopError> {
-		let accounted = entry_accounted_size(data.len() as u64, recipients.len());
-		let result =
-			self.insert_inner(data, recipients, sender_id, signer, signature, submit_timestamp);
-		// Gauges are published by `insert_inner` under the index lock.
-		self.metrics.record_insert(&result, accounted);
-		result
-	}
-
-	fn insert_inner(
 		&self,
 		data: Vec<u8>,
 		recipients: RecipientVec,
@@ -503,6 +486,7 @@ impl HopDataPool {
 			index.insert(hash, meta);
 			self.publish_size_metrics(index.len());
 		}
+		self.metrics.record_inserted_bytes(accounted);
 
 		tracing::info!(
 			target: "hop",
@@ -547,7 +531,6 @@ impl HopDataPool {
 	/// Remove a corrupt entry from the index and best-effort delete its files.
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
-		// The quota release stays outside the index lock, as before.
 		let removed = {
 			let mut index = self.index.lock();
 			index.remove(hash).map(|meta| {
@@ -965,13 +948,9 @@ impl HopDataPool {
 			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
 			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
 			meta.next_promotion_attempt_at = current_block.saturating_add(backoff);
-			let abandoned = meta.promotion_attempts == MAX_PROMOTION_ATTEMPTS;
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
 			drop(index);
-			if abandoned {
-				self.metrics.record_promotion_abandoned();
-			}
 
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(
@@ -1193,26 +1172,6 @@ mod tests {
 		pool.mark_promoted(&hash);
 		pool.mark_promoted(&hash);
 		assert_eq!(pool.metrics().promotions_confirmed(), 1, "only the transition counts");
-	}
-
-	#[test]
-	fn abandoned_counter_fires_once_at_the_attempt_cap() {
-		use crate::types::MAX_PROMOTION_ATTEMPTS;
-
-		let (pool, _dir) = make_metered_pool(100);
-		let (_, signer) = test_recipient();
-		let hash = pool
-			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
-			.unwrap();
-
-		for _ in 0..MAX_PROMOTION_ATTEMPTS {
-			pool.record_promotion_attempt(&hash, 0, /* check_interval_blocks = */ 10);
-		}
-		assert_eq!(pool.metrics().promotions_abandoned(), 1);
-
-		// Past the cap must not re-count.
-		pool.record_promotion_attempt(&hash, 0, 10);
-		assert_eq!(pool.metrics().promotions_abandoned(), 1);
 	}
 
 	#[test]

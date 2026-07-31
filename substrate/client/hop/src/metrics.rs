@@ -18,10 +18,8 @@
 
 use crate::types::HopError;
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts, Opts,
-	PrometheusError, Registry, U64,
+	register, Counter, CounterVec, Gauge, Opts, PrometheusError, Registry, U64,
 };
-use std::time::Duration;
 
 /// `reason` label values for `substrate_hop_pool_removed_total`.
 pub mod removal_reasons {
@@ -37,34 +35,22 @@ pub mod removal_reasons {
 	/// Lost to startup recovery: `.meta` unreadable, undecodable, stale-version,
 	/// or missing its blob.
 	pub const STARTUP_DROPPED: &str = "startup_dropped";
+
+	/// Every reason, for pre-creating the series at registration.
+	pub const ALL: [&str; 5] =
+		[ACKED, EXPIRED_PROMOTED, EXPIRED_UNPROMOTED, CORRUPT, STARTUP_DROPPED];
 }
 
 /// `method` label values: the wire names, so they join against the RPC
 /// middleware's `substrate_rpc_calls_*`.
 pub mod rpc_methods {
-	/// `hop_submit`.
 	pub const SUBMIT: &str = "hop_submit";
-	/// `hop_claim`.
 	pub const CLAIM: &str = "hop_claim";
-	/// `hop_ack`.
 	pub const ACK: &str = "hop_ack";
-	/// `hop_poolStatus`.
-	pub const POOL_STATUS: &str = "hop_poolStatus";
-}
-
-/// `outcome` label for successful operations.
-pub const OUTCOME_OK: &str = "ok";
-
-/// `outcome` label for the result of an operation returning [`HopError`].
-pub fn outcome_label<T>(result: &Result<T, HopError>) -> &'static str {
-	match result {
-		Ok(_) => OUTCOME_OK,
-		Err(e) => error_label(e),
-	}
 }
 
 /// Stable low-cardinality label for a [`HopError`] variant.
-pub fn error_label(err: &HopError) -> &'static str {
+fn error_label(err: &HopError) -> &'static str {
 	match err {
 		HopError::DataTooLarge(_, _) => "data_too_large",
 		HopError::PoolFull(_, _) => "pool_full",
@@ -93,20 +79,31 @@ struct Inner {
 	pool_entries: Gauge<U64>,
 	pool_bytes: Gauge<U64>,
 	pool_max_bytes: Gauge<U64>,
-	pool_inserts_total: CounterVec<U64>,
 	pool_inserted_bytes_total: Counter<U64>,
 	pool_removed_total: CounterVec<U64>,
-	rpc_requests_total: CounterVec<U64>,
-	promotion_submissions_total: CounterVec<U64>,
+	rpc_errors_total: CounterVec<U64>,
 	promotions_confirmed_total: Counter<U64>,
-	promotions_abandoned_total: Counter<U64>,
 	promotion_backlog: Gauge<U64>,
-	promotion_enabled: Gauge<U64>,
-	maintenance_tick_duration_seconds: Histogram,
+	maintenance_ticks_total: Counter<U64>,
 }
 
 impl Inner {
 	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		let pool_removed_total = register(
+			CounterVec::new(
+				Opts::new(
+					"substrate_hop_pool_removed_total",
+					"Total number of entries removed from the HOP pool, by reason",
+				),
+				&["reason"],
+			)?,
+			registry,
+		)?;
+		// A CounterVec exports nothing until a series is touched; pre-create
+		// them all so the first data-loss event is a visible 0->1 transition.
+		for reason in removal_reasons::ALL {
+			pool_removed_total.with_label_values(&[reason]);
+		}
 		Ok(Self {
 			pool_entries: register(
 				Gauge::new("substrate_hop_pool_entries", "Number of entries in the HOP pool")?,
@@ -126,16 +123,6 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			pool_inserts_total: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_hop_pool_inserts_total",
-						"Total number of HOP pool insert attempts, by outcome",
-					),
-					&["outcome"],
-				)?,
-				registry,
-			)?,
 			pool_inserted_bytes_total: register(
 				Counter::new(
 					"substrate_hop_pool_inserted_bytes_total",
@@ -143,37 +130,17 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			pool_removed_total: register(
+			pool_removed_total,
+			// Per-method call counts and durations are already covered by the
+			// RPC middleware (`substrate_rpc_calls_*`); this only adds the
+			// error-variant granularity the middleware cannot see.
+			rpc_errors_total: register(
 				CounterVec::new(
 					Opts::new(
-						"substrate_hop_pool_removed_total",
-						"Total number of entries removed from the HOP pool, by reason",
+						"substrate_hop_rpc_errors_total",
+						"Total number of failed HOP RPC requests, by method and reason",
 					),
-					&["reason"],
-				)?,
-				registry,
-			)?,
-			// Method-level call counts and durations are already covered for
-			// every RPC method by the server middleware
-			// (`substrate_rpc_calls_started/finished/time`); this counter only
-			// adds the error-variant granularity the middleware cannot see.
-			rpc_requests_total: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_hop_rpc_requests_total",
-						"Total number of HOP RPC requests, by method and outcome",
-					),
-					&["method", "outcome"],
-				)?,
-				registry,
-			)?,
-			promotion_submissions_total: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_hop_promotion_submissions_total",
-						"Total number of HOP promotion extrinsic submissions, by outcome",
-					),
-					&["outcome"],
+					&["method", "reason"],
 				)?,
 				registry,
 			)?,
@@ -184,14 +151,6 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			promotions_abandoned_total: register(
-				Counter::new(
-					"substrate_hop_promotions_abandoned_total",
-					"Total number of HOP entries that exhausted all promotion attempts; \
-					 an upper bound on loss, the last submission may still have landed",
-				)?,
-				registry,
-			)?,
 			promotion_backlog: register(
 				Gauge::new(
 					"substrate_hop_promotion_backlog",
@@ -199,31 +158,18 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			promotion_enabled: register(
-				Gauge::new(
-					"substrate_hop_promotion_enabled",
-					"Whether on-chain promotion is enabled on this node (0/1)",
+			maintenance_ticks_total: register(
+				Counter::new(
+					"substrate_hop_maintenance_ticks_total",
+					"Total number of completed HOP maintenance cycles (promotion + cleanup)",
 				)?,
-				registry,
-			)?,
-			maintenance_tick_duration_seconds: register(
-				Histogram::with_opts(HistogramOpts {
-					common_opts: Opts::new(
-						"substrate_hop_maintenance_tick_duration_seconds",
-						"Duration of a HOP maintenance cycle (promotion + cleanup), in seconds",
-					),
-					buckets: exponential_buckets(0.005, 2.0, 16)
-						.expect("parameters are always valid values; qed"),
-				})?,
 				registry,
 			)?,
 		})
 	}
 }
 
-/// Helper wrapper around the HOP metrics.
-///
-/// When constructed without a `Registry`, all recording methods become no-ops.
+/// HOP metrics; every recorder is a no-op when built without a `Registry`.
 pub struct HopMetrics {
 	inner: Option<Inner>,
 }
@@ -253,11 +199,9 @@ impl HopMetrics {
 		}
 	}
 
-	/// Snapshot the pool size gauges. Gauges are set from the authoritative
-	/// counts rather than inc/dec'd: a `Gauge<U64>` wraps on underflow, so any
-	/// missed or double-counted delta would poison the gauge forever, while a
-	/// snapshot self-corrects on the next update. Callers publish under the
-	/// pool's index lock, so mutations arrive here in lock order.
+	/// Snapshot the pool size gauges from the authoritative counts. Snapshots
+	/// rather than inc/dec because a `Gauge<U64>` wraps on underflow; callers
+	/// publish under the pool's index lock so updates arrive in order.
 	pub(crate) fn set_pool_size(&self, entries: u64, bytes: u64) {
 		if let Some(inner) = &self.inner {
 			inner.pool_entries.set(entries);
@@ -265,39 +209,24 @@ impl HopMetrics {
 		}
 	}
 
-	/// Record an insert attempt; on success also count `accounted` inserted bytes.
-	pub(crate) fn record_insert<T>(&self, result: &Result<T, HopError>, accounted: u64) {
+	/// Count `accounted` bytes successfully inserted.
+	pub(crate) fn record_inserted_bytes(&self, accounted: u64) {
 		if let Some(inner) = &self.inner {
-			inner.pool_inserts_total.with_label_values(&[outcome_label(result)]).inc();
-			if result.is_ok() {
-				inner.pool_inserted_bytes_total.inc_by(accounted);
-			}
+			inner.pool_inserted_bytes_total.inc_by(accounted);
 		}
 	}
 
 	/// Record `entries` removals under `reason`.
 	pub(crate) fn record_removed(&self, reason: &str, entries: u64) {
-		if entries == 0 {
-			return;
-		}
 		if let Some(inner) = &self.inner {
 			inner.pool_removed_total.with_label_values(&[reason]).inc_by(entries);
 		}
 	}
 
-	/// Record one RPC request with its outcome.
-	pub(crate) fn record_rpc(&self, method: &str, outcome: &str) {
+	/// Record one failed RPC request.
+	pub(crate) fn record_rpc_error(&self, method: &str, err: &HopError) {
 		if let Some(inner) = &self.inner {
-			inner.rpc_requests_total.with_label_values(&[method, outcome]).inc();
-		}
-	}
-
-	/// Record one promotion extrinsic submission. `submitted` means accepted by
-	/// the local transaction pool; inclusion is confirmed separately.
-	pub(crate) fn record_promotion_submission(&self, submitted: bool) {
-		if let Some(inner) = &self.inner {
-			let outcome = if submitted { "submitted" } else { "failed" };
-			inner.promotion_submissions_total.with_label_values(&[outcome]).inc();
+			inner.rpc_errors_total.with_label_values(&[method, error_label(err)]).inc();
 		}
 	}
 
@@ -308,16 +237,6 @@ impl HopMetrics {
 		}
 	}
 
-	/// Record one entry that reached the promotion attempt cap and will expire
-	/// without further attempts. An upper bound on loss, like
-	/// [`removal_reasons::EXPIRED_UNPROMOTED`]: the last submission may have
-	/// landed after all.
-	pub(crate) fn record_promotion_abandoned(&self) {
-		if let Some(inner) = &self.inner {
-			inner.promotions_abandoned_total.inc();
-		}
-	}
-
 	/// Set the promotion backlog gauge.
 	pub(crate) fn set_promotion_backlog(&self, backlog: u64) {
 		if let Some(inner) = &self.inner {
@@ -325,17 +244,10 @@ impl HopMetrics {
 		}
 	}
 
-	/// Set whether on-chain promotion is enabled.
-	pub(crate) fn set_promotion_enabled(&self, enabled: bool) {
+	/// Count one completed maintenance cycle (liveness signal).
+	pub(crate) fn record_maintenance_tick(&self) {
 		if let Some(inner) = &self.inner {
-			inner.promotion_enabled.set(enabled as u64);
-		}
-	}
-
-	/// Observe the duration of one maintenance cycle.
-	pub(crate) fn observe_tick_duration(&self, elapsed: Duration) {
-		if let Some(inner) = &self.inner {
-			inner.maintenance_tick_duration_seconds.observe(elapsed.as_secs_f64());
+			inner.maintenance_ticks_total.inc();
 		}
 	}
 
@@ -363,24 +275,18 @@ impl HopMetrics {
 		self.inner.as_ref().map(|i| i.promotions_confirmed_total.get()).unwrap_or(0)
 	}
 
-	/// Counter value of `substrate_hop_promotions_abandoned_total`.
-	#[cfg(test)]
-	pub(crate) fn promotions_abandoned(&self) -> u64 {
-		self.inner.as_ref().map(|i| i.promotions_abandoned_total.get()).unwrap_or(0)
-	}
-
 	/// Current value of the `substrate_hop_promotion_backlog` gauge.
 	#[cfg(test)]
 	pub(crate) fn promotion_backlog(&self) -> u64 {
 		self.inner.as_ref().map(|i| i.promotion_backlog.get()).unwrap_or(0)
 	}
 
-	/// Counter value of `substrate_hop_rpc_requests_total{method,outcome}`.
+	/// Counter value of `substrate_hop_rpc_errors_total{method,reason}`.
 	#[cfg(test)]
-	pub(crate) fn rpc_count(&self, method: &str, outcome: &str) -> u64 {
+	pub(crate) fn rpc_error_count(&self, method: &str, reason: &str) -> u64 {
 		self.inner
 			.as_ref()
-			.map(|i| i.rpc_requests_total.with_label_values(&[method, outcome]).get())
+			.map(|i| i.rpc_errors_total.with_label_values(&[method, reason]).get())
 			.unwrap_or(0)
 	}
 }
@@ -388,6 +294,22 @@ impl HopMetrics {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn no_registry_or_disabled_means_no_ops() {
+		assert!(!HopMetrics::new(None).unwrap().is_enabled());
+
+		let metrics = HopMetrics::disabled();
+		metrics.set_pool_status(1, 2, 3);
+		metrics.set_pool_size(1, 2);
+		metrics.record_inserted_bytes(42);
+		metrics.record_removed(removal_reasons::ACKED, 1);
+		metrics.record_rpc_error(rpc_methods::SUBMIT, &HopError::NotFound);
+		metrics.record_promotion_confirmed();
+		metrics.set_promotion_backlog(7);
+		metrics.record_maintenance_tick();
+		assert_eq!(metrics.removed_count(removal_reasons::ACKED), 0);
+	}
 
 	#[test]
 	fn duplicate_registration_fails_and_falls_back_to_disabled() {
@@ -399,92 +321,44 @@ mod tests {
 
 		let fallback = HopMetrics::new(Some(&registry)).unwrap_or_else(|_| HopMetrics::disabled());
 		assert!(!fallback.is_enabled());
-		fallback.record_removed(removal_reasons::ACKED, 1);
-		assert_eq!(fallback.removed_count(removal_reasons::ACKED), 0);
 	}
 
 	#[test]
-	fn no_registry_means_disabled() {
-		assert!(!HopMetrics::new(None).unwrap().is_enabled());
+	fn removal_series_are_pre_created_at_registration() {
+		let registry = Registry::new();
+		let _metrics = HopMetrics::new(Some(&registry)).unwrap();
+
+		let family = registry
+			.gather()
+			.into_iter()
+			.find(|f| f.get_name() == "substrate_hop_pool_removed_total")
+			.expect("family is registered");
+		assert_eq!(family.get_metric().len(), removal_reasons::ALL.len());
 	}
 
 	#[test]
-	fn disabled_metrics_are_no_ops() {
-		let metrics = HopMetrics::disabled();
-		metrics.set_pool_status(1, 2, 3);
-		metrics.set_pool_size(1, 2);
-		metrics.record_insert::<()>(&Ok(()), 42);
-		metrics.record_removed(removal_reasons::ACKED, 1);
-		metrics.record_rpc(rpc_methods::SUBMIT, OUTCOME_OK);
-		metrics.record_promotion_submission(true);
-		metrics.record_promotion_confirmed();
-		metrics.record_promotion_abandoned();
-		metrics.set_promotion_backlog(7);
-		metrics.set_promotion_enabled(true);
-		metrics.observe_tick_duration(Duration::from_millis(5));
-	}
-
-	#[test]
-	fn enabled_metrics_register_and_track_pool_size() {
+	fn enabled_metrics_track_values() {
 		let registry = Registry::new();
 		let metrics = HopMetrics::new(Some(&registry)).unwrap();
 
 		metrics.set_pool_status(2, 200, 1000);
-		assert_eq!(metrics.pool_gauges(), (2, 200));
-
-		metrics.record_insert::<()>(&Ok(()), 100);
-		metrics.record_insert::<()>(&Err(HopError::PoolFull(300, 1000)), 100);
 		metrics.set_pool_size(3, 300);
-		assert_eq!(metrics.pool_gauges(), (3, 300));
-
+		metrics.record_inserted_bytes(100);
 		metrics.record_removed(removal_reasons::EXPIRED_UNPROMOTED, 2);
-		metrics.set_pool_size(1, 50);
-		assert_eq!(metrics.pool_gauges(), (1, 50));
+		metrics.record_rpc_error(rpc_methods::CLAIM, &HopError::NotFound);
+		metrics.record_promotion_confirmed();
+		metrics.set_promotion_backlog(4);
+		metrics.record_maintenance_tick();
+
+		let inner = metrics.inner.as_ref().unwrap();
+		assert_eq!(metrics.pool_gauges(), (3, 300));
+		assert_eq!(inner.pool_max_bytes.get(), 1000);
+		assert_eq!(inner.pool_inserted_bytes_total.get(), 100);
 		assert_eq!(metrics.removed_count(removal_reasons::EXPIRED_UNPROMOTED), 2);
 		assert_eq!(metrics.removed_count(removal_reasons::ACKED), 0);
-
-		let inner = metrics.inner.as_ref().unwrap();
-		assert_eq!(inner.pool_inserts_total.with_label_values(&[OUTCOME_OK]).get(), 1);
-		assert_eq!(inner.pool_inserts_total.with_label_values(&["pool_full"]).get(), 1);
-		assert_eq!(inner.pool_inserted_bytes_total.get(), 100);
-	}
-
-	#[test]
-	fn rpc_and_promotion_metrics_increment() {
-		let registry = Registry::new();
-		let metrics = HopMetrics::new(Some(&registry)).unwrap();
-
-		metrics.record_rpc(rpc_methods::SUBMIT, OUTCOME_OK);
-		metrics.record_rpc(rpc_methods::CLAIM, error_label(&HopError::NotFound));
-		metrics.record_promotion_submission(true);
-		metrics.record_promotion_submission(false);
-		metrics.record_promotion_confirmed();
-		metrics.record_promotion_abandoned();
-		metrics.set_promotion_backlog(4);
-		metrics.set_promotion_enabled(true);
-		metrics.observe_tick_duration(Duration::from_millis(10));
-
-		let inner = metrics.inner.as_ref().unwrap();
-		assert_eq!(
-			inner
-				.rpc_requests_total
-				.with_label_values(&[rpc_methods::SUBMIT, OUTCOME_OK])
-				.get(),
-			1
-		);
-		assert_eq!(
-			inner
-				.rpc_requests_total
-				.with_label_values(&[rpc_methods::CLAIM, "not_found"])
-				.get(),
-			1
-		);
-		assert_eq!(inner.promotion_submissions_total.with_label_values(&["submitted"]).get(), 1);
-		assert_eq!(inner.promotion_submissions_total.with_label_values(&["failed"]).get(), 1);
-		assert_eq!(inner.promotions_confirmed_total.get(), 1);
-		assert_eq!(inner.promotions_abandoned_total.get(), 1);
-		assert_eq!(inner.promotion_backlog.get(), 4);
-		assert_eq!(inner.promotion_enabled.get(), 1);
-		assert_eq!(inner.maintenance_tick_duration_seconds.get_sample_count(), 1);
+		assert_eq!(metrics.rpc_error_count(rpc_methods::CLAIM, "not_found"), 1);
+		assert_eq!(metrics.promotions_confirmed(), 1);
+		assert_eq!(metrics.promotion_backlog(), 4);
+		assert_eq!(inner.maintenance_ticks_total.get(), 1);
 	}
 }
