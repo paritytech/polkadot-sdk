@@ -1705,6 +1705,18 @@ mod tests {
 	}
 
 	#[test]
+	fn authority_set_changes_insert_rejects_duplicate_set_id() {
+		let mut changes = AuthoritySetChanges::empty();
+		changes.insert(10).unwrap();
+		changes.insert(20).unwrap();
+		changes.insert(30).unwrap();
+
+		let before = changes.clone();
+		assert_eq!(changes.insert(25).unwrap_err().0, 2);
+		assert_eq!(changes, before);
+	}
+
+	#[test]
 	fn authority_set_changes_for_complete_data() {
 		let mut authority_set_changes = AuthoritySetChanges::empty();
 		authority_set_changes.append(0, 41);
