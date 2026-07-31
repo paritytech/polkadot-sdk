@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785441401477,
+  "lastUpdate": 1785499047236,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "142ceec0b8a6d6da6516770f6c1b2bcb46396a58",
-          "message": "staking: do not remove an invulnerable in case of bad solution (#10454)\n\nInvulnerables are not automatically removed from the Invulnerables\nstorage when their solution is rejected.\nRemoval should occur only through governance, not automatically. \nAn operational or network issue that leads to an incomplete submission\nis much more likely than a bad faith action from an invulnerable.\n\nClose https://github.com/paritytech-secops/srlabs_findings/issues/602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T14:57:41Z",
-          "tree_id": "87e3c0007818f8466336c3a539e6907f2f23ffcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/142ceec0b8a6d6da6516770f6c1b2bcb46396a58"
-        },
-        "date": 1764347618463,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007255917459999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022471146320000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013285974033333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15769631543333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009905265993333329,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0",
+          "message": "statement-store: avoid blocking event loop during propagation (#12657)\n\n## Summary\n\n- queue statement propagation sends in a handler-owned\n`FuturesUnordered`\n- poll send completions from the main event loop so network backpressure\nfrom a slow peer does not block unrelated handler events\n- preserve propagation timeout and metrics accounting while leaving\ninitial sync unchanged\n\nThis is a propagation-only extraction of the outbound send lifecycle.\n\n## Observability\n\nStatements are marked known to a peer *before* the send is attempted, so\na failed send suppresses them for that peer until its next initial sync.\nTwo counters make that loss visible, both labelled by `reason` with the\nvalues `network`, `timeout` and `no_sink`:\n\n- `substrate_sync_statement_send_failures_total` — sends that never\nreached the peer\n- `substrate_sync_statement_undelivered_total` — the statements those\nsends were carrying\n\nSend timeouts moved from `debug` to `warn`, and every failure log line\nnow carries the peer, the statement count and the byte size.\n\nTODO:\n\n- [ ] https://github.com/paritytech/polkadot-sdk/issues/12764\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-31T10:13:23Z",
+          "tree_id": "a716bef7fc6c19fc36534d8e29d6c9d72f3d5a81",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0"
+        },
+        "date": 1785499015192,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022760361706666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009911558819999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0072191384133333345,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14552510716000008,
             "unit": "seconds"
           }
         ]
