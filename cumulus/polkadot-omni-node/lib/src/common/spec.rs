@@ -475,10 +475,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
 
 			// Cross-parachain source discovery: for each source configured on-chain
-			// (`set_source_genesis`), resolve its collators over the relay DHT and
-			// keep a health-tracked peer set. Version-gated + governance-opt-in — a
-			// runtime without `SourceDiscoveryApi`, or with no configured source,
-			// does nothing.
+			// (`set_source_genesis`), resolve its collators over the relay DHT,
+			// register their addresses with the network (so a consumer transport can
+			// dial them), and hold the resolved set in a per-source `PeerRegistry`.
+			// The registry is the loop's own peer state today (drives retry/peerless
+			// detection); exposing it to a higher layer (e.g. speculative-messaging
+			// fetch) is a follow-up. Version-gated + governance-opt-in — a runtime
+			// without `SourceDiscoveryApi`, or with no configured source, does nothing.
 			{
 				use cumulus_client_source_discovery::{
 					run_source_discovery, BootnodeSourceDiscovery, PeerRegistry,

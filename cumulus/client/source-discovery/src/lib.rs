@@ -59,8 +59,8 @@ use cumulus_primitives_core::{relay_chain::BlockId, ParaId};
 use cumulus_primitives_source_discovery::SourceDiscoveryApi;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-/// The health-tracked peer set consumers read, and the trait to read it —
-/// re-exported from the foundation so consumers depend on one crate.
+/// The per-source peer set and the trait to read it ([`SourcePeers`]) —
+/// re-exported from the foundation so a consumer depends on one crate.
 pub use cumulus_client_bootnodes::{PeerRegistry, SourcePeers};
 
 /// Log target for this crate.
