@@ -142,6 +142,7 @@ std = [
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
 	"pallet-salary?/std",
+	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
 	"pallet-scored-pool?/std",
 	"pallet-session-benchmarking?/std",
@@ -339,6 +340,7 @@ runtime-benchmarks = [
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
+	"pallet-scarcity?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-session?/runtime-benchmarks",
@@ -488,6 +490,7 @@ try-runtime = [
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
 	"pallet-salary?/try-runtime",
+	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
 	"pallet-scored-pool?/try-runtime",
 	"pallet-session?/try-runtime",
@@ -715,6 +718,7 @@ runtime-full = [
 	"pallet-root-testing",
 	"pallet-safe-mode",
 	"pallet-salary",
+	"pallet-scarcity",
 	"pallet-scheduler",
 	"pallet-scored-pool",
 	"pallet-session",
@@ -1742,6 +1746,11 @@ path = "../substrate/frame/safe-mode"
 default-features = false
 optional = true
 path = "../substrate/frame/salary"
+
+[dependencies.pallet-scarcity]
+default-features = false
+optional = true
+path = "../substrate/frame/scarcity"
 
 [dependencies.pallet-scheduler]
 default-features = false

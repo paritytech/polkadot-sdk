@@ -14364,6 +14364,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-scarcity"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 46.0.0",
+ "sp-runtime 47.0.0",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "49.0.0"
 dependencies = [
@@ -17483,6 +17497,7 @@ dependencies = [
  "pallet-root-testing",
  "pallet-safe-mode",
  "pallet-salary",
+ "pallet-scarcity",
  "pallet-scheduler",
  "pallet-scored-pool",
  "pallet-session",
@@ -26770,6 +26785,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
+ "scale-info",
  "subxt 0.44.2",
  "subxt-signer 0.44.2",
  "tokio",
