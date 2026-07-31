@@ -237,6 +237,7 @@ where
 				target: LOG_TARGET,
 				source = %u32::from(*source),
 				count = peers.len(),
+				?peers,
 				"Discovered source peers",
 			);
 			registry.set_peers(*source, peers);

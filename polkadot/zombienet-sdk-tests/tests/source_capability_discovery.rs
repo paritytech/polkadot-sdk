@@ -59,6 +59,28 @@ async fn set_source_genesis(
 	Ok(())
 }
 
+/// Drop the penpal's record for `source` (sudo → `set_source_genesis(source, None)`), so the next
+/// refresh clears its peers; re-adding it then forces a fresh capability re-resolve.
+async fn clear_source_genesis(
+	client: &OnlineClient<PolkadotConfig>,
+	source: u32,
+) -> Result<(), anyhow::Error> {
+	let none = Value::unnamed_variant("None", []);
+	let pallet_call = Value::named_variant(
+		"set_source_genesis",
+		[("source", Value::u128(source as u128)), ("info", none)],
+	);
+	let runtime_call = Value::unnamed_variant("SourceDiscovery", [pallet_call]);
+	let call = dynamic("Sudo", "sudo", vec![runtime_call]);
+	client
+		.tx()
+		.sign_and_submit_then_watch_default(&call, &dev::alice())
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+	Ok(())
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn source_capability_discovery_filters_non_servers() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -173,30 +195,79 @@ async fn source_capability_discovery_filters_non_servers() -> Result<(), anyhow:
 		"penpal-a2 unexpectedly advertised the capability",
 	);
 
-	// (3) B's capability query resolves EXACTLY ONE peer for source 2000 — a1.
-	log::info!("Asserting B discovered exactly the serving peer (a1)");
+	let count1 = "Discovered source peers.*source=2000.*count=1";
+	let count2 = "Discovered source peers.*source=2000.*count=2";
+
+	// a1's *parachain* PeerId. A collator logs "Local node identity is:" twice — for its embedded
+	// relay node (prefixed `[Relaychain]`) and its parachain node — and discovery resolves the
+	// parachain identity (that is what `/paranode` advertises), so pick the non-`[Relaychain]`
+	// line.
+	let id_re =
+		regex::Regex::new(r"Local node identity is: (12D3[A-Za-z0-9]+)").expect("valid regex");
+	let a1_peer_id = penpal_a1
+		.logs()
+		.await?
+		.lines()
+		.filter(|l| !l.contains("[Relaychain]"))
+		.find_map(|l| id_re.captures(l).and_then(|c| c.get(1)).map(|m| m.as_str().to_string()))
+		.ok_or_else(|| anyhow!("could not read penpal-a1's parachain peer id from its logs"))?;
+
+	// B's most recent `count=1` discovery line for source 2000 (the line carries the resolved
+	// peers via the `peers=` field).
+	let latest_resolve = |logs: &str| -> Option<String> {
+		logs.lines()
+			.rev()
+			.find(|l| {
+				l.contains("Discovered source peers") &&
+					l.contains("source=2000") &&
+					l.contains("count=1")
+			})
+			.map(str::to_string)
+	};
+
+	// (3) B resolves for 2000 …
+	log::info!("Asserting B resolves exactly the serving peer a1 ({a1_peer_id})");
 	assert!(
 		penpal_b
-			.wait_log_line_count_with_timeout(
-				"Discovered source peers.*source=2000.*count=1",
-				false,
-				found,
-			)
+			.wait_log_line_count_with_timeout(count1, false, found.clone())
 			.await?
 			.success(),
-		"penpal-b did not discover the serving peer under the capability key",
+		"penpal-b did not resolve any peer for source 2000",
+	);
+	// … and the resolved peer is EXACTLY a1 — not merely `count=1` (a wrong-key round returning
+	// only the plain-only distractor a2 is also `count=1`). Checked on the line itself so a
+	// mismatch fails fast with the offending line rather than timing out.
+	let line = latest_resolve(&penpal_b.logs().await?)
+		.ok_or_else(|| anyhow!("no count=1 discovery line for source 2000 in B's logs"))?;
+	assert!(
+		line.contains(&a1_peer_id),
+		"B resolved a non-a1 peer under the capability key (expected a1={a1_peer_id}): {line}",
 	);
 
-	// (4) THE FILTER: B never sees count=2 for source 2000 — it never resolves the non-serving a2.
-	//     A capability query can only return capability advertisers, so a2 (plain-only) is
-	// invisible;     if this fired, discovery queried the wrong (plain) key.
+	// Force a fresh re-resolve: after the first success the source is no longer peerless, so B
+	// won't re-query until the 120s force sweep — the negative check below would otherwise run over
+	// an idle window. Dropping + re-adding the source re-triggers discovery within ~a block.
+	log::info!("Toggling B's source genesis to force a second resolve");
+	clear_source_genesis(&b_client, PARA_A).await?;
+	set_source_genesis(&b_client, PARA_A, genesis_a.0).await?;
+
+	// (4) THE FILTER, under a real re-query: a second resolve happens …
+	let twice = LogLineCountOptions::new(|n| n >= 2, Duration::from_secs(120), false);
+	assert!(
+		penpal_b.wait_log_line_count_with_timeout(count1, false, twice).await?.success(),
+		"penpal-b did not re-resolve source 2000 after the toggle",
+	);
+	// … still exactly a1 …
+	let line2 = latest_resolve(&penpal_b.logs().await?)
+		.ok_or_else(|| anyhow!("no count=1 discovery line after the toggle"))?;
+	assert!(
+		line2.contains(&a1_peer_id),
+		"B re-resolved a non-a1 peer after the toggle (expected a1={a1_peer_id}): {line2}",
+	);
+	// … and NEVER the two-peer plain-key result across those queries — a2 stays invisible.
 	assert!(
 		penpal_b
-			.wait_log_line_count_with_timeout(
-				"Discovered source peers.*source=2000.*count=2",
-				false,
-				absent.clone(),
-			)
+			.wait_log_line_count_with_timeout(count2, false, absent.clone())
 			.await?
 			.success(),
 		"penpal-b resolved the non-serving collator under the capability key (filter broken)",
