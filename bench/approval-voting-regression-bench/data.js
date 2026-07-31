@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785441443935,
+  "lastUpdate": 1785499087938,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e73397897316a7446fe4985292aa4cf3c6ea62df",
-          "message": "collator-protocol: don't disconnect on slot end when we have pending collations (#10446)\n\nWe pre-connect one slot in advance and we disconnect when our slot ends\neven when we have pending collations which is wrong. This change fixes\nthis by keeping the connections open until the collation is requested or\nrelay parent expires.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T13:34:15Z",
-          "tree_id": "2333702b47e0cbba9efbd7eafcf6b7e6c781264e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e73397897316a7446fe4985292aa4cf3c6ea62df"
-        },
-        "date": 1764342855355,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.44,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000196138,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6945682120509793,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001826469,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4424549744199977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4889047186800033,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000196138,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4891809942600007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005650674840000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5198551945000025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001826469,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.395695340550017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4861579381500003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9634908457000109,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.3669481216799984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0",
+          "message": "statement-store: avoid blocking event loop during propagation (#12657)\n\n## Summary\n\n- queue statement propagation sends in a handler-owned\n`FuturesUnordered`\n- poll send completions from the main event loop so network backpressure\nfrom a slow peer does not block unrelated handler events\n- preserve propagation timeout and metrics accounting while leaving\ninitial sync unchanged\n\nThis is a propagation-only extraction of the outbound send lifecycle.\n\n## Observability\n\nStatements are marked known to a peer *before* the send is attempted, so\na failed send suppresses them for that peer until its next initial sync.\nTwo counters make that loss visible, both labelled by `reason` with the\nvalues `network`, `timeout` and `no_sink`:\n\n- `substrate_sync_statement_send_failures_total` — sends that never\nreached the peer\n- `substrate_sync_statement_undelivered_total` — the statements those\nsends were carrying\n\nSend timeouts moved from `debug` to `warn`, and every failure log line\nnow carries the peer, the statement count and the byte size.\n\nTODO:\n\n- [ ] https://github.com/paritytech/polkadot-sdk/issues/12764\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-31T10:13:23Z",
+          "tree_id": "a716bef7fc6c19fc36534d8e29d6c9d72f3d5a81",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0"
+        },
+        "date": 1785499055562,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63572.770000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6624259051300014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8161362565299818,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6949369512499985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.70538960102,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001839015,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.503365304282876,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001839015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000016115310000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000016115310000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052631915500000025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6812976444099985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.959371502329986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.393921952440004,
             "unit": "seconds"
           }
         ]
