@@ -531,9 +531,8 @@ pub mod pallet {
 
 		/// A session key state report failed to be sent to AssetHub.
 		///
-		/// Not retried: the report asserts our current state
-		/// Next key operation for the same stash re-asserts it.
-		/// Until AssetHub's key deposit for that stash may be stale.
+		/// Not retried: the next key operation for the same stash re-asserts the state. Until
+		/// then, AssetHub's key deposit for that stash may be stale.
 		KeysStateSendFailed,
 	}
 

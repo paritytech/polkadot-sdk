@@ -1428,6 +1428,7 @@ mod session_keys {
 		SetKeysExecutionCost,
 	};
 	use codec::Encode;
+	use frame::deps::sp_runtime::testing::{TestSignature, UintAuthorityId};
 	use frame_support::{assert_noop, pallet_prelude::DispatchError};
 	use rc_client::AHStakingInterface;
 
@@ -2103,6 +2104,11 @@ mod session_keys {
 			assert!(next_keys.is_some(), "Keys should be set on RC");
 		});
 
+		// AND: RC confirmed the keys, so the deposit stays held
+		shared::in_ah(|| {
+			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
+		});
+
 		// WHEN: Validator purges keys on AH
 		shared::in_ah(|| {
 			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
@@ -2112,6 +2118,227 @@ mod session_keys {
 		shared::in_rc(|| {
 			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+
+		// AND: the deposit is released, now that RC reported no keys
+		shared::in_ah(|| {
+			assert_eq!(key_deposit_hold(validator), 0);
+		});
+	}
+
+	/// RC rejects keys another stash already owns with `DuplicatedKey`, and AH refunds the
+	/// deposit it optimistically took.
+	#[test]
+	fn set_keys_rejected_by_rc_refunds_deposit() {
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
+
+		let squatter: AccountId = 3;
+
+		// A proof of possession is `TestSignature(key, owner)`, so the squatter can prove
+		// ownership of a key account 1 has already registered on RC.
+		let duplicate_keys = RCSessionKeys { other: UintAuthorityId(1) }.encode();
+		let proof = TestSignature(1, squatter.encode()).encode();
+
+		shared::in_ah(|| {
+			assert!(<Staking as AHStakingInterface>::is_validator(&squatter));
+			let free_before = Balances::free_balance(squatter);
+
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(squatter),
+				duplicate_keys.clone(),
+				proof.clone(),
+				None,
+			));
+
+			assert_eq!(key_deposit_hold(squatter), 0);
+			assert!(Balances::free_balance(squatter) < free_before, "fee still charged");
+			System::assert_has_event(
+				rc_client::Event::<T>::KeysStateReconciled { who: squatter, has_keys: false }
+					.into(),
+			);
+		});
+
+		shared::in_rc(|| {
+			// pin the rejection reason, so the test cannot pass via some other failure
+			rc::mock::System::assert_has_event(
+				pallet_staking_async_ah_client::Event::<rc::Runtime>::SessionKeysUpdateFailed {
+					stash: squatter,
+					update: pallet_staking_async_ah_client::SessionKeysUpdate::Set,
+					error: pallet_session::Error::<rc::Runtime>::DuplicatedKey.into(),
+				}
+				.into(),
+			);
+			assert_eq!(pallet_session::NextKeys::<rc::Runtime>::get(1), Some(UintAuthorityId(1)));
+			assert!(pallet_session::NextKeys::<rc::Runtime>::get(squatter).is_none());
+		});
+	}
+
+	/// The deposit follows RC's report, not the AH call: a lost report leaves it held, and the
+	/// next report repairs it.
+	#[test]
+	fn purge_releases_deposit_only_once_rc_reports() {
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().build());
+
+		let validator: AccountId = 1;
+		let deposit = KeyDeposit::get();
+		let (keys, proof) = make_session_keys_and_proof(validator);
+
+		shared::in_ah(|| {
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys.clone(),
+				proof.clone(),
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+		});
+
+		rc::mock::NextAhDeliveryFails::set(true);
+		shared::in_ah(|| {
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None));
+		});
+
+		shared::in_rc(|| {
+			assert!(pallet_session::NextKeys::<rc::Runtime>::get(validator).is_none());
+		});
+		shared::in_ah(|| {
+			assert_eq!(key_deposit_hold(validator), deposit);
+
+			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+				RuntimeOrigin::root(),
+				validator,
+				false,
+			));
+
+			assert_eq!(key_deposit_hold(validator), 0);
+		});
+	}
+
+	/// Reports are state assertions, so replaying one is a no-op.
+	#[test]
+	fn relay_keys_state_is_idempotent_and_gated() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let deposit = KeyDeposit::get();
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+
+			assert_noop!(
+				rc_client::Pallet::<T>::relay_keys_state(
+					RuntimeOrigin::signed(validator),
+					validator,
+					false,
+				),
+				DispatchError::BadOrigin
+			);
+
+			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+				RuntimeOrigin::root(),
+				validator,
+				true,
+			));
+			assert_eq!(key_deposit_hold(validator), deposit);
+
+			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+				RuntimeOrigin::root(),
+				validator,
+				false,
+			));
+			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+				RuntimeOrigin::root(),
+				validator,
+				false,
+			));
+			assert_eq!(key_deposit_hold(validator), 0);
+		});
+	}
+
+	/// The last report wins. This is what makes a purge and a set that are in flight together
+	/// resolve correctly: the purge reports `false` first, then the set reports `true`, and the
+	/// deposit ends up held. Skipping the report on a successful set breaks exactly this.
+	#[test]
+	fn last_report_wins() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let deposit = KeyDeposit::get();
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+
+			for (reports, expected) in
+				[(vec![false, true], deposit), (vec![true, false], 0), (vec![false, false], 0)]
+			{
+				hypothetically!({
+					for has_keys in reports {
+						assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+							RuntimeOrigin::root(),
+							validator,
+							has_keys,
+						));
+					}
+					assert_eq!(key_deposit_hold(validator), expected);
+				});
+			}
+
+			// a report also corrects a hold left stale by a `KeyDeposit` change
+			hypothetically!({
+				KeyDeposit::set(deposit / 2);
+				assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+					RuntimeOrigin::root(),
+					validator,
+					true,
+				));
+				assert_eq!(key_deposit_hold(validator), deposit / 2);
+			});
+			KeyDeposit::set(deposit);
+		});
+	}
+
+	/// If the stash cannot cover the deposit when RC reports it still has keys, the keys are left
+	/// unbacked and the condition is surfaced rather than silently ignored.
+	#[test]
+	fn keys_without_a_coverable_deposit_are_reported() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let (keys, proof) = make_session_keys_and_proof(validator);
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				proof,
+				None,
+			));
+
+			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+				RuntimeOrigin::root(),
+				validator,
+				false,
+			));
+			<Balances as frame_support::traits::fungible::Mutate<AccountId>>::set_balance(
+				&validator, 0,
+			);
+
+			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
+				RuntimeOrigin::root(),
+				validator,
+				true,
+			));
+			assert_eq!(key_deposit_hold(validator), 0);
+			System::assert_has_event(
+				rc_client::Event::<T>::Unexpected(rc_client::UnexpectedKind::KeyDepositUnavailable)
+					.into(),
+			);
 		});
 	}
 }

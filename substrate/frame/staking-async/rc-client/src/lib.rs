@@ -1432,7 +1432,7 @@ pub mod pallet {
 		///
 		/// Sent by `ah-client` after every `set_keys`/`purge_keys` attempt.
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
 		pub fn relay_keys_state(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
@@ -1443,7 +1443,6 @@ pub mod pallet {
 			let deposit = T::KeyDeposit::get();
 			if has_keys {
 				if !deposit.is_zero() &&
-					T::Currency::balance_on_hold(&HoldReason::Keys.into(), &stash) < deposit &&
 					T::Currency::set_on_hold(&HoldReason::Keys.into(), &stash, deposit).is_err()
 				{
 					Self::deposit_event(Event::Unexpected(UnexpectedKind::KeyDepositUnavailable));
