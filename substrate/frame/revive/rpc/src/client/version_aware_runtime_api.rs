@@ -79,6 +79,13 @@ pub struct CallRecordedOutput<T> {
 	pub degraded: bool,
 }
 
+impl<T> CallRecordedOutput<T> {
+	/// Transform the decoded value, preserving the `degraded` flag.
+	fn map<U>(self, f: impl FnOnce(T) -> U) -> CallRecordedOutput<U> {
+		CallRecordedOutput { value: f(self.value), degraded: self.degraded }
+	}
+}
+
 impl VersionAwareRuntimeApi {
 	/// Create a new instance.
 	pub fn new(
@@ -402,7 +409,7 @@ impl VersionAwareRuntimeApi {
 		transaction_index: u32,
 		tracer_type: TracerTypeV1,
 		block_hash: H256,
-	) -> Option<BoxFuture<'_, Result<(Option<TraceV1>, bool), ClientError>>> {
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Option<TraceV1>>, ClientError>>> {
 		match self.capabilities.trace_tx {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -413,7 +420,7 @@ impl VersionAwareRuntimeApi {
 						tracer_type.into(),
 					);
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					Ok((output.value.map(|trace| trace.0), output.degraded))
+					Ok(output.map(|value| value.map(|trace| trace.0)))
 				});
 				Some(future)
 			},
@@ -428,10 +435,11 @@ impl VersionAwareRuntimeApi {
 						.revive_api()
 						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					let trace = TraceTxOutputPayloadV1::try_from(output.value.0)
-						.expect("v1 input must produce v1 output; qed")
-						.trace;
-					Ok((trace, output.degraded))
+					Ok(output.map(|value| {
+						TraceTxOutputPayloadV1::try_from(value.0)
+							.expect("v1 input must produce v1 output; qed")
+							.trace
+					}))
 				});
 				Some(future)
 			},
@@ -448,7 +456,7 @@ impl VersionAwareRuntimeApi {
 		>,
 		tracer_type: TracerTypeV1,
 		block_hash: H256,
-	) -> Option<BoxFuture<'_, Result<(Vec<(u32, TraceV1)>, bool), ClientError>>> {
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Vec<(u32, TraceV1)>>, ClientError>>> {
 		match self.capabilities.trace_block {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -457,9 +465,9 @@ impl VersionAwareRuntimeApi {
 						.revive_api()
 						.trace_block(block.into(), tracer_type.into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					let traces =
-						output.value.into_iter().map(|(idx, trace)| (idx, trace.0)).collect();
-					Ok((traces, output.degraded))
+					Ok(output.map(|traces| {
+						traces.into_iter().map(|(idx, trace)| (idx, trace.0)).collect()
+					}))
 				});
 				Some(future)
 			},
@@ -471,10 +479,11 @@ impl VersionAwareRuntimeApi {
 						.revive_api()
 						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					let traces = TraceBlockOutputPayloadV1::try_from(output.value.0)
-						.expect("v1 input must produce v1 output; qed")
-						.traces;
-					Ok((traces, output.degraded))
+					Ok(output.map(|value| {
+						TraceBlockOutputPayloadV1::try_from(value.0)
+							.expect("v1 input must produce v1 output; qed")
+							.traces
+					}))
 				});
 				Some(future)
 			},

@@ -62,7 +62,9 @@ use subxt::{
 
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
-use version_aware_runtime_api::{VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider};
+use version_aware_runtime_api::{
+	CallRecordedOutput, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
+};
 
 /// The substrate block number type.
 pub type SubstrateBlockNumber = u64;
@@ -1119,7 +1121,7 @@ impl Client {
 			return Ok(vec![]);
 		}
 
-		let (traces, degraded) = self
+		let CallRecordedOutput { value: traces, degraded } = self
 			.runtime_api(parent_hash)
 			.await?
 			.trace_block(block, config, block_hash)
@@ -1167,7 +1169,7 @@ impl Client {
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
-		let (trace, degraded) = self
+		let CallRecordedOutput { value: trace, degraded } = self
 			.runtime_api(parent_hash)
 			.await?
 			.trace_tx(block, transaction_index, config, block_hash)
