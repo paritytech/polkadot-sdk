@@ -3245,17 +3245,17 @@ fn on_initialize_runs_twice_for_the_same_block() {
 	});
 }
 
-/// The task is not considered overweight if the scheduler processes not the first agenda within one
-/// `on_initialize` even if no more tasks were processed since processing empty agenda has a base
-/// weight.
+/// A task that is too heavy to ever be executed is flagged as permanently overweight the first
+/// time it is serviced, regardless of its position in the processed agendas.
 #[test]
-fn not_permanently_overweight_when_task_from_not_first_agenda() {
+fn permanently_overweight_task_detected_regardless_of_agenda_position() {
 	new_test_ext().execute_with(|| {
 		let now = 1;
 		System::run_to_block::<AllPalletsWithSystem>(now);
 
 		let schedule_at = now + 5;
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		// Heavier than 9/10 of the max scheduler weight, so it can never execute.
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(schedule_at),
@@ -3265,29 +3265,65 @@ fn not_permanently_overweight_when_task_from_not_first_agenda() {
 			Preimage::bound(call).unwrap(),
 		));
 
-		// scheduler `on_initialize` was not triggered at blocks `[now, schedule_at + 5)`.
+		// The scheduler runs late, so it reaches `schedule_at` only after earlier (empty) agendas.
+		// The task is thus not serviced first, yet is immediately flagged permanently overweight.
 		let next_scheduler_run_at = schedule_at + 5;
-		// it runs at `next_scheduler_run_at - 1` starting from `now + 1` and tries to process
-		// the task after processing agendas `[now + 1, schedule_at)`.
 		System::set_block_number(next_scheduler_run_at - 1);
 		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at);
 
-		// The task remains in the agenda because it was overweight when processed at `schedule_at`,
-		// causing the agenda to be marked as incomplete. This is not considered permanently
-		// overweight yet.
-		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
-		System::assert_last_event(crate::Event::AgendaIncomplete { when: schedule_at }.into());
-
-		// Run to the next block and start from `schedule_at`.
-		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at + 1);
-
-		// Now its permanently overweight.
 		assert_eq!(
 			System::events().last().unwrap().event,
 			crate::Event::PermanentlyOverweight { task: (schedule_at, 0), id: None }.into(),
 		);
-		// permanently overweight tasks are not removed from the agenda.
+		// Not removed from the agenda, and never executed.
 		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
-		assert_eq!(IncompleteSince::<Test>::get(), Some(System::block_number() + 1));
+		assert!(Agenda::<Test>::get(schedule_at)[0].is_some());
+		assert!(logger::log().is_empty());
+	});
+}
+
+/// A task that does not fit into the current block but is *not* too heavy to ever be executed
+/// (below the permanently-overweight threshold) must be postponed instead of being silently
+/// removed or flagged as permanently overweight.
+#[test]
+fn overweight_task_is_postponed_not_dropped() {
+	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		// Half the max scheduler weight: below the 9/10 threshold, so executable later.
+		let call_weight = max_weight / 2;
+		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: call_weight });
+		let when = 4;
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(when),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		));
+
+		// Move to the scheduled block and fill it so the task no longer fits.
+		<Test as Config>::BlockNumberProvider::set_block_number(when);
+		frame_system::Pallet::<Test>::register_extra_weight_unchecked(
+			max_weight,
+			frame_support::dispatch::DispatchClass::Mandatory,
+		);
+
+		Scheduler::on_initialize(when);
+
+		// Only postponed: not executed, not dropped, not permanently overweight.
+		assert!(logger::log().is_empty());
+		assert!(Agenda::<Test>::get(when)[0].is_some());
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Scheduler(crate::Event::PermanentlyOverweight { .. })
+		)));
+		System::assert_last_event(crate::Event::AgendaIncomplete { when }.into());
+		assert_eq!(IncompleteSince::<Test>::get(), Some(when));
+
+		// With free weight again, the task executes.
+		frame_system::BlockWeight::<Test>::kill();
+		Scheduler::on_initialize(when);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+		assert!(Agenda::<Test>::get(when).is_empty());
 	});
 }

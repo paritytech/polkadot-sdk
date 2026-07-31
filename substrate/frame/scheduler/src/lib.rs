@@ -1228,6 +1228,14 @@ enum ServiceTaskError {
 }
 use ServiceTaskError::*;
 
+/// Why [`Pallet::execute_dispatch`] could not dispatch a too-heavy call.
+enum ExecuteDispatchError {
+	/// Too heavy for the current block, but could fit in a later one: postpone.
+	Temporary,
+	/// Too heavy to ever fit into a block: do not retry.
+	Permanent,
+}
+
 impl<T: Config> Pallet<T> {
 	/// Service up to `max` agendas queue starting from earliest incompletely executed agenda.
 	fn service_agendas(weight: &mut WeightMeter, now: BlockNumberFor<T>, max: u32) {
@@ -1237,16 +1245,14 @@ impl<T: Config> Pallet<T> {
 
 		let mut incomplete_since = now + One::one();
 		let mut when = IncompleteSince::<T>::take().unwrap_or(now);
-		let mut is_first = true; // first task from the first agenda.
 
 		let max_items = T::MaxScheduledPerBlock::get();
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, is_first, now, when, u32::MAX) {
+			if !Self::service_agenda(weight, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
-			is_first = false;
 			when.saturating_inc();
 			count_down.saturating_dec();
 		}
@@ -1267,7 +1273,6 @@ impl<T: Config> Pallet<T> {
 	/// later block.
 	fn service_agenda(
 		weight: &mut WeightMeter,
-		mut is_first: bool,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		max: u32,
@@ -1303,7 +1308,7 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break;
 			}
-			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
+			let result = Self::service_task(weight, now, when, agenda_index, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -1313,10 +1318,7 @@ impl<T: Config> Pallet<T> {
 					postponed += 1;
 					slot
 				},
-				Ok(()) => {
-					is_first = false;
-					None
-				},
+				Ok(()) => None,
 			};
 		}
 		if postponed > 0 || dropped > 0 {
@@ -1339,7 +1341,6 @@ impl<T: Config> Pallet<T> {
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		agenda_index: u32,
-		is_first: bool,
 		mut task: ScheduledOf<T>,
 	) -> Result<(), (ServiceTaskError, Option<ScheduledOf<T>>)> {
 		if let Some(ref id) = task.maybe_id {
@@ -1376,7 +1377,8 @@ impl<T: Config> Pallet<T> {
 		));
 
 		match Self::execute_dispatch(weight, task.origin.clone(), call) {
-			Err(()) if is_first => {
+			// Too heavy to ever fit into a block: give up, leave in agenda, do not retry.
+			Err(ExecuteDispatchError::Permanent) => {
 				T::Preimages::drop(&task.call);
 				Self::deposit_event(Event::PermanentlyOverweight {
 					task: (when, agenda_index),
@@ -1384,7 +1386,8 @@ impl<T: Config> Pallet<T> {
 				});
 				Err((Unavailable, Some(task)))
 			},
-			Err(()) => Err((Overweight, Some(task))),
+			// Does not fit this block but might later: postpone instead of dropping.
+			Err(ExecuteDispatchError::Temporary) => Err((Overweight, Some(task))),
 			Ok(result) => {
 				let failed = result.is_err();
 				let maybe_retry_config = Retries::<T>::take((when, agenda_index));
@@ -1439,12 +1442,14 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: Only the weight for this function will be counted (origin lookup, dispatch and the
 	/// call itself).
 	///
-	/// Returns an error if the call is overweight.
+	/// Returns an error if the call is overweight, distinguishing a call that is only too heavy for
+	/// the current block ([`ExecuteDispatchError::Temporary`]) from one that can never fit
+	/// ([`ExecuteDispatchError::Permanent`]).
 	fn execute_dispatch(
 		weight: &mut WeightMeter,
 		origin: T::PalletsOrigin,
 		call: <T as Config>::RuntimeCall,
-	) -> Result<DispatchResult, ()> {
+	) -> Result<DispatchResult, ExecuteDispatchError> {
 		let base_weight = match origin.as_system_ref() {
 			Some(&RawOrigin::Signed(_)) => T::WeightInfo::execute_dispatch_signed(),
 			_ => T::WeightInfo::execute_dispatch_unsigned(),
@@ -1454,7 +1459,15 @@ impl<T: Config> Pallet<T> {
 		let max_weight = base_weight.saturating_add(call_weight);
 
 		if !weight.can_consume(max_weight) {
-			return Err(());
+			// Only permanently overweight if it would not fit even with (almost) the whole
+			// scheduler budget free. Use `9/10` of the max weight to leave headroom for overhead.
+			let permanently_overweight_threshold =
+				sp_runtime::Perbill::from_percent(90) * T::MaximumWeight::get();
+			return if max_weight.any_gt(permanently_overweight_threshold) {
+				Err(ExecuteDispatchError::Permanent)
+			} else {
+				Err(ExecuteDispatchError::Temporary)
+			};
 		}
 
 		let dispatch_origin = origin.into();
