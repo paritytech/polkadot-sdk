@@ -1,46 +1,46 @@
-title: Key state reconciliation and reporting in rc-client and ah-client
+title: Reconcile the session key deposit against relay chain key state
 doc:
 - audience: Runtime Dev
   description: |-
     Closes #12443.
 
-    Asset Hub moves the session-key deposit optimistically and never learns what the relay chain did with
-    the keys. `rc_client::purge_keys` released the `KeyDeposit` **before** RC confirmed the purge, and
-    `ah_client::{set_keys,purge_keys}_from_ah` swallowed the `DispatchError` and returned `Ok(())`. If RC
-    kept the keys, that is a validator with live session keys and no deposit backing them.
+    Asset Hub moved the session-key deposit optimistically and never learned what the relay chain did
+    with the keys: `rc_client::purge_keys` released the `KeyDeposit` before RC confirmed the purge, and
+    `ah_client::{set_keys,purge_keys}_from_ah` swallowed the `DispatchError`. A `DuplicatedKey`
+    rejection on RC therefore left the deposit held against keys that were never registered, and a
+    failed purge left live keys with no deposit backing them.
 
-    The reachable failure is `DuplicatedKey` on set: the keys are already owned by another stash. AH
-    cannot pre-check it, because the key-owner registry lives on RC. Today that leaves the deposit held
-    against keys that were never registered.
-
-    RC now reports its resulting key state after every key operation, and AH reconciles the hold against
-    it. No new storage items, and no XCM types added to `rc-client`.
+    RC now reports its resulting key state after every key operation, and AH reconciles the hold
+    against it. No new storage items and no XCM types added to `rc-client`.
 
     # Integration
 
-    Four things downstream relay-chain runtimes must do, plus one operational constraint.
+    Relay-chain runtimes using `pallet-staking-async-ah-client` must make three changes.
 
-    **1. `SendToAssetHub` gains a method.** Every implementation must add it:
-
-    ```diff
-    +    fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()> {
-    +        rc_client::XCMSender::<
-    +            xcm_config::XcmRouter,
-    +            AssetHubLocation,
-    +            (AccountId, bool),
-    +            KeysStateToXcm,
-    +        >::send((stash, has_keys))
-    +    }
-    ```
-
-    **2. A new call variant and converter**, mirroring the existing `SessionReportToXcm`.
-
-    ```diff
-    +    #[codec(index = 12)]
-    +    RelayKeysState { stash: AccountId, has_keys: bool },
-    ```
+    **1. Implement the new `SendToAssetHub::relay_keys_state`:**
 
     ```rust
+    fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()> {
+        rc_client::XCMSender::<
+            xcm_config::XcmRouter,
+            AssetHubLocation,
+            (AccountId, bool),
+            KeysStateToXcm,
+        >::send((stash, has_keys))
+    }
+    ```
+
+    **2. Add the call variant and its converter.** The codec index must be `12`, matching
+    `#[pallet::call_index(12)]` on `rc_client::Call::relay_keys_state` -- it is not the enum's
+    positional index:
+
+    ```rust
+    enum RcClientCalls<AccountId> {
+        // ..existing variants..
+        #[codec(index = 12)]
+        RelayKeysState { stash: AccountId, has_keys: bool },
+    }
+
     pub struct KeysStateToXcm;
     impl Convert<(AccountId, bool), Xcm<()>> for KeysStateToXcm {
         fn convert((stash, has_keys): (AccountId, bool)) -> Xcm<()> {
@@ -64,7 +64,10 @@ doc:
     }
     ```
 
-    **3. `ah_client::Config::SessionInterface` gains a bound.**
+    **3. `ah_client::Config::SessionInterface` gains a `ValidatorRegistration` bound.** No action is
+    needed if you use `pallet_session::Pallet` (`type SessionInterface = Session`), which already
+    implements it. Custom implementations must add it:
+
     ```diff
          type SessionInterface: SessionInterface<
                  ValidatorId = Self::AccountId,
@@ -73,73 +76,19 @@ doc:
     +        > + ValidatorRegistration<Self::AccountId>;
     ```
 
-    **4. Behaviour change on AH.** `rc_client::purge_keys` no longer releases the deposit
-    synchronously. It is released when RC reports back. Anything asserting an immediate release will need
-    updating.
+    ## Behaviour change
 
-    **5. Deployment order: RC before AH.**
+    `rc_client::purge_keys` no longer releases the deposit synchronously; it is released once RC
+    reports back. Tests or tooling asserting an immediate release need updating.
 
-    - *RC first is safe.* RC sends a call index AH does not have yet, the `Transact` fails to decode, the
-      message is dropped.
-    - *AH first is not.* AH stops releasing on purge while no report exists, so anyone who purges and
-      walks away has a permanently stuck deposit.
+    ## Deployment order: RC before AH
+
+    Deploy the relay chain runtime first. RC then sends a call index AH does not have yet, the
+    `Transact` fails to decode and the message is dropped, so AH keeps behaving as before. Deploying
+    AH first is not safe: it stops releasing on purge while no report exists, so anyone who purges and
+    walks away has a permanently stuck deposit.
 
     No storage migrations.
-
-    # Review Notes
-
-    ## Design Consideration
-
-    ```rust
-    // ah-client, after every set/purge attempt
-    T::SendToAssetHub::relay_keys_state(stash, T::SessionInterface::is_registered(&stash));
-
-    // rc-client, gated by RelayChainOrigin
-    has_keys  => hold == KeyDeposit   // `set_on_hold` is exact, so it also fixes a stale hold
-    !has_keys => release_all
-    ```
-    `purge_keys` only sends; `set_keys` still holds at call time, so the funds cannot be spent in flight.
-
-    To keep things not too convoluted: This is a **state assertion, not an ack**. A ack would've needed nonces, timeouts and other wiring. This solutions is minimal, reuses existing state and messes with no public API.
-
-    ## Open question for reviewers
-
-    - Key ops were not gated on OperatingMode(on either clients), unlike other outgoing messages, so I kept it that way. I would introduce those here though.
-
-    ## Testing
-
-    87 integration tests and 6 `ah-client` unit tests pass.
-
-    - `set_keys_rejected_by_rc_refunds_deposit`: the critical case. A stash sets keys another account
-      already owns on RC. RC rejects with `DuplicatedKey`. AH refunds. Asserts the specific RC error, so it
-      cannot pass via an unrelated failure.
-    - `purge_releases_deposit_only_once_rc_reports`: with the report's delivery failed, RC has purged but
-      AH still holds. a later report releases it.
-    - `last_report_wins`: report orderings including `[false, true]`, the purge-and-set-in-flight case,
-      plus correction of a hold left stale by a `KeyDeposit` change.
-    - `keys_without_a_coverable_deposit_are_reported`: covers the `KeyDepositUnavailable` branch.
-    - `key_ops_report_resulting_state_to_ah`: all four paths report what `is_registered` says,
-      including a failed set while keys are already registered reporting `true`.
-    - `set_and_purge_keys_e2e` gained deposit assertions on both legs.
-
-    Two pre-existing tests changed assertions: `purge_keys_success` and
-    `set_keys_deposit_lifecycle` both encoded the eager release. They run in `local_queue()` mode, where
-    the message is buffered and no report arrives, so the deposit correctly stays held.
-
-    ## TODOs
-
-    - prdoc.
-    - `relay_keys_state` uses a hand written weight, consistent with the other RC->AH calls
-      in this pallet. Benchmark this?
-    - `RemoteKeysExecutionWeight` in `asset-hub-westend/src/staking.rs` might need a bump for the extra
-      RC-side send.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [ ] My PR follows the [[labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process) of this project (at minimum one label for `T` required)
-    * [x] I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: pallet-staking-async-rc-client
   bump: major
