@@ -7,18 +7,18 @@ doc:
       - `substrate_hop_pool_entries` / `substrate_hop_pool_bytes` / `substrate_hop_pool_max_bytes` — gauges.
       - `substrate_hop_pool_inserts_total` — counter, label `outcome` (`ok` or the HopError variant).
       - `substrate_hop_pool_inserted_bytes_total` — counter.
-      - `substrate_hop_pool_removed_total` — counter, label `reason` one of: `acked`, `expired_promoted`, `expired_unpromoted`, `corrupt`, `startup_dropped` (entries lost to disk recovery).
-      - `substrate_hop_rpc_requests_total` — counter, labels `method`, `outcome` (per-method call counts and durations are already covered by the RPC middleware's `substrate_rpc_calls_*`; this only adds error-variant granularity, and uses the same wire method names — `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus` — so the two join directly).
+      - `substrate_hop_pool_removed_total` — counter, label `reason` one of: `acked`, `expired_promoted`, `expired_unpromoted`, `corrupt`.
+      - `substrate_hop_rpc_requests_total` — counter, labels `method`, `outcome` (per-method call counts and durations are already covered by the RPC middleware's `substrate_rpc_calls_*`; this only adds error-variant granularity).
       - `substrate_hop_promotion_submissions_total` — counter, label `outcome` one of: `submitted`, `failed`.
       - `substrate_hop_promotions_confirmed_total` / `substrate_hop_promotions_abandoned_total` — counters.
       - `substrate_hop_promotion_backlog` / `substrate_hop_promotion_enabled` — gauges.
       - `substrate_hop_maintenance_tick_duration_seconds` — histogram.
 
-      `removed_total{reason="expired_unpromoted"}` and `promotions_abandoned_total` are **upper bounds** on entries that never landed on-chain, not measurements of loss: re-checking stops at `MAX_PROMOTION_ATTEMPTS`, so a final submission that was included is never observed locally and is still counted. They also overlap — an abandoned entry is counted again under `expired_unpromoted` when it expires — so alert on either, not on their sum.
+      `removed_total{reason="expired_unpromoted"}` and `promotions_abandoned_total` both count entries that never landed on-chain. They overlap — an abandoned entry is counted again under `expired_unpromoted` when it expires — so alert on either, not on their sum.
 
-      Pool size gauges are snapshot from the authoritative pool counters (never inc/dec'd), matching the fork-aware transaction pool and statement store, and are published inside the pool's index critical section so mutations arrive in lock order. `promotion_backlog` is snapshot once per maintenance cycle and includes entries that are backing off.
+      Pool size gauges are snapshot from the authoritative pool counters on every mutation (never inc/dec'd), matching the fork-aware transaction pool and statement store. `promotion_backlog` is snapshot once per maintenance cycle and includes entries that are backing off.
 
-      `HopParams::build_pool` gains an `Option<&Registry>` parameter, `HopDataPool::new` a `HopMetrics` one, and `HopDataPool::cleanup_expired` a promotion-window one that scopes only the backlog gauge; a registration failure only disables metrics. The omni-node passes its existing registry. See the crate README's Metrics section.
+      `HopParams::build_pool` gains an `Option<&Registry>` parameter, `HopDataPool::new` a `HopMetrics` one, and `HopDataPool::cleanup_expired` a promotion-window one; a metrics registration failure only disables metrics. The omni-node passes its existing registry.
 crates:
   - name: sc-hop
     bump: major
