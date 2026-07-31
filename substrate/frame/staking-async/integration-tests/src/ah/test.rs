@@ -1789,12 +1789,11 @@ mod session_keys {
 				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
 			);
 
-			// AND: Deposit is released, balance only reduced by purge fee
-			let deposit = KeyDeposit::get();
-			assert_eq!(Balances::free_balance(validator), balance_before - total_fee + deposit);
+			// AND: balance is reduced by the purge fee only
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
 
-			// AND: Key deposit is released
-			assert_eq!(key_deposit_hold(validator), 0);
+			// AND: the key deposit is NOT released yet.
+			assert_eq!(key_deposit_hold(validator), KeyDeposit::get());
 
 			// AND: PurgeKeys message is queued
 			let queue = LocalQueue::get().unwrap();
@@ -1960,14 +1959,12 @@ mod session_keys {
 				assert_eq!(Balances::free_balance(validator), balance_before_failed_purge);
 			});
 
-			// Successful purge: deposit released
+			// Successful purge: the deposit stays held until the relay chain reports back via
+			// `relay_keys_state`, which never happens in `local_queue` mode.
 			let balance_before_purge = Balances::free_balance(validator);
 			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None));
-			assert_eq!(key_deposit_hold(validator), 0);
-			assert_eq!(
-				Balances::free_balance(validator),
-				balance_before_purge - purge_fees + deposit
-			);
+			assert_eq!(key_deposit_hold(validator), deposit);
+			assert_eq!(Balances::free_balance(validator), balance_before_purge - purge_fees);
 		});
 	}
 

@@ -337,6 +337,17 @@ pub trait SendToAssetHub {
 	fn relay_new_offence_paged(
 		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()>;
+
+	/// Report a stash's session key state on RC, so AH can reconcile the key
+	/// deposit against it.
+	///
+	/// This asserts RC's current state, which makes it idempotent and insensitive to message
+	/// ordering.
+	///
+	/// Returning `Err(())` means the DMP queue is full. Losing this message is recoverable: the
+	/// next key operation for the same stash re-asserts the state.
+	#[allow(clippy::result_unit_err)]
+	fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()>;
 }
 
 /// A no-op implementation of [`SendToAssetHub`].
@@ -351,6 +362,10 @@ impl SendToAssetHub for () {
 	fn relay_new_offence_paged(
 		_offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()> {
+		unimplemented!()
+	}
+
+	fn relay_keys_state(_stash: Self::AccountId, _has_keys: bool) -> Result<(), ()> {
 		unimplemented!()
 	}
 }
@@ -1359,9 +1374,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove session keys for a validator and release the key deposit.
+		/// Remove session keys for a validator.
 		///
-		/// This purges the keys from the Relay Chain.
+		/// This purges the keys from the Relay Chain. The key deposit is **not** released here:
+		/// the Relay Chain reports its resulting key state back via [`Call::relay_keys_state`],
+		/// and the deposit is released then. This keeps the deposit and the keys in sync even
+		/// when the remote purge fails.
 		///
 		/// Unlike `set_keys`, this does not require the caller to be a registered validator.
 		/// This is intentional: a validator who has chilled (stopped validating) should still
