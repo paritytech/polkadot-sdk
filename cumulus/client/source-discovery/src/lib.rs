@@ -77,6 +77,13 @@ pub const DISCOVERY_REFRESH_INTERVAL: Duration = Duration::from_secs(2 * 60);
 /// how long we wait before returning what (if anything) resolved.
 pub const DISCOVERY_ROUND_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Minimum spacing between successive re-resolves of a *peerless* source. An empty
+/// registry is a normal steady state (no serving advertisers, wrong genesis, all
+/// banned), so without a floor the per-best-block `peerless` trigger would fire a
+/// DHT round every block for a source that may never resolve. `changed` and the
+/// `fallback` full sweep are unaffected; this only rate-limits the retry.
+pub const PEERLESS_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+
 /// Capability tag a spec-msg receiver discovers under (and a serving collator advertises via
 /// `cumulus_client_bootnodes::start_capability_advertisement`). Mixed into the relay-DHT provider
 /// key so `get_providers` resolves *only* serving collators, never diluted by a source parachain's
@@ -124,8 +131,13 @@ pub async fn run_source_discovery<Block, Client>(
 {
 	let mut known: HashMap<ParaId, (Vec<u8>, Option<String>)> = HashMap::new();
 
+	// Last time a discovery round ran per source — floors the peerless retry rate.
+	let mut last_attempt: HashMap<ParaId, Instant> = HashMap::new();
+
 	// Resolve whatever is already configured before the first block arrives.
-	if let Err(error) = refresh(&*parachain, &*discovery, &registry, &mut known, true).await {
+	if let Err(error) =
+		refresh(&*parachain, &*discovery, &registry, &mut known, &mut last_attempt, true).await
+	{
 		tracing::warn!(target: LOG_TARGET, ?error, "Initial source peer discovery failed");
 	}
 	let mut last_full = Instant::now();
@@ -138,7 +150,9 @@ pub async fn run_source_discovery<Block, Client>(
 		// Full re-resolve once `fallback` has elapsed; otherwise only changed /
 		// peerless sources are re-resolved.
 		let force = last_full.elapsed() >= fallback;
-		match refresh(&*parachain, &*discovery, &registry, &mut known, force).await {
+		match refresh(&*parachain, &*discovery, &registry, &mut known, &mut last_attempt, force)
+			.await
+		{
 			Ok(()) => {
 				if force {
 					last_full = Instant::now();
@@ -177,15 +191,35 @@ where
 		.collect())
 }
 
+/// Whether a source should be (re)resolved this pass. `force` (the full sweep) and a `changed`
+/// reachability record always resolve; a `peerless` source is retried only once its last attempt is
+/// at least [`PEERLESS_RETRY_INTERVAL`] old, so a permanently-empty source can't drive a DHT round
+/// every block.
+fn should_discover(
+	changed: bool,
+	peerless: bool,
+	last_attempt: Option<Instant>,
+	now: Instant,
+	force: bool,
+) -> bool {
+	force ||
+		changed ||
+		(peerless &&
+			last_attempt
+				.is_none_or(|t| now.saturating_duration_since(t) >= PEERLESS_RETRY_INTERVAL))
+}
+
 /// One refresh pass. `force` re-resolves every configured source; otherwise only
 /// those whose `(genesis, fork)` changed since `known` or that currently hold no
-/// peers — the cheap per-block path. Sources dropped from the on-chain set have
-/// their registry entry cleared.
+/// peers — the cheap per-block path (peerless retries floored by
+/// [`PEERLESS_RETRY_INTERVAL`]). Sources dropped from the on-chain set have their
+/// registry entry cleared.
 async fn refresh<Block, Client>(
 	parachain: &Client,
 	discovery: &dyn SourceDiscovery,
 	registry: &PeerRegistry,
 	known: &mut HashMap<ParaId, (Vec<u8>, Option<String>)>,
+	last_attempt: &mut HashMap<ParaId, Instant>,
 	force: bool,
 ) -> Result<(), sp_api::ApiError>
 where
@@ -197,7 +231,13 @@ where
 	for (source, info) in &current {
 		let changed = known.get(source) != Some(info);
 		let peerless = registry.peers(*source).is_empty();
-		if force || changed || peerless {
+		if should_discover(
+			changed,
+			peerless,
+			last_attempt.get(source).copied(),
+			Instant::now(),
+			force,
+		) {
 			let peers = discovery.discover(*source, info.0.clone(), info.1.clone()).await;
 			tracing::debug!(
 				target: LOG_TARGET,
@@ -206,11 +246,13 @@ where
 				"Discovered source peers",
 			);
 			registry.set_peers(*source, peers);
+			last_attempt.insert(*source, Instant::now());
 		}
 	}
-	// Sources dropped from the on-chain set: clear their peers.
+	// Sources dropped from the on-chain set: clear their peers and retry bookkeeping.
 	for source in known.keys() {
 		if !current.contains_key(source) {
+			last_attempt.remove(source);
 			registry.set_peers(*source, Vec::new());
 		}
 	}
@@ -393,5 +435,24 @@ mod tests {
 		let discovery = StaticDiscovery(HashMap::new());
 		resolve_into(&discovery, &registry, &[ParaId::from(2000)]);
 		assert!(registry.peers(ParaId::from(2000)).is_empty());
+	}
+
+	#[test]
+	fn peerless_retry_is_rate_limited() {
+		let now = Instant::now();
+		let old = now - PEERLESS_RETRY_INTERVAL;
+
+		// A peerless source is retried when never attempted or the cooldown has elapsed…
+		assert!(should_discover(false, true, None, now, false));
+		assert!(should_discover(false, true, Some(old), now, false));
+		// …but not while the last attempt is still within the cooldown.
+		assert!(!should_discover(false, true, Some(now), now, false));
+
+		// `force` and `changed` bypass the backoff even inside the cooldown.
+		assert!(should_discover(false, true, Some(now), now, true));
+		assert!(should_discover(true, true, Some(now), now, false));
+
+		// A source that already has peers is left to the fetch loop (no cheap-path resolve).
+		assert!(!should_discover(false, false, None, now, false));
 	}
 }
