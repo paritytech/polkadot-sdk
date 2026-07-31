@@ -197,16 +197,19 @@ impl ClientError {
 	/// Why the node cannot service `state_callRecorded`, if it can't; `None` for any genuine
 	/// failure that must propagate rather than fall back to a recorder-less replay.
 	pub(crate) fn recorded_unavailable_reason(&self) -> Option<RecordedUnavailable> {
+		use sc_rpc_api::state::error::{
+			CALL_RECORDED_DENIED_ERROR_CODE, CALL_RECORDED_UNSUPPORTED_ERROR_CODE,
+		};
 		const METHOD_NOT_FOUND: i32 = -32601;
 
 		let ClientError::RpcError(subxt::rpcs::Error::User(e)) = self else {
 			return None;
 		};
 		match e.code {
-			METHOD_NOT_FOUND => Some(RecordedUnavailable::MethodMissing),
-			c if c == sc_rpc_api::state::error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE => {
-				Some(RecordedUnavailable::NoRecorder)
+			METHOD_NOT_FOUND | CALL_RECORDED_DENIED_ERROR_CODE => {
+				Some(RecordedUnavailable::MethodMissing)
 			},
+			CALL_RECORDED_UNSUPPORTED_ERROR_CODE => Some(RecordedUnavailable::NoRecorder),
 			_ => None,
 		}
 	}
@@ -215,9 +218,8 @@ impl ClientError {
 /// Why a node cannot service `state_callRecorded`; the variants differ in fallback log severity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RecordedUnavailable {
-	/// The node reports `state_callRecorded` as not found: the binary predates it, or unsafe
-	/// RPC methods are disabled (a denied unsafe call is deliberately indistinguishable from a
-	/// missing method on the wire).
+	/// The node can't service the recorded call (method absent, or unsafe RPCs disabled); a
+	/// recorder-less replay may drop traces.
 	MethodMissing,
 	/// The node registers no proof-size recorder (e.g. a solochain).
 	NoRecorder,
@@ -1113,7 +1115,7 @@ impl Client {
 		let (traces, degraded) = self
 			.runtime_api(parent_hash)
 			.await?
-			.trace_block(block, config)
+			.trace_block(block, config, block_hash)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_block"))?
 			.await?;
 
@@ -1161,7 +1163,7 @@ impl Client {
 		let (trace, degraded) = self
 			.runtime_api(parent_hash)
 			.await?
-			.trace_tx(block, transaction_index, config)
+			.trace_tx(block, transaction_index, config, block_hash)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
 			.await?;
 
@@ -1321,7 +1323,9 @@ fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_rpc_api::state::error::CALL_RECORDED_UNSUPPORTED_ERROR_CODE;
+	use sc_rpc_api::state::error::{
+		CALL_RECORDED_DENIED_ERROR_CODE, CALL_RECORDED_UNSUPPORTED_ERROR_CODE,
+	};
 	use subxt::rpcs::UserError;
 
 	fn rpc_user_error(code: i32) -> ClientError {
@@ -1336,6 +1340,14 @@ mod tests {
 	fn missing_method_is_version_skew() {
 		assert_eq!(
 			rpc_user_error(-32601).recorded_unavailable_reason(),
+			Some(RecordedUnavailable::MethodMissing),
+		);
+	}
+
+	#[test]
+	fn unsafe_denied_is_treated_as_version_skew() {
+		assert_eq!(
+			rpc_user_error(CALL_RECORDED_DENIED_ERROR_CODE).recorded_unavailable_reason(),
 			Some(RecordedUnavailable::MethodMissing),
 		);
 	}

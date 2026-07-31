@@ -301,20 +301,14 @@ pub trait StateApi<Hash> {
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
-	/// Recorded sibling of [`Self::call`]: call a method from the runtime API at a block's state,
-	/// with a proof-size recorder registered. The recorder keeps proof-size reclaim faithful, so
-	/// runtime APIs that replay a block (e.g. tracing) do not spuriously hit `ExhaustsResources`
-	/// on the block tail. The caller provides the complete SCALE-encoded arguments in `bytes`,
-	/// exactly as for [`Self::call`] — the node does not inspect or amend them.
+	/// Recorded sibling of [`Self::call`]: runs `method` re-enacting `block` at its parent state
+	/// with a proof-size recorder, replaying `block`'s stored recording when available. `bytes` is
+	/// the complete SCALE-encoded args, opaque to the node as in [`Self::call`]. Only nodes with a
+	/// proof-recording hook (parachains) can service it; others report
+	/// [`Error::CallRecordedUnsupported`].
 	///
-	/// Only nodes that register a proof-recording execution hook (parachains) can service this
-	/// call; other nodes report [`Error::CallRecordedUnsupported`].
-	///
-	/// **Unsafe**: replaying a block through a runtime API costs up to a full block's execution
-	/// per call, bounded only by the runtime's own weight checks (cf. `state_traceBlock` and
-	/// `dev_getBlockStats`, which are unsafe for the same reason). A transitional method: an
-	/// in-node eth-rpc (see polkadot-sdk#11297) reaches the recording hook directly without it.
+	/// **Unsafe** (a call replays up to a whole block); denied calls report
+	/// [`Error::CallRecordedDenied`].
 	#[method(name = "state_callRecorded", blocking, with_extensions)]
-	fn call_recorded(&self, name: String, bytes: Bytes, hash: Option<Hash>)
-		-> Result<Bytes, Error>;
+	fn call_recorded(&self, name: String, bytes: Bytes, block: Hash) -> Result<Bytes, Error>;
 }

@@ -391,7 +391,8 @@ impl VersionAwareRuntimeApi {
 		)
 	}
 
-	/// Get the trace for the given transaction index in the given block.
+	/// Get the trace for the given transaction index in the given block. `block_hash` is the traced
+	/// block's on-chain hash (locates its proof-size recording).
 	pub fn trace_tx(
 		&self,
 		block: sp_runtime::generic::Block<
@@ -400,6 +401,7 @@ impl VersionAwareRuntimeApi {
 		>,
 		transaction_index: u32,
 		tracer_type: TracerTypeV1,
+		block_hash: H256,
 	) -> Option<BoxFuture<'_, Result<(Option<TraceV1>, bool), ClientError>>> {
 		match self.capabilities.trace_tx {
 			Unavailable => None,
@@ -410,7 +412,7 @@ impl VersionAwareRuntimeApi {
 						transaction_index,
 						tracer_type.into(),
 					);
-					let output = self.call_recorded_with_fallback(payload).await?;
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
 					Ok((output.value.map(|trace| trace.0), output.degraded))
 				});
 				Some(future)
@@ -425,7 +427,7 @@ impl VersionAwareRuntimeApi {
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
-					let output = self.call_recorded_with_fallback(payload).await?;
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
 					let trace = TraceTxOutputPayloadV1::try_from(output.value.0)
 						.expect("v1 input must produce v1 output; qed")
 						.trace;
@@ -436,7 +438,8 @@ impl VersionAwareRuntimeApi {
 		}
 	}
 
-	/// Get the trace for the given block.
+	/// Get the trace for the given block. `block_hash` is the traced block's on-chain hash (locates
+	/// its proof-size recording).
 	pub fn trace_block(
 		&self,
 		block: sp_runtime::generic::Block<
@@ -444,6 +447,7 @@ impl VersionAwareRuntimeApi {
 			sp_runtime::OpaqueExtrinsic,
 		>,
 		tracer_type: TracerTypeV1,
+		block_hash: H256,
 	) -> Option<BoxFuture<'_, Result<(Vec<(u32, TraceV1)>, bool), ClientError>>> {
 		match self.capabilities.trace_block {
 			Unavailable => None,
@@ -452,7 +456,7 @@ impl VersionAwareRuntimeApi {
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block(block.into(), tracer_type.into());
-					let output = self.call_recorded_with_fallback(payload).await?;
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
 					let traces =
 						output.value.into_iter().map(|(idx, trace)| (idx, trace.0)).collect();
 					Ok((traces, output.degraded))
@@ -466,7 +470,7 @@ impl VersionAwareRuntimeApi {
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
-					let output = self.call_recorded_with_fallback(payload).await?;
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
 					let traces = TraceBlockOutputPayloadV1::try_from(output.value.0)
 						.expect("v1 input must produce v1 output; qed")
 						.traces;
@@ -680,14 +684,14 @@ impl VersionAwareRuntimeApi {
 		self.at_block.runtime_apis().call(payload).await
 	}
 
-	/// Call a runtime API through the node's `state_callRecorded` RPC, which registers a proof-size
-	/// recorder so replays account for PoV weight faithfully. If the node cannot service it (method
-	/// absent, or no recorder registered) the same payload is retried through [`call`](Self::call),
-	/// with [`CallRecordedOutput::degraded`] set when that fallback may have dropped traces. Any
-	/// other error propagates.
+	/// Run `payload` via the node's `state_callRecorded` RPC, re-enacting `block` with a proof-size
+	/// recorder. If the node cannot service it (method absent/denied, or no recorder), retry the
+	/// same payload through [`call`](Self::call), setting [`CallRecordedOutput::degraded`] when that
+	/// fallback may have dropped traces. Other errors propagate.
 	async fn call_recorded_with_fallback<ArgsType, ReturnType>(
 		&self,
 		payload: StaticPayload<ArgsType, ReturnType>,
+		block: H256,
 	) -> Result<CallRecordedOutput<ReturnType>, ClientError>
 	where
 		StaticPayload<ArgsType, ReturnType>: Payload<ArgsType = ArgsType, ReturnType = ReturnType>,
@@ -696,11 +700,10 @@ impl VersionAwareRuntimeApi {
 		let runtime_apis = self.at_block.runtime_apis();
 		let name = runtime_apis.encode_name(&payload);
 		let args = runtime_apis.encode_args(&payload).map_err(ClientError::from)?;
-		let at = self.at_block.block_hash();
 
 		match self
 			.rpc_client
-			.request::<Bytes>("state_callRecorded", rpc_params![name, Bytes(args), at])
+			.request::<Bytes>("state_callRecorded", rpc_params![name, Bytes(args), block])
 			.await
 		{
 			Ok(bytes) => {

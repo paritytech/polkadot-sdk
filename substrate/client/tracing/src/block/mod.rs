@@ -64,16 +64,14 @@ pub trait TracingExecuteBlock<Block: BlockT>: Send + Sync {
 	/// special tracing collectors.
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()>;
 
-	/// Call the runtime API `method` at the state of `at`, with a proof-size recorder registered,
-	/// and return the SCALE-encoded result. `call_data` is the complete SCALE-encoded argument
-	/// list, passed through verbatim. The recorder keeps `StorageWeightReclaim` faithful when the
-	/// call replays a block; without it the block tail spuriously hits `ExhaustsResources`.
+	/// Run `method` re-enacting `block` at its parent state, with a proof-size recorder registered
+	/// and `block`'s stored recording replayed when available; returns the SCALE-encoded result.
+	/// `call_data` is the complete SCALE-encoded argument list, passed through verbatim.
 	///
-	/// The default implementation errors: nodes that do not record proof size (e.g. solochains) do
-	/// not need it.
+	/// The default implementation errors: nodes that do not record proof size do not need it.
 	fn call_recorded(
 		&self,
-		_at: Block::Hash,
+		_block: Block::Hash,
 		_method: &str,
 		_call_data: &[u8],
 	) -> sp_blockchain::Result<Vec<u8>> {

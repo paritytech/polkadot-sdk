@@ -214,7 +214,7 @@ async fn call_recorded_is_unsupported_without_recorder() {
 	let (state, _child) = new_full(client, test_executor(), None);
 
 	let err = state
-		.call_recorded(&allow_unsafe(), "Core_version".into(), Bytes(vec![]), Some(block_hash))
+		.call_recorded(&allow_unsafe(), "Core_version".into(), Bytes(vec![]), block_hash)
 		.unwrap_err();
 
 	assert_matches!(err, Error::CallRecordedUnsupported);
@@ -223,17 +223,18 @@ async fn call_recorded_is_unsupported_without_recorder() {
 }
 
 #[tokio::test]
-async fn call_recorded_denied_as_method_not_found_when_unsafe() {
+async fn call_recorded_denied_when_unsafe() {
 	let client = Arc::new(substrate_test_runtime_client::new());
 	let block_hash = client.chain_info().best_hash;
 	let (state, _child) = new_full(client, test_executor(), None);
 
 	let err = state
-		.call_recorded(&deny_unsafe(), "Core_version".into(), Bytes(vec![]), Some(block_hash))
+		.call_recorded(&deny_unsafe(), "Core_version".into(), Bytes(vec![]), block_hash)
 		.unwrap_err();
 
+	assert_matches!(err, Error::CallRecordedDenied);
 	let object = jsonrpsee::types::ErrorObjectOwned::from(err);
-	assert_eq!(object.code(), jsonrpsee::types::error::ErrorCode::MethodNotFound.code());
+	assert_eq!(object.code(), error::CALL_RECORDED_DENIED_ERROR_CODE);
 }
 
 #[tokio::test]
@@ -259,7 +260,7 @@ async fn call_recorded_reports_dispatch_failures_as_client_errors() {
 	let (state, _child) = new_full(client, test_executor(), Some(Arc::new(FailingExecuteBlock)));
 
 	assert_matches!(
-		state.call_recorded(&allow_unsafe(), "Core_version".into(), Bytes(vec![]), Some(block_hash)),
+		state.call_recorded(&allow_unsafe(), "Core_version".into(), Bytes(vec![]), block_hash),
 		Err(Error::Client(e)) if e.to_string().contains("dispatch failed")
 	);
 }

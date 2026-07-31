@@ -6,74 +6,56 @@ doc:
   description: |-
     # Description
 
-    Re-applying the transactions of a finalized block can yield different results than the
-    original execution: transactions that originally succeeded are rejected with
-    `ExhaustsResources`. This affects runtime APIs that replay a block (`pallet-revive`'s
-    `trace_block` / `trace_tx`), where the rejected tail transactions then produce no trace
-    (a missing or zero-value phantom entry, depending on the tracer).
+    Re-applying a finalized block's transactions can reject with `ExhaustsResources` some that
+    originally succeeded, so runtime APIs that replay a block (`pallet-revive`'s `trace_block` /
+    `trace_tx`) drop the rejected tail transactions' traces.
 
-    **The cause.** Each extrinsic is charged its declared (worst-case) `proof_size`;
-    `StorageWeightReclaim` then refunds the difference between that and the actual proof size,
-    which it reads from a proof-size recorder. The original execution (at authoring) has a
-    recorder registered, so the over-charge is reclaimed and the block fits. The replay
-    registers no recorder, so the proof-size lookup returns nothing and reclaim is skipped. The
-    declared `proof_size` accumulates past the block limit and `CheckWeight` rejects the tail
-    extrinsics. Reproduced in an Asset Hub Westend integration test.
+    **Cause.** Each extrinsic is charged its worst-case `proof_size`; `StorageWeightReclaim` refunds
+    the difference down to the actual size read from a proof-size recorder. Authoring has a recorder
+    registered, so the over-charge is reclaimed; the replay has none, so reclaim is skipped,
+    `proof_size` accumulates past the block limit, and `CheckWeight` rejects the tail.
 
-    **The fix.** Replay the block through the runtime API with a proof-size recorder
-    registered, so replay reproduces the original execution and the whole block is processed.
+    **Fix.** Replay the block through the runtime API with a proof-size recorder registered.
 
     # Integration
 
-    - New **unsafe-gated** RPC `state_callRecorded` on `StateApi`: the recorded sibling of
-      `state_call`, with the same `(method, call_data, at)` shape. The caller provides the
-      complete SCALE-encoded arguments; the node executes them with a proof-size recorder
-      registered and does not inspect or amend them, so the method is agnostic to runtime API
-      payload shapes (including versioned payloads).
-    - New `TracingExecuteBlock::call_recorded(at, method, call_data)` trait method with a
-      default impl that errors (non-breaking); implemented for parachains in
-      `cumulus-client-service`. This node-internal hook is the durable interface: an in-node
-      eth-rpc (polkadot-sdk#11297) can consume it directly, making the RPC a transitional
-      bridge.
-    - New `Error::CallRecordedUnsupported` and wire code `CALL_RECORDED_UNSUPPORTED_ERROR_CODE`
-      in `sc-rpc-api`.
-    - `sc-rpc-api`'s state `Error::UnsafeRpcCalled` now reports the standard "method not found"
-      code (-32601), per the `DenyUnsafe` design (a denied unsafe method is indistinguishable
-      from an absent one). Clients use this to fall back.
-    - The trace types in `pallet-revive-types` now deserialize the JSON they serialize: fields
-      skipped when empty (`skip_serializing_if`) also carry `#[serde(default)]`. Previously a
-      serialized trace with any empty field could not be read back by typed clients.
+    - New **unsafe-gated** RPC `state_callRecorded(name, bytes, block)` on `StateApi`, the recorded
+      sibling of `state_call`: runs the call re-enacting `block` at its parent state with a
+      proof-size recorder, replaying `block`'s stored recording when available (fresh recorder
+      otherwise). `bytes` is the opaque SCALE-encoded args — the node doesn't inspect them, so
+      versioned payloads work; `block` only locates the parent state and the recording.
+    - New `TracingExecuteBlock::call_recorded(block, method, call_data)` trait method (default impl
+      errors, non-breaking; implemented for parachains in `cumulus-client-service`). This node hook
+      is the durable interface; the RPC is a transitional bridge until an in-node eth-rpc
+      (polkadot-sdk#11297) uses it directly.
+    - New `sc-rpc-api` state errors with stable wire codes clients match on to fall back:
+      `CallRecordedUnsupported` (node has no recorder) and `CallRecordedDenied` (unsafe RPCs
+      disabled), both scoped to `state_callRecorded`; the shared `UnsafeRpcCalled` code is unchanged.
+    - `pallet-revive-types` trace types now deserialize the JSON they serialize
+      (`skip_serializing_if` fields also carry `#[serde(default)]`).
 
     # Review Notes
 
-    **Approach.** eth-rpc fetches the block (it already needs it), encodes the runtime API
-    arguments itself, and calls `state_callRecorded` at the parent hash. A fresh proof-size
-    recorder is always used: replay is a pure function of the block and parent state, identical
-    on every node.
+    **Why a new RPC.** eth-rpc talks to the node remotely, so its typed `runtime_api.trace_block()`
+    already crosses the wire as a `state_call`, and the recorder can only be registered node-side.
+    Recording on every `state_call` would add overhead to all hot paths; the scoped method gives
+    per-call consent.
 
-    **Why a new RPC, not the existing call path.** `pallet-revive-eth-rpc` talks to the node
-    remotely, so its typed `runtime_api.trace_block()` already crosses the wire as a
-    `state_call`; the recorder can only be registered node-side. Registering a recorder on
-    every `state_call` would put recording overhead on all hot paths (e.g. metadata fetches)
-    and change observable behaviour for all callers; the scoped method gives per-call consent.
+    **Faithful under bundling.** eth-rpc passes the block's on-chain hash; the node replays `block`'s
+    stored recording, matching `execute_block`. A fresh recorder would re-count already-proven nodes,
+    so a bundle-tail replay could spuriously hit `ExhaustsResources`; nodes without a recording (dev
+    nodes, non-bundling collators) fall back to a fresh recorder.
 
-    **Client fallback.** When a node cannot service `state_callRecorded` (method absent,
-    unsafe RPC methods disabled, or no recorder hook — e.g. a solochain), eth-rpc falls back to
-    the plain typed `trace_block`/`trace_tx`. The fallback is not silent: version skew and
-    unsafe-disabled warn (the recorder-less replay can still drop the tail on PoV chains), the
-    expected recorder-less case logs at debug. Degradation is also visible to consumers: on the
-    replay that can drop traces, `debug_traceBlock*` returns dropped transactions as geth-style
-    `{txHash, error}` entries instead of silently omitting them, and `debug_traceTransaction`
-    returns a trace-unavailable error instead of "not found".
+    **Client fallback.** When a node cannot service `state_callRecorded`, eth-rpc falls back to the
+    plain trace APIs (version-skew and unsafe-disabled warn; the expected recorder-less case is
+    debug) and marks the result degraded: `debug_traceBlock*` returns dropped transactions as
+    geth-style `{txHash, error}` entries, `debug_traceTransaction` returns trace-unavailable rather
+    than "not found".
 
-    **Tests.** Integration tests in `asset-hub-westend` reproduce the bug and confirm the fix
-    through the versioned trace APIs. A block of two storage-heavy revive calls is replayed,
-    and the tail is traced only with a recorder registered. A new `repeated_storage_read`
-    fixture creates the `proof_size` over-charge that triggers the drop: it reads a distinct
-    (cold) storage key per round, since per-transaction cold/hot access pricing bills only cold
-    accesses at worst-case proof size. Unit tests in `pallet-revive-eth-rpc` cover the fallback
-    (which errors downgrade to a recorder-less replay vs. propagate); `sc-rpc` tests pin the
-    unsafe-denied wire contract and the dispatch-failure error mapping.
+    **Tests.** An Asset Hub Westend integration test reproduces the bug and confirms the fix through
+    the versioned trace APIs; a new `repeated_storage_read` fixture creates the `proof_size`
+    over-charge (a distinct cold storage key per round). `pallet-revive-eth-rpc` unit tests cover the
+    fallback classification; `sc-rpc` tests pin the unsafe-denied wire contract.
 crates:
 - name: sc-tracing
   bump: minor
