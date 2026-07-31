@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785499006537,
+  "lastUpdate": 1785527998643,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cb4262e9bc59588f508c2dbee7352db9d4dac583",
-          "message": "Proposer/BlockBuilder: Accept proof recorder & extensions (#9947)\n\nThis pull request fundamentally changes how `Proposer` and\n`BlockBuilder` are handling the proof recorder and extensions. Before\nthis pull request the proof recorder was initialized by the\n`BlockBuilder` and the proposer statically enabled proof recording or\ndisabled it. With this pull request the proof recorder is passed from\nthe the caller down to the block builder. This also moves the\nresponsibility for extracting the final storage proof to the caller and\nis not part of the block builder logic anymore. The extensions are now\nalso configurable by the caller and are not longer \"guessed\" by the\nblock builder.\n\nThis pull request also remvoes the `cumulus-client-proposer` crate as it\nis not really required anymore.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2025-11-30T09:28:35Z",
-          "tree_id": "662d6f4baf0d3abfb72686fc96fa29bdda51f7c1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cb4262e9bc59588f508c2dbee7352db9d4dac583"
-        },
-        "date": 1764498856678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1965063429333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.351285741333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1454437243,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0df0f42125bfda204e89d11a905637ae8533b03b",
+          "message": "pallet-scarcity: coinage-style NFT ownership with feeless rest-time-prioritized transfers (#12730)\n\n## Summary\n\nA new FRAME pallet for **Scarcity** collectibles (Parity's\ngaming/Trinity initiative): NFT-like instances under a **coinage-style\nownership model** — one instance per fresh, balance-less purse public\nkey — with **feeless transfers** authorized by the purse key itself\nthrough a `TransactionExtension`, prioritized by the instance's *rest\ntime* (seconds since it last moved).\n\nDraft: seeking directional review on the transaction-extension approach\nand priority calibration before polish (benchmarks are placeholder\nweights).\n\n## Model\n\n- **`Collection → ItemDefinition → instance`**: item definitions are\nimmutable once written (typed, on-chain-comparable `Stat` pairs + an\nopaque metadata blob; `Kind`/`next_variant` tagging for a later fusion\nmechanic). The same definition can be minted many times; each copy is a\ndiscrete instance with a permanent `InstanceId`.\n- **One instance per key, globally** (the coinage rule): `NftsByOwner:\nMap<AccountId, Nft>` plus a stable reverse index `Instances:\nMap<InstanceId, AccountId>`. Wallets derive a fresh key per instance\nfrom the root secret; instance identity (not key identity) is the stable\nexternal handle.\n- **No mutable state**: the pallet stores immutable definitions and mint\nfacts only; application state belongs to higher layers keyed by\n`InstanceId`.\n\n## The `AsScarcity` transaction extension\n\nMirrors the origin-modifier pattern (validate → elevate a custom\n`Origin::Nft { owner, nft }` → consume the instance in `prepare` →\nrestore + quadratic backoff lock on failed dispatch):\n\n- **Feeless by construction**: intended to sit in the runtime's\norigin-modifier group so the origin is non-`Signed` before\n`CheckNonce`/payment run — purse keys need neither nonce nor balance.\n- **Priority = `min(now − last_moved, cap)`**: recently-moved instances\nsink under congestion; rested ones rise. This is the anti-spam for free\ntransfers (a per-instance wall-clock rate limit).\n- **Nonce-free replay model**: consumption-on-transfer + `provides` pool\ntag + transaction mortality + failure locks; destination pre-validation\nat the pool keeps user error from reaching dispatch.\n- A strictly-monotonic `moves` counter on each instance serves as the\nauthorization epoch for future detached-signature flows.\n\n## Testing\n\n21 unit tests, including direct\n`validate`/`prepare`/`post_dispatch_details` pipeline coverage: priority\nscaling + cap, same-block double-use, restore-and-lock on failed\ndispatch with quadratic backoff, pool-side rejections\n(side-effect-free), one-instance-per-key on both mint and transfer,\nreverse-index consistency, item-definition immutability.\n\n## Deliberately out of scope here\n\nClaim/distribution (a separate ring-membership-based pallet downstream),\nfusion, burn, storage deposits (companion allowance systems),\nbenchmarking (placeholder `WeightInfo`), and runtime integration (to\nfollow; requires the origin-modifier placement noted above).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-31T18:18:36Z",
+          "tree_id": "0892ad145ade3598f8b5aac97fa391b97250a695",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0df0f42125bfda204e89d11a905637ae8533b03b"
+        },
+        "date": 1785527965182,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1399841177,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.0795710904,
             "unit": "seconds"
           }
         ]
