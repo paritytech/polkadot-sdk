@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785441486473,
+  "lastUpdate": 1785499128556,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "08a4a548cb1f5a817d319725f9c1420a7bbe1d3e",
-          "message": "Disable polkavm logging in `pallet-revive` (#10385)\n\nThis PR adds configurable control over PolkaVM logging in\n`pallet-revive` to address performance degradation (details:\nhttps://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)\n\n- Upgrades PolkaVM to v0.30.0 which provides\n`set_imperfect_logger_filtering_workaround()`\n- Adds `pvm_logs` flag to `DebugSettings` to control PolkaVM interpreter\nlogging\n- Disables PolkaVM logs by default (when `pvm_logs=false`), enabling\nthem only when explicitly configured\n- Fixes performance issue where excessive PolkaVM logging was impacting\nblock proposal times\n\nThe logging can be re-enabled via debug settings when needed for\ntroubleshooting.\n\nAdditionally:\n- PolkaVM has been bumped globally across whole codebase.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-26T14:51:51Z",
-          "tree_id": "9cc449884442043a3546c974f7fc16f9ee2d99aa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/08a4a548cb1f5a817d319725f9c1420a7bbe1d3e"
-        },
-        "date": 1764173309469,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04465717790399992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034161485501999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0836003249779999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0",
+          "message": "statement-store: avoid blocking event loop during propagation (#12657)\n\n## Summary\n\n- queue statement propagation sends in a handler-owned\n`FuturesUnordered`\n- poll send completions from the main event loop so network backpressure\nfrom a slow peer does not block unrelated handler events\n- preserve propagation timeout and metrics accounting while leaving\ninitial sync unchanged\n\nThis is a propagation-only extraction of the outbound send lifecycle.\n\n## Observability\n\nStatements are marked known to a peer *before* the send is attempted, so\na failed send suppresses them for that peer until its next initial sync.\nTwo counters make that loss visible, both labelled by `reason` with the\nvalues `network`, `timeout` and `no_sink`:\n\n- `substrate_sync_statement_send_failures_total` — sends that never\nreached the peer\n- `substrate_sync_statement_undelivered_total` — the statements those\nsends were carrying\n\nSend timeouts moved from `debug` to `warn`, and every failure log line\nnow carries the peer, the statement count and the byte size.\n\nTODO:\n\n- [ ] https://github.com/paritytech/polkadot-sdk/issues/12764\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-07-31T10:13:23Z",
+          "tree_id": "a716bef7fc6c19fc36534d8e29d6c9d72f3d5a81",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fa2a80860815ecf09e6dc5aac98f9d5c2531e0f0"
+        },
+        "date": 1785499096571,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.17199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08801518964999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040093474356000004,
             "unit": "seconds"
           }
         ]
