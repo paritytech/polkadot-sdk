@@ -301,7 +301,7 @@ pub trait StateApi<Hash> {
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
-	/// Recorded sibling of [`Self::call`]: runs `method` re-enacting `block` at its parent state
+	/// Recorded sibling of [`Self::call`]: runs `name` re-enacting `block` at its parent state
 	/// with a proof-size recorder, replaying `block`'s stored recording when available. `bytes` is
 	/// the complete SCALE-encoded args, opaque to the node as in [`Self::call`]. Only nodes with a
 	/// proof-recording hook (parachains) can service it; others report

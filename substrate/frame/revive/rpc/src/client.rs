@@ -206,23 +206,30 @@ impl ClientError {
 			return None;
 		};
 		match e.code {
-			METHOD_NOT_FOUND | CALL_RECORDED_DENIED_ERROR_CODE => {
-				Some(RecordedUnavailable::MethodMissing)
-			},
+			METHOD_NOT_FOUND => Some(RecordedUnavailable::MethodMissing),
+			CALL_RECORDED_DENIED_ERROR_CODE => Some(RecordedUnavailable::Denied),
 			CALL_RECORDED_UNSUPPORTED_ERROR_CODE => Some(RecordedUnavailable::NoRecorder),
 			_ => None,
 		}
 	}
 }
 
-/// Why a node cannot service `state_callRecorded`; the variants differ in fallback log severity.
+/// Why a node cannot service `state_callRecorded`; the variants differ in fallback log detail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RecordedUnavailable {
-	/// The node can't service the recorded call (method absent, or unsafe RPCs disabled); a
-	/// recorder-less replay may drop traces.
+	/// The node's binary predates `state_callRecorded` (`-32601`).
 	MethodMissing,
+	/// `state_callRecorded` is unsafe and disabled on this node (`CALL_RECORDED_DENIED`).
+	Denied,
 	/// The node registers no proof-size recorder (e.g. a solochain).
 	NoRecorder,
+}
+
+impl RecordedUnavailable {
+	/// Whether a recorder-less replay under this reason may have dropped traces.
+	pub(crate) fn is_degraded(self) -> bool {
+		matches!(self, Self::MethodMissing | Self::Denied)
+	}
 }
 
 // Direct `From` impls so `?` can lift sub-error variants without an explicit `subxt::Error::from`.
@@ -1345,10 +1352,10 @@ mod tests {
 	}
 
 	#[test]
-	fn unsafe_denied_is_treated_as_version_skew() {
+	fn unsafe_denied_is_a_fallback_reason() {
 		assert_eq!(
 			rpc_user_error(CALL_RECORDED_DENIED_ERROR_CODE).recorded_unavailable_reason(),
-			Some(RecordedUnavailable::MethodMissing),
+			Some(RecordedUnavailable::Denied),
 		);
 	}
 
@@ -1367,5 +1374,4 @@ mod tests {
 		assert!(ClientError::EthExtrinsicNotFound.recorded_unavailable_reason().is_none());
 		assert!(ClientError::BlockNotFound.recorded_unavailable_reason().is_none());
 	}
-
 }

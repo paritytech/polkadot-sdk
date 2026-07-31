@@ -686,8 +686,8 @@ impl VersionAwareRuntimeApi {
 
 	/// Run `payload` via the node's `state_callRecorded` RPC, re-enacting `block` with a proof-size
 	/// recorder. If the node cannot service it (method absent/denied, or no recorder), retry the
-	/// same payload through [`call`](Self::call), setting [`CallRecordedOutput::degraded`] when that
-	/// fallback may have dropped traces. Other errors propagate.
+	/// same payload through [`call`](Self::call), setting [`CallRecordedOutput::degraded`] when
+	/// that fallback may have dropped traces. Other errors propagate.
 	async fn call_recorded_with_fallback<ArgsType, ReturnType>(
 		&self,
 		payload: StaticPayload<ArgsType, ReturnType>,
@@ -701,7 +701,7 @@ impl VersionAwareRuntimeApi {
 		let name = runtime_apis.encode_name(&payload);
 		let args = runtime_apis.encode_args(&payload).map_err(ClientError::from)?;
 
-		match self
+		let recorded = match self
 			.rpc_client
 			.request::<Bytes>("state_callRecorded", rpc_params![name, Bytes(args), block])
 			.await
@@ -709,7 +709,7 @@ impl VersionAwareRuntimeApi {
 			Ok(bytes) => {
 				let metadata = self.at_block.metadata_ref();
 				let cursor = &mut &bytes.0[..];
-				let value = frame_decode::runtime_apis::decode_runtime_api_response(
+				frame_decode::runtime_apis::decode_runtime_api_response(
 					payload.trait_name(),
 					payload.method_name(),
 					cursor,
@@ -718,35 +718,50 @@ impl VersionAwareRuntimeApi {
 					ReturnType::into_visitor(),
 				)
 				.map_err(RuntimeApiError::CouldNotDecodeResponse)
-				.map_err(ClientError::from)?;
-				Ok(CallRecordedOutput { value, degraded: false })
+				.map_err(ClientError::from)
 			},
-			Err(err) => {
-				let err = ClientError::from(err);
-				match err.recorded_unavailable_reason() {
-					Some(RecordedUnavailable::MethodMissing) => {
-						log::warn!(
-							target: LOG_TARGET,
-							"node does not expose `state_callRecorded` (older binary, or unsafe \
-							 RPC methods disabled); falling back to recorder-less replay — traces \
-							 may be INCOMPLETE on PoV/parachain chains",
-						);
-						let value = self.call(payload).await.map_err(ClientError::from)?;
-						Ok(CallRecordedOutput { value, degraded: true })
-					},
-					Some(RecordedUnavailable::NoRecorder) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"node registers no proof-size recorder; using plain replay \
-							 (correct, no reclaim to honour)",
-						);
-						let value = self.call(payload).await.map_err(ClientError::from)?;
-						Ok(CallRecordedOutput { value, degraded: false })
-					},
-					None => Err(err),
-				}
-			},
+			Err(err) => Err(ClientError::from(err)),
+		};
+
+		Self::recorded_or_fallback(recorded, || async {
+			self.call(payload).await.map_err(ClientError::from)
+		})
+		.await
+	}
+
+	/// Retry through `fallback` when the recorded call failed for a known unavailability (see
+	/// [`ClientError::recorded_unavailable_reason`]); propagate anything else.
+	async fn recorded_or_fallback<ReturnType, Fut>(
+		recorded: Result<ReturnType, ClientError>,
+		fallback: impl FnOnce() -> Fut,
+	) -> Result<CallRecordedOutput<ReturnType>, ClientError>
+	where
+		Fut: Future<Output = Result<ReturnType, ClientError>>,
+	{
+		let err = match recorded {
+			Ok(value) => return Ok(CallRecordedOutput { value, degraded: false }),
+			Err(err) => err,
+		};
+		let Some(reason) = err.recorded_unavailable_reason() else { return Err(err) };
+		match reason {
+			RecordedUnavailable::MethodMissing => log::warn!(
+				target: LOG_TARGET,
+				"node does not expose `state_callRecorded` (predates it — upgrade the node); \
+				 falling back to recorder-less replay — traces may be INCOMPLETE on PoV/parachain \
+				 chains",
+			),
+			RecordedUnavailable::Denied => log::warn!(
+				target: LOG_TARGET,
+				"`state_callRecorded` denied (unsafe RPC methods disabled — enable them); falling \
+				 back to recorder-less replay — traces may be INCOMPLETE on PoV/parachain chains",
+			),
+			RecordedUnavailable::NoRecorder => log::debug!(
+				target: LOG_TARGET,
+				"node registers no proof-size recorder; using plain replay (correct, no reclaim \
+				 to honour)",
+			),
 		}
+		Ok(CallRecordedOutput { value: fallback().await?, degraded: reason.is_degraded() })
 	}
 }
 
@@ -1113,5 +1128,64 @@ mod tests {
 			// Assert
 			assert_ne!(before, after, "`{}` is not mapped by `with_method`", method.name());
 		}
+	}
+
+	fn rpc_user_error(code: i32) -> ClientError {
+		ClientError::RpcError(subxt::rpcs::Error::User(subxt::rpcs::UserError {
+			code,
+			message: "..".to_string(),
+			data: None,
+		}))
+	}
+
+	#[tokio::test]
+	async fn recorded_or_fallback_propagates_genuine_errors() {
+		let fell_back = std::cell::Cell::new(false);
+		let out: Result<CallRecordedOutput<u32>, _> =
+			VersionAwareRuntimeApi::recorded_or_fallback(Err(rpc_user_error(-32000)), || {
+				fell_back.set(true);
+				async { Ok(0) }
+			})
+			.await;
+		assert!(matches!(out, Err(ClientError::RpcError(_))), "genuine error must propagate");
+		assert!(!fell_back.get(), "fallback must not run for a genuine failure");
+	}
+
+	#[tokio::test]
+	async fn recorded_or_fallback_flags_degraded_by_reason() {
+		use sc_rpc_api::state::error::{
+			CALL_RECORDED_DENIED_ERROR_CODE, CALL_RECORDED_UNSUPPORTED_ERROR_CODE,
+		};
+
+		// Missing method or unsafe-denied: recorder-less replay may drop traces -> degraded.
+		for code in [-32601, CALL_RECORDED_DENIED_ERROR_CODE] {
+			let out =
+				VersionAwareRuntimeApi::recorded_or_fallback(Err(rpc_user_error(code)), || async {
+					Ok(7u32)
+				})
+				.await
+				.unwrap();
+			assert_eq!(out.value, 7);
+			assert!(out.degraded, "code {code} should degrade");
+		}
+
+		// No recorder (e.g. solochain): plain replay is correct -> not degraded.
+		let out = VersionAwareRuntimeApi::recorded_or_fallback(
+			Err(rpc_user_error(CALL_RECORDED_UNSUPPORTED_ERROR_CODE)),
+			|| async { Ok(7u32) },
+		)
+		.await
+		.unwrap();
+		assert_eq!(out.value, 7);
+		assert!(!out.degraded);
+
+		// Recorded success: no fallback, not degraded.
+		let out = VersionAwareRuntimeApi::recorded_or_fallback(Ok(9u32), || async {
+			panic!("fallback must not run on a recorded success")
+		})
+		.await
+		.unwrap();
+		assert_eq!(out.value, 9);
+		assert!(!out.degraded);
 	}
 }
