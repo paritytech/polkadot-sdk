@@ -72,3 +72,30 @@ fn rejects_configuring_self_as_source() {
 		);
 	});
 }
+
+#[test]
+fn caps_new_sources_but_allows_updates_at_capacity() {
+	new_test_ext().execute_with(|| {
+		// `MaxSources` in the mock is 2.
+		let (a, b, c) = (ParaId::from(2001u32), ParaId::from(2002u32), ParaId::from(2003u32));
+		assert_ok!(SourceDiscovery::set_source_genesis(RuntimeOrigin::root(), a, Some(info())));
+		assert_ok!(SourceDiscovery::set_source_genesis(RuntimeOrigin::root(), b, Some(info())));
+
+		// A new source beyond the cap is rejected …
+		assert_noop!(
+			SourceDiscovery::set_source_genesis(RuntimeOrigin::root(), c, Some(info())),
+			Error::<Test>::TooManySources,
+		);
+		// … updating an existing source at capacity is allowed …
+		assert_ok!(SourceDiscovery::set_source_genesis(
+			RuntimeOrigin::root(),
+			a,
+			Some(([9u8; 32], None)),
+		));
+		assert_eq!(SourceGenesis::<Test>::get(a), Some(([9u8; 32], None)));
+
+		// … and removing one frees a slot for a new source.
+		assert_ok!(SourceDiscovery::set_source_genesis(RuntimeOrigin::root(), b, None));
+		assert_ok!(SourceDiscovery::set_source_genesis(RuntimeOrigin::root(), c, Some(info())));
+	});
+}

@@ -57,6 +57,11 @@ pub mod pallet {
 		type SetSourceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// This parachain's own id — a chain cannot configure itself as a source.
 		type SelfParaId: Get<ParaId>;
+		/// Maximum number of configured sources. Bounds the map the runtime API
+		/// materializes and the node walks each block; a *new* source beyond this
+		/// is rejected (updates to an existing source are always allowed).
+		#[pallet::constant]
+		type MaxSources: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -67,7 +72,7 @@ pub mod pallet {
 	/// para covers every channel to it — genesis is per-chain.
 	#[pallet::storage]
 	pub type SourceGenesis<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, SourceInfoOf, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, ParaId, SourceInfoOf, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -83,6 +88,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// A chain cannot configure itself as a source.
 		SelfSource,
+		/// The configured-source limit ([`Config::MaxSources`]) is reached.
+		TooManySources,
 	}
 
 	#[pallet::call]
@@ -93,7 +100,7 @@ pub mod pallet {
 		/// the channel handshake can't supply (fetching a source's messages
 		/// requires already knowing how to reach it).
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
 		pub fn set_source_genesis(
 			origin: OriginFor<T>,
 			source: ParaId,
@@ -102,7 +109,16 @@ pub mod pallet {
 			T::SetSourceOrigin::ensure_origin(origin)?;
 			ensure!(source != T::SelfParaId::get(), Error::<T>::SelfSource);
 			match info {
-				Some(info) => SourceGenesis::<T>::insert(source, info),
+				Some(info) => {
+					// Only a *new* source counts against the cap; updates are always allowed.
+					if !SourceGenesis::<T>::contains_key(source) {
+						ensure!(
+							SourceGenesis::<T>::count() < T::MaxSources::get(),
+							Error::<T>::TooManySources,
+						);
+					}
+					SourceGenesis::<T>::insert(source, info);
+				},
 				None => SourceGenesis::<T>::remove(source),
 			}
 			Self::deposit_event(Event::SourceGenesisSet { source });

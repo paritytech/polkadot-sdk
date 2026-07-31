@@ -630,6 +630,7 @@ impl parachain_info::Config for Runtime {}
 impl cumulus_pallet_source_discovery::Config for Runtime {
 	type SetSourceOrigin = EnsureRoot<AccountId>;
 	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type MaxSources = ConstU32<128>;
 }
 
 parameter_types! {

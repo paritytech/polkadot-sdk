@@ -16,7 +16,7 @@
 
 use crate as pallet_source_discovery;
 use cumulus_primitives_core::ParaId;
-use frame_support::{derive_impl, parameter_types};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -40,6 +40,7 @@ parameter_types! {
 impl pallet_source_discovery::Config for Test {
 	type SetSourceOrigin = frame_system::EnsureRoot<u64>;
 	type SelfParaId = SelfParaId;
+	type MaxSources = ConstU32<2>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
