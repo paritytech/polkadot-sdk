@@ -2216,54 +2216,9 @@ mod session_keys {
 		});
 	}
 
-	/// Reports are state assertions, so replaying one is a no-op.
-	#[test]
-	fn relay_keys_state_is_idempotent_and_gated() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			let validator: AccountId = 1;
-			let deposit = KeyDeposit::get();
-			let (keys, proof) = make_session_keys_and_proof(validator);
-			assert_ok!(rc_client::Pallet::<T>::set_keys(
-				RuntimeOrigin::signed(validator),
-				keys,
-				proof,
-				None,
-			));
-			assert_eq!(key_deposit_hold(validator), deposit);
-
-			assert_noop!(
-				rc_client::Pallet::<T>::relay_keys_state(
-					RuntimeOrigin::signed(validator),
-					validator,
-					false,
-				),
-				DispatchError::BadOrigin
-			);
-
-			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
-				RuntimeOrigin::root(),
-				validator,
-				true,
-			));
-			assert_eq!(key_deposit_hold(validator), deposit);
-
-			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
-				RuntimeOrigin::root(),
-				validator,
-				false,
-			));
-			assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
-				RuntimeOrigin::root(),
-				validator,
-				false,
-			));
-			assert_eq!(key_deposit_hold(validator), 0);
-		});
-	}
-
-	/// The last report wins. This is what makes a purge and a set that are in flight together
-	/// resolve correctly: the purge reports `false` first, then the set reports `true`, and the
-	/// deposit ends up held. Skipping the report on a successful set breaks exactly this.
+	/// The last report wins, and replaying one is a no-op. This is what makes a purge and a set
+	/// that are in flight together resolve correctly: the purge reports `false` first, the set
+	/// then reports `true`, and the deposit ends up held.
 	#[test]
 	fn last_report_wins() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
@@ -2276,10 +2231,24 @@ mod session_keys {
 				proof,
 				None,
 			));
+			assert_eq!(key_deposit_hold(validator), deposit);
 
-			for (reports, expected) in
-				[(vec![false, true], deposit), (vec![true, false], 0), (vec![false, false], 0)]
-			{
+			// only the relay chain may report
+			assert_noop!(
+				rc_client::Pallet::<T>::relay_keys_state(
+					RuntimeOrigin::signed(validator),
+					validator,
+					false,
+				),
+				DispatchError::BadOrigin
+			);
+
+			for (reports, expected) in [
+				(vec![true], deposit),
+				(vec![false, true], deposit),
+				(vec![true, false], 0),
+				(vec![false, false], 0),
+			] {
 				hypothetically!({
 					for has_keys in reports {
 						assert_ok!(rc_client::Pallet::<T>::relay_keys_state(
@@ -2302,7 +2271,6 @@ mod session_keys {
 				));
 				assert_eq!(key_deposit_hold(validator), deposit / 2);
 			});
-			KeyDeposit::set(deposit);
 		});
 	}
 

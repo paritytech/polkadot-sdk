@@ -927,6 +927,7 @@ pub mod pallet {
 		/// the key deposit.
 		///
 		/// Called after every key operation
+		/// TODO: Consider mode gating this as other reports?
 		fn report_keys_state(stash: &T::AccountId) {
 			let has_keys = T::SessionInterface::is_registered(stash);
 			if T::SendToAssetHub::relay_keys_state(stash.clone(), has_keys).is_err() {
