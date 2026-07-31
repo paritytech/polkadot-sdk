@@ -104,7 +104,7 @@ pub trait WeightInfo {
 	fn migrate_and_notify_old_targets() -> Weight;
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
-	fn claim_assets() -> Weight;
+	fn claim_assets(n: u32) -> Weight;
 	fn add_authorized_alias() -> Weight;
 	fn remove_authorized_alias() -> Weight;
 
@@ -190,8 +190,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000_000, 0)
 	}
 
-	fn claim_assets() -> Weight {
+	fn claim_assets(n: u32) -> Weight {
 		Weight::from_parts(100_000_000, 0)
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
 	}
 
 	fn add_authorized_alias() -> Weight {
@@ -1523,7 +1524,10 @@ pub mod pallet {
 		/// - `assets`: The exact assets that were trapped. Use the version to specify what version
 		/// was the latest when they were trapped.
 		/// - `beneficiary`: The location/account where the claimed assets will be deposited.
+		///
+		/// The weight of this call is linear in the number of assets claimed.
 		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::claim_assets(assets.len() as u32))]
 		pub fn claim_assets(
 			origin: OriginFor<T>,
 			assets: Box<VersionedAssets>,

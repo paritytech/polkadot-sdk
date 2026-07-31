@@ -2873,6 +2873,34 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						fun: Fungible(amount),
 					}
 				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct trust-backed `pallet-assets` assets.
+					let assets: Vec<Asset> = (0..n).map(|i| {
+						let asset_id = 1984 + i;
+						assert_ok!(Assets::force_create(
+							RuntimeOrigin::root(),
+							asset_id.into(),
+							account.clone().into(),
+							true,
+							1u128,
+						));
+						let asset_location = Location::new(
+							0,
+							[PalletInstance(50), GeneralIndex(asset_id.into())],
+						);
+						Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+					}).collect();
+					assets.into()
+				}
 			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{

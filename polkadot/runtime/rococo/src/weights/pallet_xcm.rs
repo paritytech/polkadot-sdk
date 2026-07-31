@@ -348,7 +348,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `XcmPallet::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::AssetTraps` (r:1 w:1)
 	/// Proof: `XcmPallet::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn claim_assets() -> Weight {
+	/// The range of component `n` is `[1, 20]`.
+	fn claim_assets(n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `23`
 		//  Estimated: `3488`
@@ -357,6 +358,14 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3488))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(
+				// INTERIM conservative per-asset slope (one `pallet-assets` deposit), to be
+				// replaced by `/cmd bench` generated numbers.
+				Weight::from_parts(47_000_000, 3675)
+					.saturating_add(T::DbWeight::get().reads(3))
+					.saturating_add(T::DbWeight::get().writes(3))
+					.saturating_mul(n.into()),
+			)
 	}
 	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
 	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)

@@ -373,7 +373,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Account` (r:1 w:1)
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
-	fn claim_assets() -> Weight {
+	/// The range of component `n` is `[1, 20]`.
+	fn claim_assets(n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `337`
 		//  Estimated: `3802`
@@ -382,6 +383,14 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3802))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(
+				// INTERIM conservative per-asset slope (one `pallet-assets` deposit), to be
+				// replaced by `/cmd bench` generated numbers.
+				Weight::from_parts(47_000_000, 3675)
+					.saturating_add(T::DbWeight::get().reads(3))
+					.saturating_add(T::DbWeight::get().writes(3))
+					.saturating_mul(n.into()),
+			)
 	}
 	/// Storage: `PolkadotXcm::AuthorizedAliases` (r:1 w:1)
 	/// Proof: `PolkadotXcm::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)

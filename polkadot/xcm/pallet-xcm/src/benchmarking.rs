@@ -18,7 +18,10 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
-use xcm::{latest::prelude::*, MAX_INSTRUCTIONS_TO_DECODE};
+use xcm::{
+	latest::{prelude::*, MAX_ITEMS_IN_ASSETS},
+	MAX_INSTRUCTIONS_TO_DECODE,
+};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
 
@@ -81,6 +84,21 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	///
 	/// Used, for example, in the benchmark for `claim_assets`.
 	fn get_asset() -> Asset;
+
+	/// Gets `n` distinct fungible assets handled by the `AssetTransactor`, preferring the
+	/// most expensive-to-deposit kind the chain supports.
+	///
+	/// Used only in benchmarks, e.g. for `claim_assets`.
+	///
+	/// The default returns `n` copies of `get_asset()`, which merge into a single asset
+	/// entry and measure a ~zero per-asset weight slope. That is only sound for chains whose
+	/// `AssetTransactor` handles a single asset kind (e.g. relay chains); chains that can
+	/// deposit multiple distinct assets (e.g. Asset Hub) MUST override this, otherwise
+	/// `claim_assets` will be underweighted. There is no sound generic default: which asset
+	/// ids are depositable is runtime-specific.
+	fn get_assets(n: u32) -> Assets {
+		(0..n).map(|_| Self::get_asset()).collect::<Vec<_>>().into()
+	}
 }
 
 #[benchmarks]
@@ -620,18 +638,35 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn claim_assets() -> Result<(), BenchmarkError> {
+	fn claim_assets(n: Linear<1, { MAX_ITEMS_IN_ASSETS as u32 }>) -> Result<(), BenchmarkError> {
 		let claim_origin = RawOrigin::Signed(whitelisted_caller());
 		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let asset: Asset = T::get_asset();
+		let assets = T::get_assets(n);
+		if (assets.len() as u32) < n {
+			tracing::warn!(
+				target: "xcm::benchmarking::pallet_xcm::claim_assets",
+				requested = n,
+				distinct = assets.len(),
+				"`get_assets` returned fewer distinct assets than requested; the weight will \
+				 have a ~zero per-asset slope. Chains that can deposit multiple distinct \
+				 assets must override `benchmarking::Config::get_assets`.",
+			);
+		}
 		let context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
-		// Trap assets for claiming later
-		let holdings =
-			<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(&asset, &context)
-				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		crate::Pallet::<T>::drop_assets(&claim_location, holdings, &context);
-		let versioned_assets = VersionedAssets::from(Assets::from(asset));
+		// Trap all assets with a single `drop_assets` call: the trap is keyed on the hash
+		// of the whole asset set, so the claim must match it exactly.
+		let mut holding = AssetsInHolding::new();
+		for asset in assets.inner() {
+			let minted =
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, &context)
+					.map_err(|_| {
+						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+					})?;
+			holding.subsume_assets(minted);
+		}
+		crate::Pallet::<T>::drop_assets(&claim_location, holding, &context);
+		let versioned_assets = VersionedAssets::from(assets);
 
 		#[extrinsic_call]
 		_(

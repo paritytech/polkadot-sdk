@@ -690,6 +690,24 @@ impl super::benchmarking::Config for Test {
 	fn get_asset() -> Asset {
 		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
 	}
+
+	fn get_assets(n: u32) -> Assets {
+		let owner: AccountId = frame_benchmarking::whitelisted_caller();
+		let mut assets: Vec<Asset> = vec![Self::get_asset()];
+		for i in 1..n {
+			// Distinct, depositable foreign assets handled by the `FungiblesAdapter`.
+			let asset_id_location = Location::new(0, [Parachain(2_000 + i)]);
+			frame_support::assert_ok!(AssetsPallet::force_create(
+				RuntimeOrigin::root(),
+				asset_id_location.clone(),
+				owner.clone(),
+				true, // sufficient, so the beneficiary needs no provider reference
+				1,
+			));
+			assets.push(Asset { id: AssetId(asset_id_location), fun: Fungible(100) });
+		}
+		assets.into()
+	}
 }
 
 pub(crate) fn all_events() -> Vec<RuntimeEvent> {

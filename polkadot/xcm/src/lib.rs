@@ -317,6 +317,22 @@ versioned_type! {
 	}
 }
 
+impl VersionedAssets {
+	/// The number of assets in the collection, regardless of XCM version.
+	pub fn len(&self) -> usize {
+		match self {
+			Self::V3(assets) => assets.len(),
+			Self::V4(assets) => assets.len(),
+			Self::V5(assets) => assets.len(),
+		}
+	}
+
+	/// Whether the collection contains no assets.
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+}
+
 /// A single XCM message, together with its version code.
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
