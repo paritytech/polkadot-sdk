@@ -98,7 +98,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 
 	// Experimental validators negotiate V4 and receive segment advertisements.
 	for i in 0..3 {
-		let node = network.get_node(&format!("validator-exp-{i}"))?;
+		let node = network.get_node(format!("validator-exp-{i}"))?;
 		node.wait_log_line_count_with_timeout("peer_set=Collation version=4", false, opts.clone())
 			.await?
 			.success()
@@ -117,7 +117,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 
 	// Classic validators negotiate V3 and receive classic collation advertisements.
 	for i in 0..2 {
-		let node = network.get_node(&format!("validator-classic-{i}"))?;
+		let node = network.get_node(format!("validator-classic-{i}"))?;
 		node.wait_log_line_count_with_timeout("peer_set=Collation version=3", false, opts.clone())
 			.await?
 			.success()
