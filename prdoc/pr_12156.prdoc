@@ -10,12 +10,12 @@ doc:
 
 crates:
 - name: cumulus-pallet-parachain-system
-  bump: major
+  bump: patch
 - name: yet-another-parachain-runtime
-  bump: major
+  bump: patch
 - name: polkadot-runtime-common
-  bump: major
+  bump: patch
 - name: pallet-scheduler
-  bump: major
+  bump: patch
 - name: frame-support
   bump: major
