@@ -26,13 +26,13 @@ use sp_runtime::BoundedVec;
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitOutcome, SubmitResult, Topic, TopicFilter,
 };
-use statement_store_subxt::transactions::Signer;
 use std::{
 	cell::Cell,
 	collections::HashSet,
 	sync::Arc,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use subxt::transactions::Signer;
 use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
@@ -799,10 +799,9 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 	let bob_node = network.get_node("bob")?;
 	let para_client = online_client_from_node(alice_node).await?;
 
-	let alice = statement_store_subxt_signer::sr25519::dev::alice();
-	let alice_account_id = <statement_store_subxt_signer::sr25519::Keypair as Signer<
-		CustomConfig,
-	>>::account_id(&alice);
+	let alice = subxt_signer::sr25519::dev::alice();
+	let alice_account_id =
+		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
 
 	info!("Granting attestation allowance to Alice...");
 	let increase_call = create_increase_allowance_call(alice_account_id.0.to_vec(), 1);

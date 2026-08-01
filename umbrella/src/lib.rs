@@ -702,6 +702,11 @@ pub use pallet_safe_mode;
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
 
+/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
+/// rest-time-prioritized transfers.
+#[cfg(feature = "pallet-scarcity")]
+pub use pallet_scarcity;
+
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
@@ -1252,6 +1257,10 @@ pub use sc_state_db;
 /// Substrate statement store.
 #[cfg(feature = "sc-statement-store")]
 pub use sc_statement_store;
+
+/// Substrate storage-chain bitswap peer rotation and indexed transaction fetching service.
+#[cfg(feature = "sc-storage-chain-sync")]
+pub use sc_storage_chain_sync;
 
 /// Storage monitor service for substrate.
 #[cfg(feature = "sc-storage-monitor")]

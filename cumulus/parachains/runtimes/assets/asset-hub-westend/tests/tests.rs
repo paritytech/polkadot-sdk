@@ -21,8 +21,9 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{sol_data, SolType},
 };
+use approx::assert_relative_eq;
 use asset_hub_westend_runtime::{
-	xcm_config,
+	staking, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
@@ -72,9 +73,13 @@ use sp_runtime::{
 	traits::{MaybeEquivalence, TryConvertInto},
 	Either, MultiAddress, MultiSignature,
 };
+use sp_staking::budget::IssuanceCurve;
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
-use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
+use testnet_parachains_constants::westend::{
+	consensus::*,
+	currency::{CENTS, UNITS},
+};
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{
 	latest::{
@@ -98,6 +103,7 @@ use sp_runtime::traits::OpaqueKeys;
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -2119,6 +2125,62 @@ fn expensive_erc20_runs_out_of_gas() {
 		)
 		.is_err());
 	});
+}
+
+#[test]
+fn staking_inflation_correct_single_era() {
+	let total = staking::IssuanceCurve::issue(0, MILLISECONDS_PER_HOUR);
+	// Total per hour is ~47.6 WND
+	assert_relative_eq!(total as f64, (4_760 * CENTS) as f64, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_longer_era() {
+	// Twice the era duration means twice the emission:
+	let total_1x = staking::IssuanceCurve::issue(0, MILLISECONDS_PER_HOUR);
+	let total_2x = staking::IssuanceCurve::issue(0, 2 * MILLISECONDS_PER_HOUR);
+	assert_relative_eq!(total_2x as f64, total_1x as f64 * 2.0, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_whole_year() {
+	let yearly_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 100);
+	// Our yearly emissions is about 417k WND:
+	assert_relative_eq!(yearly_emission as f64, (417_307 * UNITS) as f64, max_relative = 0.001);
+}
+
+// 10 years into the future, our values do not overflow.
+#[test]
+fn staking_inflation_correct_not_overflow() {
+	let ten_year_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 10);
+	let initial_ti: i128 = 5_216_342_402_773_185_773;
+	let projected_total_issuance = ten_year_emission as i128 + initial_ti;
+
+	// In 2034, there will be about 9.39 million WND in existence.
+	assert_relative_eq!(
+		projected_total_issuance as f64,
+		(9_390_000 * UNITS) as f64,
+		max_relative = 0.001
+	);
+}
+
+// Print percent per year, just as convenience.
+#[test]
+fn staking_inflation_correct_print_percent() {
+	let yearly_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 100);
+	let mut ti: i128 = 5_216_342_402_773_185_773;
+
+	for y in 0..10 {
+		let new_ti = ti + yearly_emission as i128;
+		let inflation = 100.0 * (new_ti - ti) as f64 / ti as f64;
+		println!("Year {y} inflation: {inflation}%");
+		ti = new_ti;
+
+		assert!(inflation <= 8.0 && inflation > 2.0, "sanity check");
+	}
 }
 
 #[test]
