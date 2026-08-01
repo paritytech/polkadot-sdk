@@ -22,7 +22,7 @@ use crate::claims::Call;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::UnfilteredDispatchable,
+	traits::{Currency, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
 use secp_utils::*;
@@ -31,7 +31,16 @@ use sp_runtime::{traits::DispatchTransaction, DispatchResult};
 const SEED: u32 = 0;
 
 const MAX_CLAIMS: u32 = 10_000;
-const VALUE: u32 = 1_000_000;
+const MIN_VALUE: u32 = 1_000_000;
+
+/// Claim amount used by the benchmarks. Floored to the runtime's existential deposit, since these
+/// claims carry a vesting schedule: [`Pallet::process_claim`] rejects a vesting claim whose
+/// resulting balance would be below the ED ([`Error::ClaimBelowExistentialDeposit`]), because the
+/// dest account must stay alive to hold the vesting lock. The benchmark deposits into fresh
+/// accounts, so without the floor this trips on chains where ED exceeds [`MIN_VALUE`] (1M).
+fn bench_claim_value<T: Config>() -> BalanceOf<T> {
+	CurrencyOf::<T>::minimum_balance().max(MIN_VALUE.into())
+}
 
 fn create_claim<T: Config>(input: u32) -> DispatchResult {
 	let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&input.encode())).unwrap();
@@ -40,7 +49,7 @@ fn create_claim<T: Config>(input: u32) -> DispatchResult {
 	super::Pallet::<T>::mint_claim(
 		RawOrigin::Root.into(),
 		eth_address,
-		VALUE.into(),
+		bench_claim_value::<T>(),
 		vesting,
 		None,
 	)?;
@@ -54,7 +63,7 @@ fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
 	super::Pallet::<T>::mint_claim(
 		RawOrigin::Root.into(),
 		eth_address,
-		VALUE.into(),
+		bench_claim_value::<T>(),
 		vesting,
 		Some(Default::default()),
 	)?;
@@ -90,11 +99,11 @@ mod benchmarks {
 		super::Pallet::<T>::mint_claim(
 			RawOrigin::Root.into(),
 			eth_address,
-			VALUE.into(),
+			bench_claim_value::<T>(),
 			vesting,
 			None,
 		)?;
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(bench_claim_value::<T>()));
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let call_enc =
 			Call::<T>::claim { dest: account.clone(), ethereum_signature: signature.clone() }
@@ -127,9 +136,9 @@ mod benchmarks {
 		let statement = StatementKind::Regular;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, eth_address, VALUE.into(), vesting, Some(statement));
+		_(RawOrigin::Root, eth_address, bench_claim_value::<T>(), vesting, Some(statement));
 
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(bench_claim_value::<T>()));
 		Ok(())
 	}
 
@@ -152,11 +161,11 @@ mod benchmarks {
 		super::Pallet::<T>::mint_claim(
 			RawOrigin::Root.into(),
 			eth_address,
-			VALUE.into(),
+			bench_claim_value::<T>(),
 			vesting,
 			Some(statement),
 		)?;
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(bench_claim_value::<T>()));
 		let call_enc = Call::<T>::claim_attest {
 			dest: account.clone(),
 			ethereum_signature: signature.clone(),
@@ -196,12 +205,12 @@ mod benchmarks {
 		super::Pallet::<T>::mint_claim(
 			RawOrigin::Root.into(),
 			eth_address,
-			VALUE.into(),
+			bench_claim_value::<T>(),
 			vesting,
 			Some(statement),
 		)?;
 		Preclaims::<T>::insert(&account, eth_address);
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(bench_claim_value::<T>()));
 
 		let stmt = StatementKind::Regular.to_text().to_vec();
 
@@ -292,12 +301,12 @@ mod benchmarks {
 		super::Pallet::<T>::mint_claim(
 			RawOrigin::Root.into(),
 			eth_address,
-			VALUE.into(),
+			bench_claim_value::<T>(),
 			vesting,
 			Some(statement),
 		)?;
 		Preclaims::<T>::insert(&account, eth_address);
-		assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(eth_address), Some(bench_claim_value::<T>()));
 
 		#[block]
 		{
