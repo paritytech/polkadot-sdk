@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785527998643,
+  "lastUpdate": 1785635957277,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "315513b4bca923fdf071a0a7386c8a194c95f142",
-          "message": "Try State Hook for Pallet Assets (#10371)\n\nThis PR introduces the try_state hook to pallet-assets to verify key\nstorage invariants.\n\ncloses part of https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-01T09:34:36Z",
-          "tree_id": "cbbf337a35b1e52b542ac49258dc7bf6a12928e1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/315513b4bca923fdf071a0a7386c8a194c95f142"
-        },
-        "date": 1764587469089,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20186008980000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.444019854366669,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.0795710904,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bb19f36e72f75502457be6c182ec9d2d9e3985b",
+          "message": "Remove deprecated migration::remove_storage_prefix (#12156)\n\n# Description\n\nRemoves deprecated `migration::remove_storage_prefix` as part of #11561.\n\nMigrates all in-repo callers to `clear_storage_prefix(..., None, None)`\n(equivalent behavior). No external usage remains.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- remove_storage_prefix(module, item, hash);\n+ let _ = clear_storage_prefix(module, item, hash, None, None);\n```\nReview Notes\n\n- 5 files: remove API in frame-support, update migrations in scheduler,\nparachain-system, purchase, yet-another-parachain test runtime\n- cargo check passed locally for frame-support, pallet-scheduler,\ncumulus-pallet-parachain-system, polkadot-runtime-common\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-02T00:22:46Z",
+          "tree_id": "65792215b019ef54582415f83eab5ae4068d4825",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5bb19f36e72f75502457be6c182ec9d2d9e3985b"
+        },
+        "date": 1785635924562,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13668244206666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.14292278016667,
             "unit": "seconds"
           }
         ]
