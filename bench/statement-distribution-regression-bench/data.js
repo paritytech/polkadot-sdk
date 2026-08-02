@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785528130178,
+  "lastUpdate": 1785636081628,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cf129b7ee727ee7996a82503a83fece35e63e33d",
-          "message": "Accept custom capacity for block notifier buffer (#10451)\n\nWhen creating a block notifier allow setting a custom capacity\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T10:47:30Z",
-          "tree_id": "47729d2e40793ec5b0d2543cb38b202e6403a0cc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf129b7ee727ee7996a82503a83fece35e63e33d"
-        },
-        "date": 1764332697811,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.978,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03442809331799998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04469279824799996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08698065530799991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bb19f36e72f75502457be6c182ec9d2d9e3985b",
+          "message": "Remove deprecated migration::remove_storage_prefix (#12156)\n\n# Description\n\nRemoves deprecated `migration::remove_storage_prefix` as part of #11561.\n\nMigrates all in-repo callers to `clear_storage_prefix(..., None, None)`\n(equivalent behavior). No external usage remains.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- remove_storage_prefix(module, item, hash);\n+ let _ = clear_storage_prefix(module, item, hash, None, None);\n```\nReview Notes\n\n- 5 files: remove API in frame-support, update migrations in scheduler,\nparachain-system, purchase, yet-another-parachain test runtime\n- cargo check passed locally for frame-support, pallet-scheduler,\ncumulus-pallet-parachain-system, polkadot-runtime-common\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-02T00:22:46Z",
+          "tree_id": "65792215b019ef54582415f83eab5ae4068d4825",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5bb19f36e72f75502457be6c182ec9d2d9e3985b"
+        },
+        "date": 1785636048933,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.05599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08237084232199997,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040038119136,
             "unit": "seconds"
           }
         ]
