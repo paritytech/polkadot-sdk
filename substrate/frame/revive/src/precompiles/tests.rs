@@ -270,3 +270,30 @@ fn benchmarking_precompile_has_code() {
 	let code = <Builtin<Test>>::code(&hex!("000000000000000000000000000000000000FFFF")).unwrap();
 	assert_eq!(code, EVM_REVERT);
 }
+
+/// `EXTCODESIZE`, `EXTCODEHASH` and `EXTCODECOPY` must agree on a pre-compile's virtual code.
+#[test]
+fn code_accessors_agree_for_precompiles() {
+	use crate::tests::precompiles::NoInfo;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut call_setup = CallSetup::<Test>::default();
+		let (mut ext, _) = call_setup.ext();
+		let address = sp_core::H160(<NoInfo<Test> as Precompile>::MATCHER.base_address());
+
+		assert_eq!(ext.code_size(&address), EVM_REVERT.len() as u64);
+		assert_eq!(ext.code_hash(&address), sp_io::hashing::keccak_256(&EVM_REVERT).into());
+
+		let mut buf = [0u8; 8];
+		ext.copy_code_slice(&mut buf, &address, 0);
+		assert_eq!(buf, [0x60, 0x00, 0x60, 0x00, 0xfd, 0, 0, 0]);
+
+		let mut buf = [0u8; 3];
+		ext.copy_code_slice(&mut buf, &address, 2);
+		assert_eq!(buf, [0x60, 0x00, 0xfd]);
+
+		let mut buf = [0xAAu8; 2];
+		ext.copy_code_slice(&mut buf, &address, 9);
+		assert_eq!(buf, [0, 0]);
+	});
+}
