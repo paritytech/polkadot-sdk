@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785528085874,
+  "lastUpdate": 1785636040044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c688963f51c55b3c2a16a00a33c4a086792a1544",
-          "message": "Update the commit hash of the revive-differential-tests (#10397)\n\n# Description\n\nThis is a PR that updates the commit hash of the\nrevive-differential-tests framework and the compilation caches to a\nversion that includes fixes to certain tests that used hard-coded gas\nvalues. The compilation caches required an update since this was a\nchange to the contract's code.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Torsten Stüber <15174476+TorstenStueber@users.noreply.github.com>",
-          "timestamp": "2025-11-29T15:45:28Z",
-          "tree_id": "5df3b8e9c45f6181e0d3569f8b9a6a222ca80006",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c688963f51c55b3c2a16a00a33c4a086792a1544"
-        },
-        "date": 1764436528082,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52947,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63633.14,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5613873066700004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.51280900525,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001947394,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4500856341699978,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.73521759301093,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.546118783909993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9769960888799951,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005720402740000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021556670000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021556670000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001947394,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.526572409569999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5125479366300003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.3625671028299937,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bb19f36e72f75502457be6c182ec9d2d9e3985b",
+          "message": "Remove deprecated migration::remove_storage_prefix (#12156)\n\n# Description\n\nRemoves deprecated `migration::remove_storage_prefix` as part of #11561.\n\nMigrates all in-repo callers to `clear_storage_prefix(..., None, None)`\n(equivalent behavior). No external usage remains.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- remove_storage_prefix(module, item, hash);\n+ let _ = clear_storage_prefix(module, item, hash, None, None);\n```\nReview Notes\n\n- 5 files: remove API in frame-support, update migrations in scheduler,\nparachain-system, purchase, yet-another-parachain test runtime\n- cargo check passed locally for frame-support, pallet-scheduler,\ncumulus-pallet-parachain-system, polkadot-runtime-common\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-02T00:22:46Z",
+          "tree_id": "65792215b019ef54582415f83eab5ae4068d4825",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5bb19f36e72f75502457be6c182ec9d2d9e3985b"
+        },
+        "date": 1785636007722,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.009999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.414318686112795,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020111890000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.855119812109965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002128413,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052270670399999965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6870798365999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6541108675800005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3462707751499976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8044530753199666,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.69750487673,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6604733136900007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020111890000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002128413,
             "unit": "seconds"
           }
         ]
