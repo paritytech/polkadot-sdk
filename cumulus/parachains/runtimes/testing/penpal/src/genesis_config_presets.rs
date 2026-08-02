@@ -81,8 +81,8 @@ fn penpal_parachain_genesis(
 			assets: vec![
 				(RelayLocation::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
 				(LocalPen2Asset::get(), sudo.clone(), false, EXISTENTIAL_DEPOSIT),
-				(UsdtFromAssetHub::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
-				(EthFromEthereum::get(), sudo.clone(), true, EXISTENTIAL_DEPOSIT),
+				(UsdtFromAssetHub::get(), sudo.clone(), true, USDT_ED),
+				(EthFromEthereum::get(), sudo.clone(), true, ETHER_MIN_BALANCE),
 			],
 			metadata: vec![
 				(
@@ -164,4 +164,45 @@ pub fn preset_names() -> Vec<PresetId> {
 /// The input must be a tuple of individual keys (a single arg for now since we have just one key).
 pub fn penpal_session_keys(keys: AuraId) -> crate::SessionKeys {
 	crate::SessionKeys { aura: keys }
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	// Duplicated from `sc_chain_spec::json_patch::merge` which lives in a node-side crate
+	// with heavy transitive deps (sc-executor, sc-network, etc.), making it unsuitable as a
+	// dev-dependency for a runtime crate.
+	fn merge(base: &mut serde_json::Value, patch: serde_json::Value) {
+		match (base, patch) {
+			(serde_json::Value::Object(base), serde_json::Value::Object(patch)) => {
+				for (k, v) in patch {
+					merge(base.entry(k).or_insert(serde_json::Value::Null), v);
+				}
+			},
+			(base, patch) => *base = patch,
+		}
+	}
+
+	fn assert_genesis_preset_valid(preset_id: &sp_genesis_builder::PresetId) {
+		let patch: serde_json::Value =
+			serde_json::from_slice(&get_preset(preset_id).expect("preset exists")).unwrap();
+		let mut config = serde_json::to_value(RuntimeGenesisConfig::default()).unwrap();
+		merge(&mut config, patch);
+		let json = serde_json::to_vec(&config).unwrap();
+		sp_io::TestExternalities::default().execute_with(|| {
+			frame_support::genesis_builder_helper::build_state::<RuntimeGenesisConfig>(json)
+				.expect("genesis preset should build valid state");
+		});
+	}
+
+	#[test]
+	fn dev_genesis_preset_is_valid() {
+		assert_genesis_preset_valid(&sp_genesis_builder::DEV_RUNTIME_PRESET.into());
+	}
+
+	#[test]
+	fn local_testnet_genesis_preset_is_valid() {
+		assert_genesis_preset_valid(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.into());
+	}
 }

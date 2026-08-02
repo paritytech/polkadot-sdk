@@ -24,7 +24,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
-frame-support = { workspace = true }
+frame-support = { features = ["tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
@@ -32,11 +32,13 @@ frame-try-runtime = { optional = true, workspace = true }
 pallet-ah-ops = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
+pallet-asset-conversion-precompiles = { workspace = true }
 pallet-asset-conversion-tx-payment = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
+pallet-assets-holder = { workspace = true }
 pallet-assets-precompiles = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -55,9 +57,13 @@ pallet-nft-fractionalization = { workspace = true }
 pallet-nfts = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
+pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
+pallet-pgas-allowance = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
+pallet-psm = { workspace = true }
+pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -76,12 +82,14 @@ pallet-uniques = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-verify-signature = { workspace = true }
 pallet-vesting = { workspace = true }
+pallet-vesting-precompiles = { workspace = true }
 pallet-whitelist = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -148,6 +156,7 @@ snowbridge-runtime-common = { workspace = true }
 
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
+approx = { workspace = true }
 asset-test-utils = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
@@ -162,6 +171,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 [features]
 default = ["std"]
 runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -176,11 +186,13 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-ah-ops/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
+	"pallet-asset-conversion-precompiles/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-rewards/runtime-benchmarks",
 	"pallet-assets-freezer/runtime-benchmarks",
+	"pallet-assets-holder/runtime-benchmarks",
 	"pallet-assets-precompiles/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -199,9 +211,13 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
+	"pallet-nomination-pools-benchmarking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
+	"pallet-pgas-allowance/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-psm/runtime-benchmarks",
+	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
@@ -217,6 +233,7 @@ runtime-benchmarks = [
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-verify-signature/runtime-benchmarks",
+	"pallet-vesting-precompiles/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
@@ -224,6 +241,7 @@ runtime-benchmarks = [
 	"pallet-xcm-precompiles/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
+	"parachains-runtimes-test-utils/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
@@ -253,11 +271,13 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-ah-ops/try-runtime",
 	"pallet-asset-conversion-ops/try-runtime",
+	"pallet-asset-conversion-precompiles/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-conversion/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-asset-rewards/try-runtime",
 	"pallet-assets-freezer/try-runtime",
+	"pallet-assets-holder/try-runtime",
 	"pallet-assets-precompiles/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
@@ -279,8 +299,11 @@ try-runtime = [
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nomination-pools/try-runtime",
+	"pallet-pgas-allowance/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
+	"pallet-psm/try-runtime",
+	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
@@ -296,6 +319,7 @@ try-runtime = [
 	"pallet-uniques/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-verify-signature/try-runtime",
+	"pallet-vesting-precompiles/try-runtime",
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
@@ -303,6 +327,7 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
+	"parachains-runtimes-test-utils/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
@@ -338,11 +363,13 @@ std = [
 	"log/std",
 	"pallet-ah-ops/std",
 	"pallet-asset-conversion-ops/std",
+	"pallet-asset-conversion-precompiles/std",
 	"pallet-asset-conversion-tx-payment/std",
 	"pallet-asset-conversion/std",
 	"pallet-asset-rate/std",
 	"pallet-asset-rewards/std",
 	"pallet-assets-freezer/std",
+	"pallet-assets-holder/std",
 	"pallet-assets-precompiles/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
@@ -364,10 +391,14 @@ std = [
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
+	"pallet-nomination-pools-benchmarking/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
+	"pallet-pgas-allowance/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
+	"pallet-psm/std",
+	"pallet-recovery/std",
 	"pallet-referenda/std",
 	"pallet-revive/std",
 	"pallet-scheduler/std",
@@ -385,6 +416,7 @@ std = [
 	"pallet-uniques/std",
 	"pallet-utility/std",
 	"pallet-verify-signature/std",
+	"pallet-vesting-precompiles/std",
 	"pallet-vesting/std",
 	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",
@@ -411,6 +443,7 @@ std = [
 	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",

@@ -33,8 +33,6 @@ pub use tokens::{
 };
 
 mod members;
-#[allow(deprecated)]
-pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
 	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
 	EverythingBut, FromContains, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
@@ -84,8 +82,6 @@ pub use metadata::{
 };
 
 mod hooks;
-#[allow(deprecated)]
-pub use hooks::GenesisBuild;
 pub use hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
 	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
@@ -94,17 +90,13 @@ pub use hooks::{
 
 pub mod schedule;
 mod storage;
-#[cfg(feature = "experimental")]
-pub use storage::MaybeConsideration;
 pub use storage::{
 	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
-	LinearStoragePrice, NoDrop, PartialStorageInfoTrait, StorageInfo, StorageInfoTrait,
-	StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
+	LinearStoragePrice, MaybeConsideration, NoDrop, PartialStorageInfoTrait, StorageInfo,
+	StorageInfoTrait, StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
 };
 
 mod dispatch;
-#[allow(deprecated)]
-pub use dispatch::EnsureOneOf;
 pub use dispatch::{
 	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
 	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,

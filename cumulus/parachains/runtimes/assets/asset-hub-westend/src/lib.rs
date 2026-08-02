@@ -36,7 +36,7 @@ pub mod governance;
 mod migrations;
 pub mod staking;
 
-use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
+use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin};
 
 extern crate alloc;
 
@@ -49,7 +49,9 @@ use assets_common::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{
+	relay_chain::AccountIndex, AggregateMessageOrigin, ParaId, VerifySchedulingSignature,
+};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -60,21 +62,22 @@ use frame_support::{
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, EitherOfDiverse, Equals, InstanceFilter, LinearStoragePrice, Nothing,
-		TransformOrigin, WithdrawReasons,
+		ConstantStoragePrice, Contains, EitherOf, EitherOfDiverse, Equals, InstanceFilter,
+		LinearStoragePrice, Nothing, TransformOrigin, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned, EnsureSignedBy,
+	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
@@ -163,7 +166,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -225,6 +228,8 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
+	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
+	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -327,11 +332,12 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
-	type Holder = ();
+	type Holder = AssetsHolder;
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
+	type CallbackHandle = ();
+	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -345,8 +351,17 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 }
 
+// Allow Holds for the `Assets` pallet.
+pub type AssetsHolderInstance = pallet_assets_holder::Instance1;
+impl pallet_assets_holder::Config<AssetsHolderInstance> for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
+	pub MaxSwapFee: Permill = Permill::from_percent(2);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -378,6 +393,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -487,7 +503,9 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = WestendLocation;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
+	type AdminOrigin = AssetsForceOrigin;
+	type MaxSwapFee = MaxSwapFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -601,6 +619,12 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
+/// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
+const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
+const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
+const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;
+
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set
 /// an individual, local account as a proxy for the issuance of their assets. This issuance should
@@ -634,6 +658,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
+	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -671,6 +696,51 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const RecoveryFriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroupsStorage);
+	pub const RecoveryAttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::AttemptStorage);
+	pub const RecoveryInheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::InheritorStorage);
+	// Simplified deposits
+	pub const RecoveryDepositBase: Balance = deposit(1, 64);
+	pub const RecoveryDepositFactor: Balance = deposit(0, 32);
+}
+
+impl pallet_recovery::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	// Benchmarks for `finish_attempt` / `cancel_attempt` advance `frame_system`'s block number,
+	// which does not move `RelaychainDataProvider`, causing `NotYetInheritable` /
+	// `NotYetCancelable`. Use `frame_system` under the benchmarking feature so the time-delay
+	// guards can be satisfied.
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type Currency = Balances;
+	type FriendGroupsConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryFriendGroupsHoldReason,
+		LinearStoragePrice<RecoveryDepositBase, RecoveryDepositFactor, Balance>,
+	>;
+	type AttemptConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryAttemptHoldReason,
+		LinearStoragePrice<RecoveryDepositBase, RecoveryDepositFactor, Balance>,
+	>;
+	type InheritorConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryInheritorHoldReason,
+		LinearStoragePrice<RecoveryDepositBase, RecoveryDepositFactor, Balance>,
+	>;
+	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
+	type MaxFriendsPerConfig = ConstU32<100>;
+	type WeightInfo = weights::pallet_recovery::WeightInfo<Runtime>;
+	type Slash = Dap;
 }
 
 parameter_types! {
@@ -965,6 +1035,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -1117,6 +1188,57 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 }
 
 parameter_types! {
+	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
+	pub const PGASAssetId: AssetIdForTrustBackedAssets = 80_716_583;
+	/// Fraction of a PGAS-backed storage deposit refunded when the deposit is released.
+	/// The rest is burned, so contracts cannot mint free PGAS via storage churn.
+	pub const PGasRefundPercent: Perbill = Perbill::from_percent(10);
+}
+
+/// Calls eligible to be paid for with PGAS.
+pub struct PGASCallFilter;
+impl Contains<RuntimeCall> for PGASCallFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		match call {
+			RuntimeCall::Revive(..) => true,
+			RuntimeCall::Utility(pallet_utility::Call::batch { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::batch_all { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::force_batch { calls }) => {
+				calls.iter().all(|inner_call| matches!(inner_call, RuntimeCall::Revive(..)))
+			},
+			_ => false,
+		}
+	}
+}
+
+impl pallet_pgas_allowance::Config for Runtime {
+	type Assets = Assets;
+	type PGASAssetId = PGASAssetId;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type CallFilter = PGASCallFilter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type CallFilter = frame_support::traits::Everything;
+
+	type WeightInfo = weights::pallet_pgas_allowance::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PGASBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PGASBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetIdForTrustBackedAssets, Balance>
+	for PGASBenchmarkHelper
+{
+	fn mint_pgas(who: &AccountId, asset_id: AssetIdForTrustBackedAssets, amount: Balance) {
+		use frame_support::traits::tokens::fungibles::Mutate;
+		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
+	}
+}
+
+parameter_types! {
 	pub const UniquesCollectionDeposit: Balance = UNITS / 10; // 1 / 10 UNIT deposit to create a collection
 	pub const UniquesItemDeposit: Balance = UNITS / 1_000; // 1 / 1000 UNIT deposit to mint an item
 	pub const UniquesMetadataDepositBase: Balance = deposit(1, 129);
@@ -1233,6 +1355,8 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
+	type UnpaidExport = frame_support::traits::ConstBool<true>;
+
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
@@ -1255,12 +1379,18 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;
-	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
+	type WeightInfo = weights::pallet_revive::WeightInfo<Self>;
 	type Precompiles = (
-		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
-		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
-		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>, TrustBackedAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>, PoolAssetsInstance>,
+		ERC20<
+			Self,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Self, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
 		XcmPrecompile<Self>,
+		pallet_asset_conversion_precompiles::AssetConversion<{ ASSET_CONVERSION_PRECOMPILE }, Self>,
+		VestingPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
@@ -1275,14 +1405,29 @@ impl pallet_revive::Config for Runtime {
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
-	type DebugEnabled = ConstBool<false>;
+	type DebugEnabled = ConstBool<{ cfg!(revive_debug) }>;
+	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
+	type Deposit = pallet_revive::PGasDeposit<
+		Runtime,
+		Assets,
+		AssetsHolder,
+		AssetsFreezer,
+		PGASAssetId,
+		PGasRefundPercent,
+	>;
+}
+
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 	pub FastUnstakeName: &'static str = "FastUnstake";
+	pub PsmName: &'static str = "Psm";
+	pub ParametersName: &'static str = "Parameters";
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -1299,6 +1444,7 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
+		pallet_revive::migrations::v3::Migration<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1324,7 +1470,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 16 }>; // MaxVotes * TRACKS_DATA length
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
@@ -1409,6 +1555,76 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+// PSM configuration.
+parameter_types! {
+	/// Entry-barrier deposit held for a permissionless PSM created via `create_psm`.
+	pub const PsmCreationDeposit: Balance = 100 * UNITS;
+	/// Per-byte deposit slope; PSM footprints are fixed-size, so this is zero.
+	pub const PsmDepositSlope: Balance = 0;
+	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
+	pub const NoPsmDepositor: Option<AccountId> = None;
+	/// PalletId for deriving the PSM system account.
+	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
+}
+
+type PsmCreateOrigin = EitherOf<
+	pallet_psm::EnsureAssetOwner<Runtime>,
+	EnsureRootWithSuccess<AccountId, NoPsmDepositor>,
+>;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PsmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> xcm::v5::Location {
+		Location::new(0, [PalletInstance(50), GeneralIndex(asset_index.into())])
+	}
+	fn create_asset(asset_id: xcm::v5::Location, owner: &AccountId, decimals: u8) {
+		use frame_support::traits::fungibles::{
+			metadata::Mutate as MetadataMutate, Create, Inspect,
+		};
+		if !<LocalAndForeignAssets as Inspect<AccountId>>::asset_exists(asset_id.clone()) {
+			let _ = <LocalAndForeignAssets as Create<AccountId>>::create(
+				asset_id.clone(),
+				owner.clone(),
+				true,
+				1,
+			);
+		}
+		let _ = Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			owner.clone().into(),
+			10u128.pow(18),
+		);
+		let _ = <LocalAndForeignAssets as MetadataMutate<AccountId>>::set(
+			asset_id,
+			owner,
+			b"Benchmark".to_vec(),
+			b"BNC".to_vec(),
+			decimals,
+		);
+	}
+}
+
+impl pallet_psm::Config for Runtime {
+	type Fungibles = LocalAndForeignAssets;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PsmHoldReason,
+		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, Balance>,
+	>;
+	type CreateOrigin = PsmCreateOrigin;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type AssetId = xcm::v5::Location;
+	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
+	type PalletId = PsmPalletId;
+	type MaxExternals = ConstU32<3>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PsmBenchmarkHelper;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1431,6 +1647,7 @@ construct_runtime!(
 		// AssetTxPayment: pallet_asset_tx_payment = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
 		Vesting: pallet_vesting = 14,
+		PgasAllowance: pallet_pgas_allowance = 15,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -1456,6 +1673,7 @@ construct_runtime!(
 		Indices: pallet_indices = 43,
 		MetaTx: pallet_meta_tx = 44,
 		VerifySignature: pallet_verify_signature = 45,
+		Recovery: pallet_recovery = 47,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1470,10 +1688,13 @@ construct_runtime!(
 		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 		Revive: pallet_revive = 60,
+		AssetsHolder: pallet_assets_holder::<Instance1> = 66,
 
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
+		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
+		Psm: pallet_psm = 65,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1535,7 +1756,10 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		pallet_pgas_allowance::ChargePGAS<
+			Runtime,
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 		pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	),
@@ -1560,7 +1784,14 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckMortality::from(generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::new_skip_pgas(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+					tip, None,
+				),
+			),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 		)
@@ -1581,6 +1812,36 @@ parameter_types! {
 	);
 }
 
+/// Provides the initial `LastIssuanceTimestamp` for DAP migration.
+pub struct DapLastIssuanceTimestamp;
+impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
+	fn get() -> u64 {
+		pallet_staking_async::ActiveEra::<Runtime>::get()
+			.and_then(|era| era.start)
+			.unwrap_or(0)
+	}
+}
+
+/// Default budget: 85% staker rewards, 15% buffer, 0% validator incentive.
+pub struct DefaultDapBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		use sp_runtime::Perbill;
+		use sp_staking::budget::BudgetRecipientList;
+
+		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
+		// [dap (buffer), StakerRewardRecipient, ValidatorIncentiveRecipient]
+		let percentages =
+			[Perbill::from_percent(15), Perbill::from_percent(85), Perbill::from_percent(0)];
+
+		let mut map = pallet_dap::BudgetAllocationMap::new();
+		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
+			let _ = map.try_insert(key, perbill);
+		}
+		map
+	}
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1597,6 +1858,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
 	// unreleased
 	pallet_assets::migration::next_asset_id::SetNextAssetId<
 		ConstU32<50_000_000>,
@@ -1620,6 +1882,38 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	// unreleased
+
+	// start: PSM reset
+
+	// `RemovePallet` wipes the old PSM deployment, including the storage version key.
+	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
+	// end: PSM reset
+
+	// `pallet_parameters` only hosted the system-wide PSM issuance cap, now replaced
+	// by per-PSM `max_debt`. Wipe its storage now the pallet is gone from the runtime.
+	frame_support::migrations::RemovePallet<
+		ParametersName,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	pallet_dap::migrations::MigrateV1ToV2<
+		Runtime,
+		DapLastIssuanceTimestamp,
+		DefaultDapBudget,
+		staking::MaxEraDuration,
+	>,
+	// Only needed on WAH.
+	// Relocates funded era pots from per-era to slot-based pot addresses.
+	pallet_staking_async::migrations::MigrateEraPotsToPool<
+		Runtime,
+		staking::StakingPotsPalletId,
+		staking::StakingStakerRewardKind,
+	>,
+	// Records the cutoff era from which the weighted-points validator self-stake
+	// incentive formula applies; pending pre-cutoff eras keep the legacy
+	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
+	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -1820,9 +2114,11 @@ mod benches {
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
+		[pallet_pgas_allowance, PgasAllowance]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_dap, Dap]
 		[pallet_election_provider_multi_block, MultiBlockElection]
 		[pallet_election_provider_multi_block::verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]
@@ -1833,7 +2129,10 @@ mod benches {
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
+		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_proxy, Proxy]
+		[pallet_psm, Psm]
+		[pallet_recovery, Recovery]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
@@ -1848,6 +2147,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
@@ -1882,6 +2182,16 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
 		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
+		}
 	}
 
 	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
@@ -1892,7 +2202,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
 		}
 	}
 
@@ -1930,6 +2240,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
+		}
+	}
+
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
+			Runtime::execute_view_function(id, input)
 		}
 	}
 
@@ -2312,6 +2628,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
@@ -2365,6 +2682,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					(keys.keys, keys.proof.encode())
 				}
 			}
+
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, PriceForParentDelivery};
 

@@ -23,9 +23,12 @@ use crate::{
 };
 use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 use frame_support::assert_noop;
-use snowbridge_core::AssetMetadata;
+use hex_literal::hex;
+use snowbridge_core::{AgentIdOf, AssetMetadata};
+use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use sp_runtime::DispatchError::BadOrigin;
 use xcm::v5::AssetTransferFilter;
+use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn register_penpal_a_asset_from_penpal_b_will_fail() {
@@ -428,4 +431,94 @@ pub fn exploit_v2_route_with_legacy_v1_transfer_will_fail() {
 			]
 		);
 	})
+}
+
+#[test]
+pub fn signed_assethub_user_cannot_bypass_origin_alteration_when_routing_to_ethereum() {
+	fund_on_bh();
+	fund_on_ah();
+
+	let forged_assethub_origin = Location::new(1, [Parachain(AssetHubWestend::para_id().into())]);
+	let expected_assethub_agent = AgentIdOf::convert_location(&forged_assethub_origin).unwrap();
+	assert_eq!(
+		expected_assethub_agent,
+		hex!("81c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79").into()
+	);
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let arbitrary_agent_call = ContractCall::V1 {
+			target: ETHEREUM_DESTINATION_ADDRESS,
+			calldata: vec![0xde, 0xad, 0xbe, 0xef],
+			value: 0,
+			gas: 100_000,
+		};
+
+		let assets = vec![local_fee_asset.clone(), remote_fee_asset.clone()];
+		let forged_xcm = Xcm(vec![
+			WithdrawAsset(assets.into()),
+			PayFees { asset: local_fee_asset },
+			// Clear the origin register to None. Under the logic flaw in the XCM executor's
+			// InitiateTransfer implementation (with preserve_origin: true), this causes the
+			// executor to export the message without prepending any origin-altering instructions.
+			// Details: https://forum.polkadot.network/t/postmortem-xcm-initiatetransfer-origin-leak/17357
+			ClearOrigin,
+			InitiateTransfer {
+				destination: ethereum(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::truncate_from(vec![]),
+				remote_xcm: Xcm(vec![
+					AliasOrigin(forged_assethub_origin),
+					DepositAsset { assets: Wild(AllCounted(0)), beneficiary: beneficiary() },
+					Transact {
+						origin_kind: OriginKind::Xcm,
+						call: arbitrary_agent_call.encode().into(),
+						fallback_max_weight: None,
+					},
+					SetTopic([9u8; 32]),
+				]),
+			},
+		]);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			bx!(VersionedXcm::from(forged_xcm)),
+			Weight::from(EXECUTION_WEIGHT),
+		));
+	});
+
+	BridgeHubWestend::ext_wrapper(|| {
+		type Runtime = bridge_hub_westend_runtime::Runtime;
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let events = BridgeHubWestend::events();
+		let committed_messages = snowbridge_pallet_outbound_queue_v2::Messages::<Runtime>::get();
+		assert_eq!(
+			committed_messages.len(),
+			0,
+			"expected zero committed outbound messages in Messages storage"
+		);
+
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumOutboundQueueV2(
+					snowbridge_pallet_outbound_queue_v2::Event::MessageQueued { .. }
+				)
+			)),
+			"forged message should not have been queued"
+		);
+
+		assert_eq!(snowbridge_pallet_outbound_queue_v2::Nonce::<Runtime>::get(), 0);
+	});
 }

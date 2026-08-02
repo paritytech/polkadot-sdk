@@ -130,6 +130,7 @@ polkadot-sdk = { features = [
 	"sp-maybe-compressed-blob",
 	"sp-panic-handler",
 	"sp-rpc",
+	"sp-virtualization",
 	"staging-chain-spec-builder",
 	"staging-node-inspect",
 	"staging-tracking-allocator",

@@ -15,7 +15,7 @@
 
 //! Tests to ensure correct XCM fee estimation for cross-chain asset transfers.
 
-use crate::imports::*;
+use crate::{assets_balance_on, imports::*};
 use frame_support::{dispatch::RawOrigin, traits::fungible};
 use xcm_runtime_apis::{
 	dry_run::runtime_decl_for_dry_run_api::DryRunApiV2,
@@ -292,6 +292,7 @@ fn multi_hop_works() {
 	// Note: We need to do this after resetting the externalities to get an accurate value here.
 	// This is because the dry-run on Asset Hub does affect the liquidity pool distribution on
 	// PenpalB which affects the assets amount we have to pay.
+	// See side-effects: https://github.com/paritytech/polkadot-sdk/issues/11486.
 	let mut final_execution_fees = 0;
 	<PenpalB as TestExt>::execute_with(|| {
 		type Runtime = <PenpalB as Chain>::Runtime;
@@ -305,18 +306,14 @@ fn multi_hop_works() {
 	AssetHubWestend::fund_accounts(vec![(sov_of_sender_on_ah, amount_to_send * 2)]);
 
 	// Actually run the extrinsic.
-	let sender_assets_before = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
-	});
+	let sender_assets_before =
+		assets_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
 	let sender_balance_before = PenpalA::execute_with(|| {
 		type Balances = <PenpalA as PenpalAPallet>::Balances;
 		<Balances as fungible::Inspect<_>>::balance(&sender)
 	});
-	let receiver_assets_before = PenpalB::execute_with(|| {
-		type Assets = <PenpalB as PenpalBPallet>::Assets;
-		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &beneficiary_id)
-	});
+	let receiver_assets_before =
+		assets_balance_on!(PenpalB, relay_native_asset_location.clone(), &beneficiary_id);
 	let receiver_balance_before = PenpalB::execute_with(|| {
 		type Balances = <PenpalB as PenpalBPallet>::Balances;
 		<Balances as fungible::Inspect<_>>::balance(&beneficiary_id)
@@ -329,18 +326,14 @@ fn multi_hop_works() {
 	test.set_call(call);
 	test.assert();
 
-	let sender_assets_after = PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
-	});
+	let sender_assets_after =
+		assets_balance_on!(PenpalA, relay_native_asset_location.clone(), &sender);
 	let sender_balance_after = PenpalA::execute_with(|| {
 		type Balances = <PenpalA as PenpalAPallet>::Balances;
 		<Balances as fungible::Inspect<_>>::balance(&sender)
 	});
-	let receiver_assets_after = PenpalB::execute_with(|| {
-		type Assets = <PenpalB as PenpalBPallet>::Assets;
-		<Assets as Inspect<_>>::balance(relay_native_asset_location, &beneficiary_id)
-	});
+	let receiver_assets_after =
+		assets_balance_on!(PenpalB, relay_native_asset_location, &beneficiary_id);
 	let receiver_balance_after = PenpalB::execute_with(|| {
 		type Balances = <PenpalB as PenpalBPallet>::Balances;
 		<Balances as fungible::Inspect<_>>::balance(&beneficiary_id)
