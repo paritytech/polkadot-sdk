@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785528041947,
+  "lastUpdate": 1785635998945,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cb4262e9bc59588f508c2dbee7352db9d4dac583",
-          "message": "Proposer/BlockBuilder: Accept proof recorder & extensions (#9947)\n\nThis pull request fundamentally changes how `Proposer` and\n`BlockBuilder` are handling the proof recorder and extensions. Before\nthis pull request the proof recorder was initialized by the\n`BlockBuilder` and the proposer statically enabled proof recording or\ndisabled it. With this pull request the proof recorder is passed from\nthe the caller down to the block builder. This also moves the\nresponsibility for extracting the final storage proof to the caller and\nis not part of the block builder logic anymore. The extensions are now\nalso configurable by the caller and are not longer \"guessed\" by the\nblock builder.\n\nThis pull request also remvoes the `cumulus-client-proposer` crate as it\nis not really required anymore.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2025-11-30T09:28:35Z",
-          "tree_id": "662d6f4baf0d3abfb72686fc96fa29bdda51f7c1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cb4262e9bc59588f508c2dbee7352db9d4dac583"
-        },
-        "date": 1764498883268,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1599996948800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013439616760000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02281142878666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007283076219999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007377192519999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bb19f36e72f75502457be6c182ec9d2d9e3985b",
+          "message": "Remove deprecated migration::remove_storage_prefix (#12156)\n\n# Description\n\nRemoves deprecated `migration::remove_storage_prefix` as part of #11561.\n\nMigrates all in-repo callers to `clear_storage_prefix(..., None, None)`\n(equivalent behavior). No external usage remains.\n\nDoes not close #11561.\n\n## Integration\n\n```diff\n- remove_storage_prefix(module, item, hash);\n+ let _ = clear_storage_prefix(module, item, hash, None, None);\n```\nReview Notes\n\n- 5 files: remove API in frame-support, update migrations in scheduler,\nparachain-system, purchase, yet-another-parachain test runtime\n- cargo check passed locally for frame-support, pallet-scheduler,\ncumulus-pallet-parachain-system, polkadot-runtime-common\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-02T00:22:46Z",
+          "tree_id": "65792215b019ef54582415f83eab5ae4068d4825",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5bb19f36e72f75502457be6c182ec9d2d9e3985b"
+        },
+        "date": 1785635966130,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010285610313333322,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007726348766666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022922245873333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14699328688666674,
             "unit": "seconds"
           }
         ]
