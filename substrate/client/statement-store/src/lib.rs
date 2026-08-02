@@ -1858,7 +1858,10 @@ impl Store {
 	//
 	// Statements are considered expired when their expiry (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
-	fn enforce_limits(&self) {
+	/// Reap expired statements and enforce per-account allowances (one bounded pass); runs
+	/// periodically from the background task. Hidden: exposed only for the benchmarks.
+	#[doc(hidden)]
+	pub fn enforce_limits(&self) {
 		self.enforce_limits_bounded(
 			MAX_EXPIRY_STATEMENTS_PER_ITERATION,
 			MAX_EXPIRY_ACCOUNTS_PER_ITERATION,

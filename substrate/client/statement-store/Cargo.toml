@@ -64,3 +64,9 @@ required-features = []
 name = "add_filter"
 harness = false
 required-features = []
+
+[[bench]]
+name = "enforce_limits"
+path = "benches/enforce_limits.rs"
+harness = false
+required-features = []
