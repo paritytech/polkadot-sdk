@@ -1148,15 +1148,23 @@ impl<T: Config> Pallet<T> {
 			// from ledger, but that's okay since anyways user do not have funds for it.
 			let force_withdraw = staked.saturating_sub(max_hold);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash but we can't do much better here.
-			StakingLedger {
-				total: max_hold,
-				active: ledger.active.saturating_sub(force_withdraw),
-				// we are not changing the stash, so we can keep the stash.
-				..ledger
+			let new_active = ledger.active.saturating_sub(force_withdraw);
+			// If force_withdraw exceeds active, drain the remainder from unlocking chunks
+			// (most recently queued first) so total == active + sum(unlocking) holds.
+			let mut new_unlocking = ledger.unlocking.clone();
+			let mut remaining = force_withdraw.saturating_sub(ledger.active);
+			for chunk in new_unlocking.iter_mut().rev() {
+				if remaining.is_zero() {
+					break
+				}
+				let reduce = remaining.min(chunk.value);
+				chunk.value -= reduce;
+				remaining -= reduce;
 			}
-			.update()?;
+			new_unlocking.retain(|c| !c.value.is_zero());
+
+			StakingLedger { total: max_hold, active: new_active, unlocking: new_unlocking, ..ledger }
+				.update()?;
 			force_withdraw
 		};
 
