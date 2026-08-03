@@ -72,7 +72,6 @@ sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
-tokio = { optional = true, features = ["rt-multi-thread"], workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
@@ -95,6 +94,7 @@ sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
+tokio = { optional = true, features = ["rt-multi-thread"], workspace = true }
 
 # Polkadot
 polkadot-cli = { workspace = true, default-features = true, features = [
