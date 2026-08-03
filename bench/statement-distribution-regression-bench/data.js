@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785756015590,
+  "lastUpdate": 1785776999034,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "142ceec0b8a6d6da6516770f6c1b2bcb46396a58",
-          "message": "staking: do not remove an invulnerable in case of bad solution (#10454)\n\nInvulnerables are not automatically removed from the Invulnerables\nstorage when their solution is rejected.\nRemoval should occur only through governance, not automatically. \nAn operational or network issue that leads to an incomplete submission\nis much more likely than a bad faith action from an invulnerable.\n\nClose https://github.com/paritytech-secops/srlabs_findings/issues/602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T14:57:41Z",
-          "tree_id": "87e3c0007818f8466336c3a539e6907f2f23ffcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/142ceec0b8a6d6da6516770f6c1b2bcb46396a58"
-        },
-        "date": 1764347684317,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.97800000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03464100856200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04512851077599994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03970603213399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1407d3feba9d3fc95e20823cd0b74acbe1ca24ee",
+          "message": "Fix resource exhaustion when replaying finalized-block transactions (#12374)\n\n## Description\n\nRe-applying a finalized block's transactions can reject with\n`ExhaustsResources` some that\noriginally succeeded, so runtime APIs that replay a block\n(`pallet-revive`'s `trace_block` /\n`trace_tx`) drop the rejected tail transactions' traces.\n\n**Cause.** Each extrinsic is charged its worst-case `proof_size`;\n`StorageWeightReclaim` refunds\nthe difference down to the actual size read from a proof-size recorder.\nAuthoring has a recorder\nregistered, so the over-charge is reclaimed; the replay has none, so\nreclaim is skipped,\n`proof_size` accumulates past the block limit, and `CheckWeight` rejects\nthe tail.\n\n**Fix.** Replay the block through the runtime API with a proof-size\nrecorder registered.\n\n## Integration\n\n- New **unsafe-gated** RPC `state_callRecorded(name, bytes, block)` on\n`StateApi`, the recorded\nsibling of `state_call`: runs the call re-enacting `block` at its parent\nstate with a\nproof-size recorder, replaying `block`'s stored recording when available\n(fresh recorder\notherwise). `bytes` is the opaque SCALE-encoded args — the node doesn't\ninspect them, so\nversioned payloads work; `block` only locates the parent state and the\nrecording.\n- New `TracingExecuteBlock::call_recorded(block, method, call_data)`\ntrait method (default impl\nerrors, non-breaking; implemented for parachains in\n`cumulus-client-service`).\n- New `sc-rpc-api` state errors with stable wire codes clients match on\nto fall back:\n`CallRecordedUnsupported` (node has no recorder) and\n`CallRecordedDenied` (unsafe RPCs\ndisabled), both scoped to `state_callRecorded`; the shared\n`UnsafeRpcCalled` code is unchanged.\n- `pallet-revive-types` trace types now deserialize the JSON they\nserialize\n  (`skip_serializing_if` fields also carry `#[serde(default)]`).\n\n## Review Notes\n\n**Why a new RPC.** eth-rpc talks to the node remotely, so its typed\n`runtime_api.trace_block()`\nalready crosses the wire as a `state_call`, and the recorder can only be\nregistered node-side.\nRecording on every `state_call` would add overhead to all hot paths; the\nscoped method gives\nper-call consent.\n\n**Faithful under bundling.** eth-rpc passes the block's on-chain hash;\nthe node replays `block`'s\nstored recording, matching `execute_block`. A fresh recorder would\nre-count already-proven nodes,\nso a bundle-tail replay could spuriously hit `ExhaustsResources`; nodes\nwithout a recording (dev\nnodes, non-bundling collators) fall back to a fresh recorder.\n\n**Client fallback.** When a node cannot service `state_callRecorded`,\neth-rpc falls back to the\nplain trace APIs (version-skew and unsafe-disabled warn; the expected\nrecorder-less case is\ndebug) and marks the result degraded: `debug_traceBlock*` returns\ndropped transactions as\ngeth-style `{txHash, error}` entries, `debug_traceTransaction` returns\ntrace-unavailable rather\nthan \"not found\".\n\n**Tests.** An Asset Hub Westend integration test reproduces the bug and\nconfirms the fix through\nthe versioned trace APIs; a new `repeated_storage_read` fixture creates\nthe `proof_size`\nover-charge (a distinct cold storage key per round).\n`pallet-revive-eth-rpc` unit tests cover the\nfallback classification; `sc-rpc` tests pin the unsafe-denied wire\ncontract.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-03T15:22:32Z",
+          "tree_id": "8ce5cc1654c70d0e6594864c31448cf814ca182d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1407d3feba9d3fc95e20823cd0b74acbe1ca24ee"
+        },
+        "date": 1785776965178,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.142,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04001185554599998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08857554433399992,
             "unit": "seconds"
           }
         ]
