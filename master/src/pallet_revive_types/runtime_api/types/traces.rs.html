@@ -204,17 +204,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#54 id=54 data-nosnippet>54</a>	</span><span class="kw">pub </span>gas_used: u64,
 <a href=#55 id=55 data-nosnippet>55</a>	<span class="kw">pub </span>to: H160,
 <a href=#56 id=56 data-nosnippet>56</a>	<span class="kw">pub </span>input: Bytes,
-<a href=#57 id=57 data-nosnippet>57</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Bytes::is_empty"</span>)]
+<a href=#57 id=57 data-nosnippet>57</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Bytes::is_empty"</span>)]
 <a href=#58 id=58 data-nosnippet>58</a>	</span><span class="kw">pub </span>output: Bytes,
-<a href=#59 id=59 data-nosnippet>59</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#59 id=59 data-nosnippet>59</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#60 id=60 data-nosnippet>60</a>	</span><span class="kw">pub </span>error: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#61 id=61 data-nosnippet>61</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#62 id=62 data-nosnippet>62</a>	</span><span class="kw">pub </span>revert_reason: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#63 id=63 data-nosnippet>63</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href=#63 id=63 data-nosnippet>63</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
 <a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">pub </span>calls: Vec&lt;<span class="self">Self</span>&gt;,
-<a href=#65 id=65 data-nosnippet>65</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
 <a href=#66 id=66 data-nosnippet>66</a>	</span><span class="kw">pub </span>logs: Vec&lt;CallLogV1&gt;,
-<a href=#67 id=67 data-nosnippet>67</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#67 id=67 data-nosnippet>67</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#68 id=68 data-nosnippet>68</a>	</span><span class="kw">pub </span>value: <span class="prelude-ty">Option</span>&lt;U256&gt;,
 <a href=#69 id=69 data-nosnippet>69</a>	<span class="attr">#[serde(rename = <span class="string">"type"</span>)]
 <a href=#70 id=70 data-nosnippet>70</a>	</span><span class="kw">pub </span>call_type: CallTypeV1,
@@ -234,17 +234,17 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#84 id=84 data-nosnippet>84</a>	</span><span class="kw">pub </span>gas_used: u64,
 <a href=#85 id=85 data-nosnippet>85</a>	<span class="kw">pub </span>to: H160,
 <a href=#86 id=86 data-nosnippet>86</a>	<span class="kw">pub </span>input: Bytes,
-<a href=#87 id=87 data-nosnippet>87</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Bytes::is_empty"</span>)]
+<a href=#87 id=87 data-nosnippet>87</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Bytes::is_empty"</span>)]
 <a href=#88 id=88 data-nosnippet>88</a>	</span><span class="kw">pub </span>output: Bytes,
-<a href=#89 id=89 data-nosnippet>89</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#89 id=89 data-nosnippet>89</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#90 id=90 data-nosnippet>90</a>	</span><span class="kw">pub </span>error: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#91 id=91 data-nosnippet>91</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#92 id=92 data-nosnippet>92</a>	</span><span class="kw">pub </span>revert_reason: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#93 id=93 data-nosnippet>93</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href=#93 id=93 data-nosnippet>93</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
 <a href=#94 id=94 data-nosnippet>94</a>	</span><span class="kw">pub </span>calls: Vec&lt;<span class="self">Self</span>&gt;,
-<a href=#95 id=95 data-nosnippet>95</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href=#95 id=95 data-nosnippet>95</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
 <a href=#96 id=96 data-nosnippet>96</a>	</span><span class="kw">pub </span>logs: Vec&lt;CallLogV2&gt;,
-<a href=#97 id=97 data-nosnippet>97</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#97 id=97 data-nosnippet>97</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">pub </span>value: <span class="prelude-ty">Option</span>&lt;U256&gt;,
 <a href=#99 id=99 data-nosnippet>99</a>	<span class="attr">#[serde(rename = <span class="string">"type"</span>)]
 <a href=#100 id=100 data-nosnippet>100</a>	</span><span class="kw">pub </span>call_type: CallTypeV1,
@@ -314,11 +314,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#164 id=164 data-nosnippet>164</a>	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 <a href=#165 id=165 data-nosnippet>165</a>)]
 <a href=#166 id=166 data-nosnippet>166</a></span><span class="kw">pub struct </span>PrestateTraceInfoV1 {
-<a href=#167 id=167 data-nosnippet>167</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#167 id=167 data-nosnippet>167</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#168 id=168 data-nosnippet>168</a>	</span><span class="kw">pub </span>balance: <span class="prelude-ty">Option</span>&lt;U256&gt;,
-<a href=#169 id=169 data-nosnippet>169</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#169 id=169 data-nosnippet>169</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#170 id=170 data-nosnippet>170</a>	</span><span class="kw">pub </span>nonce: <span class="prelude-ty">Option</span>&lt;u32&gt;,
-<a href=#171 id=171 data-nosnippet>171</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#171 id=171 data-nosnippet>171</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#172 id=172 data-nosnippet>172</a>	</span><span class="kw">pub </span>code: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
 <a href=#173 id=173 data-nosnippet>173</a>	<span class="attr">#[serde(
 <a href=#174 id=174 data-nosnippet>174</a>		default,
@@ -339,9 +339,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#189 id=189 data-nosnippet>189</a>	</span><span class="kw">pub </span>gas_cost: u64,
 <a href=#190 id=190 data-nosnippet>190</a>	<span class="kw">pub </span>weight_cost: Weight,
 <a href=#191 id=191 data-nosnippet>191</a>	<span class="kw">pub </span>depth: u16,
-<a href=#192 id=192 data-nosnippet>192</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Bytes::is_empty"</span>)]
+<a href=#192 id=192 data-nosnippet>192</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Bytes::is_empty"</span>)]
 <a href=#193 id=193 data-nosnippet>193</a>	</span><span class="kw">pub </span>return_data: Bytes,
-<a href=#194 id=194 data-nosnippet>194</a>	<span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#194 id=194 data-nosnippet>194</a>	<span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#195 id=195 data-nosnippet>195</a>	</span><span class="kw">pub </span>error: <span class="prelude-ty">Option</span>&lt;String&gt;,
 <a href=#196 id=196 data-nosnippet>196</a>	<span class="attr">#[serde(flatten)]
 <a href=#197 id=197 data-nosnippet>197</a>	</span><span class="kw">pub </span>kind: ExecutionStepKindV1,

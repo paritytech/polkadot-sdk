@@ -437,254 +437,255 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#287 id=287 data-nosnippet>287</a>			},
 <a href=#288 id=288 data-nosnippet>288</a>		};
 <a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a>		<span class="kw">let </span>runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone());
-<a href=#291 id=291 data-nosnippet>291</a>		<span class="kw">let </span>receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#292 id=292 data-nosnippet>292</a>		<span class="kw">let </span>max_variable_number = sqlite_db_query_max_variable_number(<span class="kw-2">&amp;</span>pool).<span class="kw">await</span>;
-<a href=#293 id=293 data-nosnippet>293</a>		<span class="kw">let </span>db_ctx = DbContext::new(pool, max_variable_number);
-<a href=#294 id=294 data-nosnippet>294</a>
-<a href=#295 id=295 data-nosnippet>295</a>		<span class="kw">let </span>receipt_provider = ReceiptProvider::new(
-<a href=#296 id=296 data-nosnippet>296</a>			db_ctx,
-<a href=#297 id=297 data-nosnippet>297</a>			block_provider.clone(),
-<a href=#298 id=298 data-nosnippet>298</a>			receipt_extractor.clone(),
-<a href=#299 id=299 data-nosnippet>299</a>			keep_latest_n_blocks,
-<a href=#300 id=300 data-nosnippet>300</a>		)
-<a href=#301 id=301 data-nosnippet>301</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>		<span class="kw">let </span>client = Client::new(
-<a href=#304 id=304 data-nosnippet>304</a>			api,
-<a href=#305 id=305 data-nosnippet>305</a>			rpc_client,
-<a href=#306 id=306 data-nosnippet>306</a>			rpc,
-<a href=#307 id=307 data-nosnippet>307</a>			block_provider,
-<a href=#308 id=308 data-nosnippet>308</a>			receipt_provider,
-<a href=#309 id=309 data-nosnippet>309</a>			eth_pruning.is_archive(),
-<a href=#310 id=310 data-nosnippet>310</a>			subscription_gap_queue,
-<a href=#311 id=311 data-nosnippet>311</a>			runtime_api_provider,
-<a href=#312 id=312 data-nosnippet>312</a>		)
-<a href=#313 id=313 data-nosnippet>313</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#314 id=314 data-nosnippet>314</a>
-<a href=#315 id=315 data-nosnippet>315</a>		<span class="prelude-val">Ok</span>(client)
-<a href=#316 id=316 data-nosnippet>316</a>	}
-<a href=#317 id=317 data-nosnippet>317</a>	.fuse();
-<a href=#318 id=318 data-nosnippet>318</a>	<span class="macro">pin_mut!</span>(fut);
-<a href=#319 id=319 data-nosnippet>319</a>
-<a href=#320 id=320 data-nosnippet>320</a>	<span class="kw">match </span>tokio_handle.block_on(abort_signal.try_until_signal(fut)) {
-<a href=#321 id=321 data-nosnippet>321</a>		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(client)) =&gt; <span class="prelude-val">Ok</span>(client),
-<a href=#322 id=322 data-nosnippet>322</a>		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err),
-<a href=#323 id=323 data-nosnippet>323</a>		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"Process interrupted"</span>),
-<a href=#324 id=324 data-nosnippet>324</a>	}
-<a href=#325 id=325 data-nosnippet>325</a>}
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a><span class="doccomment">/// Start the JSON-RPC server using the given command line arguments.
-<a href=#328 id=328 data-nosnippet>328</a></span><span class="kw">pub fn </span>run(cmd: CliCommand) -&gt; anyhow::Result&lt;()&gt; {
-<a href=#329 id=329 data-nosnippet>329</a>	<span class="kw">let </span>CliCommand {
-<a href=#330 id=330 data-nosnippet>330</a>		rpc_params,
-<a href=#331 id=331 data-nosnippet>331</a>		prometheus_params,
-<a href=#332 id=332 data-nosnippet>332</a>		node_rpc_url,
-<a href=#333 id=333 data-nosnippet>333</a>		eth_pruning,
-<a href=#334 id=334 data-nosnippet>334</a>		shared_params,
-<a href=#335 id=335 data-nosnippet>335</a>		allow_unprotected_txs,
-<a href=#336 id=336 data-nosnippet>336</a>		..
-<a href=#337 id=337 data-nosnippet>337</a>	} = cmd;
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>	<span class="attr">#[cfg(not(test))]
-<a href=#340 id=340 data-nosnippet>340</a>	</span>init_logger(<span class="kw-2">&amp;</span>shared_params)<span class="question-mark">?</span>;
-<a href=#341 id=341 data-nosnippet>341</a>	<span class="kw">let </span>is_dev = shared_params.dev;
-<a href=#342 id=342 data-nosnippet>342</a>	<span class="kw">let </span>explicit_base_path = shared_params.base_path.is_some();
-<a href=#343 id=343 data-nosnippet>343</a>	<span class="kw">let </span>base_path = shared_params.base_path()<span class="question-mark">?</span>;
-<a href=#344 id=344 data-nosnippet>344</a>
-<a href=#345 id=345 data-nosnippet>345</a>	<span class="kw">if </span>is_dev &amp;&amp; eth_pruning.is_archive() &amp;&amp; !explicit_base_path {
-<a href=#346 id=346 data-nosnippet>346</a>		<span class="macro">log::warn!</span>(
-<a href=#347 id=347 data-nosnippet>347</a>			target: LOG_TARGET,
-<a href=#348 id=348 data-nosnippet>348</a>			<span class="string">"⚠️  Running in --dev mode with --eth-pruning=archive but no --base-path. \
-<a href=#349 id=349 data-nosnippet>349</a>			 The database will be stored in a temporary directory and lost on exit. \
-<a href=#350 id=350 data-nosnippet>350</a>			 Use --base-path to persist the database."
-<a href=#351 id=351 data-nosnippet>351</a>		</span>);
-<a href=#352 id=352 data-nosnippet>352</a>	}
-<a href=#353 id=353 data-nosnippet>353</a>
-<a href=#354 id=354 data-nosnippet>354</a>	<span class="kw">let </span>db_options = resolve_db_options(eth_pruning, base_path)<span class="question-mark">?</span>;
-<a href=#355 id=355 data-nosnippet>355</a>
-<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">let </span>rpc_addrs: <span class="prelude-ty">Option</span>&lt;Vec&lt;sc_service::config::RpcEndpoint&gt;&gt; = rpc_params
-<a href=#357 id=357 data-nosnippet>357</a>		.rpc_addr(is_dev, <span class="bool-val">false</span>, DEFAULT_RPC_PORT)<span class="question-mark">?
-<a href=#358 id=358 data-nosnippet>358</a>		</span>.map(|addrs| addrs.into_iter().map(Into::into).collect());
-<a href=#359 id=359 data-nosnippet>359</a>
-<a href=#360 id=360 data-nosnippet>360</a>	<span class="kw">let </span>rpc_config = RpcConfiguration {
-<a href=#361 id=361 data-nosnippet>361</a>		addr: rpc_addrs,
-<a href=#362 id=362 data-nosnippet>362</a>		methods: rpc_params.rpc_methods.into(),
-<a href=#363 id=363 data-nosnippet>363</a>		max_connections: rpc_params.rpc_max_connections,
-<a href=#364 id=364 data-nosnippet>364</a>		cors: rpc_params.rpc_cors(is_dev)<span class="question-mark">?</span>,
-<a href=#365 id=365 data-nosnippet>365</a>		max_request_size: rpc_params.rpc_max_request_size,
-<a href=#366 id=366 data-nosnippet>366</a>		max_response_size: rpc_params.rpc_max_response_size,
-<a href=#367 id=367 data-nosnippet>367</a>		id_provider: <span class="prelude-val">None</span>,
-<a href=#368 id=368 data-nosnippet>368</a>		max_subs_per_conn: rpc_params.rpc_max_subscriptions_per_connection,
-<a href=#369 id=369 data-nosnippet>369</a>		port: rpc_params.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
-<a href=#370 id=370 data-nosnippet>370</a>		message_buffer_capacity: rpc_params.rpc_message_buffer_capacity_per_connection,
-<a href=#371 id=371 data-nosnippet>371</a>		batch_config: rpc_params.rpc_batch_config()<span class="question-mark">?</span>,
-<a href=#372 id=372 data-nosnippet>372</a>		rate_limit: rpc_params.rpc_rate_limit,
-<a href=#373 id=373 data-nosnippet>373</a>		rate_limit_whitelisted_ips: rpc_params.rpc_rate_limit_whitelisted_ips,
-<a href=#374 id=374 data-nosnippet>374</a>		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
-<a href=#375 id=375 data-nosnippet>375</a>		request_logger_limit: <span class="kw">if </span>is_dev { <span class="number">1024 </span>* <span class="number">1024 </span>} <span class="kw">else </span>{ <span class="number">1024 </span>},
-<a href=#376 id=376 data-nosnippet>376</a>	};
-<a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a>	<span class="kw">let </span>prometheus_config =
-<a href=#379 id=379 data-nosnippet>379</a>		prometheus_params.prometheus_config(DEFAULT_PROMETHEUS_PORT, <span class="string">"eth-rpc"</span>.into());
-<a href=#380 id=380 data-nosnippet>380</a>	<span class="kw">let </span>prometheus_registry = prometheus_config.as_ref().map(|config| <span class="kw-2">&amp;</span>config.registry);
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">let </span>tokio_runtime = sc_cli::build_runtime()<span class="question-mark">?</span>;
-<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">let </span>tokio_handle = tokio_runtime.handle();
-<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">let </span><span class="kw-2">mut </span>task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)<span class="question-mark">?</span>;
-<a href=#385 id=385 data-nosnippet>385</a>
-<a href=#386 id=386 data-nosnippet>386</a>	<span class="kw">let </span>(subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
-<a href=#387 id=387 data-nosnippet>387</a>	<span class="kw">let </span>client = build_client(
-<a href=#388 id=388 data-nosnippet>388</a>		tokio_handle,
-<a href=#389 id=389 data-nosnippet>389</a>		eth_pruning,
-<a href=#390 id=390 data-nosnippet>390</a>		<span class="kw-2">&amp;</span>node_rpc_url,
-<a href=#391 id=391 data-nosnippet>391</a>		db_options,
-<a href=#392 id=392 data-nosnippet>392</a>		rpc_config.max_request_size * <span class="number">1024 </span>* <span class="number">1024</span>,
-<a href=#393 id=393 data-nosnippet>393</a>		rpc_config.max_response_size * <span class="number">1024 </span>* <span class="number">1024</span>,
-<a href=#394 id=394 data-nosnippet>394</a>		tokio_runtime.block_on(<span class="kw">async </span>{ Signals::capture() })<span class="question-mark">?</span>,
-<a href=#395 id=395 data-nosnippet>395</a>		subscription_gap_queue,
-<a href=#396 id=396 data-nosnippet>396</a>	)<span class="question-mark">?</span>;
-<a href=#397 id=397 data-nosnippet>397</a>
-<a href=#398 id=398 data-nosnippet>398</a>	<span class="comment">// Prometheus metrics.
-<a href=#399 id=399 data-nosnippet>399</a>	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(PrometheusConfig { port, registry }) = prometheus_config.clone() {
-<a href=#400 id=400 data-nosnippet>400</a>		task_manager.spawn_handle().spawn(
-<a href=#401 id=401 data-nosnippet>401</a>			<span class="string">"prometheus-endpoint"</span>,
-<a href=#402 id=402 data-nosnippet>402</a>			<span class="prelude-val">None</span>,
-<a href=#403 id=403 data-nosnippet>403</a>			prometheus_endpoint::init_prometheus(port, registry).map(drop),
-<a href=#404 id=404 data-nosnippet>404</a>		);
-<a href=#405 id=405 data-nosnippet>405</a>	}
-<a href=#406 id=406 data-nosnippet>406</a>
-<a href=#407 id=407 data-nosnippet>407</a>	<span class="kw">let </span>rpc_runtime = create_rpc_runtime(rpc_config.max_connections)
-<a href=#408 id=408 data-nosnippet>408</a>		.map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"Failed to create RPC runtime: {}"</span>, e))<span class="question-mark">?</span>;
-<a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>	<span class="kw">let </span>rpc_api = rpc_module(is_dev, client.clone(), allow_unprotected_txs)<span class="question-mark">?</span>;
-<a href=#411 id=411 data-nosnippet>411</a>	<span class="kw">let </span>rpc_server_handle = start_rpc_servers(
-<a href=#412 id=412 data-nosnippet>412</a>		<span class="kw-2">&amp;</span>rpc_config,
-<a href=#413 id=413 data-nosnippet>413</a>		prometheus_registry,
-<a href=#414 id=414 data-nosnippet>414</a>		tokio_handle,
-<a href=#415 id=415 data-nosnippet>415</a>		rpc_api,
-<a href=#416 id=416 data-nosnippet>416</a>		rpc_runtime,
-<a href=#417 id=417 data-nosnippet>417</a>		<span class="prelude-val">None</span>,
-<a href=#418 id=418 data-nosnippet>418</a>	)<span class="question-mark">?</span>;
-<a href=#419 id=419 data-nosnippet>419</a>
-<a href=#420 id=420 data-nosnippet>420</a>	task_manager
-<a href=#421 id=421 data-nosnippet>421</a>		.spawn_essential_handle()
-<a href=#422 id=422 data-nosnippet>422</a>		.spawn(<span class="string">"block-subscription"</span>, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-<a href=#423 id=423 data-nosnippet>423</a>			<span class="kw">let </span><span class="kw-2">mut </span>futures: Vec&lt;BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;(), <span class="kw">_</span>&gt;&gt;&gt; = <span class="macro">vec!</span>[
-<a href=#424 id=424 data-nosnippet>424</a>				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
-<a href=#425 id=425 data-nosnippet>425</a>				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
-<a href=#426 id=426 data-nosnippet>426</a>			];
-<a href=#427 id=427 data-nosnippet>427</a>
-<a href=#428 id=428 data-nosnippet>428</a>			<span class="kw">if </span>eth_pruning.is_archive() {
-<a href=#429 id=429 data-nosnippet>429</a>				futures.push(Box::pin(client.sync_backward()));
-<a href=#430 id=430 data-nosnippet>430</a>			}
-<a href=#431 id=431 data-nosnippet>431</a>
-<a href=#432 id=432 data-nosnippet>432</a>			<span class="comment">// Backfill gaps caused by subscription reconnects.
-<a href=#433 id=433 data-nosnippet>433</a>			</span>futures.push(Box::pin(<span class="kw">async </span>{
-<a href=#434 id=434 data-nosnippet>434</a>				client.run_subscription_gap_filler(gap_fill_rx).<span class="kw">await</span>;
-<a href=#435 id=435 data-nosnippet>435</a>				<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, ClientError&gt;(())
-<a href=#436 id=436 data-nosnippet>436</a>			}));
-<a href=#437 id=437 data-nosnippet>437</a>
-<a href=#438 id=438 data-nosnippet>438</a>			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = futures::future::try_join_all(futures).<span class="kw">await </span>{
-<a href=#439 id=439 data-nosnippet>439</a>				<span class="macro">panic!</span>(<span class="string">"Block subscription task failed: {err:?}"</span>,)
-<a href=#440 id=440 data-nosnippet>440</a>			}
-<a href=#441 id=441 data-nosnippet>441</a>		});
-<a href=#442 id=442 data-nosnippet>442</a>
-<a href=#443 id=443 data-nosnippet>443</a>	task_manager.keep_alive(rpc_server_handle);
-<a href=#444 id=444 data-nosnippet>444</a>	<span class="kw">let </span>signals = tokio_runtime.block_on(<span class="kw">async </span>{ Signals::capture() })<span class="question-mark">?</span>;
-<a href=#445 id=445 data-nosnippet>445</a>	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))<span class="question-mark">?</span>;
-<a href=#446 id=446 data-nosnippet>446</a>	<span class="prelude-val">Ok</span>(())
-<a href=#447 id=447 data-nosnippet>447</a>}
-<a href=#448 id=448 data-nosnippet>448</a>
-<a href=#449 id=449 data-nosnippet>449</a><span class="doccomment">/// Create the JSON-RPC module.
-<a href=#450 id=450 data-nosnippet>450</a></span><span class="kw">fn </span>rpc_module(
-<a href=#451 id=451 data-nosnippet>451</a>	is_dev: bool,
-<a href=#452 id=452 data-nosnippet>452</a>	client: Client,
-<a href=#453 id=453 data-nosnippet>453</a>	allow_unprotected_txs: bool,
-<a href=#454 id=454 data-nosnippet>454</a>) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, sc_service::Error&gt; {
-<a href=#455 id=455 data-nosnippet>455</a>	<span class="kw">let </span>eth_api = EthRpcServerImpl::new(client.clone())
-<a href=#456 id=456 data-nosnippet>456</a>		.with_accounts(<span class="kw">if </span>is_dev {
-<a href=#457 id=457 data-nosnippet>457</a>			<span class="macro">vec!</span>[
-<a href=#458 id=458 data-nosnippet>458</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::alith()),
-<a href=#459 id=459 data-nosnippet>459</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::baltathar()),
-<a href=#460 id=460 data-nosnippet>460</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::charleth()),
-<a href=#461 id=461 data-nosnippet>461</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::dorothy()),
-<a href=#462 id=462 data-nosnippet>462</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::ethan()),
-<a href=#463 id=463 data-nosnippet>463</a>			]
-<a href=#464 id=464 data-nosnippet>464</a>		} <span class="kw">else </span>{
-<a href=#465 id=465 data-nosnippet>465</a>			<span class="macro">vec!</span>[]
-<a href=#466 id=466 data-nosnippet>466</a>		})
-<a href=#467 id=467 data-nosnippet>467</a>		.with_allow_unprotected_txs(allow_unprotected_txs)
-<a href=#468 id=468 data-nosnippet>468</a>		.with_use_pending_for_estimate_gas(is_dev)
-<a href=#469 id=469 data-nosnippet>469</a>		.into_rpc();
-<a href=#470 id=470 data-nosnippet>470</a>
-<a href=#471 id=471 data-nosnippet>471</a>	<span class="kw">let </span>health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
-<a href=#472 id=472 data-nosnippet>472</a>	<span class="kw">let </span>debug_api = DebugRpcServerImpl::new(client.clone()).into_rpc();
-<a href=#473 id=473 data-nosnippet>473</a>	<span class="kw">let </span>polkadot_api = PolkadotRpcServerImpl::new(client).into_rpc();
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
-<a href=#476 id=476 data-nosnippet>476</a>	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
-<a href=#477 id=477 data-nosnippet>477</a>	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
-<a href=#478 id=478 data-nosnippet>478</a>	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
-<a href=#479 id=479 data-nosnippet>479</a>	module
-<a href=#480 id=480 data-nosnippet>480</a>		.merge(polkadot_api)
-<a href=#481 id=481 data-nosnippet>481</a>		.map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
-<a href=#482 id=482 data-nosnippet>482</a>	<span class="prelude-val">Ok</span>(module)
-<a href=#483 id=483 data-nosnippet>483</a>}
-<a href=#484 id=484 data-nosnippet>484</a>
-<a href=#485 id=485 data-nosnippet>485</a><span class="attr">#[cfg(test)]
-<a href=#486 id=486 data-nosnippet>486</a></span><span class="kw">mod </span>tests {
-<a href=#487 id=487 data-nosnippet>487</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#488 id=488 data-nosnippet>488</a>	<span class="kw">use </span>tempfile::TempDir;
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>	<span class="attr">#[test]
-<a href=#491 id=491 data-nosnippet>491</a>	</span><span class="kw">fn </span>in_memory_returns_memory_options() {
-<a href=#492 id=492 data-nosnippet>492</a>		<span class="kw">let </span>opts = resolve_db_options(EthPruningMode::KeepLatest(<span class="number">256</span>), <span class="prelude-val">None</span>).unwrap();
-<a href=#493 id=493 data-nosnippet>493</a>		<span class="comment">// In-memory options produce `:memory:` filename.
-<a href=#494 id=494 data-nosnippet>494</a>		</span><span class="kw">let </span>filename = opts.get_filename();
-<a href=#495 id=495 data-nosnippet>495</a>		<span class="macro">assert_eq!</span>(filename, std::path::Path::new(<span class="string">":memory:"</span>));
-<a href=#496 id=496 data-nosnippet>496</a>	}
-<a href=#497 id=497 data-nosnippet>497</a>
-<a href=#498 id=498 data-nosnippet>498</a>	<span class="attr">#[test]
-<a href=#499 id=499 data-nosnippet>499</a>	</span><span class="kw">fn </span>persistent_with_explicit_base_path() {
-<a href=#500 id=500 data-nosnippet>500</a>		<span class="kw">let </span>tmp = TempDir::new().unwrap();
-<a href=#501 id=501 data-nosnippet>501</a>		<span class="kw">let </span>base = BasePath::new(tmp.path());
-<a href=#502 id=502 data-nosnippet>502</a>		<span class="kw">let </span>opts = resolve_db_options(EthPruningMode::Archive, <span class="prelude-val">Some</span>(base)).unwrap();
-<a href=#503 id=503 data-nosnippet>503</a>		<span class="macro">assert_eq!</span>(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
-<a href=#504 id=504 data-nosnippet>504</a>		<span class="macro">assert!</span>(tmp.path().exists());
-<a href=#505 id=505 data-nosnippet>505</a>	}
-<a href=#506 id=506 data-nosnippet>506</a>
-<a href=#507 id=507 data-nosnippet>507</a>	<span class="attr">#[test]
-<a href=#508 id=508 data-nosnippet>508</a>	</span><span class="kw">fn </span>persistent_default_path() {
-<a href=#509 id=509 data-nosnippet>509</a>		<span class="kw">let </span>opts = resolve_db_options(EthPruningMode::Archive, <span class="prelude-val">None</span>).unwrap();
-<a href=#510 id=510 data-nosnippet>510</a>		<span class="kw">let </span>filename = opts.get_filename().to_string_lossy().to_string();
-<a href=#511 id=511 data-nosnippet>511</a>		<span class="macro">assert!</span>(filename.contains(<span class="string">"eth-rpc"</span>));
-<a href=#512 id=512 data-nosnippet>512</a>		<span class="macro">assert!</span>(filename.contains(DEFAULT_DATABASE_NAME));
-<a href=#513 id=513 data-nosnippet>513</a>	}
-<a href=#514 id=514 data-nosnippet>514</a>
-<a href=#515 id=515 data-nosnippet>515</a>	<span class="attr">#[test]
-<a href=#516 id=516 data-nosnippet>516</a>	</span><span class="kw">fn </span>persistent_creates_nested_directories() {
-<a href=#517 id=517 data-nosnippet>517</a>		<span class="kw">let </span>tmp = TempDir::new().unwrap();
-<a href=#518 id=518 data-nosnippet>518</a>		<span class="kw">let </span>nested = tmp.path().join(<span class="string">"a"</span>).join(<span class="string">"b"</span>);
-<a href=#519 id=519 data-nosnippet>519</a>		<span class="kw">let </span>base = BasePath::new(<span class="kw-2">&amp;</span>nested);
-<a href=#520 id=520 data-nosnippet>520</a>		resolve_db_options(EthPruningMode::Archive, <span class="prelude-val">Some</span>(base)).unwrap();
-<a href=#521 id=521 data-nosnippet>521</a>		<span class="macro">assert!</span>(nested.exists());
-<a href=#522 id=522 data-nosnippet>522</a>	}
-<a href=#523 id=523 data-nosnippet>523</a>
-<a href=#524 id=524 data-nosnippet>524</a>	<span class="attr">#[test]
-<a href=#525 id=525 data-nosnippet>525</a>	</span><span class="kw">fn </span>eth_pruning_mode() {
-<a href=#526 id=526 data-nosnippet>526</a>		<span class="comment">// CLI parsing
-<a href=#527 id=527 data-nosnippet>527</a>		</span><span class="kw">let </span>cmd = CliCommand::try_parse_from([<span class="string">"eth-rpc"</span>, <span class="string">"--eth-pruning"</span>, <span class="string">"archive"</span>]).unwrap();
-<a href=#528 id=528 data-nosnippet>528</a>		<span class="macro">assert_eq!</span>(cmd.eth_pruning, EthPruningMode::Archive);
-<a href=#529 id=529 data-nosnippet>529</a>
-<a href=#530 id=530 data-nosnippet>530</a>		<span class="kw">let </span>cmd = CliCommand::try_parse_from([<span class="string">"eth-rpc"</span>, <span class="string">"--eth-pruning"</span>, <span class="string">"256"</span>]).unwrap();
-<a href=#531 id=531 data-nosnippet>531</a>		<span class="macro">assert_eq!</span>(cmd.eth_pruning, EthPruningMode::KeepLatest(<span class="number">256</span>));
-<a href=#532 id=532 data-nosnippet>532</a>
-<a href=#533 id=533 data-nosnippet>533</a>		<span class="comment">// Default is archive
-<a href=#534 id=534 data-nosnippet>534</a>		</span><span class="kw">let </span>cmd = CliCommand::try_parse_from([<span class="string">"eth-rpc"</span>]).unwrap();
-<a href=#535 id=535 data-nosnippet>535</a>		<span class="macro">assert_eq!</span>(cmd.eth_pruning, EthPruningMode::Archive);
-<a href=#536 id=536 data-nosnippet>536</a>	}
-<a href=#537 id=537 data-nosnippet>537</a>}
+<a href=#290 id=290 data-nosnippet>290</a>		<span class="kw">let </span>runtime_api_provider =
+<a href=#291 id=291 data-nosnippet>291</a>			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+<a href=#292 id=292 data-nosnippet>292</a>		<span class="kw">let </span>receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#293 id=293 data-nosnippet>293</a>		<span class="kw">let </span>max_variable_number = sqlite_db_query_max_variable_number(<span class="kw-2">&amp;</span>pool).<span class="kw">await</span>;
+<a href=#294 id=294 data-nosnippet>294</a>		<span class="kw">let </span>db_ctx = DbContext::new(pool, max_variable_number);
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>		<span class="kw">let </span>receipt_provider = ReceiptProvider::new(
+<a href=#297 id=297 data-nosnippet>297</a>			db_ctx,
+<a href=#298 id=298 data-nosnippet>298</a>			block_provider.clone(),
+<a href=#299 id=299 data-nosnippet>299</a>			receipt_extractor.clone(),
+<a href=#300 id=300 data-nosnippet>300</a>			keep_latest_n_blocks,
+<a href=#301 id=301 data-nosnippet>301</a>		)
+<a href=#302 id=302 data-nosnippet>302</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#303 id=303 data-nosnippet>303</a>
+<a href=#304 id=304 data-nosnippet>304</a>		<span class="kw">let </span>client = Client::new(
+<a href=#305 id=305 data-nosnippet>305</a>			api,
+<a href=#306 id=306 data-nosnippet>306</a>			rpc_client,
+<a href=#307 id=307 data-nosnippet>307</a>			rpc,
+<a href=#308 id=308 data-nosnippet>308</a>			block_provider,
+<a href=#309 id=309 data-nosnippet>309</a>			receipt_provider,
+<a href=#310 id=310 data-nosnippet>310</a>			eth_pruning.is_archive(),
+<a href=#311 id=311 data-nosnippet>311</a>			subscription_gap_queue,
+<a href=#312 id=312 data-nosnippet>312</a>			runtime_api_provider,
+<a href=#313 id=313 data-nosnippet>313</a>		)
+<a href=#314 id=314 data-nosnippet>314</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>		<span class="prelude-val">Ok</span>(client)
+<a href=#317 id=317 data-nosnippet>317</a>	}
+<a href=#318 id=318 data-nosnippet>318</a>	.fuse();
+<a href=#319 id=319 data-nosnippet>319</a>	<span class="macro">pin_mut!</span>(fut);
+<a href=#320 id=320 data-nosnippet>320</a>
+<a href=#321 id=321 data-nosnippet>321</a>	<span class="kw">match </span>tokio_handle.block_on(abort_signal.try_until_signal(fut)) {
+<a href=#322 id=322 data-nosnippet>322</a>		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(client)) =&gt; <span class="prelude-val">Ok</span>(client),
+<a href=#323 id=323 data-nosnippet>323</a>		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err),
+<a href=#324 id=324 data-nosnippet>324</a>		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"Process interrupted"</span>),
+<a href=#325 id=325 data-nosnippet>325</a>	}
+<a href=#326 id=326 data-nosnippet>326</a>}
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a><span class="doccomment">/// Start the JSON-RPC server using the given command line arguments.
+<a href=#329 id=329 data-nosnippet>329</a></span><span class="kw">pub fn </span>run(cmd: CliCommand) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#330 id=330 data-nosnippet>330</a>	<span class="kw">let </span>CliCommand {
+<a href=#331 id=331 data-nosnippet>331</a>		rpc_params,
+<a href=#332 id=332 data-nosnippet>332</a>		prometheus_params,
+<a href=#333 id=333 data-nosnippet>333</a>		node_rpc_url,
+<a href=#334 id=334 data-nosnippet>334</a>		eth_pruning,
+<a href=#335 id=335 data-nosnippet>335</a>		shared_params,
+<a href=#336 id=336 data-nosnippet>336</a>		allow_unprotected_txs,
+<a href=#337 id=337 data-nosnippet>337</a>		..
+<a href=#338 id=338 data-nosnippet>338</a>	} = cmd;
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>	<span class="attr">#[cfg(not(test))]
+<a href=#341 id=341 data-nosnippet>341</a>	</span>init_logger(<span class="kw-2">&amp;</span>shared_params)<span class="question-mark">?</span>;
+<a href=#342 id=342 data-nosnippet>342</a>	<span class="kw">let </span>is_dev = shared_params.dev;
+<a href=#343 id=343 data-nosnippet>343</a>	<span class="kw">let </span>explicit_base_path = shared_params.base_path.is_some();
+<a href=#344 id=344 data-nosnippet>344</a>	<span class="kw">let </span>base_path = shared_params.base_path()<span class="question-mark">?</span>;
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>	<span class="kw">if </span>is_dev &amp;&amp; eth_pruning.is_archive() &amp;&amp; !explicit_base_path {
+<a href=#347 id=347 data-nosnippet>347</a>		<span class="macro">log::warn!</span>(
+<a href=#348 id=348 data-nosnippet>348</a>			target: LOG_TARGET,
+<a href=#349 id=349 data-nosnippet>349</a>			<span class="string">"⚠️  Running in --dev mode with --eth-pruning=archive but no --base-path. \
+<a href=#350 id=350 data-nosnippet>350</a>			 The database will be stored in a temporary directory and lost on exit. \
+<a href=#351 id=351 data-nosnippet>351</a>			 Use --base-path to persist the database."
+<a href=#352 id=352 data-nosnippet>352</a>		</span>);
+<a href=#353 id=353 data-nosnippet>353</a>	}
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>	<span class="kw">let </span>db_options = resolve_db_options(eth_pruning, base_path)<span class="question-mark">?</span>;
+<a href=#356 id=356 data-nosnippet>356</a>
+<a href=#357 id=357 data-nosnippet>357</a>	<span class="kw">let </span>rpc_addrs: <span class="prelude-ty">Option</span>&lt;Vec&lt;sc_service::config::RpcEndpoint&gt;&gt; = rpc_params
+<a href=#358 id=358 data-nosnippet>358</a>		.rpc_addr(is_dev, <span class="bool-val">false</span>, DEFAULT_RPC_PORT)<span class="question-mark">?
+<a href=#359 id=359 data-nosnippet>359</a>		</span>.map(|addrs| addrs.into_iter().map(Into::into).collect());
+<a href=#360 id=360 data-nosnippet>360</a>
+<a href=#361 id=361 data-nosnippet>361</a>	<span class="kw">let </span>rpc_config = RpcConfiguration {
+<a href=#362 id=362 data-nosnippet>362</a>		addr: rpc_addrs,
+<a href=#363 id=363 data-nosnippet>363</a>		methods: rpc_params.rpc_methods.into(),
+<a href=#364 id=364 data-nosnippet>364</a>		max_connections: rpc_params.rpc_max_connections,
+<a href=#365 id=365 data-nosnippet>365</a>		cors: rpc_params.rpc_cors(is_dev)<span class="question-mark">?</span>,
+<a href=#366 id=366 data-nosnippet>366</a>		max_request_size: rpc_params.rpc_max_request_size,
+<a href=#367 id=367 data-nosnippet>367</a>		max_response_size: rpc_params.rpc_max_response_size,
+<a href=#368 id=368 data-nosnippet>368</a>		id_provider: <span class="prelude-val">None</span>,
+<a href=#369 id=369 data-nosnippet>369</a>		max_subs_per_conn: rpc_params.rpc_max_subscriptions_per_connection,
+<a href=#370 id=370 data-nosnippet>370</a>		port: rpc_params.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
+<a href=#371 id=371 data-nosnippet>371</a>		message_buffer_capacity: rpc_params.rpc_message_buffer_capacity_per_connection,
+<a href=#372 id=372 data-nosnippet>372</a>		batch_config: rpc_params.rpc_batch_config()<span class="question-mark">?</span>,
+<a href=#373 id=373 data-nosnippet>373</a>		rate_limit: rpc_params.rpc_rate_limit,
+<a href=#374 id=374 data-nosnippet>374</a>		rate_limit_whitelisted_ips: rpc_params.rpc_rate_limit_whitelisted_ips,
+<a href=#375 id=375 data-nosnippet>375</a>		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
+<a href=#376 id=376 data-nosnippet>376</a>		request_logger_limit: <span class="kw">if </span>is_dev { <span class="number">1024 </span>* <span class="number">1024 </span>} <span class="kw">else </span>{ <span class="number">1024 </span>},
+<a href=#377 id=377 data-nosnippet>377</a>	};
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>	<span class="kw">let </span>prometheus_config =
+<a href=#380 id=380 data-nosnippet>380</a>		prometheus_params.prometheus_config(DEFAULT_PROMETHEUS_PORT, <span class="string">"eth-rpc"</span>.into());
+<a href=#381 id=381 data-nosnippet>381</a>	<span class="kw">let </span>prometheus_registry = prometheus_config.as_ref().map(|config| <span class="kw-2">&amp;</span>config.registry);
+<a href=#382 id=382 data-nosnippet>382</a>
+<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">let </span>tokio_runtime = sc_cli::build_runtime()<span class="question-mark">?</span>;
+<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">let </span>tokio_handle = tokio_runtime.handle();
+<a href=#385 id=385 data-nosnippet>385</a>	<span class="kw">let </span><span class="kw-2">mut </span>task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)<span class="question-mark">?</span>;
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a>	<span class="kw">let </span>(subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
+<a href=#388 id=388 data-nosnippet>388</a>	<span class="kw">let </span>client = build_client(
+<a href=#389 id=389 data-nosnippet>389</a>		tokio_handle,
+<a href=#390 id=390 data-nosnippet>390</a>		eth_pruning,
+<a href=#391 id=391 data-nosnippet>391</a>		<span class="kw-2">&amp;</span>node_rpc_url,
+<a href=#392 id=392 data-nosnippet>392</a>		db_options,
+<a href=#393 id=393 data-nosnippet>393</a>		rpc_config.max_request_size * <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#394 id=394 data-nosnippet>394</a>		rpc_config.max_response_size * <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#395 id=395 data-nosnippet>395</a>		tokio_runtime.block_on(<span class="kw">async </span>{ Signals::capture() })<span class="question-mark">?</span>,
+<a href=#396 id=396 data-nosnippet>396</a>		subscription_gap_queue,
+<a href=#397 id=397 data-nosnippet>397</a>	)<span class="question-mark">?</span>;
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>	<span class="comment">// Prometheus metrics.
+<a href=#400 id=400 data-nosnippet>400</a>	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(PrometheusConfig { port, registry }) = prometheus_config.clone() {
+<a href=#401 id=401 data-nosnippet>401</a>		task_manager.spawn_handle().spawn(
+<a href=#402 id=402 data-nosnippet>402</a>			<span class="string">"prometheus-endpoint"</span>,
+<a href=#403 id=403 data-nosnippet>403</a>			<span class="prelude-val">None</span>,
+<a href=#404 id=404 data-nosnippet>404</a>			prometheus_endpoint::init_prometheus(port, registry).map(drop),
+<a href=#405 id=405 data-nosnippet>405</a>		);
+<a href=#406 id=406 data-nosnippet>406</a>	}
+<a href=#407 id=407 data-nosnippet>407</a>
+<a href=#408 id=408 data-nosnippet>408</a>	<span class="kw">let </span>rpc_runtime = create_rpc_runtime(rpc_config.max_connections)
+<a href=#409 id=409 data-nosnippet>409</a>		.map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"Failed to create RPC runtime: {}"</span>, e))<span class="question-mark">?</span>;
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>	<span class="kw">let </span>rpc_api = rpc_module(is_dev, client.clone(), allow_unprotected_txs)<span class="question-mark">?</span>;
+<a href=#412 id=412 data-nosnippet>412</a>	<span class="kw">let </span>rpc_server_handle = start_rpc_servers(
+<a href=#413 id=413 data-nosnippet>413</a>		<span class="kw-2">&amp;</span>rpc_config,
+<a href=#414 id=414 data-nosnippet>414</a>		prometheus_registry,
+<a href=#415 id=415 data-nosnippet>415</a>		tokio_handle,
+<a href=#416 id=416 data-nosnippet>416</a>		rpc_api,
+<a href=#417 id=417 data-nosnippet>417</a>		rpc_runtime,
+<a href=#418 id=418 data-nosnippet>418</a>		<span class="prelude-val">None</span>,
+<a href=#419 id=419 data-nosnippet>419</a>	)<span class="question-mark">?</span>;
+<a href=#420 id=420 data-nosnippet>420</a>
+<a href=#421 id=421 data-nosnippet>421</a>	task_manager
+<a href=#422 id=422 data-nosnippet>422</a>		.spawn_essential_handle()
+<a href=#423 id=423 data-nosnippet>423</a>		.spawn(<span class="string">"block-subscription"</span>, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+<a href=#424 id=424 data-nosnippet>424</a>			<span class="kw">let </span><span class="kw-2">mut </span>futures: Vec&lt;BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;(), <span class="kw">_</span>&gt;&gt;&gt; = <span class="macro">vec!</span>[
+<a href=#425 id=425 data-nosnippet>425</a>				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
+<a href=#426 id=426 data-nosnippet>426</a>				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
+<a href=#427 id=427 data-nosnippet>427</a>			];
+<a href=#428 id=428 data-nosnippet>428</a>
+<a href=#429 id=429 data-nosnippet>429</a>			<span class="kw">if </span>eth_pruning.is_archive() {
+<a href=#430 id=430 data-nosnippet>430</a>				futures.push(Box::pin(client.sync_backward()));
+<a href=#431 id=431 data-nosnippet>431</a>			}
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a>			<span class="comment">// Backfill gaps caused by subscription reconnects.
+<a href=#434 id=434 data-nosnippet>434</a>			</span>futures.push(Box::pin(<span class="kw">async </span>{
+<a href=#435 id=435 data-nosnippet>435</a>				client.run_subscription_gap_filler(gap_fill_rx).<span class="kw">await</span>;
+<a href=#436 id=436 data-nosnippet>436</a>				<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, ClientError&gt;(())
+<a href=#437 id=437 data-nosnippet>437</a>			}));
+<a href=#438 id=438 data-nosnippet>438</a>
+<a href=#439 id=439 data-nosnippet>439</a>			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = futures::future::try_join_all(futures).<span class="kw">await </span>{
+<a href=#440 id=440 data-nosnippet>440</a>				<span class="macro">panic!</span>(<span class="string">"Block subscription task failed: {err:?}"</span>,)
+<a href=#441 id=441 data-nosnippet>441</a>			}
+<a href=#442 id=442 data-nosnippet>442</a>		});
+<a href=#443 id=443 data-nosnippet>443</a>
+<a href=#444 id=444 data-nosnippet>444</a>	task_manager.keep_alive(rpc_server_handle);
+<a href=#445 id=445 data-nosnippet>445</a>	<span class="kw">let </span>signals = tokio_runtime.block_on(<span class="kw">async </span>{ Signals::capture() })<span class="question-mark">?</span>;
+<a href=#446 id=446 data-nosnippet>446</a>	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))<span class="question-mark">?</span>;
+<a href=#447 id=447 data-nosnippet>447</a>	<span class="prelude-val">Ok</span>(())
+<a href=#448 id=448 data-nosnippet>448</a>}
+<a href=#449 id=449 data-nosnippet>449</a>
+<a href=#450 id=450 data-nosnippet>450</a><span class="doccomment">/// Create the JSON-RPC module.
+<a href=#451 id=451 data-nosnippet>451</a></span><span class="kw">fn </span>rpc_module(
+<a href=#452 id=452 data-nosnippet>452</a>	is_dev: bool,
+<a href=#453 id=453 data-nosnippet>453</a>	client: Client,
+<a href=#454 id=454 data-nosnippet>454</a>	allow_unprotected_txs: bool,
+<a href=#455 id=455 data-nosnippet>455</a>) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;()&gt;, sc_service::Error&gt; {
+<a href=#456 id=456 data-nosnippet>456</a>	<span class="kw">let </span>eth_api = EthRpcServerImpl::new(client.clone())
+<a href=#457 id=457 data-nosnippet>457</a>		.with_accounts(<span class="kw">if </span>is_dev {
+<a href=#458 id=458 data-nosnippet>458</a>			<span class="macro">vec!</span>[
+<a href=#459 id=459 data-nosnippet>459</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::alith()),
+<a href=#460 id=460 data-nosnippet>460</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::baltathar()),
+<a href=#461 id=461 data-nosnippet>461</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::charleth()),
+<a href=#462 id=462 data-nosnippet>462</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::dorothy()),
+<a href=#463 id=463 data-nosnippet>463</a>				<span class="kw">crate</span>::Account::from(subxt_signer::eth::dev::ethan()),
+<a href=#464 id=464 data-nosnippet>464</a>			]
+<a href=#465 id=465 data-nosnippet>465</a>		} <span class="kw">else </span>{
+<a href=#466 id=466 data-nosnippet>466</a>			<span class="macro">vec!</span>[]
+<a href=#467 id=467 data-nosnippet>467</a>		})
+<a href=#468 id=468 data-nosnippet>468</a>		.with_allow_unprotected_txs(allow_unprotected_txs)
+<a href=#469 id=469 data-nosnippet>469</a>		.with_use_pending_for_estimate_gas(is_dev)
+<a href=#470 id=470 data-nosnippet>470</a>		.into_rpc();
+<a href=#471 id=471 data-nosnippet>471</a>
+<a href=#472 id=472 data-nosnippet>472</a>	<span class="kw">let </span>health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
+<a href=#473 id=473 data-nosnippet>473</a>	<span class="kw">let </span>debug_api = DebugRpcServerImpl::new(client.clone()).into_rpc();
+<a href=#474 id=474 data-nosnippet>474</a>	<span class="kw">let </span>polkadot_api = PolkadotRpcServerImpl::new(client).into_rpc();
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
+<a href=#477 id=477 data-nosnippet>477</a>	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
+<a href=#478 id=478 data-nosnippet>478</a>	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
+<a href=#479 id=479 data-nosnippet>479</a>	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
+<a href=#480 id=480 data-nosnippet>480</a>	module
+<a href=#481 id=481 data-nosnippet>481</a>		.merge(polkadot_api)
+<a href=#482 id=482 data-nosnippet>482</a>		.map_err(|e| sc_service::Error::Application(e.into()))<span class="question-mark">?</span>;
+<a href=#483 id=483 data-nosnippet>483</a>	<span class="prelude-val">Ok</span>(module)
+<a href=#484 id=484 data-nosnippet>484</a>}
+<a href=#485 id=485 data-nosnippet>485</a>
+<a href=#486 id=486 data-nosnippet>486</a><span class="attr">#[cfg(test)]
+<a href=#487 id=487 data-nosnippet>487</a></span><span class="kw">mod </span>tests {
+<a href=#488 id=488 data-nosnippet>488</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#489 id=489 data-nosnippet>489</a>	<span class="kw">use </span>tempfile::TempDir;
+<a href=#490 id=490 data-nosnippet>490</a>
+<a href=#491 id=491 data-nosnippet>491</a>	<span class="attr">#[test]
+<a href=#492 id=492 data-nosnippet>492</a>	</span><span class="kw">fn </span>in_memory_returns_memory_options() {
+<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">let </span>opts = resolve_db_options(EthPruningMode::KeepLatest(<span class="number">256</span>), <span class="prelude-val">None</span>).unwrap();
+<a href=#494 id=494 data-nosnippet>494</a>		<span class="comment">// In-memory options produce `:memory:` filename.
+<a href=#495 id=495 data-nosnippet>495</a>		</span><span class="kw">let </span>filename = opts.get_filename();
+<a href=#496 id=496 data-nosnippet>496</a>		<span class="macro">assert_eq!</span>(filename, std::path::Path::new(<span class="string">":memory:"</span>));
+<a href=#497 id=497 data-nosnippet>497</a>	}
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a>	<span class="attr">#[test]
+<a href=#500 id=500 data-nosnippet>500</a>	</span><span class="kw">fn </span>persistent_with_explicit_base_path() {
+<a href=#501 id=501 data-nosnippet>501</a>		<span class="kw">let </span>tmp = TempDir::new().unwrap();
+<a href=#502 id=502 data-nosnippet>502</a>		<span class="kw">let </span>base = BasePath::new(tmp.path());
+<a href=#503 id=503 data-nosnippet>503</a>		<span class="kw">let </span>opts = resolve_db_options(EthPruningMode::Archive, <span class="prelude-val">Some</span>(base)).unwrap();
+<a href=#504 id=504 data-nosnippet>504</a>		<span class="macro">assert_eq!</span>(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
+<a href=#505 id=505 data-nosnippet>505</a>		<span class="macro">assert!</span>(tmp.path().exists());
+<a href=#506 id=506 data-nosnippet>506</a>	}
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a>	<span class="attr">#[test]
+<a href=#509 id=509 data-nosnippet>509</a>	</span><span class="kw">fn </span>persistent_default_path() {
+<a href=#510 id=510 data-nosnippet>510</a>		<span class="kw">let </span>opts = resolve_db_options(EthPruningMode::Archive, <span class="prelude-val">None</span>).unwrap();
+<a href=#511 id=511 data-nosnippet>511</a>		<span class="kw">let </span>filename = opts.get_filename().to_string_lossy().to_string();
+<a href=#512 id=512 data-nosnippet>512</a>		<span class="macro">assert!</span>(filename.contains(<span class="string">"eth-rpc"</span>));
+<a href=#513 id=513 data-nosnippet>513</a>		<span class="macro">assert!</span>(filename.contains(DEFAULT_DATABASE_NAME));
+<a href=#514 id=514 data-nosnippet>514</a>	}
+<a href=#515 id=515 data-nosnippet>515</a>
+<a href=#516 id=516 data-nosnippet>516</a>	<span class="attr">#[test]
+<a href=#517 id=517 data-nosnippet>517</a>	</span><span class="kw">fn </span>persistent_creates_nested_directories() {
+<a href=#518 id=518 data-nosnippet>518</a>		<span class="kw">let </span>tmp = TempDir::new().unwrap();
+<a href=#519 id=519 data-nosnippet>519</a>		<span class="kw">let </span>nested = tmp.path().join(<span class="string">"a"</span>).join(<span class="string">"b"</span>);
+<a href=#520 id=520 data-nosnippet>520</a>		<span class="kw">let </span>base = BasePath::new(<span class="kw-2">&amp;</span>nested);
+<a href=#521 id=521 data-nosnippet>521</a>		resolve_db_options(EthPruningMode::Archive, <span class="prelude-val">Some</span>(base)).unwrap();
+<a href=#522 id=522 data-nosnippet>522</a>		<span class="macro">assert!</span>(nested.exists());
+<a href=#523 id=523 data-nosnippet>523</a>	}
+<a href=#524 id=524 data-nosnippet>524</a>
+<a href=#525 id=525 data-nosnippet>525</a>	<span class="attr">#[test]
+<a href=#526 id=526 data-nosnippet>526</a>	</span><span class="kw">fn </span>eth_pruning_mode() {
+<a href=#527 id=527 data-nosnippet>527</a>		<span class="comment">// CLI parsing
+<a href=#528 id=528 data-nosnippet>528</a>		</span><span class="kw">let </span>cmd = CliCommand::try_parse_from([<span class="string">"eth-rpc"</span>, <span class="string">"--eth-pruning"</span>, <span class="string">"archive"</span>]).unwrap();
+<a href=#529 id=529 data-nosnippet>529</a>		<span class="macro">assert_eq!</span>(cmd.eth_pruning, EthPruningMode::Archive);
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a>		<span class="kw">let </span>cmd = CliCommand::try_parse_from([<span class="string">"eth-rpc"</span>, <span class="string">"--eth-pruning"</span>, <span class="string">"256"</span>]).unwrap();
+<a href=#532 id=532 data-nosnippet>532</a>		<span class="macro">assert_eq!</span>(cmd.eth_pruning, EthPruningMode::KeepLatest(<span class="number">256</span>));
+<a href=#533 id=533 data-nosnippet>533</a>
+<a href=#534 id=534 data-nosnippet>534</a>		<span class="comment">// Default is archive
+<a href=#535 id=535 data-nosnippet>535</a>		</span><span class="kw">let </span>cmd = CliCommand::try_parse_from([<span class="string">"eth-rpc"</span>]).unwrap();
+<a href=#536 id=536 data-nosnippet>536</a>		<span class="macro">assert_eq!</span>(cmd.eth_pruning, EthPruningMode::Archive);
+<a href=#537 id=537 data-nosnippet>537</a>	}
+<a href=#538 id=538 data-nosnippet>538</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

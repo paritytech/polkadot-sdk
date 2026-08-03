@@ -450,7 +450,18 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#300 id=300 data-nosnippet>300</a>		storage_keys: <span class="prelude-ty">Option</span>&lt;String&gt;,
 <a href=#301 id=301 data-nosnippet>301</a>		methods: <span class="prelude-ty">Option</span>&lt;String&gt;,
 <a href=#302 id=302 data-nosnippet>302</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_rpc::tracing::TraceBlockResponse, Error&gt;;
-<a href=#303 id=303 data-nosnippet>303</a>}
+<a href=#303 id=303 data-nosnippet>303</a>
+<a href=#304 id=304 data-nosnippet>304</a>	<span class="doccomment">/// Recorded sibling of [`Self::call`]: runs `name` re-enacting `block` at its parent state
+<a href=#305 id=305 data-nosnippet>305</a>	/// with a proof-size recorder, replaying `block`'s stored recording when available. `bytes` is
+<a href=#306 id=306 data-nosnippet>306</a>	/// the complete SCALE-encoded args, opaque to the node as in [`Self::call`]. Only nodes with a
+<a href=#307 id=307 data-nosnippet>307</a>	/// proof-recording hook (parachains) can service it; others report
+<a href=#308 id=308 data-nosnippet>308</a>	/// [`Error::CallRecordedUnsupported`].
+<a href=#309 id=309 data-nosnippet>309</a>	///
+<a href=#310 id=310 data-nosnippet>310</a>	/// **Unsafe** (a call replays up to a whole block); denied calls report
+<a href=#311 id=311 data-nosnippet>311</a>	/// [`Error::CallRecordedDenied`].
+<a href=#312 id=312 data-nosnippet>312</a>	</span><span class="attr">#[method(name = <span class="string">"state_callRecorded"</span>, blocking, with_extensions)]
+<a href=#313 id=313 data-nosnippet>313</a>	</span><span class="kw">fn </span>call_recorded(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String, bytes: Bytes, block: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
+<a href=#314 id=314 data-nosnippet>314</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

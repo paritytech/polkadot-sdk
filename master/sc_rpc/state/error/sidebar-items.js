@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"constant":["CALL_RECORDED_DENIED_ERROR_CODE","CALL_RECORDED_UNSUPPORTED_ERROR_CODE"],"enum":["Error"],"type":["Result"]};
