@@ -315,8 +315,8 @@ fn built_entry_from_receipt(
 	receipt: &CandidateReceipt,
 	pov: &PoV,
 	parent_head_data: HeadData,
-) -> BuiltEntry {
-	BuiltEntry {
+) -> SegmentEntry {
+	SegmentEntry {
 		relay_parent: receipt.descriptor.relay_parent(),
 		session_index: receipt
 			.descriptor
@@ -336,7 +336,7 @@ fn built_entry_from_receipt(
 /// Wrap built entries into the `Segment` arm matching the descriptor version.
 /// Test-only: panics on shape violations instead of returning errors.
 fn segment_from_entries(
-	entries: Vec<BuiltEntry>,
+	entries: Vec<SegmentEntry>,
 	candidates_descriptor_version: CandidateDescriptorVersion,
 	scheduling_parent: Hash,
 	scheduling_session: SessionIndex,
@@ -476,7 +476,7 @@ async fn distribute_segment_with_receipts(
 	para_id: ParaId,
 	scheduling_session: SessionIndex,
 ) -> Vec<DistributedCollation> {
-	let candidates: Vec<BuiltEntry> = items
+	let candidates: Vec<SegmentEntry> = items
 		.iter()
 		.map(|(receipt, pov, _)| built_entry_from_receipt(receipt, pov, HeadData(vec![1, 2, 3])))
 		.collect();

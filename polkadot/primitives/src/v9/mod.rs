@@ -2902,7 +2902,7 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 		if self.descriptor.version() == CandidateDescriptorVersion::Unknown {
 			return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version));
 		}
-		parse_ump_signals_for_fields(
+		parse_ump_signals_internal(
 			&self.commitments,
 			self.descriptor.version(),
 			self.descriptor.version,
@@ -2918,7 +2918,7 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 /// Receipt-free variant of [`CommittedCandidateReceiptV2::parse_ump_signals`]:
 /// takes the descriptor fields the check consumes instead of a built receipt.
 /// For callers that validate commitments before a receipt exists.
-pub fn parse_ump_signals_for_fields(
+pub fn parse_ump_signals_internal(
 	commitments: &CandidateCommitments,
 	version: CandidateDescriptorVersion,
 	version_raw: u8,

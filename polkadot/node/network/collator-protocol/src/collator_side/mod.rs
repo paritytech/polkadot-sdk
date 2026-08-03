@@ -40,8 +40,8 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGMENT_LEN};
 use polkadot_node_subsystem::{
 	messages::{
-		BuiltEntry, ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent,
-		NetworkBridgeTxMessage, Segment,
+		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		Segment, SegmentEntry,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
@@ -582,7 +582,7 @@ async fn distribute_segment<Context>(
 		// We have already seen collation for this scheduling parent.
 		if per_scheduling_parent.collations.contains_key(&para_head) {
 			if per_scheduling_parent.by_candidate_hash.contains_key(&candidate_hash) {
-				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, "Already seen this candidate.");
+				gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, "Already seen this candidate.");
 			} else {
 				gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, output_head = ?para_head, "Received a candidate with the same output head at this scheduling parent.");
 			}
@@ -670,14 +670,14 @@ async fn distribute_segment<Context>(
 }
 
 /// Build the candidate receipt from the segment commons and a built entry.
-/// `sp_session` is `Some` exactly for V3 segments (its Someness is the
-/// version); `pov_hash` is derived by the caller from the shipped PoV.
+/// `sp_session` is `Some` only for V3 segments;
+/// `pov_hash` is derived by the caller from the shipped PoV.
 fn assemble_receipt(
 	para_id: ParaId,
 	core_index: CoreIndex,
 	scheduling_parent: Hash,
 	sp_session: Option<SessionIndex>,
-	entry: &BuiltEntry,
+	entry: &SegmentEntry,
 	pov_hash: Hash,
 ) -> CandidateReceipt {
 	let descriptor = match sp_session {

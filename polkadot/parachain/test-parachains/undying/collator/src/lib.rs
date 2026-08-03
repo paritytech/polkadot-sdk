@@ -24,7 +24,7 @@ use polkadot_node_primitives::{
 	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
 	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
-use polkadot_node_subsystem::messages::{BuiltEntry, CollatorProtocolMessage, Segment};
+use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
 	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
@@ -635,7 +635,7 @@ impl Collator {
 								CollatorProtocolMessage::DistributeSegment {
 									core_index: *core_index,
 									para_id,
-									segment: Segment::V2(BuiltEntry {
+									segment: Segment::V2(SegmentEntry {
 										relay_parent,
 										session_index,
 										validation_code_hash,

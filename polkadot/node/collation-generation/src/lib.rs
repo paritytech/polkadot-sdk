@@ -44,7 +44,7 @@
 //!
 //! - **Trigger**: Explicit `SubmitSegment` message from the collator
 //! - **Flow**: Collator builds collations externally → sends `SubmitSegmentParams` → subsystem
-//!   constructs one [`BuiltEntry`] per collation and distributes them in order as a [`Segment`].
+//!   constructs one [`SegmentEntry`] per collation and distributes them in order as a [`Segment`].
 //!   The collator protocol assembles the candidate receipts from the entry fields and the
 //!   segment-level commons.
 //! - **Descriptor version**: Selected explicitly via `candidates_descriptor_version` and reflected
@@ -65,7 +65,7 @@
 //!   enabled.
 //!
 //! UMP-signal checks run on the commitments and descriptor fields directly
-//! ([`parse_ump_signals_for_fields`]); no receipt exists sender-side.
+//! ([`parse_ump_signals_internal`]);
 //!
 //! # Protocol Details
 //!
@@ -76,14 +76,14 @@
 //!    - Fetch claim queue to determine core assignments
 //!    - Fetch validation data and code hash
 //!    - Invoke `CollatorFn` for each assigned core
-//!    - Construct a [`BuiltEntry`] and distribute it as a V2 segment via
+//!    - Construct a [`SegmentEntry`] and distribute it as a V2 segment via
 //!      [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! On `SubmitSegment`:
 //!
 //! 1. Validate the subsystem is initialized
 //! 2. Fetch claim queue and session info for the scheduling parent
-//! 3. Construct one [`BuiltEntry`] per collation
+//! 3. Construct one [`SegmentEntry`] per collation
 //! 4. Distribute the segment via [`CollatorProtocolMessage::DistributeSegment`]
 //!
 //! [`CollatorFn`]: polkadot_node_primitives::CollatorFn
@@ -101,7 +101,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		BuiltEntry, CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage, Segment,
+		CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiMessage, Segment,
+		SegmentEntry,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
@@ -111,7 +112,7 @@ use polkadot_node_subsystem_util::{
 	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	transpose_claim_queue, v9::parse_ump_signals_for_fields, CandidateCommitments,
+	transpose_claim_queue, v9::parse_ump_signals_internal, CandidateCommitments,
 	CandidateDescriptorVersion, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
 };
@@ -296,7 +297,7 @@ impl CollationGenerationSubsystem {
 			CandidateDescriptorVersion::V3 => Segment::V3 {
 				scheduling_parent,
 				scheduling_session,
-				candidates: BoundedVec::<BuiltEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
+				candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
 					segment_entries,
 				)
 				.map_err(|_| Error::InvalidSegmentSize(len))?,
@@ -599,7 +600,7 @@ struct PreparedCollation {
 	session_index: SessionIndex,
 }
 
-/// Construct a [`BuiltEntry`] from a prepared collation: compress the PoV, compute the
+/// Construct a [`SegmentEntry`] from a prepared collation: compress the PoV, compute the
 /// erasure root and run the UMP-signal checks on the commitments and descriptor fields.
 /// The final `CandidateReceipt` is assembled by the receiver from these fields.
 fn construct_segment_entry(
@@ -608,7 +609,7 @@ fn construct_segment_entry(
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
 	candidates_descriptor_version: CandidateDescriptorVersion,
-) -> Result<BuiltEntry> {
+) -> Result<SegmentEntry> {
 	let PreparedCollation {
 		collation,
 		relay_parent,
@@ -618,7 +619,6 @@ fn construct_segment_entry(
 		session_index,
 		para_id,
 		core_index,
-		..
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
@@ -655,7 +655,7 @@ fn construct_segment_entry(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	parse_ump_signals_for_fields(
+	parse_ump_signals_internal(
 		&commitments,
 		candidates_descriptor_version,
 		// The raw version byte is unknown here; it is only surfaced in the
@@ -669,7 +669,7 @@ fn construct_segment_entry(
 	.map_err(Error::CandidateReceiptCheck)?;
 
 	metrics.on_collation_generated();
-	Ok(BuiltEntry {
+	Ok(SegmentEntry {
 		relay_parent,
 		session_index,
 		validation_code_hash,

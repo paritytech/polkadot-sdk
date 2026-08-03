@@ -36,7 +36,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace".into()),
-					("--network-backend=libp2p").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {
@@ -50,7 +49,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			let r = r.with_validator(|node| {
 				node.with_name("validator-exp-0").with_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace").into(),
-					("--network-backend=libp2p").into(),
 					("--experimental-collator-protocol").into(),
 				])
 			});
@@ -58,7 +56,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-exp-{i}")).with_args(vec![
 						("-lparachain=debug,parachain::collator-protocol=trace").into(),
-						("--network-backend=libp2p").into(),
 						("--experimental-collator-protocol").into(),
 					])
 				})
@@ -72,11 +69,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			p.with_id(2000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					("-lparachain=debug,aura=debug".into()),
-					("--").into(),
-					("--network-backend=libp2p").into(),
-				])
+				.with_default_args(vec![("-lparachain=debug,aura=debug".into()), ("--").into()])
 				.with_collator(|node| node.with_name("collator-2000"))
 		})
 		.build()
