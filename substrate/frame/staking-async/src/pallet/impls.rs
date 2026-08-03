@@ -37,6 +37,7 @@ use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
+	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
 		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
@@ -599,7 +600,49 @@ impl<T: Config> Pallet<T> {
 
 		let staker_rewards_pot =
 			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
-		if let Err(e) = T::Currency::transfer(
+
+		if matches!(dest, RewardDestination::Staked) {
+			// For Staked destination the transfer and ledger update must be atomic: if
+			// ensure_bond_consistent rolls back the ledger write, the transfer is rolled back too.
+			let mut ledger = match Self::ledger(Stash(stash.clone())) {
+				Ok(l) => l,
+				Err(e) => {
+					log!(
+						error,
+						"Failed to load ledger for Staked payout for era {:?}, stash {:?}: {:?}",
+						era,
+						stash,
+						e
+					);
+					return None;
+				},
+			};
+			ledger.active += amount;
+			ledger.total += amount;
+			if let Err(e) = with_transaction(|| {
+				if let Err(e) = T::Currency::transfer(
+					&staker_rewards_pot,
+					&payout_account,
+					amount,
+					Preservation::Expendable,
+				) {
+					return TransactionOutcome::Rollback(Err(DispatchError::from(e)));
+				}
+				match ledger.update() {
+					Ok(()) => TransactionOutcome::Commit(Ok(())),
+					Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
+				}
+			}) {
+				log!(
+					error,
+					"Failed to transfer/update ledger for era {:?}, stash {:?}: {:?}",
+					era,
+					stash,
+					e
+				);
+				return None;
+			}
+		} else if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,
 			amount,
@@ -613,17 +656,6 @@ impl<T: Config> Pallet<T> {
 				e
 			);
 			return None;
-		}
-
-		// For Staked destination, update ledger.
-		if matches!(dest, RewardDestination::Staked) {
-			if let Ok(mut ledger) = Self::ledger(Stash(stash.clone())) {
-				ledger.active += amount;
-				ledger.total += amount;
-				let _ = ledger
-					.update()
-					.defensive_proof("ledger fetched from storage, so it exists; qed.");
-			}
 		}
 
 		Some((amount, dest))
@@ -651,17 +683,23 @@ impl<T: Config> Pallet<T> {
 
 		let maybe_imbalance = match dest {
 			RewardDestination::Stash => asset::mint_into_existing::<T>(stash, amount),
-			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
-				.and_then(|mut ledger| {
+			RewardDestination::Staked => {
+				Self::ledger(Stash(stash.clone())).ok().and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = asset::mint_into_existing::<T>(stash, amount);
-					let _ = ledger
-						.update()
-						.defensive_proof("ledger fetched from storage, so it exists; qed.");
-					Ok(r)
+					// Wrap mint and ledger update atomically: if update() rolls back, the
+					// minted tokens are also rolled back.
+					with_transaction(|| {
+						let r = asset::mint_into_existing::<T>(stash, amount);
+						match ledger.update() {
+							Ok(()) => TransactionOutcome::Commit(Ok(r)),
+							Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
+						}
+					})
+					.ok()
+					.flatten()
 				})
-				.unwrap_or_default(),
+			},
 			RewardDestination::Account(ref dest_account) => {
 				Some(asset::mint_creating::<T>(dest_account, amount))
 			},

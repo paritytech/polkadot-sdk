@@ -47,11 +47,15 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced};
+use frame_support::{
+	defensive,
+	storage::{with_transaction, TransactionOutcome},
+	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
+};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	Debug, WeakBoundedVec, Weight,
+	Debug, DispatchError, WeakBoundedVec, Weight,
 };
 use sp_staking::{EraIndex, StakingInterface};
 
@@ -602,18 +606,33 @@ pub fn do_slash<T: Config>(
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
 	if !Pallet::<T>::is_virtual_staker(stash) {
-		let (imbalance, missing) = asset::slash::<T>(stash, value);
-		slashed_imbalance.subsume(imbalance);
-
-		if !missing.is_zero() {
-			// deduct overslash from the reward payout
-			*reward_payout = reward_payout.saturating_sub(missing);
+		// Wrap balance slash and ledger update atomically: if ensure_bond_consistent inside
+		// update() rolls back the ledger write, the balance slash is also rolled back.
+		match with_transaction(|| {
+			let (imbalance, missing) = asset::slash::<T>(stash, value);
+			match ledger.update() {
+				Ok(()) => TransactionOutcome::Commit(Ok((imbalance, missing))),
+				Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
+			}
+		}) {
+			Ok((imbalance, missing)) => {
+				slashed_imbalance.subsume(imbalance);
+				if !missing.is_zero() {
+					// deduct overslash from the reward payout
+					*reward_payout = reward_payout.saturating_sub(missing);
+				}
+			},
+			Err(_) => {
+				defensive!(
+					"do_slash: inconsistent ledger; slash and ledger update both rolled back."
+				);
+			},
 		}
+	} else {
+		let _ = ledger
+			.update()
+			.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
 	}
-
-	let _ = ledger
-		.update()
-		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
 
 	// trigger the event
 	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
