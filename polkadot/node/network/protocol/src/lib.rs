@@ -686,6 +686,8 @@ pub mod v4_collation {
 		pub parent_head_data_hash: Hash,
 		/// Relay parent the advertised candidate builds on.
 		pub relay_parent: Hash,
+		/// The claim queue offset.
+		pub claim_queue_offset: u8,
 	}
 
 	/// All network messages on the collation peer-set.
@@ -712,6 +714,7 @@ pub mod v4_collation {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),
+					claim_queue_offset: 0,
 				};
 				candidates.push(fingerprint);
 			}
@@ -745,6 +748,7 @@ pub mod v4_collation {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),
+					claim_queue_offset: 0,
 				})
 				.collect();
 			assert_eq!(fingerprints.len(), MAX_SEGMENT_LEN as usize + 1);

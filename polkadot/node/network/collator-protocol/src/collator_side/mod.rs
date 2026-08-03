@@ -577,6 +577,7 @@ async fn distribute_segment<Context>(
 			output_head_data_hash: para_head,
 			parent_head_data_hash: entry.parent_head_data.hash(),
 			relay_parent: entry.relay_parent,
+			claim_queue_offset: 0,
 		});
 		// We have already seen collation for this scheduling parent.
 		if per_scheduling_parent.collations.contains_key(&para_head) {

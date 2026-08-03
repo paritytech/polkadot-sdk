@@ -1784,6 +1784,7 @@ fn network_protocol_versioning_subsystem_msg() {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),
+					claim_queue_offset: 0,
 				}],
 			)
 			.unwrap(),

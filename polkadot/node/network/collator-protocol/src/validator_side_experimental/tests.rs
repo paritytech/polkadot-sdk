@@ -165,6 +165,7 @@ fn v4_fingerprint(seed: u8, relay_parent: Hash) -> protocol_v4::CandidateFingerp
 		output_head_data_hash: Hash::repeat_byte(seed),
 		parent_head_data_hash: Hash::repeat_byte(seed.wrapping_add(0x80)),
 		relay_parent,
+		claim_queue_offset: 0,
 	}
 }
 
@@ -3464,6 +3465,7 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 		output_head_data_hash,
 		parent_head_data_hash,
 		relay_parent,
+		claim_queue_offset: 0,
 	}]
 	.try_into()
 	.unwrap();
@@ -3545,6 +3547,7 @@ async fn v4_first_advertisement_implicitly_declares() {
 		output_head_data_hash,
 		parent_head_data_hash,
 		relay_parent,
+		claim_queue_offset: 0,
 	}];
 
 	// An advertisement from an unconnected peer cannot declare anything and is dropped.
