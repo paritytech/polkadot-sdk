@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785755896566,
+  "lastUpdate": 1785776870577,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ad9107e6463d7069f7f21af1dfbab2dd8ee1a31b",
-          "message": "Align Errors between Bulletin and SDK (#10503)\n\nAligns Errors between Bulletin and SDK\n\nAddresses\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/86\nRelates to\nhttps://github.com/paritytech/polkadot-bulletin-chain/pull/126\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-02T14:05:26Z",
-          "tree_id": "8fbde3f041e7e70a9485301a1024ef6a0228e428",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad9107e6463d7069f7f21af1dfbab2dd8ee1a31b"
-        },
-        "date": 1764691084789,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.257652682133333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20041208283333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13560773743333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1407d3feba9d3fc95e20823cd0b74acbe1ca24ee",
+          "message": "Fix resource exhaustion when replaying finalized-block transactions (#12374)\n\n## Description\n\nRe-applying a finalized block's transactions can reject with\n`ExhaustsResources` some that\noriginally succeeded, so runtime APIs that replay a block\n(`pallet-revive`'s `trace_block` /\n`trace_tx`) drop the rejected tail transactions' traces.\n\n**Cause.** Each extrinsic is charged its worst-case `proof_size`;\n`StorageWeightReclaim` refunds\nthe difference down to the actual size read from a proof-size recorder.\nAuthoring has a recorder\nregistered, so the over-charge is reclaimed; the replay has none, so\nreclaim is skipped,\n`proof_size` accumulates past the block limit, and `CheckWeight` rejects\nthe tail.\n\n**Fix.** Replay the block through the runtime API with a proof-size\nrecorder registered.\n\n## Integration\n\n- New **unsafe-gated** RPC `state_callRecorded(name, bytes, block)` on\n`StateApi`, the recorded\nsibling of `state_call`: runs the call re-enacting `block` at its parent\nstate with a\nproof-size recorder, replaying `block`'s stored recording when available\n(fresh recorder\notherwise). `bytes` is the opaque SCALE-encoded args — the node doesn't\ninspect them, so\nversioned payloads work; `block` only locates the parent state and the\nrecording.\n- New `TracingExecuteBlock::call_recorded(block, method, call_data)`\ntrait method (default impl\nerrors, non-breaking; implemented for parachains in\n`cumulus-client-service`).\n- New `sc-rpc-api` state errors with stable wire codes clients match on\nto fall back:\n`CallRecordedUnsupported` (node has no recorder) and\n`CallRecordedDenied` (unsafe RPCs\ndisabled), both scoped to `state_callRecorded`; the shared\n`UnsafeRpcCalled` code is unchanged.\n- `pallet-revive-types` trace types now deserialize the JSON they\nserialize\n  (`skip_serializing_if` fields also carry `#[serde(default)]`).\n\n## Review Notes\n\n**Why a new RPC.** eth-rpc talks to the node remotely, so its typed\n`runtime_api.trace_block()`\nalready crosses the wire as a `state_call`, and the recorder can only be\nregistered node-side.\nRecording on every `state_call` would add overhead to all hot paths; the\nscoped method gives\nper-call consent.\n\n**Faithful under bundling.** eth-rpc passes the block's on-chain hash;\nthe node replays `block`'s\nstored recording, matching `execute_block`. A fresh recorder would\nre-count already-proven nodes,\nso a bundle-tail replay could spuriously hit `ExhaustsResources`; nodes\nwithout a recording (dev\nnodes, non-bundling collators) fall back to a fresh recorder.\n\n**Client fallback.** When a node cannot service `state_callRecorded`,\neth-rpc falls back to the\nplain trace APIs (version-skew and unsafe-disabled warn; the expected\nrecorder-less case is\ndebug) and marks the result degraded: `debug_traceBlock*` returns\ndropped transactions as\ngeth-style `{txHash, error}` entries, `debug_traceTransaction` returns\ntrace-unavailable rather\nthan \"not found\".\n\n**Tests.** An Asset Hub Westend integration test reproduces the bug and\nconfirms the fix through\nthe versioned trace APIs; a new `repeated_storage_read` fixture creates\nthe `proof_size`\nover-charge (a distinct cold storage key per round).\n`pallet-revive-eth-rpc` unit tests cover the\nfallback classification; `sc-rpc` tests pin the unsafe-denied wire\ncontract.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-03T15:22:32Z",
+          "tree_id": "8ce5cc1654c70d0e6594864c31448cf814ca182d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1407d3feba9d3fc95e20823cd0b74acbe1ca24ee"
+        },
+        "date": 1785776836331,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1371526884,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.743414829566667,
             "unit": "seconds"
           }
         ]
