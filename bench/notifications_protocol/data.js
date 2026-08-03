@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785755041182,
+  "lastUpdate": 1785775858051,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -198911,6 +198911,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2500692123,
             "range": "± 51431099",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1407d3feba9d3fc95e20823cd0b74acbe1ca24ee",
+          "message": "Fix resource exhaustion when replaying finalized-block transactions (#12374)\n\n## Description\n\nRe-applying a finalized block's transactions can reject with\n`ExhaustsResources` some that\noriginally succeeded, so runtime APIs that replay a block\n(`pallet-revive`'s `trace_block` /\n`trace_tx`) drop the rejected tail transactions' traces.\n\n**Cause.** Each extrinsic is charged its worst-case `proof_size`;\n`StorageWeightReclaim` refunds\nthe difference down to the actual size read from a proof-size recorder.\nAuthoring has a recorder\nregistered, so the over-charge is reclaimed; the replay has none, so\nreclaim is skipped,\n`proof_size` accumulates past the block limit, and `CheckWeight` rejects\nthe tail.\n\n**Fix.** Replay the block through the runtime API with a proof-size\nrecorder registered.\n\n## Integration\n\n- New **unsafe-gated** RPC `state_callRecorded(name, bytes, block)` on\n`StateApi`, the recorded\nsibling of `state_call`: runs the call re-enacting `block` at its parent\nstate with a\nproof-size recorder, replaying `block`'s stored recording when available\n(fresh recorder\notherwise). `bytes` is the opaque SCALE-encoded args — the node doesn't\ninspect them, so\nversioned payloads work; `block` only locates the parent state and the\nrecording.\n- New `TracingExecuteBlock::call_recorded(block, method, call_data)`\ntrait method (default impl\nerrors, non-breaking; implemented for parachains in\n`cumulus-client-service`).\n- New `sc-rpc-api` state errors with stable wire codes clients match on\nto fall back:\n`CallRecordedUnsupported` (node has no recorder) and\n`CallRecordedDenied` (unsafe RPCs\ndisabled), both scoped to `state_callRecorded`; the shared\n`UnsafeRpcCalled` code is unchanged.\n- `pallet-revive-types` trace types now deserialize the JSON they\nserialize\n  (`skip_serializing_if` fields also carry `#[serde(default)]`).\n\n## Review Notes\n\n**Why a new RPC.** eth-rpc talks to the node remotely, so its typed\n`runtime_api.trace_block()`\nalready crosses the wire as a `state_call`, and the recorder can only be\nregistered node-side.\nRecording on every `state_call` would add overhead to all hot paths; the\nscoped method gives\nper-call consent.\n\n**Faithful under bundling.** eth-rpc passes the block's on-chain hash;\nthe node replays `block`'s\nstored recording, matching `execute_block`. A fresh recorder would\nre-count already-proven nodes,\nso a bundle-tail replay could spuriously hit `ExhaustsResources`; nodes\nwithout a recording (dev\nnodes, non-bundling collators) fall back to a fresh recorder.\n\n**Client fallback.** When a node cannot service `state_callRecorded`,\neth-rpc falls back to the\nplain trace APIs (version-skew and unsafe-disabled warn; the expected\nrecorder-less case is\ndebug) and marks the result degraded: `debug_traceBlock*` returns\ndropped transactions as\ngeth-style `{txHash, error}` entries, `debug_traceTransaction` returns\ntrace-unavailable rather\nthan \"not found\".\n\n**Tests.** An Asset Hub Westend integration test reproduces the bug and\nconfirms the fix through\nthe versioned trace APIs; a new `repeated_storage_read` fixture creates\nthe `proof_size`\nover-charge (a distinct cold storage key per round).\n`pallet-revive-eth-rpc` unit tests cover the\nfallback classification; `sc-rpc` tests pin the unsafe-denied wire\ncontract.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-03T15:22:32Z",
+          "tree_id": "8ce5cc1654c70d0e6594864c31448cf814ca182d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1407d3feba9d3fc95e20823cd0b74acbe1ca24ee"
+        },
+        "date": 1785775828534,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4363568,
+            "range": "± 23695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 284223,
+            "range": "± 2204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4267669,
+            "range": "± 10017",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 353157,
+            "range": "± 2559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5311225,
+            "range": "± 33726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 864091,
+            "range": "± 5017",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10652228,
+            "range": "± 35083",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4654286,
+            "range": "± 45176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 42060175,
+            "range": "± 259788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37220689,
+            "range": "± 445974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 354787496,
+            "range": "± 2599492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 302238924,
+            "range": "± 1836682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2566405142,
+            "range": "± 8528764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2346665162,
+            "range": "± 133184457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3285727,
+            "range": "± 12868",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1797830,
+            "range": "± 7928",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3378643,
+            "range": "± 17447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1857074,
+            "range": "± 7515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3837087,
+            "range": "± 11173",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2178275,
+            "range": "± 10433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7626867,
+            "range": "± 29381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5130100,
+            "range": "± 35007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 40926991,
+            "range": "± 407821",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34822096,
+            "range": "± 244904",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 313241367,
+            "range": "± 4020749",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 278834749,
+            "range": "± 1624136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2408181033,
+            "range": "± 12245346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2222349107,
+            "range": "± 13115418",
             "unit": "ns/iter"
           }
         ]
