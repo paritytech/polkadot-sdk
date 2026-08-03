@@ -94,10 +94,10 @@
 
 use codec::Encode;
 use error::{Error, Result};
-use futures::{channel::oneshot, future::FutureExt, select};
+use futures::{future::FutureExt, select};
 use polkadot_node_primitives::{
-	AvailableData, Collation, CollationGenerationConfig, CollationSecondedSignal, PoV,
-	SegmentCollation, SubmitSegmentParams, MAX_SEGMENT_LEN,
+	AvailableData, CollationGenerationConfig, PoV, SegmentCollation, SubmitSegmentParams,
+	MAX_SEGMENT_LEN,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -114,7 +114,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	transpose_claim_queue, v9::parse_ump_signals_internal, CandidateCommitments,
 	CandidateDescriptorVersion, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
+	PersistedValidationData, SessionIndex, TransposedClaimQueue,
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::{bounded::BoundedVec, ConstU32};
@@ -259,27 +259,14 @@ impl CollationGenerationSubsystem {
 		let transposed_queue = &transpose_claim_queue(claim_queue);
 		let mut segment_entries = vec![];
 		for submit_param in params.collations {
-			let SegmentCollation {
-				relay_parent,
-				collation,
-				validation_code_hash,
-				result_sender,
-				session_index,
-				validation_data,
-			} = submit_param;
 			let collation = PreparedCollation {
-				collation,
-				relay_parent,
+				base: submit_param,
 				para_id: config.para_id,
-				validation_data,
-				validation_code_hash,
 				n_validators: session_info.n_validators,
 				core_index: params.core_index,
-				session_index,
 			};
 			let entry = construct_segment_entry(
 				collation,
-				result_sender,
 				&mut self.metrics,
 				transposed_queue,
 				params.candidates_descriptor_version,
@@ -509,17 +496,19 @@ impl CollationGenerationSubsystem {
 					// so this path always produces V2 segments.
 					if let Err(err) = construct_and_distribute_v2_receipt(
 						PreparedCollation {
-							collation,
+							base: SegmentCollation {
+								collation,
+								relay_parent: activated,
+								validation_data: validation_data.clone(),
+								validation_code_hash,
+								result_sender,
+								session_index,
+							},
 							para_id,
-							relay_parent: activated,
-							validation_data: validation_data.clone(),
-							validation_code_hash,
 							n_validators,
 							core_index: descriptor_core_index,
-							session_index,
 						},
 						&mut task_sender,
-						result_sender,
 						&metrics,
 						&transposed_claim_queue,
 					)
@@ -589,15 +578,10 @@ impl SessionInfoCache {
 }
 
 struct PreparedCollation {
-	collation: Collation,
+	base: SegmentCollation,
 	para_id: ParaId,
-	relay_parent: Hash,
-	validation_data: PersistedValidationData,
-	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
 	core_index: CoreIndex,
-	/// The relay parent's session index.
-	session_index: SessionIndex,
 }
 
 /// Construct a [`SegmentEntry`] from a prepared collation: compress the PoV, compute the
@@ -605,19 +589,22 @@ struct PreparedCollation {
 /// The final `CandidateReceipt` is assembled by the receiver from these fields.
 fn construct_segment_entry(
 	collation: PreparedCollation,
-	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
 	candidates_descriptor_version: CandidateDescriptorVersion,
 ) -> Result<SegmentEntry> {
 	let PreparedCollation {
-		collation,
-		relay_parent,
-		validation_data,
-		validation_code_hash,
-		n_validators,
-		session_index,
+		base:
+			SegmentCollation {
+				collation,
+				relay_parent,
+				validation_data,
+				validation_code_hash,
+				result_sender,
+				session_index,
+			},
 		para_id,
+		n_validators,
 		core_index,
 	} = collation;
 
@@ -688,15 +675,13 @@ fn construct_segment_entry(
 async fn construct_and_distribute_v2_receipt(
 	collation: PreparedCollation,
 	sender: &mut impl overseer::CollationGenerationSenderTrait,
-	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
 	transposed_claim_queue: &TransposedClaimQueue,
 ) -> Result<()> {
-	let core_index = collation.core_index;
 	let para_id = collation.para_id;
+	let core_index = collation.core_index;
 	let built_entry = construct_segment_entry(
 		collation,
-		result_sender,
 		metrics,
 		transposed_claim_queue,
 		CandidateDescriptorVersion::V2,
