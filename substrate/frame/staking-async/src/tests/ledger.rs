@@ -894,8 +894,7 @@ mod ledger_recovery {
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
 
 			let unlock_chunk = UnlockChunk { value: 50, era: 99 };
-			let maybe_unlocking =
-				bounded_vec![unlock_chunk];
+			let maybe_unlocking = bounded_vec![unlock_chunk];
 
 			// Restore with unlocking chunks: active must be derived as total - sum(unlocking).
 			assert_ok!(Staking::restore_ledger(

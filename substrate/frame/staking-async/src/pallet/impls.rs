@@ -1155,7 +1155,7 @@ impl<T: Config> Pallet<T> {
 			let mut remaining = force_withdraw.saturating_sub(ledger.active);
 			for chunk in new_unlocking.iter_mut().rev() {
 				if remaining.is_zero() {
-					break
+					break;
 				}
 				let reduce = remaining.min(chunk.value);
 				chunk.value -= reduce;
@@ -1163,8 +1163,13 @@ impl<T: Config> Pallet<T> {
 			}
 			new_unlocking.retain(|c| !c.value.is_zero());
 
-			StakingLedger { total: max_hold, active: new_active, unlocking: new_unlocking, ..ledger }
-				.update()?;
+			StakingLedger {
+				total: max_hold,
+				active: new_active,
+				unlocking: new_unlocking,
+				..ledger
+			}
+			.update()?;
 			force_withdraw
 		};
 
