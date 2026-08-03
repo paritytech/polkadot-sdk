@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785635957277,
+  "lastUpdate": 1785755896566,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "05a3fb107e488378075e956186df34d04c1bf656",
-          "message": "Staking-Async + EPMB: Migrate operations to `poll` (#9925)\n\nThis PR moves all operations related to staking elections from a\nmandatory `on_initialize` with no consideration to weight, to an\noptional `on_poll` with accurate, pre-execution weight checking.\n\n## Why\n\n* `on_initialize` is a mandatory hook. If a single parachain block\nhappens to contain too many of them, this block can never be authored\nand imported. In solo/relay chains, this is more forgiving, as you would\nhave one slow block, instead of an indefinite stall.\n* For example, message-queue XCMs, scheduler and MBMs might overlap with\nthe staking `on_initialize` in AH (unlikely, but totally possible), and\nput the chain at risk.\n* Contrary, `poll` hooks: \n  * Might not happen at all by `frame-executive` (e.g. during MBMs)\n* Have access to a clear `WeigthMeter`, allowing the subject to make a\ndecision about whether to proceed or not.\n\n## Functional Changes\n\nAs seen by the minimal diff in existing tests, this change, in the\nabsence of weight scarcity, is almost a noop. The only difference is\nthat the start signal from the signed pallet to the verifier pallet is\nnow sent at the end of the signed phase, not the beginning the signed\nvalidation.\n\n## Non-Functional Changes\n\n* Now, the only pallets that call `on_poll` are `multi_block` (the\nparent, not verifier and signed), and `staking_async`. This makes the\ncode easier to audit.\n* Removes a lot of `on_initialize` terminology from weight functions\n* Cleans up some stale variations in the mock setup, allowing us to skip\nthe signed pallet's on-initialize. This no longer makes sense as the\nparent pallet is only one that calls `on_poll`.\n\n#### Mote Test Changes\n\nDuring this PR, I found multiple instances where we are forwarding the\nwrong number of blocks forward in the EPMB tests. For example, to verify\na solution, 3 blocks are needed, but we are calling `roll_next` 4 times,\nand the test is still passing. To harden such cases and make sure all\nfuture tests are as explicit as possible, I have:\n\n* Generic `fn roll_next` is made fully private and in tests should be\nreplaced by:\n  * `fn roll_next_and_phase(expect: Phase<T>)`\n  * `fn roll_next_and_phase_verifier(expect: Phase<T>, status: Status)`\n  * `fn roll_next_and_verifier(status: Status)`\n* This ensures all tests to explicitly state what the expected\n`Phase`/`Status` should be after moving a block forward.\n\nAll tests are updated to respect this paradigm, which has made the diff\nslightly larger than I wished it to be.\n\n### Implementation/Review Notes\n\n#### Overall Design \n\nThe overall idea is to move all operations to a model similar to\ndispatchables, where before executing `f(input) -> Result`, we have\naccess to a `w(input) -> Weight` that gives us the pre-execution weight.\nIf the pre-execution weight is good, we proceed with executing. The\nexecution may override the pre-execution weight to a smaller value if it\nwishes so.\n\n```rust\n/// ### Type\n///\n/// The commonly used `(Weight, Box<dyn Fn(&mut WeightMeter)>)` should be interpreted as such:\n///\n/// * The `Weight` is the pre-computed worst case weight of the operation that we are going to\n///   do.\n/// * The `Box<dyn Fn(&mut WeightMeter)>` is the function that represents that the work that\n///   will at most consume the said amount of weight. While executing, it will alter the given\n///   weight meter to consume the actual weight used. Indeed, the weight that is registered in\n///   the `WeightMeter` must never be more than the `Weight` returned as the first item of the\n///   tuple.\n///\n/// In essence, the caller must:\n///\n/// 1. given an existing `meter`, receive `(worst_weight, exec)`\n/// 2. ensure `meter` can consume up to `worst_weight`.\n/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.\nfn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {\n    ... \n}\n``` \n\n#### Export Weight\n\nThrough this PR, I realized that we previously were never registering\nthe weight of the export process. This is because the export is managed\nby staking pallet, and previously it had no way to know how much the\nweight of each export step is.\n\nNow, we alter the `ElectionProvider::status` interface such that not\nonly we signal if we are ready or not, but also we signal _we are ready,\nand this is the weight of the next `elect`_.\n\n```rust\nfn status() -> Result<Option<Weight>, ()> {\n\tmatch <CurrentPhase<T>>::get() {\n\t\t// we're not doing anything.\n\t\tPhase::Off => Err(()),\n\n\t\t// we're doing sth but not ready.\n\t\tPhase::Signed(_) |\n\t\tPhase::SignedValidation(_) |\n\t\tPhase::Unsigned(_) |\n\t\tPhase::Snapshot(_) |\n\t\tPhase::Emergency => Ok(None),\n\n\t\t// we're ready, and this is the weight of the next step\n\t\tPhase::Done => Ok(Some(T::WeightInfo::export_non_terminal())),\n\t\tPhase::Export(p) =>\n\t\t\tif p.is_zero() {\n\t\t\t\tOk(Some(T::WeightInfo::export_terminal()))\n\t\t\t} else {\n\t\t\t\tOk(Some(T::WeightInfo::export_non_terminal()))\n\t\t\t},\n\t}\n}\n```\n\n## Integration \n\nThe only breaking change of this PR is: \n\n```\nimpl multi_block::Config for Runtime {\n    // .. \n    type Signed = multi_block_signed::Pallet<Self>\n}\n```\n\nWhile not mandatory, the fellowship runtimes should use the new\n`check_all_weights` function to test the weights.\n\n## Path To Weight Refund\n\nThe usage of `WeightMeter` is intentional here to pave the way to\nreclaiming the weight in a subsequent PR. It will look like this:\n\n```diff\n--- a/substrate/frame/election-provider-multi-block/src/lib.rs\n+++ b/substrate/frame/election-provider-multi-block/src/lib.rs\n@@ -1310,6 +1310,7 @@ impl<T: Config> Pallet<T> {\n \t/// 2. ensure `meter` can consume up to `worst_weight`.\n \t/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.\n \tfn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {\n+\t\tuse cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;\n \t\ttype ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;\n \t\tlet noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|_| {}));\n \n@@ -1318,8 +1319,9 @@ impl<T: Config> Pallet<T> {\n \t\t\t\t// first snapshot\n \t\t\t\tlet weight = T::WeightInfo::per_block_snapshot_msp();\n \t\t\t\tlet exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {\n+\t\t\t\t\tlet mut reclaimer = StorageWeightReclaimer::new(meter);\n \t\t\t\t\tSelf::create_targets_snapshot();\n-\t\t\t\t\tmeter.consume(weight)\n+\t\t\t\t\tlet _reclaimed = reclaimer.reclaim_with_meter(meter);\n \t\t\t\t});\n \t\t\t\t(weight, exec)\n \t\t\t},\n@@ -1328,8 +1330,9 @@ impl<T: Config> Pallet<T> {\n \t\t\t\t// rest of the snapshot, incl last one.\n \t\t\t\tlet weight = T::WeightInfo::per_block_snapshot_rest();\n \t\t\t\tlet exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {\n+\t\t\t\t\tlet mut reclaimer = StorageWeightReclaimer::new(meter);\n \t\t\t\t\tSelf::create_voters_snapshot_paged(x);\n-\t\t\t\t\tmeter.consume(weight)\n+\t\t\t\t\tlet _reclaimed = reclaimer.reclaim_with_meter(meter);\n \t\t\t\t});\n \t\t\t\t(weight, exec)\n \t\t\t},\n```\n\nIn short, instead of consuming the _worst case weight_, we consume the\naccurate amount given to us by the weight reclaimer.\n\n## TODO\n\n- [x] Unit tests\n- [x] Unified integration tests for weights \n- [x] weight for RoundRotation is missing (export -> off phase)\n- [x] Run all papi-integration tests at the end once.\n- [x] Weight update / closes\nhttps://github.com/paritytech/polkadot-sdk/issues/7714\n- [ ] Test to ensure pallet ordering is not important anymore.\n- [x] closes https://github.com/paritytech/polkadot-sdk/issues/8910\n- [x] Upgrade block `on-init` -> `on-poll`\n- [x] queue to audit\n- [ ] audit done\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-01T19:51:26Z",
-          "tree_id": "cd7af2dddba229ec41ddb7d0f0eee08305963a30",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/05a3fb107e488378075e956186df34d04c1bf656"
-        },
-        "date": 1764624434591,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19850249493333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.286544646766663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.14292278016667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dda8013292008c5a5d105622cd423d47df342bfe",
+          "message": "grandpa: Revert memory changes synced with db (#12767)\n\nThis PR keeps the in memory changes synced with the DB ones in grandpa\n\nWhile at it, have added a few tests and changed the API a bit\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-03T09:38:44Z",
+          "tree_id": "279c6316be6473c152ff7f18b078ec41c9e1ea83",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dda8013292008c5a5d105622cd423d47df342bfe"
+        },
+        "date": 1785755866193,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.073524673300003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13560773743333335,
             "unit": "seconds"
           }
         ]
