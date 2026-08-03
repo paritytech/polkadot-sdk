@@ -14,6 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+#[path = "src/flavors.rs"]
+mod flavors;
+
+define_flavors!(consts);
+
 #[cfg(feature = "std")]
 fn main() {
 	use substrate_wasm_builder::WasmBuilder;
@@ -22,83 +27,96 @@ fn main() {
 	WasmBuilder::init_with_defaults().build();
 
 	WasmBuilder::init_with_defaults()
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_spec_version_incremented.rs")
+		.enable_feature("spec-version-3")
+		.set_file_name(spec_version_incremented::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("velocity-3")
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_elastic_scaling.rs")
+		.enable_feature("spec-version-3")
+		.set_file_name(elastic_scaling::WASM_FILE_NAME)
 		.build();
 
 	// A runtime with 6s slots and block velocity 12.
 	// Coupled with 12 cores it can produce a block every 500ms.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("velocity-12")
-		.set_file_name("wasm_binary_elastic_scaling_500ms.rs")
-		.build();
-
-	// A runtime with a slot duration of 6s but parameters that allow multiple blocks per slot.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("velocity-6")
-		.set_file_name("wasm_binary_elastic_scaling_multi_block_slot.rs")
+		.set_file_name(elastic_scaling_500ms::WASM_FILE_NAME)
 		.build();
 
 	// A runtime that uses a relay parent offset of 2.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("relay-parent-offset-2")
-		.set_file_name("wasm_binary_relay_parent_offset.rs")
+		.set_file_name(relay_parent_offset::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("sync-backing")
 		.enable_feature("12s-slot")
-		.set_file_name("wasm_binary_sync_backing.rs")
+		.set_file_name(sync_backing::WASM_FILE_NAME)
 		.build();
 
 	// An elastic scaling runtime with 12s slots.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("12s-slot")
 		.enable_feature("velocity-3")
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_elastic_scaling_12s_slot.rs")
+		.enable_feature("spec-version-3")
+		.set_file_name(elastic_scaling_12s_slot::WASM_FILE_NAME)
 		.build();
 
 	// A runtime that uses block-bundling.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("velocity-12")
-		.set_file_name("wasm_binary_block_bundling.rs")
+		.set_file_name(block_bundling::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
-		.set_file_name("wasm_binary_async_backing_v3.rs")
+		.set_file_name(v3::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-2")
-		.set_file_name("wasm_binary_async_backing_v3_rpo.rs")
+		.set_file_name(v3_rpo_2::WASM_FILE_NAME)
+		.build();
+
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("relay-parent-offset-4")
+		.set_file_name(v3_rpo_4::WASM_FILE_NAME)
+		.build();
+
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("relay-parent-offset-6")
+		.set_file_name(v3_rpo_6::WASM_FILE_NAME)
+		.build();
+
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("relay-parent-offset-15")
+		.set_file_name(v3_rpo_15::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("velocity-3")
-		.set_file_name("wasm_binary_elastic_scaling_v3.rs")
+		.set_file_name(elastic_scaling_v3::WASM_FILE_NAME)
 		.build();
 
 	// A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("18s-slot")
-		.enable_feature("increment-spec-version")
-		.set_file_name("wasm_binary_slot_duration_18s.rs")
+		.enable_feature("spec-version-3")
+		.set_file_name(slot_duration_18s::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::new()
 		.with_current_project()
 		.enable_feature("with-authority-discovery")
-		.set_file_name("wasm_binary_with_authority_discovery.rs")
+		.enable_feature("relay-parent-offset-2")
+		.set_file_name(with_authority_discovery::WASM_FILE_NAME)
 		.build();
 }
 
