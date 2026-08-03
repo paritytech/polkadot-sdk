@@ -2400,7 +2400,20 @@ impl<T: Config> Pallet<T> {
 					// historical exposure for the active era remains.
 					None => true,
 					// If election for next era is finished, last_validator_era is set to next era.
-					Some(last) => last == era || last == era + 1,
+					Some(last) => {
+						let ok = last == era || last == era + 1;
+						if !ok {
+							log!(
+								error,
+								"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
+								validator,
+								era,
+								era + 1,
+								last
+							);
+						}
+						ok
+					},
 				}
 			}),
 			"LastValidatorEra must be the active era or the active era + 1"
