@@ -353,16 +353,16 @@ pub mod pallet {
 
 		/// Teleport the fee, fronted by the relayer, to the destination parachain.
 		fn burn_for_teleport(
-			para_id: ParaId,
+			dest: ParaId,
 			who: &T::AccountId,
-			fee: BalanceOf<T>,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
-			let dest = Location::new(1, [Parachain(para_id.into())]);
-			let relayer_id: [u8; 32] = who.clone().into();
-			let relayer = Location::new(0, [AccountId32 { network: None, id: relayer_id }]);
-			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
+			let dest = Location::new(1, [Parachain(dest.into())]);
+			let who = who.clone().into();
+			let who = Location::new(0, [AccountId32 { network: None, id: who }]);
+			let fees = (Location::parent(), amount.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
@@ -372,7 +372,7 @@ pub mod pallet {
 				TokenError::FundsUnavailable
 			})?;
 			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
-			T::AssetTransactor::withdraw_asset(&fees, &relayer, None).map_err(|error| {
+			T::AssetTransactor::withdraw_asset(&fees, &who, None).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
 					?error,
