@@ -1,0 +1,11 @@
+title: '[RWF] sc-rpc-api: fix UnsafeRpcCalled module error code'
+doc:
+- audience: Node Dev
+  description: "Closes #12463\n\n## Problem\n\nThe `state` RPC module's `Error \u2192\
+    \ ErrorObjectOwned` conversion in `substrate/client/rpc-api/src/state/error.rs`\
+    \ had no explicit match arm for `Error::UnsafeRpcCalled`.\n\n## Fix\n\nAdded the\
+    \ missing explicit match arm `Error::UnsafeRpcCalled(e) => e.into(),` in the `state`\
+    \ module's `From<Error> for ErrorObjectOwned` impl, before the catch-all arm."
+crates:
+- name: sc-rpc-api
+  bump: patch
