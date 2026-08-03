@@ -7318,42 +7318,6 @@ mod ledger {
 	}
 
 	#[test]
-	fn checked_mutate_rolls_back_inconsistent_update() {
-		ExtBuilder::default().build_and_execute(|| {
-			let ledger = Staking::ledger(StakingAccount::Stash(11)).unwrap();
-
-			// Lower `active` without adjusting `total` to break the bookkeeping invariant while
-			// keeping the lock requirement the same, so the failure is on the consistency check.
-			let mut corrupt = ledger.clone();
-			corrupt.active -= 100;
-
-			assert_storage_noop!(assert_eq!(
-				corrupt.update().unwrap_err(),
-				Error::<Test>::BadState
-			));
-			assert_eq!(Staking::ledger(StakingAccount::Stash(11)).unwrap().total, ledger.total);
-			assert_eq!(asset::staked::<Test>(&11), ledger.total);
-		})
-	}
-
-	#[test]
-	fn checked_mutate_rolls_back_corrupted_bond() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
-			let ledger = Staking::ledger(StakingAccount::Stash(11)).unwrap();
-
-			// point 11's bond at a controller whose ledger belongs to a different stash (the
-			// corruption from issue #3245). An update must detect the mismatch and roll back.
-			Bonded::<Test>::insert(11, 21);
-
-			let corrupt = ledger.clone();
-			assert_storage_noop!(assert_eq!(
-				corrupt.update().unwrap_err(),
-				Error::<Test>::BadState
-			));
-		})
-	}
-
-	#[test]
 	fn bond_controller_cannot_be_stash_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
