@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! An Ethereum JSON-RPC endpoint for `pallet-revive`, served from inside the node.
+//! An Ethereum JSON-RPC server for `pallet-revive`, served from inside the node.
 //!
 //! The server reaches the node through `sc-service`'s in-memory RPC module instead of a loopback
 //! WebSocket, so no separate `eth-rpc` process is needed. It listens on its own port.
@@ -24,7 +24,6 @@ use pallet_revive_eth_rpc::{
 	cli::EthPruningMode,
 	service::{start_embedded, EmbeddedConfig},
 };
-use prometheus_endpoint::Registry;
 use sc_service::{
 	config::{BasePath, RpcConfiguration},
 	ChainType, Configuration, RpcHandlers, TaskManager,
@@ -36,24 +35,21 @@ const DEFAULT_PORT: u16 = 8545;
 /// Receipt database directory, relative to the chain's data path.
 const DB_DIR: &str = "eth-rpc";
 
-/// CLI options for the embedded Ethereum JSON-RPC endpoint.
+/// CLI options for the embedded Ethereum JSON-RPC server, gated on the `eth-rpc` compile-time
+/// feature rather than a runtime flag.
 #[derive(Debug, Clone, Args)]
 pub struct EthRpcParams {
-	/// Serve an Ethereum JSON-RPC endpoint for `pallet-revive` from inside this node.
-	#[arg(long)]
-	pub eth_rpc: bool,
-
-	/// Port of the Ethereum JSON-RPC endpoint.
-	#[arg(long, value_name = "PORT", default_value_t = DEFAULT_PORT, requires = "eth_rpc")]
+	/// Port of the Ethereum JSON-RPC server.
+	#[arg(long, value_name = "PORT", default_value_t = DEFAULT_PORT)]
 	pub eth_rpc_port: u16,
 
 	/// Pruning mode of the Ethereum receipt database: either `archive` to index every block, or
 	/// a positive number of recent blocks to keep in an in-memory database.
-	#[arg(long, value_name = "MODE", default_value = "archive", requires = "eth_rpc")]
+	#[arg(long, value_name = "MODE", default_value = "archive")]
 	pub eth_rpc_pruning: EthPruningMode,
 
 	/// Accept Ethereum transactions that carry no chain id.
-	#[arg(long, requires = "eth_rpc")]
+	#[arg(long)]
 	pub eth_rpc_allow_unprotected_txs: bool,
 }
 
@@ -62,16 +58,11 @@ pub struct EthRpcParams {
 pub(crate) struct EthRpcConfig(EmbeddedConfig);
 
 impl EthRpcConfig {
-	/// Returns `None` unless `--eth-rpc` was passed.
-	pub(crate) fn new(params: &EthRpcParams, config: &Configuration) -> Option<Self> {
-		if !params.eth_rpc {
-			return None;
-		}
-
+	pub(crate) fn new(params: &EthRpcParams, config: &Configuration) -> Self {
 		let node_rpc = &config.rpc;
-		Some(Self(EmbeddedConfig {
+		Self(EmbeddedConfig {
 			rpc: RpcConfiguration {
-				// Binds localhost, so the endpoint is never exposed just because the node's
+				// Binds localhost, so the server is never exposed just because the node's
 				// own RPC is.
 				addr: None,
 				port: params.eth_rpc_port,
@@ -93,18 +84,18 @@ impl EthRpcConfig {
 			base_path: Some(BasePath::new(config.data_path.join(DB_DIR))),
 			allow_unprotected_txs: params.eth_rpc_allow_unprotected_txs,
 			dev_accounts: config.chain_spec.chain_type() == ChainType::Development,
-		}))
+		})
 	}
 }
 
-/// Start the endpoint. Must be called from a tokio runtime, after `sc_service::spawn_tasks`.
+/// Start the server. Must be called from a tokio runtime, after `sc_service::spawn_tasks`.
 pub(crate) async fn start(
 	config: EthRpcConfig,
 	rpc_handlers: &RpcHandlers,
 	task_manager: &mut TaskManager,
-	prometheus_registry: Option<&Registry>,
 ) -> sc_service::error::Result<()> {
-	start_embedded(rpc_handlers.handle(), task_manager, config.0, prometheus_registry)
+	// `None`: the node's own RPC server already registered these metric names on this registry.
+	start_embedded(rpc_handlers.handle(), task_manager, config.0, None)
 		.await
 		.map_err(|err| sc_service::Error::Application(err.into()))
 }

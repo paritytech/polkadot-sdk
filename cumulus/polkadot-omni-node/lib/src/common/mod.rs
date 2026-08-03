@@ -148,7 +148,7 @@ pub struct NodeExtraArgs {
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
 
-	/// Options for the embedded Ethereum JSON-RPC endpoint.
+	/// Options for the embedded Ethereum JSON-RPC server.
 	#[cfg(feature = "eth-rpc")]
 	pub eth_rpc: eth_rpc::EthRpcParams,
 }

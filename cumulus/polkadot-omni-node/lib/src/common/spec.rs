@@ -613,15 +613,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			})?;
 
 			#[cfg(feature = "eth-rpc")]
-			if let Some(eth_rpc_config) = eth_rpc_config {
-				crate::common::eth_rpc::start(
-					eth_rpc_config,
-					&_rpc_handlers,
-					&mut task_manager,
-					prometheus_registry.as_ref(),
-				)
+			crate::common::eth_rpc::start(eth_rpc_config, &_rpc_handlers, &mut task_manager)
 				.await?;
-			}
 
 			// Spawn the storage monitor
 			if let Some(database_path) = database_path {

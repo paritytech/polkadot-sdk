@@ -84,7 +84,7 @@ pub(crate) async fn build_client(
 	db_options: SqliteConnectOptions,
 	subscription_gap_queue: SubscriptionGapQueue,
 ) -> Result<Client, ClientError> {
-	let (api, rpc_client, rpc) = connect_with(rpc_client).await?;
+	let (api, rpc) = connect_with(rpc_client.clone()).await?;
 	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
 	let (pool, keep_latest_n_blocks) = match eth_pruning {
@@ -196,7 +196,8 @@ pub(crate) fn spawn_indexing_tasks(
 
 /// Settings for an ETH RPC server embedded in a Substrate node.
 pub struct EmbeddedConfig {
-	/// Settings of the Ethereum endpoint, which is separate from the node's own RPC server.
+	/// Settings of the Ethereum JSON-RPC server, which is separate from the node's own RPC
+	/// server.
 	pub rpc: RpcConfiguration,
 	/// Pruning mode for the receipt database.
 	pub eth_pruning: EthPruningMode,

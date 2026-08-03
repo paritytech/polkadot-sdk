@@ -412,12 +412,12 @@ pub async fn connect(
 pub async fn connect_with(
 	rpc_client: RpcClient,
 ) -> Result<
-	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	(OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
 	ClientError,
 > {
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
-	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc))
+	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
+	Ok((api, rpc))
 }
 
 impl Client {

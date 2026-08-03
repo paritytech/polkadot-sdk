@@ -50,7 +50,7 @@ const RPC_METHODS: &str = "rpc_methods";
 #[derive(Clone, Debug)]
 pub struct InProcessRpcClient {
 	methods: Methods,
-	/// `None` when the module answers `rpc_methods` itself.
+	/// Canned `rpc_methods` response; `None` when the module answers it itself.
 	rpc_methods_response: Option<Arc<RawValue>>,
 	subscription_buffer_capacity: usize,
 }

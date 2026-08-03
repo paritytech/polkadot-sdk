@@ -460,12 +460,7 @@ where
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
 		#[cfg(feature = "eth-rpc")]
-		let eth_rpc = {
-			let tokio_handle = config.tokio_handle.clone();
-			let prometheus_registry = config.prometheus_registry().cloned();
-			crate::common::eth_rpc::EthRpcConfig::new(eth_rpc, &config)
-				.map(|eth_rpc| (eth_rpc, tokio_handle, prometheus_registry))
-		};
+		let eth_rpc = crate::common::eth_rpc::EthRpcConfig::new(eth_rpc, &config);
 
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
@@ -484,14 +479,13 @@ where
 		})?;
 
 		#[cfg(feature = "eth-rpc")]
-		if let Some((eth_rpc, tokio_handle, prometheus_registry)) = eth_rpc {
-			tokio_handle.block_on(crate::common::eth_rpc::start(
+		tokio::task::block_in_place(|| {
+			futures::executor::block_on(crate::common::eth_rpc::start(
 				eth_rpc,
 				&_rpc_handlers,
 				&mut task_manager,
-				prometheus_registry.as_ref(),
-			))?;
-		}
+			))
+		})?;
 
 		// Spawn the storage monitor.
 		if let Some(database_path) = database_path {
