@@ -54,17 +54,17 @@ pub struct CallTraceV1 {
 	pub gas_used: u64,
 	pub to: H160,
 	pub input: Bytes,
-	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	#[serde(default, skip_serializing_if = "Bytes::is_empty")]
 	pub output: Bytes,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub revert_reason: Option<String>,
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub calls: Vec<Self>,
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLogV1>,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub value: Option<U256>,
 	#[serde(rename = "type")]
 	pub call_type: CallTypeV1,
@@ -84,17 +84,17 @@ pub struct CallTraceV2 {
 	pub gas_used: u64,
 	pub to: H160,
 	pub input: Bytes,
-	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	#[serde(default, skip_serializing_if = "Bytes::is_empty")]
 	pub output: Bytes,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub revert_reason: Option<String>,
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub calls: Vec<Self>,
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLogV2>,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub value: Option<U256>,
 	#[serde(rename = "type")]
 	pub call_type: CallTypeV1,
@@ -164,11 +164,11 @@ pub enum CallTypeV1 {
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
 pub struct PrestateTraceInfoV1 {
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub balance: Option<U256>,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub nonce: Option<u32>,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 	#[serde(
 		default,
@@ -189,9 +189,9 @@ pub struct ExecutionStepV1 {
 	pub gas_cost: u64,
 	pub weight_cost: Weight,
 	pub depth: u16,
-	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	#[serde(default, skip_serializing_if = "Bytes::is_empty")]
 	pub return_data: Bytes,
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
 	#[serde(flatten)]
 	pub kind: ExecutionStepKindV1,

@@ -32,8 +32,8 @@ use futures::{channel::mpsc, StreamExt};
 use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
-	AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider,
-	UsageProvider,
+	AuxStore, Backend as BackendT, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider,
+	Finalizer, ProofProvider, UsageProvider,
 };
 use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
@@ -53,13 +53,15 @@ use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_core::Decode;
+use sp_core::{traits::CallContext, Decode};
 use sp_runtime::{
-	traits::{Block as BlockT, BlockIdTo, Header},
+	traits::{Block as BlockT, BlockIdTo, HashingFor, Header},
 	SaturatedConversion, Saturating,
 };
+use sp_state_machine::OverlayedChanges;
 use sp_trie::proof_size_extension::{ProofSizeExt, ReplayProofSizeProvider};
 use std::{
+	cell::RefCell,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -621,20 +623,40 @@ impl<Client> ParachainTracingExecuteBlock<Client> {
 	}
 }
 
+/// Proof-size extension for re-enacting `hash`: replay its stored recording if present, else
+/// measure with `recorder`.
+fn recorded_proof_size_ext<Block, Client>(
+	client: &Client,
+	hash: Block::Hash,
+	recorder: &ProofRecorder<Block>,
+) -> sp_blockchain::Result<ProofSizeExt>
+where
+	Block: BlockT,
+	Client: AuxStore,
+{
+	Ok(load_proof_size_recording(client, hash)?.map_or_else(
+		|| ProofSizeExt::new(recorder.clone()),
+		|recordings| ProofSizeExt::new(ReplayProofSizeProvider::from(recordings)),
+	))
+}
+
 impl<Block, Client> TracingExecuteBlock<Block> for ParachainTracingExecuteBlock<Client>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + AuxStore + Send + Sync,
+	Client: ProvideRuntimeApi<Block>
+		+ ExecutorProvider<Block>
+		+ HeaderBackend<Block>
+		+ AuxStore
+		+ Send
+		+ Sync,
 	Client::Api: Core<Block>,
 {
 	fn execute_block(&self, orig_hash: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
 		let mut runtime_api = self.client.runtime_api();
 		let storage_proof_recorder = ProofRecorder::<Block>::default();
 
-		let proof_size_ext = load_proof_size_recording(&*self.client, orig_hash)?.map_or_else(
-			|| ProofSizeExt::new(storage_proof_recorder.clone()),
-			|recordings| ProofSizeExt::new(ReplayProofSizeProvider::from(recordings)),
-		);
+		let proof_size_ext =
+			recorded_proof_size_ext::<Block, _>(&*self.client, orig_hash, &storage_proof_recorder)?;
 		runtime_api.register_extension(proof_size_ext);
 
 		runtime_api.record_proof_with_recorder(storage_proof_recorder);
@@ -642,5 +664,38 @@ where
 		runtime_api
 			.execute_block(*block.header().parent_hash(), block.into())
 			.map_err(Into::into)
+	}
+
+	fn call_recorded(
+		&self,
+		block: Block::Hash,
+		method: &str,
+		call_data: &[u8],
+	) -> sp_blockchain::Result<Vec<u8>> {
+		let header = self
+			.client
+			.header(block)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{block:?}")))?;
+		let at = *header.parent_hash();
+		let number = self
+			.client
+			.number(at)?
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{at:?}")))?;
+		let storage_proof_recorder = ProofRecorder::<Block>::default();
+
+		let proof_size_ext =
+			recorded_proof_size_ext::<Block, _>(&*self.client, block, &storage_proof_recorder)?;
+		let mut extensions = self.client.execution_extensions().extensions(at, number);
+		extensions.register(proof_size_ext);
+
+		self.client.executor().contextual_call(
+			at,
+			method,
+			call_data,
+			&RefCell::new(OverlayedChanges::<HashingFor<Block>>::default()),
+			&Some(storage_proof_recorder),
+			CallContext::Offchain,
+			&RefCell::new(extensions),
+		)
 	}
 }
