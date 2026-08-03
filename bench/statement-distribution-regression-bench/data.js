@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785636081628,
+  "lastUpdate": 1785756015590,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "54316454+sandreim@users.noreply.github.com",
-            "name": "Andrei Sandu",
-            "username": "sandreim"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e73397897316a7446fe4985292aa4cf3c6ea62df",
-          "message": "collator-protocol: don't disconnect on slot end when we have pending collations (#10446)\n\nWe pre-connect one slot in advance and we disconnect when our slot ends\neven when we have pending collations which is wrong. This change fixes\nthis by keeping the connections open until the collation is requested or\nrelay parent expires.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-11-28T13:34:15Z",
-          "tree_id": "2333702b47e0cbba9efbd7eafcf6b7e6c781264e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e73397897316a7446fe4985292aa4cf3c6ea62df"
-        },
-        "date": 1764342888190,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96199999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034527816479999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044861333561999936,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.040038119136,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dda8013292008c5a5d105622cd423d47df342bfe",
+          "message": "grandpa: Revert memory changes synced with db (#12767)\n\nThis PR keeps the in memory changes synced with the DB ones in grandpa\n\nWhile at it, have added a few tests and changed the API a bit\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-03T09:38:44Z",
+          "tree_id": "279c6316be6473c152ff7f18b078ec41c9e1ea83",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dda8013292008c5a5d105622cd423d47df342bfe"
+        },
+        "date": 1785755987366,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.07599999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08686282710599995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03970603213399999,
             "unit": "seconds"
           }
         ]
