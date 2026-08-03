@@ -42,6 +42,9 @@ enum NemesisVariant {
 	DisputeFinalizedCandidates(DisputeFinalizedCandidatesOptions),
 	/// Spam many request statements instead of sending a single one.
 	SpamStatementRequests(SpamStatementRequestsOptions),
+	/// Ignore parachain messaging bandwidth constraints (HRMP/UMP) when
+	/// deciding what to second, back, and provision.
+	IgnoreMessageConstraints(IgnoreMessageConstraintsOptions),
 }
 
 #[derive(Debug, Parser)]
@@ -104,6 +107,11 @@ impl MalusCli {
 				let SpamStatementRequestsOptions { spam_factor, cli } = opts;
 
 				polkadot_cli::run_node(cli, SpamStatementRequests { spam_factor }, finality_delay)?
+			},
+			NemesisVariant::IgnoreMessageConstraints(opts) => {
+				let IgnoreMessageConstraintsOptions { cli } = opts;
+
+				polkadot_cli::run_node(cli, IgnoreMessageConstraints, finality_delay)?
 			},
 		}
 		Ok(())

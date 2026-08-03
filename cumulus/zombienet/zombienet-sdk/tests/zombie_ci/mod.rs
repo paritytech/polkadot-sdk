@@ -7,6 +7,7 @@ mod collator_discovery;
 mod elastic_scaling;
 mod full_node_catching_up;
 mod full_node_warp_sync;
+mod hrmp_capacity_bypass;
 mod migrate_solo;
 mod parachain_runtime_upgrade_slot_duration_18s;
 mod pov_recovery;

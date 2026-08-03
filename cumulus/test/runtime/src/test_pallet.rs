@@ -41,7 +41,10 @@ pub fn relay_alice_account_key() -> alloc::vec::Vec<u8> {
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use alloc::{vec, vec::Vec};
-	use cumulus_primitives_core::{CumulusDigestItem, ParaId, XcmpMessageSource};
+	use cumulus_primitives_core::{
+		relay_chain::UMP_SEPARATOR, CumulusDigestItem, OutboundHrmpMessage, ParaId, UpwardMessage,
+		XcmpMessageSource,
+	};
 	use cumulus_primitives_storage_weight_reclaim::get_proof_size;
 	use frame_support::{
 		dispatch::DispatchInfo,
@@ -102,6 +105,24 @@ pub mod pallet {
 	/// exercising the HRMP message sorting in the collation path.
 	#[pallet::storage]
 	pub type HrmpSendingActive<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Extra HRMP messages injected straight into `HrmpOutboundMessages` in `on_finalize`,
+	/// bypassing `adjust_egress_bandwidth_limits`. 0 disables.
+	///
+	/// Keep at 1: `check_outbound_hrmp` requires strictly ascending recipients, and there is only
+	/// one `OversendHrmpRecipient`, so a second message would be rejected as `NotSorted`.
+	#[pallet::storage]
+	pub type OversendHrmpPerBlock<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// Recipient for [`OversendHrmpPerBlock`], as a raw `u32`. Must not collide with the recipients
+	/// used by the normal HRMP path, or the candidate is rejected as `NotSorted`.
+	#[pallet::storage]
+	pub type OversendHrmpRecipient<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// Extra 1-byte upward messages injected into `UpwardMessages` in `on_finalize`, bypassing
+	/// `adjust_egress_bandwidth_limits`. 0 disables.
+	#[pallet::storage]
+	pub type OversendUmpPerBlock<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Flag to indicate if a 1s weight should be registered in the next `on_initialize`.
 	#[pallet::storage]
@@ -167,6 +188,40 @@ pub mod pallet {
 			}
 
 			Weight::zero()
+		}
+
+		/// Appends outbound messages beyond what the channel limits allow, to exercise the relay
+		/// chain's cumulative acceptance checks.
+		///
+		/// This runs after `ParachainSystem::on_finalize` — see the `construct_runtime!` ordering —
+		/// so its bandwidth accounting is already done and these messages escape it.
+		/// `validate_block` copies both storage items straight into the commitments without
+		/// re-checking limits.
+		fn on_finalize(_: BlockNumberFor<T>) {
+			let hrmp_n = OversendHrmpPerBlock::<T>::get();
+			if hrmp_n > 0 {
+				let recipient = ParaId::from(OversendHrmpRecipient::<T>::get());
+				cumulus_pallet_parachain_system::HrmpOutboundMessages::<T>::mutate(|msgs| {
+					for i in 0..hrmp_n {
+						msgs.push(OutboundHrmpMessage { recipient, data: vec![(i % 256) as u8] });
+					}
+					// `check_outbound_hrmp` requires ascending recipients.
+					msgs.sort_by_key(|m| m.recipient);
+				});
+			}
+
+			let ump_n = OversendUmpPerBlock::<T>::get();
+			if ump_n > 0 {
+				cumulus_pallet_parachain_system::UpwardMessages::<T>::mutate(|msgs| {
+					// Anything after `UMP_SEPARATOR` is read as a UMP signal rather than a
+					// message, so insert before it.
+					let sep_pos = msgs.iter().position(|m: &UpwardMessage| m == &UMP_SEPARATOR);
+					let insert_at = sep_pos.unwrap_or(msgs.len());
+					for i in 0..ump_n {
+						msgs.insert(insert_at + i as usize, vec![(i % 255 + 1) as u8]);
+					}
+				});
+			}
 		}
 	}
 
@@ -260,6 +315,23 @@ pub mod pallet {
 					messages.push((recipient, vec![(i % 256) as u8]));
 				}
 			});
+			Ok(())
+		}
+
+		/// Sets [`OversendHrmpPerBlock`]. Call this *after* the channel is open — over-sending to a
+		/// para with no channel is rejected as `NoSuchChannel` and stalls the parachain, which is
+		/// why this is an extrinsic and not just a genesis flag. Keep `n` at 1.
+		#[pallet::weight(0)]
+		pub fn set_oversend_hrmp(_: OriginFor<T>, n: u32, recipient: ParaId) -> DispatchResult {
+			OversendHrmpPerBlock::<T>::put(n);
+			OversendHrmpRecipient::<T>::put(u32::from(recipient));
+			Ok(())
+		}
+
+		/// Sets [`OversendUmpPerBlock`].
+		#[pallet::weight(0)]
+		pub fn set_oversend_ump(_: OriginFor<T>, n: u32) -> DispatchResult {
+			OversendUmpPerBlock::<T>::put(n);
 			Ok(())
 		}
 
@@ -370,6 +442,13 @@ pub mod pallet {
 		pub enable_big_value_move: bool,
 		/// Activate HRMP sending with descending recipients from genesis.
 		pub enable_hrmp_sending: bool,
+		/// Genesis value for [`OversendHrmpPerBlock`]. Prefer `set_oversend_hrmp`: enabling this
+		/// at genesis stalls the parachain until the channel exists.
+		pub oversend_hrmp_per_block: u32,
+		/// Genesis value for [`OversendHrmpRecipient`].
+		pub oversend_hrmp_recipient: u32,
+		/// Genesis value for [`OversendUmpPerBlock`].
+		pub oversend_ump_per_block: u32,
 	}
 
 	#[pallet::genesis_build]
@@ -383,6 +462,15 @@ pub mod pallet {
 
 			if self.enable_hrmp_sending {
 				HrmpSendingActive::<T>::set(true);
+			}
+
+			if self.oversend_hrmp_per_block > 0 {
+				OversendHrmpPerBlock::<T>::put(self.oversend_hrmp_per_block);
+				OversendHrmpRecipient::<T>::put(self.oversend_hrmp_recipient);
+			}
+
+			if self.oversend_ump_per_block > 0 {
+				OversendUmpPerBlock::<T>::put(self.oversend_ump_per_block);
 			}
 		}
 	}

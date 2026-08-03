@@ -20,6 +20,7 @@ mod back_garbage_candidate;
 mod common;
 mod dispute_finalized_candidates;
 mod dispute_valid_candidates;
+mod ignore_message_constraints;
 mod spam_statement_requests;
 mod suggest_garbage_candidate;
 mod support_disabled;
@@ -28,6 +29,7 @@ pub(crate) use self::{
 	back_garbage_candidate::{BackGarbageCandidateOptions, BackGarbageCandidates},
 	dispute_finalized_candidates::{DisputeFinalizedCandidates, DisputeFinalizedCandidatesOptions},
 	dispute_valid_candidates::{DisputeAncestorOptions, DisputeValidCandidates},
+	ignore_message_constraints::{IgnoreMessageConstraints, IgnoreMessageConstraintsOptions},
 	spam_statement_requests::{SpamStatementRequests, SpamStatementRequestsOptions},
 	suggest_garbage_candidate::{SuggestGarbageCandidateOptions, SuggestGarbageCandidates},
 	support_disabled::{SupportDisabled, SupportDisabledOptions},
