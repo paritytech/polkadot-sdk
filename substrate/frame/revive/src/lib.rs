@@ -3678,8 +3678,8 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						.insert("new_balance_with_dust_versioned", 1)
 						.insert("block_author_versioned", 1)
 						.insert("address_versioned", 1)
-						.insert("trace_block_versioned", 2)
-						.insert("trace_tx_versioned", 2)
+						.insert("trace_block_versioned", 3)
+						.insert("trace_tx_versioned", 3)
 						.insert("trace_call_versioned", 2)
 				}
 
@@ -4262,6 +4262,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							TraceBlockInputPayload::from(payload),
 							Box::new(|output| TraceBlockVersionedOutputPayload::V2(output.into()))
 						),
+						TraceBlockVersionedInputPayload::V3(payload) => (
+							TraceBlockInputPayload::from(payload),
+							Box::new(|output| TraceBlockVersionedOutputPayload::V3(output.into()))
+						),
 					};
 
 					if matches!(input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
@@ -4272,21 +4276,23 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					// Faithful proof-size accounting needs a PoV recorder registered for this call
 					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
-					// `ExhaustsResources` and drop a trace.
-					let mut traces = vec![];
+					// `ExhaustsResources`. V1/V2 drop such traces; V3 reports them as `NotTraced`.
+					let mut entries = vec![];
 					let (header, extrinsics) = input.block.deconstruct();
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
 						let t = tracer.as_tracing();
-						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+						let result = trace(t, || <$Executive>::apply_extrinsic(ext));
 
 						if let Some(tx_trace) = tracer.collect_trace() {
-							traces.push((index as u32, tx_trace));
+							entries.push((index as u32, TraceEntry::Traced(tx_trace)));
+						} else if is_not_traced(&result) {
+							entries.push((index as u32, TraceEntry::NotTraced));
 						}
 					}
 
-					let output = TraceBlockOutputPayload { traces };
+					let output = TraceBlockOutputPayload { entries };
 					output_wrapper(output)
 				}
 
@@ -4310,34 +4316,41 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							TraceTxInputPayload::from(payload),
 							Box::new(|output| TraceTxVersionedOutputPayload::V2(output.into())),
 						),
+						TraceTxVersionedInputPayload::V3(payload) => (
+							TraceTxInputPayload::from(payload),
+							Box::new(|output| TraceTxVersionedOutputPayload::V3(output.into())),
+						),
 					};
 
 					if matches!(&input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
 						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
 					{
-						return output_wrapper(TraceTxOutputPayload { trace: None })
+						return output_wrapper(TraceTxOutputPayload { entry: None })
 					}
 
 					// Faithful proof-size accounting needs a PoV recorder registered for this call
 					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
-					// `ExhaustsResources` and drop a trace.
+					// `ExhaustsResources`. V1/V2 drop such traces; V3 reports them as `NotTraced`.
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config);
 					let (header, extrinsics) = input.block.deconstruct();
 
 					<$Executive>::initialize_block(&header);
+					let mut entry = None;
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == input.tx_index {
 							let t = tracer.as_tracing();
-							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+							let result = trace(t, || <$Executive>::apply_extrinsic(ext));
+							entry = match tracer.collect_trace() {
+								Some(tx_trace) => Some(TraceEntry::Traced(tx_trace)),
+								None => is_not_traced(&result).then_some(TraceEntry::NotTraced),
+							};
 							break;
 						} else {
 							let _ = <$Executive>::apply_extrinsic(ext);
 						}
 					}
 
-					let output = TraceTxOutputPayload {
-						trace: tracer.collect_trace()
-					};
+					let output = TraceTxOutputPayload { entry };
 					output_wrapper(output)
 				}
 

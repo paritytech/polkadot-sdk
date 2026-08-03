@@ -17,8 +17,16 @@
 
 use alloc::vec::Vec;
 use pallet_revive_types::runtime_api::*;
+use sp_runtime::ApplyExtrinsicResult;
 
 use crate::evm::{Trace, TracerType};
+
+/// Whether an extrinsic that produced no trace could not be traced (vs. having nothing to trace),
+/// from its `apply_extrinsic` result. `ExhaustsResources` is the only spurious failure a faithful
+/// replay introduces.
+pub fn is_not_traced(result: &ApplyExtrinsicResult) -> bool {
+	matches!(result, Err(err) if err.exhausted_resources())
+}
 
 pub struct TraceBlockInputPayload<Block> {
 	pub block: Block,
@@ -30,6 +38,7 @@ impl<Block> From<TraceBlockVersionedInputPayload<Block>> for TraceBlockInputPayl
 		match value {
 			TraceBlockVersionedInputPayload::V1(payload) => payload.into(),
 			TraceBlockVersionedInputPayload::V2(payload) => payload.into(),
+			TraceBlockVersionedInputPayload::V3(payload) => payload.into(),
 		}
 	}
 }
@@ -46,23 +55,65 @@ impl<Block> From<TraceBlockInputPayloadV2<Block>> for TraceBlockInputPayload<Blo
 	}
 }
 
+impl<Block> From<TraceBlockInputPayloadV3<Block>> for TraceBlockInputPayload<Block> {
+	fn from(value: TraceBlockInputPayloadV3<Block>) -> Self {
+		Self { block: value.block, config: value.config.into() }
+	}
+}
+
+/// A single extrinsic's trace, or a signal that it could not be traced. The runtime builds these;
+/// each output version projects them (V1/V2 keep only the traced ones, V3 keeps the untraced ones).
+pub enum TraceEntry {
+	Traced(Trace),
+	NotTraced,
+}
+
+impl From<TraceEntry> for TraceEntryV1 {
+	fn from(value: TraceEntry) -> Self {
+		match value {
+			TraceEntry::Traced(trace) => TraceEntryV1::Traced(trace.into()),
+			TraceEntry::NotTraced => TraceEntryV1::NotTraced,
+		}
+	}
+}
+
 #[derive(Default)]
 pub struct TraceBlockOutputPayload {
-	pub traces: Vec<(u32, Trace)>,
+	pub entries: Vec<(u32, TraceEntry)>,
+}
+
+impl TraceBlockOutputPayload {
+	fn into_traced<T: From<Trace>>(self) -> Vec<(u32, T)> {
+		self.entries
+			.into_iter()
+			.filter_map(|(index, entry)| match entry {
+				TraceEntry::Traced(trace) => Some((index, trace.into())),
+				TraceEntry::NotTraced => None,
+			})
+			.collect()
+	}
 }
 
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV1 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
-		Self {
-			traces: value.traces.into_iter().map(|(index, trace)| (index, trace.into())).collect(),
-		}
+		Self { traces: value.into_traced() }
 	}
 }
 
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV2 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
+		Self { traces: value.into_traced() }
+	}
+}
+
+impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV3 {
+	fn from(value: TraceBlockOutputPayload) -> Self {
 		Self {
-			traces: value.traces.into_iter().map(|(index, trace)| (index, trace.into())).collect(),
+			entries: value
+				.entries
+				.into_iter()
+				.map(|(index, entry)| (index, entry.into()))
+				.collect(),
 		}
 	}
 }

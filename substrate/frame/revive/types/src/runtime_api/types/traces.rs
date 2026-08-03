@@ -42,6 +42,15 @@ pub enum TraceV2 {
 	Execution(ExecutionTraceV1),
 }
 
+/// A single extrinsic's trace, or a signal that the server could not produce one: a real trace
+/// (`Traced`), a transaction the server could not trace (`NotTraced`), or, via an absent entry, one
+/// with nothing to trace. Consumers match the variant, not an error string.
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+pub enum TraceEntryV1 {
+	Traced(TraceV1),
+	NotTraced,
+}
+
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]

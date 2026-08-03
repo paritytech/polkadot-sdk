@@ -409,7 +409,7 @@ impl VersionAwareRuntimeApi {
 		transaction_index: u32,
 		tracer_type: TracerTypeV1,
 		block_hash: H256,
-	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Option<TraceV1>>, ClientError>>> {
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Option<TraceEntryV1>>, ClientError>>> {
 		match self.capabilities.trace_tx {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -420,7 +420,25 @@ impl VersionAwareRuntimeApi {
 						tracer_type.into(),
 					);
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					Ok(output.map(|value| value.map(|trace| trace.0)))
+					Ok(output.map(|value| value.map(|trace| TraceEntryV1::Traced(trace.0))))
+				});
+				Some(future)
+			},
+			Available(Versioned(version)) if version >= 3 => {
+				let future = Box::pin(async move {
+					let input = TraceTxInputPayloadV3 {
+						block: block.into(),
+						tx_index: transaction_index,
+						config: tracer_type,
+					};
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					let entry = TraceTxOutputPayloadV3::try_from(output.value.0)
+						.expect("v3 input must produce v3 output; qed")
+						.entry;
+					Ok(CallRecordedOutput { value: entry, degraded: false })
 				});
 				Some(future)
 			},
@@ -439,6 +457,7 @@ impl VersionAwareRuntimeApi {
 						TraceTxOutputPayloadV1::try_from(value.0)
 							.expect("v1 input must produce v1 output; qed")
 							.trace
+							.map(TraceEntryV1::Traced)
 					}))
 				});
 				Some(future)
@@ -456,7 +475,7 @@ impl VersionAwareRuntimeApi {
 		>,
 		tracer_type: TracerTypeV1,
 		block_hash: H256,
-	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Vec<(u32, TraceV1)>>, ClientError>>> {
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Vec<(u32, TraceEntryV1)>>, ClientError>>> {
 		match self.capabilities.trace_block {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -466,8 +485,26 @@ impl VersionAwareRuntimeApi {
 						.trace_block(block.into(), tracer_type.into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
 					Ok(output.map(|traces| {
-						traces.into_iter().map(|(idx, trace)| (idx, trace.0)).collect()
+						traces
+							.into_iter()
+							.map(|(idx, trace)| (idx, TraceEntryV1::Traced(trace.0)))
+							.collect()
 					}))
+				});
+				Some(future)
+			},
+			Available(Versioned(version)) if version >= 3 => {
+				let future = Box::pin(async move {
+					let input =
+						TraceBlockInputPayloadV3 { block: block.into(), config: tracer_type };
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					let entries = TraceBlockOutputPayloadV3::try_from(output.value.0)
+						.expect("v3 input must produce v3 output; qed")
+						.entries;
+					Ok(CallRecordedOutput { value: entries, degraded: false })
 				});
 				Some(future)
 			},
@@ -483,6 +520,9 @@ impl VersionAwareRuntimeApi {
 						TraceBlockOutputPayloadV1::try_from(value.0)
 							.expect("v1 input must produce v1 output; qed")
 							.traces
+							.into_iter()
+							.map(|(idx, trace)| (idx, TraceEntryV1::Traced(trace)))
+							.collect()
 					}))
 				});
 				Some(future)
