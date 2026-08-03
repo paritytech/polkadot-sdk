@@ -805,11 +805,18 @@ mod benchmarks {
 		let unlock_chunk = UnlockChunk::<BalanceOf<T>> { value, era: EraIndex::zero() };
 
 		let controller = scenario.origin_controller1;
+		let stash = scenario.origin_stash1.clone();
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
 
 		for _ in 0..l {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap()
 		}
+		// Fund the stash and sync the staking hold so that `total == active + sum(unlocking)`
+		// holds and the ledger consistency check in `update` accepts this state.
+		let extra = value * l.into();
+		let _ = asset::mint_into_existing::<T>(&stash, extra).unwrap();
+		staking_ledger.total += extra;
+		asset::update_stake::<T>(&stash, staking_ledger.total).unwrap();
 		Ledger::<T>::insert(controller.clone(), staking_ledger.clone());
 		let original_bonded: BalanceOf<T> = staking_ledger.active;
 
