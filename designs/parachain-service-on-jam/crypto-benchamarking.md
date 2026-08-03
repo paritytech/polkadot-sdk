@@ -128,13 +128,34 @@ Host numbers are a property of **machine × toolchain**, not machine alone.
 Measured explicitly on machine B by rebuilding all host libraries with
 `nightly-2026-08-01` vs stable 1.86 (full tables in the appendix; PVM cells
 are unaffected — guest blobs always build with the suite's pinned
-toolchain):
+toolchain). Hashing at 1 MiB, signatures per operation; the crypto
+native-stable cells are from a separate stable run (cross-run drift ~1%):
+
+| algorithm | portable stable | portable nightly | Δ | native stable | native nightly | Δ |
+|---|---:|---:|---:|---:|---:|---:|
+| blake2_256 (1 MiB) | 726.3 µs | 730.4 µs | ≈ | 655.6 µs | 653.4 µs | ≈ |
+| keccak_256 (1 MiB) | 1.85 ms | 1.85 ms | ≈ | 1.58 ms | 3.67 ms | +132% |
+| keccak_512 (1 MiB) | 3.55 ms | 3.48 ms | ≈ | 2.89 ms | 6.85 ms | +137% |
+| sha2_256 (1 MiB) | 414.7 µs | 414.6 µs | ≈ | 414.5 µs | 413.9 µs | ≈ |
+| twox_64 (1 MiB) | 52.0 µs | 51.7 µs | ≈ | 39.3 µs | 45.7 µs | +16% |
+| twox_128 (1 MiB) | 117.9 µs | 106.2 µs | -10% | 77.9 µs | 91.2 µs | +17% |
+| twox_256 (1 MiB) | 205.5 µs | 205.8 µs | ≈ | 155.7 µs | 181.1 µs | +16% |
+| ed25519 (dalek) | 29.4 µs | 15.6 µs | -47% | 24.5 µs | 15.6 µs | -36% |
+| ed25519 (zebra) | 24.6 µs | 15.7 µs | -36% | 23.6 µs | 15.8 µs | -33% |
+| sr25519 | 24.9 µs | 16.4 µs | -34% | 26.3 µs | 17.2 µs | -34% |
+| ecdsa_verify (k256) | 61.4 µs | 61.5 µs | ≈ | 59.4 µs | 61.6 µs | +4% |
+| ecdsa_verify (libsecp) | 112.2 µs | 111.2 µs | ≈ | 116.4 µs | 116.5 µs | ≈ |
+| recover (k256) | 123.8 µs | 124.0 µs | ≈ | 119.9 µs | 124.8 µs | +4% |
+| recover (libsecp) | 119.3 µs | 117.8 µs | ≈ | 124.2 µs | 125.2 µs | ≈ |
 
 - **25519 signatures: ~1.6× faster on nightly** (ed25519 host 29 → 15.6 µs;
   PVM ratio 2.3× → 4.4×). `curve25519-dalek` compiles its SIMD backends only
-  on the nightly *channel* (unstable-feature gate) and runtime-dispatches to
-  AVX-512-IFMA on Zen 4+; `target-cpu` flags are irrelevant, and no stable
-  release changes this (1.97 tested) until the crate drops its gate.
+  on the nightly *channel*
+  ([unstable-feature gate](https://github.com/dalek-cryptography/curve25519-dalek/blob/curve25519-4.1.3/curve25519-dalek/src/lib.rs#L13-L24),
+  enabled by [channel detection in build.rs](https://github.com/dalek-cryptography/curve25519-dalek/blob/curve25519-4.1.3/curve25519-dalek/build.rs#L44-L50))
+  and runtime-dispatches to AVX-512-IFMA on Zen 4+; `target-cpu` flags are
+  irrelevant, and no stable release changes this (1.97 tested) until the
+  crate drops its gate.
 - **keccak host-native: ~2.3× slower on nightly** (1.58 → 3.67 ms): modern
   LLVM auto-vectorizes the permutation to AVX-512 under `target-cpu=native`
   on Zen 4; stable 1.86 does not. Best host flips to portable. Likely an
