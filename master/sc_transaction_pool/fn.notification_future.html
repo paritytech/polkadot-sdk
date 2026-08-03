@@ -154,8 +154,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
     all_block_notifications: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>,
 )<div class="where">where
     Block: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,
-    Client: <a class="trait" href="../sc_client_api/client/trait.BlockchainEvents.html" title="trait sc_client_api::client::BlockchainEvents">BlockchainEvents</a>&lt;Block&gt;,
-    Pool: <a class="trait" href="../sc_transaction_pool_api/trait.MaintainedTransactionPool.html" title="trait sc_transaction_pool_api::MaintainedTransactionPool">MaintainedTransactionPool</a>&lt;Block = Block&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Inform the transaction pool about imported and finalized blocks.</p>
+    Client: BlockchainEvents&lt;Block&gt;,
+    Pool: MaintainedTransactionPool&lt;Block = Block&gt;,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Inform the transaction pool about imported and finalized blocks.</p>
 <p>If <code>all_block_notifications</code> is <code>true</code>, the pool is informed about every imported block (all
 forks); otherwise it is only informed about blocks imported as the new best.</p>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
