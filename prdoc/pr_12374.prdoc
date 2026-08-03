@@ -25,9 +25,7 @@ doc:
       otherwise). `bytes` is the opaque SCALE-encoded args — the node doesn't inspect them, so
       versioned payloads work; `block` only locates the parent state and the recording.
     - New `TracingExecuteBlock::call_recorded(block, method, call_data)` trait method (default impl
-      errors, non-breaking; implemented for parachains in `cumulus-client-service`). This node hook
-      is the durable interface; the RPC is a transitional bridge until an in-node eth-rpc
-      (polkadot-sdk#11297) uses it directly.
+      errors, non-breaking; implemented for parachains in `cumulus-client-service`).
     - New `sc-rpc-api` state errors with stable wire codes clients match on to fall back:
       `CallRecordedUnsupported` (node has no recorder) and `CallRecordedDenied` (unsafe RPCs
       disabled), both scoped to `state_callRecorded`; the shared `UnsafeRpcCalled` code is unchanged.
