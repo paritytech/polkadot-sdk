@@ -297,3 +297,64 @@ fn code_accessors_agree_for_precompiles() {
 		assert_eq!(buf, [0, 0]);
 	});
 }
+
+/// A pre-compile may override [`Precompile::CODE`], and distinct interfaces get distinct code.
+#[test]
+fn custom_code_is_reported() {
+	use alloy_core::sol;
+
+	sol! {
+		interface IPlain {
+			function plain() external;
+		}
+		interface ICustom {
+			function custom() external;
+		}
+	}
+
+	struct Plain;
+	struct Custom;
+
+	impl Precompile for Plain {
+		type T = Test;
+		type Interface = IPlain::IPlainCalls;
+		const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0xC0DE).unwrap());
+		const HAS_CONTRACT_INFO: bool = false;
+
+		fn call(
+			_address: &[u8; 20],
+			_input: &Self::Interface,
+			_env: &mut impl Ext<T = Self::T>,
+		) -> Result<Vec<u8>, Error> {
+			Ok(Vec::new())
+		}
+	}
+
+	impl Precompile for Custom {
+		type T = Test;
+		type Interface = ICustom::ICustomCalls;
+		const MATCHER: AddressMatcher = AddressMatcher::Fixed(NonZero::new(0xC0DF).unwrap());
+		const HAS_CONTRACT_INFO: bool = false;
+		const CODE: &[u8] = &[0x60, 0x2a, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3];
+
+		fn call(
+			_address: &[u8; 20],
+			_input: &Self::Interface,
+			_env: &mut impl Ext<T = Self::T>,
+		) -> Result<Vec<u8>, Error> {
+			Ok(Vec::new())
+		}
+	}
+
+	type Col = (Plain, Custom);
+
+	let plain = <Plain as Precompile>::MATCHER.base_address();
+	let custom = <Custom as Precompile>::MATCHER.base_address();
+
+	assert_eq!(<Col as Precompiles<Test>>::code(&plain).unwrap(), EVM_REVERT);
+	assert_eq!(<Col as Precompiles<Test>>::code(&custom).unwrap(), <Custom as Precompile>::CODE);
+	assert_ne!(
+		<Col as Precompiles<Test>>::code(&plain).unwrap(),
+		<Col as Precompiles<Test>>::code(&custom).unwrap()
+	);
+}
