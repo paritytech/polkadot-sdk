@@ -55,6 +55,7 @@ pub trait WeightInfo {
 	fn on_initialize() -> Weight;
 	fn enact_epoch_change(x: u32, y: u32, ) -> Weight;
 	fn submit_tickets(x: u32, ) -> Weight;
+	fn authorize_submit_tickets(x: u32, ) -> Weight;
 	fn plan_config_change() -> Weight;
 	fn update_ring_verifier(x: u32, ) -> Weight;
 	fn load_ring_context() -> Weight;
@@ -182,6 +183,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 2559).saturating_mul(x.into()))
+	}
+	/// Storage: `Sassafras::CurrentSlot` (r:1 w:0)
+	/// Proof: `Sassafras::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Sassafras::EpochIndex` (r:1 w:0)
+	/// Proof: `Sassafras::EpochIndex` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Sassafras::GenesisSlot` (r:1 w:0)
+	/// Proof: `Sassafras::GenesisSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	fn authorize_submit_tickets(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1509`
+		Weight::from_parts(10_000_000, 1509)
+			.saturating_add(Weight::from_parts(10_600_000, 0).saturating_mul(x.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 	}
 	/// Storage: `Sassafras::PendingEpochConfigChange` (r:0 w:1)
 	/// Proof: `Sassafras::PendingEpochConfigChange` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -363,6 +378,20 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(x.into())))
 			.saturating_add(Weight::from_parts(0, 2559).saturating_mul(x.into()))
+	}
+	/// Storage: `Sassafras::CurrentSlot` (r:1 w:0)
+	/// Proof: `Sassafras::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Sassafras::EpochIndex` (r:1 w:0)
+	/// Proof: `Sassafras::EpochIndex` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Sassafras::GenesisSlot` (r:1 w:0)
+	/// Proof: `Sassafras::GenesisSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	fn authorize_submit_tickets(x: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1509`
+		Weight::from_parts(10_000_000, 1509)
+			.saturating_add(Weight::from_parts(10_600_000, 0).saturating_mul(x.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
 	/// Storage: `Sassafras::PendingEpochConfigChange` (r:0 w:1)
 	/// Proof: `Sassafras::PendingEpochConfigChange` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
