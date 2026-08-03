@@ -79,7 +79,7 @@ use polkadot_runtime_parachains::{
 		v13 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
-	shared as parachains_shared,
+	shared as parachains_shared, spec_msg as parachains_spec_msg,
 };
 use rococo_runtime_constants::system_parachain::{coretime::TIMESLICE_PERIOD, BROKER_ID};
 use scale_info::TypeInfo;
@@ -1133,6 +1133,8 @@ impl parachains_dmp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl parachains_spec_msg::Config for Runtime {}
+
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
 }
@@ -1601,6 +1603,7 @@ construct_runtime! {
 		ParasSlashing: parachains_slashing = 63,
 		MessageQueue: pallet_message_queue = 64,
 		OnDemandAssignmentProvider: parachains_on_demand = 66,
+		SpecMsg: parachains_spec_msg = 67,
 		// RIP CoretimeAssignmentProvider 68 - Moved to scheduler::assigner_coretime submodule in PR #10184
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.

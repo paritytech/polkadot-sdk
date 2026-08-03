@@ -40,6 +40,7 @@ pub mod runtime_api_impl;
 pub mod scheduler;
 pub mod session_info;
 pub mod shared;
+pub mod spec_msg;
 
 mod util;
 

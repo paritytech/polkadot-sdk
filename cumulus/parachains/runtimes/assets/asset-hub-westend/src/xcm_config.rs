@@ -28,6 +28,7 @@ use assets_common::{
 	},
 	TrustBackedAssetsAsLocation,
 };
+use cumulus_pallet_spec_messaging::SpecMsgRouter;
 use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	parameter_types,
@@ -508,10 +509,27 @@ pub type LocalOriginToLocation =
 pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
+/// Delivery price of XCM over Speculative Messaging: the XCMP base delivery fee, constant — the
+/// MVP guidance. A congestion-driven price can later key off the channel's remaining credit
+/// (`out_channels()` grant standing), a real congestion signal.
+pub struct PriceForSpecMsgDelivery;
+impl polkadot_runtime_common::xcm_sender::PriceForMessageDelivery for PriceForSpecMsgDelivery {
+	type Id = ParaId;
+
+	fn price_for_delivery(_: ParaId, _: &Xcm<()>) -> xcm::latest::Assets {
+		(FeeAssetId::get(), BaseDeliveryFee::get()).into()
+	}
+}
+
 /// For routing XCM messages which do not cross local consensus boundary.
 type LocalXcmRouter = (
-	// Two routers - use UMP to communicate with the relay chain:
+	// Three routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
+	// ..Speculative Messaging for siblings whose HRMP channel is gone. Must sit BEFORE
+	// `XcmpQueue` (both match the same sibling pattern and `XcmpQueue::validate` accepts any
+	// sibling unconditionally); the HRMP-wins rule lives inside the router. The bridge
+	// exporters further down match non-sibling destinations and are unaffected.
+	SpecMsgRouter<Runtime, ParachainSystem, PolkadotXcm, PriceForSpecMsgDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 );

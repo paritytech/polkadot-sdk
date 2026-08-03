@@ -269,6 +269,16 @@ where
 		}
 	}
 
+	// The subscription only ends before `stop_after` when the node (or the whole network) went
+	// away under us — e.g. an external teardown. Blaming a para for missing candidates would be
+	// misleading; it never got the chance to produce them.
+	if current_block_count < stop_after {
+		return Err(anyhow!(
+			"Finalized-block subscription ended prematurely after {current_block_count} counted \
+			block(s) (expected {stop_after}) — node shut down or network torn down while waiting?"
+		));
+	}
+
 	log::info!(
 		"Reached {stop_after} finalized relay chain blocks that contain backed candidates. The per-parachain distribution is: {:#?}",
 		candidate_count.iter().map(|(para_id, receipts)| format!("{para_id} has {} backed candidates", receipts.len())).collect::<Vec<_>>()

@@ -28,6 +28,7 @@ std = [
 	"cumulus-pallet-parachain-system?/std",
 	"cumulus-pallet-session-benchmarking?/std",
 	"cumulus-pallet-solo-to-para?/std",
+	"cumulus-pallet-spec-messaging?/std",
 	"cumulus-pallet-weight-reclaim?/std",
 	"cumulus-pallet-xcm?/std",
 	"cumulus-pallet-xcmp-queue?/std",
@@ -36,6 +37,7 @@ std = [
 	"cumulus-primitives-core?/std",
 	"cumulus-primitives-parachain-inherent?/std",
 	"cumulus-primitives-proof-size-hostfunction?/std",
+	"cumulus-primitives-spec-messaging?/std",
 	"cumulus-primitives-storage-weight-reclaim?/std",
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
@@ -254,6 +256,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-dmp-queue?/runtime-benchmarks",
 	"cumulus-pallet-parachain-system?/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking?/runtime-benchmarks",
+	"cumulus-pallet-spec-messaging?/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim?/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue?/runtime-benchmarks",
 	"cumulus-primitives-core?/runtime-benchmarks",
@@ -401,6 +404,7 @@ try-runtime = [
 	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
 	"cumulus-pallet-solo-to-para?/try-runtime",
+	"cumulus-pallet-spec-messaging?/try-runtime",
 	"cumulus-pallet-weight-reclaim?/try-runtime",
 	"cumulus-pallet-xcm?/try-runtime",
 	"cumulus-pallet-xcmp-queue?/try-runtime",
@@ -605,6 +609,7 @@ runtime-full = [
 	"cumulus-pallet-parachain-system-proc-macro",
 	"cumulus-pallet-session-benchmarking",
 	"cumulus-pallet-solo-to-para",
+	"cumulus-pallet-spec-messaging",
 	"cumulus-pallet-weight-reclaim",
 	"cumulus-pallet-xcm",
 	"cumulus-pallet-xcmp-queue",
@@ -613,6 +618,7 @@ runtime-full = [
 	"cumulus-primitives-core",
 	"cumulus-primitives-parachain-inherent",
 	"cumulus-primitives-proof-size-hostfunction",
+	"cumulus-primitives-spec-messaging",
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
@@ -914,6 +920,7 @@ node = [
 	"cumulus-client-proof-size-recording",
 	"cumulus-client-resubmission-store",
 	"cumulus-client-service",
+	"cumulus-client-spec-msg",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
 	"cumulus-relay-chain-minimal-node",
@@ -1165,6 +1172,11 @@ default-features = false
 optional = true
 path = "../cumulus/pallets/solo-to-para"
 
+[dependencies.cumulus-pallet-spec-messaging]
+default-features = false
+optional = true
+path = "../cumulus/pallets/spec-messaging"
+
 [dependencies.cumulus-pallet-weight-reclaim]
 default-features = false
 optional = true
@@ -1204,6 +1216,11 @@ path = "../cumulus/primitives/parachain-inherent"
 default-features = false
 optional = true
 path = "../cumulus/primitives/proof-size-hostfunction"
+
+[dependencies.cumulus-primitives-spec-messaging]
+default-features = false
+optional = true
+path = "../cumulus/primitives/spec-messaging"
 
 [dependencies.cumulus-primitives-storage-weight-reclaim]
 default-features = false
@@ -2369,6 +2386,11 @@ path = "../cumulus/client/resubmission-store"
 default-features = false
 optional = true
 path = "../cumulus/client/service"
+
+[dependencies.cumulus-client-spec-msg]
+default-features = false
+optional = true
+path = "../cumulus/client/spec-msg"
 
 [dependencies.cumulus-relay-chain-inprocess-interface]
 default-features = false

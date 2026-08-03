@@ -23,7 +23,7 @@ use crate::{
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
-	paras_inherent, scheduler, session_info, shared, ParaId,
+	paras_inherent, scheduler, session_info, shared, spec_msg, ParaId,
 };
 use frame_support::pallet_prelude::*;
 
@@ -83,6 +83,7 @@ frame_support::construct_runtime!(
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
+		SpecMsg: spec_msg,
 		ParachainsOrigin: origin,
 		SessionInfo: session_info,
 		Disputes: disputes,
@@ -299,6 +300,8 @@ impl crate::hrmp::Config for Test {
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
+
+impl crate::spec_msg::Config for Test {}
 
 impl crate::disputes::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

@@ -53,3 +53,11 @@ impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin> for ParaIdToSib
 		AggregateMessageOrigin::Sibling(para_id)
 	}
 }
+
+/// Convert the `ParaId` of a Speculative Messaging source to an `AggregateMessageOrigin`.
+pub struct ParaIdToSpecMsg;
+impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin> for ParaIdToSpecMsg {
+	fn convert(para_id: ParaId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::SpecMsg(para_id)
+	}
+}

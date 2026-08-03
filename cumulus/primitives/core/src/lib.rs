@@ -20,8 +20,11 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use cumulus_primitives_spec_messaging::{
+	ChannelId, ConsumedStream, ConsumptionRecord, InChannelState, OutChannelState, StreamId,
+};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use Debug;
@@ -109,6 +112,14 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
+	/// The message came from a sibling para-chain over Speculative Messaging.
+	///
+	/// This is used by the Speculative Messaging queue. It MUST convert to
+	/// the same `Location` as [`Self::Sibling`]: the XCM executor's origin
+	/// conversion, barriers and every downstream filter then see an origin
+	/// identical to the HRMP one, so no XCM program can distinguish the
+	/// transport (and the HRMP→spec-msg flip stays unobservable).
+	SpecMsg(ParaId),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -117,6 +128,7 @@ impl From<AggregateMessageOrigin> for Location {
 			AggregateMessageOrigin::Here => Location::here(),
 			AggregateMessageOrigin::Parent => Location::parent(),
 			AggregateMessageOrigin::Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
+			AggregateMessageOrigin::SpecMsg(id) => Location::new(1, Junction::Parachain(id.into())),
 		}
 	}
 }
@@ -736,5 +748,81 @@ sp_api::decl_runtime_apis! {
 		///
 		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
+	}
+
+	/// The Speculative Messaging node–runtime boundary (design v0.5 §Runtime
+	/// API) — the complete set of messaging facts collators author and serve
+	/// by: collators never read messaging storage directly, so anything
+	/// authoring or serving needs and cannot find here is a missing API, not
+	/// a storage read.
+	///
+	/// Inputs flow back exclusively through the messaging inherent — the API
+	/// and the inherent are a trust boundary, not a trusted channel.
+	/// Recovery from downtime falls out: a returning collator syncs and
+	/// resumes from [`Self::consumed_streams`], and its sender-side archive
+	/// rebuilds during sync via [`Self::outbound_messages`] per executed
+	/// block (or via the fetch protocol pointed at the own streams).
+	///
+	/// The API is absent on runtimes that predate (or do not participate in)
+	/// Speculative Messaging: node call sites must gate on the API version —
+	/// exactly as collation info is fetched — and keep the spec-msg
+	/// subsystems idle when it is missing.
+	pub trait SpecMsgApi {
+		/// Called at a block of this chain: that block's sends, per stream —
+		/// what a collator extracts for delivery and appends to its archive
+		/// (the stream/position-keyed archive; block hashes are the caller's
+		/// context). Entries in canonical [`StreamId`] order, payloads in
+		/// send order; an idle block yields an empty vec.
+		fn outbound_messages() -> Vec<(StreamId, Vec<Vec<u8>>)>;
+
+		/// Everything this chain currently consumes, grouped by source: what
+		/// the inherent provider must fetch, from which position on.
+		/// Deliberately unpaginated (node-local call, no PoV/weight bound).
+		/// Suspended channels are omitted — the omission is how the own
+		/// collators learn to stop fetching. Ack registers are likewise
+		/// absent: which registers to read follows from
+		/// [`Self::out_channels`].
+		fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>>;
+
+		/// Outbound channel views: credit/watermark standing and phases for
+		/// authoring decisions and diagnostics, and — via the keys — which
+		/// ack registers to read.
+		fn out_channels() -> BTreeMap<ChannelId, OutChannelState>;
+
+		/// Inbound channel views: which channels are due a register publish
+		/// check, suspension standing, diagnostics.
+		fn in_channels() -> BTreeMap<ChannelId, InChannelState>;
+
+		/// The block's consumption record: touched streams with intervals.
+		/// Node: acknowledgement checks, lift assembly, diagnostics. The
+		/// `validate_block` wrapper calls this implementation directly
+		/// in-wasm after executing each block of a bundle — one definition,
+		/// two callers, byte-identical records.
+		fn consumption_record() -> ConsumptionRecord;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn spec_msg_origin_location_is_sibling_identical() {
+		// Property test over para ids: the Speculative Messaging origin MUST
+		// convert to the very `Location` the HRMP origin converts to — any
+		// divergence makes the HRMP→spec-msg flip observable to XCM programs
+		// (origin conversion, barriers, downstream filters).
+		let mut lcg = 0x5DEE_CE66_D411u64;
+		let mut rand = move || {
+			lcg = lcg.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+			(lcg >> 32) as u32
+		};
+		let boundaries = [0u32, 1, 999, 1000, 2000, 3369, u32::MAX];
+
+		for id in boundaries.into_iter().chain((0..100).map(|_| rand())) {
+			let spec_msg = Location::from(AggregateMessageOrigin::SpecMsg(id.into()));
+			assert_eq!(spec_msg, Location::from(AggregateMessageOrigin::Sibling(id.into())));
+			assert_eq!(spec_msg, Location::new(1, Junction::Parachain(id)));
+		}
 	}
 }

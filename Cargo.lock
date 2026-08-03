@@ -1728,11 +1728,13 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-spec-messaging",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-spec-messaging",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -4678,6 +4680,7 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-primitives-core",
+ "cumulus-primitives-spec-messaging",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
@@ -4997,6 +5000,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-spec-msg"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-trait",
+ "cumulus-primitives-core",
+ "cumulus-primitives-spec-messaging",
+ "cumulus-relay-chain-interface",
+ "futures",
+ "futures-timer",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "polkadot-ckb-merkle-mountain-range",
+ "polkadot-core-primitives",
+ "sc-client-api 28.0.0",
+ "sc-network 0.34.0",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-runtime 31.0.1",
+ "thiserror 1.0.65",
+ "tracing",
+]
+
+[[package]]
 name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
@@ -5052,6 +5079,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-spec-messaging",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "derive-where",
@@ -5130,6 +5158,25 @@ dependencies = [
  "polkadot-primitives",
  "scale-info",
  "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "cumulus-pallet-spec-messaging"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "cumulus-primitives-spec-messaging",
+ "frame-support",
+ "frame-system",
+ "pallet-message-queue",
+ "parity-scale-codec",
+ "polkadot-core-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+ "staging-xcm-builder",
 ]
 
 [[package]]
@@ -5237,6 +5284,7 @@ dependencies = [
 name = "cumulus-primitives-core"
 version = "0.7.0"
 dependencies = [
+ "cumulus-primitives-spec-messaging",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
@@ -5272,6 +5320,24 @@ dependencies = [
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
+]
+
+[[package]]
+name = "cumulus-primitives-spec-messaging"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "async-trait",
+ "futures",
+ "parity-scale-codec",
+ "polkadot-ckb-merkle-mountain-range",
+ "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -15567,10 +15633,12 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-spec-messaging",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-spec-messaging",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -16955,6 +17023,7 @@ version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_cmd",
+ "async-channel 1.9.0",
  "async-trait",
  "clap",
  "color-print",
@@ -16967,8 +17036,10 @@ dependencies = [
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
+ "cumulus-client-spec-msg",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-spec-messaging",
  "cumulus-relay-chain-interface",
  "cumulus-test-runtime",
  "docify",
@@ -16988,6 +17059,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parachains-common-types",
  "parity-scale-codec",
+ "parking_lot 0.12.3",
  "polkadot-cli",
  "polkadot-primitives",
  "sc-authority-discovery",
@@ -17357,12 +17429,14 @@ dependencies = [
  "cumulus-client-proof-size-recording",
  "cumulus-client-resubmission-store",
  "cumulus-client-service",
+ "cumulus-client-spec-msg",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-solo-to-para",
+ "cumulus-pallet-spec-messaging",
  "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
@@ -17371,6 +17445,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-spec-messaging",
  "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
@@ -18311,6 +18386,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "asset-hub-westend-runtime",
+ "cumulus-primitives-spec-messaging",
  "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
@@ -18333,6 +18409,9 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-maybe-compressed-blob 11.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
  "substrate-build-script-utils",
  "tokio",
  "tokio-util",

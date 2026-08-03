@@ -807,9 +807,22 @@ mod candidate_receipt_tests {
 	use polkadot_primitives::{
 		transpose_claim_queue, v9::CandidateUMPSignals, BackedCandidate,
 		CandidateDescriptorVersion, ClaimQueueOffset, CommittedCandidateReceiptError, CoreSelector,
-		UMPSignal, UMP_SEPARATOR,
+		RequiresSet, StreamsRoot, UMPSignal, MAX_COMMITMENT_ENTRIES, MAX_UMP_SIGNALS,
+		UMP_SEPARATOR,
 	};
 	use std::collections::BTreeMap;
+
+	fn dummy_streams_root(byte: u8) -> StreamsRoot {
+		StreamsRoot(Hash::repeat_byte(byte))
+	}
+
+	fn dummy_requires_set() -> RequiresSet {
+		RequiresSet::try_from_iter([
+			(ParaId::new(2000), dummy_streams_root(2)),
+			(ParaId::new(3000), dummy_streams_root(3)),
+		])
+		.unwrap()
+	}
 
 	#[test]
 	fn collator_signature_payload_is_valid() {
@@ -1033,12 +1046,18 @@ mod candidate_receipt_tests {
 		new_ccr.commitments.upward_messages.force_push(vec![0u8; 256]);
 		new_ccr.commitments.upward_messages.force_push(vec![0xff; 256]);
 
-		assert_eq!(new_ccr.parse_ump_signals(&cq), Ok(CandidateUMPSignals::dummy(None, None)));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Ok(CandidateUMPSignals::dummy(None, None, None, None))
+		);
 
 		// separator
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-		assert_eq!(new_ccr.parse_ump_signals(&cq), Ok(CandidateUMPSignals::dummy(None, None)));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Ok(CandidateUMPSignals::dummy(None, None, None, None))
+		);
 
 		// CoreIndex commitment
 		{
@@ -1050,7 +1069,12 @@ mod candidate_receipt_tests {
 
 			assert_eq!(
 				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals::dummy(Some((CoreSelector(0), ClaimQueueOffset(1))), None))
+				Ok(CandidateUMPSignals::dummy(
+					Some((CoreSelector(0), ClaimQueueOffset(1))),
+					None,
+					None,
+					None
+				))
 			);
 		}
 
@@ -1065,7 +1089,12 @@ mod candidate_receipt_tests {
 
 			assert_eq!(
 				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals::dummy(None, Some(vec![1, 2, 3].try_into().unwrap())))
+				Ok(CandidateUMPSignals::dummy(
+					None,
+					Some(vec![1, 2, 3].try_into().unwrap()),
+					None,
+					None
+				))
 			);
 
 			// Test having an approved peer and a core selector.
@@ -1079,7 +1108,9 @@ mod candidate_receipt_tests {
 				new_ccr.parse_ump_signals(&cq),
 				Ok(CandidateUMPSignals::dummy(
 					Some((CoreSelector(0), ClaimQueueOffset(1))),
-					Some(vec![1, 2, 3].try_into().unwrap())
+					Some(vec![1, 2, 3].try_into().unwrap()),
+					None,
+					None
 				))
 			);
 		}
@@ -1098,7 +1129,9 @@ mod candidate_receipt_tests {
 			new_ccr.parse_ump_signals(&cq),
 			Ok(CandidateUMPSignals::dummy(
 				Some((CoreSelector(0), ClaimQueueOffset(1))),
-				Some(vec![1, 2, 3].try_into().unwrap())
+				Some(vec![1, 2, 3].try_into().unwrap()),
+				None,
+				None
 			))
 		);
 	}
@@ -1158,7 +1191,12 @@ mod candidate_receipt_tests {
 
 			assert_eq!(
 				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals::dummy(None, Some(vec![1, 2, 3].try_into().unwrap())))
+				Ok(CandidateUMPSignals::dummy(
+					None,
+					Some(vec![1, 2, 3].try_into().unwrap()),
+					None,
+					None
+				))
 			);
 
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
@@ -1209,7 +1247,8 @@ mod candidate_receipt_tests {
 			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
 		);
 
-		// Too many
+		// A repeated variant among more than two signals is a duplicate, not "too many":
+		// the count cap is one of each variant.
 		new_ccr.commitments.upward_messages.clear();
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 		new_ccr
@@ -1227,8 +1266,176 @@ mod candidate_receipt_tests {
 
 		assert_eq!(
 			new_ccr.parse_ump_signals(&cq),
+			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+		);
+
+		// Too many: a fifth signal after one of each variant is rejected without even
+		// being decoded.
+		new_ccr.commitments.upward_messages.clear();
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		let all_variants = [
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)),
+			UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()),
+			UMPSignal::Provides(dummy_streams_root(1)),
+			UMPSignal::Requires(dummy_requires_set()),
+		];
+		assert_eq!(all_variants.len(), MAX_UMP_SIGNALS);
+		for signal in all_variants {
+			new_ccr.commitments.upward_messages.force_push(signal.encode());
+		}
+		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200]);
+
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
 			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
 		);
+	}
+
+	// Test the Speculative Messaging UMP signals:
+	// - `Provides` or `Requires` alone
+	// - all four known signals in arbitrary order, surviving an encoding round-trip
+	#[test]
+	fn test_spec_messaging_ump_signals() {
+		let mut new_ccr = dummy_committed_candidate_receipt_v2(Hash::default());
+		new_ccr.descriptor.set_core_index(CoreIndex(123));
+		new_ccr.descriptor.set_para_id(ParaId::new(1000));
+
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+		let cq = transpose_claim_queue(cq);
+
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+		// Only a `Provides` signal.
+		{
+			let mut new_ccr = new_ccr.clone();
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::Provides(dummy_streams_root(1)).encode());
+
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Ok(CandidateUMPSignals::dummy(None, None, Some(dummy_streams_root(1)), None))
+			);
+		}
+
+		// Only a `Requires` signal.
+		{
+			let mut new_ccr = new_ccr.clone();
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::Requires(dummy_requires_set()).encode());
+
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Ok(CandidateUMPSignals::dummy(None, None, None, Some(dummy_requires_set())))
+			);
+		}
+
+		// All four known signals, in arbitrary order.
+		let all_variants = [
+			UMPSignal::Requires(dummy_requires_set()),
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)),
+			UMPSignal::Provides(dummy_streams_root(1)),
+			UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()),
+		];
+		assert_eq!(all_variants.len(), MAX_UMP_SIGNALS);
+		for signal in all_variants {
+			new_ccr.commitments.upward_messages.force_push(signal.encode());
+		}
+
+		let expected = Ok(CandidateUMPSignals::dummy(
+			Some((CoreSelector(0), ClaimQueueOffset(1))),
+			Some(vec![1, 2, 3].try_into().unwrap()),
+			Some(dummy_streams_root(1)),
+			Some(dummy_requires_set()),
+		));
+		assert_eq!(new_ccr.parse_ump_signals(&cq), expected);
+
+		// The signals survive an encoding round-trip of the receipt.
+		let encoded = new_ccr.encode();
+		let decoded: CommittedCandidateReceiptV2 = Decode::decode(&mut encoded.as_slice()).unwrap();
+
+		assert_eq!(decoded.hash(), new_ccr.hash());
+		assert_eq!(decoded.parse_ump_signals(&cq), expected);
+	}
+
+	#[test]
+	fn test_duplicate_spec_messaging_signals() {
+		let mut new_ccr = dummy_committed_candidate_receipt_v2(Hash::default());
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+		// Duplicate `Provides`, even with different roots.
+		{
+			let mut new_ccr = new_ccr.clone();
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::Provides(dummy_streams_root(1)).encode());
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::Provides(dummy_streams_root(2)).encode());
+
+			assert_eq!(
+				new_ccr.commitments.ump_signals(),
+				Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+			);
+		}
+
+		// Duplicate `Requires`, even with different sets.
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::Requires(dummy_requires_set()).encode());
+		new_ccr.commitments.upward_messages.force_push(
+			UMPSignal::Requires(
+				RequiresSet::try_from_iter([(ParaId::new(4000), dummy_streams_root(4))]).unwrap(),
+			)
+			.encode(),
+		);
+
+		assert_eq!(
+			new_ccr.commitments.ump_signals(),
+			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+		);
+	}
+
+	#[test]
+	fn test_unknown_ump_signal_variant() {
+		let mut new_ccr = dummy_committed_candidate_receipt_v2(Hash::default());
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+
+		// The first byte is the variant index; there are only `MAX_UMP_SIGNALS` variants.
+		let mut unknown_signal = vec![MAX_UMP_SIGNALS as u8];
+		unknown_signal.extend_from_slice(Hash::repeat_byte(1).as_ref());
+		new_ccr.commitments.upward_messages.force_push(unknown_signal);
+
+		assert_eq!(
+			new_ccr.commitments.ump_signals(),
+			Err(CommittedCandidateReceiptError::UmpSignalDecode)
+		);
+	}
+
+	#[test]
+	fn test_spec_messaging_signal_sizes() {
+		// `Provides` is constant-size: variant index + 32-byte root.
+		assert_eq!(UMPSignal::Provides(dummy_streams_root(7)).encode().len(), 33);
+
+		// A `Requires` signal whose set exceeds `MAX_COMMITMENT_ENTRIES` fails to decode:
+		// the bound is what caps the commitment size.
+		let oversized: Vec<(ParaId, StreamsRoot)> = (0..=MAX_COMMITMENT_ENTRIES)
+			.map(|i| (ParaId::new(i), dummy_streams_root(1)))
+			.collect();
+		let mut encoded_signal = UMPSignal::Requires(dummy_requires_set()).encode()[..1].to_vec();
+		encoded_signal.extend(oversized.encode());
+
+		assert!(UMPSignal::decode(&mut encoded_signal.as_slice()).is_err());
 	}
 
 	#[test]

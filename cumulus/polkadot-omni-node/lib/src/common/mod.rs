@@ -24,6 +24,7 @@ pub mod command;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
+pub(crate) mod spec_msg;
 pub(crate) mod statement_store;
 pub mod types;
 
@@ -31,6 +32,7 @@ use crate::cli::AuthoringPolicy;
 
 use cumulus_primitives_core::{
 	CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi, SchedulingV3EnabledApi,
+	SpecMsgApi,
 };
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
@@ -81,6 +83,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ RelayParentOffsetApi<Block>
 	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
 	+ SchedulingV3EnabledApi<Block>
+	+ SpecMsgApi<Block>
 	+ Sized
 {
 }
@@ -98,6 +101,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ TransactionStorageApi<Block>
 		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
 		+ SchedulingV3EnabledApi<Block>
+		+ SpecMsgApi<Block>
 {
 }
 
@@ -145,4 +149,8 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+
+	/// Speculative Messaging: static source-chain peers for the fetch
+	/// pipeline, as raw `<para-id>=<multiaddr-with-/p2p/-peer-id>` values.
+	pub spec_msg_source_peers: Vec<String>,
 }

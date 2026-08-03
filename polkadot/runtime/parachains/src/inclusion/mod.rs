@@ -25,6 +25,7 @@ use crate::{
 	paras::{self, UpgradeStrategy},
 	scheduler,
 	shared::{self, AllowedSchedulingParentsTracker},
+	spec_msg,
 	util::make_persisted_validation_data_with_parent,
 };
 use alloc::{
@@ -150,6 +151,12 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		&self.commitments
 	}
 
+	/// Get mutable access to the candidate commitments.
+	#[cfg(all(test, not(feature = "runtime-benchmarks")))]
+	pub(crate) fn candidate_commitments_mut(&mut self) -> &mut CandidateCommitments {
+		&mut self.commitments
+	}
+
 	/// Get the candidate's relay parent's number.
 	pub(crate) fn relay_parent_number(&self) -> N
 	where
@@ -269,6 +276,7 @@ pub mod pallet {
 		+ paras::Config
 		+ dmp::Config
 		+ hrmp::Config
+		+ spec_msg::Config
 		+ configuration::Config
 		+ scheduler::Config
 	{
@@ -856,6 +864,11 @@ impl<T: Config> Pallet<T> {
 		let commitments = receipt.commitments;
 		let config = configuration::ActiveConfig::<T>::get();
 
+		// Malformed signals never get this far: they are rejected when the candidate is
+		// backed (see `parse_ump_signals` calls in `paras_inherent`), so defaulting here
+		// is unreachable in practice.
+		let ump_signals = commitments.ump_signals().unwrap_or_default();
+
 		T::RewardValidators::reward_backing(
 			backers
 				.iter()
@@ -902,6 +915,11 @@ impl<T: Config> Pallet<T> {
 			receipt.descriptor.para_id(),
 			commitments.horizontal_messages,
 		);
+		if let Some(streams_root) = ump_signals.provides() {
+			// The candidate committed a new stream commitment root (Speculative
+			// Messaging sender side): make it matchable by `Requires` entries.
+			spec_msg::Pallet::<T>::note_provides(receipt.descriptor.para_id(), streams_root);
+		}
 
 		Self::deposit_event(Event::<T>::CandidateIncluded(
 			plain,

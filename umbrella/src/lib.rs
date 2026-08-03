@@ -126,6 +126,10 @@ pub use cumulus_client_resubmission_store;
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
 
+/// Speculative Messaging node parts: sender-side archive and the /spec-msg/exchange protocol.
+#[cfg(feature = "cumulus-client-spec-msg")]
+pub use cumulus_client_spec_msg;
+
 /// AURA consensus extension pallet for parachains.
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;
@@ -149,6 +153,10 @@ pub use cumulus_pallet_session_benchmarking;
 /// Adds functionality to migrate from a Solo to a Parachain.
 #[cfg(feature = "cumulus-pallet-solo-to-para")]
 pub use cumulus_pallet_solo_to_para;
+
+/// Pallet accumulating outbound Speculative Messaging streams and their commitment tree.
+#[cfg(feature = "cumulus-pallet-spec-messaging")]
+pub use cumulus_pallet_spec_messaging;
 
 /// pallet and transaction extensions for accurate proof size reclaim.
 #[cfg(feature = "cumulus-pallet-weight-reclaim")]
@@ -182,6 +190,10 @@ pub use cumulus_primitives_parachain_inherent;
 /// Hostfunction exposing storage proof size to the runtime.
 #[cfg(feature = "cumulus-primitives-proof-size-hostfunction")]
 pub use cumulus_primitives_proof_size_hostfunction;
+
+/// Speculative Messaging primitives.
+#[cfg(feature = "cumulus-primitives-spec-messaging")]
+pub use cumulus_primitives_spec_messaging;
 
 /// Utilities to reclaim storage weight.
 #[cfg(feature = "cumulus-primitives-storage-weight-reclaim")]

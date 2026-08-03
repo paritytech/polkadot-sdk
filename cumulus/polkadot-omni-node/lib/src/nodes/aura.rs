@@ -23,6 +23,7 @@ use crate::{
 			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
 			NodeSpec, StartConsensus,
 		},
+		spec_msg::SpecMsgDeps,
 		types::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
@@ -48,6 +49,7 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
+use cumulus_client_spec_msg::{inherent_data_at, InherentBudget};
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -228,6 +230,9 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
+			// Dev nodes have no relay chain to monitor and no peers to fetch
+			// from; the spec-msg subsystems stay unwired.
+			spec_msg_source_peers: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -717,6 +722,7 @@ where
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
+		spec_msg: Option<SpecMsgDeps<Block>>,
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -732,28 +738,53 @@ where
 			announce_block,
 			client.clone(),
 		);
+		// Collations whose blocks consumed spec-msg streams carry the
+		// assembled POV lifts.
+		let collator_service = match &spec_msg {
+			Some(deps) => {
+				collator_service.with_spec_msg_lift_assembler(deps.lift_assembler.clone())
+			},
+			None => collator_service,
+		};
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
+		let spec_msg_pool = spec_msg.map(|deps| deps.pool);
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
+				let spec_msg_pool = spec_msg_pool.clone();
 				async move {
 					let has_tx_storage_api = client_clone
 						.runtime_api()
 						.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 						.unwrap_or(false);
-					if has_tx_storage_api {
-						let storage_proof =
-							sp_transaction_storage_proof::registration::new_data_provider(
-								&*client_clone,
-								&parent,
-								client_clone.runtime_api().retention_period(parent)?,
-							)?;
-						Ok(vec![storage_proof])
+					let storage_proof = if has_tx_storage_api {
+						vec![sp_transaction_storage_proof::registration::new_data_provider(
+							&*client_clone,
+							&parent,
+							client_clone.runtime_api().retention_period(parent)?,
+						)?]
 					} else {
-						Ok(vec![])
-					}
+						vec![]
+					};
+					// The `specmsg0` messaging inherent from the verified
+					// pool (in-flight fetch rounds get a bounded grace
+					// window first); empty data provides nothing at all.
+					let spec_msg_inherent = match spec_msg_pool {
+						Some(pool) => {
+							inherent_data_at::<Block, _>(
+								para_id,
+								&*client_clone,
+								&pool,
+								parent,
+								InherentBudget::default(),
+							)
+							.await
+						},
+						None => Default::default(),
+					};
+					Ok((storage_proof, spec_msg_inherent))
 				}
 			},
 			block_import,
@@ -891,6 +922,7 @@ where
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		_: (),
+		spec_msg: Option<SpecMsgDeps<Block>>,
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -905,29 +937,54 @@ where
 			announce_block,
 			client.clone(),
 		);
+		// Collations whose blocks consumed spec-msg streams carry the
+		// assembled POV lifts.
+		let collator_service = match &spec_msg {
+			Some(deps) => {
+				collator_service.with_spec_msg_lift_assembler(deps.lift_assembler.clone())
+			},
+			None => collator_service,
+		};
 
 		let client_clone = client.clone();
+		let spec_msg_pool = spec_msg.map(|deps| deps.pool);
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
+					let spec_msg_pool = spec_msg_pool.clone();
 					async move {
 						let has_tx_storage_api = client_clone
 							.runtime_api()
 							.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 							.unwrap_or(false);
-						if has_tx_storage_api {
-							let storage_proof =
-								sp_transaction_storage_proof::registration::new_data_provider(
-									&*client_clone,
-									&parent,
-									client_clone.runtime_api().retention_period(parent)?,
-								)?;
-							Ok(vec![storage_proof])
+						let storage_proof = if has_tx_storage_api {
+							vec![sp_transaction_storage_proof::registration::new_data_provider(
+								&*client_clone,
+								&parent,
+								client_clone.runtime_api().retention_period(parent)?,
+							)?]
 						} else {
-							Ok(vec![])
-						}
+							vec![]
+						};
+						// The `specmsg0` messaging inherent from the verified
+						// pool (in-flight fetch rounds get a bounded grace
+						// window first); empty data provides nothing at all.
+						let spec_msg_inherent = match spec_msg_pool {
+							Some(pool) => {
+								inherent_data_at::<Block, _>(
+									para_id,
+									&*client_clone,
+									&pool,
+									parent,
+									InherentBudget::default(),
+								)
+								.await
+							},
+							None => Default::default(),
+						};
+						Ok((storage_proof, spec_msg_inherent))
 					}
 				},
 				block_import,

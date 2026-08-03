@@ -74,12 +74,14 @@ pub use signed::{EncodeAs, Signed, UncheckedSigned};
 pub mod async_backing;
 pub mod executor_params;
 pub mod slashing;
+pub mod spec_messaging;
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{
 	ExecutorHostFunction, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
 	ExecutorParamsPrepHash,
 };
+pub use spec_messaging::{RequiresSet, RequiresSetError, StreamsRoot, MAX_COMMITMENT_ENTRIES};
 
 mod metrics;
 pub use metrics::{
@@ -415,6 +417,25 @@ pub mod well_known_keys {
 	/// The storage entry stores a value of `UpgradeRestriction` type.
 	pub fn upgrade_restriction_signal(para_id: Id) -> Vec<u8> {
 		let prefix = hex!["cd710b30bd2eab0352ddcc26417aa194f27bbb460270642b5bcaf032ea04d56a"];
+
+		para_id.using_encoded(|para_id: &[u8]| {
+			prefix
+				.as_ref()
+				.iter()
+				.chain(twox_64(para_id).iter())
+				.chain(para_id.iter())
+				.cloned()
+				.collect()
+		})
+	}
+
+	/// The ring of the given para's (the Speculative Messaging sender's) recently included
+	/// stream commitment roots, oldest first.
+	///
+	/// The storage entry stores a `RecentRoots` newtype whose SCALE encoding is that of a
+	/// plain `Vec<StreamsRoot>`, oldest first.
+	pub fn spec_msg_recent_provides(para_id: Id) -> Vec<u8> {
+		let prefix = hex!["0fcce6413acc3a77c778c0d29cd914f7dd77411effbaf154539ed4f164654b66"];
 
 		para_id.using_encoded(|para_id: &[u8]| {
 			prefix
@@ -2716,7 +2737,36 @@ pub enum UMPSignal {
 	SelectCore(CoreSelector, ClaimQueueOffset),
 	/// A message sent by a parachain to promote the reputation of a given peerid.
 	ApprovedPeer(ApprovedPeerId),
+	/// Speculative Messaging, sender side: root of the parachain's stream commitment
+	/// tree after this block.
+	///
+	/// Emitted only by blocks that touched at least one stream — an unchanged root
+	/// would only push a duplicate into the relay chain's window.
+	Provides(StreamsRoot),
+	/// Speculative Messaging, receiver side: one `(source, expected StreamsRoot)` entry
+	/// per source chain this candidate depends on.
+	///
+	/// NEVER emitted by parachain block execution — blocks produce a consumption
+	/// record and never see a [`StreamsRoot`]; the `validate_block` wrapper
+	/// synthesizes this signal from the record via POV-carried lifts. From the
+	/// relay chain's perspective it is an ordinary UMP signal in the candidate's
+	/// commitments either way.
+	///
+	/// Relay-side semantics are window membership only: each named root must be a
+	/// recently committed [`StreamsRoot`] of that source. What the dependency means
+	/// per stream is parachain convention (channels: consumed messages are a prefix
+	/// of the stream's entry; event/register reads: inclusion proofs verify against
+	/// it) and is proven parachain-side, below the hash.
+	Requires(RequiresSet),
 }
+
+/// Maximum number of `UMPSignal`s a candidate can carry: one of each [`UMPSignal`]
+/// variant.
+///
+/// Must equal the number of [`UMPSignal`] variants; the exhaustive match in
+/// `CandidateUMPSignals::try_decode_signal` fails to compile when a variant is
+/// added, forcing this constant to be revisited.
+pub const MAX_UMP_SIGNALS: usize = 4;
 
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
@@ -2732,6 +2782,8 @@ pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 pub struct CandidateUMPSignals {
 	pub(super) select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 	pub(super) approved_peer: Option<ApprovedPeerId>,
+	pub(super) provides: Option<StreamsRoot>,
+	pub(super) requires: Option<RequiresSet>,
 }
 
 impl CandidateUMPSignals {
@@ -2745,15 +2797,32 @@ impl CandidateUMPSignals {
 		self.approved_peer.as_ref()
 	}
 
+	/// Get the Speculative Messaging sender commitment (`Provides`) UMP signal.
+	pub fn provides(&self) -> Option<StreamsRoot> {
+		self.provides
+	}
+
+	/// Get a reference to the Speculative Messaging receiver dependencies
+	/// (`Requires`) UMP signal.
+	pub fn requires(&self) -> Option<&RequiresSet> {
+		self.requires.as_ref()
+	}
+
 	/// Returns `true` if UMP signals are empty.
 	pub fn is_empty(&self) -> bool {
-		self.select_core.is_none() && self.approved_peer.is_none()
+		self.select_core.is_none() &&
+			self.approved_peer.is_none() &&
+			self.provides.is_none() &&
+			self.requires.is_none()
 	}
 
 	fn try_decode_signal(
 		&mut self,
 		buffer: &mut impl codec::Input,
 	) -> Result<(), CommittedCandidateReceiptError> {
+		// NOTE: the last arm lists every variant on purpose so that this match stays
+		// exhaustive: adding an `UMPSignal` variant must fail to compile here, forcing
+		// an update of both this decoder and `MAX_UMP_SIGNALS`.
 		match UMPSignal::decode(buffer)
 			.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
 		{
@@ -2763,8 +2832,17 @@ impl CandidateUMPSignals {
 			UMPSignal::SelectCore(core_selector, cq_offset) if self.select_core.is_none() => {
 				self.select_core = Some((core_selector, cq_offset));
 			},
-			_ => {
-				// This means that we got duplicate UMP signals.
+			UMPSignal::Provides(streams_root) if self.provides.is_none() => {
+				self.provides = Some(streams_root);
+			},
+			UMPSignal::Requires(requires_set) if self.requires.is_none() => {
+				self.requires = Some(requires_set);
+			},
+			UMPSignal::SelectCore(..) |
+			UMPSignal::ApprovedPeer(..) |
+			UMPSignal::Provides(..) |
+			UMPSignal::Requires(..) => {
+				// A second signal of an already-seen variant.
 				return Err(CommittedCandidateReceiptError::DuplicateUMPSignal);
 			},
 		};
@@ -2777,8 +2855,10 @@ impl CandidateUMPSignals {
 	pub fn dummy(
 		select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 		approved_peer: Option<ApprovedPeerId>,
+		provides: Option<StreamsRoot>,
+		requires: Option<RequiresSet>,
 	) -> Self {
-		Self { select_core, approved_peer }
+		Self { select_core, approved_peer, provides, requires }
 	}
 }
 
@@ -2806,15 +2886,15 @@ impl CandidateCommitments {
 			return Ok(res);
 		}
 
-		// Process first signal
-		let Some(first_signal) = signals_iter.next() else { return Ok(res) };
-		res.try_decode_signal(&mut first_signal.as_slice())?;
+		// One signal of each variant may appear, in any order. Duplicates are rejected
+		// by `try_decode_signal`, making `MAX_UMP_SIGNALS` (the variant count) the cap
+		// on well-formed signals.
+		for _ in 0..MAX_UMP_SIGNALS {
+			let Some(signal) = signals_iter.next() else { return Ok(res) };
+			res.try_decode_signal(&mut signal.as_slice())?;
+		}
 
-		// Process second signal
-		let Some(second_signal) = signals_iter.next() else { return Ok(res) };
-		res.try_decode_signal(&mut second_signal.as_slice())?;
-
-		// At most two signals are allowed
+		// At most `MAX_UMP_SIGNALS` signals are allowed.
 		if signals_iter.next().is_some() {
 			return Err(CommittedCandidateReceiptError::TooManyUMPSignals);
 		}

@@ -11,6 +11,7 @@ publish = false
 anyhow = { workspace = true }
 asset-hub-westend-runtime = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
+cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 env_logger = { workspace = true }
@@ -31,6 +32,9 @@ sp-crypto-hashing = { workspace = true }
 sp-maybe-compressed-blob = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
+xcm = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
 zombienet-orchestrator = { workspace = true }
 zombienet-sdk = { workspace = true }
 

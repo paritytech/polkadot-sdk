@@ -1,0 +1,38 @@
+[package]
+name = "cumulus-client-spec-msg"
+version = "0.1.0"
+authors.workspace = true
+description = "Speculative Messaging node parts: sender-side archive, the /spec-msg/exchange protocol and the receiver-side monitor, fetch pipeline, inherent provider and lift assembler"
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-channel = { workspace = true }
+async-trait = { workspace = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+mmr-lib = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+tracing = { workspace = true, default-features = true }
+
+# Substrate
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+
+# Polkadot
+polkadot-core-primitives = { workspace = true, default-features = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }

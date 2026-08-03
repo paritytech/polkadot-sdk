@@ -19,6 +19,7 @@
 use crate::SchedulingProof;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use cumulus_primitives_spec_messaging::LiftsBySource;
 use sp_runtime::traits::Block as BlockT;
 use sp_trie::CompactProof;
 
@@ -84,6 +85,21 @@ pub enum ParachainBlockData<Block> {
 		proof: CompactProof,
 		scheduling_proof: SchedulingProof,
 	},
+	/// V3 adds the Speculative Messaging lifts: the POV-carried proofs the
+	/// `validate_block` wrapper verifies to synthesize the candidate's
+	/// `Requires` UMP signal from the blocks' consumption records.
+	///
+	/// Like `scheduling_proof`, lifts are candidate assembly data supplied
+	/// by the (re)submitting collator — never part of the blocks or the
+	/// host-filled validation params. They are regenerable by anyone from
+	/// public data, so a block never goes stale: every resubmission
+	/// regenerates them against the then-current provides.
+	V3 {
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: Option<SchedulingProof>,
+		lifts: LiftsBySource,
+	},
 }
 
 impl<Block: Encode> Encode for ParachainBlockData<Block> {
@@ -103,6 +119,15 @@ impl<Block: Encode> Encode for ParachainBlockData<Block> {
 				blocks.encode_to(&mut res);
 				proof.encode_to(&mut res);
 				scheduling_proof.encode_to(&mut res);
+				res
+			},
+			Self::V3 { blocks, proof, scheduling_proof, lifts } => {
+				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
+				3u8.encode_to(&mut res);
+				blocks.encode_to(&mut res);
+				proof.encode_to(&mut res);
+				scheduling_proof.encode_to(&mut res);
+				lifts.encode_to(&mut res);
 				res
 			},
 		}
@@ -129,6 +154,17 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 
 					Ok(Self::V2 { blocks, proof, scheduling_proof })
 				},
+				3 => {
+					let blocks = Vec::<Block>::decode(input)?;
+					let proof = CompactProof::decode(input)?;
+					let scheduling_proof = Option::<crate::SchedulingProof>::decode(input)?;
+					// `LiftsBySource::decode` rejects non-strictly-increasing
+					// `ParaId`s — the canonical form is enforced right here at
+					// the untrusted boundary.
+					let lifts = LiftsBySource::decode(input)?;
+
+					Ok(Self::V3 { blocks, proof, scheduling_proof, lifts })
+				},
 				_ => Err("Unknown `ParachainBlockData` version".into()),
 			}
 		} else {
@@ -154,12 +190,24 @@ impl<Block> ParachainBlockData<Block> {
 		}
 	}
 
+	/// Creates a new instance of `Self` carrying Speculative Messaging
+	/// lifts (a V3 POV).
+	pub fn new_with_lifts(
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: Option<SchedulingProof>,
+		lifts: LiftsBySource,
+	) -> Self {
+		Self::V3 { blocks, proof, scheduling_proof, lifts }
+	}
+
 	/// Returns references to the stored blocks.
 	pub fn blocks(&self) -> &[Block] {
 		match self {
 			Self::V0 { block, .. } => &block[..],
 			Self::V1 { blocks, .. } => &blocks,
 			Self::V2 { blocks, .. } => &blocks,
+			Self::V3 { blocks, .. } => &blocks,
 		}
 	}
 
@@ -169,6 +217,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { ref mut block, .. } => block,
 			Self::V1 { ref mut blocks, .. } => blocks,
 			Self::V2 { ref mut blocks, .. } => blocks,
+			Self::V3 { ref mut blocks, .. } => blocks,
 		}
 	}
 
@@ -178,6 +227,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, .. } => block.into_iter().collect(),
 			Self::V1 { blocks, .. } => blocks,
 			Self::V2 { blocks, .. } => blocks,
+			Self::V3 { blocks, .. } => blocks,
 		}
 	}
 
@@ -187,6 +237,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { proof, .. } => &proof,
 			Self::V1 { proof, .. } => proof,
 			Self::V2 { proof, .. } => proof,
+			Self::V3 { proof, .. } => proof,
 		}
 	}
 
@@ -196,13 +247,23 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, proof } => (block.into_iter().collect(), proof),
 			Self::V1 { blocks, proof } => (blocks, proof),
 			Self::V2 { blocks, proof, .. } => (blocks, proof),
+			Self::V3 { blocks, proof, .. } => (blocks, proof),
 		}
 	}
 
-	/// Returns the scheduling proof if this is a V2 POV.
+	/// Returns the scheduling proof if this is a V2+ POV that carries one.
 	pub fn scheduling_proof(&self) -> Option<&crate::SchedulingProof> {
 		match self {
 			Self::V2 { scheduling_proof, .. } => Some(scheduling_proof),
+			Self::V3 { scheduling_proof, .. } => scheduling_proof.as_ref(),
+			_ => None,
+		}
+	}
+
+	/// Returns the Speculative Messaging lifts if this is a V3 POV.
+	pub fn lifts(&self) -> Option<&LiftsBySource> {
+		match self {
+			Self::V3 { lifts, .. } => Some(lifts),
 			_ => None,
 		}
 	}
@@ -235,7 +296,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 					.first()
 					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
 			},
-			Self::V2 { blocks, proof, .. } => {
+			Self::V2 { blocks, proof, .. } | Self::V3 { blocks, proof, .. } => {
 				if blocks.len() != 1 {
 					return None;
 				}
@@ -393,6 +454,49 @@ mod tests {
 		let (blocks, proof) = v2.into_inner();
 		assert_eq!(blocks.len(), 1);
 		assert_eq!(proof.encoded_nodes.len(), 1);
+	}
+
+	#[test]
+	fn decoding_encoding_v3_works() {
+		use cumulus_primitives_spec_messaging::RequiresLift;
+
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			internal_scheduling_parent_header: make_relay_header(4),
+			signed_scheduling_info: None,
+		};
+		let lifts = LiftsBySource::try_from_iter([
+			(1000.into(), vec![RequiresLift::default()]),
+			(2000.into(), vec![RequiresLift::default(), RequiresLift::default()]),
+		])
+		.unwrap();
+
+		// With and without a scheduling proof — lifts don't imply V3
+		// scheduling.
+		for scheduling_proof in [None, Some(scheduling_proof)] {
+			let v3 = ParachainBlockData::<TestBlock>::new_with_lifts(
+				vec![TestBlock::new(Header::new_from_number(10), vec![])],
+				CompactProof { encoded_nodes: vec![vec![10u8; 200]] },
+				scheduling_proof.clone(),
+				lifts.clone(),
+			);
+
+			let encoded = v3.encode();
+			let decoded = ParachainBlockData::<TestBlock>::decode(&mut &encoded[..]).unwrap();
+
+			assert_eq!(v3.blocks(), decoded.blocks());
+			assert_eq!(v3.proof(), decoded.proof());
+			assert_eq!(v3.scheduling_proof(), decoded.scheduling_proof());
+			assert_eq!(decoded.scheduling_proof().is_some(), scheduling_proof.is_some());
+			assert_eq!(decoded.lifts(), Some(&lifts));
+		}
+
+		// V0/V1/V2 carry no lifts.
+		let v1 = ParachainBlockData::<TestBlock>::V1 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+		};
+		assert!(v1.lifts().is_none());
 	}
 
 	#[test]

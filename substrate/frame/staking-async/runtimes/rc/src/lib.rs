@@ -92,7 +92,7 @@ use polkadot_runtime_parachains::{
 		v13 as parachains_runtime_api_impl, vstaging as parachains_staging_runtime_api_impl,
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
-	shared as parachains_shared,
+	shared as parachains_shared, spec_msg as parachains_spec_msg,
 };
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -1536,6 +1536,8 @@ impl parachains_dmp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl parachains_spec_msg::Config for Runtime {}
+
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
 }
@@ -1927,6 +1929,8 @@ mod runtime {
 	pub type ParasSlashing = parachains_slashing;
 	#[runtime::pallet_index(56)]
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
+	#[runtime::pallet_index(58)]
+	pub type SpecMsg = parachains_spec_msg;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]

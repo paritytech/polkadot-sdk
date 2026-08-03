@@ -42,6 +42,8 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod genesis_config_presets;
+#[cfg(test)]
+mod tests;
 mod weights;
 pub mod xcm_config;
 
@@ -80,7 +82,7 @@ use frame_system::{
 use pallet_revive::evm::runtime::EthExtra;
 use parachains_common::{
 	impls::BlockAuthor,
-	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling, ParaIdToSpecMsg},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -623,6 +625,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 	type SchedulingSignatureVerifier = ();
+	type UmpSignalSource = SpecMessaging;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -680,6 +683,49 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+parameter_types! {
+	/// Hard per-message payload bound of the spec-msg streams, matching the customary on-chain
+	/// HRMP `max_message_size` so that an XCM which fits HRMP today fits the spec-msg transport
+	/// after a cutover. Must not exceed the message queue's `MaxMessageLen` (derived from its
+	/// `HeapSize`), or consumed payloads could not be enqueued for execution.
+	pub const SpecMsgMaxMsgLen: u32 = 102400;
+	/// The advisory credit window granted to accepted inbound spec-msg channels — sized like a
+	/// roomy HRMP channel (advice only: the hard backpressure stays the per-block caps).
+	pub const SpecMsgWindowGrant: cumulus_primitives_spec_messaging::WindowGrant =
+		cumulus_primitives_spec_messaging::WindowGrant {
+			max_messages: 1024,
+			max_bytes: 8 * 1024 * 1024,
+			max_message_size: 102400,
+		};
+	/// Register republish backstop: unreported consumption progress is published at the latest
+	/// this many blocks after the previous publish (test chain: quick confirmations).
+	pub const SpecMsgRegisterPublishAge: BlockNumber = 10;
+}
+
+impl cumulus_pallet_spec_messaging::Config for Runtime {
+	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type MaxMsgLen = SpecMsgMaxMsgLen;
+	type MaxMessagesPerBlock = ConstU32<16>;
+	type MaxTouchedStreams = ConstU32<32>;
+	type MaxContextGaps = ConstU32<8>;
+	// Consumed payloads are SCALE-encoded `VersionedXcm`s (the `SpecMsgRouter` envelope):
+	// forward them into the message queue for execution under `SpecMsg(source)`, an origin
+	// identical to the HRMP one (`Sibling(source)`) once converted to a `Location`.
+	type DataHandler = cumulus_pallet_spec_messaging::EnqueueToXcmQueue<
+		TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSpecMsg>,
+	>;
+	// Sets/clears the `HrmpClosing` cutover flag (drain-before-close) and drives inbound-channel
+	// suspension/resumption.
+	type ChannelManagementOrigin = EnsureRoot<AccountId>;
+	// Channel lifecycle is governance-driven on the test chain (sudo in practice); acceptance is
+	// therefore priced by fees alone — no deposit.
+	type OpenChannelOrigin = EnsureRoot<AccountId>;
+	type AcceptChannelOrigin = EnsureRoot<AccountId>;
+	type AcceptConsideration = ();
+	type DefaultWindowGrant = SpecMsgWindowGrant;
+	type RegisterPublishAge = SpecMsgRegisterPublishAge;
 }
 
 parameter_types! {
@@ -846,6 +892,7 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		MessageQueue: pallet_message_queue = 34,
+		SpecMessaging: cumulus_pallet_spec_messaging = 35,
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
@@ -1027,6 +1074,37 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl cumulus_primitives_core::SpecMsgApi<Block> for Runtime {
+		fn outbound_messages() -> Vec<(cumulus_primitives_spec_messaging::StreamId, Vec<Vec<u8>>)> {
+			SpecMessaging::outbound_messages()
+		}
+
+		fn consumed_streams() -> alloc::collections::BTreeMap<
+			ParaId,
+			Vec<cumulus_primitives_spec_messaging::ConsumedStream>,
+		> {
+			SpecMessaging::consumed_streams()
+		}
+
+		fn out_channels() -> alloc::collections::BTreeMap<
+			cumulus_primitives_spec_messaging::ChannelId,
+			cumulus_primitives_spec_messaging::OutChannelState,
+		> {
+			SpecMessaging::out_channels()
+		}
+
+		fn in_channels() -> alloc::collections::BTreeMap<
+			cumulus_primitives_spec_messaging::ChannelId,
+			cumulus_primitives_spec_messaging::InChannelState,
+		> {
+			SpecMessaging::in_channels()
+		}
+
+		fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
+			SpecMessaging::consumption_record()
 		}
 	}
 
