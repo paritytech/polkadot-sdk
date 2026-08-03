@@ -119,8 +119,8 @@ fn get_ledger_bad_state_fails() {
 		ledger.stash = 444;
 		Ledger::<Test>::insert(444, ledger);
 
-		// now, we are prevented from fetching the ledger by stash from 1. It's associated
-		// controller (2) is now bonding a ledger with a different stash (2, not 1).
+		// now, we are prevented from fetching the ledger by stash 333. Its associated
+		// controller (444) is now bonding a ledger with a different stash (444, not 333).
 		assert!(StakingLedger::<Test>::get(StakingAccount::Stash(333)).is_err());
 
 		// Restore valid state so build_and_execute post-check passes.
