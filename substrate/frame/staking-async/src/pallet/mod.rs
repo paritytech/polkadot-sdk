@@ -2999,6 +2999,11 @@ pub mod pallet {
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
 			ledger.unlocking = maybe_unlocking.unwrap_or_default();
+			// active must equal total minus the sum of unlocking chunks so that
+			// total == active + sum(unlocking) holds for the consistency check in update().
+			let unlocking_sum: BalanceOf<T> =
+				ledger.unlocking.iter().fold(Zero::zero(), |acc, c| acc + c.value);
+			ledger.active = ledger.total.defensive_saturating_sub(unlocking_sum);
 			ledger.update()?;
 
 			ensure!(
