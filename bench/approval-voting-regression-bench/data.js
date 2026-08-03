@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785755979000,
+  "lastUpdate": 1785776956370,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "315513b4bca923fdf071a0a7386c8a194c95f142",
-          "message": "Try State Hook for Pallet Assets (#10371)\n\nThis PR introduces the try_state hook to pallet-assets to verify key\nstorage invariants.\n\ncloses part of https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-01T09:34:36Z",
-          "tree_id": "cbbf337a35b1e52b542ac49258dc7bf6a12928e1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/315513b4bca923fdf071a0a7386c8a194c95f142"
-        },
-        "date": 1764587536904,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63631.42,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002041988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005975989940000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4571172065399973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.298559445639995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019240880000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4956820287900014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9228309720999957,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019240880000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.756101321920849,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4200385974899998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5107859835100013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002041988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.486128667270001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.477281167462805,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1407d3feba9d3fc95e20823cd0b74acbe1ca24ee",
+          "message": "Fix resource exhaustion when replaying finalized-block transactions (#12374)\n\n## Description\n\nRe-applying a finalized block's transactions can reject with\n`ExhaustsResources` some that\noriginally succeeded, so runtime APIs that replay a block\n(`pallet-revive`'s `trace_block` /\n`trace_tx`) drop the rejected tail transactions' traces.\n\n**Cause.** Each extrinsic is charged its worst-case `proof_size`;\n`StorageWeightReclaim` refunds\nthe difference down to the actual size read from a proof-size recorder.\nAuthoring has a recorder\nregistered, so the over-charge is reclaimed; the replay has none, so\nreclaim is skipped,\n`proof_size` accumulates past the block limit, and `CheckWeight` rejects\nthe tail.\n\n**Fix.** Replay the block through the runtime API with a proof-size\nrecorder registered.\n\n## Integration\n\n- New **unsafe-gated** RPC `state_callRecorded(name, bytes, block)` on\n`StateApi`, the recorded\nsibling of `state_call`: runs the call re-enacting `block` at its parent\nstate with a\nproof-size recorder, replaying `block`'s stored recording when available\n(fresh recorder\notherwise). `bytes` is the opaque SCALE-encoded args — the node doesn't\ninspect them, so\nversioned payloads work; `block` only locates the parent state and the\nrecording.\n- New `TracingExecuteBlock::call_recorded(block, method, call_data)`\ntrait method (default impl\nerrors, non-breaking; implemented for parachains in\n`cumulus-client-service`).\n- New `sc-rpc-api` state errors with stable wire codes clients match on\nto fall back:\n`CallRecordedUnsupported` (node has no recorder) and\n`CallRecordedDenied` (unsafe RPCs\ndisabled), both scoped to `state_callRecorded`; the shared\n`UnsafeRpcCalled` code is unchanged.\n- `pallet-revive-types` trace types now deserialize the JSON they\nserialize\n  (`skip_serializing_if` fields also carry `#[serde(default)]`).\n\n## Review Notes\n\n**Why a new RPC.** eth-rpc talks to the node remotely, so its typed\n`runtime_api.trace_block()`\nalready crosses the wire as a `state_call`, and the recorder can only be\nregistered node-side.\nRecording on every `state_call` would add overhead to all hot paths; the\nscoped method gives\nper-call consent.\n\n**Faithful under bundling.** eth-rpc passes the block's on-chain hash;\nthe node replays `block`'s\nstored recording, matching `execute_block`. A fresh recorder would\nre-count already-proven nodes,\nso a bundle-tail replay could spuriously hit `ExhaustsResources`; nodes\nwithout a recording (dev\nnodes, non-bundling collators) fall back to a fresh recorder.\n\n**Client fallback.** When a node cannot service `state_callRecorded`,\neth-rpc falls back to the\nplain trace APIs (version-skew and unsafe-disabled warn; the expected\nrecorder-less case is\ndebug) and marks the result degraded: `debug_traceBlock*` returns\ndropped transactions as\ngeth-style `{txHash, error}` entries, `debug_traceTransaction` returns\ntrace-unavailable rather\nthan \"not found\".\n\n**Tests.** An Asset Hub Westend integration test reproduces the bug and\nconfirms the fix through\nthe versioned trace APIs; a new `repeated_storage_read` fixture creates\nthe `proof_size`\nover-charge (a distinct cold storage key per round).\n`pallet-revive-eth-rpc` unit tests cover the\nfallback classification; `sc-rpc` tests pin the unsafe-denied wire\ncontract.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-03T15:22:32Z",
+          "tree_id": "8ce5cc1654c70d0e6594864c31448cf814ca182d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1407d3feba9d3fc95e20823cd0b74acbe1ca24ee"
+        },
+        "date": 1785776922503,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63572.229999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.63701023327,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022659049999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.653586692959999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.357345910259986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.562368575652828,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6847480688999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8459066751299658,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.826941684469949,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022659049999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005212476250000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002342072,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002342072,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6431316277000008,
             "unit": "seconds"
           }
         ]
