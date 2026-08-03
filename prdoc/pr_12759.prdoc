@@ -17,4 +17,4 @@ crates:
   - name: coretime-westend-runtime
     bump: patch
   - name: polkadot-runtime-parachains
-    bump: patch
+    bump: minor
