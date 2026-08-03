@@ -5,5 +5,4 @@ zombienet-polkadot-functional-duplicate-collations:8950
 zombienet-substrate-0002-validators-warp-sync:8871
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:8999
 zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:9980
-zombienet-polkadot-functional-0015-coretime-shared-core-4-paras:11895
 zombienet-polkadot-collators-basic-reputation-persistence:11491

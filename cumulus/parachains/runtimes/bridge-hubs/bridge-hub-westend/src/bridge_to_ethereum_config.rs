@@ -24,7 +24,11 @@ use crate::{
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use bridge_hub_common::AggregateMessageOrigin;
-use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
+use frame_support::{
+	parameter_types,
+	traits::{Contains, Equals, EverythingBut},
+	weights::ConstantMultiplier,
+};
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
@@ -46,6 +50,7 @@ use sp_runtime::{
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
+	locations::AssetHubLocation,
 	snowbridge::{
 		AssetHubParaId, EthereumLocation, EthereumNetwork, FRONTEND_PALLET_INDEX,
 		INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
@@ -72,6 +77,7 @@ pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	EthereumOutboundQueueV2,
 	EthereumSystemV2,
 	AssetHubParaId,
+	EverythingBut<Equals<AssetHubLocation>>,
 >;
 
 // Ethereum Bridge
