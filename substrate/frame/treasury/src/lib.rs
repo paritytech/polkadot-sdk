@@ -65,8 +65,8 @@
 //!
 //! A legacy queue of approvals (see [`Approvals`]) may still exist from before the removal of the
 //! deprecated `spend_local` call. Any entries left in that queue continue to be drained and paid
-//! out from [`Pallet::spend_funds`] every [`pallet::Config::SpendPeriod`]; the bounties pallet also
-//! relies on the same queue (bounded by [`pallet::Config::MaxApprovals`]) to schedule its payouts.
+//! out from [`Pallet::spend_funds`] every [`pallet::Config::SpendPeriod`]. The bounties pallet
+//! keeps its own approvals queue, bounded by the same [`pallet::Config::MaxApprovals`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -246,11 +246,7 @@ pub mod pallet {
 		/// Runtime hooks to external pallet using treasury to compute spend funds.
 		type SpendFunds: SpendFunds<Self, I>;
 
-		/// Legacy leftover from the removed `spend_local` call.
-		///
-		/// The maximum number of approvals that can wait in the spending queue.
-		///
-		/// NOTE: This parameter is also used within the Bounties Pallet extension if enabled.
+		/// Bounds the legacy [`Approvals`] queue and the bounties pallet's `BountyApprovals` queue.
 		#[pallet::constant]
 		type MaxApprovals: Get<u32>;
 
@@ -324,8 +320,8 @@ pub mod pallet {
 		StorageValue<_, BalanceOf<T, I>, ValueQuery>;
 
 	/// Legacy leftover from the removed `spend_local` call. Still drained by
-	/// [`Pallet::spend_funds`] every spend period, and used by the Bounties Pallet extension to
-	/// schedule bounty payouts (bounded by [`Config::MaxApprovals`]).
+	/// [`Pallet::spend_funds`] every spend period. Note the bounties pallet keeps its own
+	/// separate queue (`BountyApprovals`), bounded by the same [`Config::MaxApprovals`].
 	///
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
@@ -389,7 +385,7 @@ pub mod pallet {
 		Rollover { rollover_balance: BalanceOf<T, I> },
 		/// Some funds have been deposited.
 		Deposit { value: BalanceOf<T, I> },
-		/// A new spend proposal has been approved.
+		/// Legacy: never emitted since the removal of `spend_local`.
 		SpendApproved {
 			proposal_index: ProposalIndex,
 			amount: BalanceOf<T, I>,
@@ -422,12 +418,12 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// No proposal, bounty or spend at that index.
 		InvalidIndex,
-		/// Too many approvals in the queue.
+		/// Legacy: never returned since the removal of `spend_local`/`remove_approval`.
 		TooManyApprovals,
 		/// The spend origin is valid but the amount it is allowed to spend is lower than the
 		/// amount to be spent.
 		InsufficientPermission,
-		/// Proposal has not been approved.
+		/// Legacy: never returned since the removal of `spend_local`/`remove_approval`.
 		ProposalNotApproved,
 		/// The balance of the asset kind is not convertible to the balance of the native asset.
 		FailedToConvertBalance,

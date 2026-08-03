@@ -414,6 +414,7 @@ fn genesis_funding_works() {
 
 #[test]
 fn max_approvals_limited() {
+	// Regression guard: the legacy `Approvals` queue is still bounded by `Config::MaxApprovals`.
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), u64::MAX);
 		Balances::make_free_balance_be(&0, u64::MAX);
@@ -422,8 +423,6 @@ fn max_approvals_limited() {
 			add_proposal(100, 3);
 		}
 
-		// One too many will fail: the `Approvals` bound is enforced directly since there is no
-		// dispatchable left that can grow the legacy approvals queue.
 		let proposal_index = ProposalCount::<Test>::get();
 		assert!(Approvals::<Test>::try_append(proposal_index).is_err());
 	});

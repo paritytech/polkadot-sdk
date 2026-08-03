@@ -2,10 +2,11 @@ title: Remove deprecated treasury spend_local and remove_approval
 doc:
 - audience: Runtime Dev
   description: |-
-    ## Summary
-    - Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related public getters.
-    - Keeped `MaxApprovals` and `ProposalCount` / `Proposals` / `Approvals` so leftover approvals still pay out via `spend_funds`, and so bounties can keep using `MaxApprovals`.
-    - Updated tests/benchmarks to seed legacy proposal storage directly; drop weight methods from runtime weight files.
+    Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related
+    public getters. Kept `MaxApprovals` and `ProposalCount` / `Proposals` / `Approvals` so
+    leftover approvals still pay out via `spend_funds`, and so bounties can keep using
+    `MaxApprovals`. Updated tests/benchmarks to seed legacy proposal storage directly and
+    dropped the related weight methods from runtime weight files.
 crates:
 - name: asset-hub-westend-runtime
   bump: major
@@ -14,10 +15,10 @@ crates:
 - name: rococo-runtime
   bump: major
 - name: pallet-bounties
-  bump: major
+  bump: patch
 - name: pallet-child-bounties
-  bump: major
+  bump: patch
 - name: pallet-tips
-  bump: major
+  bump: patch
 - name: pallet-treasury
   bump: major

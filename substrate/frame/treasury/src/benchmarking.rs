@@ -59,15 +59,11 @@ where
 
 const SEED: u32 = 0;
 
-// Create the pre-requisite information needed to create a legacy treasury proposal.
-fn setup_proposal<T: Config<I>, I: 'static>(
-	u: u32,
-) -> (T::AccountId, BalanceOf<T, I>, T::AccountId) {
-	let caller = account("caller", u, SEED);
+// Create the pre-requisite information needed to seed a legacy treasury proposal.
+fn setup_proposal<T: Config<I>, I: 'static>(u: u32) -> (BalanceOf<T, I>, T::AccountId) {
 	let value: BalanceOf<T, I> = T::Currency::minimum_balance() * 100u32.into();
-	let _ = T::Currency::make_free_balance_be(&caller, value);
 	let beneficiary = account("beneficiary", u, SEED);
-	(caller, value, beneficiary)
+	(value, beneficiary)
 }
 
 // Directly insert a proposal into the legacy `ProposalCount`/`Proposals`/`Approvals` storage,
@@ -87,19 +83,11 @@ fn add_proposal<T: Config<I>, I: 'static>(
 
 // Create proposals that are approved for use in `on_initialize`.
 fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'static str> {
-	let spender = T::SpendOrigin::try_successful_origin();
-
 	for i in 0..n {
-		let (_, value, beneficiary) = setup_proposal::<T, I>(i);
-
-		if spender.is_ok() {
-			add_proposal::<T, I>(value, beneficiary)?;
-		}
+		let (value, beneficiary) = setup_proposal::<T, I>(i);
+		add_proposal::<T, I>(value, beneficiary)?;
 	}
-
-	if spender.is_ok() {
-		ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
-	}
+	ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
 	Ok(())
 }
 
