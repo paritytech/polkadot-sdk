@@ -1016,14 +1016,7 @@ impl TestState {
 						)
 					},
 					CollationVersion::V4 => {
-						assert_matches!(
-							msg,
-							CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
-								protocol_v4::CollatorProtocolMessage::CollationSeconded(_rp, stmt)
-							)) => {
-								assert_eq!(statement, stmt);
-							}
-						)
+						// This is not supported for v4
 					}
 				};
 			}

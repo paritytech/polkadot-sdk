@@ -1303,8 +1303,7 @@ async fn handle_incoming_peer_message<Context>(
 			);
 		},
 		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement)) |
-		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) |
-		CollationProtocols::V4(V4::CollationSeconded(scheduling_parent, statement)) => {
+		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,
