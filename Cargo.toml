@@ -391,6 +391,9 @@ members = [
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
 	"substrate/frame/honzon/oracle/runtime-api",
+	"substrate/frame/hrmp/para",
+	"substrate/frame/hrmp/primitives",
+	"substrate/frame/hrmp/relay",
 	"substrate/frame/identity",
 	"substrate/frame/im-online",
 	"substrate/frame/indices",
@@ -430,6 +433,9 @@ members = [
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
+	"substrate/frame/registrar/para",
+	"substrate/frame/registrar/primitives",
+	"substrate/frame/registrar/relay",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
 	"substrate/frame/revive/dev-node/node",
@@ -445,6 +451,7 @@ members = [
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
 	"substrate/frame/sassafras",
+	"substrate/frame/scarcity",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
 	"substrate/frame/session",
@@ -762,6 +769,7 @@ color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.4", default-features = false }
 console = { version = "0.15.8" }
+const-crypto = { version = "0.3.0", default-features = false }
 const-hex = { version = "1.10.0", default-features = false }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
@@ -1066,6 +1074,7 @@ pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = 
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
+pallet-scarcity = { path = "substrate/frame/scarcity", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }
@@ -1178,10 +1187,10 @@ polkadot-subsystem-test-sim-macros = { path = "polkadot/node/test-sim/macros" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.33.0", default-features = false }
-polkavm-common = { version = "0.33.0", default-features = false }
-polkavm-derive = "0.33.0"
-polkavm-linker = "0.33.0"
+polkavm = { version = "0.35.0", default-features = false }
+polkavm-common = { version = "0.35.0", default-features = false }
+polkavm-derive = "0.35.0"
+polkavm-linker = "0.35.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
