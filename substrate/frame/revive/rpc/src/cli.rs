@@ -226,6 +226,54 @@ fn connect_and_build_client(
 		let rpc_client = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let client =
 			build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
+		let (api, rpc_client, rpc) =
+			connect(node_rpc_url, max_request_size, max_response_size).await?;
+		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
+
+		let (pool, keep_latest_n_blocks) = match eth_pruning {
+			EthPruningMode::Archive => {
+				(SqlitePoolOptions::new().connect_with(db_options).await?, None)
+			},
+			EthPruningMode::KeepLatest(max_blocks) => {
+				log::info!(target: LOG_TARGET,
+					"💾 Using in-memory database, keeping only {max_blocks} blocks");
+				// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
+				let pool = SqlitePoolOptions::new()
+					.max_connections(1)
+					.idle_timeout(None)
+					.max_lifetime(None)
+					.connect_with(db_options)
+					.await?;
+				(pool, Some(max_blocks))
+			},
+		};
+
+		let runtime_api_provider =
+			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+		let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
+		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
+		let db_ctx = DbContext::new(pool, max_variable_number);
+
+		let receipt_provider = ReceiptProvider::new(
+			db_ctx,
+			block_provider.clone(),
+			receipt_extractor.clone(),
+			keep_latest_n_blocks,
+		)
+		.await?;
+
+		let client = Client::new(
+			api,
+			rpc_client,
+			rpc,
+			block_provider,
+			receipt_provider,
+			eth_pruning.is_archive(),
+			subscription_gap_queue,
+			runtime_api_provider,
+		)
+		.await?;
+
 		Ok(client)
 	}
 	.fuse();
