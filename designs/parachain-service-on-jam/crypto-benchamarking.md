@@ -46,11 +46,10 @@ Ratios are vs the **best host build per algorithm and machine** —
 `target-cpu=native` is not always a win (it pessimizes twox ~1.5× on
 machine A), so baselines were checked per cell, not assumed.
 
-Host libraries are built with **stable Rust (1.86)**; guest blobs use the
-suite's pinned nightly (required for `build-std`). This matters: the pinned
-nightly's x86-64 codegen measurably degrades some host baselines (sha2's
-SHA-NI path ~2×, keccak under `target-cpu=native` on Zen 4 ~2×), so host
-numbers from nightly builds are not comparable.
+Host libraries are built with **stable Rust (1.86)** — the production
+configuration; guest blobs use the suite's pinned nightly (required for
+`build-std`). The toolchain choice measurably moves several host baselines
+in both directions — see *Toolchain impact on host baselines* below.
 
 Two machines, because the ratios turn out to be strongly
 microarchitecture-dependent (see *Hardware dependence* below):
@@ -115,14 +114,44 @@ heavily on the host microarchitecture:
   machine B's memory pipeline than the PVM side does. In absolute terms the
   penalty stays trivial (tens of µs per MiB).
 - **25519-family ratios improve on machine B** (3.0× → 2.5×): the PVM side
-  gains ~1.5× while host times move less. (An earlier run had shown B host
-  times halving to ~16 µs; that did not reproduce after the host builds
-  were pinned to stable Rust and is treated as a build artifact of that
-  run.)
+  gains ~1.5× while host times move less — with stable-built hosts. On
+  nightly-built hosts Zen 4's AVX-512-IFMA halves the host times and the
+  ratios read ~4× instead; see *Toolchain impact on host baselines*.
 
 The absolute PVM costs — the numbers the refine-budget question actually
 needs — improve on the newer machine across the board (e.g. ed25519 verify
 103 µs → 68 µs, blake2 1 MiB 1.71 ms → 0.90 ms).
+
+### Toolchain impact on host baselines
+
+Host numbers are a property of **machine × toolchain**, not machine alone.
+Measured explicitly on machine B by rebuilding all host libraries with
+`nightly-2026-08-01` vs stable 1.86 (full tables in the appendix; PVM cells
+are unaffected — guest blobs always build with the suite's pinned
+toolchain):
+
+- **25519 signatures: ~1.6× faster on nightly** (ed25519 host 29 → 15.6 µs;
+  PVM ratio 2.3× → 4.4×). `curve25519-dalek` compiles its SIMD backends only
+  on the nightly *channel* (unstable-feature gate) and runtime-dispatches to
+  AVX-512-IFMA on Zen 4+; `target-cpu` flags are irrelevant, and no stable
+  release changes this (1.97 tested) until the crate drops its gate.
+- **keccak host-native: ~2.3× slower on nightly** (1.58 → 3.67 ms): modern
+  LLVM auto-vectorizes the permutation to AVX-512 under `target-cpu=native`
+  on Zen 4; stable 1.86 does not. Best host flips to portable. Likely an
+  LLVM-version behavior, so future stable releases may inherit it.
+- **twox host-native: +11–17% slower on nightly** at ≥512 B (worse znver4
+  scalar codegen); twox_128 *portable* is 10–23% faster — pure loop-codegen
+  churn, in both directions.
+- **sha2: clean on modern nightly** (= stable, 414 µs); the suite's
+  previously-pinned nightly-2025-05-10 had a ~2× SHA-NI register-spill
+  regression, since fixed upstream.
+- **blake2 (including the asm PoC comparisons) and secp256k1:
+  toolchain-insensitive** (±3%).
+
+The main tables therefore use stable-built hosts (the production
+configuration), host-native baselines are revalidated per toolchain (best
+host per cell, never assumed), and host numbers should always be quoted
+with their toolchain.
 
 ### Hand-written assembly PoC (blake2b) — for LLM values of "hand"
 
@@ -182,6 +211,12 @@ Crossing and copy costs are not measured yet (benchtool `bench-ecalli`,
 polkajam's host-call benchmarks) — no winners can be declared. Calls made by
 the service's own refine code pay a single crossing.
 
+For `host_time`, note that a host-call implementation is free to choose its
+toolchain and implementation: for 25519 signatures the *achievable* host
+cost on IFMA-capable CPUs is ~16 µs (nightly-built `curve25519-dalek`, see
+*Toolchain impact on host baselines*) vs ~64–68 µs in PVM — ~48 µs per
+verification, the largest per-operation prize of any primitive here.
+
 ## Build tweaks
 
 - **Linker-provided `memcpy`/`memset`** (`builtins-mem` feature, default
@@ -237,9 +272,12 @@ generic harness (`runtime` variant = steady-state execution):
 
 ## Appendix: full tables
 
-Raw data for both machines: `tools/benchtool/output_new_00` (machine A)
-and `tools/benchtool/output_new_00_toaster` (machine B) on the
-`mku-bench-hash` branch (5 runs each; tables use one representative run).
+Raw data for both machines: `tools/benchtool/output_new_00` (machine A),
+`tools/benchtool/output_new_00_toaster` (machine B) and
+`tools/benchtool/output_new_nightly_20260801_00_toaster` (machine B, nightly
+host builds) on the `mku-bench-hash` branch (5 runs each; tables use one
+representative run). Host libraries are stable-1.86 builds unless the
+heading says otherwise.
 
 ### Signatures, host-portable build — machine A
 CPU: AMD Ryzen 9 5950X (Zen 3): AVX2, SHA-NI.
@@ -280,6 +318,23 @@ indicative only; `target-cpu=native` gains little for this scalar code.
 | ecdsa-libsecp | 129.20 µs | 241.51 µs | 1.87× |
 | recover-k256 | 140.69 µs | 453.49 µs | 3.22× |
 | recover-libsecp | 145.47 µs | 252.30 µs | 1.73× |
+
+### Signatures, nightly host builds — machine B
+
+Host libraries built with `nightly-2026-08-01` (see *Toolchain impact on
+host baselines*): curve25519-dalek's runtime-dispatched IFMA backend makes
+the 25519 rows ~1.6× faster than any stable build; portable ≈ native
+because the dispatch is at runtime.
+
+| benchmark | host portable | host native | PVM (64-bit, sync gas) | pvm/portable | pvm/native |
+|---|---:|---:|---:|---:|---:|
+| ed25519 | 15.58 µs | 15.57 µs | 68.67 µs | 4.41× | 4.41× |
+| ed25519-zebra | 15.71 µs | 15.76 µs | 64.40 µs | 4.10× | 4.09× |
+| sr25519 | 16.37 µs | 17.22 µs | 63.57 µs | 3.88× | 3.69× |
+| ecdsa-k256 | 61.55 µs | 61.63 µs | 169.63 µs | 2.76× | 2.75× |
+| ecdsa-libsecp | 111.21 µs | 116.52 µs | 162.10 µs | 1.46× | 1.39× |
+| recover-k256 | 124.00 µs | 124.78 µs | 339.19 µs | 2.74× | 2.72× |
+| recover-libsecp | 117.83 µs | 125.17 µs | 171.02 µs | 1.45× | 1.37× |
 
 ### Hashing — machine A
 
@@ -465,6 +520,100 @@ sha2 uses SHA-NI where available)
 | 4 KiB | 1.25 µs | 586 ns | 828 ns | 2.13x | 1.51x | 0.71x |
 | 64 KiB | 19.52 µs | 9.68 µs | 12.87 µs | 2.02x | 1.52x | 0.75x |
 | 1 MiB | 308.43 µs | 155.65 µs | 205.52 µs | 1.98x | 1.50x | 0.76x |
+### Hashing — machine B, nightly host builds
+
+Host libraries built with `nightly-2026-08-01`; the pvm column is the same
+guest blob as above (guests always build with the suite's pinned
+toolchain). Note keccak's native column (~2.3× worse than stable-built —
+AVX-512 auto-vectorization) and the twox native columns (+11–17%).
+
+#### blake2_128
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 123 ns | 86 ns | 93 ns | 1.44x | 1.33x | 0.92x |
+| 128 B | 121 ns | 84 ns | 91 ns | 1.43x | 1.33x | 0.93x |
+| 512 B | 452 ns | 325 ns | 356 ns | 1.39x | 1.27x | 0.91x |
+| 4 KiB | 3.54 µs | 2.57 µs | 2.82 µs | 1.38x | 1.26x | 0.91x |
+| 64 KiB | 56.39 µs | 40.97 µs | 45.14 µs | 1.38x | 1.25x | 0.91x |
+| 1 MiB | 903.32 µs | 654.10 µs | 722.57 µs | 1.38x | 1.25x | 0.91x |
+
+#### blake2_256
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 124 ns | 85 ns | 95 ns | 1.45x | 1.31x | 0.90x |
+| 128 B | 121 ns | 84 ns | 94 ns | 1.45x | 1.29x | 0.89x |
+| 512 B | 457 ns | 323 ns | 352 ns | 1.41x | 1.30x | 0.92x |
+| 4 KiB | 3.54 µs | 2.57 µs | 2.79 µs | 1.38x | 1.27x | 0.92x |
+| 64 KiB | 56.47 µs | 40.91 µs | 44.59 µs | 1.38x | 1.27x | 0.92x |
+| 1 MiB | 902.44 µs | 653.37 µs | 730.35 µs | 1.38x | 1.24x | 0.89x |
+
+#### keccak_256
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 294 ns | 492 ns | 265 ns | 0.60x | 1.11x | 1.85x |
+| 128 B | 294 ns | 493 ns | 257 ns | 0.60x | 1.14x | 1.92x |
+| 512 B | 1.03 µs | 1.92 µs | 983 ns | 0.54x | 1.05x | 1.96x |
+| 4 KiB | 7.68 µs | 15.13 µs | 7.45 µs | 0.51x | 1.03x | 2.03x |
+| 64 KiB | 118.69 µs | 229.09 µs | 115.48 µs | 0.52x | 1.03x | 1.98x |
+| 1 MiB | 1.89 ms | 3.67 ms | 1.85 ms | 0.51x | 1.02x | 1.99x |
+
+#### keccak_512
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 285 ns | 489 ns | 263 ns | 0.58x | 1.08x | 1.86x |
+| 128 B | 524 ns | 960 ns | 500 ns | 0.55x | 1.05x | 1.92x |
+| 512 B | 1.98 µs | 3.78 µs | 1.94 µs | 0.52x | 1.02x | 1.96x |
+| 4 KiB | 13.84 µs | 26.83 µs | 13.65 µs | 0.52x | 1.01x | 1.97x |
+| 64 KiB | 220.49 µs | 428.59 µs | 217.88 µs | 0.51x | 1.01x | 1.97x |
+| 1 MiB | 3.52 ms | 6.85 ms | 3.48 ms | 0.51x | 1.01x | 1.97x |
+
+#### sha2_256
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 249 ns | 39 ns | 43 ns | 6.37x | 5.76x | 0.90x |
+| 128 B | 734 ns | 96 ns | 91 ns | 7.68x | 8.07x | 1.05x |
+| 512 B | 1.86 µs | 246 ns | 243 ns | 7.54x | 7.65x | 1.01x |
+| 4 KiB | 11.86 µs | 1.66 µs | 1.66 µs | 7.15x | 7.13x | 1.00x |
+| 64 KiB | 183.44 µs | 26.00 µs | 26.00 µs | 7.06x | 7.06x | 1.00x |
+| 1 MiB | 2.92 ms | 413.87 µs | 414.61 µs | 7.07x | 7.05x | 1.00x |
+
+#### twox_64
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 19 ns | 16 ns | 10 ns | 1.19x | 1.88x | 1.58x |
+| 128 B | 24 ns | 19 ns | 13 ns | 1.27x | 1.83x | 1.43x |
+| 512 B | 54 ns | 36 ns | 39 ns | 1.52x | 1.40x | 0.92x |
+| 4 KiB | 330 ns | 191 ns | 280 ns | 1.73x | 1.18x | 0.68x |
+| 64 KiB | 5.12 µs | 2.84 µs | 3.25 µs | 1.80x | 1.57x | 0.87x |
+| 1 MiB | 79.07 µs | 45.73 µs | 51.74 µs | 1.73x | 1.53x | 0.88x |
+
+#### twox_128
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 20 ns | 23 ns | 19 ns | 0.88x | 1.05x | 1.19x |
+| 128 B | 35 ns | 27 ns | 27 ns | 1.32x | 1.28x | 0.97x |
+| 512 B | 93 ns | 46 ns | 63 ns | 2.00x | 1.46x | 0.73x |
+| 4 KiB | 632 ns | 357 ns | 419 ns | 1.77x | 1.51x | 0.85x |
+| 64 KiB | 9.98 µs | 5.67 µs | 6.43 µs | 1.76x | 1.55x | 0.88x |
+| 1 MiB | 154.23 µs | 91.25 µs | 106.25 µs | 1.69x | 1.45x | 0.86x |
+
+#### twox_256
+
+| size | pvm | native | portable | pvm/native | pvm/portable | native/portable |
+|---:|---:|---:|---:|---:|---:|---:|
+| 32 B | 35 ns | 34 ns | 31 ns | 1.05x | 1.15x | 1.09x |
+| 128 B | 64 ns | 41 ns | 50 ns | 1.56x | 1.28x | 0.82x |
+| 512 B | 178 ns | 82 ns | 124 ns | 2.17x | 1.43x | 0.66x |
+| 4 KiB | 1.24 µs | 681 ns | 825 ns | 1.82x | 1.51x | 0.83x |
+| 64 KiB | 19.51 µs | 11.25 µs | 12.88 µs | 1.73x | 1.51x | 0.87x |
+| 1 MiB | 307.89 µs | 181.08 µs | 205.81 µs | 1.70x | 1.50x | 0.88x |
 ## Appendix: usage recap
 
 Where each algorithm shows up in the Substrate/Polkadot stack, and which
