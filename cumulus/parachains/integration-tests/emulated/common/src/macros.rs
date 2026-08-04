@@ -140,15 +140,6 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						delivery_fees_amount = inner_delivery_fees_amount;
 					});
 
-					// Reset to send actual message.
-					<$sender_para as $crate::macros::TestExt>::reset_ext();
-					<$receiver_para as $crate::macros::TestExt>::reset_ext();
-
-					// TODO: The test fails without the line below, seems like no horizontal message passing is being done
-					//       when also using dry_run_call above (it works if there is no dry_run_call)
-					//       So this is just workaround, must be investigated
-					<$sender_para as $crate::macros::TestExt>::execute_with(|| { });
-
 					let receiver_total_issuance_before = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
 						<<$receiver_para as [<$receiver_para Pallet>]>::Balances
 							as $crate::macros::Currency<_>>::total_issuance()

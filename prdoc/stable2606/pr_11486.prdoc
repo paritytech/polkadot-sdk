@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-xcm] Fix dry-run side-effects leaking into xcm-emulator process_messages()"
+
+doc:
+  - audience: [Runtime Dev]
+    description: |
+      `dry_run_call` and `dry_run_xcm` in `pallet-xcm` now execute inside a storage
+      transaction that is always rolled back. Previously the XCM execution performed
+      during a dry-run (including `Router::clear_messages()` and any XCMP queue writes)
+      was committed to the underlying externalities. In xcm-emulator tests this caused
+      `execute_with()` to forward the dry-run's outbound messages through
+      `process_messages()`, silently mutating destination-chain state.
+
+      The workarounds in `emulated-integration-tests-common` (`reset_ext()` calls and
+      a no-op `execute_with(|| {})`) that papered over this issue have been removed.
+
+crates:
+  - name: pallet-xcm
+    bump: patch
+  - name: emulated-integration-tests-common
+    bump: patch
