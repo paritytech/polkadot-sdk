@@ -17,13 +17,16 @@
 
 use crate::{
 	Config,
-	access_list::{StorageAccessKind, Warmth},
+	access_list::{Paid, StorageAccessKind, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
-use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
+use frame_support::{
+	traits::Get,
+	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
+};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -224,11 +227,26 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
-	/// Pick the matching storage bench for the access `kind`.
+	/// What a write adds over the read that made the slot hot: the deferred cost
+	/// of re-hashing its path when the block's storage root is computed. Owed
+	/// only once, so a cold write (which prepaid it) and an already-written slot
+	/// owe nothing.
+	fn hot_write_surcharge<T: Config>(paid: Paid) -> Weight {
+		match paid {
+			Paid::Read => {
+				let db = T::DbWeight::get();
+				db.writes(1).saturating_sub(db.reads(1))
+			},
+			Paid::Write => Weight::zero(),
+		}
+	}
+
+	/// Pick the matching storage bench for the access `kind`. The hot closure
+	/// receives what the slot has [`Paid`] so write tokens can add the surcharge.
 	fn weight_for_storage_access<T: Config>(
 		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
-		hot: impl FnOnce() -> Weight,
+		hot: impl FnOnce(Paid) -> Weight,
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
@@ -242,7 +260,7 @@ impl RuntimeCosts {
 					cost
 				}
 			},
-			StorageAccessKind::Persistent(Warmth::Hot) => hot()
+			StorageAccessKind::Persistent(Warmth::Hot(paid)) => hot(paid)
 				.saturating_add(Self::hot_storage_overlay_overhead::<T>())
 				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
 				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
@@ -311,31 +329,40 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
-				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
+				|paid| {
+					T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes)
+						.saturating_add(Self::hot_write_surcharge::<T>(paid))
+				},
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(write_cold, clear_storage, len),
-				|| T::WeightInfo::clear_storage_hot(len),
+				|paid| {
+					T::WeightInfo::clear_storage_hot(len)
+						.saturating_add(Self::hot_write_surcharge::<T>(paid))
+				},
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(read_cold, contains_storage, len),
-				|| T::WeightInfo::contains_storage_hot(len),
+				|_| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(read_cold, seal_get_storage, len),
-				|| T::WeightInfo::seal_get_storage_hot(len),
+				|_| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
 				kind,
 				|| cost_storage!(write_cold, take_storage, len),
-				|| T::WeightInfo::take_storage_hot(len),
+				|paid| {
+					T::WeightInfo::take_storage_hot(len)
+						.saturating_add(Self::hot_write_surcharge::<T>(paid))
+				},
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase => T::WeightInfo::seal_call(0, 0, 0),
@@ -393,7 +420,7 @@ mod tests {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot = StorageAccessKind::Persistent(Warmth::Hot);
+		let hot = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));
 
 		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
@@ -429,6 +456,36 @@ mod tests {
 				rev_weight.proof_size(),
 				non_rev_weight.proof_size(),
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+			);
+		}
+	}
+
+	#[test]
+	fn only_the_first_hot_write_pays_the_surcharge() {
+		const LEN: u32 = 64;
+		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
+
+		let surcharge = RuntimeCosts::hot_write_surcharge::<Test>(Paid::Read);
+		assert!(surcharge.ref_time() > 0, "mock DbWeight must price the surcharge");
+		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
+
+		// Each storage cost with the extra it owes on the first hot write: the
+		// write costs pay the surcharge once, the read costs never do.
+		let cases: [(fn(StorageAccessKind) -> RuntimeCosts, Weight); 5] = [
+			(|kind| RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind }, surcharge),
+			(|kind| RuntimeCosts::ClearStorage { len: LEN, kind }, surcharge),
+			(|kind| RuntimeCosts::TakeStorage { len: LEN, kind }, surcharge),
+			(|kind| RuntimeCosts::GetStorage { len: LEN, kind }, Weight::zero()),
+			(|kind| RuntimeCosts::ContainsStorage { len: LEN, kind }, Weight::zero()),
+		];
+		for (storage_cost, extra) in cases {
+			let on_paid_read = storage_cost(StorageAccessKind::Persistent(Warmth::Hot(Paid::Read)));
+			let on_paid_write =
+				storage_cost(StorageAccessKind::Persistent(Warmth::Hot(Paid::Write)));
+			assert_eq!(
+				weight(&on_paid_read),
+				weight(&on_paid_write).saturating_add(extra),
+				"unexpected surcharge for {on_paid_read:?}",
 			);
 		}
 	}

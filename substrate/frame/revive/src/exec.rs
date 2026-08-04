@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, StorageAccessKind},
+	access_list::{AccessEntry, AccessList, StorageAccessKind, StorageOp},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -546,10 +546,16 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
-	/// otherwise. When `transient` is true, skips the access list and returns
-	/// the `Transient` variant.
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
+	/// the [`StorageAccessKind`] the slot had **before** this touch. `op` is the
+	/// operation being performed, so the first write to a slot that was only read
+	/// can be charged the write surcharge exactly once. When `transient` is
+	/// true, skips the access list and returns the `Transient` variant.
+	fn touch_storage_access(
+		&mut self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> StorageAccessKind;
 
 	/// Non-mutating sibling of `touch_storage_access`.
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
@@ -2617,13 +2623,18 @@ where
 		)
 	}
 
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+	fn touch_storage_access(
+		&mut self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> StorageAccessKind {
 		if transient {
 			return StorageAccessKind::Transient;
 		}
 		let address = self.address();
 		StorageAccessKind::Persistent(
-			self.access_list.touch(AccessEntry { address, slot: key.into() }),
+			self.access_list.touch(AccessEntry { address, slot: key.into() }, op),
 		)
 	}
 
