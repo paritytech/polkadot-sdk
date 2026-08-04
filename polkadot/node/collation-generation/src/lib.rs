@@ -289,7 +289,7 @@ impl CollationGenerationSubsystem {
 				)
 				.map_err(|_| Error::InvalidSegmentSize(len))?,
 			},
-			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => {
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown(_) => {
 				return Err(Error::UnsupportedDescriptorVersion)
 			},
 		};
@@ -645,10 +645,6 @@ fn construct_segment_entry(
 	parse_ump_signals_internal(
 		&commitments,
 		candidates_descriptor_version,
-		// The raw version byte is unknown here; it is only surfaced in the
-		// `UnknownVersion` error, and V1/`Unknown` submissions are rejected
-		// at segment assembly anyway.
-		u8::MAX,
 		transposed_claim_queue,
 		para_id,
 		core_index,

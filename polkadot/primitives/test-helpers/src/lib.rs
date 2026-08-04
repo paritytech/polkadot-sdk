@@ -888,7 +888,10 @@ mod candidate_receipt_tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
-		assert_eq!(new_ccr.descriptor.version_old_rules(), CandidateDescriptorVersion::Unknown);
+		assert_eq!(
+			new_ccr.descriptor.version_old_rules(),
+			CandidateDescriptorVersion::Unknown(100)
+		);
 		assert_eq!(
 			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new()),
 			Err(CommittedCandidateReceiptError::UnknownVersion(100))
