@@ -1,0 +1,13 @@
+title: 'allocator: make the max single allocation overridable at build time'
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    The freeing-bump allocator caps a single runtime allocation at 32 MiB, so a large runtime API result that needs one contiguous buffer bigger than that traps. The motivating case is a full block execution trace: pallet-revive's `struct_logs` buffer crosses 32 MiB on long transactions and `ReviveApi_trace_*` fails with `RequestedAllocationTooLarge`.
+
+    This adds a build-time override, `SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB` (MiB,
+    32 to 2048, rounded up to a power of two), read via `option_env!`. `N_ORDERS` is derived from the resolved cap.
+crates:
+- name: sc-allocator
+  bump: patch
