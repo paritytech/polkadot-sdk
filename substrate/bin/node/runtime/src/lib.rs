@@ -2293,8 +2293,7 @@ impl pallet_whitelist::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<AccountId>;
-	// Opt into permissionless dispatch so the `authorize_*` benchmarks can measure the pool
-	// authorization weight.
+	// Opt into permissionless dispatch.
 	type DispatchWhitelistedOrigin =
 		EitherOfDiverse<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>;
 	type Preimages = Preimage;

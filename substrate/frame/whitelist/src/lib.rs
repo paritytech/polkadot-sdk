@@ -28,6 +28,10 @@
 //!
 //! In the meantime the call corresponding to the hash must have been submitted to the pre-image
 //! handler [`pallet::Config::Preimages`].
+//!
+//! If [`Config::DispatchWhitelistedOrigin`] accepts `Authorized` (e.g. via
+//! [`frame_system::EnsureAuthorized`]), whitelisted calls can also be dispatched
+//! permissionlessly as unsigned transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -331,7 +335,6 @@ impl<T: Config> Pallet<T> {
 	/// Admits the unsigned submission only when [`Config::DispatchWhitelistedOrigin`] accepts
 	/// the `Authorized` system origin and `call_hash` is present in [`WhitelistedCall`].
 	fn authorize_whitelisted_dispatch(call_hash: T::Hash) -> TransactionValidityWithRefund {
-		// Opt-in probe: reject at the pool unless the dispatch body would accept `Authorized`.
 		let authorized: T::RuntimeOrigin =
 			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
 		T::DispatchWhitelistedOrigin::try_origin(authorized)
@@ -347,8 +350,7 @@ impl<T: Config> Pallet<T> {
 		))
 	}
 
-	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call`]; the hash is taken
-	/// directly from the `call_hash` argument.
+	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call`].
 	fn authorize_dispatch_whitelisted_call(
 		_source: TransactionSource,
 		call_hash: &T::Hash,
@@ -362,8 +364,7 @@ impl<T: Config> Pallet<T> {
 		Self::authorize_whitelisted_dispatch(*call_hash)
 	}
 
-	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call_with_preimage`]; the
-	/// hash is computed from the inline call.
+	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call_with_preimage`].
 	fn authorize_dispatch_whitelisted_call_with_preimage(
 		_source: TransactionSource,
 		call: &Box<<T as Config>::RuntimeCall>,
@@ -371,6 +372,7 @@ impl<T: Config> Pallet<T> {
 		let call_hash = T::Hashing::hash_of(call).into();
 		Self::authorize_whitelisted_dispatch(call_hash)
 	}
+
 	/// Defer the dispatch of a whitelisted call to a future block.
 	///
 	/// This function stores the call hash for later execution by any signed origin

@@ -57,7 +57,6 @@ impl pallet_whitelist::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<Self::AccountId>;
-	// Accepts `Authorized`: opted into the permissionless flow.
 	type DispatchWhitelistedOrigin =
 		EitherOf<EnsureRoot<Self::AccountId>, frame_system::EnsureAuthorized<Self::AccountId>>;
 	type DeferredDispatchExpiration = ConstU64<15>;
@@ -74,8 +73,6 @@ pub fn new_test_ext() -> TestExternalities {
 }
 
 /// A runtime that has not opted in: `DispatchWhitelistedOrigin` rejects `Authorized`.
-///
-/// Separate module so `construct_runtime!` doesn't clash with `Test`.
 pub mod no_auth {
 	use crate as pallet_whitelist;
 	use frame::testing_prelude::*;
@@ -115,7 +112,6 @@ pub mod no_auth {
 		type RuntimeEvent = RuntimeEvent;
 		type RuntimeCall = RuntimeCall;
 		type WhitelistOrigin = EnsureRoot<Self::AccountId>;
-		// Privileged-only: `Authorized` is rejected.
 		type DispatchWhitelistedOrigin = EnsureRoot<Self::AccountId>;
 		type DeferredDispatchExpiration = ConstU64<15>;
 		type BlockNumberProvider = System;

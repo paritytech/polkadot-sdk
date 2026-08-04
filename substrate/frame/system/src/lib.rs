@@ -1426,12 +1426,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
-/// Ensure that the origin represents a call authorized via the `#[pallet::authorize]` framework,
-/// i.e. the `Authorized` system origin produced by the `AuthorizeCall` transaction extension.
-///
-/// Returns `Ok(())` for [`RawOrigin::Authorized`] and `Err` otherwise. Wiring this as a pallet's
-/// dispatch origin lets a call be applied permissionlessly once an off-chain authorization check
-/// (the pallet's `authorize` callback) has passed at transaction-pool admission.
+/// Ensure the origin is `Authorized`, i.e. a call authorized by [`AuthorizeCall`].
 pub struct EnsureAuthorized<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O>
 	for EnsureAuthorized<AccountId>
