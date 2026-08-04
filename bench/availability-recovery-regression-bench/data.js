@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785776870577,
+  "lastUpdate": 1785843284358,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ndk@parity.io",
-            "name": "Andrii",
-            "username": "x3c41a"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5560a2fcc57ccd8b2cbeee511672879c961f4d5",
-          "message": "Added CID filtering to Bitswap server (#10416)\n\nRelates to https://github.com/paritytech/litep2p/pull/482\n\nTODO:\n- [x] bump new litep2p version once it's released\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-12-02T14:56:00Z",
-          "tree_id": "4e32411d8175df7e2f8ee966636b5ac6a5424150",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5560a2fcc57ccd8b2cbeee511672879c961f4d5"
-        },
-        "date": 1764693232700,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.342540220300002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2013661484,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.743414829566667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fizyk20@gmail.com",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8a200a09971c89f49d1f19fd944625cd39de50b",
+          "message": "Westend Coretime: remove truncation of the assignments vector (#12759)\n\nThis is a change analogous to\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 for the Westend\nruntime. Right now, if the number of coretime assignments exceeds 28,\ndue to message size limitations, only the first 27 are included, and the\nrest are silently replaced by an Idle assignment. This is not visible\nanywhere except in the actual assignment saved on the Relay Chain.\n\nSince the relay chain already supports chunking, this truncation can now\nbe replaced by sending multiple messages with up to 28 assignments each.\nThose will get reassembled into a full list on the Relay Chain side.\n\nThis PR also adds an emulated test to verify that what is stored on the\nRelay Chain side matches what has been sent from the Coretime Chain. The\nnew test is failing without the fix, and passing with the fix.\n\nIn order for the Scheduler pallet state to be accessible in the test, a\nfew types and methods in the Scheduler pallet are also made public in\nthis PR (these are the same changes as in #12755 , and I'll close that\nPR, now that this one also includes them).\n\nOnce the visibility changes are published, changes introduced in\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 can be simplified\n(the mirrored types can be removed).\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-08-04T09:04:32Z",
+          "tree_id": "a699910e5e0c6c61501acd0aa657f6c422c9f0fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8a200a09971c89f49d1f19fd944625cd39de50b"
+        },
+        "date": 1785843252157,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.739119331566666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1437188031,
             "unit": "seconds"
           }
         ]
