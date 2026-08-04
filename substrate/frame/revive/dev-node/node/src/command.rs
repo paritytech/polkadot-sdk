@@ -130,6 +130,11 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 			cli.run.rpc_params.rpc_max_response_size =
 				cli.run.rpc_params.rpc_max_response_size.max(50);
 
+			// eth-rpc talks to this node using the chainHead API, which splits the response to a
+			// query into multiple messages. With the TCP Nagle algorithm enabled this can add
+			// significant delay to runtime API calls.
+			cli.run.rpc_params.rpc_tcp_nodelay = true;
+
 			// Pass Default logging settings if none are specified
 			if std::env::var("RUST_LOG").is_err() && cli.run.shared_params.log.is_empty() {
 				cli.run.shared_params.log = "error,sc_rpc_server=info,runtime::revive=debug"
@@ -144,16 +149,7 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 			}
 			let runner = cli.create_runner(&cli.run)?;
 
-			runner.run_node_until_exit(|mut config| async move {
-				// eth-rpc talks to this node using the chainHead API, which splits the response to
-				// a query into multiple messages. With the TCP Nagle algorithm enabled this can add
-				// significant delay to runtime API calls.
-				if let Some(addrs) = config.rpc.addr.as_mut() {
-					for addr in addrs.iter_mut() {
-						addr.tcp_nodelay = true;
-					}
-				}
-
+			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => {
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)

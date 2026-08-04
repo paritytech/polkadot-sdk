@@ -371,7 +371,7 @@ pub struct RpcEndpoint {
 	pub is_optional: bool,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
-	/// Whether to set `TCP_NODELAY` on accepted sockets.
+	/// Whether to set `TCP_NODELAY` on this endpoint's connections.
 	pub tcp_nodelay: bool,
 }
 
@@ -637,6 +637,8 @@ mod tests {
 
 		assert!(RpcEndpoint::from_str("listen-addrs=127.0.0.1:9944,foo=*").is_err());
 		assert!(RpcEndpoint::from_str("listen-addrs=127.0.0.1:9944,cors=").is_err());
+
+		assert!(!RpcEndpoint::from_str("listen-addr=127.0.0.1:9944").unwrap().tcp_nodelay);
 	}
 
 	#[test]
