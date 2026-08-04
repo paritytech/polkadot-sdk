@@ -92,20 +92,133 @@ pub struct TraceCallConfig {
 }
 
 /// A transaction trace
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionTrace {
 	/// The transaction hash.
 	pub tx_hash: H256,
-	/// The trace of the transaction.
+	/// The trace, or the reason it is unavailable.
+	#[serde(flatten)]
+	pub outcome: TraceOutcome,
+}
+
+/// The outcome of tracing a single transaction, geth style: `result` or `error`.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum TraceOutcome {
+	/// The transaction trace.
 	#[serde(rename = "result")]
-	pub trace: TraceV1,
+	Trace(TraceV1),
+	/// Why no trace could be produced.
+	#[serde(rename = "error")]
+	Error(String),
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use pallet_revive_types::runtime_api::*;
+
+	#[test]
+	fn transaction_trace_serializes_geth_style() {
+		let traced = TransactionTrace {
+			tx_hash: H256::zero(),
+			outcome: TraceOutcome::Trace(TraceV1::Call(CallTraceV1::default())),
+		};
+		let json = serde_json::to_value(&traced).unwrap();
+		assert!(json.get("result").is_some());
+		assert!(json.get("error").is_none());
+		// `flatten` deserializes through serde's content buffer, which is where untagged enums
+		// like `TraceV1` tend to break: pin the round-trip, not just the serialization.
+		let round: TransactionTrace = serde_json::from_value(json).unwrap();
+		assert!(matches!(round.outcome, TraceOutcome::Trace(TraceV1::Call(_))));
+
+		let dropped = TransactionTrace {
+			tx_hash: H256::zero(),
+			outcome: TraceOutcome::Error("trace unavailable".into()),
+		};
+		let json = serde_json::to_value(&dropped).unwrap();
+		assert_eq!(json["error"], "trace unavailable");
+		assert!(json.get("result").is_none());
+
+		let round: TransactionTrace = serde_json::from_value(json).unwrap();
+		assert!(matches!(round.outcome, TraceOutcome::Error(_)));
+	}
+
+	/// A geth `callTracer` block-trace entry (`{ txHash, result: <call frame> }`) — the exact wire
+	/// shape `debug_traceBlock*` returns. Deserialized into our types below to prove compatibility.
+	const GETH_CALL_TRACE: &str = r#"{
+		"txHash": "0xabababababababababababababababababababababababababababababababab",
+		"result": {
+			"from": "0x1111111111111111111111111111111111111111",
+			"gas": "0x5208",
+			"gasUsed": "0x5000",
+			"to": "0x2222222222222222222222222222222222222222",
+			"input": "0xdeadbeef",
+			"output": "0x0102",
+			"value": "0x3e8",
+			"type": "CALL",
+			"calls": [
+				{
+					"from": "0x2222222222222222222222222222222222222222",
+					"gas": "0x1000",
+					"gasUsed": "0x800",
+					"to": "0x3333333333333333333333333333333333333333",
+					"input": "0xaa",
+					"type": "STATICCALL"
+				},
+				{
+					"from": "0x2222222222222222222222222222222222222222",
+					"gas": "0x1000",
+					"gasUsed": "0x1000",
+					"to": "0x5555555555555555555555555555555555555555",
+					"input": "0xbb",
+					"output": "0x08c379a0",
+					"error": "execution reverted",
+					"revertReason": "nope",
+					"type": "CALL"
+				}
+			],
+			"logs": [
+				{
+					"address": "0x2222222222222222222222222222222222222222",
+					"topics": [
+						"0x4444444444444444444444444444444444444444444444444444444444444444"
+					],
+					"data": "0x99",
+					"position": "0x0"
+				}
+			]
+		}
+	}"#;
+
+	// The JSON we emit for a call trace must match what geth/alloy produce; deserialize a geth
+	// callTracer entry and round-trip it through the alloy types to pin that.
+	#[test]
+	fn transaction_trace_roundtrips_through_alloy() {
+		use alloy_rpc_types::trace::geth::{GethTrace, TraceResult};
+		let original: TransactionTrace = serde_json::from_str(GETH_CALL_TRACE).unwrap();
+		let json = serde_json::to_value(&original).unwrap();
+		let alloy: TraceResult = serde_json::from_value(json).unwrap();
+		// `GethTrace` is untagged with a `JS(Value)` catch-all; pin that our JSON parsed as a geth
+		// call frame, else a future field mismatch would round-trip vacuously.
+		assert!(matches!(alloy, TraceResult::Success { result: GethTrace::CallTracer(_), .. }));
+		let back = serde_json::to_value(&alloy).unwrap();
+		let round: TransactionTrace = serde_json::from_value(back).unwrap();
+		assert_eq!(round, original);
+	}
+
+	#[test]
+	fn call_trace_roundtrips_through_alloy_call_frame() {
+		use alloy_rpc_types::trace::geth::CallFrame;
+		// The `result` object of a callTracer entry is a bare call frame.
+		let entry: serde_json::Value = serde_json::from_str(GETH_CALL_TRACE).unwrap();
+		let original: CallTraceV1 = serde_json::from_value(entry["result"].clone()).unwrap();
+		let json = serde_json::to_value(&original).unwrap();
+		let frame: CallFrame = serde_json::from_value(json).unwrap();
+		let back = serde_json::to_value(&frame).unwrap();
+		let round: CallTraceV1 = serde_json::from_value(back).unwrap();
+		assert_eq!(round, original);
+	}
 
 	/// Serialization should support the following JSON format:
 	///
