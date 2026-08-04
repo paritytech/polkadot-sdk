@@ -275,6 +275,90 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 	});
 }
 
+/// EXTCODECOPY on a pre-compile address serves the pre-compile's code stub,
+/// consistent with what `EXTCODESIZE` and `EXTCODEHASH` report.
+#[test]
+fn extcodecopy_precompile_works() {
+	use crate::precompiles::{All, Precompiles};
+	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
+
+	let (caller_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		// the system builtin pre-compile
+		let precompile_addr = sp_core::hex2array!("0000000000000000000000000000000000000900");
+		let stub = <All<Test>>::code(&precompile_addr).unwrap();
+
+		struct TestCase {
+			description: &'static str,
+			offset: usize,
+			size: usize,
+			expected: Vec<u8>,
+		}
+
+		let test_cases = vec![
+			TestCase {
+				description: "copy whole stub",
+				offset: 0,
+				size: stub.len(),
+				expected: stub.to_vec(),
+			},
+			TestCase {
+				description: "size beyond stub is zero padded",
+				offset: 0,
+				size: stub.len() + 22,
+				expected: {
+					let mut expected = vec![0u8; stub.len() + 22];
+					expected[..stub.len()].copy_from_slice(stub);
+					expected
+				},
+			},
+			TestCase {
+				description: "copy within bounds",
+				offset: 1,
+				size: stub.len() - 2,
+				expected: stub[1..stub.len() - 1].to_vec(),
+			},
+			TestCase {
+				description: "offset beyond stub",
+				offset: stub.len() + 32,
+				size: 7,
+				expected: vec![0u8; 7],
+			},
+			TestCase { description: "len = 0", offset: 0, size: 0, expected: vec![] },
+		];
+
+		for test_case in test_cases {
+			let result = builder::bare_call(addr)
+				.data(
+					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+						account: precompile_addr.into(),
+						offset: test_case.offset as u64,
+						size: test_case.size as u64,
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+
+			assert!(!result.did_revert(), "test reverted for: {}", test_case.description);
+
+			let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+				.expect("Failed to decode extcodecopyOp return value");
+			let actual_code = &return_value.0;
+
+			assert_eq!(
+				&test_case.expected, actual_code,
+				"EXTCODECOPY content mismatch for {}",
+				test_case.description
+			);
+		}
+	});
+}
+
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn blockhash_works(fixture_type: FixtureType) {
