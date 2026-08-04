@@ -269,6 +269,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		&self,
 		_transient: bool,
 		_key: &Key,
+		_op: crate::access_list::StorageOp,
 	) -> crate::access_list::ContractStorageKind {
 		panic!("MockExt::storage_slot_warmth")
 	}

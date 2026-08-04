@@ -558,7 +558,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	) -> ContractStorageKind;
 
 	/// Non-mutating sibling of `warm_storage_slot`.
-	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind;
+	fn storage_slot_warmth(&self, transient: bool, key: &Key, op: StorageOp)
+	-> ContractStorageKind;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2638,13 +2639,18 @@ where
 		)
 	}
 
-	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind {
+	fn storage_slot_warmth(
+		&self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> ContractStorageKind {
 		if transient {
 			return ContractStorageKind::Transient;
 		}
 		let address = self.address();
 		ContractStorageKind::Persistent(
-			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
+			self.access_list.peek(&AccessEntry { address, slot: key.into() }, op),
 		)
 	}
 

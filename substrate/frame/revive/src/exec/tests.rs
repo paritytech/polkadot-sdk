@@ -3335,7 +3335,7 @@ fn cold_hot_transient_skips_access_list() {
 		assert!(matches!(kind, ContractStorageKind::Transient));
 
 		// The same key is still cold in the persistent access list.
-		let persistent_kind = ctx.ext.storage_slot_warmth(false, &key);
+		let persistent_kind = ctx.ext.storage_slot_warmth(false, &key, StorageOp::Read);
 		assert!(
 			matches!(persistent_kind, ContractStorageKind::Persistent(Warmth::Cold { .. })),
 			"transient access must not warm the persistent access list",

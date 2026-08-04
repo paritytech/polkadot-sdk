@@ -495,7 +495,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		if value_len > max_size {
 			// Don't warm the slot on a failed validation as the storage was not accessed.
-			let access_kind = self.ext.storage_slot_warmth(transient, &key);
+			let access_kind = self.ext.storage_slot_warmth(transient, &key, StorageOp::Write);
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
 				old_bytes: max_size,
