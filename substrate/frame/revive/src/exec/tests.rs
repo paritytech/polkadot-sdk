@@ -3118,8 +3118,8 @@ fn delegatecall_tracer_reports_correct_addresses() {
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 	matches!(
-		ext.touch_storage_access(false, key, StorageOp::Read),
-		StorageAccessKind::Persistent(Warmth::Cold { .. })
+		ext.warm_storage_slot(false, key, StorageOp::Read),
+		ContractStorageKind::Persistent(Warmth::Cold { .. })
 	)
 }
 
@@ -3267,8 +3267,8 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+			ctx.ext.warm_storage_slot(false, &Key::Fix(SLOT), StorageOp::Read),
+			ContractStorageKind::Persistent(Warmth::Cold { revertible: true }),
 			"a cold touch in a nested frame is revertible",
 		);
 		exec_success()
@@ -3276,8 +3276,8 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			ctx.ext.warm_storage_slot(false, &Key::Fix(SLOT), StorageOp::Read),
+			ContractStorageKind::Persistent(Warmth::Cold { revertible: false }),
 			"a cold touch in the root frame is not revertible",
 		);
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
@@ -3300,14 +3300,14 @@ fn cold_hot_past_cap_touch_is_not_revertible() {
 			let mut slot = [0u8; 32];
 			slot[..4].copy_from_slice(&i.to_le_bytes());
 			assert_matches!(
-				ctx.ext.touch_storage_access(false, &Key::Fix(slot), StorageOp::Read),
-				StorageAccessKind::Persistent(Warmth::Cold { revertible: true })
+				ctx.ext.warm_storage_slot(false, &Key::Fix(slot), StorageOp::Read),
+				ContractStorageKind::Persistent(Warmth::Cold { revertible: true })
 			);
 		}
 		// A further distinct slot is past the cap: cold but not revertible.
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32]), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			ctx.ext.warm_storage_slot(false, &Key::Fix([0xFF; 32]), StorageOp::Read),
+			ContractStorageKind::Persistent(Warmth::Cold { revertible: false }),
 			"past-cap touch is cold but not revertible",
 		);
 		exec_success()
@@ -3331,13 +3331,13 @@ fn cold_hot_transient_skips_access_list() {
 		let key = Key::Fix([42; 32]);
 
 		// `transient: true` classifies as `Transient` without touching the access list.
-		let kind = ctx.ext.touch_storage_access(true, &key, StorageOp::Read);
-		assert!(matches!(kind, StorageAccessKind::Transient));
+		let kind = ctx.ext.warm_storage_slot(true, &key, StorageOp::Read);
+		assert!(matches!(kind, ContractStorageKind::Transient));
 
 		// The same key is still cold in the persistent access list.
-		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
+		let persistent_kind = ctx.ext.storage_slot_warmth(false, &key);
 		assert!(
-			matches!(persistent_kind, StorageAccessKind::Persistent(Warmth::Cold { .. })),
+			matches!(persistent_kind, ContractStorageKind::Persistent(Warmth::Cold { .. })),
 			"transient access must not warm the persistent access list",
 		);
 

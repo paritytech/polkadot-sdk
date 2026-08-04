@@ -68,7 +68,7 @@ pub const MAX_ACCESS_LIST_ENTRIES: usize = 2_048;
 /// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. Rounded up to 512
 /// for headroom. The 1-byte [`Paid`] value fits in the tree nodes' spare
 /// space and adds nothing to these figures.
-pub const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
+const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
 
 /// Worst-case total memory the access list can hold per transaction.
 pub const MAX_ACCESS_LIST_BYTES: u32 =
@@ -106,11 +106,12 @@ impl From<&Key> for Slot {
 	}
 }
 
-/// Classification of a storage access for pricing.
+/// How a storage access is priced. `Persistent` carries its access-list warmth;
+/// `Transient` has no warmth, so every access costs the same.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
-pub enum StorageAccessKind {
-	/// Persistent storage, tracked by the access list.
+pub enum ContractStorageKind {
+	/// Persistent storage, priced by its access-list warmth.
 	Persistent(Warmth),
 	/// Transient storage, not tracked by the access list.
 	Transient,
@@ -131,17 +132,14 @@ pub enum Paid {
 /// The same two variants named for the operation being performed.
 pub type StorageOp = Paid;
 
-/// Warmth of a persistent storage access. Describes the slot's state
-/// **before** the access.
+/// Warmth of an access-list entry, as it stood **before** the access.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Warmth {
-	/// Slot was already in the access list before this access, with the
-	/// cost it had paid up to that point.
+	/// Entry is in the access list, with the cost it has paid so far.
 	Hot(Paid),
-	/// Slot was not in the access list before this access; the touch adds
-	/// it (so the next access to the same slot returns `Hot`). `revertible`
-	/// is true when the entry was journaled under an open frame, so a
-	/// `rollback_frame` can drop it and the slot becomes cold again.
+	/// Entry is not in the access list; when `revertible` is true, the touch is
+	/// tied to the current frame, so a `rollback_frame` drops it and the entry
+	/// becomes cold again.
 	Cold { revertible: bool },
 }
 
@@ -307,7 +305,7 @@ impl AccessList {
 
 	/// Returns the number of open checkpoints.
 	#[cfg(test)]
-	pub fn frame_depth(&self) -> usize {
+	fn frame_depth(&self) -> usize {
 		self.checkpoints.len()
 	}
 }
