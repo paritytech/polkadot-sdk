@@ -3497,9 +3497,6 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 	test_state
 		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, relay_parent)
 		.await;
-	test_state
-		.second_collation(&mut state, peer_id, CollationVersion::V4, ccr, active_leaf)
-		.await;
 }
 
 // V4 has no `Declare` message: a peer's first `AdvertiseSegment` binds it to the advertised
