@@ -1844,6 +1844,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info",
  "staging-xcm",
@@ -4992,6 +4993,7 @@ dependencies = [
  "sp-crypto-ec-utils",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "sp-transaction-pool",
  "sp-trie 29.0.0",
 ]
@@ -14341,6 +14343,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-scarcity"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "29.0.0"
 dependencies = [
@@ -17488,6 +17504,7 @@ dependencies = [
  "pallet-root-testing",
  "pallet-safe-mode",
  "pallet-salary",
+ "pallet-scarcity",
  "pallet-scheduler",
  "pallet-scored-pool",
  "pallet-session",
@@ -26898,6 +26915,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
+ "scale-info",
  "tokio",
  "zombienet-configuration",
  "zombienet-orchestrator",
