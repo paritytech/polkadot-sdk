@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785775895671,
+  "lastUpdate": 1785841791854,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -111347,6 +111347,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2590919960,
             "range": "± 26655054",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fizyk20@gmail.com",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8a200a09971c89f49d1f19fd944625cd39de50b",
+          "message": "Westend Coretime: remove truncation of the assignments vector (#12759)\n\nThis is a change analogous to\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 for the Westend\nruntime. Right now, if the number of coretime assignments exceeds 28,\ndue to message size limitations, only the first 27 are included, and the\nrest are silently replaced by an Idle assignment. This is not visible\nanywhere except in the actual assignment saved on the Relay Chain.\n\nSince the relay chain already supports chunking, this truncation can now\nbe replaced by sending multiple messages with up to 28 assignments each.\nThose will get reassembled into a full list on the Relay Chain side.\n\nThis PR also adds an emulated test to verify that what is stored on the\nRelay Chain side matches what has been sent from the Coretime Chain. The\nnew test is failing without the fix, and passing with the fix.\n\nIn order for the Scheduler pallet state to be accessible in the test, a\nfew types and methods in the Scheduler pallet are also made public in\nthis PR (these are the same changes as in #12755 , and I'll close that\nPR, now that this one also includes them).\n\nOnce the visibility changes are published, changes introduced in\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 can be simplified\n(the mirrored types can be removed).\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-08-04T09:04:32Z",
+          "tree_id": "a699910e5e0c6c61501acd0aa657f6c422c9f0fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8a200a09971c89f49d1f19fd944625cd39de50b"
+        },
+        "date": 1785841757531,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 26219709,
+            "range": "± 551175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 26862400,
+            "range": "± 413443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 28734794,
+            "range": "± 680971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 35771125,
+            "range": "± 663827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 85865631,
+            "range": "± 1765974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 525655867,
+            "range": "± 10378567",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3477424873,
+            "range": "± 246360811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 22359074,
+            "range": "± 766324",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 22545220,
+            "range": "± 691111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 23232146,
+            "range": "± 506894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 28662673,
+            "range": "± 424455",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 83660462,
+            "range": "± 1582091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 499127046,
+            "range": "± 13766641",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3548078432,
+            "range": "± 76029738",
             "unit": "ns/iter"
           }
         ]
