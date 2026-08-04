@@ -299,6 +299,7 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 		// the system builtin pre-compile
 		let precompile_addr = sp_core::hex2array!("0000000000000000000000000000000000000900");
 		let stub = <All<Test>>::code(&precompile_addr).unwrap();
+		assert_ne!(stub[0], 0, "single byte copy case needs a non-zero first stub byte");
 
 		struct TestCase {
 			description: &'static str,
@@ -313,6 +314,12 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 				offset: 0,
 				size: stub.len(),
 				expected: stub.to_vec(),
+			},
+			TestCase {
+				description: "single byte copy",
+				offset: 0,
+				size: 1,
+				expected: stub[..1].to_vec(),
 			},
 			TestCase {
 				description: "size beyond stub is zero padded",
@@ -427,14 +434,15 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 
 /// EXTCODECOPY serves the mocked code for addresses mocked via the `mock_handler`,
 /// consistent with `EXTCODESIZE` and `EXTCODEHASH` (see `mocked_code_works`).
+/// Pre-compiles cannot be mocked over: their stub wins over the mocked code.
 #[test]
 fn extcodecopy_mocked_code_works() {
 	use crate::{
 		ExecConfig,
+		precompiles::{All, Precompiles},
 		primitives::ExecReturnValue,
 		tests::{MOCK_CODE, MockHandlerImpl},
 	};
-	use core::iter;
 	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
 
 	let (caller_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
@@ -445,6 +453,20 @@ fn extcodecopy_mocked_code_works() {
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
 		let mocked_addr = crate::H160::from_slice(&[0x42; 20]);
+		let precompile_addr = sp_core::hex2array!("0000000000000000000000000000000000000900");
+		let stub = <All<Test>>::code(&precompile_addr).unwrap();
+
+		let mock_handler = || {
+			Some(Box::new(MockHandlerImpl {
+				mock_call: [
+					(mocked_addr, ExecReturnValue::default()),
+					(crate::H160(precompile_addr), ExecReturnValue::default()),
+				]
+				.into_iter()
+				.collect(),
+				..Default::default()
+			}) as _)
+		};
 
 		// copy past the end of the mocked code so that both the code bytes
 		// and the zero padding are visible
@@ -457,13 +479,7 @@ fn extcodecopy_mocked_code_works() {
 				})
 				.abi_encode(),
 			)
-			.exec_config(ExecConfig {
-				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_call: iter::once((mocked_addr, ExecReturnValue::default())).collect(),
-					..Default::default()
-				})),
-				..Default::default()
-			})
+			.exec_config(ExecConfig { mock_handler: mock_handler(), ..Default::default() })
 			.build_and_unwrap_result();
 
 		assert!(!result.did_revert(), "test reverted");
@@ -474,6 +490,30 @@ fn extcodecopy_mocked_code_works() {
 		let mut expected = MOCK_CODE.to_vec();
 		expected.extend_from_slice(&[0u8; 3]);
 		assert_eq!(&expected, &return_value.0, "EXTCODECOPY must serve the mocked code");
+
+		// the pre-compile is mocked as well but its stub must win
+		let result = builder::bare_call(addr)
+			.data(
+				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+					account: precompile_addr.into(),
+					offset: 0,
+					size: stub.len() as u64,
+				})
+				.abi_encode(),
+			)
+			.exec_config(ExecConfig { mock_handler: mock_handler(), ..Default::default() })
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "test reverted");
+
+		let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+			.expect("Failed to decode extcodecopyOp return value");
+
+		assert_eq!(
+			stub,
+			&return_value.0[..],
+			"the pre-compile code stub must take precedence over mocked code",
+		);
 	});
 }
 
