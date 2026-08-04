@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785776956370,
+  "lastUpdate": 1785843367969,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "05a3fb107e488378075e956186df34d04c1bf656",
-          "message": "Staking-Async + EPMB: Migrate operations to `poll` (#9925)\n\nThis PR moves all operations related to staking elections from a\nmandatory `on_initialize` with no consideration to weight, to an\noptional `on_poll` with accurate, pre-execution weight checking.\n\n## Why\n\n* `on_initialize` is a mandatory hook. If a single parachain block\nhappens to contain too many of them, this block can never be authored\nand imported. In solo/relay chains, this is more forgiving, as you would\nhave one slow block, instead of an indefinite stall.\n* For example, message-queue XCMs, scheduler and MBMs might overlap with\nthe staking `on_initialize` in AH (unlikely, but totally possible), and\nput the chain at risk.\n* Contrary, `poll` hooks: \n  * Might not happen at all by `frame-executive` (e.g. during MBMs)\n* Have access to a clear `WeigthMeter`, allowing the subject to make a\ndecision about whether to proceed or not.\n\n## Functional Changes\n\nAs seen by the minimal diff in existing tests, this change, in the\nabsence of weight scarcity, is almost a noop. The only difference is\nthat the start signal from the signed pallet to the verifier pallet is\nnow sent at the end of the signed phase, not the beginning the signed\nvalidation.\n\n## Non-Functional Changes\n\n* Now, the only pallets that call `on_poll` are `multi_block` (the\nparent, not verifier and signed), and `staking_async`. This makes the\ncode easier to audit.\n* Removes a lot of `on_initialize` terminology from weight functions\n* Cleans up some stale variations in the mock setup, allowing us to skip\nthe signed pallet's on-initialize. This no longer makes sense as the\nparent pallet is only one that calls `on_poll`.\n\n#### Mote Test Changes\n\nDuring this PR, I found multiple instances where we are forwarding the\nwrong number of blocks forward in the EPMB tests. For example, to verify\na solution, 3 blocks are needed, but we are calling `roll_next` 4 times,\nand the test is still passing. To harden such cases and make sure all\nfuture tests are as explicit as possible, I have:\n\n* Generic `fn roll_next` is made fully private and in tests should be\nreplaced by:\n  * `fn roll_next_and_phase(expect: Phase<T>)`\n  * `fn roll_next_and_phase_verifier(expect: Phase<T>, status: Status)`\n  * `fn roll_next_and_verifier(status: Status)`\n* This ensures all tests to explicitly state what the expected\n`Phase`/`Status` should be after moving a block forward.\n\nAll tests are updated to respect this paradigm, which has made the diff\nslightly larger than I wished it to be.\n\n### Implementation/Review Notes\n\n#### Overall Design \n\nThe overall idea is to move all operations to a model similar to\ndispatchables, where before executing `f(input) -> Result`, we have\naccess to a `w(input) -> Weight` that gives us the pre-execution weight.\nIf the pre-execution weight is good, we proceed with executing. The\nexecution may override the pre-execution weight to a smaller value if it\nwishes so.\n\n```rust\n/// ### Type\n///\n/// The commonly used `(Weight, Box<dyn Fn(&mut WeightMeter)>)` should be interpreted as such:\n///\n/// * The `Weight` is the pre-computed worst case weight of the operation that we are going to\n///   do.\n/// * The `Box<dyn Fn(&mut WeightMeter)>` is the function that represents that the work that\n///   will at most consume the said amount of weight. While executing, it will alter the given\n///   weight meter to consume the actual weight used. Indeed, the weight that is registered in\n///   the `WeightMeter` must never be more than the `Weight` returned as the first item of the\n///   tuple.\n///\n/// In essence, the caller must:\n///\n/// 1. given an existing `meter`, receive `(worst_weight, exec)`\n/// 2. ensure `meter` can consume up to `worst_weight`.\n/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.\nfn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {\n    ... \n}\n``` \n\n#### Export Weight\n\nThrough this PR, I realized that we previously were never registering\nthe weight of the export process. This is because the export is managed\nby staking pallet, and previously it had no way to know how much the\nweight of each export step is.\n\nNow, we alter the `ElectionProvider::status` interface such that not\nonly we signal if we are ready or not, but also we signal _we are ready,\nand this is the weight of the next `elect`_.\n\n```rust\nfn status() -> Result<Option<Weight>, ()> {\n\tmatch <CurrentPhase<T>>::get() {\n\t\t// we're not doing anything.\n\t\tPhase::Off => Err(()),\n\n\t\t// we're doing sth but not ready.\n\t\tPhase::Signed(_) |\n\t\tPhase::SignedValidation(_) |\n\t\tPhase::Unsigned(_) |\n\t\tPhase::Snapshot(_) |\n\t\tPhase::Emergency => Ok(None),\n\n\t\t// we're ready, and this is the weight of the next step\n\t\tPhase::Done => Ok(Some(T::WeightInfo::export_non_terminal())),\n\t\tPhase::Export(p) =>\n\t\t\tif p.is_zero() {\n\t\t\t\tOk(Some(T::WeightInfo::export_terminal()))\n\t\t\t} else {\n\t\t\t\tOk(Some(T::WeightInfo::export_non_terminal()))\n\t\t\t},\n\t}\n}\n```\n\n## Integration \n\nThe only breaking change of this PR is: \n\n```\nimpl multi_block::Config for Runtime {\n    // .. \n    type Signed = multi_block_signed::Pallet<Self>\n}\n```\n\nWhile not mandatory, the fellowship runtimes should use the new\n`check_all_weights` function to test the weights.\n\n## Path To Weight Refund\n\nThe usage of `WeightMeter` is intentional here to pave the way to\nreclaiming the weight in a subsequent PR. It will look like this:\n\n```diff\n--- a/substrate/frame/election-provider-multi-block/src/lib.rs\n+++ b/substrate/frame/election-provider-multi-block/src/lib.rs\n@@ -1310,6 +1310,7 @@ impl<T: Config> Pallet<T> {\n \t/// 2. ensure `meter` can consume up to `worst_weight`.\n \t/// 3. if so, call `exec(meter)`, knowing `meter` will accumulate at most `worst_weight` extra.\n \tfn per_block_exec(current_phase: Phase<T>) -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {\n+\t\tuse cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;\n \t\ttype ExecuteFn = Box<dyn Fn(&mut WeightMeter)>;\n \t\tlet noop: (Weight, ExecuteFn) = (T::WeightInfo::per_block_nothing(), Box::new(|_| {}));\n \n@@ -1318,8 +1319,9 @@ impl<T: Config> Pallet<T> {\n \t\t\t\t// first snapshot\n \t\t\t\tlet weight = T::WeightInfo::per_block_snapshot_msp();\n \t\t\t\tlet exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {\n+\t\t\t\t\tlet mut reclaimer = StorageWeightReclaimer::new(meter);\n \t\t\t\t\tSelf::create_targets_snapshot();\n-\t\t\t\t\tmeter.consume(weight)\n+\t\t\t\t\tlet _reclaimed = reclaimer.reclaim_with_meter(meter);\n \t\t\t\t});\n \t\t\t\t(weight, exec)\n \t\t\t},\n@@ -1328,8 +1330,9 @@ impl<T: Config> Pallet<T> {\n \t\t\t\t// rest of the snapshot, incl last one.\n \t\t\t\tlet weight = T::WeightInfo::per_block_snapshot_rest();\n \t\t\t\tlet exec: ExecuteFn = Box::new(move |meter: &mut WeightMeter| {\n+\t\t\t\t\tlet mut reclaimer = StorageWeightReclaimer::new(meter);\n \t\t\t\t\tSelf::create_voters_snapshot_paged(x);\n-\t\t\t\t\tmeter.consume(weight)\n+\t\t\t\t\tlet _reclaimed = reclaimer.reclaim_with_meter(meter);\n \t\t\t\t});\n \t\t\t\t(weight, exec)\n \t\t\t},\n```\n\nIn short, instead of consuming the _worst case weight_, we consume the\naccurate amount given to us by the weight reclaimer.\n\n## TODO\n\n- [x] Unit tests\n- [x] Unified integration tests for weights \n- [x] weight for RoundRotation is missing (export -> off phase)\n- [x] Run all papi-integration tests at the end once.\n- [x] Weight update / closes\nhttps://github.com/paritytech/polkadot-sdk/issues/7714\n- [ ] Test to ensure pallet ordering is not important anymore.\n- [x] closes https://github.com/paritytech/polkadot-sdk/issues/8910\n- [x] Upgrade block `on-init` -> `on-poll`\n- [x] queue to audit\n- [ ] audit done\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-01T19:51:26Z",
-          "tree_id": "cd7af2dddba229ec41ddb7d0f0eee08305963a30",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/05a3fb107e488378075e956186df34d04c1bf656"
-        },
-        "date": 1764624503042,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.990000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4284274224499985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022056510000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001976817,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005696800660000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001976817,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5213489332700005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.5060446677799995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4704677951500025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9273313948099997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4581562998500006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7200737592709636,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.317473313970002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022056510000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.6431316277000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fizyk20@gmail.com",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8a200a09971c89f49d1f19fd944625cd39de50b",
+          "message": "Westend Coretime: remove truncation of the assignments vector (#12759)\n\nThis is a change analogous to\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 for the Westend\nruntime. Right now, if the number of coretime assignments exceeds 28,\ndue to message size limitations, only the first 27 are included, and the\nrest are silently replaced by an Idle assignment. This is not visible\nanywhere except in the actual assignment saved on the Relay Chain.\n\nSince the relay chain already supports chunking, this truncation can now\nbe replaced by sending multiple messages with up to 28 assignments each.\nThose will get reassembled into a full list on the Relay Chain side.\n\nThis PR also adds an emulated test to verify that what is stored on the\nRelay Chain side matches what has been sent from the Coretime Chain. The\nnew test is failing without the fix, and passing with the fix.\n\nIn order for the Scheduler pallet state to be accessible in the test, a\nfew types and methods in the Scheduler pallet are also made public in\nthis PR (these are the same changes as in #12755 , and I'll close that\nPR, now that this one also includes them).\n\nOnce the visibility changes are published, changes introduced in\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 can be simplified\n(the mirrored types can be removed).\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-08-04T09:04:32Z",
+          "tree_id": "a699910e5e0c6c61501acd0aa657f6c422c9f0fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8a200a09971c89f49d1f19fd944625cd39de50b"
+        },
+        "date": 1785843335489,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63570.61,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3355162044500037,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8172225651699515,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018209300000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005050392499999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018760189999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018760189999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6122677618799988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5123090805227815,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6397631100299974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.669556195919952,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018209300000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6136420711699992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.64609409072,
             "unit": "seconds"
           }
         ]
