@@ -22,92 +22,43 @@
 //! advertised WebRTC multiaddresses. Reusing a certificate across restarts keeps the
 //! certhash stable, similarly to how reusing the node secret key keeps the peer id stable.
 
+use hmac::{Hmac, Mac};
 use p256::{
-	ecdsa::{DerSignature, SigningKey},
-	elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest},
+	ecdsa::{DerSignature, SigningKey, VerifyingKey},
 	pkcs8::EncodePrivateKey,
-	NistP256, NonZeroScalar, SecretKey,
 };
 use sha2::{Digest, Sha256};
 use x509_cert::{
 	builder::{Builder, CertificateBuilder, Profile},
-	der::{
-		self,
-		asn1::{GeneralizedTime, ObjectIdentifier, UtcTime},
-		oid::AssociatedOid,
-		DateTime, Encode as _, EncodeValue, FixedTag, Length, Tag, Writer,
-	},
-	ext::{pkix::constraints::BasicConstraints, AsExtension, Extension},
+	der::{asn1::UtcTime, oid::db::rfc5280::ANY_EXTENDED_KEY_USAGE, DateTime, Encode as _},
+	ext::pkix::ExtendedKeyUsage,
 	name::Name,
 	serial_number::SerialNumber,
 	spki::SubjectPublicKeyInfoOwned,
 	time::{Time, Validity},
 };
 
-use litep2p::transport::webrtc::DtlsCertificate;
+use litep2p::{crypto::ed25519::SecretKey as Ed25519SecretKey, transport::webrtc::DtlsCertificate};
 use std::str::FromStr;
 
-/// RFC 9380 hash-to-field domain-separation tag (DST)
-/// for key derivation in [`derive_certificate`].
-///
-/// Changing this changes the derived key, and therefore the certificate and its certhash.
+/// Domain-separation tag used when deriving P-256 key from ed25519 key via HMAC-SHA256.
 const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-dtls-p256-v1";
 
-/// Domain-separation context for deriving the certificate's serial number from the seed
-/// in [`derive_certificate`].
-///
-/// Distinct from [`CERTIFICATE_KEY_DST`] so the derived key and the derived serial number
-/// have no accidental structural relationship. Changing this changes the derived serial
-/// number, and therefore the certificate and its certhash.
+/// Domain-separation tag used to derive cert serial from public key.
 const CERTIFICATE_SERIAL_DST: &[u8] = b"substrate-webrtc-dtls-certificate-serial-v1";
 
-/// The certificate needs at least one extension to stay at v3,
-/// and `BasicConstraints` is the minimal end-entity choice.
-struct BasicExtension(BasicConstraints);
-
-impl AssociatedOid for BasicExtension {
-	const OID: ObjectIdentifier = BasicConstraints::OID;
-}
-
-impl FixedTag for BasicExtension {
-	const TAG: Tag = Tag::Sequence;
-}
-
-impl EncodeValue for BasicExtension {
-	fn value_len(&self) -> der::Result<Length> {
-		self.0.value_len()
-	}
-
-	fn encode_value(&self, writer: &mut impl Writer) -> der::Result<()> {
-		self.0.encode_value(writer)
-	}
-}
-
-impl AsExtension for BasicExtension {
-	fn critical(&self, _subject: &Name, _extensions: &[Extension]) -> bool {
-		false
-	}
-}
-
-/// Errors that can occur while deterministically deriving a WebRTC DTLS certificate
-/// from a node's secret key seed.
+/// Error when deriving DTLS cert/key from the node ed25519 network key.
 #[derive(Debug, thiserror::Error)]
 pub enum CertificateError {
-	/// Failed to derive the P-256 signing key from the seed via RFC 9380 hash-to-field.
-	#[error("failed to derive a P-256 scalar from the seed: {0}")]
-	ScalarDerivation(#[from] p256::elliptic_curve::Error),
-	/// The RFC 9380 derivation produced a zero scalar.
-	#[error("derived a zero P-256 scalar from the seed")]
-	ZeroScalar,
 	/// Failed to encode the certificate public key.
 	#[error("failed to encode certificate public key: {0}")]
 	PublicKeyEncoding(#[from] x509_cert::spki::Error),
 	/// Failed to build the certificate.
 	#[error("failed to build certificate: {0}")]
-	CertificateBuild(#[source] x509_cert::builder::Error),
+	CertificateBuild(#[from] x509_cert::builder::Error),
 	/// Failed to DER-encode the certificate.
 	#[error("failed to encode certificate: {0}")]
-	CertificateEncoding(#[source] x509_cert::der::Error),
+	CertificateEncoding(#[from] x509_cert::der::Error),
 	/// Failed to PKCS#8-encode the certificate private key.
 	#[error("failed to encode certificate private key: {0}")]
 	PrivateKeyEncoding(#[from] p256::pkcs8::Error),
@@ -116,19 +67,16 @@ pub enum CertificateError {
 	CertificateLoad(#[from] litep2p::Error),
 }
 
-/// Deterministically generate a WebRTC DTLS certificate from a 32-byte seed, typically the
-/// node's Ed25519 secret key bytes.
-///
-/// The DTLS key is derived from the seed via RFC 9380 `hash_to_field`, and the certificate's
-/// serial number via a domain-separated SHA-256 hash of the seed, neither derivation reveals
-/// the node key.
-pub fn derive_certificate(seed: &[u8; 32]) -> Result<DtlsCertificate, CertificateError> {
-	let (signing_key, private_key) = derive_keys(seed)?;
-	let public_key = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())?;
-	let serial = derive_serial(seed)?;
+/// Deterministically generate a WebRTC DTLS certificate from a node's secret key.
+pub fn derive_certificate(
+	node_secret_key: Ed25519SecretKey,
+) -> Result<DtlsCertificate, CertificateError> {
+	let signing_key = derive_keys(node_secret_key);
+	let spki = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())?;
+	let serial = derive_serial(signing_key.verifying_key());
 	let validity = generate_validity();
 	let name = Name::from_str("CN=polkadot-sdk-webrtc")
-		.expect("polkadot-sdk-webrtc is a valid RDN string; qed");
+		.expect("`CN=polkadot-sdk-webrtc` is a valid RDN; qed");
 
 	// `Profile::Manual` opts out of the builder's default extension set,
 	//  and a `None` issuer makes the certificate self-issued.
@@ -138,53 +86,47 @@ pub fn derive_certificate(seed: &[u8; 32]) -> Result<DtlsCertificate, Certificat
 		serial,
 		validity,
 		name,
-		public_key,
+		spki,
 		&signing_key,
-	)
-	.map_err(CertificateError::CertificateBuild)?;
+	)?;
 
-	// The builder downgrades the certificate to v1 whenever the extension list is empty.
-	// One end-entity constraint keeps us on v3.
-	builder
-		.add_extension(&BasicExtension(BasicConstraints { ca: false, path_len_constraint: None }))
-		.map_err(CertificateError::CertificateBuild)?;
+	// Every other WebRTC stack emits v3, but [`CertificateBuilders`] downgrades the certificates
+	// without extensions to v1. Include one non-critical extension to force v3.
+	builder.add_extension(&ExtendedKeyUsage(vec![ANY_EXTENDED_KEY_USAGE]))?;
 
-	let certificate = builder
-		.build::<DerSignature>()
-		.map_err(CertificateError::CertificateBuild)?
-		.to_der()
-		.map_err(CertificateError::CertificateEncoding)?;
+	let certificate = builder.build::<DerSignature>()?.to_der()?;
 
-	DtlsCertificate::load(certificate, private_key).map_err(CertificateError::CertificateLoad)
+	// `DtlsCertificate` below expects PKCS#8 private key.
+	let pk_pkcs8_der = signing_key.to_pkcs8_der()?.as_bytes().to_vec();
+
+	Ok(DtlsCertificate::load(certificate, pk_pkcs8_der)?)
 }
 
-/// Returns the derivated signing and private keys.
-fn derive_keys(seed: &[u8]) -> Result<(SigningKey, Vec<u8>), CertificateError> {
-	// Derive the P-256 signing key via RFC 9380 hash-to-field.
-	// This stretches the seed into pseudorandom bytes via `expand_message_xmd`,
-	// with field reduction for producing an EC private key.
-	let scalar =
-		NistP256::hash_to_scalar::<ExpandMsgXmd<Sha256>>(&[&seed], &[CERTIFICATE_KEY_DST])?;
-	let secret_scalar =
-		NonZeroScalar::new(scalar).into_option().ok_or(CertificateError::ZeroScalar)?;
-	let secret = SecretKey::from(secret_scalar);
-	let signing_key = SigningKey::from(&secret);
-
-	// PKCS#8, loadable by both OpenSSL and rust-native DTLS backends.
-	let private_key = secret.to_pkcs8_der()?.as_bytes().to_vec();
-
-	Ok((signing_key, private_key))
+/// Derive P-256 key from ed25519 key.
+fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
+	// P-256 private key is generated via rejection-sampling of a node-secret-key-keyed HMAC-SHA256
+	// of `DST || counter` message.
+	(0u8..)
+		.find_map(|counter| {
+			let okm = Hmac::<Sha256>::new_from_slice(node_secret_key.as_ref())
+				.expect("HMAC accepts keys of any length; qed")
+				.chain_update(CERTIFICATE_KEY_DST)
+				.chain_update([counter])
+				.finalize()
+				.into_bytes();
+			SigningKey::from_slice(&okm).ok()
+		})
+		.expect("each iteration success rate is 1 - 2^(-32), and we have 256 of them; qed")
 }
 
-/// Serial number derived from the seed.
-fn derive_serial(seed: &[u8]) -> Result<SerialNumber, CertificateError> {
-	// WebRTC peers pin the certificate by certhash
-	// and never inspect the serial, so this isn't a security requirement, it just keeps
-	// `(Issuer, Serial)` meaningful for X.509 tooling that assumes that pair identifies a
-	// certificate, since every node otherwise shares the same hardcoded issuer name.
-	let serial_digest =
-		Sha256::new().chain_update(CERTIFICATE_SERIAL_DST).chain_update(seed).finalize();
-	Ok(SerialNumber::new(&serial_digest[..16]).expect("below the 20-byte serial number limit; qed"))
+/// Derive serial number from public key. Not required for the operation, only used to not
+/// hardcode identical/zero serials for all certificates.
+fn derive_serial(pubkey: &VerifyingKey) -> SerialNumber {
+	let serial_digest = Sha256::new()
+		.chain_update(CERTIFICATE_SERIAL_DST)
+		.chain_update(pubkey.to_sec1_bytes())
+		.finalize();
+	SerialNumber::new(&serial_digest[..16]).expect("below the 20-byte serial number limit; qed")
 }
 
 /// Fixed validity dates, required for determinism. WebRTC peers pin the certificate by
@@ -192,11 +134,9 @@ fn derive_serial(seed: &[u8]) -> Result<SerialNumber, CertificateError> {
 fn generate_validity() -> Validity {
 	let not_before = DateTime::new(2000, 1, 1, 0, 0, 0)
 		.and_then(UtcTime::from_date_time)
-		.expect("2000-01-01 00:00:00 is a valid date within the UTCTime range; qed");
-	let not_after = DateTime::new(9999, 12, 31, 23, 59, 59)
-		.map(GeneralizedTime::from_date_time)
-		.expect("9999-12-31 23:59:59 is a valid date, the maximum DER DateTime supports; qed");
-	Validity { not_before: Time::UtcTime(not_before), not_after: Time::GeneralTime(not_after) }
+		.expect("2000-01-01 00:00:00 is a valid date within the `DateTime`/`UtcTime` range; qed")
+		.into();
+	Validity { not_before, not_after: Time::INFINITY }
 }
 
 #[cfg(test)]
@@ -207,6 +147,12 @@ mod tests {
 		multihash::Code,
 	};
 
+	/// Node secret key with every byte set to `byte`.
+	fn node_key(byte: u8) -> Ed25519SecretKey {
+		Ed25519SecretKey::try_from_bytes([byte; 32])
+			.expect("any 32 bytes are a valid ed25519 secret key; qed")
+	}
+
 	/// Compute the `/certhash/<hash>` multiaddress component of a certificate.
 	fn certhash(certificate: &DtlsCertificate) -> String {
 		let hash = Code::Sha2_256.digest(certificate.as_parts().0);
@@ -215,9 +161,9 @@ mod tests {
 
 	#[test]
 	fn deterministic_certificate_generation() {
-		let seed = [7u8; 32];
-		let first = derive_certificate(&seed).unwrap();
-		let second = derive_certificate(&seed).unwrap();
+		let key = node_key(7);
+		let first = derive_certificate(key.clone()).unwrap();
+		let second = derive_certificate(key).unwrap();
 
 		assert_eq!(first.as_parts(), second.as_parts());
 		assert_eq!(certhash(&first), certhash(&second));
@@ -227,8 +173,7 @@ mod tests {
 	fn derive_certificate_uses_version3() {
 		use x509_cert::{der::Decode, Certificate, Version};
 
-		let seed = [1u8; 32];
-		let certificate = derive_certificate(&seed).unwrap();
+		let certificate = derive_certificate(node_key(1)).unwrap();
 		let (certificate_der, _) = certificate.as_parts();
 
 		let parsed = Certificate::from_der(certificate_der).unwrap();
@@ -240,9 +185,9 @@ mod tests {
 	}
 
 	#[test]
-	fn different_seeds_produce_different_certificates() {
-		let first = derive_certificate(&[1u8; 32]).unwrap();
-		let second = derive_certificate(&[2u8; 32]).unwrap();
+	fn different_node_keys_produce_different_certificates() {
+		let first = derive_certificate(node_key(1)).unwrap();
+		let second = derive_certificate(node_key(2)).unwrap();
 
 		assert_ne!(first.as_parts().0, second.as_parts().0);
 		assert_ne!(first.as_parts().1, second.as_parts().1);
@@ -251,21 +196,21 @@ mod tests {
 
 	#[test]
 	fn stable_certhash() {
-		// Pins the seed -> certificate derivation. If this test ever fails, the derivation
+		// Pins the node key -> certificate derivation. If this test ever fails, the derivation
 		// changed and the certhash published by every node relying on it breaks.
-		let certificate = derive_certificate(&[42u8; 32]).unwrap();
+		let certificate = derive_certificate(node_key(42)).unwrap();
 		assert_eq!(
 			certhash(&certificate),
-			"/certhash/uEiBU1jyJxUmj0eUBMpzL8lhUYvBy5UdXdhEAH_GbC7Kxcg"
+			"/certhash/uEiDMlF3mQR1NNRWTKgfPitsu9g9STfkSI5cW2UPRZBvYSA"
 		);
 	}
 
 	#[test]
 	fn generated_certificate_is_valid() {
-		use p256::ecdsa::{signature::Verifier, VerifyingKey};
+		use p256::ecdsa::signature::Verifier;
 		use x509_cert::{der::Decode, Certificate};
 
-		let certificate = derive_certificate(&[8u8; 32]).unwrap();
+		let certificate = derive_certificate(node_key(8)).unwrap();
 		let (certificate_der, _) = certificate.as_parts();
 
 		let parsed = Certificate::from_der(certificate_der).unwrap();
