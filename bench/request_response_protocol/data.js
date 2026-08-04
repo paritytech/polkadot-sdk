@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785841791854,
+  "lastUpdate": 1785854383992,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -111455,6 +111455,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3548078432,
             "range": "± 76029738",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba2ec54b2b7459d0dc1b62b78d508e1d15638ab0",
+          "message": "[client] fix flaky test connectivity (#12729)\n\ntest_connectivity flakes on teardown: TestNet::drop tears down tokio\nbefore the storage backend's background threads release their files, so\ntemp.close() races a DirectoryNotEmpty. Retry fs::remove_dir_all a few\ntimes instead of failing on it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-04T13:11:33Z",
+          "tree_id": "9c0161c965949fd7c4bdcaebf1aa082cabea39f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba2ec54b2b7459d0dc1b62b78d508e1d15638ab0"
+        },
+        "date": 1785854350793,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 23230791,
+            "range": "± 1053719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 23361220,
+            "range": "± 986270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24811540,
+            "range": "± 476659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 32075293,
+            "range": "± 1262206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 77381827,
+            "range": "± 2397198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 465964584,
+            "range": "± 18697721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2998188992,
+            "range": "± 192155847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19670892,
+            "range": "± 416496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19949400,
+            "range": "± 422466",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 21138858,
+            "range": "± 330062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25637470,
+            "range": "± 339144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70038003,
+            "range": "± 1363651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 415398596,
+            "range": "± 7084727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3076768873,
+            "range": "± 93472466",
             "unit": "ns/iter"
           }
         ]
