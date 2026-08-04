@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785775858051,
+  "lastUpdate": 1785841748437,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -199103,6 +199103,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2222349107,
             "range": "± 13115418",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fizyk20@gmail.com",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8a200a09971c89f49d1f19fd944625cd39de50b",
+          "message": "Westend Coretime: remove truncation of the assignments vector (#12759)\n\nThis is a change analogous to\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 for the Westend\nruntime. Right now, if the number of coretime assignments exceeds 28,\ndue to message size limitations, only the first 27 are included, and the\nrest are silently replaced by an Idle assignment. This is not visible\nanywhere except in the actual assignment saved on the Relay Chain.\n\nSince the relay chain already supports chunking, this truncation can now\nbe replaced by sending multiple messages with up to 28 assignments each.\nThose will get reassembled into a full list on the Relay Chain side.\n\nThis PR also adds an emulated test to verify that what is stored on the\nRelay Chain side matches what has been sent from the Coretime Chain. The\nnew test is failing without the fix, and passing with the fix.\n\nIn order for the Scheduler pallet state to be accessible in the test, a\nfew types and methods in the Scheduler pallet are also made public in\nthis PR (these are the same changes as in #12755 , and I'll close that\nPR, now that this one also includes them).\n\nOnce the visibility changes are published, changes introduced in\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 can be simplified\n(the mirrored types can be removed).\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-08-04T09:04:32Z",
+          "tree_id": "a699910e5e0c6c61501acd0aa657f6c422c9f0fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8a200a09971c89f49d1f19fd944625cd39de50b"
+        },
+        "date": 1785841714102,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4696653,
+            "range": "± 50545",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 300472,
+            "range": "± 4747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4919948,
+            "range": "± 130830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 373800,
+            "range": "± 3462",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5453197,
+            "range": "± 30513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 913405,
+            "range": "± 7613",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11191795,
+            "range": "± 101592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5040538,
+            "range": "± 46938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46457474,
+            "range": "± 885426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40978433,
+            "range": "± 426399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 401270972,
+            "range": "± 3822257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 323852198,
+            "range": "± 2834046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2756669844,
+            "range": "± 10137583",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2772479215,
+            "range": "± 90198903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3495665,
+            "range": "± 31279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1874639,
+            "range": "± 14039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3631666,
+            "range": "± 29599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1940917,
+            "range": "± 9246",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4146887,
+            "range": "± 29231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2281264,
+            "range": "± 8925",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8370099,
+            "range": "± 53811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5496865,
+            "range": "± 28965",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38857978,
+            "range": "± 300998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38041296,
+            "range": "± 402839",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 337190032,
+            "range": "± 2041919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 293376780,
+            "range": "± 2319995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2595971952,
+            "range": "± 12939503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2536050629,
+            "range": "± 46861186",
             "unit": "ns/iter"
           }
         ]
