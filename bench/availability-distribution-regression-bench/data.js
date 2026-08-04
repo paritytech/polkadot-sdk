@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785843326375,
+  "lastUpdate": 1785855238277,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ndk@parity.io",
-            "name": "Andrii",
-            "username": "x3c41a"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5560a2fcc57ccd8b2cbeee511672879c961f4d5",
-          "message": "Added CID filtering to Bitswap server (#10416)\n\nRelates to https://github.com/paritytech/litep2p/pull/482\n\nTODO:\n- [x] bump new litep2p version once it's released\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-12-02T14:56:00Z",
-          "tree_id": "4e32411d8175df7e2f8ee966636b5ac6a5424150",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5560a2fcc57ccd8b2cbeee511672879c961f4d5"
-        },
-        "date": 1764693265370,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15992427238666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022722621199999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0073897981799999745,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013244088966666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009733781886666671,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba2ec54b2b7459d0dc1b62b78d508e1d15638ab0",
+          "message": "[client] fix flaky test connectivity (#12729)\n\ntest_connectivity flakes on teardown: TestNet::drop tears down tokio\nbefore the storage backend's background threads release their files, so\ntemp.close() races a DirectoryNotEmpty. Retry fs::remove_dir_all a few\ntimes instead of failing on it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-04T13:11:33Z",
+          "tree_id": "9c0161c965949fd7c4bdcaebf1aa082cabea39f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba2ec54b2b7459d0dc1b62b78d508e1d15638ab0"
+        },
+        "date": 1785855205966,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010018614306666656,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00799081139333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022663556120000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14261993872666665,
             "unit": "seconds"
           }
         ]
