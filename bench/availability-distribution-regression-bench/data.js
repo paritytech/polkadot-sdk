@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785776913568,
+  "lastUpdate": 1785843326375,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ad9107e6463d7069f7f21af1dfbab2dd8ee1a31b",
-          "message": "Align Errors between Bulletin and SDK (#10503)\n\nAligns Errors between Bulletin and SDK\n\nAddresses\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/86\nRelates to\nhttps://github.com/paritytech/polkadot-bulletin-chain/pull/126\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-02T14:05:26Z",
-          "tree_id": "8fbde3f041e7e70a9485301a1024ef6a0228e428",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ad9107e6463d7069f7f21af1dfbab2dd8ee1a31b"
-        },
-        "date": 1764691119173,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022671549373333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15915036768000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013088080719999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007035294493333313,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14318076010000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fizyk20@gmail.com",
+            "name": "Bartłomiej Kamiński",
+            "username": "fizyk20"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8a200a09971c89f49d1f19fd944625cd39de50b",
+          "message": "Westend Coretime: remove truncation of the assignments vector (#12759)\n\nThis is a change analogous to\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 for the Westend\nruntime. Right now, if the number of coretime assignments exceeds 28,\ndue to message size limitations, only the first 27 are included, and the\nrest are silently replaced by an Idle assignment. This is not visible\nanywhere except in the actual assignment saved on the Relay Chain.\n\nSince the relay chain already supports chunking, this truncation can now\nbe replaced by sending multiple messages with up to 28 assignments each.\nThose will get reassembled into a full list on the Relay Chain side.\n\nThis PR also adds an emulated test to verify that what is stored on the\nRelay Chain side matches what has been sent from the Coretime Chain. The\nnew test is failing without the fix, and passing with the fix.\n\nIn order for the Scheduler pallet state to be accessible in the test, a\nfew types and methods in the Scheduler pallet are also made public in\nthis PR (these are the same changes as in #12755 , and I'll close that\nPR, now that this one also includes them).\n\nOnce the visibility changes are published, changes introduced in\nhttps://github.com/polkadot-fellows/runtimes/pull/1231 can be simplified\n(the mirrored types can be removed).\n\n---------\n\nCo-authored-by: Dónal Murray <donalm@seadanda.dev>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
+          "timestamp": "2026-08-04T09:04:32Z",
+          "tree_id": "a699910e5e0c6c61501acd0aa657f6c422c9f0fe",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c8a200a09971c89f49d1f19fd944625cd39de50b"
+        },
+        "date": 1785843293492,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02271050605333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14370127706000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007307742446666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009733781886666671,
             "unit": "seconds"
           }
         ]
