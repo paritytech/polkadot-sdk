@@ -43,7 +43,7 @@ pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedSub, Saturating},
+	traits::{CheckedSub, Saturating, Zero},
 	Debug,
 };
 
@@ -566,6 +566,47 @@ impl<T: Config> Registrar for Pallet<T> {
 	}
 }
 
+/// Bridges `pallet-registrar-relay` to this pallet.
+///
+/// Lets a system parachain drive relay-chain registrations while the deposits stay on that
+/// parachain. The trait deals in plain `u32`/`Vec<u8>` so the relay pallet can live in
+/// `substrate/` without depending on any Polkadot crate; the conversions happen here.
+impl<T: Config> pallet_registrar_relay::RegisterPara for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
+		let config = configuration::ActiveConfig::<T>::get();
+		// Same bounds as `validate_onboarding_data`, but on sizes alone: the code itself is not
+		// here yet.
+		if code_len < MIN_CODE_SIZE ||
+			code_len > config.max_code_size ||
+			head_len > config.max_head_data_size
+		{
+			return Err(());
+		}
+		Ok(())
+	}
+
+	fn is_registered(para_id: u32) -> bool {
+		let id = ParaId::from(para_id);
+		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
+	}
+
+	fn register(
+		manager: T::AccountId,
+		para_id: u32,
+		genesis_head: Vec<u8>,
+		validation_code: Vec<u8>,
+	) -> DispatchResult {
+		Self::do_register_without_deposit(
+			manager,
+			ParaId::from(para_id),
+			HeadData(genesis_head),
+			ValidationCode(validation_code),
+		)
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// Ensure the origin is one of Root, the `para` owner, or the `para` itself.
 	/// If the origin is the `para` owner, the `para` must be unlocked.
@@ -654,6 +695,33 @@ impl<T: Config> Pallet<T> {
 		debug_assert!(res.is_ok());
 		Self::deposit_event(Event::<T>::Registered { para_id: id, manager: who });
 		Ok(())
+	}
+
+	/// Register a para on behalf of a remote control plane that already holds the deposit.
+	///
+	/// No deposit is taken here. This is the entry point used by `pallet-registrar-relay` for
+	/// registrations driven from a system parachain, where the manager's funds are held by
+	/// `pallet-registrar-para` on that chain instead of on the relay chain.
+	///
+	/// The head data and code are still validated against the live
+	/// [`configuration`](configuration::ActiveConfig) exactly as they are for a local
+	/// registration, and the para still goes through the usual onboarding and PVF pre-check.
+	pub fn do_register_without_deposit(
+		manager: T::AccountId,
+		id: ParaId,
+		genesis_head: HeadData,
+		validation_code: ValidationCode,
+	) -> DispatchResult {
+		// `Currency::reserve` short-circuits on a zero amount, so overriding the deposit to zero
+		// takes nothing and does not require `manager` to exist on this chain.
+		Self::do_register(
+			manager,
+			Some(BalanceOf::<T>::zero()),
+			id,
+			genesis_head,
+			validation_code,
+			false,
+		)
 	}
 
 	/// Deregister a Para Id, freeing all data returning any deposit.

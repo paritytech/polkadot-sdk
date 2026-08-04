@@ -20,28 +20,474 @@
 //! Relay half of the parachain registrar. Runs on the relay chain, applying registrations
 //! authorized on a parachain (`pallet-registrar-para`) and driving the relay's legacy `paras`
 //! state.
+//!
+//! ## Two-phase registration
+//!
+//! The parachain cannot send the validation code over XCM, so registration arrives in two pieces:
+//!
+//! 1. [`Pallet::receive`] takes the parachain's request, which carries the head data plus the hash
+//!    and length of the code that is coming, and parks it in [`PendingRegistrations`] with an
+//!    expiry.
+//! 2. [`Pallet::register_code`] takes the blob itself. It needs no signature: anybody may push the
+//!    code, because a pending entry already pins down exactly which bytes are acceptable, and the
+//!    parachain has already made the manager pay for them. If the blob matches, the para is
+//!    onboarded and the outcome is reported back to the parachain.
+//!
+//! If the code never turns up, [`Pallet::on_initialize`] expires the entry and reports the failure
+//! so the parachain can release the manager's deposit. No deposit is ever taken here.
+//!
+//! ## Runtime requirement
+//!
+//! `register_code` authorizes itself through [`frame_support::pallet_macros::authorize`], so the
+//! runtime must carry `frame_system::AuthorizeCall` in its transaction extension pipeline. Westend
+//! and Rococo already do.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::traits::Get;
+use registrar_primitives::{
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
+	RegistrationOutcome,
+};
+use scale_info::TypeInfo;
+use sp_core::H256;
+
 pub use pallet::*;
+pub use weights::WeightInfo;
+
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 /// Used to send an XCM `Transact` to the registrar pallet on the remote parachain.
-pub trait SendToPara {}
+///
+/// Deliberately free of XCM types; the runtime supplies the implementation that knows the
+/// parachain's call index and the router to hand the program to.
+pub trait SendToPara {
+	/// Send `message` to the parachain.
+	///
+	/// `Err(())` means the transport refused the message. Callers here are mid-way through
+	/// applying state that must survive, so they log and carry on rather than unwinding.
+	#[allow(clippy::result_unit_err)]
+	fn send(message: MessageToPara) -> Result<(), ()>;
+}
+
+#[cfg(feature = "std")]
+impl SendToPara for () {
+	fn send(_message: MessageToPara) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+/// The relay chain's actual parachain registry, as this pallet needs to see it.
+///
+/// Implemented for the relay chain's `paras_registrar` pallet. Kept abstract so this crate stays
+/// free of relay-chain dependencies.
+pub trait RegisterPara {
+	/// The account id used to identify a registration's manager.
+	type AccountId;
+
+	/// Whether head data and code of these sizes could be onboarded right now.
+	///
+	/// Checked against the relay chain's live configuration so a doomed request can be rejected
+	/// before the user goes and uploads megabytes of code.
+	#[allow(clippy::result_unit_err)]
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
+
+	/// Whether the relay chain already knows this para id.
+	fn is_registered(para_id: ParaId) -> bool;
+
+	/// Onboard `para_id` under `manager`.
+	///
+	/// No deposit is taken: the manager's funds are held on the chain running
+	/// `pallet-registrar-para`.
+	fn register(
+		manager: Self::AccountId,
+		para_id: ParaId,
+		genesis_head: Vec<u8>,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult;
+}
+
+/// A registration the parachain has asked for, waiting on its validation code.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug,
+)]
+#[scale_info(skip_type_params(MaxHeadDataSize))]
+pub struct PendingRegistration<AccountId, BlockNumber, MaxHeadDataSize: Get<u32>> {
+	/// The account managing this registration on the parachain.
+	pub manager: AccountId,
+	/// The genesis head data, held here until the code arrives.
+	pub genesis_head: frame_support::BoundedVec<u8, MaxHeadDataSize>,
+	/// Blake2-256 hash the validation code must have.
+	pub code_hash: H256,
+	/// Exact length the validation code must have.
+	///
+	/// The parachain sized the manager's deposit from this, so a blob of any other length would
+	/// mean the manager underpaid, even if the hash somehow matched.
+	pub code_len: u32,
+	/// The block at which this request is abandoned and reported as failed.
+	pub expire_at: BlockNumber,
+}
+
+/// How much head data a message carries, for weighing [`Pallet::receive`].
+///
+/// Worth doing rather than always charging `MaxHeadDataSize`: that bound is a megabyte on
+/// production relay chains, and a typical genesis head is nowhere near it.
+pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
+	match message {
+		MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) => {
+			genesis_head.len() as u32
+		},
+	}
+}
+
+/// [`PendingRegistration`] as this pallet stores it.
+pub type PendingRegistrationOf<T> = PendingRegistration<
+	<T as frame_system::Config>::AccountId,
+	frame_system::pallet_prelude::BlockNumberFor<T>,
+	<T as Config>::MaxHeadDataSize,
+>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::{BlakeTwo256, Hash, Saturating};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The overarching event type.
+		#[allow(deprecated)]
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// An origin that is sure to be the parachain running `pallet-registrar-para`.
+		type ParaOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Sends messages to the parachain.
 		type SendToPara: SendToPara;
+
+		/// The relay chain's parachain registry.
+		type Registrar: RegisterPara<AccountId = Self::AccountId>;
+
+		/// The largest head data this pallet will hold onto while waiting for code.
+		///
+		/// Should be at least the relay chain's `max_head_data_size`.
+		#[pallet::constant]
+		type MaxHeadDataSize: Get<u32>;
+
+		/// The largest validation code [`Pallet::register_code`] will accept.
+		///
+		/// Should be at least the relay chain's `max_code_size`.
+		#[pallet::constant]
+		type MaxCodeSize: Get<u32>;
+
+		/// How many registrations may be waiting on their code at once.
+		///
+		/// Bounds the work [`Pallet::on_initialize`] can be made to do.
+		#[pallet::constant]
+		type MaxPendingRegistrations: Get<u32>;
+
+		/// How long a registration waits for its validation code before being abandoned.
+		#[pallet::constant]
+		type PendingTimeout: Get<BlockNumberFor<Self>>;
+
+		/// Priority given to a valid [`Pallet::register_code`] in the transaction pool.
+		#[pallet::constant]
+		type UnsignedPriority: Get<TransactionPriority>;
+
+		/// Weight information for the extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	// - TODO: Extrinsic to accept the messages from the para.
+	/// Registrations waiting on their validation code, by para id.
+	#[pallet::storage]
+	pub type PendingRegistrations<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, PendingRegistrationOf<T>>;
 
-	// - TODO: Accept unsigned TX for PVF upload
+	/// How many entries [`PendingRegistrations`] currently holds.
+	///
+	/// Kept alongside the map so the `on_initialize` sweep knows whether there is anything to do
+	/// without walking the map first.
+	#[pallet::storage]
+	pub type PendingCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A registration request was accepted and is waiting on its validation code.
+		RegistrationPending { para_id: ParaId, code_hash: H256, expire_at: BlockNumberFor<T> },
+		/// A registration request was rejected out of hand.
+		RegistrationRejected { para_id: ParaId, reason: FailureReason },
+		/// A para was onboarded.
+		Registered { para_id: ParaId, manager: T::AccountId },
+		/// A registration was abandoned because its validation code never arrived.
+		RegistrationExpired { para_id: ParaId },
+		/// A report could not be sent back to the parachain.
+		///
+		/// The relay chain's own state is already correct; the parachain is now out of step and
+		/// will need its manager to fall back on `cancel_registration`.
+		ReportFailed { para_id: ParaId },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// No registration is waiting on code for this para id.
+		NothingPending,
+		/// The registration expired before the code arrived.
+		Expired,
+		/// The validation code does not match the hash the parachain committed to.
+		CodeHashMismatch,
+		/// The validation code is not the length the parachain committed to.
+		CodeLenMismatch,
+		/// The validation code is larger than this pallet will accept.
+		CodeTooLarge,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			Self::expire_pending(now)
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Accept a control-plane message from the parachain's registrar pallet.
+		///
+		/// Not callable by users: the origin must be the parachain.
+		///
+		/// A request this pallet will not act on is *not* an extrinsic failure. Failing would roll
+		/// back the rejection report along with everything else, and the parachain would sit on a
+		/// held deposit waiting for news that never comes. So a rejection is applied, reported, and
+		/// returns `Ok`.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::receive_register(head_data_len(message)))]
+		pub fn receive(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::Register {
+					para_id,
+					manager,
+					genesis_head,
+					code_hash,
+					code_len,
+				}) => {
+					Self::on_register_request(para_id, manager, genesis_head, code_hash, code_len);
+					Ok(())
+				},
+			}
+		}
+
+		/// Upload the validation code for a pending registration, onboarding the para.
+		///
+		/// Needs no signature and pays no fee. Anybody may submit: the pending entry already fixes
+		/// the exact bytes that will be accepted, and the manager has already paid for them on the
+		/// parachain.
+		#[pallet::call_index(1)]
+		#[pallet::authorize(Self::authorize_register_code)]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_register_code(validation_code.len() as u32))]
+		#[pallet::weight(T::WeightInfo::register_code(validation_code.len() as u32))]
+		pub fn register_code(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			validation_code: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			ensure_authorized(origin)?;
+
+			let pending = Self::validate_pending_code(para_id, &validation_code)?;
+
+			T::Registrar::register(
+				pending.manager.clone(),
+				para_id,
+				pending.genesis_head.into_inner(),
+				validation_code,
+			)?;
+			Self::remove_pending(para_id);
+
+			Self::report(para_id, RegistrationOutcome::Registered);
+			Self::deposit_event(Event::Registered { para_id, manager: pending.manager });
+			Ok(Pays::No.into())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Decide whether an unsigned [`Pallet::register_code`] may enter the pool and a block.
+		///
+		/// Runs exactly the same checks as the dispatch, so the pool and the block never disagree
+		/// about which bytes are acceptable.
+		// `#[pallet::authorize]` hands the call arguments over by reference, so the parameter
+		// types have to mirror the call's exactly. `&[u8]` would not compile.
+		#[allow(clippy::ptr_arg)]
+		pub fn authorize_register_code(
+			_source: TransactionSource,
+			para_id: &ParaId,
+			validation_code: &Vec<u8>,
+		) -> TransactionValidityWithRefund {
+			let pending = Self::validate_pending_code(*para_id, validation_code)
+				.map_err(|e| InvalidTransaction::Custom(Self::invalid_tx_code(e)))?;
+
+			let now = frame_system::Pallet::<T>::block_number();
+			let longevity = pending.expire_at.saturating_sub(now);
+
+			let validity = ValidTransaction::with_tag_prefix("RegistrarRegisterCode")
+				.priority(T::UnsignedPriority::get())
+				.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
+				.and_provides((*para_id, pending.code_hash))
+				.propagate(true)
+				.build()?;
+
+			Ok((validity, Weight::zero()))
+		}
+
+		/// Apply a registration request from the parachain, accepting or rejecting it.
+		fn on_register_request(
+			para_id: ParaId,
+			manager: T::AccountId,
+			genesis_head: Vec<u8>,
+			code_hash: H256,
+			code_len: u32,
+		) {
+			let Ok(head_len) = u32::try_from(genesis_head.len()) else {
+				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
+			};
+
+			if T::Registrar::is_registered(para_id) ||
+				PendingRegistrations::<T>::contains_key(para_id)
+			{
+				return Self::reject(para_id, FailureReason::AlreadyRegistered);
+			}
+			if PendingCount::<T>::get() >= T::MaxPendingRegistrations::get() {
+				return Self::reject(para_id, FailureReason::TooManyPending);
+			}
+			if code_len > T::MaxCodeSize::get() ||
+				T::Registrar::check_onboarding(head_len, code_len).is_err()
+			{
+				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
+			}
+			let Ok(genesis_head) = BoundedVec::try_from(genesis_head) else {
+				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
+			};
+
+			let expire_at =
+				frame_system::Pallet::<T>::block_number().saturating_add(T::PendingTimeout::get());
+			PendingRegistrations::<T>::insert(
+				para_id,
+				PendingRegistration { manager, genesis_head, code_hash, code_len, expire_at },
+			);
+			PendingCount::<T>::mutate(|n| *n = n.saturating_add(1));
+
+			Self::deposit_event(Event::RegistrationPending { para_id, code_hash, expire_at });
+		}
+
+		/// Turn a request away and tell the parachain to release the deposit.
+		fn reject(para_id: ParaId, reason: FailureReason) {
+			Self::report(para_id, RegistrationOutcome::Failed(reason.clone()));
+			Self::deposit_event(Event::RegistrationRejected { para_id, reason });
+		}
+
+		/// Check `validation_code` against the pending entry for `para_id`.
+		fn validate_pending_code(
+			para_id: ParaId,
+			validation_code: &[u8],
+		) -> Result<PendingRegistrationOf<T>, Error<T>> {
+			// Bound the work before hashing, so an oversized blob is rejected cheaply.
+			let code_len =
+				u32::try_from(validation_code.len()).map_err(|_| Error::<T>::CodeTooLarge)?;
+			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+
+			let pending =
+				PendingRegistrations::<T>::get(para_id).ok_or(Error::<T>::NothingPending)?;
+			ensure!(
+				frame_system::Pallet::<T>::block_number() < pending.expire_at,
+				Error::<T>::Expired
+			);
+			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
+			ensure!(
+				BlakeTwo256::hash(validation_code) == pending.code_hash,
+				Error::<T>::CodeHashMismatch
+			);
+
+			Ok(pending)
+		}
+
+		/// Map a validation failure onto the `InvalidTransaction::Custom` code it reports.
+		fn invalid_tx_code(error: Error<T>) -> u8 {
+			match error {
+				Error::<T>::NothingPending => INVALID_TX_NOTHING_PENDING,
+				Error::<T>::Expired => INVALID_TX_EXPIRED,
+				_ => INVALID_TX_BAD_CODE,
+			}
+		}
+
+		/// Drop a pending entry and keep the counter honest.
+		fn remove_pending(para_id: ParaId) {
+			if PendingRegistrations::<T>::take(para_id).is_some() {
+				PendingCount::<T>::mutate(|n| *n = n.saturating_sub(1));
+			}
+		}
+
+		/// Abandon every pending registration whose code never arrived.
+		fn expire_pending(now: BlockNumberFor<T>) -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+			if PendingCount::<T>::get() == 0 {
+				return weight;
+			}
+
+			let expired = PendingRegistrations::<T>::iter()
+				.filter(|(_, pending)| pending.expire_at <= now)
+				.map(|(para_id, _)| para_id)
+				.collect::<Vec<_>>();
+			weight.saturating_accrue(
+				T::DbWeight::get().reads(T::MaxPendingRegistrations::get().into()),
+			);
+
+			for para_id in expired {
+				Self::remove_pending(para_id);
+				Self::report(para_id, RegistrationOutcome::Failed(FailureReason::Expired));
+				Self::deposit_event(Event::RegistrationExpired { para_id });
+				weight.saturating_accrue(T::DbWeight::get().writes(2));
+			}
+
+			weight
+		}
+
+		/// Tell the parachain how a registration ended.
+		///
+		/// A transport failure is only logged and surfaced as an event: every caller has already
+		/// committed relay-chain state that must not be unwound just because the report bounced.
+		fn report(para_id: ParaId, outcome: RegistrationOutcome) {
+			let message =
+				MessageToPara::V1(MessageToParaV1::RegistrationResult { para_id, outcome });
+			if T::SendToPara::send(message).is_err() {
+				log::error!(
+					target: "runtime::registrar-relay",
+					"failed to report the outcome for para {para_id} back to the parachain",
+				);
+				Self::deposit_event(Event::ReportFailed { para_id });
+			}
+		}
+	}
 }
+
+/// Custom `InvalidTransaction` codes reported by [`Pallet::authorize_register_code`].
+pub const INVALID_TX_NOTHING_PENDING: u8 = 1;
+pub const INVALID_TX_EXPIRED: u8 = 2;
+pub const INVALID_TX_BAD_CODE: u8 = 3;
