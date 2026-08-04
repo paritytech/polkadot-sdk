@@ -36,7 +36,8 @@
 //!
 //! For implementing freeing we maintain a linked lists for each order. The maximum supported
 //! allocation size is capped, therefore the number of orders and thus the linked lists is as well
-//! limited. Currently, the maximum size of an allocation is 32 MiB.
+//! limited. By default the maximum size of an allocation is 32 MiB; it can be raised at build time
+//! with the `SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB` environment variable.
 //!
 //! When the allocator serves an allocation request it first checks the linked list for the
 //! respective order. If it doesn't have any free chunks, the allocator requests memory from the
@@ -95,15 +96,65 @@ const LOG_TARGET: &str = "wasm-heap";
 
 // The minimum possible allocation size is chosen to be 8 bytes because in that case we would have
 // easier time to provide the guaranteed alignment of 8.
-//
-// The maximum possible allocation size is set in the primitives to 32MiB.
-//
-// N_ORDERS - represents the number of orders supported.
-//
-// This number corresponds to the number of powers between the minimum possible allocation and
-// maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
-const N_ORDERS: usize = 23;
 const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
+
+/// The largest single allocation the allocator serves.
+///
+/// Defaults to `MAX_POSSIBLE_ALLOCATION` (32 MiB). Set `SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB` (in
+/// MiB, between 32 and 2048, rounded up to a power of two) at build time to raise it. This touches
+/// only the client side allocator; `sp_core::MAX_POSSIBLE_ALLOCATION`, which the runtime reads, is
+/// left unchanged, so the default binary is unaffected.
+const MAX_SUPPORTED_ALLOCATION: u32 = max_supported_allocation();
+
+// Guards the `N_ORDERS` derivation against underflow if the 32 MiB floor is ever weakened.
+const _: () = assert!(MAX_SUPPORTED_ALLOCATION >= MAX_POSSIBLE_ALLOCATION);
+
+/// Number of orders: one per power of two from `MIN_POSSIBLE_ALLOCATION` to
+/// `MAX_SUPPORTED_ALLOCATION` inclusive (2^3...2^25, hence 23, by default).
+const N_ORDERS: usize = (MAX_SUPPORTED_ALLOCATION.trailing_zeros() -
+	MIN_POSSIBLE_ALLOCATION.trailing_zeros() +
+	1) as usize;
+
+/// Resolve the maximum single allocation at compile time from the environment.
+const fn max_supported_allocation() -> u32 {
+	match option_env!("SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB") {
+		Some(mib) => {
+			let mib = parse_u32(mib);
+			// Lower bound keeps the historical 32 MiB guarantee; upper bound keeps the byte count
+			// within a `u32` (2048 MiB = 2 GiB), so the multiplication below cannot overflow.
+			assert!(
+				mib >= 32 && mib <= 2048,
+				"SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB must be between 32 and 2048"
+			);
+			(mib * 1024 * 1024).next_power_of_two()
+		},
+		None => MAX_POSSIBLE_ALLOCATION,
+	}
+}
+
+/// Parse a decimal `u32` at compile time. Fails the build if the value is not a number.
+const fn parse_u32(s: &str) -> u32 {
+	let bytes = s.as_bytes();
+	let mut acc: u32 = 0;
+	let mut i = 0;
+	while i < bytes.len() {
+		let digit = bytes[i];
+		assert!(
+			digit >= b'0' && digit <= b'9',
+			"SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB must be a positive integer"
+		);
+		acc = match acc.checked_mul(10) {
+			Some(v) => v,
+			None => panic!("SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB is not a valid number"),
+		};
+		acc = match acc.checked_add((digit - b'0') as u32) {
+			Some(v) => v,
+			None => panic!("SUBSTRATE_MAX_RUNTIME_ALLOCATION_MIB is not a valid number"),
+		};
+		i += 1;
+	}
+	acc
+}
 
 /// The exponent for the power of two sized block adjusted to the minimum size.
 ///
@@ -138,9 +189,9 @@ impl Order {
 	///
 	/// The size is clamped, so that the following holds:
 	///
-	/// `MIN_POSSIBLE_ALLOCATION <= size <= MAX_POSSIBLE_ALLOCATION`
+	/// `MIN_POSSIBLE_ALLOCATION <= size <= MAX_SUPPORTED_ALLOCATION`
 	fn from_size(size: u32) -> Result<Self, Error> {
-		let clamped_size = if size > MAX_POSSIBLE_ALLOCATION {
+		let clamped_size = if size > MAX_SUPPORTED_ALLOCATION {
 			log::warn!(target: LOG_TARGET, "going to fail due to allocating {:?}", size);
 			return Err(Error::RequestedAllocationTooLarge);
 		} else if size < MIN_POSSIBLE_ALLOCATION {
@@ -391,7 +442,7 @@ impl FreeingBumpHeapAllocator {
 	}
 
 	/// Gets requested number of bytes to allocate and returns a pointer.
-	/// The maximum size which can be allocated at once is 32 MiB.
+	/// The maximum size which can be allocated at once is 32 MiB by default.
 	/// There is no minimum size, but whatever size is passed into
 	/// this function is rounded to the next power of two. If the requested
 	/// size is below 8 bytes it will be rounded up to 8 bytes.
@@ -885,7 +936,7 @@ mod tests {
 		let mut heap = FreeingBumpHeapAllocator::new(0);
 
 		// when
-		let ptr = heap.allocate(&mut mem, MAX_POSSIBLE_ALLOCATION + 1);
+		let ptr = heap.allocate(&mut mem, MAX_SUPPORTED_ALLOCATION + 1);
 
 		// then
 		assert_eq!(Error::RequestedAllocationTooLarge, ptr.unwrap_err());
@@ -1001,13 +1052,13 @@ mod tests {
 	#[test]
 	fn should_get_max_item_size_from_index() {
 		// given
-		let raw_order = 22;
+		let raw_order = N_ORDERS as u32 - 1;
 
 		// when
 		let item_size = Order::from_raw(raw_order).unwrap().size();
 
 		// then
-		assert_eq!(item_size as u32, MAX_POSSIBLE_ALLOCATION);
+		assert_eq!(item_size as u32, MAX_SUPPORTED_ALLOCATION);
 	}
 
 	#[test]
@@ -1060,11 +1111,25 @@ mod tests {
 
 	#[test]
 	fn test_n_orders() {
-		// Test that N_ORDERS is consistent with min and max possible allocation.
+		// Test that N_ORDERS is consistent with the min allocation and the largest order.
 		assert_eq!(
 			MIN_POSSIBLE_ALLOCATION * 2u32.pow(N_ORDERS as u32 - 1),
-			MAX_POSSIBLE_ALLOCATION
+			MAX_SUPPORTED_ALLOCATION
 		);
+	}
+
+	#[test]
+	fn parse_u32_parses_decimal() {
+		assert_eq!(parse_u32("512"), 512);
+		// Leading zeros are accepted; an empty string is zero (rejected later by the range check).
+		assert_eq!(parse_u32("032"), 32);
+		assert_eq!(parse_u32(""), 0);
+	}
+
+	#[test]
+	#[should_panic(expected = "must be a positive integer")]
+	fn parse_u32_rejects_non_digits() {
+		parse_u32("12a");
 	}
 
 	#[test]
