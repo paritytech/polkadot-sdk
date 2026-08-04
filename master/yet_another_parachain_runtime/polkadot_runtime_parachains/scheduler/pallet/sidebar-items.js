@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error"],"struct":["Pallet"],"trait":["Config"],"type":["Module","SessionStartBlock","ValidatorGroups"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Error"],"struct":["Pallet"],"trait":["Config"],"type":["CoreDescriptors","CoreSchedules","Module","SessionStartBlock","ValidatorGroups"]};

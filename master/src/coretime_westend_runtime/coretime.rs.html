@@ -325,89 +325,72 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#175 id=175 data-nosnippet>175</a>		// Add 5% to each component and round to 2 significant figures.
 <a href=#176 id=176 data-nosnippet>176</a>		</span><span class="kw">let </span>call_weight = Weight::from_parts(<span class="number">980_000_000</span>, <span class="number">3800</span>);
 <a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a>		<span class="comment">// The relay chain currently only allows `assign_core` to be called with a complete mask
-<a href=#179 id=179 data-nosnippet>179</a>		// and only ever with increasing `begin`. The assignments must be truncated to avoid
-<a href=#180 id=180 data-nosnippet>180</a>		// dropping that core's assignment completely.
+<a href=#178 id=178 data-nosnippet>178</a>		<span class="comment">// A maximum of 28 assignments fit in one message, so we split the assignments and send as
+<a href=#179 id=179 data-nosnippet>179</a>		// multiple messages. This will get reassembled into a full list of assignments on the
+<a href=#180 id=180 data-nosnippet>180</a>		// relay chain side.
 <a href=#181 id=181 data-nosnippet>181</a>
-<a href=#182 id=182 data-nosnippet>182</a>		// This shadowing of `assignment` is temporary and can be removed when the relay can accept
-<a href=#183 id=183 data-nosnippet>183</a>		// multiple messages to assign a single core.
-<a href=#184 id=184 data-nosnippet>184</a>		</span><span class="kw">let </span>assignment = <span class="kw">if </span>assignment.len() &gt; <span class="number">28 </span>{
-<a href=#185 id=185 data-nosnippet>185</a>			<span class="kw">let </span><span class="kw-2">mut </span>total_parts = <span class="number">0u16</span>;
-<a href=#186 id=186 data-nosnippet>186</a>			<span class="comment">// Account for missing parts with a new `Idle` assignment at the start as
-<a href=#187 id=187 data-nosnippet>187</a>			// `assign_core` on the relay assumes this is sorted. We'll add the rest of the
-<a href=#188 id=188 data-nosnippet>188</a>			// assignments and sum the parts in one pass, so this is just initialized to 0.
-<a href=#189 id=189 data-nosnippet>189</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>assignment_truncated = <span class="macro">vec!</span>[(CoreAssignment::Idle, <span class="number">0</span>)];
-<a href=#190 id=190 data-nosnippet>190</a>			<span class="comment">// Truncate to first 27 non-idle assignments.
-<a href=#191 id=191 data-nosnippet>191</a>			</span>assignment_truncated.extend(
-<a href=#192 id=192 data-nosnippet>192</a>				assignment
-<a href=#193 id=193 data-nosnippet>193</a>					.into_iter()
-<a href=#194 id=194 data-nosnippet>194</a>					.filter(|(a, <span class="kw">_</span>)| <span class="kw-2">*</span><span class="macro">a !</span>= CoreAssignment::Idle)
-<a href=#195 id=195 data-nosnippet>195</a>					.take(<span class="number">27</span>)
-<a href=#196 id=196 data-nosnippet>196</a>					.inspect(|(<span class="kw">_</span>, parts)| total_parts += <span class="kw-2">*</span>parts)
-<a href=#197 id=197 data-nosnippet>197</a>					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-<a href=#198 id=198 data-nosnippet>198</a>			);
-<a href=#199 id=199 data-nosnippet>199</a>
-<a href=#200 id=200 data-nosnippet>200</a>			<span class="comment">// Set the parts of the `Idle` assignment we injected at the start of the vec above.
-<a href=#201 id=201 data-nosnippet>201</a>			</span>assignment_truncated[<span class="number">0</span>].<span class="number">1 </span>= <span class="number">57_600u16</span>.saturating_sub(total_parts);
-<a href=#202 id=202 data-nosnippet>202</a>			assignment_truncated
-<a href=#203 id=203 data-nosnippet>203</a>		} <span class="kw">else </span>{
-<a href=#204 id=204 data-nosnippet>204</a>			assignment
-<a href=#205 id=205 data-nosnippet>205</a>		};
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>		<span class="kw">let </span>assign_core_call =
-<a href=#208 id=208 data-nosnippet>208</a>			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a>		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
-<a href=#211 id=211 data-nosnippet>211</a>			Instruction::UnpaidExecution {
-<a href=#212 id=212 data-nosnippet>212</a>				weight_limit: WeightLimit::Unlimited,
-<a href=#213 id=213 data-nosnippet>213</a>				check_origin: <span class="prelude-val">None</span>,
-<a href=#214 id=214 data-nosnippet>214</a>			},
-<a href=#215 id=215 data-nosnippet>215</a>			Instruction::Transact {
-<a href=#216 id=216 data-nosnippet>216</a>				origin_kind: OriginKind::Native,
-<a href=#217 id=217 data-nosnippet>217</a>				call: assign_core_call.encode().into(),
-<a href=#218 id=218 data-nosnippet>218</a>				fallback_max_weight: <span class="prelude-val">Some</span>(call_weight),
-<a href=#219 id=219 data-nosnippet>219</a>			},
-<a href=#220 id=220 data-nosnippet>220</a>		]);
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>		<span class="kw">match </span>PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-<a href=#223 id=223 data-nosnippet>223</a>			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">tracing::debug!</span>(
-<a href=#224 id=224 data-nosnippet>224</a>				target: <span class="string">"runtime::coretime"</span>,
-<a href=#225 id=225 data-nosnippet>225</a>				<span class="string">"Core assignment sent successfully."
-<a href=#226 id=226 data-nosnippet>226</a>			</span>),
-<a href=#227 id=227 data-nosnippet>227</a>			<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">tracing::error!</span>(
-<a href=#228 id=228 data-nosnippet>228</a>				target: <span class="string">"runtime::coretime"</span>, error=<span class="question-mark">?</span>e,
-<a href=#229 id=229 data-nosnippet>229</a>				<span class="string">"Core assignment failed to send"
-<a href=#230 id=230 data-nosnippet>230</a>			</span>),
-<a href=#231 id=231 data-nosnippet>231</a>		}
-<a href=#232 id=232 data-nosnippet>232</a>	}
-<a href=#233 id=233 data-nosnippet>233</a>}
-<a href=#234 id=234 data-nosnippet>234</a>
-<a href=#235 id=235 data-nosnippet>235</a><span class="kw">pub struct </span>SovereignAccountOf;
-<a href=#236 id=236 data-nosnippet>236</a><span class="kw">impl </span>MaybeConvert&lt;TaskId, AccountId&gt; <span class="kw">for </span>SovereignAccountOf {
-<a href=#237 id=237 data-nosnippet>237</a>	<span class="kw">fn </span>maybe_convert(id: TaskId) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-<a href=#238 id=238 data-nosnippet>238</a>		<span class="comment">// Currently all tasks are parachains.
-<a href=#239 id=239 data-nosnippet>239</a>		</span><span class="kw">let </span>location = Location::new(<span class="number">1</span>, [Parachain(id)]);
-<a href=#240 id=240 data-nosnippet>240</a>		LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>location)
-<a href=#241 id=241 data-nosnippet>241</a>	}
-<a href=#242 id=242 data-nosnippet>242</a>}
-<a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a><span class="kw">impl </span>pallet_broker::Config <span class="kw">for </span>Runtime {
-<a href=#245 id=245 data-nosnippet>245</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#246 id=246 data-nosnippet>246</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#247 id=247 data-nosnippet>247</a>	<span class="kw">type </span>OnRevenue = AccumulateForward;
-<a href=#248 id=248 data-nosnippet>248</a>	<span class="kw">type </span>TimeslicePeriod = ConstU32&lt;{ coretime::TIMESLICE_PERIOD }&gt;;
-<a href=#249 id=249 data-nosnippet>249</a>	<span class="kw">type </span>MaxLeasedCores = ConstU32&lt;<span class="number">50</span>&gt;;
-<a href=#250 id=250 data-nosnippet>250</a>	<span class="kw">type </span>MaxReservedCores = ConstU32&lt;<span class="number">50</span>&gt;;
-<a href=#251 id=251 data-nosnippet>251</a>	<span class="kw">type </span>Coretime = CoretimeAllocator;
-<a href=#252 id=252 data-nosnippet>252</a>	<span class="kw">type </span>ConvertBalance = sp_runtime::traits::Identity;
-<a href=#253 id=253 data-nosnippet>253</a>	<span class="kw">type </span>WeightInfo = weights::pallet_broker::WeightInfo&lt;Runtime&gt;;
-<a href=#254 id=254 data-nosnippet>254</a>	<span class="kw">type </span>PalletId = BrokerPalletId;
-<a href=#255 id=255 data-nosnippet>255</a>	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
-<a href=#256 id=256 data-nosnippet>256</a>	<span class="kw">type </span>SovereignAccountOf = SovereignAccountOf;
-<a href=#257 id=257 data-nosnippet>257</a>	<span class="kw">type </span>MaxAutoRenewals = ConstU32&lt;<span class="number">50</span>&gt;;
-<a href=#258 id=258 data-nosnippet>258</a>	<span class="kw">type </span>PriceAdapter = pallet_broker::MinimumPrice&lt;Balance, MinimumEndPrice&gt;;
-<a href=#259 id=259 data-nosnippet>259</a>	<span class="kw">type </span>MinimumCreditPurchase = MinimumCreditPurchase;
-<a href=#260 id=260 data-nosnippet>260</a>}
+<a href=#182 id=182 data-nosnippet>182</a>		</span><span class="kw">for </span>chunk <span class="kw">in </span>assignment.chunks(<span class="number">28</span>) {
+<a href=#183 id=183 data-nosnippet>183</a>			<span class="kw">let </span>partial_assignment = chunk.to_vec();
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>			<span class="kw">let </span>assign_core_call = RelayRuntimePallets::Coretime(AssignCore(
+<a href=#186 id=186 data-nosnippet>186</a>				core,
+<a href=#187 id=187 data-nosnippet>187</a>				begin,
+<a href=#188 id=188 data-nosnippet>188</a>				partial_assignment,
+<a href=#189 id=189 data-nosnippet>189</a>				end_hint,
+<a href=#190 id=190 data-nosnippet>190</a>			));
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a>			<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
+<a href=#193 id=193 data-nosnippet>193</a>				Instruction::UnpaidExecution {
+<a href=#194 id=194 data-nosnippet>194</a>					weight_limit: WeightLimit::Unlimited,
+<a href=#195 id=195 data-nosnippet>195</a>					check_origin: <span class="prelude-val">None</span>,
+<a href=#196 id=196 data-nosnippet>196</a>				},
+<a href=#197 id=197 data-nosnippet>197</a>				Instruction::Transact {
+<a href=#198 id=198 data-nosnippet>198</a>					origin_kind: OriginKind::Native,
+<a href=#199 id=199 data-nosnippet>199</a>					call: assign_core_call.encode().into(),
+<a href=#200 id=200 data-nosnippet>200</a>					fallback_max_weight: <span class="prelude-val">Some</span>(call_weight),
+<a href=#201 id=201 data-nosnippet>201</a>				},
+<a href=#202 id=202 data-nosnippet>202</a>			]);
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>			<span class="kw">match </span>PolkadotXcm::send_xcm(Here, Location::parent(), message) {
+<a href=#205 id=205 data-nosnippet>205</a>				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">tracing::debug!</span>(
+<a href=#206 id=206 data-nosnippet>206</a>					target: <span class="string">"runtime::coretime"</span>,
+<a href=#207 id=207 data-nosnippet>207</a>					<span class="string">"Core assignment sent successfully."
+<a href=#208 id=208 data-nosnippet>208</a>				</span>),
+<a href=#209 id=209 data-nosnippet>209</a>				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">tracing::error!</span>(
+<a href=#210 id=210 data-nosnippet>210</a>					target: <span class="string">"runtime::coretime"</span>, error=<span class="question-mark">?</span>e,
+<a href=#211 id=211 data-nosnippet>211</a>					<span class="string">"Core assignment failed to send"
+<a href=#212 id=212 data-nosnippet>212</a>				</span>),
+<a href=#213 id=213 data-nosnippet>213</a>			}
+<a href=#214 id=214 data-nosnippet>214</a>		}
+<a href=#215 id=215 data-nosnippet>215</a>	}
+<a href=#216 id=216 data-nosnippet>216</a>}
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a><span class="kw">pub struct </span>SovereignAccountOf;
+<a href=#219 id=219 data-nosnippet>219</a><span class="kw">impl </span>MaybeConvert&lt;TaskId, AccountId&gt; <span class="kw">for </span>SovereignAccountOf {
+<a href=#220 id=220 data-nosnippet>220</a>	<span class="kw">fn </span>maybe_convert(id: TaskId) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+<a href=#221 id=221 data-nosnippet>221</a>		<span class="comment">// Currently all tasks are parachains.
+<a href=#222 id=222 data-nosnippet>222</a>		</span><span class="kw">let </span>location = Location::new(<span class="number">1</span>, [Parachain(id)]);
+<a href=#223 id=223 data-nosnippet>223</a>		LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>location)
+<a href=#224 id=224 data-nosnippet>224</a>	}
+<a href=#225 id=225 data-nosnippet>225</a>}
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a><span class="kw">impl </span>pallet_broker::Config <span class="kw">for </span>Runtime {
+<a href=#228 id=228 data-nosnippet>228</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#229 id=229 data-nosnippet>229</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#230 id=230 data-nosnippet>230</a>	<span class="kw">type </span>OnRevenue = AccumulateForward;
+<a href=#231 id=231 data-nosnippet>231</a>	<span class="kw">type </span>TimeslicePeriod = ConstU32&lt;{ coretime::TIMESLICE_PERIOD }&gt;;
+<a href=#232 id=232 data-nosnippet>232</a>	<span class="kw">type </span>MaxLeasedCores = ConstU32&lt;<span class="number">50</span>&gt;;
+<a href=#233 id=233 data-nosnippet>233</a>	<span class="kw">type </span>MaxReservedCores = ConstU32&lt;<span class="number">50</span>&gt;;
+<a href=#234 id=234 data-nosnippet>234</a>	<span class="kw">type </span>Coretime = CoretimeAllocator;
+<a href=#235 id=235 data-nosnippet>235</a>	<span class="kw">type </span>ConvertBalance = sp_runtime::traits::Identity;
+<a href=#236 id=236 data-nosnippet>236</a>	<span class="kw">type </span>WeightInfo = weights::pallet_broker::WeightInfo&lt;Runtime&gt;;
+<a href=#237 id=237 data-nosnippet>237</a>	<span class="kw">type </span>PalletId = BrokerPalletId;
+<a href=#238 id=238 data-nosnippet>238</a>	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
+<a href=#239 id=239 data-nosnippet>239</a>	<span class="kw">type </span>SovereignAccountOf = SovereignAccountOf;
+<a href=#240 id=240 data-nosnippet>240</a>	<span class="kw">type </span>MaxAutoRenewals = ConstU32&lt;<span class="number">50</span>&gt;;
+<a href=#241 id=241 data-nosnippet>241</a>	<span class="kw">type </span>PriceAdapter = pallet_broker::MinimumPrice&lt;Balance, MinimumEndPrice&gt;;
+<a href=#242 id=242 data-nosnippet>242</a>	<span class="kw">type </span>MinimumCreditPurchase = MinimumCreditPurchase;
+<a href=#243 id=243 data-nosnippet>243</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
