@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785843284358,
+  "lastUpdate": 1785855197093,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6de451a105ca0a5feb675a215d4e8de5207febf6",
-          "message": "statement-store: New RPC result types (#10421)\n\n# Description\n\nInternal submittion result type changed to keep more information, which\nshould be useful for RPC clients.\n\nApplication-level errors moved from JSON-RPC transport errors into the\nresult type for `statement_submit` RPC method to help clients\ndistinguish between submission outcomes instead of parsing error\nstrings.\n\nRuntime API wasn't changed.\n\n## Integration\n\n**Breaking Change** - `statement_submit` now returns\n`StatementSubmitResult` enum instead of `()`.\n\n## Review Notes\n\nSubmission outcomes now return as Ok(result) with status field. Only\ninfrastructure failures (database errors, decode errors) remain as\nJSON-RPC errors.\n\nNetworkPriority removed as we never used it, reputation changes\nadjusted.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
-          "timestamp": "2025-12-02T23:02:34Z",
-          "tree_id": "a9c85b731c11359474045c22ae839311d378a4f6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6de451a105ca0a5feb675a215d4e8de5207febf6"
-        },
-        "date": 1764722400783,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20218588080000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.311260656033333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1437188031,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ba2ec54b2b7459d0dc1b62b78d508e1d15638ab0",
+          "message": "[client] fix flaky test connectivity (#12729)\n\ntest_connectivity flakes on teardown: TestNet::drop tears down tokio\nbefore the storage backend's background threads release their files, so\ntemp.close() races a DirectoryNotEmpty. Retry fs::remove_dir_all a few\ntimes instead of failing on it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-04T13:11:33Z",
+          "tree_id": "9c0161c965949fd7c4bdcaebf1aa082cabea39f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba2ec54b2b7459d0dc1b62b78d508e1d15638ab0"
+        },
+        "date": 1785855165234,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14094560220000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.6255912207,
             "unit": "seconds"
           }
         ]
