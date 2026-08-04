@@ -9,9 +9,14 @@ doc:
       Fixes the way coretime assignments are being reported to the Relay Chain. Previously any
       assignment beyond the initial 28 would be silently truncated. Now all the assignments (up to
       80) are divided into chunks of at most 28 and sent to the Relay Chain.
-      
+ 
       Some types and methods in polkadot-runtime-parachains are made public in order to facilitate
       inspection of the Scheduler pallet's state from outside the crate.
+  - audience: Runtime User
+    description: |-
+      Removes the limit of 28 coretime assignments per core. Previously any assignment beyond the
+      initial 28 would be silently truncated. Now all the assignments (up to 80) will be correctly
+      sent to the Relay Chain.
 
 crates:
   - name: coretime-westend-runtime
