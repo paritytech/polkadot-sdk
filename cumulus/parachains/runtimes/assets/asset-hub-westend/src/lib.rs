@@ -2901,6 +2901,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					}).collect();
 					assets.into()
 				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{

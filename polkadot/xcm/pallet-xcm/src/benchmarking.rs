@@ -15,17 +15,25 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use codec::DecodeLimit;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use xcm::{
 	latest::{prelude::*, MAX_ITEMS_IN_ASSETS},
-	MAX_INSTRUCTIONS_TO_DECODE,
+	MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH,
 };
 use xcm_builder::EnsureDelivery;
-use xcm_executor::traits::FeeReason;
+use xcm_executor::traits::{FeeReason, WeightBounds};
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
+
+/// Upper bound for a caller-supplied XCM blob, in bytes.
+///
+/// Kept in sync by hand with `pallet_revive::limits::CALLDATA_BYTES`, the largest input a
+/// contract can hand to the XCM precompile, rather than depending on pallet-revive for one
+/// constant.
+const MAX_XCM_BLOB_BYTES: u32 = 128 * 1024;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
@@ -85,23 +93,34 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	/// Used, for example, in the benchmark for `claim_assets`.
 	fn get_asset() -> Asset;
 
-	/// Gets `n` distinct fungible assets handled by the `AssetTransactor`, preferring the
-	/// most expensive-to-deposit kind the chain supports.
+	/// Gets `n` distinct fungible assets handled by the `AssetTransactor`, preferring the most
+	/// expensive-to-deposit kind the chain supports. Used only in benchmarks.
 	///
-	/// Used only in benchmarks, e.g. for `claim_assets`.
+	/// The default ignores `n` and returns a single asset, so it measures a ~zero per-asset
+	/// slope: that is sound only for chains whose `AssetTransactor` handles one asset kind.
+	/// Chains that can deposit several MUST override it, otherwise `claim_assets` is
+	/// under-weighted; there is no generic default, since which ids are depositable is
+	/// runtime-specific.
+	fn get_assets(_n: u32) -> Assets {
+		Self::get_asset().into()
+	}
+
+	/// Wraps `calls` into a single call that dispatches all of them, e.g. `utility.batch`. Used
+	/// only by [`helpers::worst_case_weighable_message`].
 	///
-	/// The default returns `n` copies of `get_asset()`, which merge into a single asset
-	/// entry and measure a ~zero per-asset weight slope. That is only sound for chains whose
-	/// `AssetTransactor` handles a single asset kind (e.g. relay chains); chains that can
-	/// deposit multiple distinct assets (e.g. Asset Hub) MUST override this, otherwise
-	/// `claim_assets` will be underweighted. There is no sound generic default: which asset
-	/// ids are depositable is runtime-specific.
-	fn get_assets(n: u32) -> Assets {
-		(0..n).map(|_| Self::get_asset()).collect::<Vec<_>>().into()
+	/// If `None`, that worst case degrades to a single call and measures a far cheaper slope,
+	/// so chains with a batching pallet MUST implement this or the precompile that charges
+	/// `weigh_message` is under-charged.
+	fn batch_call(
+		_calls: Vec<<Self as crate::Config>::RuntimeCall>,
+	) -> Option<<Self as crate::Config>::RuntimeCall> {
+		None
 	}
 }
 
-#[benchmarks]
+// The `From<Call<T>>` bound lets `weigh_message` build its own worst-case payload; every
+// `construct_runtime!` runtime provides that conversion.
+#[benchmarks(where <T as crate::Config>::RuntimeCall: From<crate::Call<T>>)]
 mod benchmarks {
 	use super::*;
 
@@ -801,15 +820,43 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Decoding and weighing a caller-supplied message of `n` bytes.
+	///
+	/// The decode is inside the measured block because the precompile charges this before
+	/// decoding.
 	#[benchmark]
-	fn weigh_message() -> Result<(), BenchmarkError> {
-		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE.into()]);
-		let versioned_msg = VersionedXcm::from(msg);
+	fn weigh_message(n: Linear<0, MAX_XCM_BLOB_BYTES>) -> Result<(), BenchmarkError> {
+		let bytes = helpers::worst_case_weighable_message::<T>(n);
 
 		#[block]
 		{
-			crate::Pallet::<T>::query_xcm_weight(versioned_msg)
-				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+			let decoded =
+				VersionedXcm::<<T as crate::Config>::RuntimeCall>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &bytes[..],
+				)
+				.expect("blob was just built by `worst_case_weighable_message`; qed");
+			let mut message: Xcm<<T as crate::Config>::RuntimeCall> =
+				decoded.try_into().expect("blob was built at the latest version; qed");
+			// A message this large may legitimately exceed limits; finding that out is the cost
+			// being measured.
+			let _ = <T as crate::Config>::Weigher::weight(&mut message, Weight::MAX);
+		}
+
+		Ok(())
+	}
+
+	/// Decoding — but not weighing — a caller-supplied message of `n` bytes.
+	#[benchmark]
+	fn decode_xcm(n: Linear<0, MAX_XCM_BLOB_BYTES>) -> Result<(), BenchmarkError> {
+		let bytes = helpers::worst_case_decodable_blob(n);
+
+		#[block]
+		{
+			let _ = VersionedXcm::<()>::decode_all_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut &bytes[..],
+			);
 		}
 
 		Ok(())
@@ -824,6 +871,85 @@ mod benchmarks {
 
 pub mod helpers {
 	use super::*;
+
+	/// The worst case for `WeightInfo::weigh_message`: a `Transact` carrying
+	/// `batch_call([pallet_xcm.execute(Xcm([ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE])); N])`,
+	/// encoded, of at least `target_bytes` bytes.
+	///
+	/// Weighing it recurses `get_dispatch_info()` over every batched call, each with a fresh
+	/// instruction and depth budget, so the work far exceeds what the outer instruction cap
+	/// suggests. Only `MAX_XCM_DECODE_DEPTH` and the caller's input limit keep it proportional
+	/// to the blob size; raising either re-opens that.
+	///
+	/// Never returns fewer than `target_bytes` bytes — see `weigh_message`'s docs for why
+	/// undershooting would under-charge.
+	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
+	where
+		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,
+	{
+		let inner = Xcm::<<T as crate::Config>::RuntimeCall>(vec![
+			ClearOrigin;
+			MAX_INSTRUCTIONS_TO_DECODE.into()
+		]);
+		let one: <T as crate::Config>::RuntimeCall = crate::Call::<T>::execute {
+			message: Box::new(VersionedXcm::from(inner)),
+			max_weight: Weight::zero(),
+		}
+		.into();
+		let count = (target_bytes as usize).div_ceil(one.encode().len());
+
+		let call = T::batch_call(vec![one.clone(); count]).unwrap_or_else(|| {
+			tracing::warn!(
+				target: "xcm::benchmarking::pallet_xcm::weigh_message",
+				"`batch_call` is not implemented, so the measured per-byte slope is far below \
+				 the real worst case. Chains with a batching pallet must implement \
+				 `benchmarking::Config::batch_call`.",
+			);
+			one
+		});
+
+		let message = Xcm::<<T as crate::Config>::RuntimeCall>(vec![Transact {
+			origin_kind: OriginKind::SovereignAccount,
+			fallback_max_weight: None,
+			call: call.encode().into(),
+		}]);
+		VersionedXcm::from(message).encode()
+	}
+
+	/// The worst case for `WeightInfo::decode_xcm`: an encoded `VersionedXcm<()>` of at least
+	/// `target_bytes` bytes, as expensive to decode as the format allows.
+	///
+	/// `MAX_INSTRUCTIONS_TO_DECODE` caps the instruction count, so bytes past a hundred have to
+	/// come from payloads. The densest decodable one is `ReserveAssetDeposited` carrying
+	/// max-length asset ids, where nearly every byte is a nested enum or bounded-vec decode
+	/// rather than a byte copy.
+	pub fn worst_case_decodable_blob(target_bytes: u32) -> Vec<u8> {
+		// `index` keeps the ids distinct so that `Assets` does not deduplicate them.
+		let dense_asset = |index: u32| -> Asset {
+			let mut data = [0u8; 32];
+			data[..4].copy_from_slice(&index.to_le_bytes());
+			Asset {
+				id: AssetId(Location::new(1, [GeneralKey { length: 32, data }; 8])),
+				fun: Fungible(u128::MAX),
+			}
+		};
+
+		// Round up; undershooting `target_bytes` would under-charge.
+		let asset_len = dense_asset(0).encode().len();
+		let count = (target_bytes as usize).div_ceil(asset_len);
+		debug_assert!(
+			count <= MAX_INSTRUCTIONS_TO_DECODE as usize * MAX_ITEMS_IN_ASSETS,
+			"more assets than the instruction limit can carry; the blob would not decode",
+		);
+		let assets = (0..count).map(|index| dense_asset(index as u32)).collect::<Vec<_>>();
+
+		let instructions = assets
+			.chunks(MAX_ITEMS_IN_ASSETS)
+			.map(|chunk| ReserveAssetDeposited(chunk.to_vec().into()))
+			.collect::<Vec<Instruction<()>>>();
+		VersionedXcm::from(Xcm::<()>(instructions)).encode()
+	}
+
 	pub fn native_teleport_as_asset_transfer<T>(
 		native_asset_location: Location,
 		destination: Location,

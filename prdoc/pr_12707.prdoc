@@ -1,26 +1,57 @@
-title: 'pallet-xcm: make `claim_assets` weight scale with the number of claimed assets'
+title: 'pallet-xcm: weight asset claiming and precompile XCM input by their real size'
 doc:
 - audience: Runtime Dev
   description: |-
-    `claim_assets` was previously charged a flat weight benchmarked with a single
+    Three related under-charges in XCM weighing, all exploitable to build blocks whose
+    real execution cost far exceeds their accounted weight.
+
+    **`claim_assets` extrinsic.** It was charged a flat weight benchmarked with a single
     asset, while a claim may contain up to `MAX_ITEMS_IN_ASSETS` (20) assets, each
-    performing per-asset storage reads and writes through the `AssetTransactor`.
-    The extrinsic is now annotated with a weight linear in the number of claimed
-    assets and its benchmark is parameterized accordingly.
+    performing per-asset storage reads and writes through the `AssetTransactor`. The
+    extrinsic is now annotated with a weight linear in the number of claimed assets and
+    its benchmark is parameterized accordingly.
 
     Breaking change: `pallet_xcm::WeightInfo::claim_assets` now takes the number of
-    assets as `n: u32`; chains with custom `pallet_xcm` weights must regenerate
-    them. Chains whose `AssetTransactor` can deposit multiple distinct asset kinds
-    (e.g. Asset Hub) must override the new (defaulted)
-    `pallet_xcm::benchmarking::Config::get_assets` method so the benchmark measures
-    a real per-asset weight slope; the default merges into a single asset entry and
-    measures a flat weight, which is only sound for single-asset-kind transactors
-    (e.g. relay chains). `VersionedAssets` gained `len()` and `is_empty()`.
+    assets as `n: u32`; chains with custom `pallet_xcm` weights must regenerate them.
+    Chains whose `AssetTransactor` can deposit multiple distinct asset kinds (e.g. Asset
+    Hub) must override the new (defaulted)
+    `pallet_xcm::benchmarking::Config::get_assets` method so the benchmark measures a
+    real per-asset weight slope; the default merges into a single asset entry and
+    measures a flat weight, which is only sound for single-asset-kind transactors (e.g.
+    relay chains). `VersionedAssets` gained `len()` and `is_empty()`.
+
+    **`ClaimAsset` instruction.** Every runtime XCM weigher charged it a flat
+    single-asset weight. They now multiply it by the number of assets in the
+    instruction, as was already done for `WithdrawAsset`, `BurnAsset` and `ExpectAsset`.
+    This also closes the remaining gap in the inner message built by the `claim_assets`
+    extrinsic, whose `DepositAsset` half already scaled while its `ClaimAsset` half did
+    not.
+
+    **XCM precompile input.** The `pallet-revive` XCM precompile charged a flat weight
+    for decoding and weighing a caller-supplied blob, so the only size-dependent cost
+    was `pallet-revive`'s per-input-byte charge, which merely covers the calldata copy
+    and ABI decode. `MAX_INSTRUCTIONS_TO_DECODE` does not bound the work, because the
+    weigher fully decodes any call carried by a `Transact` and recurses
+    `get_dispatch_info()` over it, and every `DoubleEncoded` boundary starts a fresh
+    instruction and decode-depth budget. `weighMessage`, `execute` and `send` now charge
+    for the size of the blob before decoding it; for `execute` this is a separate charge
+    from the execution weight, which is reconciled down to the actual execution weight
+    and would otherwise refund it.
+
+    Breaking change: `pallet_xcm::WeightInfo::weigh_message` now takes the message
+    length `n: u32`, and a new `decode_xcm(n)` measures decoding without weighing. The
+    `weigh_message` benchmark builds its worst-case payload itself, needing only a
+    batching call from the new `pallet_xcm::benchmarking::Config::batch_call`
+    (implemented as `utility.batch` by all in-tree runtimes). Chains with a batching
+    pallet that leave it at its `None` default measure a far cheaper slope and will
+    under-charge the precompile.
 crates:
 - name: pallet-xcm
   bump: major
 - name: staging-xcm
   bump: minor
+- name: pallet-xcm-precompiles
+  bump: patch
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime

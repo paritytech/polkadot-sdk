@@ -108,7 +108,19 @@ pub trait WeightInfo {
 	fn add_authorized_alias() -> Weight;
 	fn remove_authorized_alias() -> Weight;
 
-	fn weigh_message() -> Weight;
+	/// Weight of decoding and weighing an XCM message of `n` bytes.
+	///
+	/// Scales with size because `MAX_INSTRUCTIONS_TO_DECODE` does not bound the work: the
+	/// weigher fully decodes any call carried by a `Transact` and recurses `get_dispatch_info`
+	/// over it, with a fresh instruction and depth budget per `DoubleEncoded` boundary.
+	///
+	/// Callers that also charge a flat small-message weight (e.g. [`Self::execute`]) pay this
+	/// base constant twice; that over-charge is deliberate.
+	fn weigh_message(n: u32) -> Weight;
+	/// Weight of decoding, but not weighing, an XCM message of `n` bytes.
+	///
+	/// Cheaper than [`Self::weigh_message`] because `Transact` payloads stay opaque.
+	fn decode_xcm(n: u32) -> Weight;
 }
 
 /// fallback implementation
@@ -203,8 +215,14 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000, 0)
 	}
 
-	fn weigh_message() -> Weight {
+	fn weigh_message(n: u32) -> Weight {
 		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+	}
+
+	fn decode_xcm(n: u32) -> Weight {
+		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(20_000, 0).saturating_mul(n.into()))
 	}
 }
 

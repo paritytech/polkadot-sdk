@@ -1906,6 +1906,9 @@ impl_runtime_apis! {
 					}).collect();
 					assets.into()
 				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
