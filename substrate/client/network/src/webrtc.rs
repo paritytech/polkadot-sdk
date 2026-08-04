@@ -122,15 +122,8 @@ pub enum CertificateError {
 /// The DTLS key is derived from the seed via RFC 9380 `hash_to_field`, and the certificate's
 /// serial number via a domain-separated SHA-256 hash of the seed, neither derivation reveals
 /// the node key.
-///
-/// `webrtc_seed` rotates the derived key, and therefore the certificate and its certhash,
-/// while leaving the node key and peer id untouched.
-/// Every value, including `Some(0)`, derives a distinct certificate from `None`.
-pub fn derive_certificate(
-	seed: &[u8; 32],
-	webrtc_seed: Option<u64>,
-) -> Result<DtlsCertificate, CertificateError> {
-	let (signing_key, private_key) = derive_keys(seed, webrtc_seed)?;
+pub fn derive_certificate(seed: &[u8; 32]) -> Result<DtlsCertificate, CertificateError> {
+	let (signing_key, private_key) = derive_keys(seed)?;
 	let public_key = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())?;
 	let serial = derive_serial(seed)?;
 	let validity = generate_validity();
@@ -166,22 +159,12 @@ pub fn derive_certificate(
 }
 
 /// Returns the derivated signing and private keys.
-fn derive_keys(
-	seed: &[u8],
-	webrtc_seed: Option<u64>,
-) -> Result<(SigningKey, Vec<u8>), CertificateError> {
-	// The DST parts are concatenated, so an absent seed leaves the tag unchanged.
-	// A present one always contributes 8 bytes, keeping `Some(0)` distinct from `None`.
-	let webrtc_seed = webrtc_seed.map(u64::to_be_bytes);
-	let dst_suffix: &[u8] = webrtc_seed.as_ref().map_or(&[], |bytes| bytes);
-
+fn derive_keys(seed: &[u8]) -> Result<(SigningKey, Vec<u8>), CertificateError> {
 	// Derive the P-256 signing key via RFC 9380 hash-to-field.
 	// This stretches the seed into pseudorandom bytes via `expand_message_xmd`,
 	// with field reduction for producing an EC private key.
-	let scalar = NistP256::hash_to_scalar::<ExpandMsgXmd<Sha256>>(
-		&[&seed],
-		&[CERTIFICATE_KEY_DST, dst_suffix],
-	)?;
+	let scalar =
+		NistP256::hash_to_scalar::<ExpandMsgXmd<Sha256>>(&[&seed], &[CERTIFICATE_KEY_DST])?;
 	let secret_scalar =
 		NonZeroScalar::new(scalar).into_option().ok_or(CertificateError::ZeroScalar)?;
 	let secret = SecretKey::from(secret_scalar);
@@ -233,8 +216,8 @@ mod tests {
 	#[test]
 	fn deterministic_certificate_generation() {
 		let seed = [7u8; 32];
-		let first = derive_certificate(&seed, None).unwrap();
-		let second = derive_certificate(&seed, None).unwrap();
+		let first = derive_certificate(&seed).unwrap();
+		let second = derive_certificate(&seed).unwrap();
 
 		assert_eq!(first.as_parts(), second.as_parts());
 		assert_eq!(certhash(&first), certhash(&second));
@@ -245,7 +228,7 @@ mod tests {
 		use x509_cert::{der::Decode, Certificate, Version};
 
 		let seed = [1u8; 32];
-		let certificate = derive_certificate(&seed, None).unwrap();
+		let certificate = derive_certificate(&seed).unwrap();
 		let (certificate_der, _) = certificate.as_parts();
 
 		let parsed = Certificate::from_der(certificate_der).unwrap();
@@ -258,8 +241,8 @@ mod tests {
 
 	#[test]
 	fn different_seeds_produce_different_certificates() {
-		let first = derive_certificate(&[1u8; 32], None).unwrap();
-		let second = derive_certificate(&[2u8; 32], None).unwrap();
+		let first = derive_certificate(&[1u8; 32]).unwrap();
+		let second = derive_certificate(&[2u8; 32]).unwrap();
 
 		assert_ne!(first.as_parts().0, second.as_parts().0);
 		assert_ne!(first.as_parts().1, second.as_parts().1);
@@ -270,74 +253,10 @@ mod tests {
 	fn stable_certhash() {
 		// Pins the seed -> certificate derivation. If this test ever fails, the derivation
 		// changed and the certhash published by every node relying on it breaks.
-		let certificate = derive_certificate(&[42u8; 32], None).unwrap();
+		let certificate = derive_certificate(&[42u8; 32]).unwrap();
 		assert_eq!(
 			certhash(&certificate),
 			"/certhash/uEiBU1jyJxUmj0eUBMpzL8lhUYvBy5UdXdhEAH_GbC7Kxcg"
-		);
-	}
-
-	#[test]
-	fn webrtc_seed_rotates_certificate() {
-		use x509_cert::{der::Decode, Certificate};
-
-		let seed = [3u8; 32];
-		let unseeded = derive_certificate(&seed, None).unwrap();
-		let first = derive_certificate(&seed, Some(1)).unwrap();
-		let second = derive_certificate(&seed, Some(2)).unwrap();
-
-		// Every seed yields a distinct certificate, key and certhash, for the same node key.
-		let certificates = [&unseeded, &first, &second];
-		for (index, left) in certificates.iter().enumerate() {
-			for right in certificates.iter().skip(index + 1) {
-				assert_ne!(left.as_parts().0, right.as_parts().0);
-				assert_ne!(left.as_parts().1, right.as_parts().1);
-				assert_ne!(certhash(left), certhash(right));
-			}
-		}
-
-		// The serial number is derived from the node key alone, so rotation leaves it alone.
-		let serial = |certificate: &DtlsCertificate| {
-			Certificate::from_der(certificate.as_parts().0)
-				.unwrap()
-				.tbs_certificate
-				.serial_number
-				.clone()
-		};
-		assert_eq!(serial(&unseeded), serial(&first));
-		assert_eq!(serial(&unseeded), serial(&second));
-	}
-
-	#[test]
-	fn webrtc_seed_derivation_is_deterministic() {
-		let seed = [9u8; 32];
-		let first = derive_certificate(&seed, Some(1)).unwrap();
-		let second = derive_certificate(&seed, Some(1)).unwrap();
-
-		assert_eq!(first.as_parts(), second.as_parts());
-		assert_eq!(certhash(&first), certhash(&second));
-	}
-
-	#[test]
-	fn boundary_webrtc_seeds_are_distinct() {
-		// A present seed always contributes its 8 bytes to the DST, so seed `0` is a rotation
-		// rather than an alias of "no seed".
-		let seed = [11u8; 32];
-		let unseeded = derive_certificate(&seed, None).unwrap();
-		let zero = derive_certificate(&seed, Some(0)).unwrap();
-		let max = derive_certificate(&seed, Some(u64::MAX)).unwrap();
-
-		assert_ne!(certhash(&unseeded), certhash(&zero));
-		assert_ne!(certhash(&unseeded), certhash(&max));
-		assert_ne!(certhash(&zero), certhash(&max));
-	}
-
-	#[test]
-	fn stable_certhash_with_webrtc_seed() {
-		let certificate = derive_certificate(&[42u8; 32], Some(1)).unwrap();
-		assert_eq!(
-			certhash(&certificate),
-			"/certhash/uEiCSnl2zX3egog3X8nATV2RcJXCXHMjF5GTVUtrKFbcGjQ"
 		);
 	}
 
@@ -346,7 +265,7 @@ mod tests {
 		use p256::ecdsa::{signature::Verifier, VerifyingKey};
 		use x509_cert::{der::Decode, Certificate};
 
-		let certificate = derive_certificate(&[8u8; 32], None).unwrap();
+		let certificate = derive_certificate(&[8u8; 32]).unwrap();
 		let (certificate_der, _) = certificate.as_parts();
 
 		let parsed = Certificate::from_der(certificate_der).unwrap();

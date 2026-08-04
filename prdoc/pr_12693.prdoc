@@ -11,14 +11,10 @@ doc:
 
     While this PR change the approach entirely and instead uses the node secret key as a seed for a deterministically generated WebRTC certificate.
 
-    A new optional `--webrtc-seed <u64>` flag rotates that certificate: the seed is appended to the key-derivation domain-separation tag, so the certhash changes while the node key and peer id stay the same. Without the flag the derivation is unchanged.
-
     ## Review Notes
 
     `derive_certificate` derives a P-256 signing key from the 32-byte node key seed via RFC 9380 `hash_to_field` then builds a minimal self-signed X.509 certificate and loads it into litep2p's `DtlsCertificate`.
 
 crates:
-- name: sc-cli
-  bump: major
 - name: sc-network
   bump: major

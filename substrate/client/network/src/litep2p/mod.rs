@@ -271,7 +271,6 @@ impl Litep2pNetworkBackend {
 	/// `node_secret_key` is the node's ed25519 secret-key bytes, the same key that backs the
 	/// node's peer id. It is used to derive a deterministic WebRTC DTLS certificate so the
 	/// node's `/certhash` stays associated with its identity and stable across restarts.
-	/// `--webrtc-seed` rotates that certificate without changing the node key.
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
 		node_secret_key: &[u8; 32],
@@ -353,8 +352,7 @@ impl Litep2pNetworkBackend {
 			// Always provide a deterministic DTLS certificate derived from the node's secret key,
 			// so the WebRTC certhash is associated with the node identity and stable across
 			// restarts.
-			let certificate =
-				webrtc::derive_certificate(node_secret_key, config.network_config.webrtc_seed)?;
+			let certificate = webrtc::derive_certificate(node_secret_key)?;
 			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
 				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 				certificate: Some(certificate),

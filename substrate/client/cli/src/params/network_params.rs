@@ -81,17 +81,6 @@ pub struct NetworkParams {
 	#[arg(long)]
 	pub experimental_webrtc: bool,
 
-	/// Seed for the WebRTC DTLS certificate derivation.
-	///
-	/// The certificate, and therefore the advertised `/certhash`,
-	/// is derived from the node key.
-	/// Incrementing this seed rotates the certificate,
-	/// omitting it derives from the node key alone.
-	///
-	/// Only works on litep2p network backend.
-	#[arg(long, value_name = "SEED", requires = "experimental_webrtc")]
-	pub webrtc_seed: Option<u64>,
-
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
 	pub port: Option<u16>,
@@ -295,7 +284,6 @@ impl NetworkParams {
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
 			experimental_webrtc: self.experimental_webrtc,
-			webrtc_seed: self.webrtc_seed,
 			public_addresses,
 			node_key,
 			node_name: node_name.to_string(),
@@ -369,16 +357,5 @@ mod tests {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);
-	}
-
-	#[test]
-	fn webrtc_seed_requires_experimental_webrtc() {
-		let params = Cli::try_parse_from(["", "--experimental-webrtc", "--webrtc-seed", "7"])
-			.expect("Parses network params");
-		assert_eq!(Some(7), params.network_params.webrtc_seed);
-
-		// The seed only feeds the WebRTC certificate derivation,
-		// so it is an error rather than a silent no-op without the transport enabled.
-		assert!(Cli::try_parse_from(["", "--webrtc-seed", "7"]).is_err());
 	}
 }
