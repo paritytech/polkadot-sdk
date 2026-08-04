@@ -47,32 +47,18 @@ const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-dtls-p256-v1";
 /// Domain-separation tag used to derive cert serial from public key.
 const CERTIFICATE_SERIAL_DST: &[u8] = b"substrate-webrtc-dtls-certificate-serial-v1";
 
-/// Error when deriving DTLS cert/key from the node ed25519 network key.
-#[derive(Debug, thiserror::Error)]
-pub enum CertificateError {
-	/// Failed to encode the certificate public key.
-	#[error("failed to encode certificate public key: {0}")]
-	PublicKeyEncoding(#[from] x509_cert::spki::Error),
-	/// Failed to build the certificate.
-	#[error("failed to build certificate: {0}")]
-	CertificateBuild(#[from] x509_cert::builder::Error),
-	/// Failed to DER-encode the certificate.
-	#[error("failed to encode certificate: {0}")]
-	CertificateEncoding(#[from] x509_cert::der::Error),
-	/// Failed to PKCS#8-encode the certificate private key.
-	#[error("failed to encode certificate private key: {0}")]
-	PrivateKeyEncoding(#[from] p256::pkcs8::Error),
-	/// Failed to load the generated certificate/key pair into a WebRTC DTLS certificate.
-	#[error("failed to load WebRTC certificate: {0}")]
-	CertificateLoad(#[from] litep2p::Error),
-}
-
 /// Deterministically generate a WebRTC DTLS certificate from a node's secret key.
+///
+/// Returns `Err` if litep2p's [`DtlsCertificate::load`] doesn't accept DER inputs (logically
+/// impossible as of litep2p v0.14.3).
 pub fn derive_certificate(
 	node_secret_key: Ed25519SecretKey,
-) -> Result<DtlsCertificate, CertificateError> {
+) -> Result<DtlsCertificate, litep2p::Error> {
+	// NOTE: none of the expects in this function are input-dependent.
+
 	let signing_key = derive_keys(node_secret_key);
-	let spki = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())?;
+	let spki = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())
+		.expect("a P-256 verifying key is SPKI-encodable; qed");
 	let serial = derive_serial(signing_key.verifying_key());
 	let validity = generate_validity();
 	let name = Name::from_str("CN=polkadot-sdk-webrtc")
@@ -88,18 +74,31 @@ pub fn derive_certificate(
 		name,
 		spki,
 		&signing_key,
-	)?;
+	)
+	.expect("the signature algorithm is fixed and both validity bounds are in range; qed");
 
-	// Every other WebRTC stack emits v3, but [`CertificateBuilders`] downgrades the certificates
-	// without extensions to v1. Include one non-critical extension to force v3.
-	builder.add_extension(&ExtendedKeyUsage(vec![ANY_EXTENDED_KEY_USAGE]))?;
+	// Every other WebRTC stack emits v3, but [`CertificateBuilder`] downgrades the certificates
+	// without extensions to v1. Include one non-critical extension to also emit v3.
+	builder
+		.add_extension(&ExtendedKeyUsage(vec![ANY_EXTENDED_KEY_USAGE]))
+		.expect("a single OID is DER-encodable; qed");
 
-	let certificate = builder.build::<DerSignature>()?.to_der()?;
+	// Signing fails only if the RFC 6979 nonce or either signature scalar is zero, each with
+	// probability 2^-256.
+	let certificate = builder
+		.build::<DerSignature>()
+		.expect("the certificate is well-formed and the signing key valid; qed")
+		.to_der()
+		.expect("a built certificate is DER-encodable; qed");
 
 	// `DtlsCertificate` below expects PKCS#8 private key.
-	let pk_pkcs8_der = signing_key.to_pkcs8_der()?.as_bytes().to_vec();
+	let pk_pkcs8_der = signing_key
+		.to_pkcs8_der()
+		.expect("a P-256 signing key is PKCS#8-encodable; qed")
+		.as_bytes()
+		.to_vec();
 
-	Ok(DtlsCertificate::load(certificate, pk_pkcs8_der)?)
+	DtlsCertificate::load(certificate, pk_pkcs8_der)
 }
 
 /// Derive P-256 key from ed25519 key.

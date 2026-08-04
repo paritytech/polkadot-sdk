@@ -348,7 +348,8 @@ impl Litep2pNetworkBackend {
 			// Always provide a deterministic DTLS certificate derived from the node's secret key,
 			// so the WebRTC certhash is associated with the node identity and stable across
 			// restarts.
-			let certificate = webrtc::derive_certificate(keypair.secret())?;
+			let certificate =
+				webrtc::derive_certificate(keypair.secret()).map_err(Error::Litep2p)?;
 			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
 				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 				certificate: Some(certificate),

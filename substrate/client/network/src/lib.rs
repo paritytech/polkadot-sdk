@@ -295,7 +295,6 @@ pub use service::{
 	PublicKey,
 };
 pub use types::ProtocolName;
-pub use webrtc::CertificateError;
 
 /// Log target for `sc-network`.
 const LOG_TARGET: &str = "sub-libp2p";

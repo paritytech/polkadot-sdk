@@ -80,9 +80,6 @@ pub enum Error {
 	/// Litep2p error.
 	#[error("Litep2p error: `{0}`")]
 	Litep2p(litep2p::Error),
-	/// WebRTC certificate generation error.
-	#[error(transparent)]
-	WebRtcCertificate(#[from] crate::webrtc::CertificateError),
 }
 
 // Make `Debug` use the `Display` implementation.
