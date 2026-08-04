@@ -106,6 +106,9 @@ pub struct RpcParams {
 	/// Disables Nagle's algorithm, which otherwise delays a small write until the previous one
 	/// has been acknowledged. Messages that would otherwise be coalesced are then sent
 	/// separately, which can increase the number of emitted TCP packets.
+	///
+	/// jsonrpsee sets this in its own accept loop, which the RPC server bypasses by accepting
+	/// connections itself, so the option has to be enabled explicitly.
 	#[arg(long)]
 	pub rpc_tcp_nodelay: bool,
 
