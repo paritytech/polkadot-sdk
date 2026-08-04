@@ -17,16 +17,8 @@
 
 use alloc::vec::Vec;
 use pallet_revive_types::runtime_api::*;
-use sp_runtime::ApplyExtrinsicResult;
 
-use crate::evm::{Trace, TracerType};
-
-/// Whether an extrinsic that produced no trace could not be traced (vs. having nothing to trace),
-/// from its `apply_extrinsic` result. `ExhaustsResources` is the only spurious failure a faithful
-/// replay introduces.
-pub fn is_not_traced(result: &ApplyExtrinsicResult) -> bool {
-	matches!(result, Err(err) if err.exhausted_resources())
-}
+use crate::evm::{Trace, TraceEntry, TracerType};
 
 pub struct TraceBlockInputPayload<Block> {
 	pub block: Block,
@@ -58,22 +50,6 @@ impl<Block> From<TraceBlockInputPayloadV2<Block>> for TraceBlockInputPayload<Blo
 impl<Block> From<TraceBlockInputPayloadV3<Block>> for TraceBlockInputPayload<Block> {
 	fn from(value: TraceBlockInputPayloadV3<Block>) -> Self {
 		Self { block: value.block, config: value.config.into() }
-	}
-}
-
-/// A single extrinsic's trace, or a signal that it could not be traced. The runtime builds these;
-/// each output version projects them (V1/V2 keep only the traced ones, V3 keeps the untraced ones).
-pub enum TraceEntry {
-	Traced(Trace),
-	NotTraced,
-}
-
-impl From<TraceEntry> for TraceEntryV1 {
-	fn from(value: TraceEntry) -> Self {
-		match value {
-			TraceEntry::Traced(trace) => TraceEntryV1::Traced(trace.into()),
-			TraceEntry::NotTraced => TraceEntryV1::NotTraced,
-		}
 	}
 }
 

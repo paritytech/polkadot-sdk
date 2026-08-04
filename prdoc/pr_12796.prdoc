@@ -12,15 +12,16 @@ doc:
 
     # Integration
 
-    - New `TraceEntryV1 { Traced(TraceV1), NotTraced }` in `pallet-revive-types`: a trace, a couldn't-trace signal, or (absent entry / `None`) nothing to trace.
+    - New `TraceEntryV1 { Traced(TraceV2), NotTraced }` in `pallet-revive-types`: a trace, a couldn't-trace signal, or (absent entry / `None`) nothing to trace.
     - `trace_block_versioned` / `trace_tx_versioned` gain a **V3** payload (`version_declarations` bumped to 3) returning `Vec<(u32, TraceEntryV1)>` / `Option<TraceEntryV1>`; V1/V2 unchanged.
     - eth-rpc prefers V3: `debug_traceBlock*` renders `NotTraced` as a geth `{txHash, error}` and `debug_traceTransaction` returns a real error, not "not found"; it falls back to the `degraded` path on V1/V2 nodes.
 
     # Review Notes
 
-    - **Classification.** The tracer loop builds `TraceEntry` once; V1/V2 drop `NotTraced`, V3 keeps it. `is_not_traced` flags only `Err(ExhaustsResources)`; anything else yields no entry.
+    - **Classification.** The tracer loop builds `TraceEntry` once; V1/V2 drop `NotTraced`, V3 keeps it. `TraceEntry::for_untraced` flags only `Err(ExhaustsResources)`.
     - **Unit variant, not the drafted enum.** Drafted in [polkadot-sdk#12386](https://github.com/paritytech/polkadot-sdk/pull/12386#issuecomment-5052840014) as `NotTraced(NotTracedReasonV1)`. Shipped as a unit `NotTraced`: `ExhaustsResources` seems to be the only cause that drops a real transaction's trace on a faithful replay, so a reason enum would carry no information. Extensible if a second cause appears.
-    - **`TraceV1`, not `TraceV2`.** eth-rpc is `TraceV1`-based, so `TraceEntryV1` wraps `TraceV1`; a future `TraceEntryV2` can wrap `TraceV2`.
+    - **Wraps `TraceV2`.** The `V1` counts this wire type's own iterations, not the payload's, so it carries the newest trace payload.
+    - **Downgrade in eth-rpc.** eth-rpc serves `TraceV1`, so it keeps its own `TraceEntry { Traced(TraceV1), NotTraced }` and projects V2 -> V1 (`trace_v2_as_v1`), dropping `CallLogV2::index`. Not in `pallet-revive-types`, to keep a lossy conversion out of the shared crate. Serving V2 instead would mean synthesizing `index` for older runtimes.
 crates:
 - name: pallet-revive-eth-rpc
   bump: minor

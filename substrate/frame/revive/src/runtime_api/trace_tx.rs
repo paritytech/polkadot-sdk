@@ -17,7 +17,7 @@
 
 use pallet_revive_types::runtime_api::*;
 
-use crate::{evm::TracerType, runtime_api::TraceEntry};
+use crate::evm::{TraceEntry, TracerType};
 
 pub struct TraceTxInputPayload<Block> {
 	pub block: Block,

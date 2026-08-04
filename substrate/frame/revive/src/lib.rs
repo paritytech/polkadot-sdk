@@ -4248,6 +4248,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					use $crate::{
 						sp_runtime::traits::Block,
 						tracing::trace,
+						evm::TraceEntry,
 						runtime_api::*,
 						pallet_revive_types::runtime_api::*
 					};
@@ -4287,8 +4288,8 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 						if let Some(tx_trace) = tracer.collect_trace() {
 							entries.push((index as u32, TraceEntry::Traced(tx_trace)));
-						} else if is_not_traced(&result) {
-							entries.push((index as u32, TraceEntry::NotTraced));
+						} else if let Some(entry) = TraceEntry::for_untraced(&result) {
+							entries.push((index as u32, entry));
 						}
 					}
 
@@ -4301,7 +4302,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> $crate::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload {
 					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::runtime_api::*;
-					use $crate::{sp_runtime::traits::Block, tracing::trace};
+					use $crate::{evm::TraceEntry, sp_runtime::traits::Block, tracing::trace};
 					use alloc::boxed::Box;
 
 					let (input, output_wrapper): (
@@ -4342,7 +4343,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							let result = trace(t, || <$Executive>::apply_extrinsic(ext));
 							entry = match tracer.collect_trace() {
 								Some(tx_trace) => Some(TraceEntry::Traced(tx_trace)),
-								None => is_not_traced(&result).then_some(TraceEntry::NotTraced),
+								None => TraceEntry::for_untraced(&result),
 							};
 							break;
 						} else {

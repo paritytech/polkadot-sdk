@@ -63,7 +63,7 @@ use subxt::{
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
 use version_aware_runtime_api::{
-	CallRecordedOutput, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
+	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
 };
 
 /// The substrate block number type.
@@ -1140,8 +1140,8 @@ impl Client {
 				let index = index as usize;
 				let tx_hash = hashes.remove(&index)?;
 				let outcome = match entry {
-					TraceEntryV1::Traced(trace) => TraceOutcome::Trace(trace),
-					TraceEntryV1::NotTraced => {
+					TraceEntry::Traced(trace) => TraceOutcome::Trace(trace),
+					TraceEntry::NotTraced => {
 						TraceOutcome::Error(ClientError::TraceUnavailable.to_string())
 					},
 				};
@@ -1183,8 +1183,8 @@ impl Client {
 			.await?;
 
 		match entry {
-			Some(TraceEntryV1::Traced(trace)) => Ok(trace),
-			Some(TraceEntryV1::NotTraced) => Err(ClientError::TraceUnavailable),
+			Some(TraceEntry::Traced(trace)) => Ok(trace),
+			Some(TraceEntry::NotTraced) => Err(ClientError::TraceUnavailable),
 			None if degraded => Err(ClientError::TraceUnavailable),
 			None => Err(ClientError::EthExtrinsicNotFound),
 		}
