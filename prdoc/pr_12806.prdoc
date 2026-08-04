@@ -1,0 +1,10 @@
+title: '[pallet-revive] Fix EXTCODECOPY for precompiles'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `EXTCODESIZE` and `EXTCODEHASH` already report a precompile's dummy code, but `EXTCODECOPY` resolved the code through `PristineCode` (where precompiles have no entry) and copied zeros. A contract copying a precompile's code and hashing it would get a result inconsistent with `EXTCODEHASH`.
+
+    `copy_code_slice` now resolves the code from the same sources and in the same priority order as `code_hash`/`code_size` (precompile code, then mocked code, then `PristineCode`), zero-padded past the end of the code.
+crates:
+- name: pallet-revive
+  bump: minor
