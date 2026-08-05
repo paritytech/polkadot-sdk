@@ -244,10 +244,9 @@ enum RefineLog {
     /// The work item payload failed to decode into a `ParachainCandidate`.
     /// See §4.1 step 3.
     MalformedPayload,
-    /// The encoded `ParachainWorkDigest` (head data + upward messages) would
-    /// exceed the Gray Paper's 48 KiB combined result-blob + auth-trace
-    /// budget. See §4.1.
-    WorkDigestTooLarge,
+    /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
+    /// Paper's 48 KiB. See §4.1.
+    RefineOutputTooLarge,
     /// The PVF exited without calling `set_parent_head_hash` and/or `set_head`
     /// exactly once. Both head declarations are mandatory. See §4.2.
     MissingHeadDeclaration,
@@ -548,7 +547,7 @@ index `item_index` the Parachain Service performs:
 8. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget; if not, aborts with
-   `Err(RefineLog::WorkDigestTooLarge)`.
+   `Err(RefineLog::RefineOutputTooLarge)`.
 
 Because Refine is stateless, it cannot write to service storage.
 
