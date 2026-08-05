@@ -825,7 +825,9 @@ impl SubmitIndex {
 		}
 		self.cached_statement_count += record.by_priority.len();
 		self.account_statements.insert(account, record);
-		while self.cached_statement_count > DETAILS_CACHE_BUDGET && self.account_statements.len() > 1 {
+		while self.cached_statement_count > DETAILS_CACHE_BUDGET &&
+			self.account_statements.len() > 1
+		{
 			match self.account_statements.pop_oldest() {
 				Some((_, evicted)) => self.cached_statement_count -= evicted.by_priority.len(),
 				None => break,
@@ -1897,7 +1899,7 @@ impl Store {
 					// Entries are ordered by expiry, so nothing further is due.
 					break;
 				}
-				due.push(hash);
+				due.push((expiry, hash));
 				if due.len() >= statement_budget || start.elapsed() >= time_budget {
 					break;
 				}
@@ -1907,21 +1909,27 @@ impl Store {
 		if let Err(e) = scan {
 			log::warn!(target: LOG_TARGET, "Error scanning the expiry index: {:?}", e);
 		}
-		for hash in due {
-			if let Err(e) = self.remove(&hash) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Error marking statement {:?} as expired: {:?}",
-					HexDisplay::from(&hash),
-					e
-				);
-			} else {
-				expired += 1;
-				log::trace!(
-					target: LOG_TARGET,
-					"Marked statement {:?} as expired",
-					HexDisplay::from(&hash)
-				);
+		for (expiry, hash) in due {
+			match self.remove_statement(&hash) {
+				Ok(true) => {
+					expired += 1;
+					log::trace!(
+						target: LOG_TARGET,
+						"Marked statement {:?} as expired",
+						HexDisplay::from(&hash)
+					);
+				},
+				// The row survived its statement; without cleanup the sweep would re-collect
+				// this hash on every pass, wasting its budget and counting phantom expiries.
+				Ok(false) => self.delete_orphan_expiry_row(expiry, &hash),
+				Err(e) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Error marking statement {:?} as expired: {:?}",
+						HexDisplay::from(&hash),
+						e
+					);
+				},
 			}
 		}
 
@@ -2677,92 +2685,7 @@ impl StatementStore for Store {
 	/// it in the `EXPIRED` column so it cannot be re-accepted until its purge period elapses (see
 	/// [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
-		let current_time = self.timestamp();
-		let removed_statement = {
-			let mut submit_index = self.submit_index.write();
-			// The body is read under the submit-index lock, so it cannot change under our feet
-			let Some(encoded) =
-				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
-			else {
-				return Ok(());
-			};
-			let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
-				.ok()
-				.and_then(|statement| statement.account_id().map(|account| (statement, account)))
-			else {
-				// A corrupt body cannot be tied back to its index rows; drop the body alone.
-				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
-				self.db
-					.commit([(col::STATEMENTS, hash.to_vec(), None)])
-					.map_err(|e| Error::Db(e.to_string()))?;
-				return Ok(());
-			};
-			let expiry = Expiry(statement.expiry());
-			let account_key = account_index_key(&account, expiry, hash);
-			let details = self
-				.db
-				.get(col::INDEX_BY_ACCOUNT, &account_key)
-				.map_err(|e| Error::Db(e.to_string()))?
-				.as_deref()
-				.and_then(|mut value| EntryDetails::decode(&mut value).ok());
-
-			let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
-			commit.extend(statement_index_ops(hash, &statement, false));
-			commit.extend(account_index_ops(&account, expiry, hash, None));
-			match &details {
-				Some(details) => commit.push((
-					col::ADMISSION_SEQ,
-					details.admission_seq.to_be_bytes().to_vec(),
-					None,
-				)),
-				// Nothing points at the admission entry any more; replay skips it once the body
-				// is gone.
-				None => log::warn!(
-					target: LOG_TARGET,
-					"Missing account index entry for statement {:?}",
-					HexDisplay::from(hash)
-				),
-			}
-			let banned = current_time < expiry.get_expiration_timestamp_secs();
-			if banned {
-				let purge_at = expiry
-					.get_expiration_timestamp_secs()
-					.min(current_time.saturating_add(submit_index.config.purge_after_sec));
-				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
-				commit.push((
-					col::INDEX_EVICTED,
-					evicted_index_key(purge_at, hash),
-					Some(INDEX_EMPTY_VALUE.to_vec()),
-				));
-			}
-			let data_len = details
-				.as_ref()
-				.map_or_else(|| statement.data_len(), |details| details.data_len);
-			commit.push(SubmitIndex::counters_op(
-				submit_index.statement_count.saturating_sub(1),
-				submit_index.total_size.saturating_sub(data_len),
-				submit_index.next_seq,
-			));
-			if let Err(e) = self.db.commit(commit) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Error removing statement: database error {}, {:?}",
-					e,
-					HexDisplay::from(hash),
-				);
-				return Err(Error::Db(e.to_string()));
-			}
-			submit_index.apply_removal(
-				&account,
-				&PriorityKey { hash: *hash, expiry },
-				data_len,
-				banned,
-			);
-			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
-			statement
-		};
-		self.query_index.write().note_remove(hash, &removed_statement);
-		Ok(())
+		self.remove_statement(hash).map(|_| ())
 	}
 
 	/// Remove every statement authored by `who`, applying the same soft-delete as
@@ -2926,6 +2849,132 @@ impl StatementStoreSubscriptionApi for Store {
 }
 
 impl Store {
+	/// Body of [`StatementStore::remove`], reporting whether a statement was actually removed.
+	///
+	/// `Ok(false)` means no (decodable) statement remains under `hash` — it was already gone, or
+	/// its body was corrupt and only the body itself could be dropped. In the latter case the
+	/// index rows cannot be located and stay behind; a caller that knows a row's key from its
+	/// own scan is expected to clean that row up (see the expiry sweep in
+	/// [`Self::enforce_limits_bounded`]).
+	fn remove_statement(&self, hash: &Hash) -> Result<bool> {
+		let current_time = self.timestamp();
+		let removed_statement = {
+			let mut submit_index = self.submit_index.write();
+			// The body is read under the submit-index lock, so it cannot change under our feet
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				return Ok(false);
+			};
+			let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
+				.ok()
+				.and_then(|statement| statement.account_id().map(|account| (statement, account)))
+			else {
+				// A corrupt body cannot be tied back to its index rows; drop the body alone.
+				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				self.db
+					.commit([(col::STATEMENTS, hash.to_vec(), None)])
+					.map_err(|e| Error::Db(e.to_string()))?;
+				return Ok(false);
+			};
+			let expiry = Expiry(statement.expiry());
+			let account_key = account_index_key(&account, expiry, hash);
+			let details = self
+				.db
+				.get(col::INDEX_BY_ACCOUNT, &account_key)
+				.map_err(|e| Error::Db(e.to_string()))?
+				.as_deref()
+				.and_then(|mut value| EntryDetails::decode(&mut value).ok());
+
+			let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
+			commit.extend(statement_index_ops(hash, &statement, false));
+			commit.extend(account_index_ops(&account, expiry, hash, None));
+			match &details {
+				Some(details) => commit.push((
+					col::ADMISSION_SEQ,
+					details.admission_seq.to_be_bytes().to_vec(),
+					None,
+				)),
+				// Nothing points at the admission entry any more; replay skips it once the body
+				// is gone.
+				None => log::warn!(
+					target: LOG_TARGET,
+					"Missing account index entry for statement {:?}",
+					HexDisplay::from(hash)
+				),
+			}
+			let banned = current_time < expiry.get_expiration_timestamp_secs();
+			if banned {
+				let purge_at = expiry
+					.get_expiration_timestamp_secs()
+					.min(current_time.saturating_add(submit_index.config.purge_after_sec));
+				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				commit.push((
+					col::INDEX_EVICTED,
+					evicted_index_key(purge_at, hash),
+					Some(INDEX_EMPTY_VALUE.to_vec()),
+				));
+			}
+			let data_len = details
+				.as_ref()
+				.map_or_else(|| statement.data_len(), |details| details.data_len);
+			commit.push(SubmitIndex::counters_op(
+				submit_index.statement_count.saturating_sub(1),
+				submit_index.total_size.saturating_sub(data_len),
+				submit_index.next_seq,
+			));
+			if let Err(e) = self.db.commit(commit) {
+				log::debug!(
+					target: LOG_TARGET,
+					"Error removing statement: database error {}, {:?}",
+					e,
+					HexDisplay::from(hash),
+				);
+				return Err(Error::Db(e.to_string()));
+			}
+			submit_index.apply_removal(
+				&account,
+				&PriorityKey { hash: *hash, expiry },
+				data_len,
+				banned,
+			);
+			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
+			statement
+		};
+		self.query_index.write().note_remove(hash, &removed_statement);
+		Ok(true)
+	}
+
+	/// Deletes an [`col::INDEX_BY_EXPIRY`] row that survived its statement (the body was corrupt,
+	/// so its removal could not locate the row), re-checking under the submit lock — every
+	/// commit happens under it — that the body is indeed gone: a concurrent re-admission of the
+	/// same statement recreates the same content-derived key and must keep its row.
+	fn delete_orphan_expiry_row(&self, expiry: u64, hash: &Hash) {
+		let _submit_index = self.submit_index.write();
+		match self.db.get_size(col::STATEMENTS, hash.as_slice()) {
+			Ok(None) => {
+				let key = expiry_index_key(Expiry(expiry), hash);
+				if let Err(e) = self.db.commit([(col::INDEX_BY_EXPIRY, key, None)]) {
+					log::debug!(
+						target: LOG_TARGET,
+						"Error deleting an orphan expiry row: {}",
+						e
+					);
+				} else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Deleted the orphan expiry row of statement {:?}",
+						HexDisplay::from(hash)
+					);
+				}
+			},
+			Ok(Some(_)) => {},
+			Err(e) => {
+				log::debug!(target: LOG_TARGET, "Error checking statement presence: {:?}", e)
+			},
+		}
+	}
+
 	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
 		let registered = {
 			let submit_index = self.submit_index.write();
@@ -4765,6 +4814,37 @@ mod tests {
 		assert_eq!(store.statement_count(), 0);
 		// Naturally expired statements are not banned via the evicted journal.
 		assert_eq!(store.evicted_count(), 0);
+	}
+
+	#[test]
+	fn expiry_sweep_heals_orphaned_expiry_rows() {
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// A statement whose body is then corrupted in place: its removal can only drop the
+		// body, stranding the index rows it cannot locate any more.
+		let mut stmt = unsigned_statement(1, 1, None, 100);
+		stmt.set_expiry_from_parts(200, 1);
+		sign_with(&mut stmt, 1);
+		let hash = stmt.hash();
+		let expiry = crate::Expiry(stmt.expiry());
+		assert_eq!(store.submit(stmt, StatementSource::Network), SubmitResult::New);
+		store.db.commit([(col::STATEMENTS, hash.to_vec(), Some(vec![0xFF]))]).unwrap();
+
+		let expiry_key = crate::expiry_index_key(expiry, &hash);
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+
+		// The sweep drops the corrupt body and, seeing that no statement was removed, heals the
+		// orphaned expiry row in the same pass — instead of re-collecting the hash and counting
+		// a phantom expiry on every pass forever.
+		store.set_time(300);
+		store.enforce_limits();
+		assert!(!store.has_statement(&hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
+
+		// Nothing left for further sweeps to re-collect.
+		store.enforce_limits();
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
 	}
 
 	#[test]
