@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785855361705,
+  "lastUpdate": 1785962261367,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "315513b4bca923fdf071a0a7386c8a194c95f142",
-          "message": "Try State Hook for Pallet Assets (#10371)\n\nThis PR introduces the try_state hook to pallet-assets to verify key\nstorage invariants.\n\ncloses part of https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-01T09:34:36Z",
-          "tree_id": "cbbf337a35b1e52b542ac49258dc7bf6a12928e1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/315513b4bca923fdf071a0a7386c8a194c95f142"
-        },
-        "date": 1764587603039,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027008673699999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005167695649999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008879473579999984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00255667529,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37865735+clangenb@users.noreply.github.com",
+            "name": "clangenb",
+            "username": "clangenb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11eb7aa0d9f0aa1b5b42448705b9906c9fc8c7a9",
+          "message": "Derive Debug, Clone, PartialEq, Eq for EraPayoutParams (#12449)\n\n`polkadot_runtime_common::impls::EraPayoutParams` now derives `Debug`,\n`Clone`, `PartialEq` and `Eq`, so runtimes can log and compare the\nera-payout parameters they construct.\n\nNoticed this when doing a minor cleanup in the runtimes repository. It\ndoes not hurt to derive these things, and might bring needed convenience\nat some point.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>",
+          "timestamp": "2026-08-05T18:50:30Z",
+          "tree_id": "d06284205883b4ec6192c51998c15a5306e72571",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11eb7aa0d9f0aa1b5b42448705b9906c9fc8c7a9"
+        },
+        "date": 1785962227897,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002641094650000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009735168269999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009916365069999992,
             "unit": "seconds"
           }
         ]
