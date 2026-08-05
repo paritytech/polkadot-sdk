@@ -36,7 +36,7 @@ module messages {
   | MalformedAuthorizerConfig
   // The encoded digest plus the work-report's authorizer trace exceeds
   // the Gray Paper's 48 KiB combined-result-blob budget (§4.1 step 7).
-  | WorkDigestTooLarge
+  | RefineOutputTooLarge
   // The PVF exited without calling `set_parent_head_hash` and/or `set_head`
   // exactly once — both head declarations are mandatory (§4.2).
   | MissingHeadDeclaration

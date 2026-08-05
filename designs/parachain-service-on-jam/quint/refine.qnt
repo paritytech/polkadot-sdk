@@ -177,7 +177,7 @@ module refine {
     else if (violatesParachainRestrictions(msgs, para_id))
     refineErr(para_id, RestrictedHostFunction)
     else if (resultExceedsBudget(msgs))
-    refineErr(para_id, WorkDigestTooLarge)
+    refineErr(para_id, RefineOutputTooLarge)
     else
     // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
     // missing declaration (`None`) is rejected with `MissingHeadDeclaration`.
