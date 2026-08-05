@@ -964,12 +964,9 @@ listed by `consumed_streams()`—channel acceptance happens via extrinsic
 API would have to leave unlisted.
 
 Inputs flow back into the runtime exclusively through the messaging
-inherent ([#12531](https://github.com/paritytech/polkadot-sdk/issues/12531)):
-fetched payloads (with inclusion proofs for register/event reads) and
-ack-register reads—never a `StreamsRoot` (see
-Verification below for why the runtime has no use for one). The runtime
-verifies by recomputation—the API and the inherent are a trust boundary,
-not a trusted channel.
+inherent—defined next in
+[The Messaging Inherent](#the-messaging-inherent). The API and the
+inherent are the two halves of one trust boundary, not a trusted channel.
 
 **Recovery from downtime falls out of this split.** All authoring-relevant
 state is consensus state behind the API—a returning collator syncs its
@@ -980,6 +977,120 @@ node executes the missed blocks (each block's `outbound_messages()`
 regenerates in passing); a node syncing without execution instead fetches
 the missing range from its own chain's other nodes—the ordinary fetch
 protocol, pointed at one's own streams.
+
+#### The Messaging Inherent
+
+All received data enters the runtime through one inherent
+([#12531](https://github.com/paritytech/polkadot-sdk/issues/12531)),
+carrying payloads and trust-free positioning hints—no roots, no proof
+objects, no relay state of any kind (see
+[Verification](#verification)). The runtime verifies by
+**recomputation into the consumption record, with no exceptions**;
+binding the results to committed roots is the `validate_block`
+wrapper's job (see
+[Requires Lifting](#requires-lifting-pov-proofs)). A tampered input
+merely yields an endpoint no lift can bind: node-side pre-verification
+(fetching under a root verified at the receiver's tier) protects the
+honest collator, the lift protects consensus.
+
+Unlike the fetch protocol, the inherent format is **chain-internal, not
+interoperability-normative**: only the resulting commitments are
+consensus-visible to anyone else. The shape:
+
+```rust
+/// What the inherent provider hands the runtime per block. Built
+/// node-side by the fetch pipeline from responses verified under the
+/// receiver's tier roots; the runtime re-verifies everything it uses by
+/// recomputation. Deliberately no roots and no proofs of any kind.
+struct MessagingInherentData {
+    items: Vec<(ParaId, StreamId, ConsumeItem)>,
+}
+
+/// One stream's consumption this block. Both arms verify identically—
+/// hash payloads into leaves, append to a frontier, let the lift bind
+/// the endpoint—differing only in WHERE the frontier comes from
+/// (mirroring the two consumption disciplines, see Event Streams).
+enum ConsumeItem {
+    /// Prefix discipline: the frontier is consensus state
+    /// (`InboundFrontier`); payloads are the stream's next messages, in
+    /// order. Order and count are self-enforcing—any deviation yields
+    /// an endpoint no lift can bind.
+    Channel { payloads: Vec<Payload> },
+    /// Inclusion discipline (registers, event streams): the frontier
+    /// arrives in the item—`start_peaks` is the stream's peak set at
+    /// `base`, standing in for the frontier a lossy consumer
+    /// deliberately doesn't keep. len ≥ 1; a register or head read is
+    /// the len-1 case at the head (head-ness falls out: an empty lift
+    /// extension means the endpoint IS the committed entry—see Flow
+    /// Control). `base` and `start_peaks` are trust-free hints: the
+    /// appended structure is placed by `base`, so a lie in either
+    /// yields a root no lift can bind (the MMRExtensionProof
+    /// `leaf_count` argument). Replay-guarded by the highwater rule:
+    /// require `base > highwater`, consume ascending, bump highwater
+    /// to `base + len − 1` (see Event Streams).
+    Events {
+        base: MessagePosition,
+        start_peaks: Vec<Hash>,
+        payloads: Vec<Payload>,
+    },
+}
+```
+
+`MmrInclusionProof` thus never crosses the node–runtime boundary—it
+remains a wire object (`EventResponse`), where the *node* verifies it.
+The runtime's single verification discipline is recomputation, at no
+byte cost: an inclusion proof is internally sibling path + peaks
+(~2 log n hashes); the recomputation form is peaks + lift extension,
+the same two O(log n) components—the bytes merely move from a proof
+object in the block body to the candidate's ordinary lift, already
+covered by the per-stream reservation.
+
+Dispatch rules:
+
+- **Mandatory, and first in the block** (like all inherents)—consumption
+  capacity cannot be crowded out by extrinsics (see
+  [Delivery Contract](#delivery-contract-ordered-and-guaranteed)).
+- **Absent = consumed nothing.** Empty data produces no inherent call at
+  all; a block that fetched nothing carries none, touches no stream, and
+  emits no requires. Consuming nothing costs nothing.
+- **At most one item per stream and block**—the consumption record's
+  one-interval-per-stream shape, enforced at dispatch.
+- **Strict on import: one invalid item invalidates the block.** Any
+  invalid item (undeclared stream, cap violation, kind/discipline
+  mismatch, `base ≤ highwater`) errors the mandatory dispatch—the
+  standard inherent pattern (cf. `paras_inherent`): filter when
+  *building* (the inherent provider simply doesn't include bad items),
+  hard error on *import*. Every check is deterministic against parent
+  state and node-verifiable before building, so an honest author never
+  fails; and since inherent items pay no fees, tolerance would let a
+  collator pad blocks with garbage nobody pays for. Strictness also
+  keeps the consumption record trivial: record = all items, no
+  rejected-item bookkeeping.
+- **Caps**: `MaxTouchedStreams` streams per block (necessarily
+  ≤ `MaxCommitmentEntries`, since every touched stream's source becomes
+  a synthesized requires entry) and `MaxContextGaps` read-context gaps;
+  per-stream volume is bounded by the sender-side
+  `MaxMessagesPerBlock`/`MaxMsgLen` (see Flow Control).
+
+**PoV weight reservation—receiving costs a little extra, so lift space
+always exists.** Lifts and advance proofs are attached by the submitter
+*outside* block execution (see
+[Requires Lifting](#requires-lifting-pov-proofs)), so the STF charges
+their worst case up front as `proof_size` weight, pre-dispatch:
+
+- per touched stream: the worst-case encoded lift (~4.2 KB ceiling, a
+  structural constant—see [Lift Size](#lift-size));
+- per read-context gap—an `Events` item pins its context freely and,
+  being one contiguous interval, can open at most one gap: the
+  worst-case advance proof (~2.1 KB).
+
+The reservation covers only material attached *after* authoring; an
+`Events` item's `base`/`start_peaks` hints ride in the block body and
+are simply measured as block bytes. Block building then keeps
+`block + storage proof ≤ POV limit − reservation` by construction, the
+caps bound the total reservation, and a candidate carrying the full
+worst-case lift set always fits—enforced by the same mechanism as all
+PoV accounting, not by collator discipline.
 
 ### Off-Chain Communication (Between Collators)
 
@@ -999,6 +1110,32 @@ requester verified at its tier (a window entry read off the relay chain,
 a verified header digest)—and every response is independently verifiable
 against exactly that root: no intermediate state, no trust carried
 between responses, a bad peer wastes at most one response.
+
+**Verifiability covers served data, never negatives.** Every proof format
+proves presence under a root; no response can prove a stream has *no
+entry* under one. This matters in exactly one state: a channel accepted
+before the sender's `OpenChannel` (pre-authorization, see
+[Channels](#channels)) is consumed-but-unwritten—no leaf, no tree
+entry—so every fetch honestly answers `UnknownStream`, indistinguishable
+from withholding. The window is no consensus concern: blocks record only
+*touched* streams, so an armed-but-empty stream creates no requires, no
+lift, no relay matching—nothing ever asserts emptiness, and the first
+payload that does arrive is verified like any other. The contract is
+node-side: while `in_channels` shows a channel accepted with its
+`OpenChannel` not yet consumed, `UnknownStream` at cursor 0 is an
+*expected* answer—retry later, no peer penalty. Once the stream's
+frontier is nonzero the stream provably exists; from then on
+`UnknownStream` is misbehavior, and up-to-dateness itself is always
+verifiable (a payload-free response's empty extension plus tree proof
+proves "nothing new under this root"). A tree *non-inclusion* proof
+(neighbor-leaf path showing the absent key's lookup lands elsewhere)
+would make even the pending window's emptiness provable—an optional
+peer-scoring upgrade, not a correctness requirement. Alternative
+considered and rejected: acceptance carrying the `OpenChannel` payload
+itself (acceptance as first consumption, through the standard
+recomputation-plus-lift path—no new verification machinery). It closes
+the window but forces open-before-accept, killing pre-authorization, and
+the honest lagging-peer case needs the retry tolerance anyway.
 
 ```rust
 /// "Give me messages of this stream from `start` on, verifiable under
