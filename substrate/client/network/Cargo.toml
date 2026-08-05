@@ -43,7 +43,7 @@ linked_hash_set = { workspace = true }
 litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
-p256 = { workspace = true, default-features = true, features = ["hash2curve"] }
+p256 = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 partial_sort = { workspace = true }
 pin-project = { workspace = true }

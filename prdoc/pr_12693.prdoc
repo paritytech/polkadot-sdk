@@ -1,20 +1,10 @@
-title: 'feat(webrtc): derive DTLS certificate deterministically from node key'
+title: 'sc-network: derive the WebRTC DTLS certificate from the node key'
 doc:
 - audience: Node Dev
   description: |-
-    # Description
-
-    Derives the WebRTC DTLS certificate deterministically from the node's Ed25519 secret key instead of persisting it to a separate file on disk.
-
-    # Integration
-    Previously, the DTLS certificate was either persisted to a `webrtc_certificate` file in the network config dir, or generated when no config dir was set, causing the certhash to change on every restart for such nodes. #12621 updated it to be managed exactly as a node secrete key.
-
-    While this PR change the approach entirely and instead uses the node secret key as a seed for a deterministically generated WebRTC certificate.
-
-    ## Review Notes
-
-    `derive_certificate` derives a P-256 signing key from the 32-byte node key seed via RFC 9380 `hash_to_field` then builds a minimal self-signed X.509 certificate and loads it into litep2p's `DtlsCertificate`.
+    Derive the WebRTC DTLS certificate deterministically from the node's Ed25519 secret key
+    instead of persisting it to a separate file on disk.
 
 crates:
 - name: sc-network
-  bump: major
+  bump: patch
