@@ -1780,9 +1780,10 @@ the lift-serving obligation):
 #### Recurring Tree Proof Size
 
 Each consumed stream carries a tree inclusion proof to its source's
-`StreamsRoot`: ~log₂(S) hashes (S = the source's stream count).
+`StreamsRoot`: ~log₂(S) `(split bit, hash)` steps (S = the source's
+stream count).
 
-- S = 100 streams: ~7 hashes ≈ 224 B, call it ~300 B with structure
+- S = 100 streams: ~7 steps ≈ 231 B, call it ~300 B with structure
   overhead, per source per consuming block; several streams of one source
   share upper path segments.
 
@@ -1811,18 +1812,19 @@ count.
 Lifts are added to the POV by the submitter, outside block execution—so
 the block must guarantee at authoring time that the worst case still
 fits. The worst case is resubmission, where *every* touched stream needs
-a lift: one extension proof (≤ ~64 connecting nodes ≈ 2 KB) plus one tree
-proof (≲ 2 KB), so ≤ ~4 KB per touched stream—plus one advance proof
-(≈ 2 KB) per read-context gap in the stream's interval chain, bounded by
-the bundle's block count. All quantities are STF-known (touched streams,
-gaps), so the reservation is charged **in the STF, as `proof_size`
-weight**: touching a stream costs its worst-case lift bytes, a
-read-context gap its advance-proof bytes—enforced by the same mechanism
-as all PoV accounting, not by collator discipline. Block building then
-keeps `block + storage proof ≤ POV limit − reservation` by construction,
-with configured caps on touched streams and context gaps per candidate
-bounding the reservation. A candidate carrying the full worst-case lift
-set therefore always fits.
+a lift: one extension proof (≤ 64 connecting nodes: ~2.1 KB encoded)
+plus one tree proof (≤ `KEY_BITS` steps of `(bit, hash)`: ~2.1 KB), so a
+hard per-stream ceiling of **~4.2 KB encoded**—plus one advance proof
+(≤ ~2.1 KB) per read-context gap in the stream's interval chain, bounded
+by the bundle's block count. These ceilings are structural constants
+(`KEY_BITS`, the 64-peak MMR bound), independent of the sender's stream
+layout—a receiver need not trust the sender to keep its own reservation
+correct; realistic occupancy is far lower (~30 connecting nodes at a day
+of backlog, ~11 tree steps at 1024 streams: ~2.8 KB). All quantities are
+STF-known (touched streams, gaps), and the reservation is charged in the
+STF as `proof_size` weight, so a candidate carrying the full worst-case
+lift set always fits—the charging rule lives with the inherent, see
+[The Messaging Inherent](#the-messaging-inherent).
 
 The number of entries in a `RequiresSet` is capped
 (`MaxCommitmentEntries`). Since entries are per source, the natural ceiling
@@ -2265,11 +2267,13 @@ via `EventRequest { at: None, under }` and authenticates the response
 node-side, like everything it feeds the inherent; head-ness comes with
 that: `under` fixes the ack stream's leaf count, the head is the leaf at
 count − 1—an old leaf cannot be served as the head under that root. The
-inherent then carries the register leaf plus its MMR inclusion proof; the
-runtime verifies the inclusion proof (yielding position and the peak set
-for the consumption record) and, as always, no `StreamsRoot`—the binding
-to the committed root is the candidate's ordinary lift for the ack
-stream. (Reads keep no position state; the register's own monotonic
+inherent then carries the register leaf as an `Events` item (len 1 at
+the head, `start_peaks` = the peaks at its position; see
+[The Messaging Inherent](#the-messaging-inherent)); the runtime
+recomputes the endpoint from it and, as always, sees no
+`StreamsRoot`—the binding to the committed root is the candidate's
+ordinary lift for the ack stream, whose empty extension is the
+head-ness check. (Reads keep no position state; the register's own monotonic
 fields order successive reads.) What *kind* of read it is follows
 entirely from **which root the collator reads under and targets with the
 lift** (a per-source policy, not a protocol mode):
@@ -2738,9 +2742,10 @@ For the super-chain comparison with parallel-execution runtimes
    [Requires Lifting](#requires-lifting-pov-proofs))
    ([#12347](https://github.com/paritytech/polkadot-sdk/issues/12347)).
    Reusing UMP signals avoids a candidate receipt format change. Rollout
-   caveat: older validators reject unknown UMP signals, so the node-side
-   support must be deployed to a supermajority of validators before the
-   corresponding `node_features` bit is enabled.
+   caveat: older validators reject unknown UMP signals, so senders may
+   only start emitting them once node-side support is deployed to a
+   sufficient share of validators—the binary rollout itself is the gate,
+   no `node_features` bit needed.
 2. **Per-sender provides storage**: One ring of the last W `StreamsRoot`s
    per sender, pushed on enactment of provides-emitting candidates; pruned
    as a whole on offboarding. Fixed size (W × 32 B per sender), independent
@@ -2857,15 +2862,19 @@ infrastructure:
    [Event Streams](#event-streams)), while the windowed heads' payloads
    and 25 h of extension-proof material are mandatory (see
    [Liftability](#liftability)).
-2. **Live propagation**: push new `MessagesResponse`s to (collators of) the
-   destination chain on block production—the speculative hot path.
+2. **Live propagation**: pull on announcement. Receiver collators at the
+   speculative tier already follow the sender's headers (off-chain
+   verification)—a header announcement *is* the new-root signal, and the
+   fetch follows immediately. No push mechanism, no separate notification
+   protocol; the hot path costs one request round trip past the header
+   announcement.
 3. **Acknowledgement propagation**: quick distribution of acknowledgement
    signatures (Low-Latency v2).
 4. **Lift material**: serve payload-free `MessagesRequest`s
    (`max_bytes = 0`, see [Fetch Protocol](#fetch-protocol)) where a
    peer's node-local data doesn't suffice to build lifts itself.
-5. **Event subscription**: per-stream live push for subscribers plus the
-   fetch protocol's `EventRequest` (proof-carrying reads), pointed at
+5. **Event subscription**: subscribers fetch on observed head change via
+   the fetch protocol's `EventRequest` (proof-carrying reads), pointed at
    broadcast streams (see [Event Streams](#event-streams)). Ack-register
    reads are an `EventRequest { at: None, under }` on the peer's ack
    stream—`under` per the reader's tier (see Flow Control).
@@ -3084,7 +3093,7 @@ Different layers handle different data:
 | **UMP Signals** | `Provides(StreamsRoot)` (block-emitted) / `Requires` set of `(ParaId, StreamsRoot)` (PVF-synthesized from the consumption record) | Relay chain verification |
 | **Relay Chain State** | Ring of the last W `StreamsRoot`s per sender—fixed size, nothing per stream | Matching against included blocks |
 | **Stream Commitment Tree** | Keyed trie `StreamId → stream MMR root`, maintained by the sender | One-hash commitment over all streams; inclusion proofs verified parachain-side |
-| **Messaging Inherent (block body)** | Incoming payloads (inclusion proofs for register/event reads), all for declared consumed streams—no StreamsRoots | Consume messages; verification by recomputation into the consumption record |
+| **Messaging Inherent (block body)** | Incoming payloads plus trust-free positioning hints (`base`/`start_peaks` for register/event items)—no StreamsRoots, no proof objects, all for declared consumed streams | Consume messages; verification by recomputation into the consumption record |
 | **Requires Lifts (POV)** | MMR extension + tree inclusion proofs | Bind recorded states to current roots where the block could not (partial consumption, resubmission, bundles) |
 | **Parachain Runtime** | Per-stream MMR frontiers, commitment tree nodes, per-channel state, per-stream highwaters | Internal bookkeeping, flow control, event consumption |
 | **Off-Chain (Collators)** | Actual messages | Message delivery |
@@ -3112,14 +3121,19 @@ impl MMRExtensionProof {
     /// state, correct by construction.
     fn verify(&self, old: &MmrFrontier) -> Result<MmrRoot, Error> {
         // Compute the new root, treating the old peaks as opaque, fixed
-        // subtrees and merging in the connecting nodes (their placement
-        // is determined by old.leaf_count): by construction the result
-        // is the root of an MMR of which the old MMR's leaves are a
-        // strict prefix. Fails if the connecting nodes are not
-        // well-formed for that placement.
+        // subtrees and merging in the connecting nodes. Their placement
+        // is determined by the pair (old.leaf_count, self.leaf_count):
+        // an MMR's shape is a pure function of its leaf count, so both
+        // ends fix the connecting positions deterministically—which is
+        // why the nodes carry none. By construction the result is the
+        // root of an MMR of which the old MMR's leaves are a strict
+        // prefix. Fails if the connecting nodes are not well-formed for
+        // that placement (wrong count for the pair).
+        ensure!(self.leaf_count >= old.leaf_count, Error::Regression);
         Ok(MmrRoot(bag_peaks(&merge_prefix(
             &old.peaks,
             old.leaf_count,
+            self.leaf_count,
             &self.connecting_nodes,
         )?)))
     }
@@ -3212,9 +3226,11 @@ struct RequiresLift {
 // === OFF-CHAIN (between collators) ===
 
 // MessagesRequest{stream, start, under: StreamsRoot, max_bytes} →
-// MessagesResponse{base, leaf_version, payloads, extension, tree_proof}:
+// MessagesResponse{base, leaf_version, payloads, start_peaks,
+//                  extension, tree_proof}:
 // every response independently verifiable against the requester-chosen
-// provides root (recompute frontier → extension → tree walk → compare).
+// provides root (recompute frontier from start_peaks → extension →
+// tree walk → compare).
 // max_bytes = 0 serves pure lift material. No block hashes anywhere on
 // the wire—trust is keyed by root; positions implicit: base + i.
 
