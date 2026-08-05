@@ -30,8 +30,7 @@
 //!    asks the relay chain to accept the registration. Only the code hash and length cross the
 //!    bridge.
 //! 3. The user uploads the actual validation code via the relay's `apply_authorized_code`, which
-//!    checks it against the hash and length it was told about, onboards the para, and reports
-//!    back.
+//!    checks it against the hash and length it was told about, onboards the para, and reports back.
 //! 4. The relay chain's report arrives here as [`Pallet::receive`], which either finalises the
 //!    registration or releases the registration deposit.
 //!

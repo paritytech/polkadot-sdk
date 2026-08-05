@@ -79,7 +79,9 @@ mod benchmarks {
 
 	/// Uploading the validation code. Dominated by hashing and onboarding the blob.
 	#[benchmark]
-	fn apply_authorized_code(c: Linear<0, { T::MaxCodeSize::get() }>) -> Result<(), BenchmarkError> {
+	fn apply_authorized_code(
+		c: Linear<0, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let code = code_of(c);
 		park::<T>(&code)?;
 

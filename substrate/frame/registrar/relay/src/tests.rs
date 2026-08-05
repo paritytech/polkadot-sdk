@@ -88,13 +88,16 @@ fn authorize_and_dispatch(
 	para_id: ParaId,
 	validation_code: Vec<u8>,
 ) -> (Result<(), InvalidTransaction>, Result<(), DispatchError>) {
-	let authorized =
-		Registrar::authorize_apply_authorized_code(TransactionSource::External, &para_id, &validation_code)
-			.map(|_| ())
-			.map_err(|e| match e {
-				sp_runtime::transaction_validity::TransactionValidityError::Invalid(i) => i,
-				other => panic!("unexpected validity error: {other:?}"),
-			});
+	let authorized = Registrar::authorize_apply_authorized_code(
+		TransactionSource::External,
+		&para_id,
+		&validation_code,
+	)
+	.map(|_| ())
+	.map_err(|e| match e {
+		sp_runtime::transaction_validity::TransactionValidityError::Invalid(i) => i,
+		other => panic!("unexpected validity error: {other:?}"),
+	});
 
 	let dispatched = Registrar::apply_authorized_code(
 		frame_system::RawOrigin::Authorized.into(),

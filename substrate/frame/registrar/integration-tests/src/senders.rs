@@ -78,7 +78,8 @@ impl SendToRelay for ParaSendToRelay {
 	type AccountId = AccountId32;
 
 	fn send(message: MessageToRelay<Self::AccountId>) -> Result<(), ()> {
-		let call = RelayRuntimePallets::Registrar(RegistrarRelayCalls::AuthorizeCode(message)).encode();
+		let call =
+			RelayRuntimePallets::Registrar(RegistrarRelayCalls::AuthorizeCode(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {

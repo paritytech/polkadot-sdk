@@ -26,12 +26,12 @@
 //! Instead of sending the validation code over XCM, so registration arrives in two pieces:
 //!
 //! 1. [`Pallet::authorize_code`] takes the parachain's request, which carries the head data plus
-//!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`]
-//!    with an expiry. Only callable by a trusted XCM origin (e.g. the Coretime chain).
+//!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`] with
+//!    an expiry. Only callable by a trusted XCM origin (e.g. the Coretime chain).
 //! 2. [`Pallet::apply_authorized_code`] takes the blob itself. It needs no signature: anybody may
-//!    push the code, because a pending entry already pins down exactly which bytes are
-//!    acceptable, and the parachain has already made the manager pay for them. If the blob
-//!    matches, the para is onboarded and the outcome is reported back to the parachain.
+//!    push the code, because a pending entry already pins down exactly which bytes are acceptable,
+//!    and the parachain has already made the manager pay for them. If the blob matches, the para is
+//!    onboarded and the outcome is reported back to the parachain.
 //!
 //! If the code never turns up, [`Pallet::on_initialize`] expires the entry and reports the failure
 //! so the parachain can release the manager's deposit. No deposit is ever taken here.
