@@ -615,11 +615,11 @@ struct AccountSummary {
 /// [`col::INDEX_BY_EXPIRY`]; this structure holds bounded write-through caches over it plus the
 /// global counters.
 struct SubmitIndex {
-	/// Cached per-account detail records. Bounded by [`Self::accounts_cost`]
+	/// Cached per-account detail records. Bounded by [`Self::cached_statement_count`]
 	/// against [`DETAILS_CACHE_BUDGET`].
-	accounts: LruMap<AccountId, StatementsForAccount>,
-	/// Total number of statements across all cached records in [`Self::accounts`].
-	accounts_cost: usize,
+	account_statements: LruMap<AccountId, StatementsForAccount>,
+	/// Total number of statements across all cached records in [`Self::account_statements`].
+	cached_statement_count: usize,
 	/// Cached per-account count/size summaries. Cheap enough to cover many more accounts than
 	/// the details cache; lets `submit` skip loading the full record for channel-less statements
 	/// well within their quota, and lets `enforce_limits` skip accounts within their allowance.
@@ -693,7 +693,7 @@ pub struct Store {
 	keystore: Arc<LocalKeystore>,
 	/// Number of accounts with stored statements. Reported by `maintain`; may lag the
 	/// exact value by up to one sweep cycle.
-	known_accounts: AtomicUsize,
+	known_accounts_count: AtomicUsize,
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
@@ -780,13 +780,13 @@ impl SubmitIndex {
 			// The real bound is [`Self::accounts_cost`], enforced by [`Self::cache_record`];
 			// this length limiter must never trigger on its own, and cannot: every record costs
 			// at least one unit, so the cost trimming keeps the length at or below the budget.
-			accounts: LruMap::new(ByLength::new(u32::MAX)),
+			account_statements: LruMap::new(ByLength::new(u32::MAX)),
 			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
 			config,
 			statement_count: 0,
 			total_size: 0,
 			next_seq: 0,
-			accounts_cost: 0,
+			cached_statement_count: 0,
 			allowance_cursor: None,
 			allowance_cycle_seen: 0,
 			evicted_count: 0,
@@ -810,9 +810,9 @@ impl SubmitIndex {
 	}
 
 	/// Removes the account's record from the details cache, keeping the cost accounting exact.
-	fn checkout_record(&mut self, account: &AccountId) -> Option<StatementsForAccount> {
-		let record = self.accounts.remove(account)?;
-		self.accounts_cost -= record.by_priority.len();
+	fn uncache_record(&mut self, account: &AccountId) -> Option<StatementsForAccount> {
+		let record = self.account_statements.remove(account)?;
+		self.cached_statement_count -= record.by_priority.len();
 		Some(record)
 	}
 
@@ -823,11 +823,11 @@ impl SubmitIndex {
 		if record.by_priority.is_empty() {
 			return;
 		}
-		self.accounts_cost += record.by_priority.len();
-		self.accounts.insert(account, record);
-		while self.accounts_cost > DETAILS_CACHE_BUDGET && self.accounts.len() > 1 {
-			match self.accounts.pop_oldest() {
-				Some((_, evicted)) => self.accounts_cost -= evicted.by_priority.len(),
+		self.cached_statement_count += record.by_priority.len();
+		self.account_statements.insert(account, record);
+		while self.cached_statement_count > DETAILS_CACHE_BUDGET && self.account_statements.len() > 1 {
+			match self.account_statements.pop_oldest() {
+				Some((_, evicted)) => self.cached_statement_count -= evicted.by_priority.len(),
 				None => break,
 			}
 		}
@@ -1040,7 +1040,7 @@ impl SubmitIndex {
 			data_len: statement_len,
 			admission_seq: plan.seq,
 		};
-		match loaded_record.or_else(|| self.checkout_record(account)) {
+		match loaded_record.or_else(|| self.uncache_record(account)) {
 			Some(mut record) => {
 				for (key, _) in &plan.evicted {
 					record.remove_entry(key);
@@ -1076,12 +1076,12 @@ impl SubmitIndex {
 		if banned {
 			self.evicted_count += 1;
 		}
-		if let Some(record) = self.accounts.peek_mut(account) {
+		if let Some(record) = self.account_statements.peek_mut(account) {
 			if record.remove_entry(key).is_some() {
-				self.accounts_cost -= 1;
+				self.cached_statement_count -= 1;
 			}
 			if record.by_priority.is_empty() {
-				self.accounts.remove(account);
+				self.account_statements.remove(account);
 			}
 		}
 		if let Some(summary) = self.summaries.peek_mut(account) {
@@ -1104,8 +1104,8 @@ impl SubmitIndex {
 		self.statement_count = self.statement_count.saturating_sub(removed_count);
 		self.total_size = self.total_size.saturating_sub(freed_size);
 		self.evicted_count += banned_count;
-		if let Some(record) = self.accounts.remove(account) {
-			self.accounts_cost -= record.by_priority.len();
+		if let Some(record) = self.account_statements.remove(account) {
+			self.cached_statement_count -= record.by_priority.len();
 		}
 		self.summaries.remove(account);
 	}
@@ -1190,7 +1190,7 @@ impl Store {
 			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
 			keystore,
-			known_accounts: AtomicUsize::new(0),
+			known_accounts_count: AtomicUsize::new(0),
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
@@ -1340,7 +1340,7 @@ impl Store {
 			}
 		}
 
-		self.known_accounts.store(self.count_accounts()?, AtomicOrdering::Relaxed);
+		self.known_accounts_count.store(self.count_accounts()?, AtomicOrdering::Relaxed);
 		self.maintain();
 		Ok(())
 	}
@@ -1968,7 +1968,7 @@ impl Store {
 			if wrapped {
 				// A full pass over the account index just completed; it is the only place where
 				// the total number of accounts is (re)counted.
-				self.known_accounts
+				self.known_accounts_count
 					.store(submit_index.allowance_cycle_seen, AtomicOrdering::Relaxed);
 				submit_index.allowance_cycle_seen = 0;
 				submit_index.allowance_cursor = None;
@@ -2048,7 +2048,7 @@ impl Store {
 				submit_index.config.max_total_size,
 			)
 		};
-		let accounts_count = self.known_accounts.load(AtomicOrdering::Relaxed);
+		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
 
 		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
@@ -2538,7 +2538,7 @@ impl StatementStore for Store {
 			// The account record is materialised only when the constraint check actually needs
 			// it: a channel-less statement from an account whose cached summary shows headroom
 			// is admitted without touching the account's on-disk index at all.
-			let cached = submit_index.accounts.peek(&account_id).is_some();
+			let cached = submit_index.account_statements.peek(&account_id).is_some();
 			let summary_admits = !cached &&
 				statement.channel().is_none() &&
 				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
@@ -2564,7 +2564,7 @@ impl StatementStore for Store {
 			let empty_record = StatementsForAccount::default();
 			let record = loaded_record
 				.as_ref()
-				.or_else(|| submit_index.accounts.peek(&account_id))
+				.or_else(|| submit_index.account_statements.peek(&account_id))
 				.unwrap_or(&empty_record);
 			let plan = match submit_index.plan_insert(
 				record,
@@ -2773,7 +2773,7 @@ impl StatementStore for Store {
 			let mut submit_index = self.submit_index.write();
 			// The account's statements, from the cached record when there is one, else from the
 			// on-disk index.
-			let entries: Vec<(PriorityKey, EntryDetails)> = match submit_index.accounts.peek(&who) {
+			let entries: Vec<(PriorityKey, EntryDetails)> = match submit_index.account_statements.peek(&who) {
 				Some(record) => {
 					record.by_priority.iter().map(|(key, details)| (*key, *details)).collect()
 				},
@@ -3061,7 +3061,7 @@ impl Store {
 
 	/// Whether the details cache currently holds `who`'s record.
 	fn details_cached(&self, who: &AccountId) -> bool {
-		self.submit_index.read().accounts.peek(who).is_some()
+		self.submit_index.read().account_statements.peek(who).is_some()
 	}
 
 	/// Total stored data size, per the in-memory counter.
@@ -4704,7 +4704,7 @@ mod tests {
 		store.enforce_limits_bounded(usize::MAX, 2, Duration::from_secs(3600));
 		assert_eq!(store.statement_count(), 5);
 		assert!(store.submit_index.read().allowance_cursor.is_none());
-		assert_eq!(store.known_accounts.load(std::sync::atomic::Ordering::Relaxed), 5);
+		assert_eq!(store.known_accounts_count.load(std::sync::atomic::Ordering::Relaxed), 5);
 
 		// A further unrestricted pass finds every account within its allowance.
 		store.enforce_limits();
