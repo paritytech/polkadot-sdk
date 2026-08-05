@@ -187,10 +187,14 @@ impl RateLimiter {
 					s.try_lock().map(|guard| {
 						// Normalise to [0.0, 1.0]; take the min across both
 						// buckets so a sender exhausted on either is not evicted.
+						let refreshed = |b: &TokenBucket| {
+							(b.tokens + b.last.elapsed().as_secs_f64() * b.refill_per_sec)
+								.min(b.capacity)
+						};
 						let req_fill =
-							guard.requests.tokens / guard.requests.capacity.max(f64::EPSILON);
+							refreshed(&guard.requests) / guard.requests.capacity.max(f64::EPSILON);
 						let bw_fill =
-							guard.bandwidth.tokens / guard.bandwidth.capacity.max(f64::EPSILON);
+							refreshed(&guard.bandwidth) / guard.bandwidth.capacity.max(f64::EPSILON);
 						(req_fill.min(bw_fill), *id)
 					})
 				})
