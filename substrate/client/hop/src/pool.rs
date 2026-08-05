@@ -170,6 +170,16 @@ impl HopDataPool {
 				};
 				match HopEntryMeta::decode(&mut value.as_slice()) {
 					Ok(meta) if meta.version == HOP_META_VERSION => {
+						// `insert` writes the blob before committing the meta row, so a
+						// committed row must have a sibling blob. A missing blob means a
+						// crash persisted the blob unlink but lost the async meta-delete;
+						// drop the row here rather than let it hold pool + user quota
+						// until expiry.
+						if !Self::entry_path(&data_dir, &hash, BLOBS_DIR, BLOB_EXT).exists() {
+							tracing::warn!(target: "hop", hash = ?hex::encode(hash), "Dropping meta row with missing blob");
+							stale_keys.push(key);
+							continue;
+						}
 						let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 						current_size = current_size.saturating_add(accounted);
 						entry_count = entry_count.saturating_add(1);
@@ -2516,6 +2526,61 @@ mod tests {
 		assert!(!pool.has(&fake_hash), "stale-version row should be dropped");
 		assert!(!blob_path.exists(), "matching .blob should also be removed");
 		assert_eq!(pool.status().entry_count, 0);
+	}
+
+	#[test]
+	fn test_meta_row_without_blob_dropped_on_recovery() {
+		// A crash can persist a blob unlink but lose the async parity-db
+		// meta-delete, leaving a valid current-version meta row whose blob is
+		// gone. Boot a pool with exactly such a row and assert it is dropped and
+		// its pool + user quota is not accounted, rather than leaking until
+		// expiry.
+		let dir = TempDir::new().unwrap();
+
+		// Boot once to create the parity-db layout.
+		{
+			let _pool = HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap();
+		}
+
+		let (_, signer) = test_recipient();
+		let recipients = bv(vec![signer]);
+		// Current-version meta (as `HopEntryMeta::new` produces), so only the
+		// missing-blob check can reject it.
+		let meta =
+			HopEntryMeta::new(100, 0, recipients, SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+		assert_eq!(meta.version, HOP_META_VERSION);
+
+		// Commit the meta row but deliberately write no blob.
+		let fake_hash = H256([0xabu8; 32]);
+		{
+			let db_path = dir.path().join(META_DB_DIR);
+			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
+			opts.columns[COL_META as usize].btree_index = true;
+			let db = parity_db::Db::open_or_create(&opts).unwrap();
+			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))]).unwrap();
+		}
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+
+		assert!(!pool.has(&fake_hash), "meta row with no blob should be dropped");
+		assert_eq!(pool.status().entry_count, 0, "dropped row must not count toward entries");
+		assert_eq!(pool.status().total_bytes, 0, "dropped row must not hold pool quota");
+		// The meta row is actually gone from the DB, not just uncounted.
+		assert!(matches!(pool.fetch_meta(&fake_hash), Ok(None)));
 	}
 
 	#[test]
