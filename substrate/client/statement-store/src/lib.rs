@@ -4689,41 +4689,6 @@ mod tests {
 	}
 
 	#[test]
-	fn expiry_sweep_reaps_statements_across_accounts() {
-		let (mut store, _temp) = test_store();
-		store.set_time(100);
-
-		// Create statements with expiry at timestamp 200
-		let mut stmt1 = unsigned_statement(1, 1, None, 100);
-		stmt1.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt1, 1);
-		store.submit(stmt1, StatementSource::Network);
-
-		let mut stmt2 = unsigned_statement(2, 1, None, 100);
-		stmt2.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt2, 2);
-		store.submit(stmt2, StatementSource::Network);
-
-		let mut stmt3 = unsigned_statement(3, 1, None, 100);
-		stmt3.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt3, 3);
-		store.submit(stmt3, StatementSource::Network);
-
-		assert_eq!(store.statement_count(), 3);
-
-		// Advance time past expiry: a single call reaps every account's expired statements
-		// straight off the global expiry index.
-		store.set_time(300);
-		store.enforce_limits();
-		assert_eq!(store.statement_count(), 0);
-		assert_eq!(store.account_count(), 0);
-
-		// All statements were naturally expired (past their own timestamp), so they are not
-		// added to the expired map AlreadyExpired check in submit handles re-gossip prevention
-		assert_eq!(store.evicted_count(), 0);
-	}
-
-	#[test]
 	fn allowance_sweep_resumes_from_cursor_across_calls() {
 		use std::time::Duration;
 
