@@ -339,34 +339,31 @@ module invariants {
   val recovery_memo_never_bounced: bool =
     lastStepBouncedTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
 
-  /// Each pending authorizer queue must fit within JAM's queue length.
+  /// Each pending assign's queue must fit within JAM's queue length.
   val pending_authorizer_queue_bounded: bool =
-    svc.pendingAuthorizerQueues.keys().forall(c =>
-      svc.pendingAuthorizerQueues.get(c).length() <= AuthorizerQueueLength)
+    svc.pendingAssigns.keys().forall(c =>
+      svc.pendingAssigns.get(c).queue.length() <= AuthorizerQueueLength)
 
-  /// The dirty-core index tracks exactly the cores with a pending queue.
+  /// The dirty-core index tracks exactly the cores with a pending assign
+  /// payload. Since gating reads only the index, a divergence would either
+  /// strand a payload that never fires or index a core with no payload.
   val pending_authorizer_cores_consistent: bool =
-    svc.pendingAuthorizerCores.keys() == svc.pendingAuthorizerQueues.keys()
+    svc.pendingAssignCores.keys() == svc.pendingAssigns.keys()
 
-  /// Every pending authorizer queue is scheduled strictly in the future: a due
-  /// entry (`jam_slot <= now`) is never left cached — always-accumulate flushes
-  /// due entries at block start, and a `set_authorizer_queue` whose `jam_slot`
-  /// is already due is applied inline during replay. So a cached entry always
-  /// has `apply_at > now`.
+  /// Every pending assign is scheduled strictly in the future: a due entry
+  /// (`jam_slot <= now`) is never left cached — always-accumulate flushes due
+  /// entries at block start, and an `assign_core` whose `jam_slot` is already
+  /// due is applied inline during replay. So a cached entry always has
+  /// `jam_slot > now`.
   val pending_authorizer_apply_at_future: bool =
-    svc.pendingAuthorizerCores.keys().forall(c =>
-      svc.pendingAuthorizerCores.get(c) > now)
+    svc.pendingAssignCores.keys().forall(c =>
+      svc.pendingAssignCores.get(c) > now)
 
   /// Every `assign` recorded last step targets a valid core index (< CoreCount).
   /// (A structural sanity check that the assign-recording is well-formed.)
   val assign_calls_well_formed: bool =
-    lastStepAssigns.foldl(true, (acc, a) => {
-      val core = match a {
-        | QueueSet(p) => p.core
-        | AssignerSet(p) => p.core
-      }
-      acc and core >= 0 and core < CoreCount
-    })
+    lastStepAssigns.foldl(true, (acc, a) =>
+      acc and a.core >= 0 and a.core < CoreCount)
 
   /// `staged_validator_keys` must never exceed the worst-case staging
   /// length (`MaxStagedValidatorKeys = 1023`).

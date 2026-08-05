@@ -37,6 +37,10 @@ module types {
   pure val CoretimeParaId: ParaId = MkParaId(1)
   pure val AssetHubParaId: ParaId = MkParaId(2)
 
+  /// The Parachain Service's own JAM service id. JAM's `assign` always writes an
+  /// assigner, so applying a core's queue re-asserts this id as the assigner.
+  pure val ParachainServiceId: ServiceId = MkServiceId(1)
+
   type CoreIndex = int
   type Timeslot = int
   type Balance = int

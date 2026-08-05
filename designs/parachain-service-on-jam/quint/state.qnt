@@ -76,10 +76,19 @@ module state {
     }],
     parachainLog: ParaId -> ParachainLog,
     preimageRegistry: (Hash, int) -> PreimageEntry,
-    pendingAuthorizerQueues: CoreIndex -> List[AuthorizerHash],
-    // Dirty-core index: maps each core with a pending queue to the JAM timeslot
-    // (`jam_slot`) at which it should be applied. See `applyAlwaysAccumulate`.
-    pendingAuthorizerCores: CoreIndex -> Timeslot,
+    // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
+    // install and who owns the core afterwards (`None` = this service,
+    // unchanged). JAM's `assign` writes both atomically, so they are cached
+    // together. Cold: read only for a core that is actually due.
+    pendingAssigns: CoreIndex -> {
+        queue: List[AuthorizerHash],
+        assigner: Option[ServiceId]
+    },
+    // Dirty-core index: each core with a pending assign, paired with the
+    // `jam_slot` at which it becomes due. Lets the always-accumulate path find
+    // and gate due entries without reading the (much larger) payloads above.
+    // See `applyAlwaysAccumulate`.
+    pendingAssignCores: CoreIndex -> Timeslot,
     // Validator-key buffer (design §5.3) — appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
     // `is_last`.
@@ -105,8 +114,8 @@ module state {
     incomingTransfers: List(),
     parachainLog: Map(),
     preimageRegistry: Map(),
-    pendingAuthorizerQueues: Map(),
-    pendingAuthorizerCores: Map(),
+    pendingAssigns: Map(),
+    pendingAssignCores: Map(),
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 },
     keyValueStorage: Map(),

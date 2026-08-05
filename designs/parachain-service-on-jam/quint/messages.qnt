@@ -85,16 +85,14 @@ module messages {
   // baseline and validation code(s) and must release the rest first. See §6.4.
   | TooMuchStateHeld
 
-  /// A JAM `assign` host-function call recorded during a step. JAM's single
-  /// `assign(core, queue, assigner)` sets both; the service uses it two distinct
-  /// ways, modeled as separate calls:
-  type AssignCall =
-    // `set_authorizer_queue` application — install the core's authorizer queue
-    // (the assigner is retained).
-    | QueueSet({ core: CoreIndex })
-    // `set_assigner` — change the core's assigner: `Some(s)` sets it to `s`,
-    // `None` resets it (the queue is retained).
-    | AssignerSet({ core: CoreIndex, newAssigner: Option[ServiceId] })
+  /// A JAM `assign` host-function call recorded during a step. JAM's `assign`
+  /// (gray paper `Omega_A`) writes the core's authorizer queue AND its assigner
+  /// atomically.
+  type AssignCall = {
+    core: CoreIndex,
+    assigner: ServiceId,
+    queue: List[AuthorizerHash]
+  }
 
   // --- Upward messages emitted by the PVF, replayed by Accumulate ---------
 
@@ -111,19 +109,28 @@ module messages {
   | RemoveKV({ key: List[int] })
   // transfer_out(dest, amount, memo) — Asset Hub only.
   | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
-  // set_authorizer_queue(core, queue, jam_slot) — Coretime only. Schedules the
-  // authorizer QUEUE (the assigner is handled by `set_assigner`) to be applied at
-  // the JAM timeslot `jam_slot`; the Coretime chain chooses `jam_slot` so the pool
-  // fills without overwriting the currently active authorizers. An empty `queue`
-  // cancels any cached queue for the core so it is not applied.
-  | SetAuthorizerQueue({
+  // assign_core(core, queue, new_assigner, jam_slot) — Coretime only. Mirrors
+  // JAM's `assign`, which writes a core's authorizer queue AND its assigner
+  // atomically, so one call covers both.
+  //
+  // - `jamSlot`: when to apply. The entry is cached and forwarded in the
+  //   always-accumulate phase once the timeslot reaches `jamSlot`; if already
+  //   due (`jamSlot <= now`) it is applied inline. The Coretime chain chooses
+  //   `jamSlot` so the pool fills without overwriting the active authorizers.
+  // - `queue`: an empty list cancels any cached entry for the core (a
+  //   service-level cancel — no JAM call is made).
+  // - `newAssigner`: `None` leaves this service as the core's assigner (the
+  //   common queue-rotation case); `Some(s)` hands the core to `s`. JAM always
+  //   stores SOME assigner, so `None` means "unchanged", never "no assigner" —
+  //   the service passes its own id to `assign`. A handoff is one-way: once it
+  //   fires the service is no longer `assigners[core]`, so a later `assign` for
+  //   that core fails with HUH.
+  | AssignCore({
       core: CoreIndex,
       queue: List[AuthorizerHash],
+      newAssigner: Option[ServiceId],
       jamSlot: Timeslot
   })
-  // set_assigner(core, new_assigner) — Coretime only. Change the core's
-  // assigner: `Some(s)` sets it to `s`, `None` resets it.
-  | SetAssigner({ core: CoreIndex, newAssigner: Option[ServiceId] })
   // set_validator_keys(chunk, is_last) — Asset Hub only.
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
   // consume_transfers_up_to(index) — Asset Hub only.
@@ -216,8 +223,7 @@ module messages {
   /// to the Coretime chain (design §4.3, §6).
   pure def isCoretimeOnly(m: UpwardMessage): bool =
   match m {
-    | SetAuthorizerQueue(_) => true
-    | SetAssigner(_) => true
+    | AssignCore(_) => true
     | ParachainSetHead(_) => true
     | ParachainSetValidationCode(_) => true
     | ParachainCleanUp(_) => true

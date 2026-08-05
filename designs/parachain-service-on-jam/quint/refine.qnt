@@ -73,15 +73,11 @@ module refine {
     | RemoveKV(p) => compactLen(p.key.length()) + p.key.length()
     // dest 4 + amount Compact<u128> + memo 128.
     | TransferOut(p) => 132 + compactLen(p.amount)
-    // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry) + jamSlot 4.
-    | SetAuthorizerQueue(p) =>
+    // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
+    // + Option<ServiceId> (1 tag + 4 when Some) + jamSlot 4.
+    | AssignCore(p) =>
       8 + compactLen(p.queue.length()) + p.queue.length() * 32
-    // core 4 + Option<ServiceId> (1 tag + 4 when Some).
-    | SetAssigner(p) =>
-      match p.newAssigner {
-        | Some(_) => 9
-        | None => 5
-      }
+        + (match p.newAssigner { | Some(_) => 5 | None => 1 })
     // Vec<ValidatorKey> (compact len + 336 per key) + isLast 1.
     | SetValidatorKeys(p) =>
       1 + compactLen(p.keys.length()) + p.keys.length() * 336

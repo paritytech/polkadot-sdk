@@ -19,11 +19,11 @@ module state_balance {
    pure val BaselineFootprint: int = 69825
 
   /// Asset Hub additionally owns the service-global state items (staged
-  /// validator keys, pending authorizer queues + cores, incoming transfers),
-  /// worst-cased at 1 382 508 B in §6.1. Asset Hub reserves this in its baseline,
-  /// so those items are pre-provisioned rather than charged to
+  /// validator keys, pending assigns + their dirty-core index, incoming
+  /// transfers), worst-cased at 1 384 213 B in §6.1. Asset Hub reserves this in
+  /// its baseline, so those items are pre-provisioned rather than charged to
   /// `usedStateBalance` as they grow.
-  pure val AssetHubGlobalItemsFootprint: int = 1382508
+  pure val AssetHubGlobalItemsFootprint: int = 1384213
 
   /// Asset Hub's baseline footprint: the generic per-para baseline plus its
   /// reserved service-global items (§6.1).

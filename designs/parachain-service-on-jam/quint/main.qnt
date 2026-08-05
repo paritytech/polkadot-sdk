@@ -362,11 +362,12 @@ module main {
       ConsumeTransfersUpTo(0),
       UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minItemGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minItemGas: 0, minMemoGas: 0 }),
-      SetAuthorizerQueue({ core: 0, queue: List(anyAuthHash), jamSlot: 100 }),
-      SetAuthorizerQueue({ core: 0, queue: List(anyAuthHash), jamSlot: 10 }),
-      SetAuthorizerQueue({ core: 0, queue: List(), jamSlot: 0 }),
-      SetAssigner({ core: 0, newAssigner: Some(MkServiceId(7)) }),
-      SetAssigner({ core: 0, newAssigner: None }),
+      // Queue rotation keeping this service as assigner: deferred, due, cancel.
+      AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
+      AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 10 }),
+      AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }),
+      // Hand core 0 off to another service, installing a final queue with it.
+      AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: Some(MkServiceId(7)), jamSlot: 10 }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
       ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),

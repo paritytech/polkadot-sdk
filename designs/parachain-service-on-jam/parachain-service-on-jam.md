@@ -170,13 +170,14 @@ struct ParachainServiceState {
     /// pruned during Accumulate (see §5.1).
     parachain_log: Map<ParaId, Vec<(Timeslot, LogEntry)>>,
 
-    /// Pending authorizer queue updates, keyed by core.
-    pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>,
+    /// Scheduled-but-unapplied `assign` payloads, keyed by core.
+    pending_assigns: Map<CoreIndex, PendingAssign>,
 
-    /// Dirty-core index: each core with a pending queue, paired with the
-    /// `jam_slot` at which the update becomes due. Lets the always-accumulate
-    /// path find and gate due updates without scanning all cores (see §5.1).
-    pending_authorizer_cores: BoundedVec<(CoreIndex, Timeslot), CoreCount>,
+    /// Dirty-core index: each core with a pending assign, paired with the
+    /// `jam_slot` at which it becomes due. Lets the always-accumulate path find
+    /// and gate due entries without reading the much larger payloads above
+    /// (see §5.1).
+    pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), CoreCount>,
 
     /// Cross-parachain preimage registry. Holds every preimage the service
     /// has solicited from JAM — including each parachain's active validation
@@ -292,9 +293,8 @@ enum AccumulateLog {
     /// The JAM `transfer` call replaying a `TransferOut`. Only the memo
     /// hash is recorded — the full 128-byte memo is not preserved. See §5.1 step 7.
     TransferFailed { memo_hash: Hash },
-    /// A `forget` removed the last referencer without expunging the preimage;
-    /// the caller must `forget(hash, len)` again *after* `due` (strictly, once
-    /// the current timeslot exceeds `due`) to free it. See §6.1.
+    /// A `forget` removed the last referencer without expunging the preimage.
+    /// See §6.1.
     ForgetAgainAt { hash: Hash, len: u32, due: Timeslot },
     /// `parachain_clean_up` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s); it must release the rest
@@ -306,6 +306,12 @@ struct PreimageEntry {
     /// Parachains currently referencing this preimage. Bounded by the
     /// protocol-level maximum number of parachains.
     referencers: BoundedBTreeSet<ParaId>,
+}
+
+/// A scheduled JAM `assign` for one core. See §7.1.
+struct PendingAssign {
+    queue: BoundedVec<AuthorizerHash, 80>,
+    assigner: Option<ServiceId>,
 }
 
 /// Head data is capped at 4 KiB to bound the per-parachain footprint that
@@ -362,8 +368,8 @@ singletons; the tag prepended to the encoded map key for map entries).
 |--------|------------------------------|
 | `0x00` | `parachains` |
 | `0x01` | `parachain_log` |
-| `0x02` | `pending_authorizer_queues` |
-| `0x03` | `pending_authorizer_cores` |
+| `0x02` | `pending_assigns` |
+| `0x03` | `pending_assign_cores` |
 | `0x04` | `preimage_registry` |
 | `0x05` | `staged_validator_keys` |
 | `0x06` | `incoming_transfers` |
@@ -458,26 +464,12 @@ enum UpwardMessage {
     RemoveKV { key: Vec<u8> },
     /// From `transfer_out` — transfer balance to another JAM service.
     TransferOut { dest: ServiceId, amount: Compact<Amount>, memo: Memo },
-    /// From `set_authorizer_queue` — schedule a core's authorizer QUEUE.
-    ///
-    /// - `jam_slot`: the JAM timeslot at which the queue is applied. The queue is
-    ///   cached and forwarded to JAM in the always-accumulate phase once the
-    ///   timeslot reaches `jam_slot` (§5.1); if `jam_slot` is already due
-    ///   (`jam_slot <= now`) when the message is processed, the queue is applied
-    ///   inline right away.
-    /// - `queue`: an empty list cancels any queue cached for the core so it is
-    ///   not applied.
-    SetAuthorizerQueue {
+    /// From `assign_core` — schedule a core's `assign` (queue + assigner). See §7.1.
+    AssignCore {
         core: CoreIndex,
         queue: Vec<AuthorizerHash>,
-        jam_slot: Timeslot,
-    },
-    /// From `set_assigner` — change a core's assigner (`assigners[core]`).
-    /// `Some(s)` hands it off to service `s` so it can manage the core's queue
-    /// from that point on; `None` resets the assigner.
-    SetAssigner {
-        core: CoreIndex,
         new_assigner: Option<ServiceId>,
+        jam_slot: Timeslot,
     },
     /// From `set_validator_keys`. See §5.3.
     SetValidatorKeys { keys: Vec<ValidatorKey>, is_last: bool },
@@ -613,8 +605,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
 | `kv_remove(key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent — no-op if the key is absent. |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only). If the JAM `transfer` call fails during `accumulate`, an `AccumulateLog::TransferFailed { memo_hash }` entry is appended to the parachain's log. See §5.1 step 7. |
-| `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, jam_slot: Timeslot)` | `()` | Schedule the authorizer queue for a core (Coretime chain only). The queue is cached in service state and forwarded to JAM in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any queue cached for the core so it is not applied. |
-| `set_assigner(core: CoreIndex, new_assigner: Option<ServiceId>)` | `()` | Change `assigners[core]` (Coretime chain only): `Some(s)` hands it off to service `s` so it can manage that core's queue going forward; `None` resets the assigner. |
+| `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed; Accumulate prunes those entries. (Asset Hub only) |
 | `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
@@ -653,12 +644,14 @@ whose `jam_slot` is already due (`jam_slot <= now`) when the scheduling message 
 since always-accumulate has already run, it is applied inline right away and any scheduled queue
 update for the core is removed.
 
-#### Apply due authorizer queues (before work packages)
+#### Apply due assigns (before work packages)
 
-Iterate `pending_authorizer_cores` and, for each `(core, jam_slot)` pair, check whether
+Iterate `pending_assign_cores` and, for each `(core, jam_slot)` pair, check whether
 the entry is due: `now >= jam_slot`, read directly from the pair without touching
-`pending_authorizer_queues`. If due, drain the entry from `pending_authorizer_queues`,
-remove the pair from `pending_authorizer_cores`, and call JAM `assign` to install it.
+`pending_assigns`. If due, drain the payload from `pending_assigns`, remove the pair
+from `pending_assign_cores`, and call JAM `assign(core, queue, assigner)` to install
+it, where `assigner` is the payload's `assigner` if set and this service's own id
+otherwise.
 
 #### Incoming transfer processing (before work packages)
 
@@ -1009,10 +1002,8 @@ was awaiting expunge is dropped and refunded (it had already forgotten; it was o
 being held as the stand-in for the pending second forget).
 
 A rescue does **not** reset the expunge deadline: the gate on the next `forget` is
-still measured from the *original* unrequest, so a `forget` at or before that `due`
-is a no-op that must be retried strictly after `due` reported by `ForgetAgainAt`.
-And when that `forget` does fire, it does not expunge - it only marks the preimage
-unavailable again.
+still measured from the *original* unrequest. And when that `forget` does fire, it
+does not expunge - it only marks the preimage unavailable again.
 
 Applying §6.1's sole-user rule, a single referencer's **preimage footprint** is the
 sum of two JAM entries: the **preimage request** (`81 + len`) and its
@@ -1076,14 +1067,14 @@ and `Amount = Compact<u128>` sized at its worst case of 17 B:
 ```
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 entry
   34 + 1 (key) + 2 + 1023 × 336                                         = 343 765 B
-pending_authorizer_queues: Map<CoreIndex, BoundedVec<AuthorizerHash, 80>>  — per core
-  341 × (34 + 5 (key) + 2 + 80 × 32)                                    = 886 941 B
-pending_authorizer_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 entry
+pending_assigns: Map<CoreIndex, PendingAssign>  — per core
+  341 × (34 + 5 (key) + 2 + 80 × 32 + 5 (Option<ServiceId>))            = 888 646 B
+pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 entry
   34 + 1 (key) + 2 + 341 × (4 + 4)                                      =   2 765 B
 incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
   34 + 1 (key) + 2 + 1000 × (4 + 17 + 128)                              = 149 037 B
                                                                            ---------
-                                                                         1 382 508 B
+                                                                         1 384 213 B
 ```
 
 **Asset Hub baseline footprint ≈ 1.32 MiB**, added on top of the generic
@@ -1337,11 +1328,11 @@ Parachain runtime
     │  Sends XCM to Coretime chain with new collator set root + size
     ▼
 Coretime chain
-    │  calls set_authorizer_queue(core, authorizers, jam_slot)
+    │  calls assign_core(core, authorizers, None, jam_slot)
     │  (new authorizer hashes computed from same code + updated config)
     ▼
 Parachain Service (Accumulate)
-    │  assign(core, new_queue) — retaining the current assigner
+    │  assign(core, new_queue, self) — `None` resolved to this service
     │  New authorizer hashes enter the pool via queue rotation
     ▼
 Pool (up to 8 entries)
@@ -1353,7 +1344,7 @@ Pool (up to 8 entries)
 
 On-demand coretime is not a special case for the Parachain Service — it is handled
 entirely by the **Coretime chain**. When someone buys a single-slot coretime allocation,
-the Coretime chain just calls `set_authorizer_queue(core, queue, jam_slot)` with a
+the Coretime chain just calls `assign_core(core, queue, None, jam_slot)` with a
 near-term `jam_slot` to install the buyer's authorizer on the target core for the
 duration of that slot. The
 Parachain Service sees no difference between on-demand and bulk-purchased coretime; it
@@ -1369,7 +1360,7 @@ Two plausible policies on the Coretime chain side:
   holds a valid token can then submit work packages against the pre-registered authorizer.
 
 In both cases, the Parachain Service implementation is unchanged — the Coretime chain
-decides the policy, constructs the authorizer config, and calls `set_authorizer_queue`.
+decides the policy, constructs the authorizer config, and calls `assign_core`.
 
 ---
 

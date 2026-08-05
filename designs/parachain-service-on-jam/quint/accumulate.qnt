@@ -238,51 +238,46 @@ module accumulate {
       // an `AccumulateLog::TransferFailed({ memoHash })` entry is appended
       // to the parachain's log — not exercised in this abstract branch.
       acc
-      | SetAuthorizerQueue(payload) =>
-      // §5.1 step 7 (replay). Schedules the authorizer QUEUE for `jam_slot`: the
-      // queue is cached and `applyAlwaysAccumulate` emits the `assign` once the
-      // timeslot reaches `jam_slot`. An empty `queue` cancels any cached queue for
-      // the core (dropped, not applied). If `jam_slot` is already due
-      // (`jam_slot <= now`, the same condition always-accumulate flushes on), the
-      // queue is applied inline right away (assign now, superseding any cached
-      // queue) — always-accumulate ran before this replay, so caching would
-      // otherwise defer it to the next block. The Coretime chain chooses
-      // `jam_slot` so the pool fills without overwriting the currently active
-      // authorizers.
+      | AssignCore(payload) =>
+      // §5.1 step 7 (replay). Schedules JAM `assign` for `jam_slot`: the entry
+      // (queue + assigner) is cached and `applyAlwaysAccumulate` emits the
+      // `assign` once the timeslot reaches `jam_slot`. An empty `queue` cancels
+      // any cached entry for the core (dropped, no JAM call). If `jam_slot` is
+      // already due (`jam_slot <= now`, the same condition always-accumulate
+      // flushes on), it is applied inline right away, superseding any cached
+      // entry — always-accumulate ran before this replay, so caching would
+      // otherwise defer it to the next block. `newAssigner == None` keeps this
+      // service as the assigner; `Some(s)` hands the core to `s` (one-way).
       if (payload.queue.length() == 0)
         { ...acc,
           state: { ...acc.state,
-            pendingAuthorizerQueues:
-              acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
-            pendingAuthorizerCores:
-              acc.state.pendingAuthorizerCores.mapRemove(payload.core)
+            pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
+            pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
           }
         }
       else if (payload.jamSlot <= now)
         { ...acc,
-          jamAssigns: acc.jamAssigns.append(QueueSet({ core: payload.core })),
+          jamAssigns: acc.jamAssigns.append({
+            core: payload.core,
+            assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
+            queue: payload.queue
+          }),
           state: { ...acc.state,
-            pendingAuthorizerQueues:
-              acc.state.pendingAuthorizerQueues.mapRemove(payload.core),
-            pendingAuthorizerCores:
-              acc.state.pendingAuthorizerCores.mapRemove(payload.core)
+            pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
+            pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
           }
         }
       else
         { ...acc,
           state: { ...acc.state,
-            pendingAuthorizerQueues:
-              acc.state.pendingAuthorizerQueues.put(payload.core, payload.queue),
-            pendingAuthorizerCores:
-              acc.state.pendingAuthorizerCores.put(payload.core, payload.jamSlot)
+            pendingAssigns: acc.state.pendingAssigns.put(payload.core, {
+              queue: payload.queue,
+              assigner: payload.newAssigner
+            }),
+            pendingAssignCores:
+              acc.state.pendingAssignCores.put(payload.core, payload.jamSlot)
           }
         }
-      | SetAssigner(payload) =>
-      // Change the core's assigner (§7.1) — applied directly via JAM `assign`,
-      // independent of the queue. `Some(s)` sets it to `s`; `None` resets it.
-      { ...acc,
-        jamAssigns: acc.jamAssigns.append(AssignerSet({ core: payload.core, newAssigner: payload.newAssigner }))
-      }
       | ConsumeTransfersUpTo(idx) =>
       // Asset Hub prunes the consumed prefix. Both Refine and
       // `accumulateOkPrefix`'s service-restriction check (§4.3) reject
@@ -516,29 +511,37 @@ module accumulate {
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
-  /// Apply pending authorizer queues that are due: for each core whose scheduled
-  /// `jam_slot` has arrived (`now >= jam_slot`), emit the `assign` and drop the
-  /// cached queue. Not-yet-due entries are retained unchanged.
+  /// Apply pending `assign`s that are due. Gating reads ONLY the dirty-core
+  /// index (`pendingAssignCores`): the much larger payload is read just for a
+  /// core that is actually due, then both entries are dropped. Not-yet-due
+  /// cores are retained unchanged. A cached `assigner` of `None` resolves to
+  /// this service (the assigner is unchanged); JAM's `assign` always writes one.
   pure def applyAlwaysAccumulate(
     s: ParachainServiceState,
     now: Timeslot
   ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
-    s.pendingAuthorizerCores.keys().fold(
-      { state: { ...s, pendingAuthorizerCores: Map() }, assigns: List() },
+    s.pendingAssignCores.keys().fold(
+      { state: { ...s, pendingAssignCores: Map() }, assigns: List() },
       (acc, c) => {
-        val jamSlot = s.pendingAuthorizerCores.get(c)
+        val jamSlot = s.pendingAssignCores.get(c)
         if (now < jamSlot)
           { ...acc,
             state: { ...acc.state,
-              pendingAuthorizerCores: acc.state.pendingAuthorizerCores.put(c, jamSlot)
+              pendingAssignCores: acc.state.pendingAssignCores.put(c, jamSlot)
             }
           }
-        else
+        else {
+          val entry = s.pendingAssigns.get(c)
           { state: { ...acc.state,
-              pendingAuthorizerQueues: acc.state.pendingAuthorizerQueues.mapRemove(c)
+              pendingAssigns: acc.state.pendingAssigns.mapRemove(c)
             },
-            assigns: acc.assigns.append(QueueSet({ core: c }))
+            assigns: acc.assigns.append({
+              core: c,
+              assigner: entry.assigner.optionGetOr(ParachainServiceId),
+              queue: entry.queue
+            })
           }
+        }
       }
     )
   }
