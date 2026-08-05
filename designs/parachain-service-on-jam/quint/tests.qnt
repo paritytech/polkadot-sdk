@@ -1315,4 +1315,61 @@ module tests {
       init
     }
   }
+  /// Regression: `solicit`/`forget` match a validation code on the FULL
+  /// `(hash, len)` pair, not the hash alone. The registry is keyed by
+  /// `(hash, len)`, so the active code's hash at a different length is a
+  /// distinct preimage. Exercises both directions of the `pinned` bit so a
+  /// hash-only match cannot pass: the correct len pins/unpins the active code,
+  /// the wrong len must leave that bit alone.
+  run solicitForgetMatchesHashAndLenTest = {
+    val para = CoretimeParaId
+    val h = vchAsHash({ vchBytes: 1 })   // coretime's ACTIVE code hash
+    val otherLen = 999                    // != FixedCodeLen
+    val baseAcc: AccumulateOutcome = {
+      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
+    }
+    val pi0 = initialState.paraInfo(para)
+    // 1. Solicit at the code's OWN len: matches the active code, so it only
+    //    sets `pinned` — no new entry, no charge.
+    val pinned = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0,
+      Solicit({ hash: h, len: FixedCodeLen }))
+    val piP = pinned.state.paraInfo(para)
+    // 2. Solicit the SAME hash at a different len: a genuinely distinct entry,
+    //    charged, and it must NOT disturb the active code's `pinned` bit.
+    val sol = applyUpwardMessage({ ...baseAcc, state: pinned.state }, para, FixedCodeLen, 0,
+      Solicit({ hash: h, len: otherLen }))
+    val pi1 = sol.state.paraInfo(para)
+    // 3. Forget that distinct entry: released (never provided -> one-step drop),
+    //    and the active code stays pinned.
+    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0,
+      Forget({ hash: h, len: otherLen }))
+    val pi2 = fgt.state.paraInfo(para)
+    // 4. Forget at the code's OWN len: matches the active code, so it unpins it.
+    val unpinned = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0,
+      Forget({ hash: h, len: FixedCodeLen }))
+    all {
+      assert(not(activeCodePinned(pi0))),
+      // (1) correct len pins the active code, creating no entry and no charge.
+      assert(activeCodePinned(piP)),
+      assert(piP.usedStateBalance == pi0.usedStateBalance),
+      // (2) wrong len is a distinct, charged entry; the pin is untouched.
+      assert(sol.state.preimageRegistry.keys().contains((h, otherLen))),
+      assert(pi1.usedStateBalance == pi0.usedStateBalance + preimageFootprint(otherLen)),
+      assert(activeCodePinned(pi1)),
+      assert(sol.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
+      // (3) forgetting the wrong-len entry releases it and refunds; still pinned.
+      assert(not(fgt.state.preimageRegistry.keys().contains((h, otherLen)))),
+      assert(pi2.usedStateBalance == pi0.usedStateBalance),
+      assert(activeCodePinned(pi2)),
+      // (4) correct len unpins the active code.
+      assert(not(activeCodePinned(unpinned.state.paraInfo(para)))),
+      init
+    }
+  }
+
+  /// The `pinned` bit of a para's active validation code, or `false` if it has none.
+  pure def activeCodePinned(pi: ParaInfo): bool =
+    match pi.validationCode { | Some(vc) => vc.pinned | None => false }
+
 }

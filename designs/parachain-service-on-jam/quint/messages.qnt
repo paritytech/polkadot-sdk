@@ -9,6 +9,13 @@ module messages {
   /// A validation code reference: its hash plus its byte length.
   type ValidationCodeRef = { hash: ValidationCodeHash, len: int }
 
+  /// Does the `(hash, len)` pair of a `solicit`/`forget` name this validation
+  /// code? BOTH components must match: the preimage registry is keyed by
+  /// `(hash, len)`, so the same hash at a different length is a distinct
+  /// preimage (§6.1).
+  pure def refIs(ref: ValidationCodeRef, h: Hash, len: int): bool =
+  h == vchAsHash(ref.hash) and len == ref.len
+
   // --- Refine-side log payloads -------------------------------------------
 
   type RefineLog =

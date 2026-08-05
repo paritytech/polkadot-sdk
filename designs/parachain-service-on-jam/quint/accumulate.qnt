@@ -98,11 +98,11 @@ module accumulate {
       val pi = acc.state.paraInfo(para_id)
       val activeVc = pi.validationCode
       val isActive =
-        match activeVc { | Some(vc) => payload.hash == vchAsHash(vc.ref.hash) | None => false }
+        match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
       val isPending =
         match pi.pendingUpgrade {
           | None => false
-          | Some(pair) => payload.hash == vchAsHash(pair._1.ref.hash)
+          | Some(pair) => refIs(pair._1.ref, payload.hash, payload.len)
         }
       if (isActive) {
         // The active code is already solicited by the service, so soliciting
@@ -140,11 +140,11 @@ module accumulate {
       val pi = acc.state.paraInfo(para_id)
       val activeVc = pi.validationCode
       val isActive =
-        match activeVc { | Some(vc) => payload.hash == vchAsHash(vc.ref.hash) | None => false }
+        match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
       val isPending =
         match pi.pendingUpgrade {
           | None => false
-          | Some(pair) => payload.hash == vchAsHash(pair._1.ref.hash)
+          | Some(pair) => refIs(pair._1.ref, payload.hash, payload.len)
         }
       if (isActive) {
         // The parachain forgets its own solicit of the active code: clear the
