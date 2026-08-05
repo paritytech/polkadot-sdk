@@ -2520,7 +2520,7 @@ impl StatementStore for Store {
 		};
 
 		let current_time = self.timestamp();
-		let (evicted, seq) = {
+		let seq = {
 			let mut submit_index = self.submit_index.write();
 
 			// Re-check for a duplicate under the write lock. Without
@@ -2666,15 +2666,19 @@ impl StatementStore for Store {
 			}
 			let seq = plan.seq;
 			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, &plan);
-			(evicted_statements, seq)
-		}; // Release submit index lock
-		{
-			let mut query_index = self.query_index.write();
-			for h in &evicted {
-				query_index.note_remove(&h.hash(), h);
+			// The query-index bookkeeping is applied under the same lock that ordered the
+			// commit: a concurrent removal racing a resubmission of the same statement can then
+			// never apply its stale update on top of this newer one (#12624). The notification
+			// stays outside — its ordering is protected by the sequence watermark, not the lock.
+			{
+				let mut query_index = self.query_index.write();
+				for evicted_statement in &evicted_statements {
+					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
+				}
+				query_index.note_insert(hash, &statement);
 			}
-			query_index.note_insert(hash, &statement);
-		} // Release read index lock
+			seq
+		}; // Release submit index lock
 		self.subscription_manager.notify(seq, statement);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
@@ -2692,7 +2696,7 @@ impl StatementStore for Store {
 	/// [`remove`](Self::remove) to each, in a single atomic commit.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
 		let current_time = self.timestamp();
-		let removed_statements = {
+		{
 			let mut submit_index = self.submit_index.write();
 			// The account's statements, from the cached record when there is one, else from the
 			// on-disk index.
@@ -2770,12 +2774,10 @@ impl StatementStore for Store {
 				Error::Db(e.to_string())
 			})?;
 			submit_index.apply_account_removal(&who, entries.len(), freed_size, banned_count);
-			removed_statements
-		};
-		if !removed_statements.is_empty() {
-			let mut read_index = self.query_index.write();
+			// Applied under the same lock that ordered the commit (#12624).
+			let mut query_index = self.query_index.write();
 			for (hash, statement) in &removed_statements {
-				read_index.note_remove(hash, statement);
+				query_index.note_remove(hash, statement);
 			}
 		}
 		Ok(())
@@ -2858,7 +2860,7 @@ impl Store {
 	/// [`Self::enforce_limits_bounded`]).
 	fn remove_statement(&self, hash: &Hash) -> Result<bool> {
 		let current_time = self.timestamp();
-		let removed_statement = {
+		{
 			let mut submit_index = self.submit_index.write();
 			// The body is read under the submit-index lock, so it cannot change under our feet
 			let Some(encoded) =
@@ -2938,10 +2940,9 @@ impl Store {
 				data_len,
 				banned,
 			);
+			self.query_index.write().note_remove(hash, &statement);
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
-			statement
-		};
-		self.query_index.write().note_remove(hash, &removed_statement);
+		}
 		Ok(true)
 	}
 
@@ -3159,7 +3160,6 @@ impl Store {
 		self.db.commit(commit).expect("failed to commit the statement");
 		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
 		submit_index.apply_insert(&account, None, hash, statement, &plan);
-		drop(submit_index);
 		self.query_index.write().note_insert(hash, statement);
 	}
 }
@@ -4845,6 +4845,49 @@ mod tests {
 		// Nothing left for further sweeps to re-collect.
 		store.enforce_limits();
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
+	}
+
+	#[test]
+	fn concurrent_remove_and_resubmit_keep_query_bookkeeping_consistent() {
+		// Exercises the #12624 interleaving: a `remove` racing a resubmission of the same
+		// statement must never apply its query-index bookkeeping on top of the newer submit's.
+		// The invariant below holds for any timing, so the test is deterministic even though
+		// the race window itself is only hit probabilistically.
+		use std::sync::Arc;
+
+		let (store, _temp) = test_store();
+		let store = Arc::new(store);
+		let mut stmt = unsigned_statement(1, 1, None, 100);
+		stmt.set_topic(0, topic(7));
+		sign_with(&mut stmt, 1);
+		let hash = stmt.hash();
+
+		for _ in 0..200 {
+			// The statement is live at the start of every round.
+			if !store.has_statement(&hash) {
+				assert_eq!(store.submit(stmt.clone(), StatementSource::Local), SubmitResult::New);
+			}
+			let remover = {
+				let store = store.clone();
+				std::thread::spawn(move || store.remove(&hash).expect("remove succeeds"))
+			};
+			let resubmitter = {
+				let store = store.clone();
+				let stmt = stmt.clone();
+				std::thread::spawn(move || store.submit(stmt, StatementSource::Local))
+			};
+			remover.join().expect("remover joins");
+			let _ = resubmitter.join().expect("resubmitter joins");
+
+			// Whatever the interleaving, the query-index bookkeeping must agree with the store.
+			let query_index = store.query_index.read();
+			let present = store.has_statement(&hash);
+			assert_eq!(query_index.recent.contains(&hash), present);
+			assert_eq!(
+				query_index.topic_counts.get(&topic(7)).copied().unwrap_or(0),
+				present as usize
+			);
+		}
 	}
 
 	#[test]
