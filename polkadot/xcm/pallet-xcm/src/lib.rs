@@ -3151,15 +3151,13 @@ impl<T: Config> Pallet<T> {
 				Weight::MAX, // Max limit available for execution.
 				Weight::zero(),
 			);
-			let forwarded_xcms =
-				Self::convert_forwarded_xcms(xcm_version, Router::get_messages()).inspect_err(
-					|error| {
-						tracing::debug!(
-							target: "xcm::DryRunApi::dry_run_xcm",
-							?error, "Forwarded xcms version conversion failed with error"
-						);
-					},
-				);
+			let forwarded_xcms = Self::convert_forwarded_xcms(xcm_version, Router::get_messages())
+				.inspect_err(|error| {
+					tracing::debug!(
+						target: "xcm::DryRunApi::dry_run_xcm",
+						?error, "Forwarded xcms version conversion failed with error"
+					);
+				});
 			let events: Vec<<T as frame_system::Config>::RuntimeEvent> =
 				frame_system::Pallet::<T>::read_events_no_consensus()
 					.map(|record| record.event.clone())
