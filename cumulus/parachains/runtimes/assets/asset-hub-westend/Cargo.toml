@@ -162,6 +162,7 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros"] }
 westend-runtime = { workspace = true, default-features = true }
 
