@@ -368,11 +368,11 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 }
 
 impl<C: DoubleEncodedT> VersionedXcm<C> {
-	// Decodes an XCM, checking the `MAX_XCM_SIZE`, `MAX_XCM_DECODE_DEPTH`, and also that all the
-	// input data is consumed.
-	//
-	// The implicit constraints baked into the XCM decoding logic (e.g. `MAX_ITEMS_IN_ASSETS` and
-	// `MAX_INSTRUCTIONS_TO_DECODE`) are also checked.
+	/// Decodes an XCM, checking the [`MAX_XCM_SIZE`], [`MAX_XCM_DECODE_DEPTH`], and also that all
+	/// the input data is consumed.
+	///
+	/// The implicit constraints baked into the XCM decoding logic (e.g. `MAX_ITEMS_IN_ASSETS` and
+	/// [`MAX_INSTRUCTIONS_TO_DECODE`]) are also checked.
 	pub fn decode_all_with_mem_and_depth_limit(
 		input: &mut &[u8],
 	) -> Result<VersionedXcm<C>, CodecError> {
@@ -391,8 +391,8 @@ impl<C: DoubleEncodedT> VersionedXcm<C> {
 	}
 
 	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
-	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_XCM_SIZE`, `MAX_ITEMS_IN_ASSETS` or
-	/// `MAX_INSTRUCTIONS_TO_DECODE`.
+	/// such as [`MAX_XCM_DECODE_DEPTH`], [`MAX_XCM_SIZE`], `MAX_ITEMS_IN_ASSETS` or
+	/// [`MAX_INSTRUCTIONS_TO_DECODE`].
 	///
 	/// Note that this is a best effort and it has limitations. For example:
 	/// - this uses the limit of the sender - not the receiver

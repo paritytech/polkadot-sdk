@@ -92,7 +92,7 @@ impl<'a> codec::Input for NestedInput<'a> {
 }
 
 /// Trait representing an object that can be wrapped inside a `DoubleEncoded` struct.
-pub trait DoubleEncodedT: Sized {
+pub trait DoubleEncodedT: Sized + Decode {
 	/// Try to get the decoding function for the `DoubleEncodedT`.
 	///
 	/// Returns the decoding function, if the object implements `Decode` or `None` otherwise.
@@ -130,21 +130,30 @@ where
 		// If it's a local call, we also decode the inner double encoded object,
 		// in order to make sure that its heap memory is accounted for.
 		nesting_count::using_once(&mut 0, || {
-			nesting_count::with(|count| {
-				descend_ref_and_check_depth(
-					count,
-					RECURSION_LIMIT as u32,
-					DECODE_RECURSION_LIMIT_MSG,
-				)
-			})
-			.unwrap_or(Err("Could not access nesting_count env variable".into()))?;
-
 			{
-				// We can't decode remote calls
-				let Some(decode_fn) = T::try_get_decode_fn() else { return Ok(obj) };
+				nesting_count::with(|count| {
+					descend_ref_and_check_depth(
+						count,
+						RECURSION_LIMIT as u32,
+						DECODE_RECURSION_LIMIT_MSG,
+					)
+				})
+				.unwrap_or(Err("Could not access nesting_count env variable".into()))?;
+
 				let mut nested_input =
 					NestedInput { downstream_input: input, encoded: &obj.encoded[..], depth: 0 };
-				obj.decoded = Some(decode_fn(&mut nested_input)?);
+				let decoded = T::decode(&mut nested_input)?;
+				// If we didn't manage to consume any byte, this is a remote call, and it can't
+				// be decoded locally.
+				if nested_input.encoded.len() == obj.encoded.len() {
+					let _ = nesting_count::with(|count| {
+						count.saturating_dec();
+					});
+
+					return Ok(obj);
+				}
+				obj.decoded = Some(decoded);
+
 				// We need to also make sure that we consumed all the input data, but we can't use
 				// `decode_all()`, because it only accepts a byte slice as input.
 				if !nested_input.encoded.is_empty() {

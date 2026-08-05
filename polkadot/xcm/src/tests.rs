@@ -326,7 +326,7 @@ fn ensure_decode_tracks_nested_transacts_mem() {
 fn ensure_decode_checks_transacts_recursion_and_depth() {
 	use crate::{
 		double_encoded::DECODE_MAX_DEPTH_MSG,
-		latest::{Instruction, Xcm},
+		latest::{Instruction, Junctions, NetworkId, Xcm},
 	};
 
 	fn nest_xcm_in_transact(xcm: Xcm<TestCall>) -> Xcm<TestCall> {
@@ -342,6 +342,16 @@ fn ensure_decode_checks_transacts_recursion_and_depth() {
 
 	fn nest_xcm_in_error_handler(xcm: Xcm<TestCall>) -> Xcm<TestCall> {
 		Xcm(vec![
+			// Add a remote double encoded call
+			Instruction::ExportMessage {
+				network: NetworkId::Polkadot,
+				destination: Junctions::Here,
+				xcm: Xcm(vec![Instruction::Transact {
+					origin_kind: latest::OriginKind::Native,
+					fallback_max_weight: None,
+					call: TestCall::Allocate { arg: vec![1; 10] }.encode().into(),
+				}]),
+			},
 			// Add one more nesting level
 			Instruction::SetErrorHandler(xcm),
 		])
@@ -359,17 +369,19 @@ fn ensure_decode_checks_transacts_recursion_and_depth() {
 	let mut xcm = Xcm(vec![]);
 	// We add recursion levels and depth levels.
 	for _recursion_lvl in 1..=RECURSION_LIMIT {
+		let mut deep_xcm = xcm.clone();
+
 		// The depth should be tracked only in the context of the current recursion level.
 		// The depth of the upper recursion levels shouldn't be taken into account in this check.
 		for _depth in 2..MAX_XCM_DECODE_DEPTH {
-			xcm = nest_xcm_in_error_handler(xcm);
-			let (transact_xcm, res) = encode_and_decode(xcm.clone());
+			deep_xcm = nest_xcm_in_error_handler(deep_xcm);
+			let (transact_xcm, res) = encode_and_decode(deep_xcm.clone());
 			assert_eq!(res.as_ref(), Ok(&transact_xcm));
 		}
 
 		// An error should be thrown when we exceed the depth limit inside the current recursion
 		// level.
-		let err_xcm = nest_xcm_in_error_handler(xcm.clone());
+		let err_xcm = nest_xcm_in_error_handler(deep_xcm.clone());
 		let (_, res) = encode_and_decode(err_xcm);
 		assert!(res.is_err());
 		assert!(res.err().unwrap().to_string().contains(DECODE_MAX_DEPTH_MSG));
