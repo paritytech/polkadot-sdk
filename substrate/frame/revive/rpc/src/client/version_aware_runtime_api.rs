@@ -821,7 +821,7 @@ impl VersionAwareRuntimeApiProvider {
 		at_block: OnlineClientAtBlock<SrcChainConfig>,
 	) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let capabilities = self.capabilities(&at_block).await?;
-		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
 	}
 
 	/// Returns the capabilities of the handle's runtime spec version, computing and caching them

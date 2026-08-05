@@ -93,6 +93,7 @@ impl SubxtBlockInfoProvider {
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
+		// The finalized block only ever increases, while the best block can move back on a reorg.
 		// Both streams are seeded with the finalized block on subscription (re)init; don't move
 		// the best/finalized back in this scenario.
 		match subscription_type {
