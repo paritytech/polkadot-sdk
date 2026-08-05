@@ -94,23 +94,45 @@ impl SubxtBlockInfoProvider {
 impl BlockInfoProvider for SubxtBlockInfoProvider {
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
 		// The finalized block only ever increases, while the best block can move back on a reorg.
-		// Both streams are seeded with the finalized block on subscription (re)init; don't move
-		// the best/finalized back in this scenario.
+		// Both streams are seeded with the finalized block on subscription (re)init.
 		match subscription_type {
 			SubscriptionType::FinalizedBlocks => {
-				let mut latest = self.latest_finalized_block.write().await;
-				if block.block_number() >= latest.block_number() {
-					*latest = block;
+				let mut finalized = self.latest_finalized_block.write().await;
+				if block.block_number() >= finalized.block_number() {
+					*finalized = block;
 				}
 			},
 			SubscriptionType::BestBlocks => {
-				let finalized_number = self.latest_finalized_block.read().await.block_number();
-				let mut latest = self.latest_block.write().await;
-				// A lower block above the finalized one is a reorg, not a replay.
-				if block.block_number() >= latest.block_number() ||
-					block.block_number() > finalized_number
-				{
-					*latest = block;
+				let (best_number, best_hash) = {
+					let best = self.latest_block.read().await;
+					(best.block_number(), best.block_hash())
+				};
+
+				// A lower block is either a replayed old block or, after a reorg, the
+				// chain's new best block.
+				if block.block_number() < best_number {
+					// A confirmed replay or a failed lookup keeps the stored best block.
+					match self.rpc.chain_get_block_hash(Some(best_number.into())).await {
+						Ok(canonical) if canonical == Some(best_hash) => return,
+						Ok(_) => {},
+						Err(err) => {
+							log::debug!(target: LOG_TARGET,
+								"Failed to check if block #{best_number} ({best_hash:?}) is canonical: {err:?}");
+							return;
+						},
+					}
+				}
+
+				let mut best = self.latest_block.write().await;
+				if best.block_hash() == best_hash {
+					*best = block;
+				} else {
+					log::debug!(target: LOG_TARGET,
+						"Ignoring stale best block #{} ({:?}): the latest block changed to #{} ({:?}) during the check",
+						block.block_number(),
+						block.block_hash(),
+						best.block_number(),
+						best.block_hash());
 				}
 			},
 		}
@@ -185,7 +207,7 @@ pub mod test {
 	use super::*;
 	use crate::BlockInfo;
 
-	/// A Noop BlockInfoProvider used to test [`db::ReceiptProvider`].
+	/// A Noop BlockInfoProvider used to test [`crate::ReceiptProvider`].
 	pub struct MockBlockInfoProvider;
 
 	pub struct MockBlockInfo {
@@ -236,5 +258,569 @@ pub mod test {
 		) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 			Ok(None)
 		}
+	}
+
+	use codec::Decode;
+	use std::sync::{
+		Mutex,
+		atomic::{AtomicBool, AtomicUsize, Ordering},
+	};
+	use subxt::{
+		backend::LegacyBackend,
+		config::{polkadot::PolkadotConfigBuilder, substrate::SpecVersionForRange},
+		metadata::Metadata,
+	};
+	use subxt_rpcs::{
+		Error as RpcError, RpcClient, UserError,
+		client::{MockRpcClient, mock_rpc_client::Json},
+	};
+
+	/// A config carrying the generated runtime metadata for every block.
+	pub(crate) fn chain_config() -> SrcChainConfig {
+		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
+		let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
+		PolkadotConfigBuilder::new()
+			.set_metadata_for_spec_versions(std::iter::once((0u32, metadata.into())))
+			.set_spec_version_for_block_ranges(std::iter::once(SpecVersionForRange {
+				block_range: 0..u64::MAX,
+				spec_version: 0,
+				transaction_version: 0,
+			}))
+			.build()
+	}
+
+	/// A block at the given block number, on one of two branches.
+	#[derive(Clone, Copy)]
+	enum MockBlockId {
+		MainBranch(u64),
+		SideBranch(u64),
+	}
+
+	impl MockBlockId {
+		/// Offsets the block number in the hash byte; keeps the genesis hash non-zero and
+		/// the two ranges apart.
+		const MAIN_BRANCH_OFFSET: u8 = 0x01;
+		const SIDE_BRANCH_OFFSET: u8 = 0xa0;
+
+		/// The hash of this block: its block number as the repeated byte, shifted by the
+		/// variant's offset.
+		fn hash(self) -> H256 {
+			let (offset, number) = match self {
+				MockBlockId::MainBranch(number) => (Self::MAIN_BRANCH_OFFSET, number),
+				MockBlockId::SideBranch(number) => (Self::SIDE_BRANCH_OFFSET, number),
+			};
+			let number = u8::try_from(number).expect("test block numbers are small; qed");
+			let byte = offset.checked_add(number).expect("offset + block number fits a byte; qed");
+			if matches!(self, MockBlockId::MainBranch(_)) {
+				assert!(
+					byte < Self::SIDE_BRANCH_OFFSET,
+					"a main-branch hash must stay below the side-branch range"
+				);
+			}
+			H256::repeat_byte(byte)
+		}
+
+		fn number(self) -> u64 {
+			match self {
+				MockBlockId::MainBranch(number) | MockBlockId::SideBranch(number) => number,
+			}
+		}
+
+		/// Recover the block embedded in a `0x…` hash string, so a header can be derived
+		/// for any `MockBlockId` hash without a table of known blocks. A hash that embeds
+		/// no block yields `None`.
+		fn from_hash(hash: &str) -> Option<MockBlockId> {
+			let first_byte_hex = hash.get(2..4)?;
+			let repeated = hash.len() == 66 &&
+				hash[2..].as_bytes().chunks(2).all(|chunk| chunk == first_byte_hex.as_bytes());
+			if !repeated {
+				return None;
+			}
+			let byte = u8::from_str_radix(first_byte_hex, 16).ok()?;
+			if let Some(number) = byte.checked_sub(Self::SIDE_BRANCH_OFFSET) {
+				Some(MockBlockId::SideBranch(number.into()))
+			} else if let Some(number) = byte.checked_sub(Self::MAIN_BRANCH_OFFSET) {
+				Some(MockBlockId::MainBranch(number.into()))
+			} else {
+				None
+			}
+		}
+	}
+
+	fn json_hash(hash: Option<H256>) -> Json<serde_json::Value> {
+		Json(
+			hash.map_or(serde_json::Value::Null, |hash| {
+				serde_json::Value::String(format!("{hash:?}"))
+			}),
+		)
+	}
+
+	/// The heads of the mocked chain.
+	#[derive(Clone)]
+	struct MockChainHeads {
+		/// The chain's best block.
+		best_block: Arc<Mutex<MockBlockId>>,
+		/// The chain's finalized block.
+		finalized_block: MockBlockId,
+		/// The number of block hash lookups received (`chain_getBlockHash` above genesis).
+		block_hash_lookup_count: Arc<AtomicUsize>,
+		/// Fail block hash lookups while set.
+		fail_block_hash_lookups: Arc<AtomicBool>,
+		/// Answer best block requests with `null` while set.
+		report_no_best_block: Arc<AtomicBool>,
+	}
+
+	impl Default for MockChainHeads {
+		fn default() -> Self {
+			const INITIAL_BEST_BLOCK_NUMBER: u64 = 7;
+			const INITIAL_FINALIZED_BLOCK_NUMBER: u64 = 5;
+			Self {
+				best_block: Arc::new(Mutex::new(MockBlockId::MainBranch(
+					INITIAL_BEST_BLOCK_NUMBER,
+				))),
+				finalized_block: MockBlockId::MainBranch(INITIAL_FINALIZED_BLOCK_NUMBER),
+				block_hash_lookup_count: Arc::default(),
+				fail_block_hash_lookups: Arc::default(),
+				report_no_best_block: Arc::default(),
+			}
+		}
+	}
+
+	impl MockChainHeads {
+		/// The chain imports `block` as its new best and notifies `provider`.
+		async fn import_best(
+			&self,
+			provider: &SubxtBlockInfoProvider,
+			api: &OnlineClient<SrcChainConfig>,
+			block: MockBlockId,
+		) {
+			*self.best_block.lock().unwrap() = block;
+			provider
+				.update_latest(
+					Arc::new(api.at_block(block.hash()).await.unwrap()),
+					SubscriptionType::BestBlocks,
+				)
+				.await;
+		}
+
+		/// Build the clients that talk to this mocked chain.
+		async fn clients(
+			&self,
+		) -> (OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>) {
+			let config = chain_config();
+
+			let mock = MockRpcClient::builder()
+				.method_handler("chain_getBlockHash", {
+					let chain_heads = self.clone();
+					move |params: Option<Box<serde_json::value::RawValue>>| {
+						let raw = params
+							.expect("legacy RPC methods always send params; qed")
+							.get()
+							.to_owned();
+						let (number,): (Option<u64>,) = serde_json::from_str(&raw).unwrap();
+						let response = match number {
+							// The best block and the genesis are only queried during setup,
+							// never during `update_latest` processing, so they bypass the
+							// counter and the failure switch.
+							None => {
+								if chain_heads.report_no_best_block.load(Ordering::SeqCst) {
+									Ok(None)
+								} else {
+									Ok(Some(chain_heads.best_block.lock().unwrap().hash()))
+								}
+							},
+							Some(0) => Ok(Some(MockBlockId::MainBranch(0).hash())),
+							Some(number) => {
+								chain_heads.block_hash_lookup_count.fetch_add(1, Ordering::SeqCst);
+								if chain_heads.fail_block_hash_lookups.load(Ordering::SeqCst) {
+									Err(RpcError::User(UserError {
+										code: -32000,
+										message: "scripted failure".into(),
+										data: None,
+									}))
+								} else {
+									let best_block = *chain_heads.best_block.lock().unwrap();
+									Ok(if number > best_block.number() {
+										None
+									} else if number == best_block.number() {
+										Some(best_block.hash())
+									} else {
+										Some(MockBlockId::MainBranch(number).hash())
+									})
+								}
+							},
+						};
+						async move { response.map(json_hash) }
+					}
+				})
+				.method_handler("chain_getFinalizedHead", {
+					let chain_heads = self.clone();
+					move |_params: Option<Box<serde_json::value::RawValue>>| {
+						let finalized = chain_heads.finalized_block.hash();
+						async move { json_hash(Some(finalized)) }
+					}
+				})
+				.method_handler(
+					"chain_getHeader",
+					|params: Option<Box<serde_json::value::RawValue>>| {
+						let raw = params
+							.expect("legacy RPC methods always send params; qed")
+							.get()
+							.to_owned();
+						let (hash,): (String,) = serde_json::from_str(&raw).unwrap();
+						async move {
+							Json(match MockBlockId::from_hash(&hash) {
+								Some(block) => serde_json::json!({
+									"parentHash": format!("{:?}", H256::zero()),
+									"number": format!("0x{:x}", block.number()),
+									"stateRoot": format!("{:?}", H256::zero()),
+									"extrinsicsRoot": format!("{:?}", H256::zero()),
+									"digest": { "logs": [] },
+								}),
+								None => serde_json::Value::Null,
+							})
+						}
+					},
+				)
+				.build();
+
+			let rpc_client = RpcClient::new(mock);
+			let backend = LegacyBackend::<SrcChainConfig>::builder().build(rpc_client.clone());
+			let api =
+				OnlineClient::<SrcChainConfig>::from_backend_with_config(config, Arc::new(backend))
+					.await
+					.unwrap();
+			let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
+			(api, rpc)
+		}
+
+		/// Build a `SubxtBlockInfoProvider` backed by this mocked chain, and the client
+		/// used to construct the blocks the tests pass to `update_latest`.
+		async fn provider(&self) -> (SubxtBlockInfoProvider, OnlineClient<SrcChainConfig>) {
+			let (api, rpc) = self.clients().await;
+			let provider = SubxtBlockInfoProvider::new(api.clone(), rpc).await.unwrap();
+			(provider, api)
+		}
+	}
+
+	#[tokio::test]
+	async fn construction_seeds_the_latest_and_finalized_blocks() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, _api) = chain_heads.provider().await;
+
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			chain_heads.best_block.lock().unwrap().hash(),
+			"the latest block starts at the chain's best block"
+		);
+		assert_eq!(
+			provider.latest_finalized_block().await.block_hash(),
+			chain_heads.finalized_block.hash(),
+			"the latest finalized block starts at the chain's finalized block"
+		);
+	}
+
+	#[tokio::test]
+	async fn construction_fails_without_a_best_block() {
+		let chain_heads = MockChainHeads::default();
+		let (api, rpc) = chain_heads.clients().await;
+
+		chain_heads.report_no_best_block.store(true, Ordering::SeqCst);
+		assert!(
+			matches!(SubxtBlockInfoProvider::new(api, rpc).await, Err(ClientError::BlockNotFound)),
+			"construction fails when the chain reports no best block"
+		);
+	}
+
+	#[tokio::test]
+	async fn best_block_updates_follow_the_chain_head() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, api) = chain_heads.provider().await;
+		let best = chain_heads.best_block.lock().unwrap().number();
+
+		// The chain grows by one block.
+		chain_heads
+			.import_best(&provider, &api, MockBlockId::MainBranch(best + 1))
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best + 1).hash(),
+			"a higher block becomes the latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			0,
+			"no block hash lookup for a higher block"
+		);
+
+		chain_heads
+			.import_best(&provider, &api, MockBlockId::SideBranch(best + 1))
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::SideBranch(best + 1).hash(),
+			"a same-number block from a side branch replaces the latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			0,
+			"no block hash lookup for a same-number block"
+		);
+
+		chain_heads
+			.import_best(&provider, &api, MockBlockId::SideBranch(best + 2))
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::SideBranch(best + 2).hash(),
+			"a higher side-branch block becomes the latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			0,
+			"no block hash lookup for a higher side-branch block"
+		);
+	}
+
+	#[tokio::test]
+	async fn reorgs_are_followed_and_replays_are_ignored() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, api) = chain_heads.provider().await;
+		let best = chain_heads.best_block.lock().unwrap().number();
+		let finalized = chain_heads.finalized_block.number();
+
+		// The chain's best block moves to the side branch, below the stored latest block.
+		chain_heads
+			.import_best(&provider, &api, MockBlockId::SideBranch(best - 1))
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::SideBranch(best - 1).hash(),
+			"a lower block is accepted when the chain ends below the stored latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			1,
+			"one block hash lookup for the accepted lower block"
+		);
+
+		// The chain's best block moves back to the main branch without a notification.
+		*chain_heads.best_block.lock().unwrap() = MockBlockId::MainBranch(best);
+
+		provider
+			.update_latest(
+				Arc::new(api.at_block(MockBlockId::MainBranch(finalized).hash()).await.unwrap()),
+				SubscriptionType::BestBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(finalized).hash(),
+			"an old block is accepted when the chain no longer lists the stored latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			2,
+			"one block hash lookup for each accepted lower block"
+		);
+
+		provider
+			.update_latest(
+				Arc::new(
+					api.at_block(MockBlockId::MainBranch(finalized - 1).hash()).await.unwrap(),
+				),
+				SubscriptionType::BestBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(finalized).hash(),
+			"an old block is ignored while the chain still lists the stored latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			3,
+			"one more block hash lookup to ignore an old block"
+		);
+	}
+
+	#[tokio::test]
+	async fn failed_block_hash_lookups_keep_the_stored_best_block() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, api) = chain_heads.provider().await;
+		let best = chain_heads.best_block.lock().unwrap().number();
+		let finalized = chain_heads.finalized_block.number();
+
+		chain_heads.fail_block_hash_lookups.store(true, Ordering::SeqCst);
+		provider
+			.update_latest(
+				Arc::new(api.at_block(MockBlockId::MainBranch(finalized).hash()).await.unwrap()),
+				SubscriptionType::BestBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best).hash(),
+			"an old block is ignored while the block hash lookup fails"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			1,
+			"one block hash lookup for the ignored old block"
+		);
+
+		// The chain's best block moves to the side branch, below the stored latest block.
+		chain_heads.fail_block_hash_lookups.store(false, Ordering::SeqCst);
+		chain_heads
+			.import_best(&provider, &api, MockBlockId::SideBranch(best - 1))
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::SideBranch(best - 1).hash(),
+			"a lower block is accepted once the block hash lookup succeeds"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			2,
+			"one more block hash lookup for the accepted lower block"
+		);
+	}
+
+	#[tokio::test]
+	async fn finalized_blocks_never_move_backwards() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, api) = chain_heads.provider().await;
+		let finalized = chain_heads.finalized_block.number();
+
+		provider
+			.update_latest(
+				Arc::new(
+					api.at_block(MockBlockId::MainBranch(finalized - 1).hash()).await.unwrap(),
+				),
+				SubscriptionType::FinalizedBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_finalized_block().await.block_hash(),
+			MockBlockId::MainBranch(finalized).hash(),
+			"a lower finalized block is ignored"
+		);
+
+		provider
+			.update_latest(
+				Arc::new(
+					api.at_block(MockBlockId::MainBranch(finalized + 1).hash()).await.unwrap(),
+				),
+				SubscriptionType::FinalizedBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_finalized_block().await.block_hash(),
+			MockBlockId::MainBranch(finalized + 1).hash(),
+			"a higher finalized block becomes the latest finalized block"
+		);
+	}
+
+	#[tokio::test]
+	async fn block_by_number_uses_the_cache_before_querying_the_chain() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, _api) = chain_heads.provider().await;
+		let best = chain_heads.best_block.lock().unwrap().number();
+		let finalized = chain_heads.finalized_block.number();
+
+		let block = provider.block_by_number(best).await.unwrap().unwrap();
+		assert_eq!(
+			block.block_hash(),
+			MockBlockId::MainBranch(best).hash(),
+			"the latest block is returned for its number"
+		);
+		let block = provider.block_by_number(finalized).await.unwrap().unwrap();
+		assert_eq!(
+			block.block_hash(),
+			MockBlockId::MainBranch(finalized).hash(),
+			"the latest finalized block is returned for its number"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			0,
+			"no block hash lookup for the cached blocks"
+		);
+
+		let block = provider.block_by_number(best - 1).await.unwrap().unwrap();
+		assert_eq!(
+			block.block_hash(),
+			MockBlockId::MainBranch(best - 1).hash(),
+			"an uncached block is fetched from the chain"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			1,
+			"one block hash lookup for an uncached block number"
+		);
+
+		assert!(
+			provider.block_by_number(best + 1).await.unwrap().is_none(),
+			"no block exists above the chain's best block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			2,
+			"one more block hash lookup for a number above the chain's best block"
+		);
+
+		chain_heads.fail_block_hash_lookups.store(true, Ordering::SeqCst);
+		assert!(
+			provider.block_by_number(best - 1).await.is_err(),
+			"a block hash lookup failure is returned as an error"
+		);
+	}
+
+	#[tokio::test]
+	async fn block_by_hash_uses_the_cache_before_querying_the_chain() {
+		let chain_heads = MockChainHeads::default();
+		let (provider, _api) = chain_heads.provider().await;
+		let best = chain_heads.best_block.lock().unwrap().number();
+		let finalized = chain_heads.finalized_block.number();
+
+		let block = provider
+			.block_by_hash(&MockBlockId::MainBranch(best).hash())
+			.await
+			.unwrap()
+			.unwrap();
+		assert_eq!(block.block_number(), best, "the latest block is returned for its hash");
+
+		let block = provider
+			.block_by_hash(&MockBlockId::MainBranch(finalized).hash())
+			.await
+			.unwrap()
+			.unwrap();
+		assert_eq!(
+			block.block_number(),
+			finalized,
+			"the latest finalized block is returned for its hash"
+		);
+
+		let block = provider
+			.block_by_hash(&MockBlockId::SideBranch(best).hash())
+			.await
+			.unwrap()
+			.unwrap();
+		assert_eq!(
+			block.block_hash(),
+			MockBlockId::SideBranch(best).hash(),
+			"an uncached block is fetched from the chain"
+		);
+		assert_eq!(block.block_number(), best, "the fetched block's number comes from its header");
+
+		assert!(
+			provider.block_by_hash(&H256::zero()).await.unwrap().is_none(),
+			"no block exists for an unknown hash"
+		);
+
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			0,
+			"fetching by hash never asks the chain for a block hash"
+		);
 	}
 }
