@@ -1386,6 +1386,16 @@ budget) rather than as metered block weight.
 /// reconstructed from an in-block inclusion proof) to a newer root:
 /// O(log n) hashes summarizing the appended range.
 struct MMRExtensionProof {
+    /// Leaf count of the extended MMR—a free variable the verifier
+    /// cannot derive (not even from the node count: extending 1 leaf to
+    /// 3 and to 4 both take two connecting nodes, placed differently).
+    /// Together with the verifier's own leaf count it fixes the MMR
+    /// shape completely, which is why the nodes below carry no
+    /// positions. Trust-free like every count in the protocol: a lie
+    /// yields a root nothing commits to.
+    leaf_count: Compact<u64>,
+    /// The appended range's summarizing nodes, in the deterministic
+    /// order derived from (verifier's leaf count, `leaf_count`).
     connecting_nodes: Vec<Hash>,
 }
 
