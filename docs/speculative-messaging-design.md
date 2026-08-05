@@ -429,63 +429,226 @@ stores or compares—everything below it is proven parachain-side.
 ```rust
 /// Root of a sender's stream commitment tree: a binary compact (Patricia)
 /// trie keyed by the canonical SCALE encoding of StreamId (8 bytes),
-/// leaves = the streams' MMR roots.
+/// leaves = the streams' MMR roots, leaf preimage
+/// `TREE_LEAF_TAG ‖ StreamId ‖ MmrRoot`—the key is IN the leaf hash, see
+/// TreeInclusionProof for why that is load-bearing.
 /// Distinct newtype from MmrRoot—the two kinds of root flow through
 /// different checks and must not be confusable.
 struct StreamsRoot(Hash);
 
 /// Proof that one stream's MMR root is the entry at its StreamId under a
-/// given StreamsRoot: the sibling hashes along the id's path through the
-/// trie (~log₂(S) of them) plus the path-compression metadata the compact
-/// trie structure requires. The verifier reconstructs the path from
+/// given StreamsRoot: one step per branch on the id's path (~log₂(S) of
+/// them). Each step must carry its split-bit position alongside the
+/// sibling hash—path compression makes the branch positions a function
+/// of the *other* keys in the tree, which the verifier does not know,
+/// and without the position neither the step's direction (our key's bit
+/// at the split decides left/right) nor the number of compressed levels
+/// is determinable. The verifier reconstructs the path from
 /// (StreamId, MmrRoot) upward and compares the result against the
-/// StreamsRoot—id and root are both bound by the path, neither is taken on
-/// faith.
+/// StreamsRoot—id and root are both bound by the path, neither is taken
+/// on faith.
 ///
 /// The node encoding is CONSENSUS-CRITICAL and protocol-fixed: every
 /// implementation must reproduce byte-identical StreamsRoots and every
 /// foreign node must verify these proofs. The concrete byte format is
 /// specified with the primitives (companion to the #12346 family), under
-/// two constraints mandated here: domain-tagged node hashing with no
-/// ambiguous parses (same rationale as Leaf Hashing), and injective node
-/// encoding.
+/// four constraints mandated here:
+///
+/// 1. Domain-tagged node hashing with no ambiguous parses (same
+///    rationale as Leaf Hashing).
+/// 2. Injective node encoding.
+/// 3. The split bit committed inside the inner-node preimage
+///    (`TREE_INNER_TAG ‖ split_bit ‖ left ‖ right`)—otherwise the
+///    claimed positions are free parameters and one sibling list
+///    verifies under many of them.
+/// 4. The full key committed inside the leaf preimage
+///    (`TREE_LEAF_TAG ‖ StreamId ‖ MmrRoot`). The path binds only the
+///    key's bits AT the branch positions; the compressed bits in
+///    between are, by construction, bits no *present* key differs
+///    on—so a bare-value leaf would let any key agreeing with a
+///    present key on just the branch bits verify against that key's
+///    entry (e.g. Channel{B,0,1} aliasing Channel{B,0,0} while the
+///    sender runs no stream branching on a num bit: same messages
+///    consumable under two stream ids—replay). The leaf field binds
+///    the compressed bits; branch bits and leaf together cover all
+///    KEY_BITS. It is also what makes non-inclusion proofs
+///    well-defined: "the lookup lands on a leaf holding a DIFFERENT
+///    key" requires leaves to provably hold their key.
+///
+/// Together 3 and 4 pin every hash on the path, so each (key, root)
+/// pair has exactly one verifying proof; the step-order rule below is
+/// early rejection, not what uniqueness rests on.
+///
+/// The audit rule behind 3 and 4, for reviewing any change to this
+/// structure: every one of the KEY_BITS key bits must be committed
+/// exactly once—as some step's split bit (branch positions) or inside
+/// the leaf preimage (everything compressed away). A bit committed
+/// nowhere is an aliasing bug; twice, redundancy.
+
+/// Bit width of the canonical 8-byte StreamId encoding; a path cannot
+/// have more branches than the key has bits.
+const KEY_BITS: u8 = 64;
+
+/// One branch on the path. `split_bit` is the branch's bit position,
+/// counted as offset from the key's first (most significant) bit.
+struct TreeStep {
+    split_bit: u8,
+    sibling: Hash,
+}
+
 struct TreeInclusionProof {
-    siblings: Vec<Hash>,
-    // + compact-trie path metadata
+    /// Leaf to root: split-bit offsets strictly decreasing (deeper
+    /// branches split on later bits). Structurally impossible in a
+    /// well-formed trie to be otherwise—the verifier rejects any other
+    /// ordering as early garbage (uniqueness itself rests on
+    /// constraints 3 and 4 above).
+    steps: BoundedVec<TreeStep, KEY_BITS>,
 }
 ```
 
-An example: chain A runs a channel to B (ParaId 2001 = `0x7D1`) with B's
-ack register for the reverse channel, a channel to C (`0x7D2`), and one
-broadcast stream. Four keys, and the tree they span (binary trie, shared
-key prefixes compressed into single edges):
+What compression is, on toy 4-bit keys `A=0000, B=0001, C=0100`—the
+uncompressed tree spends one level per key bit; the compressed one
+keeps a node only where present keys diverge, and its edges carry the
+bit strings in between:
 
 ```
-Keys (kind ++ recipient ++ domain ++ num, hex):
+Uncompressed — one level per key bit:
+
+                [·]
+bit 0         0/    \1
+             [·]     ∅
+bit 1      0/    \1
+          [·]    [·]
+bit 2      0|      0|
+          [·]     [·]
+bit 3    0/  \1    0|
+          A    B    C
+
+Compressed — nodes only at forks; an edge carries exactly one bit, the
+decision at its parent's @-position. Nothing else of the key exists in
+the structure:
+
+             [r] @1
+           0/     \1
+           /       \
+        [n] @3      C
+       0/   \1
+       A     B
+
+What the structure knows about A: bit 1 = 0, bit 3 = 0. Nothing more.
+Bits 0 and 2 appear nowhere—A = 0000 is NOT reconstructible from the
+tree; the missing bits exist solely inside leaf(A)'s preimage. That
+absence is why constraint 4 exists.
+
+Proof for A, uncompressed: [leaf(B), ∅, subtree-C, ∅]
+  — always exactly one sibling per key bit (∅ = empty-subtree hash);
+    positions implicit: leaf to root, step i sits at bit KEY_BITS−1−i
+Proof for A, compressed:   [(3,leaf(B)), (1,leaf(C))]
+  — only the real forks; the grid is gone, so each step must carry
+    its position
+
+Hashes—what is committed:
+  leaf(X) = H(TREE_LEAF_TAG  ‖ X ‖ MmrRoot_X)         leaf commits its FULL key
+  n       = H(TREE_INNER_TAG ‖ 3 ‖ leaf(A) ‖ leaf(B))     3 = [n]'s fork bit
+  r       = H(TREE_INNER_TAG ‖ 1 ‖ n ‖ leaf(C))           1 = [r]'s fork bit
+
+Legend:
+  [x] @k   inner node forking on key bit k; k is IN the node's hash
+           preimage
+  0/ \1    edge = the single decision bit at the parent's @k
+           (0 = left, 1 = right)—the only key bits the structure
+           holds; all skipped bits are in NO hash except the leaf's
+           committed key (constraint 4)
+  ∅        empty side (uncompressed tree only)
+```
+
+The real thing, at full width: chain
+A runs a channel to B (ParaId 2001 = `0x7D1`) with B's ack register for
+the reverse channel, a channel to C (`0x7D2`), and one broadcast
+stream. Four keys, and the tree they span:
+
+```
+Keys: the four StreamIds in their canonical 8-byte encodings (see
+Message Accumulators and Streams), shown as hex bytes. Bit offsets
+count from the first (most significant) bit:
   Channel{B}    00 000007D1 00 0000
   Channel{C}    00 000007D2 00 0000
   Ack{B}        01 000007D1 00 0000
   Broadcast{0}  02 0000 00 00000000
 
-                     StreamsRoot
-                    /           \
-         (kinds 0x00,0x01)     Broadcast{0}
-           /          \          = MMR root
-     (kind 0x00)     Ack{B}
-      /       \        = MMR root
- Channel{B}  Channel{C}
- = MMR root  = MMR root
+              [r] @6              [r]'s hash is the StreamsRoot
+            0/     \1
+        [n1] @7     Broadcast{0}
+       0/     \1
+   [n2] @38    Ack{B}
+    0/     \1
+Channel{B}  Channel{C}
+
+Same shape and notation as the toy. What the toy could not show—the
+scale of what is absent at full width:
+  @6, @7    forks inside the kind byte (0x00 / 0x01 / 0x02)
+  @38       the next fork is 30 bits further down, inside the
+            recipient bytes (0x7D1 vs 0x7D2)
+  absent    bits 0–5 above [r], bits 8–37 between @7 and @38, and
+            every leaf's tail (bits 39–63 for the channels)—the
+            structure holds 3 of 64 bits per path; the missing 61
+            live only in the leaf preimages (constraint 4)
+
+  leaf  = H(TREE_LEAF_TAG  ‖ StreamId ‖ MmrRoot)
+  n2    = H(TREE_INNER_TAG ‖ 38 ‖ leaf(Channel{B}) ‖ leaf(Channel{C}))
+  n1    = H(TREE_INNER_TAG ‖  7 ‖ n2 ‖ leaf(Ack{B}))
+  r     = H(TREE_INNER_TAG ‖  6 ‖ n1 ‖ leaf(Broadcast{0}))  = StreamsRoot
 ```
 
-The shape follows the key bits: kinds 0x00 and 0x01 differ only in their
-last bit, so the channel and ack leaves share a long common edge, while
-0x02 splits off at the top. Inclusion proof for Channel{B} = the sibling
-hash at each branch on its path: H(Channel{C} leaf), H(Ack{B} leaf),
-H(Broadcast{0} leaf) — 3 hashes here.
+One branch per *distinguishing* bit among the keys present—proof length
+tracks the number of streams, not the key width.
 
-Everything between branch points is one compressed edge, so the tree has
-exactly one branch per *distinguishing* bit among the keys present—proof
-length tracks the number of streams, not the key width.
+Proof and verification, concretely:
+
+```
+Proof for Channel{B} (leaf to root, split bits strictly decreasing):
+  steps = [ (38, leaf(Channel{C})), (7, leaf(Ack{B})), (6, leaf(Broadcast{0})) ]
+
+Verifier, holding key K = Channel{B} and its computed MmrRoot:
+  h = H(TREE_LEAF_TAG ‖ K ‖ MmrRoot)
+  (38, s): K[38] = 0 → we are LEFT  → h = H(TREE_INNER_TAG ‖ 38 ‖ h ‖ s)
+  ( 7, s): K[7]  = 0 → we are LEFT  → h = H(TREE_INNER_TAG ‖  7 ‖ h ‖ s)
+  ( 6, s): K[6]  = 0 → we are LEFT  → h = H(TREE_INNER_TAG ‖  6 ‖ h ‖ s)
+  h == StreamsRoot?
+
+Same for Ack{B} (2 steps—its sibling at bit 7 is the whole n2 subtree):
+  steps = [ (7, n2), (6, leaf(Broadcast{0})) ]
+  h = H(TREE_LEAF_TAG ‖ Ack{B} ‖ MmrRoot)
+  (7, s): key[7] = 1 → we are RIGHT → h = H(TREE_INNER_TAG ‖ 7 ‖ s ‖ h)
+  (6, s): key[6] = 0 → we are LEFT  → h = H(TREE_INNER_TAG ‖ 6 ‖ h ‖ s)
+```
+
+The split-bit offsets are what lets the verifier pick left/right from
+its *own* key's bits (direction is never in the proof) and jump the
+compressed levels in between; the sibling hashes alone would leave both
+undetermined. The whole tree is a pure function of the entry set—the
+canonical construction, which every implementation must reproduce
+bit-identically:
+
+```
+/// entries: non-empty, sorted by key, keys distinct.
+fn tree_hash(entries: &[(StreamId, MmrRoot)]) -> Hash {
+    match entries {
+        [(key, root)] => H(TREE_LEAF_TAG ‖ key ‖ root),
+        _ => {
+            let b = lowest bit offset at which entries' keys differ;
+            let (zeros, ones) = entries.split_at(first key with bit b set);
+            H(TREE_INNER_TAG ‖ b ‖ tree_hash(zeros) ‖ tree_hash(ones))
+        }
+    }
+}
+```
+
+A prover holding all entries extracts the proof for key K by recording,
+at each recursion step on K's side, `(b, tree_hash(other side))`—then
+reversing into leaf-to-root order. The sender never rebuilds from
+scratch, though: it caches the node hashes and updates the k touched
+paths per block (see below).
 
 Properties the tree must have, and why a keyed binary trie:
 
@@ -541,7 +704,12 @@ The tree removes the entire per-stream relay footprint at once: provides is
 its own—**outbound streams are effectively unbounded and free**.
 What we pay, honestly: receivers carry ~300 B of inclusion proofs
 per source per consuming block, lifts regain an inclusion
-component, and proof-free lag tolerance denominates in sender blocks rather
+component, consumers poll on the p2p side (one opaque root: a receiver
+cannot tell whether its stream moved, so each new root costs one
+up-to-dateness request per consumed sender—cheap, the empty response is
+a ~300 B verifiable "nothing new", see
+[Fetch Protocol](#fetch-protocol)), and proof-free lag tolerance
+denominates in sender blocks rather
 than per-stream changes (see
 [Relay Chain Matching](#relay-chain-matching) for why that tolerance is
 cheap to buy).
