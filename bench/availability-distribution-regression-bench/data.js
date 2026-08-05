@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785855238277,
+  "lastUpdate": 1785962133981,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6de451a105ca0a5feb675a215d4e8de5207febf6",
-          "message": "statement-store: New RPC result types (#10421)\n\n# Description\n\nInternal submittion result type changed to keep more information, which\nshould be useful for RPC clients.\n\nApplication-level errors moved from JSON-RPC transport errors into the\nresult type for `statement_submit` RPC method to help clients\ndistinguish between submission outcomes instead of parsing error\nstrings.\n\nRuntime API wasn't changed.\n\n## Integration\n\n**Breaking Change** - `statement_submit` now returns\n`StatementSubmitResult` enum instead of `()`.\n\n## Review Notes\n\nSubmission outcomes now return as Ok(result) with status field. Only\ninfrastructure failures (database errors, decode errors) remain as\nJSON-RPC errors.\n\nNetworkPriority removed as we never used it, reputation changes\nadjusted.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
-          "timestamp": "2025-12-02T23:02:34Z",
-          "tree_id": "a9c85b731c11359474045c22ae839311d378a4f6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6de451a105ca0a5feb675a215d4e8de5207febf6"
-        },
-        "date": 1764722434772,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01298556428666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02235399238666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15741673022000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007211676439999981,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14261993872666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37865735+clangenb@users.noreply.github.com",
+            "name": "clangenb",
+            "username": "clangenb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11eb7aa0d9f0aa1b5b42448705b9906c9fc8c7a9",
+          "message": "Derive Debug, Clone, PartialEq, Eq for EraPayoutParams (#12449)\n\n`polkadot_runtime_common::impls::EraPayoutParams` now derives `Debug`,\n`Clone`, `PartialEq` and `Eq`, so runtimes can log and compare the\nera-payout parameters they construct.\n\nNoticed this when doing a minor cleanup in the runtimes repository. It\ndoes not hurt to derive these things, and might bring needed convenience\nat some point.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>",
+          "timestamp": "2026-08-05T18:50:30Z",
+          "tree_id": "d06284205883b4ec6192c51998c15a5306e72571",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11eb7aa0d9f0aa1b5b42448705b9906c9fc8c7a9"
+        },
+        "date": 1785962101238,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007635674606666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02272296624666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00994204912666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14434116085333337,
             "unit": "seconds"
           }
         ]
