@@ -218,7 +218,7 @@ struct AccumulateLogEntry {
 enum RefineLog {
     /// `historical_lookup(validation_code_hash)` returned `None`: the
     /// validation code preimage is not available in the service's store
-    /// at the lookup-anchor. See §4.1 step 3.
+    /// at the lookup-anchor. See §4.1 step 5.
     InvalidCodeHash,
     /// Opaque payload supplied by the PVF via `report_error(data)` before
     /// failing the execution (max 1024 bytes).
@@ -239,6 +239,12 @@ enum RefineLog {
     /// The work package has 0 items or more than 1 item; only single-item
     /// packages are currently supported (§3.2).
     InvalidItemCount,
+    /// The work item does not carry exactly two extrinsics (the parachain
+    /// state proof and the JAM state proof). See §3.2, §4.1.
+    InvalidExtrinsicCount,
+    /// The work item payload failed to decode into a `ParachainCandidate`.
+    /// See §3.2, §4.1.
+    MalformedPayload,
     /// The opaque `AuthorizerConfig` blob failed to decode. See §4.1 step 1.
     MalformedAuthorizerConfig,
     /// The encoded `ParachainWorkDigest` (head data + upward messages) would
@@ -370,21 +376,28 @@ singletons; the tag prepended to the encoded map key for map entries).
 ### 3.2 Work Items
 
 Each work package submitted to the Parachain Service contains one or more **work items**.
-For the Parachain Service, a work item represents one parachain candidate. The candidate
-itself — validation code hash and PoV — is carried as the work item's **extrinsic data**.
-
-The shape of that extrinsic is:
+For the Parachain Service, a work item represents one parachain candidate. A candidate is
+split across the work item's **payload** and its **extrinsics**. The shape of the payload is:
 
 ```rust
 struct ParachainCandidate {
     /// The hash of the currently active validation code. Used by Refine to
     /// look up the PVF bytecode from the preimage store.
     validation_code_hash: ValidationCodeHash,
-
-    /// The Proof-of-Validity (PoV) — the actual block data + witness.
-    pov: Vec<u8>,
 }
 ```
+
+Every work item carries exactly **two extrinsics**, in this fixed order:
+
+| Index | Extrinsic | Contents |
+|---|---|---|
+| `0` | Parachain state proof | Witness proving the parachain's own pre-state that the PVF reads to validate the candidate. |
+| `1` | JAM state proof | Witness proving the relevant JAM state the candidate is validated against, checked against the lookup-anchor posterior state-root. |
+
+Refine fetches these via `extrinsic(0)` and `extrinsic(1)`, and aborts the item with
+`Err(RefineLog::InvalidExtrinsicCount)` unless the work item carries exactly two
+extrinsics. A payload that does not decode into a `ParachainCandidate` aborts with
+`Err(RefineLog::MalformedPayload)`.
 
 Initially, each work package will contain a single work item (one parachain candidate).
 Support for multiple items per package may be added later.
@@ -531,14 +544,18 @@ index `item_index` the Parachain Service performs:
    prefix; if `len(authorized_paras) != len(workitems)` this Refine invocation aborts
    with an `Err`.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
-3. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
+3. Decodes the work item payload into a `ParachainCandidate`; aborts with
+   `Err(RefineLog::MalformedPayload)` if it does not decode.
+4. Checks the work item carries exactly two extrinsics and fetches them: otherwise aborts with
+   `Err(RefineLog::InvalidExtrinsicCount)`.
+5. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
    If the lookup returns `None` (the preimage isn't available in the service's
    store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
-4. Instantiates a child PVM with the PVF.
-5. Executes the PVF against the PoV (the `jam_validate_block` call).
-6. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
+6. Instantiates a child PVM with the PVF.
+7. Executes the PVF against the two storage proofs (the `jam_validate_block` call).
+8. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
    authoritative `para_id` (see §4.2).
-7. Checks that the encoded digest (head data + upward messages) plus the
+9. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget; if not, aborts with
    `Err(RefineLog::WorkDigestTooLarge)`.
