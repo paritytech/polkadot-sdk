@@ -1420,18 +1420,31 @@ regenerated against the current provides at every (re)submission (see
 There is only *one* check. Candidates arriving together (live communication)
 are not a special case: before checking, the stored windows are **virtually
 extended** by the `Provides` roots of all candidates being processed in this
-relay chain block. Every requires entry is then matched against the extended
-window. On enactment the transient extensions become permanent (pushed into
-`RecentRoots`); if a providing candidate doesn't make it, its extensions
-evaporate with it.
+relay chain block **and of all candidates pending availability**. Every
+requires entry is then matched against the extended window. On enactment the
+transient extensions become permanent (pushed into `RecentRoots`); if a
+providing candidate doesn't make it (dropped, or availability times out),
+its extensions evaporate with it.
+
+The pending-availability part is not an optimization but the speculative
+tier's steady state: a fast sender's newest roots are *always* in flight
+between backing and inclusion—a receiver backed one relay block after its
+sender would otherwise never match on first submission and churn through
+resubmissions exactly on the hot path. The relay already holds these
+candidates; the window gains one more transient source, under the same
+rule as same-block matches: a match against a pending candidate's provides
+is an enactment dependency on that candidate.
 
 ```rust
 fn verify_requires(
     candidates: &[CandidateReceipt],  // all candidates in this relay block
+    pending: &[CandidateReceipt],     // candidates pending availability
     stored: &BTreeMap<ParaId, RecentRoots>,
 ) -> Result<(), Error> {
     // Transient: stored windows ∪ provides of the candidates at hand
-    let window = VirtualWindow::new(stored, candidates);
+    // ∪ provides of candidates pending availability. Matches against
+    // either transient part = enactment dependency on that candidate.
+    let window = VirtualWindow::new(stored, candidates, pending);
 
     for receiver_candidate in candidates {
         for (source, expected_root) in receiver_candidate.requires().iter() {
@@ -1605,9 +1618,10 @@ struct ConsumptionRecord {
     /// StreamId's canonical encoding (designed to sort—see StreamId;
     /// `Ord` on StreamId is that order) and unique—the messaging
     /// inherent carries at most one item per stream, the STF rejects
-    /// duplicates. This is the API view: the underlying outbox storage
-    /// stays a flat, host-append-only vec (the `OutboundMessages`
-    /// argument), grouped and sorted at read time.
+    /// duplicates. This is the API view: the underlying storage
+    /// (`ConsumptionOutbox`—distinct from the sender's
+    /// `OutboundMessages`) stays a flat, host-append-only vec for the
+    /// same O(1)-append reason, grouped and sorted at read time.
     entries: BTreeMap<ParaId, Vec<(StreamId, Interval)>>,
 }
 ```
@@ -1675,12 +1689,13 @@ fn build_requires_entry(
 }
 
 /// The candidate's Requires set, from the per-block records (bundle
-/// order) and the POV's lifts. Sources must match exactly—recorded
-/// sources without lifts, or lifts for unrecorded sources, invalidate
-/// the candidate.
+/// order) and the POV's lifts, accepted exactly as transported (decode
+/// already enforces strictly increasing ParaIds—no conversion, no
+/// re-sort). Sources must match exactly—recorded sources without lifts,
+/// or lifts for unrecorded sources, invalidate the candidate.
 fn build_requires(
     records: &[ConsumptionRecord],
-    lifts: &BTreeMap<ParaId, Vec<RequiresLift>>,
+    lifts: &[(ParaId, Vec<RequiresLift>)],
 ) -> Result<RequiresSet, Error> {
     let mut merged: BTreeMap<ParaId, BTreeMap<StreamId, Vec<Interval>>> =
         BTreeMap::new();
@@ -1692,9 +1707,9 @@ fn build_requires(
             }
         }
     }
-    ensure!(merged.keys().eq(lifts.keys()), Error::LiftSourceMismatch);
+    ensure!(merged.keys().eq(lifts.iter().map(|(p, _)| p)), Error::LiftSourceMismatch);
     RequiresSet::try_from_iter(
-        merged.iter().zip(lifts.values()).map(|((source, streams), lifts)| {
+        merged.iter().zip(lifts).map(|((source, streams), (_, lifts))| {
             Ok((*source, build_requires_entry(streams, lifts)?))
         }),
     )
@@ -2752,9 +2767,10 @@ For the super-chain comparison with parallel-execution runtimes
    of stream count—there is nothing else to store or manage.
 3. **Commitment matching**: At inclusion time, verify each requires entry
    `(source, expected_root)` against the stored windows *virtually extended*
-   by the `Provides` roots of the candidates at hand—one unified check;
-   extensions become permanent on enactment, and matches against the virtual
-   part create atomic enactment dependencies.
+   by the `Provides` roots of the candidates at hand and of candidates
+   pending availability—one unified check; extensions become permanent on
+   enactment, and matches against the virtual part create atomic enactment
+   dependencies.
 
 ### PVF Changes
 
