@@ -577,11 +577,6 @@ impl<T: Config> Pallet<T> {
 		TemporarySlots::<T>::contains_key(id)
 	}
 
-	/// Returns whether a para is currently a lease holding parachain.
-	fn is_parachain(id: ParaId) -> bool {
-		T::Registrar::is_parachain(id)
-	}
-
 	/// Returns current lease period index.
 	fn current_lease_period_index() -> LeasePeriodOf<T> {
 		T::Leaser::lease_period_index(frame_system::Pallet::<T>::block_number())
