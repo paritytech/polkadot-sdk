@@ -2892,7 +2892,10 @@ mod tests {
 		handler.flush_pending_sends().await;
 
 		assert!(!handler.peers.get(&peer_id).unwrap().known_statements.contains(&hash));
-		assert_eq!(handler.initial_sync_peer_queue.iter().filter(|peer| **peer == peer_id).count(), 1);
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|peer| **peer == peer_id).count(),
+			1
+		);
 		assert_eq!(handler.initial_sync_in_flight_bytes, 0);
 	}
 
@@ -2916,7 +2919,10 @@ mod tests {
 		let sync_id = handler.pending_initial_syncs.get(&peer_id).unwrap().sync_id;
 		handler.flush_pending_sends().await;
 
-		assert_eq!(handler.pending_initial_syncs.get(&peer_id).map(|pending| pending.sync_id), Some(sync_id));
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).map(|pending| pending.sync_id),
+			Some(sync_id)
+		);
 		assert_eq!(
 			handler.initial_sync_peer_queue.iter().filter(|peer| **peer == peer_id).count(),
 			1
