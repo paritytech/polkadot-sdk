@@ -360,9 +360,7 @@ impl Litep2pNetworkBackend {
 			);
 		}
 
-		config_builder = config_builder.with_keypair(keypair);
-
-		Ok(config_builder)
+		Ok(config_builder.with_keypair(keypair))
 	}
 }
 

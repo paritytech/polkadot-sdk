@@ -41,9 +41,6 @@ use std::str::FromStr;
 const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-p256-v1";
 
 /// Deterministically generate a WebRTC DTLS certificate from the node's secret key.
-///
-/// Returns `Err` if litep2p's [`DtlsCertificate::load`] doesn't accept DER inputs (logically
-/// impossible as of litep2p v0.14.3).
 pub fn derive_certificate(
 	node_secret_key: Ed25519SecretKey,
 ) -> Result<DtlsCertificate, litep2p::Error> {
