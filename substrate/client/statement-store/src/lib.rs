@@ -2700,12 +2700,13 @@ impl StatementStore for Store {
 			let mut submit_index = self.submit_index.write();
 			// The account's statements, from the cached record when there is one, else from the
 			// on-disk index.
-			let entries: Vec<(PriorityKey, EntryDetails)> = match submit_index.account_statements.peek(&who) {
-				Some(record) => {
-					record.by_priority.iter().map(|(key, details)| (*key, *details)).collect()
-				},
-				None => self.load_account_entries(&who)?,
-			};
+			let entries: Vec<(PriorityKey, EntryDetails)> =
+				match submit_index.account_statements.peek(&who) {
+					Some(record) => {
+						record.by_priority.iter().map(|(key, details)| (*key, *details)).collect()
+					},
+					None => self.load_account_entries(&who)?,
+				};
 			if entries.is_empty() {
 				return Ok(());
 			}
