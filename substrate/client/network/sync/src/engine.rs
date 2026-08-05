@@ -703,8 +703,11 @@ where
 			},
 			ToServiceCommand::EventStream(tx) => {
 				// Let a new subscriber know about already connected peers.
-				for peer_id in self.peers.keys() {
-					let _ = tx.unbounded_send(SyncEvent::PeerConnected(*peer_id));
+				for (peer_id, peer) in self.peers.iter() {
+					let _ = tx.unbounded_send(SyncEvent::PeerConnected {
+						peer_id: *peer_id,
+						roles: peer.info.roles,
+					});
 				}
 				self.event_streams.push(tx);
 			},
@@ -1073,8 +1076,11 @@ where
 			self.num_in_peers += 1;
 		}
 
-		self.event_streams
-			.retain(|stream| stream.unbounded_send(SyncEvent::PeerConnected(peer_id)).is_ok());
+		self.event_streams.retain(|stream| {
+			stream
+				.unbounded_send(SyncEvent::PeerConnected { peer_id, roles: status.roles })
+				.is_ok()
+		});
 
 		Ok(())
 	}
