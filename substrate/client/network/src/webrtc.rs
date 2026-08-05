@@ -38,10 +38,7 @@ use litep2p::{crypto::ed25519::SecretKey as Ed25519SecretKey, transport::webrtc:
 use std::str::FromStr;
 
 /// Domain-separation tag used when deriving P-256 key from ed25519 key via HMAC-SHA256.
-const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-dtls-p256-v1";
-
-/// Domain-separation tag used to derive cert serial from public key.
-const CERTIFICATE_SERIAL_DST: &[u8] = b"substrate-webrtc-dtls-certificate-serial-v1";
+const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-p256-v1";
 
 /// Deterministically generate a WebRTC DTLS certificate from the node's secret key.
 ///
@@ -111,10 +108,7 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 /// Derive serial number from a public key. Not required for the operation, only used to not
 /// hardcode identical/zero serials for all certificates.
 fn derive_serial(pubkey: &VerifyingKey) -> SerialNumber {
-	let serial_digest = Sha256::new()
-		.chain_update(CERTIFICATE_SERIAL_DST)
-		.chain_update(pubkey.to_sec1_bytes())
-		.finalize();
+	let serial_digest = Sha256::digest(pubkey.to_sec1_bytes());
 	SerialNumber::new(&serial_digest[..16]).expect("below the 20-byte serial number limit; qed")
 }
 
