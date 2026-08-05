@@ -1516,13 +1516,13 @@ fn stitch(
     Ok(current)
 }
 
-/// Build the requires entry for one source. `streams` iterates in
-/// StreamId order (canonical); `lifts` matches it positionally.
+/// The required StreamsRoot for one source's streams—the caller pairs it
+/// with the source id it iterates anyway. `streams` iterates in StreamId
+/// order (canonical); `lifts` matches it positionally.
 fn build_requires_entry(
-    source: ParaId,
     streams: &BTreeMap<StreamId, Vec<Interval>>,
     lifts: &[RequiresLift],
-) -> Result<(ParaId, StreamsRoot), Error> {
+) -> Result<StreamsRoot, Error> {
     ensure!(streams.len() == lifts.len(), Error::LiftCountMismatch);
     let mut entry: Option<StreamsRoot> = None;
     for ((stream, intervals), lift) in streams.iter().zip(lifts) {
@@ -1540,7 +1540,7 @@ fn build_requires_entry(
             Some(prev) => ensure!(prev == root, Error::DivergentRoots),
         }
     }
-    entry.map(|root| (source, root)).ok_or(Error::EmptyRecord)
+    entry.ok_or(Error::EmptyRecord)
 }
 
 /// The candidate's Requires set, from the per-block records (bundle
@@ -1564,7 +1564,7 @@ fn build_requires(
     ensure!(merged.keys().eq(lifts.keys()), Error::LiftSourceMismatch);
     RequiresSet::try_from_iter(
         merged.iter().zip(lifts.values()).map(|((source, streams), lifts)| {
-            build_requires_entry(*source, streams, lifts)
+            Ok((*source, build_requires_entry(streams, lifts)?))
         }),
     )
 }
