@@ -745,7 +745,10 @@ struct MmrRoot(Hash);
 ///
 /// One entry per SOURCE, not per stream: the StreamsRoot covers all of that
 /// source's streams at once, so the set is naturally bounded by the number
-/// of parachains a receiver consumes from.
+/// of parachains a receiver consumes from. `MaxCommitmentEntries` = 256:
+/// today's registered-parachain count (~200) rounded up—to be bumped in
+/// the unlikely event the network outgrows it (see
+/// [Practical Limits](#practical-limits)).
 struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), MaxCommitmentEntries>);
 
 enum UMPSignal {
