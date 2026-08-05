@@ -1851,10 +1851,12 @@ impl Store {
 	// resuming from where the previous call stopped (`allowance_cursor`), so the process
 	// eventually covers all accounts across multiple invocations.
 	//
-	// Each call is bounded by all of:
-	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements expired/evicted,
-	// - `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked,
-	// - `MAX_EXPIRY_TIME_PER_ITERATION` elapsed time.
+	// The two phases are budgeted independently: each gets its own
+	// `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statement budget and its own
+	// `MAX_EXPIRY_TIME_PER_ITERATION` time slice, and allowance enforcement is additionally
+	// bounded by `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked. The isolation matters:
+	// with shared budgets, a store whose expiry inflow persistently exceeds the expiry budget
+	// (a full store with a short TTL) would never get an allowance pass at all.
 	//
 	// Statements are considered expired when their expiry (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
@@ -1871,6 +1873,7 @@ impl Store {
 
 	/// Body of [`Self::enforce_limits`] with the per-call bounds as parameters, letting the
 	/// tests drive the incremental sweep with budgets small enough to need several calls.
+	/// `statement_budget` and `time_budget` apply to each phase separately.
 	fn enforce_limits_bounded(
 		&self,
 		statement_budget: usize,
@@ -1880,7 +1883,6 @@ impl Store {
 		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 		let start = Instant::now();
-		let mut budget = statement_budget;
 		let mut expired = 0u64;
 
 		// Phase 1: reap statements past their expiry, straight off the expiry index.
@@ -1896,7 +1898,7 @@ impl Store {
 					break;
 				}
 				due.push(hash);
-				if due.len() >= budget || start.elapsed() >= time_budget {
+				if due.len() >= statement_budget || start.elapsed() >= time_budget {
 					break;
 				}
 			}
@@ -1914,7 +1916,6 @@ impl Store {
 					e
 				);
 			} else {
-				budget -= 1;
 				expired += 1;
 				log::trace!(
 					target: LOG_TARGET,
@@ -1924,11 +1925,19 @@ impl Store {
 			}
 		}
 
-		// Phase 2: enforce allowances account by account, resuming from the cursor.
+		// Phase 2: enforce allowances account by account, resuming from the cursor. The phase
+		// runs on its own statement and time budgets: with shared ones, a sustained expiry
+		// backlog exhausting phase 1's budget on every pass would starve allowance enforcement
+		// indefinitely.
+		let allowance_start = Instant::now();
+		let mut allowance_budget = statement_budget;
 		let mut cursor = self.submit_index.read().allowance_cursor;
 		let mut checked = 0usize;
 		let mut wrapped = false;
-		while checked < account_budget && budget > 0 && start.elapsed() < time_budget {
+		while checked < account_budget &&
+			allowance_budget > 0 &&
+			allowance_start.elapsed() < time_budget
+		{
 			let from = cursor.unwrap_or([0u8; 32]);
 			let account = match self.next_account_from(&from) {
 				Ok(Some(account)) => account,
@@ -1942,9 +1951,9 @@ impl Store {
 				},
 			};
 			checked += 1;
-			let budget_before = budget;
-			self.enforce_account_allowance(&account, current_time, &mut budget);
-			expired += (budget_before - budget) as u64;
+			let budget_before = allowance_budget;
+			self.enforce_account_allowance(&account, current_time, &mut allowance_budget);
+			expired += (budget_before - allowance_budget) as u64;
 			cursor = match next_account_id(account) {
 				next @ Some(_) => next,
 				None => {

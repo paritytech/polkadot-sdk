@@ -18,11 +18,11 @@
 
 //! Characterises the limit-enforcement pass against the full fixture (~4M statements):
 //!
-//! - the steady per-tick cost of the allowance sweep over the fixture accounts when nothing is
-//!   over allowance and nothing is expired (the background task pays this every
+//! - the steady per-tick cost of the allowance sweep over the fixture accounts when nothing is over
+//!   allowance and nothing is expired (the background task pays this every
 //!   `ENFORCE_LIMITS_PERIOD`);
-//! - the cost of reaping a 10,000-statement expiry backlog off the global expiry index (exactly
-//!   one bounded pass' statement budget).
+//! - the cost of reaping a 10,000-statement expiry backlog off the global expiry index (exactly one
+//!   bounded pass' statement budget).
 //!
 //! Requires `Store::enforce_limits` (doc-hidden, added with the on-disk submit index), so unlike
 //! `benches/full_store` this only compiles on revisions that include it — it characterises the
@@ -84,11 +84,7 @@ fn main() {
 		let result = store.submit(statement, StatementSource::Local);
 		assert!(matches!(result, SubmitResult::New), "backlog statement rejected: {:?}", result);
 	}
-	println!(
-		"ENFORCE_META backlog_submit_{}_secs={:.3}",
-		BACKLOG,
-		started.elapsed().as_secs_f64()
-	);
+	println!("ENFORCE_META backlog_submit_{}_secs={:.3}", BACKLOG, started.elapsed().as_secs_f64());
 	let last_hash = last_hash.expect("backlog is not empty; qed");
 	std::thread::sleep(Duration::from_secs(6));
 
