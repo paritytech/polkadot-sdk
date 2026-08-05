@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785854383992,
+  "lastUpdate": 1785961446735,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -111563,6 +111563,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3076768873,
             "range": "± 93472466",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37865735+clangenb@users.noreply.github.com",
+            "name": "clangenb",
+            "username": "clangenb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11eb7aa0d9f0aa1b5b42448705b9906c9fc8c7a9",
+          "message": "Derive Debug, Clone, PartialEq, Eq for EraPayoutParams (#12449)\n\n`polkadot_runtime_common::impls::EraPayoutParams` now derives `Debug`,\n`Clone`, `PartialEq` and `Eq`, so runtimes can log and compare the\nera-payout parameters they construct.\n\nNoticed this when doing a minor cleanup in the runtimes repository. It\ndoes not hurt to derive these things, and might bring needed convenience\nat some point.\n\n---------\n\nCo-authored-by: clangenb <clangenb@users.noreply.github.com>",
+          "timestamp": "2026-08-05T18:50:30Z",
+          "tree_id": "d06284205883b4ec6192c51998c15a5306e72571",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11eb7aa0d9f0aa1b5b42448705b9906c9fc8c7a9"
+        },
+        "date": 1785961416930,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20215626,
+            "range": "± 110311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20347191,
+            "range": "± 119287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21871363,
+            "range": "± 188793",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26660755,
+            "range": "± 179960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58828568,
+            "range": "± 425021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 337964990,
+            "range": "± 4492621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2791082797,
+            "range": "± 72165039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17450328,
+            "range": "± 100985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17753518,
+            "range": "± 187226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18009519,
+            "range": "± 100464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22537646,
+            "range": "± 112191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60882072,
+            "range": "± 940321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360873314,
+            "range": "± 4950710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2734582363,
+            "range": "± 34926223",
             "unit": "ns/iter"
           }
         ]
