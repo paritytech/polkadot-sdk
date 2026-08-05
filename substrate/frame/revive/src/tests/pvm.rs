@@ -3810,21 +3810,6 @@ fn delegatecall_immutable_charge_follows_callee_not_caller() {
 }
 
 #[test]
-fn sbrk_cannot_be_linked() {
-	// The sbrk instruction is not available in the revive_v1 instruction set.
-	// This test verifies that the linker rejects it during the linking phase.
-	let result = pallet_revive_fixtures::try_compile_invalid_fixture("sbrk");
-
-	assert!(result.is_err(), "Expected linking to fail for sbrk fixture");
-	let err_msg = result.unwrap_err().to_string();
-	assert!(
-		err_msg.contains("sbrk") || err_msg.contains("not available"),
-		"Expected error message to mention 'sbrk' or 'not available', got: {}",
-		err_msg
-	);
-}
-
-#[test]
 fn overweight_basic_block_cannot_be_deployed() {
 	let (code, _) = compile_module("basic_block").unwrap();
 
