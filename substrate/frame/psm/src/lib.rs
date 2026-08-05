@@ -958,7 +958,7 @@ pub mod pallet {
 
 			let deposit = maybe_depositor
 				.map(|depositor| {
-					T::Consideration::new(&depositor, Footprint::from_parts(1, 0))
+					T::Consideration::new(&depositor, Self::psm_creation_footprint())
 						.map(|ticket| (depositor, ticket))
 				})
 				.transpose()?;
@@ -1504,6 +1504,22 @@ pub mod pallet {
 				.using_encoded(sp_io::hashing::blake2_256);
 			T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 				.expect("All byte sequences are valid `AccountId`s; qed")
+		}
+
+		/// The footprint of a PSM instance as written by [`Pallet::create_psm`]: the [`Psm`]
+		/// and [`PsmAdmin`] entries, both keyed by the internal asset id.
+		///
+		/// Excludes per-external storage added later via [`Pallet::add_external_asset`];
+		/// externals are bounded by [`Config::MaxExternals`] and admin-gated rather than
+		/// deposit-backed.
+		pub fn psm_creation_footprint() -> Footprint {
+			Footprint::from_parts(
+				2,
+				T::AssetId::max_encoded_len()
+					.saturating_mul(2)
+					.saturating_add(PsmInfo::<T>::max_encoded_len())
+					.saturating_add(PsmAdminInfo::<T>::max_encoded_len()),
+			)
 		}
 
 		/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns

@@ -3504,6 +3504,34 @@ mod admin {
 	}
 
 	#[test]
+	fn create_psm_charges_deposit_for_instance_footprint() {
+		use frame_support::traits::LinearStoragePrice;
+		use sp_runtime::traits::Convert;
+
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
+			));
+
+			// The hold is priced from the instance's storage footprint, i.e. the `Psm` and
+			// `PsmAdmin` entries written by `create_psm`.
+			let expected = LinearStoragePrice::<PsmCreationDeposit, PsmDepositSlope, u128>::convert(
+				crate::Pallet::<Test>::psm_creation_footprint(),
+			);
+			assert_eq!(Balances::reserved_balance(&ALICE) - reserved_before, expected);
+		});
+	}
+
+	#[test]
 	fn remove_psm_works_and_refunds_creator() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
