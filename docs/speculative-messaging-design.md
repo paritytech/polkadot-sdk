@@ -1092,6 +1092,56 @@ caps bound the total reservation, and a candidate carrying the full
 worst-case lift set always fits—enforced by the same mechanism as all
 PoV accounting, not by collator discipline.
 
+#### Relay Runtime API (the Node–Relay Boundary)
+
+The node–runtime boundary has a relay-side counterpart: for the
+inclusion tier the collator needs the newest *included* `StreamsRoot`
+per source—to fetch under, to build lifts toward, and to verify
+responses against. One call:
+
+```rust
+/// Newest included StreamsRoot of the given sender: the head of its
+/// RecentProvides ring. None if the sender never provided or was
+/// offboarded—callers need not distinguish (either way there is
+/// nothing to fetch under).
+fn newest_included_provides(source: ParaId) -> Option<StreamsRoot>;
+```
+
+Head only, deliberately: the newest root is all authoring policy ever
+targets (see [Verification](#verification)); returning the ring would
+harden the window size `W` into API surface, and skipped intermediate
+roots cost nothing—there is no obligation to observe every update. An
+API rather than a well-known storage key, also deliberately: well-known
+keys earn their keep where reads must be *proven* (PVF storage proofs);
+here the node queries its own relay client state, and the API keeps the
+storage layout private. Polling it on relay block import doubles as the
+entire recovery story—the first query after a restart is all the state
+a returning collator needs.
+
+Not strictly necessary, and worth being honest why it exists anyway:
+the same information is derivable by tracking pending-availability
+candidates across their inclusion—but that is a standing node-side
+state machine, and it has no recovery path while the sender is idle
+(nothing pending, and the latest included head carries no digest if
+that block was quiet; bootstrapping would mean walking the sender's
+header chain backwards for the last digest). Ten relay-side lines
+delete both.
+
+The other tiers need no API at all. **Optimistic (backed / pending
+availability)**: the existing
+`ParachainHost::candidates_pending_availability` returns the
+**committed** candidate receipts—full commitments, `Provides` signals
+included (unlike the `CandidateBacked`/`CandidateIncluded` *events*,
+which carry only the commitments hash). Newest optimistic root = the
+last `Provides` among the pending candidates, falling through to
+`newest_included_provides` when none of them provided; matchability of
+those roots at the receiver's own inclusion is the pending-availability
+window extension (see
+[Relay Chain Matching](#relay-chain-matching)). **Speculative**: roots
+come from verified header digests, ahead of the relay entirely. As with
+the messaging inherent, nothing read through any of these paths enters
+a runtime: roots steer fetching and lift targeting, node-side only.
+
 ### Off-Chain Communication (Between Collators)
 
 Messages are exchanged off-chain between collators. The relay chain never sees
@@ -2771,6 +2821,11 @@ For the super-chain comparison with parallel-execution runtimes
    pending availability—one unified check; extensions become permanent on
    enactment, and matches against the virtual part create atomic enactment
    dependencies.
+4. **Runtime API**: `newest_included_provides(ParaId) ->
+   Option<StreamsRoot>`—the ring's head, for inclusion-tier collators;
+   the optimistic tier rides the existing
+   `candidates_pending_availability` (see
+   [Relay Runtime API](#relay-runtime-api-the-noderelay-boundary)).
 
 ### PVF Changes
 
