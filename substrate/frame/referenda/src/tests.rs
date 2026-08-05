@@ -278,7 +278,7 @@ fn alarm_interval_works() {
 			System::set_block_number(now);
 			AlarmInterval::set(interval);
 			let when = now + 1;
-			let (actual, _) = Referenda::set_alarm(call.clone(), when).unwrap();
+			let (actual, _) = Referenda::set_alarm(call.clone(), when, 128).unwrap();
 			assert!(actual >= when);
 			assert!(actual - interval <= when);
 		}

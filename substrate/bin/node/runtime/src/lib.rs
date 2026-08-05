@@ -510,6 +510,7 @@ impl pallet_scheduler::Config for Runtime {
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MaxScheduledPerBlock = ConstU32<512>;
+	type PriorityReserve = ConstU32<0>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
@@ -2605,6 +2606,7 @@ pub mod dynamic_params {
 					floor: Perbill::from_percent(0),
 					ceil: Perbill::from_percent(100),
 				},
+				alarm_priority: 128,
 			},
 		}]);
 

@@ -60,6 +60,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -82,6 +83,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -104,6 +106,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -126,6 +129,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -148,6 +152,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -170,6 +175,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -192,6 +198,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -214,6 +221,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -236,6 +244,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 			Track {
@@ -258,6 +267,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(50),
 					},
+					alarm_priority: 128,
 				},
 			},
 		];
