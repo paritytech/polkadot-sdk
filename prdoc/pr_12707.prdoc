@@ -45,6 +45,18 @@ doc:
     (implemented as `utility.batch` by all in-tree runtimes). Chains with a batching
     pallet that leave it at its `None` default measure a far cheaper slope and will
     under-charge the precompile.
+
+    **`AliasOrigin` instruction.** Runtimes that put `pallet_xcm::AuthorizedAliasers` last
+    in their `Aliasers` benchmarked the instruction with an origin/target pair matched by
+    the first, storage-free filter (`AliasChildLocation`), so the weight covered none of
+    the authorized-alias lookup. Their
+    `pallet_xcm_benchmarks::generic::Config::alias_origin` now sets up the real worst
+    case: a `target` account holding the maximum number of authorized aliasers, with the
+    matching one registered last and carrying an expiry, so every cheaper filter is tried
+    and the lookup iterates the full list and runs the expiration check. The shared setup
+    lives in the new `parachains_common::benchmarking` module, gated on
+    `runtime-benchmarks`, whose docs spell out the `Aliasers` configuration it assumes;
+    chains configured differently have to work out their own worst case.
 crates:
 - name: pallet-xcm
   bump: major
@@ -52,6 +64,8 @@ crates:
   bump: minor
 - name: pallet-xcm-precompiles
   bump: patch
+- name: parachains-common
+  bump: minor
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
