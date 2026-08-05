@@ -16,13 +16,15 @@ doc:
       1. `pallet-registrar-para::reserve` allocates the next free para id and holds `ParaDeposit`.
       2. `pallet-registrar-para::register` holds a deposit for the head data and the declared code
          length, and asks the relay chain to accept the registration.
-      3. `pallet-registrar-relay::receive` validates the request against the relay chain's live
-         configuration and parks it with an expiry. A request it will not act on is rejected and
-         reported rather than failed, so the parachain never sits on a stuck deposit.
-      4. `pallet-registrar-relay::register_code` takes the blob itself. It is unsigned, pays no fee
-         and authorizes itself through `#[pallet::authorize]`: the pending entry already pins down
-         the exact bytes that will be accepted and the manager has already paid for them, so
-         anybody may submit it. A matching blob onboards the para and reports the outcome back.
+      3. `pallet-registrar-relay::authorize_code` validates the request against the relay chain's
+         live configuration and parks it with an expiry. Only callable by a trusted XCM origin
+         (e.g. the Coretime chain). A request it will not act on is rejected and reported rather
+         than failed, so the parachain never sits on a stuck deposit.
+      4. `pallet-registrar-relay::apply_authorized_code` takes the blob itself. It is unsigned,
+         pays no fee and authorizes itself through `#[pallet::authorize]`: the pending entry
+         already pins down the exact bytes that will be accepted and the manager has already paid
+         for them, so anybody may submit it. A matching blob onboards the para and reports the
+         outcome back.
       5. `pallet-registrar-para::receive` applies the verdict, keeping the deposit held or
          releasing it.
 

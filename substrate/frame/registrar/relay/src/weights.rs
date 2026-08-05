@@ -22,27 +22,27 @@ use frame_support::weights::Weight;
 /// Weight functions needed for `pallet-registrar-relay`.
 pub trait WeightInfo {
 	/// `h` is the length of the genesis head data in bytes.
-	fn receive_register(h: u32) -> Weight;
+	fn authorize_code(h: u32) -> Weight;
 	/// `c` is the length of the validation code in bytes.
 	///
 	/// This call carries no signature and pays no fee, so its weight is the only thing bounding
 	/// how much of a block it can take up.
-	fn register_code(c: u32) -> Weight;
-	/// Cost of deciding whether an unsigned `register_code` is acceptable.
+	fn apply_authorized_code(c: u32) -> Weight;
+	/// Cost of deciding whether an unsigned `apply_authorized_code` is acceptable.
 	///
 	/// `c` is the length of the validation code in bytes; the check hashes the whole blob.
-	fn authorize_register_code(c: u32) -> Weight;
+	fn authorize_apply_authorized_code(c: u32) -> Weight;
 }
 
 /// Zero weights, for tests and mocks only.
 impl WeightInfo for () {
-	fn receive_register(_h: u32) -> Weight {
+	fn authorize_code(_h: u32) -> Weight {
 		Weight::zero()
 	}
-	fn register_code(_c: u32) -> Weight {
+	fn apply_authorized_code(_c: u32) -> Weight {
 		Weight::zero()
 	}
-	fn authorize_register_code(_c: u32) -> Weight {
+	fn authorize_apply_authorized_code(_c: u32) -> Weight {
 		Weight::zero()
 	}
 }

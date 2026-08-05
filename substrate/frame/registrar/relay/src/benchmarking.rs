@@ -33,9 +33,10 @@ fn code_of(len: u32) -> Vec<u8> {
 
 /// Park a pending registration for `PARA_ID` expecting exactly `code`.
 ///
-/// Written straight to storage rather than pushed through [`Pallet::receive`]: going through the
-/// call would put the whole range at the mercy of whatever minimum code size the configured
-/// [`RegisterPara`] enforces, and `c = 0` would fail setup instead of measuring anything.
+/// Written straight to storage rather than pushed through [`Pallet::authorize_code`]: going
+/// through the call would put the whole range at the mercy of whatever minimum code size the
+/// configured [`RegisterPara`] enforces, and `c = 0` would fail setup instead of measuring
+/// anything.
 fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	let genesis_head = alloc::vec![2u8; T::MaxHeadDataSize::get() as usize];
 	let pending = PendingRegistration {
@@ -58,7 +59,7 @@ mod benchmarks {
 
 	/// Accepting a registration request. Dominated by writing the head data.
 	#[benchmark]
-	fn receive_register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+	fn authorize_code(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
 		let manager: T::AccountId = account("manager", 0, 0);
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::Register {
@@ -70,7 +71,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		receive(RawOrigin::Root, message);
+		authorize_code(RawOrigin::Root, message);
 
 		assert!(PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
@@ -78,7 +79,7 @@ mod benchmarks {
 
 	/// Uploading the validation code. Dominated by hashing and onboarding the blob.
 	#[benchmark]
-	fn register_code(c: Linear<0, { T::MaxCodeSize::get() }>) -> Result<(), BenchmarkError> {
+	fn apply_authorized_code(c: Linear<0, { T::MaxCodeSize::get() }>) -> Result<(), BenchmarkError> {
 		let code = code_of(c);
 		park::<T>(&code)?;
 
@@ -89,17 +90,17 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Deciding whether an unsigned `register_code` may enter the pool.
+	/// Deciding whether an unsigned `apply_authorized_code` may enter the pool.
 	///
 	/// This runs on every node for every candidate transaction, so it is the number that keeps
 	/// the free call from being a cheap way to make everyone hash megabytes.
 	#[benchmark]
-	fn authorize_register_code(
+	fn authorize_apply_authorized_code(
 		c: Linear<0, { T::MaxCodeSize::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let code = code_of(c);
 		park::<T>(&code)?;
-		let call = Call::<T>::register_code { para_id: PARA_ID, validation_code: code };
+		let call = Call::<T>::apply_authorized_code { para_id: PARA_ID, validation_code: code };
 
 		#[block]
 		{

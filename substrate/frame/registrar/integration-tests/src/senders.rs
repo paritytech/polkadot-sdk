@@ -46,9 +46,9 @@ pub enum RelayRuntimePallets<AccountId> {
 
 #[derive(Encode)]
 pub enum RegistrarRelayCalls<AccountId> {
-	/// Index of `fn receive` in `pallet-registrar-relay`.
+	/// Index of `fn authorize_code` in `pallet-registrar-relay`.
 	#[codec(index = 0)]
-	Receive(MessageToRelay<AccountId>),
+	AuthorizeCode(MessageToRelay<AccountId>),
 }
 
 /// Calls on the parachain, as the relay chain must encode them.
@@ -78,7 +78,7 @@ impl SendToRelay for ParaSendToRelay {
 	type AccountId = AccountId32;
 
 	fn send(message: MessageToRelay<Self::AccountId>) -> Result<(), ()> {
-		let call = RelayRuntimePallets::Registrar(RegistrarRelayCalls::Receive(message)).encode();
+		let call = RelayRuntimePallets::Registrar(RegistrarRelayCalls::AuthorizeCode(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {

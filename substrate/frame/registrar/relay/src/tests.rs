@@ -63,7 +63,7 @@ fn register_msg(
 /// Push a valid registration request through and return the code that will satisfy it.
 fn request(para_id: ParaId, head_len: usize, code_len: usize) -> Vec<u8> {
 	let (msg, blob) = register_msg(para_id, head_len, code_len);
-	assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+	assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
 	blob
 }
 
@@ -81,7 +81,7 @@ fn success_report(para_id: ParaId) -> MessageToPara {
 	})
 }
 
-/// Run `authorize_register_code` and the dispatch together, the way the node does.
+/// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
 ///
 /// Returns both verdicts so a test can assert the pool and the block agree.
 fn authorize_and_dispatch(
@@ -89,14 +89,14 @@ fn authorize_and_dispatch(
 	validation_code: Vec<u8>,
 ) -> (Result<(), InvalidTransaction>, Result<(), DispatchError>) {
 	let authorized =
-		Registrar::authorize_register_code(TransactionSource::External, &para_id, &validation_code)
+		Registrar::authorize_apply_authorized_code(TransactionSource::External, &para_id, &validation_code)
 			.map(|_| ())
 			.map_err(|e| match e {
 				sp_runtime::transaction_validity::TransactionValidityError::Invalid(i) => i,
 				other => panic!("unexpected validity error: {other:?}"),
 			});
 
-	let dispatched = Registrar::register_code(
+	let dispatched = Registrar::apply_authorized_code(
 		frame_system::RawOrigin::Authorized.into(),
 		para_id,
 		validation_code,
@@ -107,7 +107,7 @@ fn authorize_and_dispatch(
 	(authorized, dispatched)
 }
 
-mod receive {
+mod authorize_code {
 	use super::*;
 
 	#[test]
@@ -141,7 +141,7 @@ mod receive {
 		new_test_ext().execute_with(|| {
 			let (msg, _) = register_msg(PARA_A, 20, 300);
 			assert_noop!(
-				Registrar::receive(RuntimeOrigin::signed(ALICE), msg),
+				Registrar::authorize_code(RuntimeOrigin::signed(ALICE), msg),
 				DispatchError::BadOrigin
 			);
 		});
@@ -155,7 +155,7 @@ mod receive {
 
 			// A business rejection is not an extrinsic failure: erroring would roll back the
 			// report and strand the parachain's deposit.
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -177,7 +177,7 @@ mod receive {
 			let _ = take_sent();
 
 			let (msg, _) = register_msg(PARA_A, 20, 300);
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
 
 			assert_eq!(PendingCount::<Test>::get(), 1);
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -191,7 +191,7 @@ mod receive {
 				[(MAX_HEAD_SIZE as usize + 1, 300), (20, MAX_CODE_SIZE as usize + 1), (20, 1)]
 			{
 				let (msg, _) = register_msg(PARA_A, head_len, code_len);
-				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+				assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
 
 				assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 				assert_eq!(
@@ -214,7 +214,7 @@ mod receive {
 
 			let overflow = PARA_A + MAX_PENDING;
 			let (msg, _) = register_msg(overflow, 20, 300);
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(overflow).is_none());
 			assert_eq!(PendingCount::<Test>::get(), MAX_PENDING);
@@ -223,7 +223,7 @@ mod receive {
 	}
 }
 
-mod register_code {
+mod apply_authorized_code {
 	use super::*;
 
 	#[test]
@@ -341,7 +341,7 @@ mod register_code {
 			RegisterFails::set(true);
 			let _ = take_sent();
 
-			assert!(Registrar::register_code(
+			assert!(Registrar::apply_authorized_code(
 				frame_system::RawOrigin::Authorized.into(),
 				PARA_A,
 				blob.clone()
@@ -354,7 +354,7 @@ mod register_code {
 			assert!(take_sent().is_empty());
 
 			RegisterFails::set(false);
-			assert_ok!(Registrar::register_code(
+			assert_ok!(Registrar::apply_authorized_code(
 				frame_system::RawOrigin::Authorized.into(),
 				PARA_A,
 				blob
@@ -367,7 +367,7 @@ mod register_code {
 		new_test_ext().execute_with(|| {
 			let blob = request(PARA_A, 20, 300);
 			assert_noop!(
-				Registrar::register_code(RuntimeOrigin::signed(ALICE), PARA_A, blob),
+				Registrar::apply_authorized_code(RuntimeOrigin::signed(ALICE), PARA_A, blob),
 				DispatchError::BadOrigin
 			);
 		});
@@ -444,7 +444,7 @@ mod reporting {
 			let _ = registrar_events();
 			SendFails::set(true);
 
-			assert_ok!(Registrar::register_code(
+			assert_ok!(Registrar::apply_authorized_code(
 				frame_system::RawOrigin::Authorized.into(),
 				PARA_A,
 				blob

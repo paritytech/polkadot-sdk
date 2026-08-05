@@ -23,24 +23,23 @@
 //!
 //! ## Two-phase registration
 //!
-//! The parachain cannot send the validation code over XCM, so registration arrives in two pieces:
+//! Instead of sending the validation code over XCM, so registration arrives in two pieces:
 //!
-//! 1. [`Pallet::receive`] takes the parachain's request, which carries the head data plus the hash
-//!    and length of the code that is coming, and parks it in [`PendingRegistrations`] with an
-//!    expiry.
-//! 2. [`Pallet::register_code`] takes the blob itself. It needs no signature: anybody may push the
-//!    code, because a pending entry already pins down exactly which bytes are acceptable, and the
-//!    parachain has already made the manager pay for them. If the blob matches, the para is
-//!    onboarded and the outcome is reported back to the parachain.
+//! 1. [`Pallet::authorize_code`] takes the parachain's request, which carries the head data plus
+//!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`]
+//!    with an expiry. Only callable by a trusted XCM origin (e.g. the Coretime chain).
+//! 2. [`Pallet::apply_authorized_code`] takes the blob itself. It needs no signature: anybody may
+//!    push the code, because a pending entry already pins down exactly which bytes are
+//!    acceptable, and the parachain has already made the manager pay for them. If the blob
+//!    matches, the para is onboarded and the outcome is reported back to the parachain.
 //!
 //! If the code never turns up, [`Pallet::on_initialize`] expires the entry and reports the failure
 //! so the parachain can release the manager's deposit. No deposit is ever taken here.
 //!
 //! ## Runtime requirement
 //!
-//! `register_code` authorizes itself through [`frame_support::pallet_macros::authorize`], so the
-//! runtime must carry `frame_system::AuthorizeCall` in its transaction extension pipeline. Westend
-//! and Rococo already do.
+//! `apply_authorized_code` authorizes itself through [`frame_support::pallet_macros::authorize`],
+//! so the runtime must carry `frame_system::AuthorizeCall` in its transaction extension pipeline.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -139,7 +138,7 @@ pub struct PendingRegistration<AccountId, BlockNumber, MaxHeadDataSize: Get<u32>
 	pub expire_at: BlockNumber,
 }
 
-/// How much head data a message carries, for weighing [`Pallet::receive`].
+/// How much head data a message carries, for weighing [`Pallet::authorize_code`].
 ///
 /// Worth doing rather than always charging `MaxHeadDataSize`: that bound is a megabyte on
 /// production relay chains, and a typical genesis head is nowhere near it.
@@ -186,7 +185,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxHeadDataSize: Get<u32>;
 
-		/// The largest validation code [`Pallet::register_code`] will accept.
+		/// The largest validation code [`Pallet::apply_authorized_code`] will accept.
 		///
 		/// Should be at least the relay chain's `max_code_size`.
 		#[pallet::constant]
@@ -202,7 +201,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type PendingTimeout: Get<BlockNumberFor<Self>>;
 
-		/// Priority given to a valid [`Pallet::register_code`] in the transaction pool.
+		/// Priority given to a valid [`Pallet::apply_authorized_code`] in the transaction pool.
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
 
@@ -266,17 +265,18 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Accept a control-plane message from the parachain's registrar pallet.
+		/// Accept a control-plane message from the parachain's registrar pallet and authorize the
+		/// validation code that will follow.
 		///
-		/// Not callable by users: the origin must be the parachain.
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
 		///
 		/// A request this pallet will not act on is *not* an extrinsic failure. Failing would roll
 		/// back the rejection report along with everything else, and the parachain would sit on a
 		/// held deposit waiting for news that never comes. So a rejection is applied, reported, and
 		/// returns `Ok`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::receive_register(head_data_len(message)))]
-		pub fn receive(
+		#[pallet::weight(T::WeightInfo::authorize_code(head_data_len(message)))]
+		pub fn authorize_code(
 			origin: OriginFor<T>,
 			message: MessageToRelay<T::AccountId>,
 		) -> DispatchResult {
@@ -296,16 +296,16 @@ pub mod pallet {
 			}
 		}
 
-		/// Upload the validation code for a pending registration, onboarding the para.
+		/// Upload the validation code for a pending authorization, onboarding the para.
 		///
 		/// Needs no signature and pays no fee. Anybody may submit: the pending entry already fixes
 		/// the exact bytes that will be accepted, and the manager has already paid for them on the
 		/// parachain.
 		#[pallet::call_index(1)]
-		#[pallet::authorize(Self::authorize_register_code)]
-		#[pallet::weight_of_authorize(T::WeightInfo::authorize_register_code(validation_code.len() as u32))]
-		#[pallet::weight(T::WeightInfo::register_code(validation_code.len() as u32))]
-		pub fn register_code(
+		#[pallet::authorize(Self::authorize_apply_authorized_code)]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_apply_authorized_code(validation_code.len() as u32))]
+		#[pallet::weight(T::WeightInfo::apply_authorized_code(validation_code.len() as u32))]
+		pub fn apply_authorized_code(
 			origin: OriginFor<T>,
 			para_id: ParaId,
 			validation_code: Vec<u8>,
@@ -329,14 +329,15 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Decide whether an unsigned [`Pallet::register_code`] may enter the pool and a block.
+		/// Decide whether an unsigned [`Pallet::apply_authorized_code`] may enter the pool and a
+		/// block.
 		///
 		/// Runs exactly the same checks as the dispatch, so the pool and the block never disagree
 		/// about which bytes are acceptable.
 		// `#[pallet::authorize]` hands the call arguments over by reference, so the parameter
 		// types have to mirror the call's exactly. `&[u8]` would not compile.
 		#[allow(clippy::ptr_arg)]
-		pub fn authorize_register_code(
+		pub fn authorize_apply_authorized_code(
 			_source: TransactionSource,
 			para_id: &ParaId,
 			validation_code: &Vec<u8>,
@@ -347,7 +348,7 @@ pub mod pallet {
 			let now = frame_system::Pallet::<T>::block_number();
 			let longevity = pending.expire_at.saturating_sub(now);
 
-			let validity = ValidTransaction::with_tag_prefix("RegistrarRegisterCode")
+			let validity = ValidTransaction::with_tag_prefix("RegistrarApplyAuthorizedCode")
 				.priority(T::UnsignedPriority::get())
 				.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
 				.and_provides((*para_id, pending.code_hash))
@@ -487,7 +488,7 @@ pub mod pallet {
 	}
 }
 
-/// Custom `InvalidTransaction` codes reported by [`Pallet::authorize_register_code`].
+/// Custom `InvalidTransaction` codes reported by [`Pallet::authorize_apply_authorized_code`].
 pub const INVALID_TX_NOTHING_PENDING: u8 = 1;
 pub const INVALID_TX_EXPIRED: u8 = 2;
 pub const INVALID_TX_BAD_CODE: u8 = 3;

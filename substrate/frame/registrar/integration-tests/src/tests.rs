@@ -97,14 +97,14 @@ fn submit_code(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
 	use pallet_registrar_relay::Pallet as RelayRegistrar;
 	use sp_runtime::transaction_validity::TransactionSource;
 
-	RelayRegistrar::<relay::Runtime>::authorize_register_code(
+	RelayRegistrar::<relay::Runtime>::authorize_apply_authorized_code(
 		TransactionSource::External,
 		&para_id,
 		&blob,
 	)
 	.map_err(|_| sp_runtime::DispatchError::Other("not authorized"))?;
 
-	RelayRegistrar::<relay::Runtime>::register_code(
+	RelayRegistrar::<relay::Runtime>::apply_authorized_code(
 		frame_system::RawOrigin::Authorized.into(),
 		para_id,
 		blob,
@@ -341,16 +341,16 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 		let other_para: relay::RuntimeOrigin =
 			ParachainsOrigin::Parachain((PARA_ID + 1).into()).into();
 		assert!(senders::EnsureRegistrarPara::try_origin(other_para.clone()).is_err());
-		assert!(relay::Registrar::receive(other_para, message.clone()).is_err());
+		assert!(relay::Registrar::authorize_code(other_para, message.clone()).is_err());
 
 		// ...nor is a plain signed account.
 		assert!(
-			relay::Registrar::receive(relay::RuntimeOrigin::signed(BOB), message.clone()).is_err()
+			relay::Registrar::authorize_code(relay::RuntimeOrigin::signed(BOB), message.clone()).is_err()
 		);
 
 		// The configured parachain is.
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();
-		assert_ok!(relay::Registrar::receive(ours, message));
+		assert_ok!(relay::Registrar::authorize_code(ours, message));
 		assert!(pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(3000).is_some());
 	});
 }
