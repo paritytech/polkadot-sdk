@@ -16,11 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! WebRTC DTLS certificate utilities.
-//!
-//! The DTLS certificate determines the node's WebRTC `/certhash` and therefore its
-//! advertised WebRTC multiaddresses. Reusing a certificate across restarts keeps the
-//! certhash stable, similarly to how reusing the node secret key keeps the peer id stable.
+//! WebRTC DTLS cert/key generation from the node key.
 
 use hmac::{Hmac, Mac};
 use p256::{
@@ -47,7 +43,7 @@ const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-dtls-p256-v1";
 /// Domain-separation tag used to derive cert serial from public key.
 const CERTIFICATE_SERIAL_DST: &[u8] = b"substrate-webrtc-dtls-certificate-serial-v1";
 
-/// Deterministically generate a WebRTC DTLS certificate from a node's secret key.
+/// Deterministically generate a WebRTC DTLS certificate from the node's secret key.
 ///
 /// Returns `Err` if litep2p's [`DtlsCertificate::load`] doesn't accept DER inputs (logically
 /// impossible as of litep2p v0.14.3).
@@ -63,11 +59,8 @@ pub fn derive_certificate(
 	let name = Name::from_str("CN=polkadot-sdk-webrtc")
 		.expect("`CN=polkadot-sdk-webrtc` is a valid RDN; qed");
 
-	// `Profile::Manual` opts out of the builder's default extension set,
-	//  and a `None` issuer makes the certificate self-issued.
-	//  WebRTC peers only check the fingerprint.
 	let mut builder = CertificateBuilder::new(
-		Profile::Manual { issuer: None },
+		Profile::Manual { issuer: None }, // self-signed, no default extensions
 		serial,
 		validity,
 		name,
@@ -115,7 +108,7 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 		.expect("each iteration succeeds with probability 1 - 2^-32, and we have 256 of them; qed")
 }
 
-/// Derive serial number from public key. Not required for the operation, only used to not
+/// Derive serial number from a public key. Not required for the operation, only used to not
 /// hardcode identical/zero serials for all certificates.
 fn derive_serial(pubkey: &VerifyingKey) -> SerialNumber {
 	let serial_digest = Sha256::new()
