@@ -291,12 +291,15 @@ pub struct ParaGenesisArgs {
 	pub para_kind: ParaKind,
 }
 
-/// Represents a lease holding Parachain.
+/// Controls whether a coretime core is assigned when a para is initialized.
 ///
-/// Previously also distinguished between Parachain and Parathread (on-demand parachain), but
-/// the Parathread variant has been removed — every registered para is now a Parachain.
+/// Both variants share the `Parachain` lifecycle (the `Parathread` lifecycle variant has been
+/// removed). The distinction is only whether `AssignCoretime` is called at init.
 #[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Debug)]
 pub enum ParaKind {
+	/// On-demand parachain — no initial core assignment.
+	Parathread,
+	/// Lease-holding parachain — receives a core assignment at init.
 	Parachain,
 }
 
@@ -305,7 +308,10 @@ impl Serialize for ParaKind {
 	where
 		S: serde::Serializer,
 	{
-		serializer.serialize_bool(true)
+		match self {
+			ParaKind::Parachain => serializer.serialize_bool(true),
+			ParaKind::Parathread => serializer.serialize_bool(false),
+		}
 	}
 }
 
@@ -314,9 +320,9 @@ impl<'de> Deserialize<'de> for ParaKind {
 	where
 		D: serde::Deserializer<'de>,
 	{
-		// Accept both `true` and `false` from legacy genesis specs — all paras are now Parachains.
 		match serde::de::Deserialize::deserialize(deserializer) {
-			Ok(true) | Ok(false) => Ok(ParaKind::Parachain),
+			Ok(true) => Ok(ParaKind::Parachain),
+			Ok(false) => Ok(ParaKind::Parathread),
 			_ => Err(serde::de::Error::custom("invalid ParaKind serde representation")),
 		}
 	}
@@ -330,15 +336,18 @@ impl Encode for ParaKind {
 	}
 
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		true.using_encoded(f)
+		match self {
+			ParaKind::Parachain => true.using_encoded(f),
+			ParaKind::Parathread => false.using_encoded(f),
+		}
 	}
 }
 
 impl Decode for ParaKind {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		// Accept both `true` (parachain) and `false` (legacy parathread) — all are now Parachains.
 		match bool::decode(input) {
-			Ok(_) => Ok(ParaKind::Parachain),
+			Ok(true) => Ok(ParaKind::Parachain),
+			Ok(false) => Ok(ParaKind::Parathread),
 			_ => Err("Invalid ParaKind representation".into()),
 		}
 	}
@@ -2479,7 +2488,7 @@ impl<T: Config> Pallet<T> {
 		genesis_data: &ParaGenesisArgs,
 	) {
 		match genesis_data.para_kind {
-			ParaKind::Parachain => {
+			ParaKind::Parachain | ParaKind::Parathread => {
 				parachains.add(id);
 				ParaLifecycles::<T>::insert(&id, ParaLifecycle::Parachain);
 			},

@@ -24,7 +24,7 @@ pub use pallet::*;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, AssignCoretime, ParaGenesisArgs},
+	paras::{self, AssignCoretime, ParaGenesisArgs, ParaKind},
 };
 
 #[frame_support::pallet]
@@ -74,11 +74,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
+			// Assign a core only for lease-holding parachains; on-demand paras skip this
+			// so on-demand testing works without a running coretime chain.
+			let assign_coretime = genesis.para_kind == ParaKind::Parachain;
+
 			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 
-			// All registered paras are parachains; always assign coretime.
-			T::AssignCoretime::assign_coretime(id)?;
+			if assign_coretime {
+				T::AssignCoretime::assign_coretime(id)?;
+			}
 
 			Ok(())
 		}

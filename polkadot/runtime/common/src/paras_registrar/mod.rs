@@ -623,7 +623,8 @@ impl<T: Config> Pallet<T> {
 	/// Deregister a Para Id, freeing all data returning any deposit.
 	fn do_deregister(id: ParaId) -> DispatchResult {
 		match paras::Pallet::<T>::lifecycle(id) {
-			// Para must be a stable parachain or not exist at all to be deregistered.
+			// Para must be stable or absent. Now that all paras share the `Parachain` lifecycle,
+			// a para with an active lease can reach this branch; callers must ensure it is safe.
 			Some(ParaLifecycle::Parachain) | None => {},
 			_ => return Err(Error::<T>::CannotDeregister.into()),
 		}

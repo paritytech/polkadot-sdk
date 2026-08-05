@@ -404,8 +404,14 @@ pub mod pallet {
 				Error::<T>::SlotNotAssigned
 			);
 
-			// Check & cache para status before we clear the lease
-			let is_parachain = Self::is_parachain(id);
+			// `is_parachain` is always true now, so check the slot's lease window directly
+			// to avoid decrementing `ActiveTemporarySlotCount` for queued slots never counted.
+			let has_active_temp_lease = TemporarySlots::<T>::get(id).map_or(false, |slot| {
+				slot.last_lease.map_or(false, |last_lease| {
+					let current = Self::current_lease_period_index();
+					last_lease <= current && current < last_lease.saturating_add(slot.period_count)
+				})
+			});
 
 			// Remove perm or temp slot
 			Self::clear_slot_leases(origin.clone(), id)?;
@@ -416,14 +422,12 @@ pub mod pallet {
 			} else if TemporarySlots::<T>::contains_key(id) {
 				TemporarySlots::<T>::remove(id);
 				TemporarySlotCount::<T>::mutate(|count| *count = count.saturating_sub(One::one()));
-				if is_parachain {
+				if has_active_temp_lease {
 					ActiveTemporarySlotCount::<T>::mutate(|active_count| {
 						*active_count = active_count.saturating_sub(One::one())
 					});
 				}
 			}
-
-			// Parathread downgrade no longer exists; all paras remain parachains.
 
 			Ok(())
 		}

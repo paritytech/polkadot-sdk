@@ -1963,34 +1963,22 @@ fn most_recent_context() {
 
 #[test]
 fn parakind_encodes_decodes_to_bool_scale() {
-	let chain_kind = ParaKind::Parachain.encode();
-	let chain_bool = true.encode();
-	assert_eq!(chain_kind, chain_bool);
+	assert_eq!(ParaKind::Parachain.encode(), true.encode());
+	assert_eq!(ParaKind::Parathread.encode(), false.encode());
 
-	let chain_dec = ParaKind::decode(&mut chain_kind.as_slice());
-	assert_eq!(chain_dec, Ok(ParaKind::Parachain));
-
-	// Legacy parathread was encoded as `false`; it now decodes to Parachain.
-	let legacy_thread_bool = false.encode();
-	let legacy_thread_dec = ParaKind::decode(&mut legacy_thread_bool.as_slice());
-	assert_eq!(legacy_thread_dec, Ok(ParaKind::Parachain));
+	assert_eq!(ParaKind::decode(&mut true.encode().as_slice()), Ok(ParaKind::Parachain));
+	assert_eq!(ParaKind::decode(&mut false.encode().as_slice()), Ok(ParaKind::Parathread));
 
 	assert_eq!(bool::type_info(), ParaKind::type_info());
 }
 
 #[test]
 fn parakind_encodes_decodes_to_bool_serde() {
-	let chain = ParaKind::Parachain;
-	let ser_chain = serde_json::to_string(&ParaKind::Parachain).unwrap();
-	let de_chain: ParaKind = serde_json::from_str(&ser_chain).unwrap();
-	assert_eq!(chain, de_chain);
+	assert_eq!(serde_json::to_string(&ParaKind::Parachain).unwrap(), "true");
+	assert_eq!(serde_json::to_string(&ParaKind::Parathread).unwrap(), "false");
 
-	let ser_true = serde_json::to_string(&true).unwrap();
-	assert_eq!(ser_true, ser_chain);
-
-	// Legacy parathread was serialized as `false`; it now deserializes to Parachain.
-	let de_legacy_thread: ParaKind = serde_json::from_str("false").unwrap();
-	assert_eq!(de_legacy_thread, ParaKind::Parachain);
+	assert_eq!(serde_json::from_str::<ParaKind>("true").unwrap(), ParaKind::Parachain);
+	assert_eq!(serde_json::from_str::<ParaKind>("false").unwrap(), ParaKind::Parathread);
 }
 
 #[test]
