@@ -1028,16 +1028,10 @@ struct MessagesRequest {
 }
 
 /// Payloads from `base` on, plus the proofs binding them—and everything
-/// before them—to the requested root. Also the push-path object,
-/// unsolicited on block production, alongside the new header: there is
-/// no request naming `under`, so the receiver authenticates the header
-/// first (ordinary off-chain verification) and then verifies the
-/// response against its digest root—exactly as if it had pulled under
-/// it. The trust direction never inverts: nothing is verified against a
-/// root the receiver hasn't independently authenticated.
+/// before them—to the requested root.
 struct MessagesResponse {
     /// Position of the first payload. Trust-free hint (a lie only fails
-    /// the proofs); self-description for the push path.
+    /// the proofs).
     base: MessagePosition,
     /// Leaf-format version for these payloads—a trust-free hint like
     /// `base`: versions are hash-disjoint domains, so only the correct
