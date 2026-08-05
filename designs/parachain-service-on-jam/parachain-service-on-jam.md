@@ -218,7 +218,7 @@ struct AccumulateLogEntry {
 enum RefineLog {
     /// `historical_lookup(validation_code_hash)` returned `None`: the
     /// validation code preimage is not available in the service's store
-    /// at the lookup-anchor. See §4.1 step 3.
+    /// at the lookup-anchor. See §4.1 step 4.
     InvalidCodeHash,
     /// Opaque payload supplied by the PVF via `report_error(data)` before
     /// failing the execution (max 1024 bytes).
@@ -241,6 +241,9 @@ enum RefineLog {
     InvalidItemCount,
     /// The opaque `AuthorizerConfig` blob failed to decode. See §4.1 step 1.
     MalformedAuthorizerConfig,
+    /// The work item payload failed to decode into a `ParachainCandidate`.
+    /// See §4.1 step 3.
+    MalformedPayload,
     /// The encoded `ParachainWorkDigest` (head data + upward messages) would
     /// exceed the Gray Paper's 48 KiB combined result-blob + auth-trace
     /// budget. See §4.1.
@@ -371,9 +374,10 @@ singletons; the tag prepended to the encoded map key for map entries).
 
 Each work package submitted to the Parachain Service contains one or more **work items**.
 For the Parachain Service, a work item represents one parachain candidate. The candidate
-itself — validation code hash and PoV — is carried as the work item's **extrinsic data**.
+itself — validation code hash and PoV — is carried entirely in the work item's
+**payload** as a single SCALE-encoded blob.
 
-The shape of that extrinsic is:
+The shape of that payload is:
 
 ```rust
 struct ParachainCandidate {
@@ -531,14 +535,17 @@ index `item_index` the Parachain Service performs:
    prefix; if `len(authorized_paras) != len(workitems)` this Refine invocation aborts
    with an `Err`.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
-3. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
+3. Decodes the `ParachainCandidate` (validation code hash + PoV) from the work item
+   payload passed to Refine. If the payload fails to decode, aborts with
+   `Err(RefineLog::MalformedPayload)`.
+4. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
    If the lookup returns `None` (the preimage isn't available in the service's
    store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
-4. Instantiates a child PVM with the PVF.
-5. Executes the PVF against the PoV (the `jam_validate_block` call).
-6. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
+5. Instantiates a child PVM with the PVF.
+6. Executes the PVF against the PoV (the `jam_validate_block` call).
+7. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
    authoritative `para_id` (see §4.2).
-7. Checks that the encoded digest (head data + upward messages) plus the
+8. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget; if not, aborts with
    `Err(RefineLog::WorkDigestTooLarge)`.
