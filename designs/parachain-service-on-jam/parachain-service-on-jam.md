@@ -934,9 +934,19 @@ state.
 Each parachain is billed as if it were the **sole user** of every data structure it
 touches in service state: its `used_state_balance` is the sum of each structure's
 footprint computed as though the stored value held only this parachain's contribution.
-JAM's footprint formulas (Gray Paper, *Account Footprint and Threshold Balance*) are
-`34 + |value| + |key|` per general-storage entry and `81 + z` per solicited preimage of
-length `z`.
+
+JAM's threshold balance (Gray Paper, *Account Footprint and Threshold Balance*)
+charges per *item* as well as per *octet* — `C_itemdeposit = 10`, `C_bytedeposit = 1`
+— so the two units of state this service holds cost:
+
+| State | Items | Cost |
+|---|---|---|
+| solicited preimage of length `z` | 2 | `101 + z` |
+| general-storage entry | 1 | `44 + \|value\| + \|key\|` |
+
+Footprints are therefore **balance units**, not bytes. JAM's flat `C_basedeposit` is
+per-service and never part of a per-parachain footprint.
+
 Shared structures like `preimage_registry` end up over-collateralized — every
 referencer pays for a full entry — but existing parachains' contributions never need
 recomputing when the referencer set changes.
@@ -1006,75 +1016,83 @@ still measured from the *original* unrequest. And when that `forget` does fire, 
 does not expunge - it only marks the preimage unavailable again.
 
 Applying §6.1's sole-user rule, a single referencer's **preimage footprint** is the
-sum of two JAM entries: the **preimage request** (`81 + len`) and its
-**`preimage_registry` entry** — `34 + |value| + |key|` = `34 + 5 + 37` (the per-item
-overhead, a singleton `{ParaId}` referencer set of 5 B, and the storage key of 37 B (1 B map tag + 32 B hash + 4 B len)). That is **157 + len** bytes per referencer, even though the on-chain
-entry may hold many referencers.
+sum of two JAM entries: the **preimage request** (`101 + len`) and its
+**`preimage_registry` entry** — `44 + |value| + |key|` with `|value| = 5` (a singleton
+`{ParaId}` referencer set) and `|key| = 37` (1 B map tag + 32 B hash + 4 B len), so
+`86`. That is **187 + len** per referencer, even though the on-chain entry may hold
+many referencers.
 
 #### Sizing the baseline footprint
 
 `baseline_footprint` is the worst-case state cost of an empty parachain — the
 `(ParaId, ParaInfo)` entry plus the `(ParaId, parachain_log[para_id])` entry, with
 every bounded field SCALE-encoded at its maximum so the value is static across the
-parachain's lifetime. JAM charges `34 + |value| + |key|` bytes per general-storage
-entry. Taking `ParaId = u32` (4 B), `Hash = 32 B`, `Timeslot = u32` (4 B), and
-`Balance = Compact<u128>` sized at its worst case of 17 B:
+parachain's lifetime. Each is one general-storage entry. Taking `ParaId = u32` (4 B),
+`Hash = 32 B`, `Timeslot = u32` (4 B), and `Balance = Compact<u128>` sized at its
+worst case of 17 B:
 
 `(ParaId, ParaInfo)` entry:
 
 ```
-JAM per-item overhead                                              =      34 B
-map tag                                                            =       1 B
-ParaId (key)                                                       =       4 B
-head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098 B
-validation_code: ValidationCode = 32 (hash) + 4 (len) + 1 (pinned) =      37 B
-pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42 B
-total_state_balance: Compact<Balance>                              =      17 B
-used_state_balance: Compact<Balance>                               =      17 B
-                                                                       -------
-                                                                       4 250 B
+JAM per-entry octet overhead                                       =      34
+map tag                                                            =       1
+ParaId (key)                                                       =       4
+head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098
+validation_code: Option<ValidationCode> = 1 + 32 + 4 + 1           =      38
+pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42
+total_state_balance: Compact<Balance>                              =      17
+used_state_balance: Compact<Balance>                               =      17
+is_deregistering: bool                                             =       1
+                                                          octets       4 252
+                                                          1 item          10
+                                                                     -------
+                                                                       4 262
 ```
 
 `(ParaId, parachain_log[para_id])` entry — value + key bounded by a flat 64 KiB cap,
-with JAM's per-item overhead on top:
+with JAM's per-entry overhead on top:
 
 ```
 The log value is bounded by exact encoded size (entries sized by actual SCALE
 length, not worst-case). The 64 KiB cap covers every log element plus the
-vector's own length prefix; JAM's 34 B per-item overhead and the 5 B storage key
+vector's own length prefix; JAM's 34 B per-entry overhead and the 5 B storage key
 (1 B map tag + 4 B ParaId) sit on top, so the service reserves a flat
-64 KiB + 34 B + 5 B regardless of current contents.
+64 KiB + 34 + 5 regardless of current contents.
 
-JAM per-item overhead                                              =      34 B
-storage key (1 B map tag + 4 B ParaId)                             =       5 B
-parachain_log value (flat cap): 64 KiB                             =  65 536 B
-                                                                      -------
-                                                                     65 575 B
+JAM per-entry octet overhead                                       =      34
+storage key (1 B map tag + 4 B ParaId)                             =       5
+parachain_log value (flat cap): 64 KiB                             =  65 536
+                                                          octets      65 575
+                                                          1 item          10
+                                                                     -------
+                                                                      65 585
 ```
 
-**`baseline_footprint = 4 250 + 65 575 = 69 825 B`** per parachain.
+**`baseline_footprint = 4 262 + 65 585 = 69 847`** balance units per parachain.
 
 #### Asset Hub baseline footprint
 
 Asset Hub additionally owns the service-global state items as privileged
 caller; its `total_state_balance` must cover them, provisioned at genesis. Each
-item follows the same JAM `34 + |value| + |key|` per-entry rule (§6.1): the two
-`CoreIndex`-keyed maps are billed one storage entry per core, the `BoundedVec`s as
-a single entry each. Taking `CoreCount = 341`, `AuthorizerHash = 32 B`,
-`ServiceId = 4 B`, `Memo = 128 B`, `CoreIndex = 4 B`, authorizer-queue length = 80,
-and `Amount = Compact<u128>` sized at its worst case of 17 B:
+item is billed as a general-storage entry (§6.1): the `CoreIndex`-keyed map one per
+core (341 entries), the `BoundedVec`s one each. Taking `CoreCount = 341`,
+`AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`, `CoreIndex = 4 B`,
+authorizer-queue length = 80, and `Amount = Compact<u128>` sized at its worst case
+of 17 B:
 
 ```
-staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 entry
-  34 + 1 (key) + 2 + 1023 × 336                                         = 343 765 B
-pending_assigns: Map<CoreIndex, PendingAssign>  — per core
-  341 × (34 + 5 (key) + 2 + 80 × 32 + 5 (Option<ServiceId>))            = 888 646 B
-pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 entry
-  34 + 1 (key) + 2 + 341 × (4 + 4)                                      =   2 765 B
-incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 entry
-  34 + 1 (key) + 2 + 1000 × (4 + 17 + 128)                              = 149 037 B
-                                                                           ---------
-                                                                         1 384 213 B
+staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 item
+  34 + 1 (key) + 2 + 1023 × 336                            octets    343 765
+pending_assigns: Map<CoreIndex, PendingAssign>  — 341 items
+  341 × (34 + 5 (key) + 2 + 80 × 32 + 5 (Option<ServiceId>))  octets    888 646
+pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 item
+  34 + 1 (key) + 2 + 341 × (4 + 4)                         octets      2 765
+incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 item
+  34 + 1 (key) + 2 + 1000 × (4 + 17 + 128)                 octets    149 037
+                                                    octets total   1 384 213
+                                                    344 items × 10      3 440
+                                                                    ---------
+                                                                    1 387 653
 ```
 
 **Asset Hub baseline footprint ≈ 1.32 MiB**, added on top of the generic
@@ -1082,16 +1100,16 @@ per-para baseline.
 
 #### Key-Value storage footprint
 
-Each `(ParaId, key) -> value` entry in `key_value_storage` pays the JAM
-sole-user cost `34 + |value| + |storage_key|`, where the JAM storage key
+Each `(ParaId, key) -> value` entry in `key_value_storage` pays the sole-user
+general-storage cost `44 + |value| + |storage_key|` (§6.1), where the storage key
 composes the map tag, the parachain id, and the SCALE-encoded user key:
 
 ```
-kv_entry_footprint(k, v) = 34 (JAM overhead)
+kv_entry_footprint(k, v) = 44
  + compactLen(v) + v (SCALE Vec<u8> value)
  + 1 (map tag) + 4 (ParaId) (per §3.1 storage-key encoding)
  + compactLen(k) + k (SCALE Vec<u8> user key)
- = 39 + compactLen(k) + k + compactLen(v) + v
+ = 49 + compactLen(k) + k + compactLen(v) + v
 ```
 
 A `kv_set` computes the change in `used_state_balance` — the new entry's

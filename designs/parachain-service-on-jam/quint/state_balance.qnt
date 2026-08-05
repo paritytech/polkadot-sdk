@@ -13,17 +13,19 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint: 4 250 B ParaInfo + 65 575 B log reserve.
-   /// Derivation in §6.1. Balances are `Compact<u128>` sized at their 17 B
-   /// worst case for this reservation.
-   pure val BaselineFootprint: int = 69825
+   /// Per-para baseline footprint, in BALANCE UNITS: 4 262 (ParaInfo entry)
+   /// + 65 585 (log reserve). Each is one storage item, so each carries
+   /// `C_itemdeposit = 10` on top of its octets (4 252 / 65 575). Derivation in
+   /// §6.1. Balances are `Compact<u128>` sized at their 17 B worst case here.
+   pure val BaselineFootprint: int = 69847
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending assigns + their dirty-core index, incoming
-  /// transfers), worst-cased at 1 384 213 B in §6.1. Asset Hub reserves this in
-  /// its baseline, so those items are pre-provisioned rather than charged to
+  /// transfers), worst-cased at 1 387 653 balance units in §6.1 (octets
+  /// 1 384 213 + 344 storage items × 10). Asset Hub reserves this in its
+  /// baseline, so those items are pre-provisioned rather than charged to
   /// `usedStateBalance` as they grow.
-  pure val AssetHubGlobalItemsFootprint: int = 1384213
+  pure val AssetHubGlobalItemsFootprint: int = 1387653
 
   /// Asset Hub's baseline footprint: the generic per-para baseline plus its
   /// reserved service-global items (§6.1).
@@ -35,17 +37,17 @@ module state_balance {
   pure def baselineFor(paraId: ParaId): int =
     if (paraId == AssetHubParaId) AssetHubBaselineFootprint else BaselineFootprint
 
-  /// The single-referencer footprint a parachain pays for a solicited
-  /// preimage of length `len`, billed "as if sole user" (design §6.1).
-  /// Two JAM state contributions (Gray Paper, *Account Footprint and
-  /// Threshold Balance*):
-  ///   a_requests (preimage lookup, keyed by (hash, len)): 81 + len
-  ///   a_storage  (referencer-map entry): 34 + |value| + |key|
-  ///              = 34 + 5 (singleton {ParaId} set) + 37 (storage key = 1 B map tag + 32 B hash + 4 B len)
-  /// Total = 157 + len bytes. Byte term only; JAM's per-item balance
-  /// term (B_I * items) is not modelled — matching the baseline byte proxy.
+  /// The single-referencer footprint a parachain pays for a solicited preimage
+  /// of length `len`, billed "as if sole user" (design §6.1), in BALANCE UNITS.
+  /// Two JAM state contributions (Gray Paper, *Account Footprint and Threshold
+  /// Balance*), each charged its items AND its octets:
+  ///   a_requests (preimage lookup, keyed by (hash, len)):
+  ///     2 items = 20, octets 81 + len
+  ///   a_storage  (referencer-map entry): 1 item = 10, octets
+  ///     34 + 5 (singleton {ParaId} set) + 37 (key = 1 B map tag + 32 B hash + 4 B len)
+  /// Total = 187 + len balance units (octet subtotal 157 + len, items 30).
   pure def preimageFootprint(len: int): int =
-  (81 + len) + (34 + 5 + 37)
+  (20 + 81 + len) + (10 + 34 + 5 + 37)
 
   // --- Update primitives --------------------------------------------------
 
@@ -283,13 +285,14 @@ module state_balance {
 
   // --- Parachain-storage KV accounting (§6.1) ----------------------------
 
-  /// Per-entry footprint for a `key_value_storage` write of a `kLen`-byte
-  /// key and `vLen`-byte value, per §6.1:
-  /// 34 (JAM overhead) + compactLen(vLen) + vLen (SCALE Vec<u8> value)
+  /// Per-entry footprint for a `key_value_storage` write of a `kLen`-byte key
+  /// and `vLen`-byte value, per §6.1, in balance units:
+  /// 10 (1 storage item)
+  /// + 34 (JAM overhead) + compactLen(vLen) + vLen (SCALE Vec<u8> value)
   /// + 1 (map tag 0x07) + 4 (ParaId) + compactLen(kLen) + kLen (key)
-  /// = 39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+  /// = 49 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
   pure def kvEntryFootprint(kLen: int, vLen: int): int =
-    39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+    10 + 39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
 
   type KVDelta = {
     state: ParachainServiceState,
