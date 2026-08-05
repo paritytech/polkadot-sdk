@@ -55,7 +55,6 @@ pub fn derive_certificate(
 	node_secret_key: Ed25519SecretKey,
 ) -> Result<DtlsCertificate, litep2p::Error> {
 	// NOTE: none of the expects in this function are input-dependent.
-
 	let signing_key = derive_keys(node_secret_key);
 	let spki = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())
 		.expect("a P-256 verifying key is SPKI-encodable; qed");
@@ -85,20 +84,18 @@ pub fn derive_certificate(
 
 	// Signing fails only if the RFC 6979 nonce or either signature scalar is zero, each with
 	// probability 2^-256.
-	let certificate = builder
+	let certificate_der = builder
 		.build::<DerSignature>()
 		.expect("the certificate is well-formed and the signing key valid; qed")
 		.to_der()
 		.expect("a built certificate is DER-encodable; qed");
-
-	// `DtlsCertificate` below expects PKCS#8 private key.
 	let pk_pkcs8_der = signing_key
 		.to_pkcs8_der()
 		.expect("a P-256 signing key is PKCS#8-encodable; qed")
 		.as_bytes()
 		.to_vec();
 
-	DtlsCertificate::load(certificate, pk_pkcs8_der)
+	DtlsCertificate::load(certificate_der, pk_pkcs8_der)
 }
 
 /// Derive P-256 key from ed25519 key.
@@ -115,7 +112,7 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 				.into_bytes();
 			SigningKey::from_slice(&okm).ok()
 		})
-		.expect("each iteration success rate is 1 - 2^(-32), and we have 256 of them; qed")
+		.expect("each iteration succeeds with probability 1 - 2^-32, and we have 256 of them; qed")
 }
 
 /// Derive serial number from public key. Not required for the operation, only used to not
