@@ -1,0 +1,28 @@
+title: '[pallet-revive] Fix revive precompile code'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Two related fixes to how `pallet-revive` reports the code of a pre-compile address.
+
+    **Fix `EXTCODECOPY` for pre-compiles.** Pre-compile code is virtual: `Precompiles::code`
+    returns a `&'static [u8]` and nothing is written to `PristineCode`. `code_hash` and
+    `code_size` accounted for that, but `copy_code_slice` looked the hash up in `PristineCode`
+    and always missed, returning zeroes. The prestate tracer had the same gap and omitted
+    pre-compile code from `debug_traceTransaction`. Mocked code supplied through
+    `ExecConfig::mock_handler` was affected too.
+
+    **Allow pre-compiles to declare their own `CODE`.** `Precompile` gains a defaulted
+    associated constant `CODE`, defaulting to `EVM_REVERT` (now `pub`). Previously every
+    non-primitive pre-compile reported the same 5-byte blob, so block explorers, which key
+    contract metadata on exact runtime bytecode, attributed an ABI verified against one
+    pre-compile address to all of them. Supply one blob per interface, not per address, so
+    that a single verification covers every address the pre-compile matches.
+
+    Both changes are source-compatible; no existing `Precompile` implementation needs
+    updating. A contract calling `EXTCODECOPY` on a pre-compile address now receives its code
+    instead of zeroes, and runtimes overriding `CODE` also change `EXTCODESIZE`,
+    `EXTCODEHASH` and `eth_getCode` for the affected addresses. No state migration is
+    required, as pre-compile code is never persisted.
+crates:
+- name: pallet-revive
+  bump: minor
