@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785962092431,
+  "lastUpdate": 1786008021307,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2938a5c197ebfed47f0508cb24db18e86edfea6c",
-          "message": "Add substrate-zombienet-sdk-tests package and update workflows (#10372)\n\n#10331\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-12-03T09:51:44Z",
-          "tree_id": "fede98da77d880a2ce4e82aa80c0adc38d2e0672",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2938a5c197ebfed47f0508cb24db18e86edfea6c"
-        },
-        "date": 1764761210884,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.185969189766668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1994245436,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13861823580000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2fd67abb42e6f46f321334d57e16bda2109aff8c",
+          "message": "Add guide for updating versioned runtime API functions (#12798)\n\n# Description\n\nThis is a small PR which adds more information to the versioning guide\non how versioned runtime API functions can be upgraded. No code edits,\njust an edit to the `GUIDE.md` markdown file.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-08-06T07:37:54Z",
+          "tree_id": "ac8d8c679a83e23938ea910bf3427429016ac620",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2fd67abb42e6f46f321334d57e16bda2109aff8c"
+        },
+        "date": 1786007987157,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.728120563466666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13286469683333332,
             "unit": "seconds"
           }
         ]
