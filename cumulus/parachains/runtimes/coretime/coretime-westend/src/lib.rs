@@ -1159,10 +1159,8 @@ impl_runtime_apis! {
 				}
 
 				fn get_assets(n: u32) -> Assets {
-					// Worst case: `n` distinct coretime regions. Depositing a region costs a
-					// `Regions` read plus a write, where the native token costs only a balance
-					// mutation. `issue` leaves the region owner-less, which is exactly what
-					// `nonfungible::Mutate::mint_into` requires when the claim deposits it.
+					// Worst case: `n` distinct regions, each costing a `Regions` read and write.
+					// `issue` leaves them owner-less, as `mint_into` requires at claim time.
 					let regions: Vec<Asset> = (0..n)
 						.map(|i| {
 							let region_id = pallet_broker::Pallet::<Runtime>::issue(

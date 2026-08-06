@@ -362,8 +362,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `XcmPallet::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::AssetTraps` (r:1 w:1)
 	/// Proof: `XcmPallet::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Flat in `n` on purpose: this runtime's `AssetTransactor` only handles the native token,
-	/// so `claim_assets` can never deposit more than one distinct asset.
+	/// Flat in `n`: the `AssetTransactor` only handles the native token, so a claim can never
+	/// deposit more than one distinct asset.
 	fn claim_assets(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `23`

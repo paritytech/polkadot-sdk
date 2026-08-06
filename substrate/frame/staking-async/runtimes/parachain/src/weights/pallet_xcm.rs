@@ -410,7 +410,7 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 			.saturating_add(
 				// INTERIM placeholder slope; replace with `/cmd bench` output before merging.
-				Weight::from_parts(47_000_000, 3675)
+				Weight::from_parts(47_000_000, 4273)
 					.saturating_add(T::DbWeight::get().reads(3))
 					.saturating_add(T::DbWeight::get().writes(3))
 					.saturating_mul(n.into()),
