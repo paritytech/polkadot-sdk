@@ -1,1 +1,9 @@
-{# List of chnaged crates with updated versions genearted during the crates relaease . -#}
+The following crates were updated to the corresponding versions:
+
+- sp-database@10.0.2
+- pallet-multi-asset-bounties@0.6.1
+- pallet-utility@49.0.1
+- sc-client-db@0.54.1
+- sc-consensus-grandpa@0.43.1
+- polkadot-collator-protocol@32.0.1
+- polkadot-omni-node-lib@0.18.1

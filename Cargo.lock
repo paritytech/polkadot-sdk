@@ -7375,7 +7375,7 @@ dependencies = [
  "sp-blockchain 46.0.0",
  "sp-core 43.0.0",
  "sp-crypto-hashing 0.1.0",
- "sp-database 10.0.0",
+ "sp-database 10.0.2",
  "sp-externalities 0.34.0",
  "sp-genesis-builder 0.24.0",
  "sp-inherents 43.0.0",
@@ -13751,7 +13751,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-multi-asset-bounties"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -15183,7 +15183,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-utility"
-version = "49.0.0"
+version = "49.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -16247,7 +16247,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "32.0.0"
+version = "32.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -17064,7 +17064,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_cmd",
@@ -17768,7 +17768,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-crypto-hashing-proc-macro 0.1.0",
  "sp-dap",
- "sp-database 10.0.0",
+ "sp-database 10.0.2",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.34.0",
  "sp-genesis-builder 0.24.0",
@@ -21104,7 +21104,7 @@ dependencies = [
  "sp-blockchain 46.0.0",
  "sp-consensus 0.49.0",
  "sp-core 43.0.0",
- "sp-database 10.0.0",
+ "sp-database 10.0.2",
  "sp-externalities 0.34.0",
  "sp-runtime 48.0.0",
  "sp-state-machine 0.53.0",
@@ -21116,7 +21116,7 @@ dependencies = [
 
 [[package]]
 name = "sc-client-db"
-version = "0.54.0"
+version = "0.54.1"
 dependencies = [
  "array-bytes 6.2.2",
  "criterion",
@@ -21138,7 +21138,7 @@ dependencies = [
  "sp-arithmetic 23.0.0",
  "sp-blockchain 46.0.0",
  "sp-core 43.0.0",
- "sp-database 10.0.0",
+ "sp-database 10.0.2",
  "sp-runtime 48.0.0",
  "sp-state-machine 0.53.0",
  "sp-tracing 16.0.0",
@@ -21353,7 +21353,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.43.0"
+version = "0.43.1"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
@@ -24744,7 +24744,7 @@ dependencies = [
  "sp-api 43.0.0",
  "sp-consensus 0.49.0",
  "sp-core 43.0.0",
- "sp-database 10.0.0",
+ "sp-database 10.0.2",
  "sp-runtime 48.0.0",
  "sp-state-machine 0.53.0",
  "thiserror 1.0.65",
@@ -25087,20 +25087,20 @@ dependencies = [
 
 [[package]]
 name = "sp-database"
-version = "10.0.0"
-dependencies = [
- "kvdb",
- "kvdb-rocksdb",
- "parking_lot 0.12.3",
-]
-
-[[package]]
-name = "sp-database"
 version = "10.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c702cc7679fbaf0469d40251917cd27bfc165c506a8cd96fb4a9dd3947f06d70"
 dependencies = [
  "kvdb",
+ "parking_lot 0.12.3",
+]
+
+[[package]]
+name = "sp-database"
+version = "10.0.2"
+dependencies = [
+ "kvdb",
+ "kvdb-rocksdb",
  "parking_lot 0.12.3",
 ]
 
