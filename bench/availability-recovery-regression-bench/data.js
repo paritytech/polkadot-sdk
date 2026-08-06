@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786008021307,
+  "lastUpdate": 1786026155972,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f67648a75325006078cef3e800738cb9bafd4337",
-          "message": "[pallet-revive] fix delegate_call_contract in evm-test-suites (#10510)\n\nevm-test-suite was not correctly executing delegate_call_contract\ncausing pallet-revive to silently reject the delegatecall. After\nevm-test-suite was fixed we found that the trace for delegate calls is\nincorrect. This fixes it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T12:16:29Z",
-          "tree_id": "9a17eb2c42def6c20e00f86be6e50911192ff9e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f67648a75325006078cef3e800738cb9bafd4337"
-        },
-        "date": 1764769963094,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.304261160500001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19994685253333344,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13286469683333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d698e656fbd8aad37e27788047cf05536d918f92",
+          "message": "[CI/CD] Bump parity-publish version to 0.10.17 (#12819)",
+          "timestamp": "2026-08-06T12:40:10Z",
+          "tree_id": "b0e5ad1df487da24cd7225f71716ce9b0a841587",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d698e656fbd8aad37e27788047cf05536d918f92"
+        },
+        "date": 1786026122619,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.634505248366668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14379436336666668,
             "unit": "seconds"
           }
         ]
