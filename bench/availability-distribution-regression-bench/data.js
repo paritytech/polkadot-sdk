@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785962133981,
+  "lastUpdate": 1786008064709,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "685d8cf09d6dbc49a865693754a1496025527168",
-          "message": "[Revive] Implement general gas tracking (#10166)\n\nThis PR implements [the general gas tracking\nspec](https://shade-verse-e97.notion.site/Revive-Resource-Management-2928532a7ab5808381b4e688fcc58838?pvs=74).\n\nFollow-up PR to address gas scale:\nhttps://github.com/paritytech/polkadot-sdk/pull/10393\n\nThis PR ballooned into something much bigger than I expected. Many of\nthe changes are due to the fact that all tests and a lot of the other\nlogic has some touch points with the resource management logic. Most of\nthe actual changes in logic are just in the folder `metering` of\npallet-revive.\n\nThe main changes are that\n- Metering now works differently depending on whether the transaction as\na whole defines weight and deposit limits (\"Substrate execution mode\")\nor just an Ethereum gas limit (\"Ethereum execution mode\"). The Ethereum\nexecution mode is used for all `eth_transact` extrinsics.\n- There is a third resource (in addition to weight and storage\ndeposits): Ethereum gas. In the Ethereum execution mode this is a shared\nresource (consumable through weight and through storage deposits).\n\n## Metering logic\nAlmost all changes in this PR are confined to the folder `metering` of\npallet-revive. Before this PR there were two meters: a weight meter and\na gas meter. They have now been combined into a main meter called\n`ResourceMeter`. Outside code only interacts with the `ResourceMeter`\nand not individually with the gas or storage meter. The reason is that\nin Ethereum execution mode gas is a shared resource and interacting with\none meter influences the limits of the other meter.\n\nHere are some finer points:\n- The previous code of the gas and deposit meters has been moved to the\n`metering` folder\n- Since outside code interacts only with the `ResourceMeter`, most\nfunctions now don't use a separate gas meter and deposit meter anymore\nbut just a `ResourceMeter`\n- Similar to the two two kinds of deposits meters (`Root` and `Nested`),\nthere are two kind of `ResourceMeter`: the top-level `TransactionMeter`\nused at the beginning of a transaction and a `FrameMeter` used once per\nframe\n- The limits of a `TransactionMeter` are specified through the\n`TransactionLimits` type, which distinguishes between Substrate and\nEthereum execution mode.\n- The limits of a `FrameMeter` is specified through the type\n`CallResources`, which can either be a) no limits (e.g., in the case of\ncontract creation), or b) a weight and deposit, or c) a gas limit.\n- The top level name of functions in the meters has been changed to be a\nbit more explicit about their purpose.\n- This applied particularly to the methods at the end of the lifecycle:\n- `enforce_limit` has been renamed to `finalize` as that describes the\nsemantics better\n- `try_into_deposit` has been renamed to `execute_postponed_deposits`\n- For absorbing a frame meter into its parent meter, there are two\ndifferent absorption functions:\n- `absorb_weight_meter_only`: when a frame reverts. In this case we\nignore all storage deposits from the reverting frame. We still need to\nabsorb the observed maximum deposit so that we determine the correct\nmaximum deposit during dry running.\n  - `absorb_all_meters`: when a frame was successful\n- The weight meter now has an `effective_weight_limit`, which needs to\nbe recalculated whenever the deposit meter changes and is for\noptimization purposes.\n- The limits of the gas meter and deposit meters are now an\n`Option<...>`. When it is `None`, then this represents unlimited meters\nand this is only used for Ethereum style executions (the meters are not\nreally unlimited, there will be a gas limit that effectively limits the\nresource usages of the weight and deposit meters).\n- In the weight meters, the `sync_to_executor` and `sync_from_executor`\nare a bit simplified and there is no need for `engine_fuel_left`\nanymore.\n\n## Other Changes\n- The old name `gas` for weights has been consistently replaced by\n`weight`\n- `eth_call` and `eth_instantiate_with_code` now take a `weight_limit`\n(used to ensure that weight does not exceed the max extrinsic weight)\nand an `eth_gas_limit` (the new externally defined limit)\n- The numeric calculation in `compute_max_integer_quotient` and\n`compute_max_integer_pair_quotient` (defined in\n`substrate/frame/revive/src/evm/frees.rs`) are meant to divide a number\nby the next fee multiplier\n- The call tracer does not take a `GasMapper` anymore as it will now be\nfed directly with the Ethereum gas values instead of weights\n- Re-entrancy protection now has three modes: no protection, `Strict`\nprotection and `AllowNext`\n- `AllowNext` allows to re-enter the same contract but only for the next\nframe. This is required to implement reentrancy protection for simple\ntransfers with call stipends\n- For `Strict` protection we set `allows_reentry` of the caller to\n`false` before the creation of the new frame, for `AllowNext` we to it\nafter the creation\n- We define the max block gas as `u64::MAX` (as discussed with\n@pgherveou)\n- I now calculate the maximal required storage deposits during dry\nrunning (called `max_storage_deposit` in the deposit meter). For\nexample, if a transaction encounters a storage deposit that is later\nrefunded, then the total storage deposit is zero. However, the caller\nneeds to provide enough resources so that temporarily the execution does\nnot run out of gas and terminates the call prematurely.\n- The function `try_upload_code` now always takes a meter and records\nthe storage deposit charge there\n- In this PR I added logic to correctly handle call stipends (this fixes\nhttps://github.com/paritytech/contract-issues/issues/215)\n\n## Fixes\nThis fixes a couple of issues\n- fixes https://github.com/paritytech/contract-issues/issues/215\n- fixes https://github.com/paritytech/polkadot-sdk/issues/8362\n- fixes https://github.com/paritytech-secops/srlabs_findings/issues/589\n- fixes https://github.com/paritytech/contract-issues/issues/197\n- fixes https://github.com/paritytech/contract-issues/issues/208\n- fixes https://github.com/paritytech/contract-issues/issues/212\n\n## TODOs\n* [x] Ignore deposit refunds for dry running\n* [x] Properly enforce weight limits\n* [x] Fix gas mapping in the tracer\n* [x] Fix (?) gas mapping in block storage (`with_ethereum_context`)\n* [x] Check dry running logic again, and create_call, also in\n`ExecConfig`\n* [x] Introduce `SignedGas`\n* [x] use `effective_gas_price` instead of next fee multiplier\n* TBD, also see\nhttps://github.com/paritytech/polkadot-sdk/pull/10148#pullrequestreview-3407403361\n* [x] ensure that deducted amount is `effective_gas_price` * used gas\n* this has already been addressed in\nhttps://github.com/paritytech/polkadot-sdk/pull/10148\n* [x] check logic of `ensure_not_overdrawn`\n* [x] Optimize calculations\n* [x] Check whether rounding is done correctly\n* [x] add debug logging\n* [x] Scale gas amounts charged in revm\n* this has been addressed in another PR:\nhttps://github.com/paritytech/polkadot-sdk/pull/10393\n \nOther TODOs\n* [x] fix tests and benchmarks\n* [x] add new tests\n* [x] add code docs\n* [x] resolve merge conflicts\n* [x] run benchmarks\n* [x] add PR description\n\n---------\n\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: Omar Abdulla <OmarAbdulla7@hotmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T08:09:17Z",
-          "tree_id": "34c4779605867e594cef3eae4cc798fc82505b6f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/685d8cf09d6dbc49a865693754a1496025527168"
-        },
-        "date": 1764755516199,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007233911166666655,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15710726402666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013055601146666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022537589219999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14434116085333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2fd67abb42e6f46f321334d57e16bda2109aff8c",
+          "message": "Add guide for updating versioned runtime API functions (#12798)\n\n# Description\n\nThis is a small PR which adds more information to the versioning guide\non how versioned runtime API functions can be upgraded. No code edits,\njust an edit to the `GUIDE.md` markdown file.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Marian Radu <marian@parity.io>",
+          "timestamp": "2026-08-06T07:37:54Z",
+          "tree_id": "ac8d8c679a83e23938ea910bf3427429016ac620",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2fd67abb42e6f46f321334d57e16bda2109aff8c"
+        },
+        "date": 1786008030520,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008053267746666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022996098060000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14370554309333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009850294840000006,
             "unit": "seconds"
           }
         ]
