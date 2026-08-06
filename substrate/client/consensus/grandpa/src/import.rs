@@ -603,7 +603,6 @@ where
 			}
 
 			return import_result;
->>>>>>> dda80132 (grandpa: Revert memory changes synced with db (#12767))
 		}
 
 		// on initial sync we will restrict logging under info to avoid spam.
