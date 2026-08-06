@@ -2,61 +2,51 @@ title: 'pallet-xcm: weight asset claiming and precompile XCM input by their real
 doc:
 - audience: Runtime Dev
   description: |-
-    Three related under-charges in XCM weighing, all exploitable to build blocks whose
-    real execution cost far exceeds their accounted weight.
+    Three related under-charges in XCM weighing, each exploitable to build blocks whose
+    real execution cost far exceeds their accounted weight, plus a missing worst case in
+    the `AliasOrigin` benchmark.
 
-    **`claim_assets` extrinsic.** It was charged a flat weight benchmarked with a single
-    asset, while a claim may contain up to `MAX_ITEMS_IN_ASSETS` (20) assets, each
-    performing per-asset storage reads and writes through the `AssetTransactor`. The
-    extrinsic is now annotated with a weight linear in the number of claimed assets and
-    its benchmark is parameterized accordingly.
+    **`claim_assets` extrinsic.** Charged a flat weight benchmarked with a single asset,
+    while a claim may carry up to `MAX_ITEMS_IN_ASSETS` (20), each costing per-asset
+    storage access through the `AssetTransactor`. It is now weighed linearly in the
+    number of claimed assets.
 
-    Breaking change: `pallet_xcm::WeightInfo::claim_assets` now takes the number of
-    assets as `n: u32`; chains with custom `pallet_xcm` weights must regenerate them.
-    Chains whose `AssetTransactor` can deposit multiple distinct asset kinds (e.g. Asset
-    Hub) must override the new (defaulted)
-    `pallet_xcm::benchmarking::Config::get_assets` method so the benchmark measures a
-    real per-asset weight slope; the default merges into a single asset entry and
-    measures a flat weight, which is only sound for single-asset-kind transactors (e.g.
-    relay chains). `VersionedAssets` gained `len()` and `is_empty()`.
+    **`ClaimAsset` instruction.** Every runtime XCM weigher charged a flat single-asset
+    weight; they now scale by the asset count, as `WithdrawAsset`, `BurnAsset` and
+    `ExpectAsset` already did. This also closes the last gap in the inner message the
+    `claim_assets` extrinsic builds, whose `DepositAsset` half already scaled.
 
-    **`ClaimAsset` instruction.** Every runtime XCM weigher charged it a flat
-    single-asset weight. They now multiply it by the number of assets in the
-    instruction, as was already done for `WithdrawAsset`, `BurnAsset` and `ExpectAsset`.
-    This also closes the remaining gap in the inner message built by the `claim_assets`
-    extrinsic, whose `DepositAsset` half already scaled while its `ClaimAsset` half did
-    not.
-
-    **XCM precompile input.** The `pallet-revive` XCM precompile charged a flat weight
-    for decoding and weighing a caller-supplied blob, so the only size-dependent cost
-    was `pallet-revive`'s per-input-byte charge, which merely covers the calldata copy
-    and ABI decode. `MAX_INSTRUCTIONS_TO_DECODE` does not bound the work, because the
-    weigher fully decodes any call carried by a `Transact` and recurses
+    **XCM precompile input.** The `pallet-revive` XCM precompile charged a flat weight to
+    decode and weigh a caller-supplied blob. `MAX_INSTRUCTIONS_TO_DECODE` does not bound
+    that work: the weigher fully decodes any call carried by a `Transact` and recurses
     `get_dispatch_info()` over it, and every `DoubleEncoded` boundary starts a fresh
     instruction and decode-depth budget. `weighMessage`, `execute` and `send` now charge
-    for the size of the blob before decoding it; for `execute` this is a separate charge
-    from the execution weight, which is reconciled down to the actual execution weight
-    and would otherwise refund it.
+    for the blob's size before decoding it. This charge is not refunded, so contracts
+    forwarding large messages under a fixed gas limit may need a higher one.
 
-    Breaking change: `pallet_xcm::WeightInfo::weigh_message` now takes the message
-    length `n: u32`, and a new `decode_xcm(n)` measures decoding without weighing. The
-    `weigh_message` benchmark builds its worst-case payload itself, needing only a
-    batching call from the new `pallet_xcm::benchmarking::Config::batch_call`
-    (implemented as `utility.batch` by all in-tree runtimes). Chains with a batching
-    pallet that leave it at its `None` default measure a far cheaper slope and will
-    under-charge the precompile.
+    **`AliasOrigin` instruction.** Runtimes with `pallet_xcm::AuthorizedAliasers` last in
+    their `Aliasers` benchmarked an origin/target pair matched by the first, storage-free
+    filter, so the weight covered none of the authorized-alias lookup. They now set up the
+    real worst case — a target holding the maximum number of aliasers, the matching one
+    registered last and carrying an expiry — through the new
+    `parachains_common::benchmarking` module, whose docs spell out the `Aliasers`
+    configuration it assumes; chains configured differently have to work out their own.
 
-    **`AliasOrigin` instruction.** Runtimes that put `pallet_xcm::AuthorizedAliasers` last
-    in their `Aliasers` benchmarked the instruction with an origin/target pair matched by
-    the first, storage-free filter (`AliasChildLocation`), so the weight covered none of
-    the authorized-alias lookup. Their
-    `pallet_xcm_benchmarks::generic::Config::alias_origin` now sets up the real worst
-    case: a `target` account holding the maximum number of authorized aliasers, with the
-    matching one registered last and carrying an expiry, so every cheaper filter is tried
-    and the lookup iterates the full list and runs the expiration check. The shared setup
-    lives in the new `parachains_common::benchmarking` module, gated on
-    `runtime-benchmarks`, whose docs spell out the `Aliasers` configuration it assumes;
-    chains configured differently have to work out their own worst case.
+    Breaking changes to `pallet_xcm::WeightInfo`, so chains with custom `pallet_xcm`
+    weights must regenerate them:
+
+    - `claim_assets` takes the asset count `n: u32`.
+    - `weigh_message` takes the message length `n: u32`, and a new `decode_xcm(n)`
+      measures decoding without weighing.
+
+    Two defaulted `pallet_xcm::benchmarking::Config` hooks are also new. Chains whose
+    `AssetTransactor` deposits several distinct asset kinds must override `get_assets`,
+    or `claim_assets` measures a flat slope; the default is only sound for
+    single-asset-kind transactors such as relay chains. Chains with a batching pallet
+    must override `batch_call` (`utility.batch` in all in-tree runtimes), or the
+    `weigh_message` worst case degrades and the precompile under-charges.
+
+    `VersionedAssets` gained `len()` and `is_empty()`.
 crates:
 - name: pallet-xcm
   bump: major
