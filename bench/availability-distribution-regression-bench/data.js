@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786008064709,
+  "lastUpdate": 1786026198049,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2938a5c197ebfed47f0508cb24db18e86edfea6c",
-          "message": "Add substrate-zombienet-sdk-tests package and update workflows (#10372)\n\n#10331\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-12-03T09:51:44Z",
-          "tree_id": "fede98da77d880a2ce4e82aa80c0adc38d2e0672",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2938a5c197ebfed47f0508cb24db18e86edfea6c"
-        },
-        "date": 1764761243946,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013284722579999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022641422093333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007024266353333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15892460938000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009850294840000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d698e656fbd8aad37e27788047cf05536d918f92",
+          "message": "[CI/CD] Bump parity-publish version to 0.10.17 (#12819)",
+          "timestamp": "2026-08-06T12:40:10Z",
+          "tree_id": "b0e5ad1df487da24cd7225f71716ce9b0a841587",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d698e656fbd8aad37e27788047cf05536d918f92"
+        },
+        "date": 1786026165171,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009754632599999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022704657573333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14281420825333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007675754519999999,
             "unit": "seconds"
           }
         ]
