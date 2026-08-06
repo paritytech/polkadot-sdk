@@ -137,45 +137,50 @@ module accumulate {
         }
       }
       | Forget(payload) =>
-      val pi = acc.state.paraInfo(para_id)
-      val activeVc = pi.validationCode
-      val isActive =
-        match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
-      val isPending =
-        match pi.pendingUpgrade {
-          | None => false
-          | Some(pair) => refIs(pair._1.ref, payload.hash, payload.len)
-        }
-      if (isActive) {
-        // The parachain forgets its own solicit of the active code: clear the
-        // `pinned` bit, but the service still references the code (it
-        // is active), so the referencer and balance stay and the JAM forget
-        // is NOT forwarded (§5.2).
-        { ...acc,
-          state: { ...acc.state,
-            parachains: acc.state.parachains.put(
-              para_id,
-              { ...pi, validationCode:
-                match activeVc { | Some(vc) => Some({ ...vc, pinned: false }) | None => activeVc } }) } }
-      } else if (isPending) {
-        { ...acc,
-          state: { ...acc.state,
-            parachains: acc.state.parachains.put(
-              para_id,
-              { ...pi, pendingUpgrade:
-                match pi.pendingUpgrade {
-                  | None => None
-                  | Some(pair) => Some(({ ...pair._1, pinned: false }, pair._2))
-                } }) } }
-      } else {
-        val d = acc.state.removeReferencer(para_id, payload.hash, payload.len, now)
-        {
-          state: d.state,
-          jamDesignate: acc.jamDesignate,
-          jamSolicit: acc.jamSolicit,
-          jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
-          jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log)
+      val target = payload.paraId
+      if (not(acc.state.isLive(target))) acc
+      else {
+        val pi = acc.state.paraInfo(target)
+        val activeVc = pi.validationCode
+        val isActive =
+          match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
+        val isPending =
+          match pi.pendingUpgrade {
+            | None => false
+            | Some(pair) => refIs(pair._1.ref, payload.hash, payload.len)
+          }
+        if (isActive) {
+          // Forgetting the target's own solicit of its active code: clear the
+          // `pinned` bit, but the service still references the code (it
+          // is active), so the referencer and balance stay and the JAM forget
+          // is NOT forwarded (§5.2). This is what stops a forced call from
+          // stripping a running PVF.
+          { ...acc,
+            state: { ...acc.state,
+              parachains: acc.state.parachains.put(
+                target,
+                { ...pi, validationCode:
+                  match activeVc { | Some(vc) => Some({ ...vc, pinned: false }) | None => activeVc } }) } }
+        } else if (isPending) {
+          { ...acc,
+            state: { ...acc.state,
+              parachains: acc.state.parachains.put(
+                target,
+                { ...pi, pendingUpgrade:
+                  match pi.pendingUpgrade {
+                    | None => None
+                    | Some(pair) => Some(({ ...pair._1, pinned: false }, pair._2))
+                  } }) } }
+        } else {
+          val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
+          {
+            state: d.state,
+            jamDesignate: acc.jamDesignate,
+            jamSolicit: acc.jamSolicit,
+            jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
+            jamAssigns: acc.jamAssigns,
+            logs: acc.logs.appendOption(d.log)
+          }
         }
       }
       | SetValidatorKeys(payload) =>
@@ -309,11 +314,14 @@ module accumulate {
         logs: acc.logs.appendOption(d.log)
       }
       | RemoveKV(payload) =>
-      val d = applyRemoveKV(acc.state, para_id, payload.key)
-      {
-        ...acc,
-        state: d.state,
-        logs: acc.logs.appendOption(d.log)
+      if (not(acc.state.isLive(payload.paraId))) acc
+      else {
+        val d = applyRemoveKV(acc.state, payload.paraId, payload.key)
+        {
+          ...acc,
+          state: d.state,
+          logs: acc.logs.appendOption(d.log)
+        }
       }
     }
   }
@@ -462,9 +470,11 @@ module accumulate {
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
                 applyUpwardMessage(a, ok.paraId, codeLen, now, m))
+              // `Solicit` is always for the caller itself; `Forget` names its
+              // target, so a Coretime-driven forget clears the TARGET's entry.
               val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
                 | Solicit(p) => s.union(Set((ok.paraId, p.hash, p.len)))
-                | Forget(p) => s.exclude(Set((ok.paraId, p.hash, p.len)))
+                | Forget(p) => s.exclude(Set((p.paraId, p.hash, p.len)))
                 | _ => s
               })
               // §5.1: prune below the candidate's lookup-anchor before

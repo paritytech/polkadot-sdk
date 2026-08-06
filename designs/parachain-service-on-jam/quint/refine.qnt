@@ -66,11 +66,13 @@ module refine {
   1 + match m {
     | RequestCodeUpgrade(_) => 36
     | Solicit(_) => 36
-    | Forget(_) => 36
+    // paraId 4 + hash 32 + len 4.
+    | Forget(_) => 40
     | SetKV(p) =>
       compactLen(p.key.length()) + p.key.length()
         + compactLen(p.value.length()) + p.value.length()
-    | RemoveKV(p) => compactLen(p.key.length()) + p.key.length()
+    // paraId 4 + Vec<u8> key (compact len prefix + bytes).
+    | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
     // dest 4 + amount Compact<u128> + memo 128.
     | TransferOut(p) => 132 + compactLen(p.amount)
     // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry)

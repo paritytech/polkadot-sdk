@@ -108,12 +108,15 @@ module messages {
     | RequestCodeUpgrade({ hash: ValidationCodeHash, len: int })
   // solicit(hash, len)
   | Solicit({ hash: Hash, len: int })
-  // forget(hash, len)
-  | Forget({ hash: Hash, len: int })
+  // forget(para_id, hash, len). `paraId` names whose reference is released; a
+  // para may only name itself, while the Coretime chain may name any para, which
+  // is how a para that can no longer produce blocks gets drained (§6.4).
+  | Forget({ paraId: ParaId, hash: Hash, len: int })
   // kv_set(key, value) — write to key_value_storage.
   | SetKV({ key: List[int], value: List[int] })
-  // kv_remove(key) — remove from key_value_storage.
-  | RemoveKV({ key: List[int] })
+  // kv_remove(para_id, key) — remove from key_value_storage. Same `paraId`
+  // delegation rule as `Forget`.
+  | RemoveKV({ paraId: ParaId, key: List[int] })
   // transfer_out(dest, amount, memo) — Asset Hub only.
   | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
   // assign_core(core, queue, new_assigner, jam_slot) — Coretime only. Mirrors
@@ -238,8 +241,20 @@ module messages {
     | _ => false
   }
 
+  /// Per §4.3: a host function taking a `para_id` aborts unless it names the
+  /// calling parachain — except from the Coretime chain, which may name any para
+  /// (§6.4). `true` iff `m` names a para other than `para_id` without that right.
+  pure def targetsForeignPara(m: UpwardMessage, para_id: ParaId): bool =
+  para_id != CoretimeParaId and
+  (match m {
+    | Forget(p) => p.paraId != para_id
+    | RemoveKV(p) => p.paraId != para_id
+    | _ => false
+  })
+
   /// Per §4.3: host functions restricted to a specific parachain (Asset Hub
-  /// or the Coretime chain) abort when invoked from any other parachain.
+  /// or the Coretime chain) abort when invoked from any other parachain, as does
+  /// naming a foreign `para_id` without the right to.
   /// Refine enforces this as a PVF-level panic; Accumulate independently
   /// verifies and rejects the work-package as defense-in-depth.
   pure def violatesParachainRestrictions(
@@ -249,5 +264,6 @@ module messages {
   msgs.foldl(false, (acc, m) =>
     acc or
     (isAssetHubOnly(m) and para_id != AssetHubParaId) or
-    (isCoretimeOnly(m) and para_id != CoretimeParaId))
+    (isCoretimeOnly(m) and para_id != CoretimeParaId) or
+    targetsForeignPara(m, para_id))
 }

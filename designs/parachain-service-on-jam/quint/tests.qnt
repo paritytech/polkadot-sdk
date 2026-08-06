@@ -1343,11 +1343,11 @@ module tests {
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code stays pinned.
     val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0,
-      Forget({ hash: h, len: otherLen }))
+      Forget({ paraId: para, hash: h, len: otherLen }))
     val pi2 = fgt.state.paraInfo(para)
     // 4. Forget at the code's OWN len: matches the active code, so it unpins it.
     val unpinned = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0,
-      Forget({ hash: h, len: FixedCodeLen }))
+      Forget({ paraId: para, hash: h, len: FixedCodeLen }))
     all {
       assert(not(activeCodePinned(pi0))),
       // (1) correct len pins the active code, creating no entry and no charge.
@@ -1364,6 +1364,198 @@ module tests {
       assert(activeCodePinned(pi2)),
       // (4) correct len unpins the active code.
       assert(not(activeCodePinned(unpinned.state.paraInfo(para)))),
+      init
+    }
+  }
+
+  // --- Coretime-delegated release of another para's state (§6.4) -----------
+
+  /// A fresh `AccumulateOutcome` over `s`, for replaying one upward message.
+  pure def accOver(s: ParachainServiceState): AccumulateOutcome = {
+    state: s, jamDesignate: None, jamSolicit: Set(),
+    jamForget: Set(), jamAssigns: List(), logs: List()
+  }
+
+  /// Replay one upward message emitted by `caller` against `s`.
+  pure def replay(
+    s: ParachainServiceState, caller: ParaId, now: Timeslot, m: UpwardMessage
+  ): AccumulateOutcome =
+    applyUpwardMessage(accOver(s), caller, FixedCodeLen, now, m)
+
+  /// Coretime naming another para in `forget` releases that para's preimage and
+  /// refunds its footprint. Never provided → expunged in one step.
+  run coretimeForgetDrainsPreimageTest = {
+    val target = AssetHubParaId
+    val h: Hash = { hashBytes: 4242 }
+    val len = 1024
+    val before = initialState.paraInfo(target).usedStateBalance
+    val held = initialState.addReferencer(target, h, len).state
+    val forced = replay(held, CoretimeParaId, 0, Forget({ paraId: target, hash: h, len: len }))
+    all {
+      assert(held.paraInfo(target).usedStateBalance == before + preimageFootprint(len)),
+      assert(forced.state.paraInfo(target).usedStateBalance == before),
+      assert(not(forced.state.preimageRegistry.keys().contains((h, len)))),
+      assert(forced.jamForget == Set(h)),
+      init
+    }
+  }
+
+  /// A delegated forget of a PROVIDED preimage only unrequests it: the footprint
+  /// stays charged and a `ForgetAgainAt` deadline is logged. A second call strictly
+  /// past that deadline expunges it and refunds.
+  run coretimeForgetTwoStepTest = {
+    val target = AssetHubParaId
+    val h: Hash = { hashBytes: 4243 }
+    val len = 2048
+    val before = initialState.paraInfo(target).usedStateBalance
+    val held = markProvided(initialState.addReferencer(target, h, len).state, h, len)
+    val msg = Forget({ paraId: target, hash: h, len: len })
+    val first = replay(held, CoretimeParaId, 5, msg)
+    val due = 5 + ExpungePeriod
+    val second = replay(first.state, CoretimeParaId, due + 1, msg)
+    all {
+      assert(first.state.paraInfo(target).usedStateBalance
+        == before + preimageFootprint(len)),
+      assert(isUnrequested(first.state.preimageStatus.get((h, len)))),
+      assert(first.logs == List(ForgetAgainAt({ hash: h, len: len, due: due }))),
+      assert(second.state.paraInfo(target).usedStateBalance == before),
+      assert(not(second.state.preimageRegistry.keys().contains((h, len)))),
+      init
+    }
+  }
+
+  /// A delegated forget naming the target's ACTIVE validation code only clears its
+  /// `pinned` bit — Coretime can never strip a running PVF, nor refund the code.
+  run coretimeForgetActiveCodeOnlyUnpinsTest = {
+    val target = AssetHubParaId
+    val activeRef: ValidationCodeRef = { hash: { vchBytes: 2 }, len: FixedCodeLen }
+    val h = vchAsHash(activeRef.hash)
+    val pinnedState = {
+      ...initialState,
+      parachains: initialState.parachains.put(
+        target,
+        { ...initialState.paraInfo(target),
+          validationCode: Some({ ref: activeRef, pinned: true }) })
+    }
+    val before = pinnedState.paraInfo(target).usedStateBalance
+    val forced = replay(pinnedState, CoretimeParaId, 0,
+      Forget({ paraId: target, hash: h, len: FixedCodeLen }))
+    val pi = forced.state.paraInfo(target)
+    all {
+      assert(activeCodePinned(pinnedState.paraInfo(target))),
+      assert(not(activeCodePinned(pi))),
+      assert(pi.validationCode == Some({ ref: activeRef, pinned: false })),
+      assert(pi.usedStateBalance == before),
+      assert(forced.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
+      assert(forced.jamForget == Set()),
+      init
+    }
+  }
+
+  /// Coretime naming another para in `kv_remove` drops that para's entry and
+  /// refunds its `kvEntryFootprint`.
+  run coretimeKVRemoveRefundsTest = {
+    val target = AssetHubParaId
+    val key = List(9, 9)
+    val value = List(1, 2, 3)
+    val before = initialState.paraInfo(target).usedStateBalance
+    val held = applySetKV(initialState, target, key, value).state
+    val forced = replay(held, CoretimeParaId, 0, RemoveKV({ paraId: target, key: key }))
+    all {
+      assert(held.paraInfo(target).usedStateBalance
+        == before + kvEntryFootprint(key.length(), value.length())),
+      assert(forced.state.paraInfo(target).usedStateBalance == before),
+      assert(not(forced.state.keyValueStorage.keys().contains((target, key)))),
+      init
+    }
+  }
+
+  /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
+  pure def refineWithMsgs(
+    s: ParachainServiceState, caller: ParaId, msgs: List[UpwardMessage]
+  ): ParachainWorkDigest = {
+    val pi = s.paraInfo(caller)
+    val pkg: WorkPackage = {
+      authorizedParas: List(caller),
+      items: List({
+        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen },
+        pov: 0
+      })
+    }
+    refine(s, pkg, false, false,
+      Some(headHash(pi.headData)), Some(pi.headData + 1), msgs, 0)[0]
+  }
+
+  /// True iff a digest is `Ok`.
+  pure def isOkDigest(d: ParachainWorkDigest): bool =
+    match d { | Ok(_) => true | Err(_) => false }
+
+  /// §4.3: naming a `para_id` the caller may not touch makes REFINE fail with
+  /// `RestrictedHostFunction`, so the message never reaches Accumulate at all.
+  /// Naming itself, or being the Coretime chain, refines fine.
+  run refineRejectsForeignParaIdTest = {
+    val h: Hash = { hashBytes: 7777 }
+    all {
+      // Asset Hub reaching for Coretime's state — Refine rejects, for both calls.
+      assert(refineWithMsgs(initialState, AssetHubParaId,
+        List(Forget({ paraId: CoretimeParaId, hash: h, len: 1024 })))
+        == refineErr(AssetHubParaId, RestrictedHostFunction)),
+      assert(refineWithMsgs(initialState, AssetHubParaId,
+        List(RemoveKV({ paraId: CoretimeParaId, key: List(0) })))
+        == refineErr(AssetHubParaId, RestrictedHostFunction)),
+      // Asset Hub releasing its own state — refines fine.
+      assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
+        List(Forget({ paraId: AssetHubParaId, hash: h, len: 1024 }))))),
+      assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
+        List(RemoveKV({ paraId: AssetHubParaId, key: List(0) }))))),
+      // Coretime may name anyone.
+      assert(isOkDigest(refineWithMsgs(initialState, CoretimeParaId,
+        List(Forget({ paraId: AssetHubParaId, hash: h, len: 1024 }))))),
+      init
+    }
+  }
+
+  /// Both calls are idempotent no-ops for an unregistered target and for an entry
+  /// the target does not hold.
+  run delegatedReleaseNoOpTest = {
+    val ghost = MkParaId(9)
+    val h: Hash = { hashBytes: 5555 }
+    all {
+      assert(replay(initialState, CoretimeParaId, 0,
+        Forget({ paraId: ghost, hash: h, len: 1024 })).state == initialState),
+      assert(replay(initialState, CoretimeParaId, 0,
+        RemoveKV({ paraId: ghost, key: List(0) })).state == initialState),
+      assert(replay(initialState, CoretimeParaId, 0,
+        Forget({ paraId: AssetHubParaId, hash: h, len: 1024 })).state == initialState),
+      init
+    }
+  }
+
+  /// The reason the `para_id` parameter exists (§6.4): a para holding extra state
+  /// cannot be cleaned up, and a para that can no longer produce blocks cannot
+  /// drain itself. Coretime drains it, after which `parachain_clean_up` succeeds.
+  run delegatedReleaseUnblocksCleanUpTest = {
+    val target = AssetHubParaId
+    val h: Hash = { hashBytes: 6161 }
+    val len = 1024
+    val key = List(3)
+    val withPreimage = initialState.addReferencer(target, h, len).state
+    val held = applySetKV(withPreimage, target, key, List(7)).state
+    val refused = parachainCleanUp(held, target, 0)
+    val d1 = replay(held, CoretimeParaId, 0, Forget({ paraId: target, hash: h, len: len }))
+    val d2 = replay(d1.state, CoretimeParaId, 0, RemoveKV({ paraId: target, key: key }))
+    val cleaned = parachainCleanUp(d2.state, target, 0)
+    all {
+      // Blocked while the extra preimage + KV entry are held.
+      assert(refused.logs == List(TooMuchStateHeld)),
+      assert(refused.state == held),
+      // Drained back to exactly baseline + active validation code.
+      assert(d2.state.paraInfo(target).usedStateBalance
+        == baselineFor(target) + preimageFootprint(FixedCodeLen)),
+      // Clean-up now completes: the code was never provided, so it expunges in
+      // one step and the para is dropped outright.
+      assert(cleaned.logs == List()),
+      assert(not(cleaned.state.isLive(target))),
       init
     }
   }

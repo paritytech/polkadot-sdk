@@ -349,11 +349,11 @@ module main {
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
       RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
       Solicit({ hash: anyHash, len: 1024 }),
-      Forget({ hash: anyHash, len: 1024 }),
+      Forget({ paraId: para_id, hash: anyHash, len: 1024 }),
       // Solicit/forget of the para's OWN active code — exercises the
       // `pinned` path (§5.2).
       Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      Forget({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Forget({ paraId: para_id, hash: vchAsHash(activeCode), len: FixedCodeLen }),
       // AH-only — Refine rejects from non-AH callers (§4.3).
       TransferOut({ dest: MkServiceId(0), amount: 100, memo: 0 }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
@@ -386,13 +386,20 @@ module main {
       // originating para, e.g. Coretime cleaning up itself).
       ParachainCleanUp(MkParaId(3)),
       ParachainCleanUp(MkParaId(4)),
+      // `Forget` / `RemoveKV` naming ANOTHER para (§6.4): legitimate from the
+      // Coretime chain, which drains a para that can no longer release its own
+      // state, and rejected as `RestrictedHostFunction` from every other caller.
+      // Both outcomes are reachable since the emitting para is sampled.
+      Forget({ paraId: MkParaId(3), hash: anyHash, len: 1024 }),
+      Forget({ paraId: MkParaId(3), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
+      RemoveKV({ paraId: MkParaId(3), key: List(0) }),
       // KV store operations — exercises SetKV/RemoveKV paths (§6.1).
       // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.
       SetKV({ key: List(0), value: List(0) }),
       SetKV({ key: List(0), value: List(0, 1) }),
       SetKV({ key: List(1), value: List() }),
-      RemoveKV({ key: List(0) }),
-      RemoveKV({ key: List(1) })
+      RemoveKV({ paraId: para_id, key: List(0) }),
+      RemoveKV({ paraId: para_id, key: List(1) })
     )
   }
 

@@ -601,9 +601,9 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent — no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
-| `forget(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if the parachain is not in `preimage_registry[hash].referencers`. May be called for the parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
+| `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent — no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
 | `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
-| `kv_remove(key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent — no-op if the key is absent. |
+| `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent — no-op if the key is absent. |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only). If the JAM `transfer` call fails during `accumulate`, an `AccumulateLog::TransferFailed { memo_hash }` entry is appended to the parachain's log. See §5.1 step 7. |
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
@@ -616,7 +616,9 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `parachain_set_state_balance(para_id: ParaId, new_total: Balance)` | `()` | Overwrite `ParaInfo[para_id].total_state_balance` (Coretime chain only). On rejection an `AccumulateLog::StateBalanceUpdateRejected` is appended to the parachain's log. See §6.1. |
 
 Host functions that are restricted to specific parachains (e.g. Coretime chain, Asset Hub)
-will abort with an error when called by any other parachain.
+will abort with an error when called by any other parachain. Likewise, a host function
+taking a `para_id` aborts unless it names the calling parachain, except from the
+Coretime chain, which may name any parachain (§6.4).
 
 A single Refine invocation may emit at most **1024 upward messages**. If the PVF
 exceeds this, the invocation fails with `Err(RefineLog::TooManyUpwardMessages)`.
@@ -889,7 +891,7 @@ Phase 4: Activate
 
 Phase 5: Forget
     Asset Hub observes the new codehash in Parachain Service state
-    and calls forget(old_code_hash, len) (§6.1).
+    and calls forget(asset_hub_para_id, old_code_hash, len) (§6.1).
 ```
 
 ---
@@ -970,9 +972,9 @@ the Coretime chain cannot strand currently-paid-for state by under-funding the
 parachain). Otherwise no state change happens and an
 `AccumulateLog::StateBalanceUpdateRejected { attempted, current_total, current_used }`
 is appended to the parachain log so the Coretime chain can observe the rejection
-and size a retry. To free state balance, the parachain (or the Coretime chain via
-a forced update / clean-up; see §6) must first reduce `used_state_balance` by
-releasing preimages.
+and size a retry. To free state balance, `used_state_balance` must first be reduced
+by releasing state via `forget` / `kv_remove`, called either by the parachain
+itself or by the Coretime chain on its behalf (see §6.4).
 
 Verifying the user has enough balance to cover at least the baseline is the Coretime
 chain's responsibility, done before starting the registration sequence.
@@ -996,7 +998,7 @@ it. The service keeps no bookkeeping for this. When a `forget` removes the last
 referencer without expunging the preimage, Accumulate appends an
 `AccumulateLog::ForgetAgainAt { hash, len, due }`, where `due = now +
 C_expungeperiod`, and leaves the last referencer in `referencers` — still charged
-the full footprint. The parachain calls `forget(hash, len)` again once the
+the full footprint. The parachain calls `forget(para_id, hash, len)` again once the
 timeslot is *strictly after* `due` to complete the expunge and free the footprint.
 
 A preimage that was solicited but **never provided** to JAM is different: a single
@@ -1212,7 +1214,9 @@ Parachain Service (Accumulate)
 
 Requiring the parachain to drain its own extra state first keeps clean-up bounded:
 the service only ever has to forget the two validation codes, never an unbounded
-set of solicited preimages or KV entries.
+set of solicited preimages or KV entries. A parachain that can no longer produce
+blocks cannot drain itself, so `forget` and `kv_remove` take a `para_id` (§4.3),
+letting the Coretime chain free any parachain's state on its behalf.
 
 While `is_deregistering` is set the service rejects every work package for the
 parachain (§5.1), so no new state accrues. Each not-yet-expungeable validation
