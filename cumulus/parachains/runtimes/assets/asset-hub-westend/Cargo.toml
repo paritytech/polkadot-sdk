@@ -59,7 +59,6 @@ pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
-pallet-parameters = { workspace = true }
 pallet-pgas-allowance = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -163,6 +162,7 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros"] }
 westend-runtime = { workspace = true, default-features = true }
 
@@ -214,7 +214,6 @@ runtime-benchmarks = [
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-nomination-pools-benchmarking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-parameters/runtime-benchmarks",
 	"pallet-pgas-allowance/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
@@ -301,7 +300,6 @@ try-runtime = [
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nomination-pools/try-runtime",
-	"pallet-parameters/try-runtime",
 	"pallet-pgas-allowance/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
@@ -397,7 +395,6 @@ std = [
 	"pallet-nomination-pools-benchmarking/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
-	"pallet-parameters/std",
 	"pallet-pgas-allowance/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
