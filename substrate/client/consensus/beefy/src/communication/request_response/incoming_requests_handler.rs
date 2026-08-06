@@ -202,12 +202,9 @@ where
 				.await
 			{
 				Ok(request) => request,
-				Err(e)
-					if matches!(
-						e,
-						Error::DecodingError(_, _) | Error::DecodingErrorNoReputationChange(_, _)
-					) =>
-				{
+				Err(
+					e @ (Error::DecodingError(_, _) | Error::DecodingErrorNoReputationChange(_, _)),
+				) => {
 					// Malformed request from a peer: it has already been refused and the peer
 					// penalized in `recv()`. Keep serving other peers.
 					metric_inc!(self.metrics, beefy_failed_justification_responses);
