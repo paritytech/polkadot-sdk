@@ -2536,20 +2536,26 @@ where
 			return;
 		}
 
-		let copy = |buf: &mut [u8], code: &[u8]| {
-			let len = len.min(code.len().saturating_sub(code_offset));
-			if len > 0 {
-				buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
-			}
+		let mut copy = move |mut code: &[u8]| {
+			let len = if let Some(code) = code.split_off(code_offset..) {
+				// Get the minimum length of the two slices to avoid out of bounds panics.
+				let len = len.min(code.len());
+				if len > 0 {
+					buf[..len].copy_from_slice(&code[..len]);
+				}
+				len
+			} else {
+				0
+			};
 			buf[len..].fill(0);
 		};
 
 		if let Some(code) = self.virtual_code(address) {
-			return copy(buf, code);
+			return copy(code);
 		}
 
 		let code_hash = self.code_hash(address);
-		copy(buf, &crate::PristineCode::<T>::get(&code_hash).unwrap_or_default());
+		copy(&crate::PristineCode::<T>::get(&code_hash).unwrap_or_default());
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
