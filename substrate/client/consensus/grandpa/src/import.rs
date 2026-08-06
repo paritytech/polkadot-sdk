@@ -585,11 +585,8 @@ where
 					do_pause: false,
 				});
 			}
-<<<<<<< HEAD
-			return (&*self.inner).import_block(block).await
-=======
 
-			let import_result = self.inner.import_block(block).await;
+			let import_result = (&*self.inner).import_block(block).await;
 			if let Some(pending_changes) = pending_changes {
 				match &import_result {
 					Ok(ImportResult::Imported(_)) => {
@@ -606,7 +603,6 @@ where
 			}
 
 			return import_result;
->>>>>>> dda80132 (grandpa: Revert memory changes synced with db (#12767))
 		}
 
 		// on initial sync we will restrict logging under info to avoid spam.
