@@ -181,7 +181,7 @@ mod tests {
 		let certificate = derive_certificate(node_key(42)).unwrap();
 		assert_eq!(
 			certhash(&certificate),
-			"/certhash/uEiDMlF3mQR1NNRWTKgfPitsu9g9STfkSI5cW2UPRZBvYSA"
+			"/certhash/uEiAdOvFQ8-Yk6jOVs7q1W9O-UTZSPtmQBc9p7CqClfCpHg"
 		);
 	}
 
