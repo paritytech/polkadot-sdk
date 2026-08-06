@@ -69,7 +69,10 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			p.with_id(2000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![("-lparachain=debug,aura=debug".into()), ("--").into()])
+				.with_default_args(vec![
+					("-lparachain=debug,aura=debug".into()),
+					("--authoring", "slot-based").into(),
+				])
 				.with_collator(|node| node.with_name("collator-2000"))
 		})
 		.build()
@@ -85,7 +88,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 		network.get_node("validator-exp-0")?.wait_client().await?;
 
 	// Sanity: the para keeps making progress with the mixed validator set.
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(2000), 3..11)], []).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(2000), 9..11)], []).await?;
 
 	let opts = LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(30), false);
 
