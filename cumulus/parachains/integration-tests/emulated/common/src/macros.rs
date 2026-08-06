@@ -25,6 +25,7 @@ pub use pallet_whitelist;
 pub use pallet_xcm;
 
 pub use frame_support::assert_ok;
+pub use frame_support::storage::{with_transaction_unchecked, TransactionOutcome};
 
 // Polkadot
 pub use polkadot_runtime_parachains::dmp::Pallet as Dmp;
@@ -791,14 +792,49 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					.unwrap();
 				assert_eq!(messages_to_query.len(), 1);
 				remote_message = messages_to_query[0].clone();
-				let asset_id_for_delivery_fees = VersionedAssetId::from(Location::parent());
-				let delivery_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
-						destination_to_query.clone(),
-						remote_message.clone(),
-						asset_id_for_delivery_fees
+				let del_fee_pen = {
+					let fees_in_pen =
+						<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_delivery_fees(
+							destination_to_query.clone(),
+							remote_message.clone(),
+							$crate::macros::VersionedAssetId::from($crate::macros::AssetId(
+								$crate::macros::Location::here(),
+							)),
+						).unwrap();
+					$crate::xcm_helpers::get_amount_from_versioned_assets(fees_in_pen)
+				};
+				let exec_fee_pen =
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(
+						local_xcm_weight,
+						$crate::macros::VersionedAssetId::from($crate::macros::AssetId(
+							$crate::macros::Location::here(),
+						)),
 					).unwrap();
-				local_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
+				local_delivery_fees = $crate::macros::with_transaction_unchecked(|| {
+					$crate::macros::assert_ok!(
+						$crate::macros::pallet_asset_conversion::Pallet::<Runtime>::swap_tokens_for_exact_tokens(
+							<$sender_para as $crate::macros::Chain>::RuntimeOrigin::from(
+								$crate::macros::RawOrigin::Signed(sender.clone()),
+							),
+							vec![
+								Box::new($crate::macros::Location::parent()),
+								Box::new($crate::macros::Location::here()),
+							],
+							exec_fee_pen,
+							local_execution_fees,
+							sender.clone(),
+							false,
+						)
+					);
+					let needed_wnd =
+						$crate::macros::pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+							$crate::macros::Location::parent(),
+							$crate::macros::Location::here(),
+							del_fee_pen,
+							true,
+						).expect("pool exists and del_fee_pen is nonzero; qed");
+					$crate::macros::TransactionOutcome::Rollback(needed_wnd)
+				});
 			});
 
 			// These are set in the AssetHub closure.
