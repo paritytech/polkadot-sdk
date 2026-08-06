@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786008151731,
+  "lastUpdate": 1786026283308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ndk@parity.io",
-            "name": "Andrii",
-            "username": "x3c41a"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5560a2fcc57ccd8b2cbeee511672879c961f4d5",
-          "message": "Added CID filtering to Bitswap server (#10416)\n\nRelates to https://github.com/paritytech/litep2p/pull/482\n\nTODO:\n- [x] bump new litep2p version once it's released\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-12-02T14:56:00Z",
-          "tree_id": "4e32411d8175df7e2f8ee966636b5ac6a5424150",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5560a2fcc57ccd8b2cbeee511672879c961f4d5"
-        },
-        "date": 1764693329717,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97399999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034390997872,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04410737003999989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039916223922,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d698e656fbd8aad37e27788047cf05536d918f92",
+          "message": "[CI/CD] Bump parity-publish version to 0.10.17 (#12819)",
+          "timestamp": "2026-08-06T12:40:10Z",
+          "tree_id": "b0e5ad1df487da24cd7225f71716ce9b0a841587",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d698e656fbd8aad37e27788047cf05536d918f92"
+        },
+        "date": 1786026249606,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.05599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08663867159199995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04023912797800001,
             "unit": "seconds"
           }
         ]
