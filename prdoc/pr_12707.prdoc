@@ -2,49 +2,26 @@ title: 'pallet-xcm: weight asset claiming and precompile XCM input by their real
 doc:
 - audience: Runtime Dev
   description: |-
-    Three related under-charges in XCM weighing, each exploitable to build blocks whose
-    real execution cost far exceeds their accounted weight, plus a missing worst case in
-    the `AliasOrigin` benchmark.
+    Fixes weights and benchmark worst cases for the `claim_assets` extrinsic, the
+    `ClaimAsset` and `AliasOrigin` instructions, and the `pallet-revive` XCM precompile.
+    Each was benchmarked with an input far cheaper than one a caller can actually supply,
+    so all four under-charged.
 
-    **`claim_assets` extrinsic.** Charged a flat weight benchmarked with a single asset,
-    while a claim may carry up to `MAX_ITEMS_IN_ASSETS` (20), each costing per-asset
-    storage access through the `AssetTransactor`. It is now weighed linearly in the
-    number of claimed assets.
+    What this needs from you:
 
-    **`ClaimAsset` instruction.** Every runtime XCM weigher charged a flat single-asset
-    weight; they now scale by the asset count, as `WithdrawAsset`, `BurnAsset` and
-    `ExpectAsset` already did. This also closes the last gap in the inner message the
-    `claim_assets` extrinsic builds, whose `DepositAsset` half already scaled.
-
-    **XCM precompile input.** The `pallet-revive` XCM precompile charged a flat weight to
-    decode and weigh a caller-supplied blob. `MAX_INSTRUCTIONS_TO_DECODE` does not bound
-    that work: the weigher fully decodes any call carried by a `Transact` and recurses
-    `get_dispatch_info()` over it, and every `DoubleEncoded` boundary starts a fresh
-    instruction and decode-depth budget. `weighMessage`, `execute` and `send` now charge
-    for the blob's size before decoding it. This charge is not refunded, so contracts
-    forwarding large messages under a fixed gas limit may need a higher one.
-
-    **`AliasOrigin` instruction.** Runtimes with `pallet_xcm::AuthorizedAliasers` last in
-    their `Aliasers` benchmarked an origin/target pair matched by the first, storage-free
-    filter, so the weight covered none of the authorized-alias lookup. They now set up the
-    real worst case — a target holding the maximum number of aliasers, the matching one
-    registered last and carrying an expiry — through the new
-    `parachains_common::benchmarking` module, whose docs spell out the `Aliasers`
-    configuration it assumes; chains configured differently have to work out their own.
-
-    Breaking changes to `pallet_xcm::WeightInfo`, so chains with custom `pallet_xcm`
-    weights must regenerate them:
-
-    - `claim_assets` takes the asset count `n: u32`.
-    - `weigh_message` takes the message length `n: u32`, and a new `decode_xcm(n)`
-      measures decoding without weighing.
-
-    Two defaulted `pallet_xcm::benchmarking::Config` hooks are also new. Chains whose
-    `AssetTransactor` deposits several distinct asset kinds must override `get_assets`,
-    or `claim_assets` measures a flat slope; the default is only sound for
-    single-asset-kind transactors such as relay chains. Chains with a batching pallet
-    must override `batch_call` (`utility.batch` in all in-tree runtimes), or the
-    `weigh_message` worst case degrades and the precompile under-charges.
+    - Regenerate your `pallet_xcm` weights. `WeightInfo::claim_assets` now takes the asset
+      count `n: u32`, `WeightInfo::weigh_message` takes the message length `n: u32`, and
+      `decode_xcm(n)` is new.
+    - Override `pallet_xcm::benchmarking::Config::get_assets` if your `AssetTransactor`
+      deposits several distinct asset kinds. The default measures a flat per-asset slope,
+      which is only sound for single-asset-kind transactors such as relay chains.
+    - Override `pallet_xcm::benchmarking::Config::batch_call` if you have a batching
+      pallet (`utility.batch` for all in-tree runtimes). Left at its `None` default, the
+      `weigh_message` worst case degrades and the precompile under-charges.
+    - Work out your own `alias_origin` worst case if your `Aliasers` differ from the setup
+      `parachains_common::benchmarking` assumes; its docs spell that setup out.
+    - Raise gas limits on contracts forwarding large XCMs through the precompile. The new
+      size-based charge is taken before decoding and is not refunded.
 
     `VersionedAssets` gained `len()` and `is_empty()`.
 crates:
