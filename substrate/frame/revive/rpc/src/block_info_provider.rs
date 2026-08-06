@@ -267,12 +267,15 @@ pub mod test {
 	};
 	use subxt::{
 		backend::LegacyBackend,
-		config::{polkadot::PolkadotConfigBuilder, substrate::SpecVersionForRange},
+		config::{
+			polkadot::PolkadotConfigBuilder,
+			substrate::{SpecVersionForRange, SubstrateHeader},
+		},
 		metadata::Metadata,
-	};
-	use subxt_rpcs::{
-		Error as RpcError, RpcClient, UserError,
-		client::{MockRpcClient, mock_rpc_client::Json},
+		rpcs::{
+			Error as RpcError, RpcClient, UserError,
+			client::{MockRpcClient, mock_rpc_client::Json},
+		},
 	};
 
 	/// A config carrying the generated runtime metadata for every block.
@@ -309,8 +312,8 @@ pub mod test {
 				MockBlockId::MainBranch(number) => (Self::MAIN_BRANCH_OFFSET, number),
 				MockBlockId::SideBranch(number) => (Self::SIDE_BRANCH_OFFSET, number),
 			};
-			let number = u8::try_from(number).expect("test block numbers are small; qed");
-			let byte = offset.checked_add(number).expect("offset + block number fits a byte; qed");
+			let byte = u8::try_from(u64::from(offset) + number)
+				.expect("offset + block number fits a byte; qed");
 			if matches!(self, MockBlockId::MainBranch(_)) {
 				assert!(
 					byte < Self::SIDE_BRANCH_OFFSET,
@@ -326,17 +329,15 @@ pub mod test {
 			}
 		}
 
-		/// Recover the block embedded in a `0x…` hash string, so a header can be derived
-		/// for any `MockBlockId` hash without a table of known blocks. A hash that embeds
-		/// no block yields `None`.
-		fn from_hash(hash: &str) -> Option<MockBlockId> {
-			let first_byte_hex = hash.get(2..4)?;
-			let repeated = hash.len() == 66 &&
-				hash[2..].as_bytes().chunks(2).all(|chunk| chunk == first_byte_hex.as_bytes());
-			if !repeated {
+		/// Recover the block embedded in a hash, so a header can be derived for any
+		/// `MockBlockId` hash without a table of known blocks. A hash that embeds no
+		/// block yields `None`.
+		fn from_hash(hash: H256) -> Option<MockBlockId> {
+			let bytes = hash.as_fixed_bytes();
+			let byte = bytes[0];
+			if bytes.iter().any(|other| other != &byte) {
 				return None;
 			}
-			let byte = u8::from_str_radix(first_byte_hex, 16).ok()?;
 			if let Some(number) = byte.checked_sub(Self::SIDE_BRANCH_OFFSET) {
 				Some(MockBlockId::SideBranch(number.into()))
 			} else if let Some(number) = byte.checked_sub(Self::MAIN_BRANCH_OFFSET) {
@@ -347,12 +348,20 @@ pub mod test {
 		}
 	}
 
-	fn json_hash(hash: Option<H256>) -> Json<serde_json::Value> {
-		Json(
-			hash.map_or(serde_json::Value::Null, |hash| {
-				serde_json::Value::String(format!("{hash:?}"))
-			}),
-		)
+	/// Decode the JSON-RPC params into the handler's parameter tuple.
+	fn decode_params<ParamsTuple: serde::de::DeserializeOwned>(
+		params: Option<Box<serde_json::value::RawValue>>,
+	) -> ParamsTuple {
+		let raw = params.expect("legacy RPC methods always send params; qed");
+		serde_json::from_str(raw.get()).expect("params decode into the parameter tuple; qed")
+	}
+
+	/// Build the incoming block that tests pass to `update_latest`.
+	async fn block_at(
+		api: &OnlineClient<SrcChainConfig>,
+		block: MockBlockId,
+	) -> Arc<SubstrateBlock> {
+		Arc::new(api.at_block(block.hash()).await.unwrap())
 	}
 
 	/// The heads of the mocked chain.
@@ -396,10 +405,7 @@ pub mod test {
 		) {
 			*self.best_block.lock().unwrap() = block;
 			provider
-				.update_latest(
-					Arc::new(api.at_block(block.hash()).await.unwrap()),
-					SubscriptionType::BestBlocks,
-				)
+				.update_latest(block_at(api, block).await, SubscriptionType::BestBlocks)
 				.await;
 		}
 
@@ -413,32 +419,25 @@ pub mod test {
 				.method_handler("chain_getBlockHash", {
 					let chain_heads = self.clone();
 					move |params: Option<Box<serde_json::value::RawValue>>| {
-						let raw = params
-							.expect("legacy RPC methods always send params; qed")
-							.get()
-							.to_owned();
-						let (number,): (Option<u64>,) = serde_json::from_str(&raw).unwrap();
-						let response = match number {
-							// The best block and the genesis are only queried during setup,
-							// never during `update_latest` processing, so they bypass the
-							// counter and the failure switch.
-							None => {
-								if chain_heads.report_no_best_block.load(Ordering::SeqCst) {
-									Ok(None)
-								} else {
-									Ok(Some(chain_heads.best_block.lock().unwrap().hash()))
-								}
-							},
-							Some(0) => Ok(Some(MockBlockId::MainBranch(0).hash())),
-							Some(number) => {
-								chain_heads.block_hash_lookup_count.fetch_add(1, Ordering::SeqCst);
-								if chain_heads.fail_block_hash_lookups.load(Ordering::SeqCst) {
-									Err(RpcError::User(UserError {
-										code: -32000,
-										message: "scripted failure".into(),
-										data: None,
-									}))
-								} else {
+						let (number,): (Option<u64>,) = decode_params(params);
+						chain_heads.block_hash_lookup_count.fetch_add(1, Ordering::SeqCst);
+						let response = if chain_heads.fail_block_hash_lookups.load(Ordering::SeqCst)
+						{
+							Err(RpcError::User(UserError {
+								code: -32000,
+								message: "scripted failure".into(),
+								data: None,
+							}))
+						} else {
+							match number {
+								None => {
+									if chain_heads.report_no_best_block.load(Ordering::SeqCst) {
+										Ok(None)
+									} else {
+										Ok(Some(chain_heads.best_block.lock().unwrap().hash()))
+									}
+								},
+								Some(number) => {
 									let best_block = *chain_heads.best_block.lock().unwrap();
 									Ok(if number > best_block.number() {
 										None
@@ -447,39 +446,30 @@ pub mod test {
 									} else {
 										Some(MockBlockId::MainBranch(number).hash())
 									})
-								}
-							},
+								},
+							}
 						};
-						async move { response.map(json_hash) }
+						async move { response.map(Json) }
 					}
 				})
 				.method_handler("chain_getFinalizedHead", {
-					let chain_heads = self.clone();
-					move |_params: Option<Box<serde_json::value::RawValue>>| {
-						let finalized = chain_heads.finalized_block.hash();
-						async move { json_hash(Some(finalized)) }
+					let finalized_hash = self.finalized_block.hash();
+					move |_params: Option<Box<serde_json::value::RawValue>>| async move {
+						Json(finalized_hash)
 					}
 				})
 				.method_handler(
 					"chain_getHeader",
 					|params: Option<Box<serde_json::value::RawValue>>| {
-						let raw = params
-							.expect("legacy RPC methods always send params; qed")
-							.get()
-							.to_owned();
-						let (hash,): (String,) = serde_json::from_str(&raw).unwrap();
-						async move {
-							Json(match MockBlockId::from_hash(&hash) {
-								Some(block) => serde_json::json!({
-									"parentHash": format!("{:?}", H256::zero()),
-									"number": format!("0x{:x}", block.number()),
-									"stateRoot": format!("{:?}", H256::zero()),
-									"extrinsicsRoot": format!("{:?}", H256::zero()),
-									"digest": { "logs": [] },
-								}),
-								None => serde_json::Value::Null,
-							})
-						}
+						let (hash,): (H256,) = decode_params(params);
+						let header = MockBlockId::from_hash(hash).map(|block| SubstrateHeader {
+							parent_hash: H256::zero(),
+							number: block.number(),
+							state_root: H256::zero(),
+							extrinsics_root: H256::zero(),
+							digest: Default::default(),
+						});
+						async move { Json(header) }
 					},
 				)
 				.build();
@@ -499,6 +489,8 @@ pub mod test {
 		async fn provider(&self) -> (SubxtBlockInfoProvider, OnlineClient<SrcChainConfig>) {
 			let (api, rpc) = self.clients().await;
 			let provider = SubxtBlockInfoProvider::new(api.clone(), rpc).await.unwrap();
+			// Setup queries end here: tests count only their own block hash lookups.
+			self.block_hash_lookup_count.store(0, Ordering::SeqCst);
 			(provider, api)
 		}
 	}
@@ -609,7 +601,7 @@ pub mod test {
 
 		provider
 			.update_latest(
-				Arc::new(api.at_block(MockBlockId::MainBranch(finalized).hash()).await.unwrap()),
+				block_at(&api, MockBlockId::MainBranch(finalized)).await,
 				SubscriptionType::BestBlocks,
 			)
 			.await;
@@ -626,9 +618,7 @@ pub mod test {
 
 		provider
 			.update_latest(
-				Arc::new(
-					api.at_block(MockBlockId::MainBranch(finalized - 1).hash()).await.unwrap(),
-				),
+				block_at(&api, MockBlockId::MainBranch(finalized - 1)).await,
 				SubscriptionType::BestBlocks,
 			)
 			.await;
@@ -654,7 +644,7 @@ pub mod test {
 		chain_heads.fail_block_hash_lookups.store(true, Ordering::SeqCst);
 		provider
 			.update_latest(
-				Arc::new(api.at_block(MockBlockId::MainBranch(finalized).hash()).await.unwrap()),
+				block_at(&api, MockBlockId::MainBranch(finalized)).await,
 				SubscriptionType::BestBlocks,
 			)
 			.await;
@@ -694,9 +684,7 @@ pub mod test {
 
 		provider
 			.update_latest(
-				Arc::new(
-					api.at_block(MockBlockId::MainBranch(finalized - 1).hash()).await.unwrap(),
-				),
+				block_at(&api, MockBlockId::MainBranch(finalized - 1)).await,
 				SubscriptionType::FinalizedBlocks,
 			)
 			.await;
@@ -708,9 +696,7 @@ pub mod test {
 
 		provider
 			.update_latest(
-				Arc::new(
-					api.at_block(MockBlockId::MainBranch(finalized + 1).hash()).await.unwrap(),
-				),
+				block_at(&api, MockBlockId::MainBranch(finalized + 1)).await,
 				SubscriptionType::FinalizedBlocks,
 			)
 			.await;
