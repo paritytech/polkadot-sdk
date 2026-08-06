@@ -1181,8 +1181,13 @@ polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
 polkavm = { version = "0.36.0", default-features = false }
 polkavm-common = { version = "0.36.0", default-features = false }
+# Pinned to 0.30 (down from 0.36) so `substrate-wasm-builder` links the PVF blob with the
+# same JamV1 instruction encoding the vendored polkajam host (`polkavm 0.30`) decodes. The
+# opcode table changed between 0.30 and 0.36, so a 0.36-linked blob is misdecoded by the
+# 0.30 VM (wide stores / memset / memcpy corrupt or trap). The bare JAM guests already link
+# with 0.30 via `jam-pvm-builder`; this aligns the runtime PVF with them.
 polkavm-derive = "0.36.0"
-polkavm-linker = "0.36.0"
+polkavm-linker = "0.30.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
