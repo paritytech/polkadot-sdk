@@ -585,9 +585,6 @@ where
 					do_pause: false,
 				});
 			}
-<<<<<<< HEAD
-			return (&*self.inner).import_block(block).await
-=======
 
 			let import_result = self.inner.import_block(block).await;
 			if let Some(pending_changes) = pending_changes {
