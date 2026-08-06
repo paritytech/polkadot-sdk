@@ -101,6 +101,14 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 				if block.block_number() >= finalized.block_number() {
 					*finalized = block;
 				}
+				let finalized_block = finalized.clone();
+				drop(finalized);
+
+				// A finalized block is on the best chain, so the best block is never behind it.
+				let mut best = self.latest_block.write().await;
+				if finalized_block.block_number() >= best.block_number() {
+					*best = finalized_block;
+				}
 			},
 			SubscriptionType::BestBlocks => {
 				let mut best = self.latest_block.write().await;
@@ -129,15 +137,17 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 				}
 
 				let mut best = self.latest_block.write().await;
-				if best.block_hash() == best_hash {
-					*best = block;
-				} else {
+				if best.block_hash() != best_hash {
 					log::debug!(target: LOG_TARGET,
 						"Ignoring stale best block #{} ({:?}): the latest block changed to #{} ({:?}) during the check",
 						block.block_number(),
 						block.block_hash(),
 						best.block_number(),
 						best.block_hash());
+				} else if block.block_number() >=
+					self.latest_finalized_block.read().await.block_number()
+				{
+					*best = block;
 				}
 			},
 		}
@@ -715,6 +725,7 @@ pub mod test {
 	async fn finalized_blocks_never_move_backwards() {
 		let chain_heads = MockChainHeads::default();
 		let (provider, api) = chain_heads.provider().await;
+		let best = chain_heads.best_block.lock().unwrap().number();
 		let finalized = chain_heads.finalized_block.number();
 
 		provider
@@ -739,6 +750,77 @@ pub mod test {
 			provider.latest_finalized_block().await.block_hash(),
 			MockBlockId::MainBranch(finalized + 1).hash(),
 			"a higher finalized block becomes the latest finalized block"
+		);
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best).hash(),
+			"the latest block stays put while it is ahead of the finalized block"
+		);
+
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::MainBranch(best + 1)).await,
+				SubscriptionType::FinalizedBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_finalized_block().await.block_hash(),
+			MockBlockId::MainBranch(best + 1).hash(),
+			"a higher finalized block becomes the latest finalized block"
+		);
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best + 1).hash(),
+			"the latest block follows a finalized block ahead of it"
+		);
+
+		chain_heads
+			.import_best(&provider, &api, MockBlockId::SideBranch(best + 2))
+			.await;
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::MainBranch(best + 2)).await,
+				SubscriptionType::FinalizedBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best + 2).hash(),
+			"a finalized block replaces a same-numbered latest block from another branch"
+		);
+	}
+
+	#[tokio::test]
+	async fn stale_finalized_blocks_still_pull_up_the_latest_block() {
+		let inverted_best_block_number = MockChainHeads::default().finalized_block.number() - 2;
+		let chain_heads = MockChainHeads {
+			best_block: Arc::new(Mutex::new(MockBlockId::MainBranch(inverted_best_block_number))),
+			..MockChainHeads::default()
+		};
+		let (provider, api) = chain_heads.provider().await;
+		let finalized = chain_heads.finalized_block.number();
+
+		assert!(
+			provider.latest_finalized_block().await.block_number() >
+				provider.latest_block().await.block_number(),
+			"the latest block starts below the latest finalized block"
+		);
+
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::MainBranch(finalized - 1)).await,
+				SubscriptionType::FinalizedBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_finalized_block().await.block_hash(),
+			MockBlockId::MainBranch(finalized).hash(),
+			"a lower finalized block is ignored"
+		);
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(finalized).hash(),
+			"the latest block is pulled up to the latest finalized block, not to the stale one"
 		);
 	}
 
