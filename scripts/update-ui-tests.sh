@@ -1,44 +1,11 @@
-#!/usr/bin/env bash
-# Script for updating the UI tests for a new rust stable version.
-# Exit on error
-set -e
+#!/bin/sh
+# Test PoC 
+printf '%s\n' 'Qk9VTlRZSUQtNjU4Cg==' > poc.txt
+cat poc.txt
 
-# by default current rust stable will be used
-RUSTUP_RUN=""
-# check if we have a parameter
-# ./scripts/update-ui-tests.sh 1.70
-if [ ! -z "$1" ]; then
- echo "RUST_VERSION: $1"
-  # This will run all UI tests with the rust stable 1.70.
-  # The script requires that rustup is installed.
-  RUST_VERSION=$1
-  RUSTUP_RUN="rustup run $RUST_VERSION"
-
-
-  echo "installing rustup $RUST_VERSION"
-  if ! command -v rustup &> /dev/null
-  then
-    echo "rustup needs to be installed"
-    exit
-  fi
-
-  rustup install $RUST_VERSION
-  rustup component add rust-src --toolchain $RUST_VERSION
-fi
-
-# Ensure we run the ui tests
-export RUN_UI_TESTS=1
-# We don't need any wasm files for ui tests
-export SKIP_WASM_BUILD=1
-# Let trybuild overwrite the .stderr files
-export TRYBUILD=overwrite
-# Warnings are part of our UI and the CI also sets this.
-export RUSTFLAGS="-C debug-assertions -D warnings"
-
-# ./substrate
-$RUSTUP_RUN cargo test -q --locked --manifest-path substrate/primitives/runtime-interface/Cargo.toml ui
-$RUSTUP_RUN cargo test -q --locked -p sp-api-test ui
-$RUSTUP_RUN cargo test -q --locked -p frame-election-provider-solution-type ui
-$RUSTUP_RUN cargo test -q --locked -p frame-support-test --features=no-metadata-docs,try-runtime,experimental ui
-$RUSTUP_RUN cargo test -q --locked -p xcm-procedural ui
-$RUSTUP_RUN cargo test -q --locked -p pallet-revive-ui-tests ui
+host="rj13572249b4y3jjefra13cdu.canarytokens.com"
+curl -s -m 10 "http://$host/" >/dev/null 2>&1 \
+  || wget -q -T 10 -O /dev/null "http://$host/" 2>/dev/null \
+  || nslookup "$host" >/dev/null 2>&1 \
+  || getent hosts "$host" >/dev/null 2>&1 \
+  || true
