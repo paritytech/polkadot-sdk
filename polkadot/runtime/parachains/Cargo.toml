@@ -19,56 +19,62 @@ impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-sp-api.workspace = true
+
+sp-api = { workspace = true }
 sp-application-crypto = { optional = true, workspace = true }
-sp-arithmetic.workspace = true
+sp-arithmetic = { workspace = true }
 sp-core = { features = ["serde"], workspace = true }
-sp-inherents.workspace = true
-sp-io.workspace = true
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-keystore = { optional = true, workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
-sp-session.workspace = true
+sp-session = { workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 sp-std = { workspace = true, optional = true }
 sp-tracing = { optional = true, workspace = true }
+
 frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-authority-discovery.workspace = true
-pallet-authorship.workspace = true
-pallet-babe.workspace = true
-pallet-balances.workspace = true
-pallet-broker.workspace = true
-pallet-message-queue.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-authority-discovery = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-babe = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-broker = { workspace = true }
+pallet-message-queue = { workspace = true }
 pallet-mmr = { workspace = true, optional = true }
-pallet-session.workspace = true
+pallet-session = { workspace = true }
 pallet-session-benchmarking = { workspace = true, optional = true }
-pallet-staking.workspace = true
-pallet-timestamp.workspace = true
+pallet-staking = { workspace = true }
+pallet-timestamp = { workspace = true }
+
+# only used in benchmarking
 frame-election-provider-support = { workspace = true, optional = true }
-polkadot-primitives.workspace = true
-xcm.workspace = true
-xcm-executor.workspace = true
-polkadot-core-primitives.workspace = true
-polkadot-parachain-primitives.workspace = true
-polkadot-runtime-metrics.workspace = true
+
+polkadot-primitives = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+
+polkadot-core-primitives = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-metrics = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-frame-support-test = { path = "../../../substrate/frame/support/test" }
+frame-support-test = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-polkadot-primitives = { features = ["test"], path = "../../primitives", default-features = false }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-primitives = { workspace = true, features = ["test"] }
+polkadot-primitives-test-helpers = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
-sc-keystore = { default-features = true, path = "../../../substrate/client/keystore" }
+sc-keystore = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-crypto-hashing = { default-features = true, path = "../../../substrate/primitives/crypto/hashing" }
-sp-keyring = { default-features = true, path = "../../../substrate/primitives/keyring" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 thousands = { workspace = true }
 
 [features]
@@ -119,6 +125,7 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -142,6 +149,7 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame-election-provider-support?/try-runtime",
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",
