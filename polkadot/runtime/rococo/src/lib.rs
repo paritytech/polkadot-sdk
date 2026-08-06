@@ -2577,6 +2577,9 @@ sp_api::impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` is deliberately left at its default: this runtime's `AssetTransactor`
+				// only handles the native token, so a multi-asset `claim_assets` worst case is not
+				// constructible here and the per-asset slope is genuinely flat.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(Location::here()),

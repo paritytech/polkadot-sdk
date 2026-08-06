@@ -36,13 +36,13 @@ use xcm::latest::{Junction::AccountId32, Location};
 /// for every in-tree system parachain, but none of them is checked here — a runtime configured
 /// differently has to work out its own worst case:
 ///
-/// - `AuthorizedAliasers` is the *last* entry of `xcm_executor::Config::Aliasers`, so it is
-///   reached only once every cheaper filter has been tried and has failed.
-/// - None of those cheaper filters matches a pair of two unrelated local accounts. That is the
-///   case for `AliasChildLocation`, `AliasAccountId32FromSiblingSystemChain` and
+/// - `AuthorizedAliasers` is the *last* entry of `xcm_executor::Config::Aliasers`, so it is reached
+///   only once every cheaper filter has been tried and has failed.
+/// - None of those cheaper filters matches a pair of two unrelated local accounts. That is the case
+///   for `AliasChildLocation`, `AliasAccountId32FromSiblingSystemChain` and
 ///   `AliasOriginRootUsingFilter`, which the system parachains put ahead of it.
-/// - `pallet_xcm::Config::ExecuteXcmOrigin` converts a signed origin into
-///   `Location::new(0, [AccountId32 { .. }])`, as `xcm_builder::SignedToAccountId32` does.
+/// - `pallet_xcm::Config::ExecuteXcmOrigin` converts a signed origin into `Location::new(0,
+///   [AccountId32 { .. }])`, as `xcm_builder::SignedToAccountId32` does.
 ///
 /// Panics if the setup fails, rather than returning an error, because
 /// `pallet_xcm_benchmarks::generic::Config::alias_origin` maps any error to

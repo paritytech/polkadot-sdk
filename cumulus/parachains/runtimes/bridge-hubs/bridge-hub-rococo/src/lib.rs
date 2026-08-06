@@ -1099,6 +1099,9 @@ impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` is deliberately left at its default: this runtime's `AssetTransactor`
+				// only handles the native token, so a multi-asset `claim_assets` worst case is not
+				// constructible here and the per-asset slope is genuinely flat.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(Location::parent()),
@@ -1265,12 +1268,10 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
-
-					// The worst case is an alias authorized through `pallet_xcm`'s
-					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
-					// filter is tried and fails first.
-					Ok(set_up_worst_case_authorized_alias::<Runtime>())
+					// Left unbenchmarked on purpose: this runtime's weigher hardcodes
+					// `alias_origin` to `Weight::MAX` (see `weights::xcm::XcmWeight`), so any
+					// measured weight would be dead code.
+					Err(BenchmarkError::Skip)
 				}
 			}
 

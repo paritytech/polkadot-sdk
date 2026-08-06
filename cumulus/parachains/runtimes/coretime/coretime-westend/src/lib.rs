@@ -1157,6 +1157,31 @@ impl_runtime_apis! {
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
+
+				fn get_assets(n: u32) -> Assets {
+					// Worst case: `n` distinct coretime regions. Depositing a region costs a
+					// `Regions` read plus a write, where the native token costs only a balance
+					// mutation. `issue` leaves the region owner-less, which is exactly what
+					// `nonfungible::Mutate::mint_into` requires when the claim deposits it.
+					let regions: Vec<Asset> = (0..n)
+						.map(|i| {
+							let region_id = pallet_broker::Pallet::<Runtime>::issue(
+								i as pallet_broker::CoreIndex,
+								0,
+								pallet_broker::CoreMask::complete(),
+								42,
+								None,
+								None,
+							);
+							Asset {
+								fun: NonFungible(Index(region_id.into())),
+								id: AssetId(xcm_config::BrokerPalletLocation::get()),
+							}
+						})
+						.collect();
+					regions.into()
+				}
+
 				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
 					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
