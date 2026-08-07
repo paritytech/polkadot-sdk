@@ -30,10 +30,12 @@ type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
 /// Upper bound for a caller-supplied XCM blob, in bytes.
 ///
-/// Kept in sync by hand with `pallet_revive::limits::CALLDATA_BYTES`, the largest input a
-/// contract can hand to the XCM precompile, rather than depending on pallet-revive for one
-/// constant.
+/// Meant to be kept in sync with `pallet_revive::limits::CALLDATA_BYTES`, the largest input a
+/// contract can hand to the XCM precompile.
 const MAX_XCM_BLOB_BYTES: u32 = 128 * 1024;
+
+/// Upper bound for the `weigh_message` benchmark's input, in bytes.
+const MAX_WEIGHABLE_BLOB_BYTES: u32 = 8 * 1024;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
@@ -824,8 +826,10 @@ mod benchmarks {
 	///
 	/// The decode is inside the measured block because the precompile charges this before
 	/// decoding.
+	///
+	/// `n` stops at [`MAX_WEIGHABLE_BLOB_BYTES`] rather than [`MAX_XCM_BLOB_BYTES`].
 	#[benchmark]
-	fn weigh_message(n: Linear<0, MAX_XCM_BLOB_BYTES>) -> Result<(), BenchmarkError> {
+	fn weigh_message(n: Linear<0, MAX_WEIGHABLE_BLOB_BYTES>) -> Result<(), BenchmarkError> {
 		let bytes = helpers::worst_case_weighable_message::<T>(n);
 
 		#[block]
@@ -846,7 +850,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Decoding — but not weighing — a caller-supplied message of `n` bytes.
+	/// Only decoding, not weighing, a caller-supplied message of `n` bytes.
 	#[benchmark]
 	fn decode_xcm(n: Linear<0, MAX_XCM_BLOB_BYTES>) -> Result<(), BenchmarkError> {
 		let bytes = helpers::worst_case_decodable_blob(n);
@@ -883,6 +887,10 @@ pub mod helpers {
 	///
 	/// Never returns fewer than `target_bytes` bytes — see `weigh_message`'s docs for why
 	/// undershooting would under-charge.
+	///
+	/// Both building the blob and weighing it materialize every nested instruction, so heap use
+	/// is orders of magnitude above `target_bytes`. Keep `target_bytes` at or below
+	/// `MAX_WEIGHABLE_BLOB_BYTES`.
 	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
 	where
 		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,
