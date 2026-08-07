@@ -205,7 +205,6 @@ struct Metrics {
 	sent_latency_seconds: Histogram,
 	initial_sync_statements_sent: Counter<U64>,
 	initial_sync_bursts_total: Counter<U64>,
-	initial_sync_bursts_throttled_total: Counter<U64>,
 	initial_sync_in_flight_bytes: Gauge<U64>,
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
@@ -347,13 +346,6 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_initial_sync_bursts_total",
 					"Total initial-sync burst rounds attempted (includes rounds that return early with no hashes left)",
-				)?,
-				r,
-			)?,
-			initial_sync_bursts_throttled_total: register(
-				Counter::new(
-					"substrate_sync_initial_sync_bursts_throttled_total",
-					"Initial-sync burst rounds skipped because the in-flight send budget was full",
 				)?,
 				r,
 			)?,
@@ -619,7 +611,7 @@ pub struct StatementHandler<
 	/// Encoded bytes of initial-sync chunks in `pending_sends`, bounded by
 	/// [`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES`].
 	initial_sync_in_flight_bytes: u64,
-	/// Pending sends, polled by the main event loop.
+	/// Pending propagation sends, polled by the main event loop.
 	pending_sends: PendingSends,
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
@@ -1718,9 +1710,6 @@ where
 				"Skipping initial sync burst, {} bytes still in flight",
 				self.initial_sync_in_flight_bytes,
 			);
-			self.metrics.as_ref().map(|metrics| {
-				metrics.initial_sync_bursts_throttled_total.inc();
-			});
 			return;
 		}
 
@@ -3020,7 +3009,6 @@ mod tests {
 	async fn initial_sync_in_flight_budget_is_bounded() {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(20);
-		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 
 		// ~1.1 MB of statements, so each peer's first chunk sits just under the 1 MiB cap and a
 		// handful of peers is enough to exhaust the budget.
@@ -3039,7 +3027,7 @@ mod tests {
 		}
 
 		let mut bursts = 0;
-		while handler.metrics.as_ref().unwrap().initial_sync_bursts_throttled_total.get() == 0 {
+		while handler.initial_sync_in_flight_bytes < MAX_INITIAL_SYNC_IN_FLIGHT_BYTES {
 			handler.process_initial_sync_burst();
 			bursts += 1;
 			assert!(bursts <= 100, "the budget was never reached after {bursts} bursts");
