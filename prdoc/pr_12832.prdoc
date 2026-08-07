@@ -31,6 +31,8 @@ crates:
   bump: minor
 - name: pallet-xcm-precompiles
   bump: patch
+- name: pallet-xcm-benchmarks
+  bump: none
 - name: parachains-common
   bump: minor
 - name: asset-hub-rococo-runtime
