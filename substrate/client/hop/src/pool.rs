@@ -2564,7 +2564,8 @@ mod tests {
 			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
 			opts.columns[COL_META as usize].btree_index = true;
 			let db = parity_db::Db::open_or_create(&opts).unwrap();
-			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))]).unwrap();
+			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))])
+				.unwrap();
 		}
 
 		let pool = HopDataPool::new(
