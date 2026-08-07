@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786098434345,
+  "lastUpdate": 1786100714178,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f67648a75325006078cef3e800738cb9bafd4337",
-          "message": "[pallet-revive] fix delegate_call_contract in evm-test-suites (#10510)\n\nevm-test-suite was not correctly executing delegate_call_contract\ncausing pallet-revive to silently reject the delegatecall. After\nevm-test-suite was fixed we found that the trace for delegate calls is\nincorrect. This fixes it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T12:16:29Z",
-          "tree_id": "9a17eb2c42def6c20e00f86be6e50911192ff9e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f67648a75325006078cef3e800738cb9bafd4337"
-        },
-        "date": 1764770029683,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63621.20000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4913772136600016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4919167250500003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020107139999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001976939,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020107139999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.5387614792000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9454440671599857,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.427766193760001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0058310850100000075,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4899206200699995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001976939,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.706385877360833,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.391017383909992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.616930597129969,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cde8a924504c99e768940bf6b600716725c3c438",
+          "message": "Remove `pallet-scored-pool` (#12746)\n\n## Summary\n\nRemoves `pallet-scored-pool`.\n\nRationale, as raised in\nhttps://github.com/paritytech/polkadot-sdk/pull/12333#issuecomment-3552749065:\n\n- **Unused.** No runtime in this repository (relay chains, system\nparachains, templates, kitchensink) includes it. Its only in-tree\nconsumer was its own mock.\n- **Unmaintained.** No functional change in years — the last several\ncommits touching it were purely mechanical (rustfmt rule rollouts,\n`RuntimeEvent` removal, dep cleanup, Rust version bumps).\n- **Superseded in practice.** Membership/ranking use cases in the SDK\nare served by `pallet-membership`, `pallet-ranked-collective`, and\n`pallet-core-fellowship`.\n- **Not staking-related.** As confirmed on #12333, staking does not\ninteract with this pallet, so there is no impact on the current or the\nasync staking system.\n\nThis supersedes #12333, which fixes a sort-order bug in the pallet being\nremoved here.\n\n## Changes\n\n- Delete `substrate/frame/scored-pool/`\n- Drop the workspace member entry\n- Drop the `pallet-scored-pool` optional dependency, feature,\n`std`/`try-runtime` propagation, and re-export from the `polkadot-sdk`\numbrella crate\n\n## Notes for reviewers\n\nPer the [deprecation\nchecklist](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DEPRECATION_CHECKLIST.md),\nthe usual path is a hard-deprecation notice with a ~6 month removal\nwindow before removal. I've gone straight to removal here since the\npallet is unused in-tree and has no known production users, but I'm\nhappy to split this into a deprecate-then-remove sequence instead if\nreviewers prefer to follow the checklist strictly — the crate is\npublished on crates.io, so external builders could in principle be\ndepending on it.\n\n`pallet-scored-pool` is intentionally **not** listed in the prdoc\n`crates` section: `check-prdoc.py` validates crate names against the\nworkspace, so a deleted crate cannot be listed there.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-08-07T08:36:45Z",
+          "tree_id": "9789a8131351d4fbab725abc937e68d83f5d2737",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cde8a924504c99e768940bf6b600716725c3c438"
+        },
+        "date": 1786100680803,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63569.45,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7887516718299565,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.428552293333018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002003479,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017531309999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6472616334900017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.614664861979998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002003479,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.657536308689952,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.654644130149998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005580077480000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017531309999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.330812409339997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6158215244199985,
             "unit": "seconds"
           }
         ]
