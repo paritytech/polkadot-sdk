@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786026198049,
+  "lastUpdate": 1786098392450,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f67648a75325006078cef3e800738cb9bafd4337",
-          "message": "[pallet-revive] fix delegate_call_contract in evm-test-suites (#10510)\n\nevm-test-suite was not correctly executing delegate_call_contract\ncausing pallet-revive to silently reject the delegatecall. After\nevm-test-suite was fixed we found that the trace for delegate calls is\nincorrect. This fixes it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T12:16:29Z",
-          "tree_id": "9a17eb2c42def6c20e00f86be6e50911192ff9e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f67648a75325006078cef3e800738cb9bafd4337"
-        },
-        "date": 1764769996028,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007348835286666645,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022563066393333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15780693614666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013216195393333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007675754519999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "unix1gl@gmail.com",
+            "name": "Nnamdi Aninye",
+            "username": "naijauser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "83b54d2f2c58baf0d8297933475549f19499de3f",
+          "message": "[RWF] sc-client-db: fix finalization can leave best_number below finalized_number (#12334)\n\nCloses #12305.\n\n## Summary\n`finalize_block_with_transaction` always returns `MetaUpdate { is_best:\nfalse, .. }`, and `update_meta` only updates `best_number`/`best_hash`\nwhen `is_best` is true. If the best block is behind the block being\nfinalized (e.g. after a re-org moves `best` to an earlier block),\nfinalizing a later block leaves `best_number < finalized_number` —\nviolating the metadata invariant.\n\n## Fix\nIn `update_meta`, when applying a finalized `MetaUpdate`, if `number >\nmeta.best_number`, advance `best_number`/`best_hash` to match. A\nfinalized block is canonical by definition, so `best` can never\nlegitimately lag behind `finalized`.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-08-07T08:33:19Z",
+          "tree_id": "8cdfdaaeca6e5a011b05659202b517e657995e5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83b54d2f2c58baf0d8297933475549f19499de3f"
+        },
+        "date": 1786098359493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14455603334000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076589922133333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009904079719999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022832372819999995,
             "unit": "seconds"
           }
         ]
