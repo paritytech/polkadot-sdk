@@ -165,7 +165,7 @@ fn common_name() -> Name {
 /// Fixed validity dates, required for determinism. WebRTC peers pin the certificate by
 /// certhash and ignore its lifetime.
 fn validity() -> Validity {
-	// RFC 5280 §4.1.2.5.1: dates through 2049 MUST be encoded as `UTCTime`.
+	// RFC 5280 §4.1.2.5: dates through 2049 MUST be encoded as `UTCTime`.
 	let not_before = UtcTime::from_date_time(
 		DateTime::new(2000, 1, 1, 0, 0, 0).expect("2000-01-01 00:00:00 is a valid date; qed"),
 	)
