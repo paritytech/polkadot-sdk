@@ -10,15 +10,6 @@ doc:
       at a caller-specified `CollectionId` instead of the auto-incrementing
       counter, e.g. for a 1:1 mapping between a DAO and its collection.
 
-      ```rust
-      pub fn create_with_id(
-          origin: OriginFor<T>,
-          collection: T::CollectionId,
-          admin: AccountIdLookupOf<T>,
-          config: CollectionConfigFor<T, I>,
-      ) -> DispatchResult
-      ```
-
       Gated by a new `CreateWithIdOrigin`, separate from `CreateOrigin` so that
       picking an explicit ID can be restricted independently. Fails with
       `CollectionIdInUse` if the ID is taken and `WrongSetting` if
@@ -44,9 +35,14 @@ doc:
       calls cannot collide. Lower IDs leave the counter unchanged. Custom
       providers can track used IDs via `next()` and `claim(id)`.
 
+      `NextCollectionId` is `OptionQuery` and `None` resolves to
+      `initial_value()`, so neither `next()` nor `claim()` stores a `None`
+      increment. At the top of the range the counter holds and `create()` fails
+      with `CollectionIdInUse`.
+
       `NextCollectionIdIncremented` is now emitted when an ID is allocated,
       before `Created`/`ForceCreated`, and from `create_with_id` when the claim
-      moves the counter.
+      moves the counter. It is no longer emitted with `next_id: None`.
 
       The `Create` trait method `create_collection_with_id` now also calls
       `claim(id)`, so callers no longer risk claiming a value in the ID sequence.

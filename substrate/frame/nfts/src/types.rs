@@ -630,6 +630,8 @@ pub trait NextCollectionIdProvider {
 	fn next() -> Result<Self::Id, DispatchError>;
 
 	/// Claim `id` so later `next()` calls won't return it. No-op by default.
+	/// At the top of the range there is nothing to advance to, so `next()` may still
+	/// return `id` and fail with `CollectionIdInUse`.
 	fn claim(_id: Self::Id) {}
 }
 
@@ -648,21 +650,23 @@ impl<T: pallet::Config<I>, I: 'static> NextCollectionIdProvider for IncrementalN
 		let id = pallet::NextCollectionId::<T, I>::get()
 			.or(Self::Id::initial_value())
 			.ok_or(pallet::Error::<T, I>::UnknownCollection)?;
-		let next_id = id.increment();
-		pallet::NextCollectionId::<T, I>::set(next_id);
-		pallet::Pallet::<T, I>::deposit_event(pallet::Event::NextCollectionIdIncremented {
-			next_id,
-		});
+		// Storing `None` reads back as unset and restarts from `initial_value()`.
+		if let Some(next_id) = id.increment() {
+			pallet::NextCollectionId::<T, I>::set(Some(next_id));
+			pallet::Pallet::<T, I>::deposit_event(pallet::Event::NextCollectionIdIncremented {
+				next_id: Some(next_id),
+			});
+		}
 		Ok(id)
 	}
 
 	fn claim(id: Self::Id) {
 		let current = pallet::NextCollectionId::<T, I>::get().or(Self::Id::initial_value());
 		if current.map_or(true, |current| id >= current) {
-			let next_id = id.increment();
-			pallet::NextCollectionId::<T, I>::set(next_id);
+			let Some(next_id) = id.increment() else { return };
+			pallet::NextCollectionId::<T, I>::set(Some(next_id));
 			pallet::Pallet::<T, I>::deposit_event(pallet::Event::NextCollectionIdIncremented {
-				next_id,
+				next_id: Some(next_id),
 			});
 		}
 	}

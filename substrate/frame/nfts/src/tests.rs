@@ -805,7 +805,7 @@ fn set_collection_metadata_should_work() {
 		));
 		assert_noop!(
 			Nfts::set_collection_metadata(RuntimeOrigin::signed(account(1)), 0, bvec![0u8; 15]),
-			Error::<Test, _>::LockedCollectionMetadata,
+			Error::<Test, ()>::LockedCollectionMetadata,
 		);
 		assert_noop!(
 			Nfts::clear_collection_metadata(RuntimeOrigin::signed(account(1)), 0),
@@ -880,7 +880,7 @@ fn set_item_metadata_should_work() {
 		));
 		assert_noop!(
 			Nfts::set_metadata(RuntimeOrigin::signed(account(1)), 0, 42, bvec![0u8; 15]),
-			Error::<Test, _>::LockedItemMetadata,
+			Error::<Test, ()>::LockedItemMetadata,
 		);
 		assert_noop!(
 			Nfts::clear_metadata(RuntimeOrigin::signed(account(1)), 0, 42),
@@ -4011,6 +4011,138 @@ fn create_with_id_does_not_bump_when_behind() {
 fn disabled_next_id_returns_method_disabled() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(DisabledNextId::<Test>::next(), Err(Error::<Test>::MethodDisabled.into()));
+	});
+}
+
+#[test]
+fn claiming_the_max_id_does_not_reset_the_counter() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		// Occupy id 0, so a counter that restarts from `initial_value()` collides.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(1));
+
+		// `u32::MAX` has no successor, so the claim cannot advance the counter.
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			u32::MAX,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		// Clearing it would alias to "unset" and send the next `create()` back to 0.
+		assert_eq!(NextCollectionId::<Test>::get(), Some(1));
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(2));
+	});
+}
+
+#[test]
+fn exhausting_the_counter_does_not_reset_it() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		// Occupy id 0, so a counter that restarts from `initial_value()` collides.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		// A single claim below the top is enough to park the counter on `u32::MAX`.
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			u32::MAX - 1,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(u32::MAX));
+
+		// Allocating the last id must leave the counter where it is.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(u32::MAX));
+
+		// Exhausted, so `create` fails cleanly instead of restarting from 0.
+		assert_noop!(
+			Nfts::create(
+				RuntimeOrigin::signed(account(1)),
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test, ()>::CollectionIdInUse
+		);
+	});
+}
+
+#[test]
+fn disabled_next_id_blocks_auto_creation() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		assert_noop!(
+			NftsDisabled::create(
+				RuntimeOrigin::signed(account(1)),
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test, Instance2>::MethodDisabled
+		);
+		assert_noop!(
+			NftsDisabled::force_create(
+				RuntimeOrigin::root(),
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test, Instance2>::MethodDisabled
+		);
+
+		// `create_with_id` is the only way into this instance.
+		assert_ok!(NftsDisabled::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			1u32,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert!(Collection::<Test, Instance2>::contains_key(1));
+		// `claim` is a no-op on this provider, so nothing seeds the counter.
+		assert_eq!(NextCollectionId::<Test, Instance2>::get(), None);
+	});
+}
+
+#[test]
+fn create_with_id_origin_can_gate_on_the_requested_id() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		assert_ok!(NftsDisabled::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			99u32,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_noop!(
+			NftsDisabled::create_with_id(
+				RuntimeOrigin::signed(account(1)),
+				100u32,
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		assert!(!Collection::<Test, Instance2>::contains_key(100));
 	});
 }
 
