@@ -196,10 +196,15 @@ mod tests {
 		multihash::Code,
 	};
 
+	/// Node secret key from raw bytes.
+	fn node_key_from(bytes: [u8; 32]) -> Ed25519SecretKey {
+		Ed25519SecretKey::try_from_bytes(bytes)
+			.expect("any 32 bytes are a valid ed25519 secret key; qed")
+	}
+
 	/// Node secret key with every byte set to `byte`.
 	fn node_key(byte: u8) -> Ed25519SecretKey {
-		Ed25519SecretKey::try_from_bytes([byte; 32])
-			.expect("any 32 bytes are a valid ed25519 secret key; qed")
+		node_key_from([byte; 32])
 	}
 
 	/// Compute the `/certhash/<hash>` multiaddress component of a certificate.
@@ -248,8 +253,9 @@ mod tests {
 		// Pins the node key -> certificate derivation. If this test ever fails, the derivation
 		// changed and the certhash published by every node relying on it breaks.
 		//
-		// Two vectors, because the serial is encoded differently depending on the top bit of its
-		// first byte: `node_key(7)` takes the `0x00` sign-byte branch, `node_key(42)` does not.
+		// Three vectors, because the serial's INTEGER encoding splits on its first byte:
+		// `node_key(7)` (serial `0x87..`) gets a `0x00` sign byte, `node_key(42)` (`0x6e..`)
+		// encodes plain, and the third key (`0x002b..`) has its leading zero stripped.
 		assert_eq!(
 			certhash(&derive_certificate(node_key(7)).unwrap()),
 			"/certhash/uEiAXqXtF_3QIfMcgXwMgneoB4EuSE_EcpGvKhY4yz7HfcA"
@@ -257,6 +263,12 @@ mod tests {
 		assert_eq!(
 			certhash(&derive_certificate(node_key(42)).unwrap()),
 			"/certhash/uEiAWsH8V-_VMveqodSJYiAhW5FikqSzBNLV0FyeEb_oetA"
+		);
+		let mut stripped_serial_key = [3u8; 32];
+		stripped_serial_key[31] = 26;
+		assert_eq!(
+			certhash(&derive_certificate(node_key_from(stripped_serial_key)).unwrap()),
+			"/certhash/uEiAfSKLRHZTkoALez2X0jqB0Yyh6T4DYQGM3wLpbR1u7dQ"
 		);
 	}
 
