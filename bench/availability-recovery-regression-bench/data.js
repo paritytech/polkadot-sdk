@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786026155972,
+  "lastUpdate": 1786098350628,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f75716203c2579336bed659199680329cb9fb120",
-          "message": "Align Events between Bulletin and SDK (#10445)\n\n* Align events between Bulletin and SDK\n* Extends `Stored` and `Renewed` events with a `hash: ContentHash`\nfield.\n* Replaces `log` with `tracing` to match Bulletin’s logging approach.\n\nAddresses\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/86,\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/123\n\nRelates to\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/124\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/127\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/129\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T13:23:14Z",
-          "tree_id": "b79a56b0ff4c2b9c75522a36746ffe7a64dc0bec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f75716203c2579336bed659199680329cb9fb120"
-        },
-        "date": 1764774007601,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20064252553333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.306047277566668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14379436336666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "unix1gl@gmail.com",
+            "name": "Nnamdi Aninye",
+            "username": "naijauser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "83b54d2f2c58baf0d8297933475549f19499de3f",
+          "message": "[RWF] sc-client-db: fix finalization can leave best_number below finalized_number (#12334)\n\nCloses #12305.\n\n## Summary\n`finalize_block_with_transaction` always returns `MetaUpdate { is_best:\nfalse, .. }`, and `update_meta` only updates `best_number`/`best_hash`\nwhen `is_best` is true. If the best block is behind the block being\nfinalized (e.g. after a re-org moves `best` to an earlier block),\nfinalizing a later block leaves `best_number < finalized_number` —\nviolating the metadata invariant.\n\n## Fix\nIn `update_meta`, when applying a finalized `MetaUpdate`, if `number >\nmeta.best_number`, advance `best_number`/`best_hash` to match. A\nfinalized block is canonical by definition, so `best` can never\nlegitimately lag behind `finalized`.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-08-07T08:33:19Z",
+          "tree_id": "8cdfdaaeca6e5a011b05659202b517e657995e5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83b54d2f2c58baf0d8297933475549f19499de3f"
+        },
+        "date": 1786098317820,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.7943798621,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14324756609999997,
             "unit": "seconds"
           }
         ]
