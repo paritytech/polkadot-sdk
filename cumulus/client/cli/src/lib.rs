@@ -464,10 +464,6 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		Ok(self.base.rpc_params.rpc_rate_limit_trust_proxy_headers)
 	}
 
-	fn rpc_tcp_nodelay(&self) -> sc_cli::Result<bool> {
-		Ok(self.base.rpc_params.rpc_tcp_nodelay)
-	}
-
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
 		self.base.rpc_max_request_size()
 	}

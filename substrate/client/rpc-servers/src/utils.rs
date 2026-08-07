@@ -92,7 +92,6 @@ pub(crate) struct RpcSettings {
 	pub(crate) rate_limit_whitelisted_ips: Vec<IpNetwork>,
 	pub(crate) cors: CorsLayer,
 	pub(crate) host_filter: Option<HostFilterLayer>,
-	pub(crate) tcp_nodelay: bool,
 }
 
 /// Represent a single RPC endpoint with its configuration.
@@ -128,8 +127,6 @@ pub struct RpcEndpoint {
 	pub is_optional: bool,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
-	/// Whether to set `TCP_NODELAY` on this endpoint's connections.
-	pub tcp_nodelay: bool,
 }
 
 impl RpcEndpoint {
@@ -164,7 +161,6 @@ impl RpcEndpoint {
 				rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,
 				rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
 				host_filter,
-				tcp_nodelay: self.tcp_nodelay,
 				cors,
 			},
 		})
@@ -180,13 +176,13 @@ pub(crate) struct Listener {
 
 impl Listener {
 	/// Accepts a new connection.
+	///
+	/// Sets `TCP_NODELAY` on the accepted socket: jsonrpsee sets it in its own accept loop, which
+	/// this server bypasses by accepting connections itself.
 	pub(crate) async fn accept(&mut self) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
 		let (sock, remote_addr) = self.listener.accept().await?;
-		// We accept connections ourselves, so jsonrpsee never applies this for us.
-		if self.cfg.tcp_nodelay {
-			if let Err(e) = sock.set_nodelay(true) {
-				log::debug!(target: "rpc", "Failed to set TCP_NODELAY for {remote_addr}: {e:?}");
-			}
+		if let Err(err) = sock.set_nodelay(true) {
+			log::debug!(target: "rpc", "Failed to set TCP_NODELAY for {remote_addr}: {err:?}");
 		}
 		Ok((sock, remote_addr))
 	}
@@ -326,6 +322,33 @@ mod tests {
 
 	fn request() -> http::Request<HttpBody> {
 		HttpRequest::builder().body(HttpBody::empty()).unwrap()
+	}
+
+	#[tokio::test]
+	async fn accepted_connections_have_tcp_nodelay_set() {
+		let endpoint = RpcEndpoint {
+			listen_addr: ([127, 0, 0, 1], 0).into(),
+			batch_config: BatchRequestConfig::Disabled,
+			max_connections: 1,
+			max_payload_in_mb: 1,
+			max_payload_out_mb: 1,
+			max_subscriptions_per_connection: 1,
+			max_buffer_capacity_per_connection: 1,
+			rate_limit: None,
+			rate_limit_trust_proxy_headers: false,
+			rate_limit_whitelisted_ips: Vec::new(),
+			cors: None,
+			rpc_methods: RpcMethods::Auto,
+			is_optional: false,
+			retry_random_port: false,
+		};
+
+		let mut listener =
+			endpoint.bind().await.expect("binding a loopback port is allowed in tests");
+		let _client = tokio::net::TcpStream::connect(listener.local_addr()).await.unwrap();
+
+		let (accepted, _) = listener.accept().await.unwrap();
+		assert!(accepted.nodelay().unwrap(), "the accepted connection has TCP_NODELAY set");
 	}
 
 	#[test]

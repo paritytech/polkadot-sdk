@@ -203,7 +203,6 @@ pub fn node_config(
 			max_request_size: Default::default(),
 			max_response_size: Default::default(),
 			max_connections: Default::default(),
-			tcp_nodelay: false,
 			cors: None,
 			methods: Default::default(),
 			id_provider: None,

@@ -247,8 +247,6 @@ where
 			host_filter,
 			cors,
 			rate_limit,
-			// Set on the socket when the connection is accepted.
-			tcp_nodelay: _,
 		} = listener.rpc_settings();
 
 		let http_middleware = tower::ServiceBuilder::new()

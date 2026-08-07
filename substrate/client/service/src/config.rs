@@ -315,8 +315,6 @@ pub struct RpcConfiguration {
 	pub addr: Option<Vec<RpcEndpoint>>,
 	/// Maximum number of connections for JSON-RPC server.
 	pub max_connections: u32,
-	/// Whether to set `TCP_NODELAY` on the JSON-RPC server's connections.
-	pub tcp_nodelay: bool,
 	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
 	pub cors: Option<Vec<String>>,
 	/// RPC methods to expose (by default only a safe subset or all of them).

@@ -271,7 +271,6 @@ mod tests {
 				rpc: RpcConfiguration {
 					addr: None,
 					max_connections: Default::default(),
-					tcp_nodelay: false,
 					cors: None,
 					methods: Default::default(),
 					max_request_size: Default::default(),

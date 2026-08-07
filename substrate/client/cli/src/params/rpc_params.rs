@@ -43,7 +43,6 @@ const RPC_METHODS: &str = "methods";
 const RPC_OPTIONAL: &str = "optional";
 const RPC_DISABLE_BATCH: &str = "disable-batch-requests";
 const RPC_BATCH_LIMIT: &str = "max-batch-request-len";
-const RPC_TCP_NODELAY: &str = "tcp-nodelay";
 
 /// Parameters of RPC.
 #[derive(Debug, Clone, Args)]
@@ -101,17 +100,6 @@ pub struct RpcParams {
 	#[arg(long)]
 	pub rpc_rate_limit_trust_proxy_headers: bool,
 
-	/// Set `TCP_NODELAY` on accepted JSON-RPC connections.
-	///
-	/// Disables Nagle's algorithm, which otherwise delays a small write until the previous one
-	/// has been acknowledged. Messages that would otherwise be coalesced are then sent
-	/// separately, which can increase the number of emitted TCP packets.
-	///
-	/// jsonrpsee sets this in its own accept loop, which the RPC server bypasses by accepting
-	/// connections itself, so the option has to be enabled explicitly.
-	#[arg(long)]
-	pub rpc_tcp_nodelay: bool,
-
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
@@ -159,14 +147,13 @@ pub struct RpcParams {
 	///  • rate-limit-whitelisted-ips: Disable rate limiting for certain ip addresses, this can be
 	/// enabled more than once (optional)  • retry-random-port: If the port is already in use,
 	/// retry with a random port (optional)
-	///  • tcp-nodelay: Set `TCP_NODELAY` on this endpoint's connections (optional)
 	///
 	/// Use with care, this flag is unstable and subject to change.
 	#[arg(
 		long,
 		num_args = 1..,
 		verbatim_doc_comment,
-		conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port", "rpc_cors", "rpc_rate_limit_trust_proxy_headers", "rpc_rate_limit", "rpc_rate_limit_whitelisted_ips", "rpc_message_buffer_capacity_per_connection", "rpc_disable_batch_requests", "rpc_max_subscriptions_per_connection", "rpc_max_request_size", "rpc_max_response_size", "rpc_tcp_nodelay"]
+		conflicts_with_all = &["rpc_external", "unsafe_rpc_external", "rpc_port", "rpc_cors", "rpc_rate_limit_trust_proxy_headers", "rpc_rate_limit", "rpc_rate_limit_whitelisted_ips", "rpc_message_buffer_capacity_per_connection", "rpc_disable_batch_requests", "rpc_max_subscriptions_per_connection", "rpc_max_request_size", "rpc_max_response_size"]
 	)]
 	pub experimental_rpc_endpoint: Vec<RpcEndpoint>,
 
@@ -274,7 +261,6 @@ impl RpcParams {
 				max_subscriptions_per_connection: self.rpc_max_subscriptions_per_connection,
 				max_buffer_capacity_per_connection: self.rpc_message_buffer_capacity_per_connection,
 				cors: cors.clone(),
-				tcp_nodelay: self.rpc_tcp_nodelay,
 				retry_random_port: true,
 				is_optional: false,
 			},
@@ -291,7 +277,6 @@ impl RpcParams {
 				max_subscriptions_per_connection: self.rpc_max_subscriptions_per_connection,
 				max_buffer_capacity_per_connection: self.rpc_message_buffer_capacity_per_connection,
 				cors: cors.clone(),
-				tcp_nodelay: self.rpc_tcp_nodelay,
 				retry_random_port: true,
 				is_optional: true,
 			},
@@ -374,8 +359,6 @@ pub struct RpcEndpoint {
 	pub is_optional: bool,
 	/// Whether to retry with a random port if the provided port is already in use.
 	pub retry_random_port: bool,
-	/// Whether to set `TCP_NODELAY` on this endpoint's connections.
-	pub tcp_nodelay: bool,
 }
 
 impl std::str::FromStr for RpcEndpoint {
@@ -397,7 +380,6 @@ impl std::str::FromStr for RpcEndpoint {
 		let mut rate_limit_trust_proxy_headers = None;
 		let mut rate_limit_whitelisted_ips = Vec::new();
 		let mut retry_random_port = None;
-		let mut tcp_nodelay = None;
 
 		for input in s.split(',') {
 			let (key, val) = input.trim().split_once('=').ok_or_else(|| invalid_input(input))?;
@@ -507,14 +489,6 @@ impl std::str::FromStr for RpcEndpoint {
 					let val = val.parse().map_err(|_| invalid_value(RPC_METHODS, &val))?;
 					rpc_methods = Some(val);
 				},
-				RPC_TCP_NODELAY => {
-					if tcp_nodelay.is_some() {
-						return Err(only_once_err(RPC_TCP_NODELAY));
-					}
-
-					let val = val.parse().map_err(|_| invalid_value(RPC_TCP_NODELAY, &val))?;
-					tcp_nodelay = Some(val);
-				},
 				RPC_OPTIONAL => {
 					if is_optional.is_some() {
 						return Err(only_once_err(RPC_OPTIONAL));
@@ -571,7 +545,6 @@ impl std::str::FromStr for RpcEndpoint {
 			rate_limit_whitelisted_ips,
 			is_optional: is_optional.unwrap_or(false),
 			retry_random_port: retry_random_port.unwrap_or(false),
-			tcp_nodelay: tcp_nodelay.unwrap_or(false),
 		})
 	}
 }
@@ -591,7 +564,6 @@ impl Into<sc_service::config::RpcEndpoint> for RpcEndpoint {
 			rate_limit_trust_proxy_headers: self.rate_limit_trust_proxy_headers,
 			rate_limit_whitelisted_ips: self.rate_limit_whitelisted_ips,
 			cors: self.cors,
-			tcp_nodelay: self.tcp_nodelay,
 			retry_random_port: self.retry_random_port,
 			is_optional: self.is_optional,
 		}
@@ -640,8 +612,6 @@ mod tests {
 
 		assert!(RpcEndpoint::from_str("listen-addrs=127.0.0.1:9944,foo=*").is_err());
 		assert!(RpcEndpoint::from_str("listen-addrs=127.0.0.1:9944,cors=").is_err());
-
-		assert!(!RpcEndpoint::from_str("listen-addr=127.0.0.1:9944").unwrap().tcp_nodelay);
 	}
 
 	#[test]
@@ -650,8 +620,7 @@ mod tests {
 			"listen-addr=127.0.0.1:9944,methods=unsafe,cors=*,optional=true,retry-random-port=true,rate-limit=99,\
 			max-batch-request-len=100,rate-limit-trust-proxy-headers=true,max-connections=33,max-request-size=4,\
 			max-response-size=3,max-subscriptions-per-connection=7,max-buffer-capacity-per-connection=8,\
-			rate-limit-whitelisted-ips=192.168.1.0/24,rate-limit-whitelisted-ips=ff01::0/32,\
-			tcp-nodelay=true"
+			rate-limit-whitelisted-ips=192.168.1.0/24,rate-limit-whitelisted-ips=ff01::0/32"
 		).unwrap();
 		assert_eq!(endpoint.listen_addr, ([127, 0, 0, 1], 9944).into());
 		assert_eq!(endpoint.rpc_methods, RpcMethods::Unsafe);
@@ -673,7 +642,6 @@ mod tests {
 		assert_eq!(endpoint.max_payload_out_mb, 3);
 		assert_eq!(endpoint.max_subscriptions_per_connection, 7);
 		assert_eq!(endpoint.max_buffer_capacity_per_connection, 8);
-		assert_eq!(endpoint.tcp_nodelay, true);
 	}
 
 	#[test]

@@ -130,11 +130,6 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 			cli.run.rpc_params.rpc_max_response_size =
 				cli.run.rpc_params.rpc_max_response_size.max(50);
 
-			// eth-rpc talks to this node using the chainHead API, which splits the response to a
-			// query into multiple messages. With the TCP Nagle algorithm enabled the
-			// revive-differential-tests CI run takes ~2h instead of ~30min.
-			cli.run.rpc_params.rpc_tcp_nodelay = true;
-
 			// Pass Default logging settings if none are specified
 			if std::env::var("RUST_LOG").is_err() && cli.run.shared_params.log.is_empty() {
 				cli.run.shared_params.log = "error,sc_rpc_server=info,runtime::revive=debug"
