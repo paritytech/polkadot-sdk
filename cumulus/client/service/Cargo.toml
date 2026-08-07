@@ -37,6 +37,7 @@ sp-core = { workspace = true, default-features = true }
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["rfc163"] }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 

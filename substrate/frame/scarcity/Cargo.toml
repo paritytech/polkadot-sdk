@@ -1,13 +1,12 @@
 [package]
-name = "pallet-scored-pool"
-version = "28.0.0"
+name = "pallet-scarcity"
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for scored pools"
-readme = "README.md"
+description = "FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless rest-time-prioritized transfers"
 
 [lints]
 workspace = true
@@ -17,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -24,18 +24,26 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
