@@ -1,0 +1,30 @@
+title: '[RWF] sp-database kvdb adapter ignores in-transaction reference counter updates'
+doc:
+- audience: Node Dev
+  description: "Closes #12370\n\n## Summary\n\nThe `sp-database` kvdb adapter's `commit_impl`\
+    \ builds a single `DBTransaction` for all changes in a `Transaction`, but `Change::Store`,\
+    \ `Change::Reference`, and `Change::Release` each compute the new reference-count\
+    \ for a key by calling `read_counter`, which reads only the **already-committed**\
+    \ state via `db.get`. As a result, if a transaction contains multiple ref-counting\
+    \ operations on the same key (e.g. `Store` followed by `Release`), the later operation\
+    \ cannot see the counter update queued by the earlier one. For a `Store` + `Release`\
+    \ pair on the same key in one transaction, the `Release` reads a stale `None`\
+    \ counter, does nothing, and the preimage + counter=1 entry from `Store` is left\
+    \ in the database \u2014 even though the net reference count should be 0 and the\
+    \ entry should be evicted.\n\n## Fix\n\n`commit_impl` ([kvdb.rs](substrate/primitives/database/src/kvdb.rs))\
+    \ now maintains an in-memory `pending_counters: HashMap<(ColumnId, Vec<u8>), Option<u32>>`\
+    \ overlay while building the `DBTransaction`. `read_counter` first checks this\
+    \ overlay for a counter value written earlier in the same transaction, falling\
+    \ back to `db.get` (committed state) only if no pending value exists. Each `Store`/`Reference`/`Release`\
+    \ arm now updates `pending_counters` after computing its new counter (including\
+    \ recording `None` when a `Release` drops the count to 0 and evicts the entry),\
+    \ so subsequent operations in the same transaction observe the correct in-flight\
+    \ state.\n\nAdded regression tests using `kvdb-memorydb` (new dev-dependency)\
+    \ covering:\n- `Store` + `Release` on the same key in one transaction \u2192 entry\
+    \ is evicted.\n- `Store` + `Reference` + `Release` on the same key in one transaction\
+    \ \u2192 entry is retained (counter stays at 1).\n- `Store` then `Release` across\
+    \ two separate transactions \u2192 entry is still correctly evicted (no regression\
+    \ for the previously-working cross-transaction case)."
+crates:
+- name: sp-database
+  bump: patch
