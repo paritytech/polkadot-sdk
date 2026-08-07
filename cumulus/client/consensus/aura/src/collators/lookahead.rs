@@ -389,7 +389,7 @@ where
 				&relay_parent_header,
 				params.relay_chain_slot_duration,
 			) else {
-				break;
+				continue;
 			};
 
 			let Some(slot_claim) = super::claim_slot::<_, _, P>(
@@ -401,7 +401,7 @@ where
 			)
 			.await
 			else {
-				break;
+				continue;
 			};
 
 			if !super::can_build_upon::<_, _>(
@@ -413,7 +413,7 @@ where
 			)
 			.await
 			{
-				break;
+				continue;
 			}
 
 			tracing::debug!(
@@ -448,7 +448,7 @@ where
 			{
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err);
-					break;
+					continue;
 				},
 				Ok(x) => x,
 			};
@@ -456,7 +456,7 @@ where
 			let Some(validation_code_hash) = params.code_hash_provider.code_hash_at(parent_hash)
 			else {
 				tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-				break;
+				continue;
 			};
 
 			super::check_validation_code_or_log(
@@ -495,7 +495,7 @@ where
 						block_data.blocks().first().map(|b| b.header().clone())
 					else {
 						tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
-						break;
+						continue;
 					};
 
 					let new_block_hash = new_block_header.hash();
@@ -546,11 +546,11 @@ where
 				},
 				Ok(None) => {
 					tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-					break;
+					continue;
 				},
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err);
-					break;
+					continue;
 				},
 			}
 		}
