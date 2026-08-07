@@ -193,6 +193,9 @@ impl<P: TECurveConfig> IntoAffineSafe for TEProjective<P> {
 pub fn multi_miller_loop<T: Pairing>(g1: &[u8], g2: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
 	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
+	if g1.len() != g2.len() {
+		return Err(Error::LengthMismatch);
+	}
 	let res = T::multi_miller_loop(g1, g2);
 	encode_into(res.0, out)
 }
