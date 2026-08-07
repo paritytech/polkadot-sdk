@@ -193,8 +193,8 @@ impl RateLimiter {
 						};
 						let req_fill =
 							refreshed(&guard.requests) / guard.requests.capacity.max(f64::EPSILON);
-						let bw_fill =
-							refreshed(&guard.bandwidth) / guard.bandwidth.capacity.max(f64::EPSILON);
+						let bw_fill = refreshed(&guard.bandwidth) /
+							guard.bandwidth.capacity.max(f64::EPSILON);
 						(req_fill.min(bw_fill), *id)
 					})
 				})
