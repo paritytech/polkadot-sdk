@@ -159,9 +159,12 @@ struct ParachainServiceState {
     /// All registered parachains and their current metadata.
     parachains: Map<ParaId, ParaInfo>,
 
-    /// Incoming transfer queue for Asset Hub.
-    /// See §5.1.
-    incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>,
+    /// Incoming transfers for Asset Hub, bucketed by arrival timeslot and
+    /// chained through `next_slot`. Maintained in §5.1.
+    incoming_transfers: Map<Timeslot, IncomingTransfers>,
+
+    /// Head and tail of the `incoming_transfers` chain.
+    incoming_transfer_chain: Option<IncomingTransferChain>,
 
     /// Per-parachain log, keyed only by ParaId. Each entry carries its
     /// Timeslot inline; multiple entries may share a timeslot (e.g. several
@@ -314,6 +317,20 @@ struct PendingAssign {
     assigner: Option<ServiceId>,
 }
 
+/// One slot's bucket in the `incoming_transfers` chain.
+struct IncomingTransfers {
+    /// Transfers that arrived in this slot, in arrival order.
+    transfers: Vec<(ServiceId, Amount, Memo)>,
+    /// Next occupied slot, `None` at the tail.
+    next_slot: Option<Timeslot>,
+}
+
+/// Endpoints of the `incoming_transfers` chain.
+struct IncomingTransferChain {
+    first_slot: Timeslot,
+    last_slot: Timeslot,
+}
+
 /// Head data is capped at 4 KiB to bound the per-parachain footprint that
 /// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
@@ -373,7 +390,8 @@ singletons; the tag prepended to the encoded map key for map entries).
 | `0x04` | `preimage_registry` |
 | `0x05` | `staged_validator_keys` |
 | `0x06` | `incoming_transfers` |
-| `0x07` | `key_value_storage` |
+| `0x07` | `incoming_transfer_chain` |
+| `0x08` | `key_value_storage` |
 
 ### 3.2 Work Items
 
@@ -655,16 +673,68 @@ from `pending_assign_cores`, and call JAM `assign(core, queue, assigner)` to ins
 it, where `assigner` is the payload's `assigner` if set and this service's own id
 otherwise.
 
-#### Incoming transfer processing (before work packages)
+#### Incoming transfer processing
 
-Append any `OnTransfer` calls received from other JAM services this block to
-`incoming_transfers`. If the queue is full the service bounces the funds back to the
-sender with the same memo.
+JAM credits a transfer's balance to the destination service unconditionally — before the
+service's code runs, and even if that code panics or runs out of gas. A service therefore
+**cannot refuse or fail an incoming transfer**; the only question is whether it records
+one in `incoming_transfers` for Asset Hub to act on. Handling is accordingly
+**best effort**: append the transfer if it can pay for its own entry, otherwise keep the
+funds and drop the record.
+
+A transfer arriving in slot `now` is recorded iff both hold:
+
+- the queue is below capacity: it holds fewer than `MAX_INCOMING_TRANSFERS` transfers, and
+- `amount >= MIN_TRANSFER_AMOUNT`, the worst-case balance-unit cost of holding one
+  transfer — a bucket containing just it: `10` (storage item) `+ 34` (JAM overhead)
+  `+ 5` (key: `0x06` tag + `Timeslot`) `+ 1` (`Vec` length prefix) `+ 149` (the transfer:
+  `ServiceId 4 + Amount 17 + Memo 128`) `+ 5` (`Some(next_slot)`) `= 204`. See §6.1.
+
+Every transfer is charged that worst case whether or not a bucket for `now` already
+exists, so admission stays a single comparison; transfers sharing a bucket over-pay,
+which is the safe direction.
+
+Recording appends to the bucket at `now` when `last_slot == Some(now)`, so further
+arrivals in the same slot add no storage item — the point of bucketing, since a flat
+`Vec` would rewrite the entire queue on every arrival and that cost lands in
+`min_memo_gas`. Otherwise a fresh bucket is inserted at `now` with `next_slot = None`,
+the previous tail's `next_slot` is set to `Some(now)`, and `last_slot` becomes `now` —
+also `first_slot` if the queue was empty. The chain is explicit because JAM storage has
+no prefix iteration, so the queue cannot rely on key enumeration to recover its order.
+
+`consume_transfers_up_to(slot)` drains whole buckets: starting at `first_slot`, remove
+each bucket whose slot is `<= slot`, following `next_slot` to the successor, and set
+`first_slot` to the first bucket beyond `slot` — or clear `incoming_transfer_chain`
+entirely if the chain is exhausted. Asset Hub chooses how far to consume and pays the
+gas for the buckets it removes, so the walk is bounded by its own request. Since Asset
+Hub reserves the whole queue in its baseline, draining frees real `min_balance` headroom
+but moves no `used_state_balance`.
+
+Otherwise the transfer is **dropped**: its balance still credits the service, but no
+record is kept and Asset Hub never learns of it. Nothing is bounced back — the service
+makes no outbound transfer of its own. A dropped transfer is not an error path to be
+logged; it is the defined outcome for a transfer that did not pay for its slot.
+
+Requiring `amount >= MIN_TRANSFER_AMOUNT` keeps the queue self-funding. Asset Hub
+reserves the *quota* for all `MAX_INCOMING_TRANSFERS` slots in its baseline (§6.1), but
+that is internal attribution of `used_state_balance`; the JAM-level obligation is the
+service's `min_balance`, which grows with actual storage. Charging each transfer the full
+storage cost of its own entry keeps the service's balance rising at least as fast as its
+threshold, so a full queue can never push the service below `min_balance`.
 
 A transfer whose memo is all 1-bits (`[0xFF; 128]`) is a **recovery transfer**: it is
-neither queued nor bounced. Its balance still credits the Parachain Service, so it is a
-way to fund the Parachain Service when it has run out of storage and can therefore no
-longer grow `incoming_transfers` to accept (or bounce) normal transfers.
+never queued regardless of amount. Its balance still credits the Parachain Service, so it
+is a way to fund the service when it has run out of storage.
+
+**`min_memo_gas` must be benchmarked.** Transfers arrive as operands to accumulate, and an
+invocation carrying them never also carries the always-accumulate allotment, so
+the *only* gas funding this path is the postage each sender is forced to attach — JAM
+rejects a transfer with `LOW` unless the attached gas meets the destination's
+`min_memo_gas`. If it is set too low the service runs out of gas while the funds are
+already credited, losing the record; there is no fallback budget. It must therefore be
+benchmarked against the real cost of the admission check plus one append, and
+`MAX_INCOMING_TRANSFERS` derived from it so that a single work-report's accumulation gas
+(`C_reportaccgas`) cannot deliver more transfers than the queue can hold.
 
 #### Per-work-package work
 
@@ -1076,11 +1146,12 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
 
 Asset Hub additionally owns the service-global state items as privileged
 caller; its `total_state_balance` must cover them, provisioned at genesis. Each
-item is billed as a general-storage entry (§6.1): the `CoreIndex`-keyed map one per
-core (341 entries), the `BoundedVec`s one each. Taking `CoreCount = 341`,
+item is billed as a general-storage entry (§6.1): the keyed maps one per entry — 341
+for `pending_assigns`, one per queued transfer — and the `BoundedVec`s and the slot
+endpoints one each. Taking `CoreCount = 341`,
 `AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`, `CoreIndex = 4 B`,
-authorizer-queue length = 80, and `Amount = Compact<u128>` sized at its worst case
-of 17 B:
+authorizer-queue length = 80, `Amount = Compact<u128>` sized at its worst case
+of 17 B, and a provisional `MAX_INCOMING_TRANSFERS = 1000`:
 
 ```
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 item
@@ -1089,16 +1160,31 @@ pending_assigns: Map<CoreIndex, PendingAssign>  — 341 items
   341 × (34 + 5 (key) + 2 + 80 × 32 + 5 (Option<ServiceId>))  octets    888 646
 pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 item
   34 + 1 (key) + 2 + 341 × (4 + 4)                         octets      2 765
-incoming_transfers: BoundedVec<(ServiceId, Amount, Memo), 1000>  — 1 item
-  34 + 1 (key) + 2 + 1000 × (4 + 17 + 128)                 octets    149 037
-                                                    octets total   1 384 213
-                                                    344 items × 10      3 440
+incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case 1000 items
+  1000 × (34 + 5 (key) + 1 + 149 + 5 (next_slot))           octets   194 000
+incoming_transfer_chain: Option<IncomingTransferChain>  — 1 item
+  34 + 1 (key) + 1 + 4 + 4                                  octets        44
+                                                    octets total   1 429 220
+                                                  1 344 items × 10     13 440
                                                                     ---------
-                                                                    1 387 653
+                                                                    1 442 660
 ```
 
-**Asset Hub baseline footprint ≈ 1.32 MiB**, added on top of the generic
+The `incoming_transfers` worst case is **maximal fragmentation** — every transfer alone
+in its own slot, so each pays a full bucket. Any real distribution shares buckets and
+costs strictly less, which is why one bound on the total transfer count suffices; no
+separate bound on the number of slots is needed, since occupied slots can never exceed
+the transfer count.
+
+**Asset Hub baseline footprint ≈ 1.38 MiB**, added on top of the generic
 per-para baseline.
+
+The `incoming_transfers` lines above use the provisional
+`MAX_INCOMING_TRANSFERS = 1000`. Once `min_memo_gas` is benchmarked and the bound
+derived from it (§5.1), those lines and both totals must be recomputed — worst case each
+held transfer contributes exactly `MIN_TRANSFER_AMOUNT = 204` balance units (194 octets
++ one 10-unit storage item), so the queue's whole contribution is
+`MAX_INCOMING_TRANSFERS × 204`.
 
 #### Key-Value storage footprint
 

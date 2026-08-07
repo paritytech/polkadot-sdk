@@ -74,7 +74,6 @@ module tests {
       solicitedSet' = blockOut.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
-      lastStepBouncedTransfers' = List(),
       lastStepAssigns' = blockOut.assigns,
       logPrunedBelow' =
         blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
@@ -96,7 +95,6 @@ module tests {
     solicitedSet' = solicitedSet,
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers,
     lastStepAssigns' = lastStepAssigns,
     logPrunedBelow' = logPrunedBelow
   }
@@ -110,42 +108,70 @@ module tests {
     solicitedSet' = solicitedSet,
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers,
     lastStepAssigns' = lastStepAssigns,
     logPrunedBelow' = logPrunedBelow
   }
 
-  // --- Bounce-on-full -----------------------------------------------------
+  // --- Best-effort transfer admission (§5.1) ------------------------------
 
-  /// Pre-built `incoming_transfers` at capacity for the bounce/recovery tests.
+  /// Pre-built `incoming_transfers` at capacity. Every entry pays for its slot,
+  /// so the fixture itself satisfies `queued_transfers_pay_for_slot`.
   pure val fullIncomingTransfersFixture: List[{
     from: ServiceId, amount: Balance, memo: Memo
   }] =
-    range(0, IncomingTransfersMaxLen).foldl(List(), (acc, i) =>
-      acc.append({ from: MkServiceId(0), amount: i, memo: 0 }))
+    range(0, MaxIncomingTransfers).foldl(List(), (acc, i) =>
+      acc.append({ from: MkServiceId(0), amount: MinTransferAmount + i, memo: 0 }))
 
-  /// With `incoming_transfers` at capacity, a normal transfer bounces: the queue
-  /// does not grow and the transfer is returned for the service to send back.
-  run bounceOnFullTest = {
+  /// At capacity, a well-funded transfer is DROPPED, not bounced: the queue does
+  /// not grow, no outbound transfer is produced, and the state is untouched.
+  run fullQueueDropsTransferTest = {
     val full = { ...initialState, incomingTransfers: fullIncomingTransfersFixture }
-    val out = applyIncomingTransfer(full, { from: MkServiceId(0), amount: 100, memo: 0 })
+    val after = applyIncomingTransfer(
+      full, { from: MkServiceId(0), amount: 10000, memo: 0 })
     all {
-      assert(out.state.incomingTransfers.length() == IncomingTransfersMaxLen),
-      assert(out.bounced.length() == 1),
+      assert(after.incomingTransfers.length() == MaxIncomingTransfers),
+      assert(after == full),
       init
     }
   }
 
-  /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is neither queued nor
-  /// bounced, even when `incoming_transfers` is at capacity — the mechanism to
-  /// fund a service that has run out of storage.
-  run recoveryTransferNotQueuedTest = {
-    val full = { ...initialState, incomingTransfers: fullIncomingTransfersFixture }
-    val out = applyIncomingTransfer(
-      full, { from: MkServiceId(0), amount: 100, memo: AllOnesMemo })
+  /// A transfer that cannot pay for its own slot is dropped even with room to
+  /// spare; at exactly `MinTransferAmount` it is queued. Pins the `<` boundary.
+  run belowMinTransferDroppedTest = {
+    val s = initialState
+    val dust = applyIncomingTransfer(
+      s, { from: MkServiceId(0), amount: MinTransferAmount - 1, memo: 0 })
+    val free = applyIncomingTransfer(s, { from: MkServiceId(0), amount: 0, memo: 0 })
+    val exact = applyIncomingTransfer(
+      s, { from: MkServiceId(0), amount: MinTransferAmount, memo: 0 })
     all {
-      assert(out.state.incomingTransfers == full.incomingTransfers),
-      assert(out.bounced == List()),
+      assert(s.incomingTransfers == List()),
+      assert(dust.incomingTransfers == List()),
+      assert(free.incomingTransfers == List()),
+      assert(exact.incomingTransfers.length() == 1),
+      init
+    }
+  }
+
+  /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is never queued, even
+  /// when well-funded and with room to spare — the mechanism to fund a service
+  /// that has run out of storage.
+  run recoveryTransferNotQueuedTest = {
+    val after = applyIncomingTransfer(
+      initialState, { from: MkServiceId(0), amount: 10000, memo: AllOnesMemo })
+    all {
+      assert(after == initialState),
+      init
+    }
+  }
+
+  /// Asset Hub's baseline is DERIVED from `MaxIncomingTransfers`; at the
+  /// provisional bound it must still equal §6.1's published figure.
+  run assetHubFootprintDerivationTest = {
+    all {
+      assert(AssetHubGlobalItemsFootprint == 1387653),
+      assert(VecEntryOverhead + MaxIncomingTransfers * IncomingTransferOctets == 149037),
+      assert(MinTransferAmount == 149),
       init
     }
   }
@@ -207,7 +233,6 @@ module tests {
       solicitedSet' = out.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
-      lastStepBouncedTransfers' = List(),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
       logPrunedBelow' = logPrunedBelow
     }

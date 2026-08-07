@@ -115,8 +115,30 @@ module types {
   /// §3.1: bounded cap on `staged_validator_keys` (= `CoreCount * 3 = 1023`).
   pure val MaxStagedValidatorKeys: int = CoreCount * 3
 
-  /// §3.1: bounded cap on `incoming_transfers`.
-  pure val IncomingTransfersMaxLen: int = 1000
+  /// §3.1 cap on `incoming_transfers`. PROVISIONAL: the real bound must be
+  /// derived from the benchmarked cost of processing one transfer, so that a
+  /// single work-report's accumulation gas (`C_reportaccgas`) cannot deliver
+  /// more transfers than the queue can hold (§5.1). Asset Hub's baseline
+  /// footprint is computed from this constant, so changing it moves that too.
+  pure val MaxIncomingTransfers: int = 1000
+
+  /// Value octets of one `incoming_transfers` entry:
+  /// `ServiceId 4 + Amount (Compact<u128> worst case 17) + Memo 128`.
+  pure val IncomingTransferValueOctets: int = 4 + 17 + 128
+
+  /// Full balance-unit cost of one `incoming_transfers` entry (§6.1). Each entry
+  /// is its own keyed storage item — NOT a slot in one big vec — so it pays a
+  /// storage item (10) plus JAM's per-entry overhead (34), its value, and its
+  /// key (1 B tag + 4 B `u32` index).
+  pure val IncomingTransferEntryFootprint: int =
+    10 + 34 + IncomingTransferValueOctets + 5
+
+  /// §5.1 best-effort admission: a transfer is queued only if its `amount`
+  /// covers the deposit for its own slot. Below this it is dropped — the balance
+  /// still credits the service (JAM credits unconditionally), but no record is
+  /// kept. This keeps the queue self-funding and makes slot occupation cost the
+  /// sender real funds.
+  pure val MinTransferAmount: Balance = IncomingTransferEntryFootprint
 
   // --- Polymorphic Option ------------------------------------------------
 

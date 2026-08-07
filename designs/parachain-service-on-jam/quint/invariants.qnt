@@ -322,22 +322,22 @@ module invariants {
       }
     })
 
-  /// `incoming_transfers` must never exceed its cap; overflow is bounced
-  /// at ingress in `stepIncomingTransfer`.
+  /// `incoming_transfers` must never exceed its cap; a transfer arriving at a
+  /// full queue is dropped at ingress (§5.1), never queued.
   val incoming_transfers_bounded: bool =
-    svc.incomingTransfers.length() <= IncomingTransfersMaxLen
+    svc.incomingTransfers.length() <= MaxIncomingTransfers
+
+  /// §5.1 best-effort admission: every QUEUED transfer paid for its own slot.
+  /// Anything below `MinTransferAmount` is dropped at ingress, so the queue is
+  /// self-funding — its octet growth is always covered by credited balance.
+  val queued_transfers_pay_for_slot: bool =
+    svc.incomingTransfers.foldl(true, (acc, t) => acc and t.amount >= MinTransferAmount)
 
   /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is never queued: it
   /// is dropped from the queue at ingress (§5.1), so no queued transfer ever
   /// carries `AllOnesMemo`.
   val recovery_memo_never_queued: bool =
     svc.incomingTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
-
-  /// A recovery transfer (memo = `AllOnesMemo`) is also never bounced: it is
-  /// dropped at ingress so its balance credits the service without producing
-  /// a JAM-level outgoing transfer. Complements `recovery_memo_never_queued`.
-  val recovery_memo_never_bounced: bool =
-    lastStepBouncedTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
 
   /// Each pending assign's queue must fit within JAM's queue length.
   val pending_authorizer_queue_bounded: bool =
@@ -435,8 +435,8 @@ module invariants {
     refine_error_logged,
     acc_error_logged,
     incoming_transfers_bounded,
+    queued_transfers_pay_for_slot,
     recovery_memo_never_queued,
-    recovery_memo_never_bounced,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
     pending_authorizer_apply_at_future,

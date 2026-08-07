@@ -19,13 +19,33 @@ module state_balance {
    /// §6.1. Balances are `Compact<u128>` sized at their 17 B worst case here.
    pure val BaselineFootprint: int = 69847
 
+  /// Octet overhead of one `BoundedVec` general-storage entry: JAM's 34 B, a
+  /// 1 B map-tag key, and a 2 B compact length prefix (§6.1).
+  pure val VecEntryOverhead: int = 34 + 1 + 2
+
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending assigns + their dirty-core index, incoming
-  /// transfers), worst-cased at 1 387 653 balance units in §6.1 (octets
-  /// 1 384 213 + 344 storage items × 10). Asset Hub reserves this in its
-  /// baseline, so those items are pre-provisioned rather than charged to
-  /// `usedStateBalance` as they grow.
-  pure val AssetHubGlobalItemsFootprint: int = 1387653
+  /// transfers). Asset Hub reserves this in its baseline, so those items are
+  /// pre-provisioned rather than charged to `usedStateBalance` as they grow.
+  ///
+  /// DERIVED, not hardcoded: the `incoming_transfers` term scales with
+  /// `MaxIncomingTransfers`, which is provisional until the per-transfer cost is
+  /// benchmarked (§5.1), so this figure must move with it. At the provisional
+  /// bound this is §6.1's 1 384 213 octets + 344 storage items × 10 = 1 387 653.
+  pure val AssetHubGlobalItemsFootprint: int = {
+    val stagedKeys = VecEntryOverhead + MaxStagedValidatorKeys * ValidatorKeySize
+    // One storage entry per core: 34 + 5 (tag + CoreIndex key) + 2 (compact len)
+    // + the authorizer queue + 5 (Option<ServiceId>).
+    val pendingAssigns =
+      CoreCount * (34 + 5 + 2 + AuthorizerQueueLength * 32 + 5)
+    // (CoreIndex 4 + Timeslot 4) per core.
+    val pendingAssignCores = VecEntryOverhead + CoreCount * 8
+    val incomingTransfers =
+      VecEntryOverhead + MaxIncomingTransfers * IncomingTransferOctets
+    // Storage items: the three BoundedVecs, plus one per core for pendingAssigns.
+    val items = 3 + CoreCount
+    stagedKeys + pendingAssigns + pendingAssignCores + incomingTransfers + items * 10
+  }
 
   /// Asset Hub's baseline footprint: the generic per-para baseline plus its
   /// reserved service-global items (§6.1).

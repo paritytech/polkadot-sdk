@@ -69,11 +69,17 @@ module state {
 
   type ParachainServiceState = {
     parachains: ParaId -> ParaInfo,
-    incomingTransfers: List[{
+    // Incoming transfer queue for Asset Hub, one keyed entry per transfer so an
+    // append and a drain each touch O(1) state (§3.1). Live keys are exactly the
+    // half-open range `incomingTransfersRange`.
+    incomingTransfers: int -> {
         from: ServiceId,
         amount: Balance,
         memo: Memo
-    }],
+    },
+    // Half-open `(first, next)` range of live `incomingTransfers` keys. Length is
+    // `next - first`; `next` is the key the next append will use.
+    incomingTransfersRange: (int, int),
     parachainLog: ParaId -> ParachainLog,
     preimageRegistry: (Hash, int) -> PreimageEntry,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
@@ -111,7 +117,8 @@ module state {
 
   pure val emptyState: ParachainServiceState = {
     parachains: Map(),
-    incomingTransfers: List(),
+    incomingTransfers: Map(),
+    incomingTransfersRange: (0, 0),
     parachainLog: Map(),
     preimageRegistry: Map(),
     pendingAssigns: Map(),

@@ -556,21 +556,25 @@ module accumulate {
     )
   }
 
-  /// §5.1 incoming-transfer processing.
+  /// §5.1 incoming-transfer processing — BEST EFFORT. JAM credits the balance
+  /// unconditionally (before the service's code runs, and even if it panics or
+  /// runs out of gas), so a transfer can never be refused or failed. The only
+  /// decision is whether to record it for Asset Hub. Nothing is ever bounced:
+  /// the service makes no outbound transfer of its own.
+  ///
+  /// The record is kept iff the queue has room AND the transfer covers the
+  /// deposit for its own slot (`MinTransferAmount`). Otherwise it is dropped —
+  /// funds retained, no record, no log. Dropping is the defined outcome, not an
+  /// error path. A recovery transfer (`AllOnesMemo`) is never queued regardless
+  /// of amount.
   pure def applyIncomingTransfer(
     s: ParachainServiceState,
     t: { from: ServiceId, amount: Balance, memo: Memo }
-  ): {
-    state: ParachainServiceState,
-    bounced: List[{ from: ServiceId, amount: Balance, memo: Memo }]
-  } = {
-    if (t.memo == AllOnesMemo)
-      { state: s, bounced: List() }
-    else if (s.incomingTransfers.length() >= IncomingTransfersMaxLen)
-      { state: s, bounced: List(t) }
-    else
-      { state: { ...s, incomingTransfers: s.incomingTransfers.append(t) },
-        bounced: List() }
+  ): ParachainServiceState = {
+    if (t.memo == AllOnesMemo) s
+    else if (s.incomingTransfers.length() >= MaxIncomingTransfers) s
+    else if (t.amount < MinTransferAmount) s
+    else { ...s, incomingTransfers: s.incomingTransfers.append(t) }
   }
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate

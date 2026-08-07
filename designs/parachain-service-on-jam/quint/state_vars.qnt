@@ -37,18 +37,6 @@ module state_vars {
   /// directly. Not part of the protocol.
   var lastStepWorkResults: List[WorkResult]
 
-  /// Ghost state: incoming transfers that hit the full `incoming_transfers`
-  /// queue in the last step and were bounced back. Each entry corresponds
-  /// to a JAM-level outgoing transfer the Parachain Service must emit
-  /// (dest = original sender, same `amount`/`memo`). The Rust harness can
-  /// observe the same outgoing transfers and compare. Empty on non-ingress
-  /// steps. Not part of the protocol.
-  var lastStepBouncedTransfers: List[{
-      from: ServiceId,
-      amount: Balance,
-      memo: Memo
-  }]
-
   /// Ghost state: JAM `assign` calls made during the last step (`set_assigner`
   /// updates and `set_authorizer_queue` flushes at their `jam_slot`). Lets
   /// invariants verify `new_assigner` is forwarded. Not part of the protocol.
