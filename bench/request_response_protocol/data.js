@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786095767655,
+  "lastUpdate": 1786097752061,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -111995,6 +111995,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2624161101,
             "range": "± 30123731",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "unix1gl@gmail.com",
+            "name": "Nnamdi Aninye",
+            "username": "naijauser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "83b54d2f2c58baf0d8297933475549f19499de3f",
+          "message": "[RWF] sc-client-db: fix finalization can leave best_number below finalized_number (#12334)\n\nCloses #12305.\n\n## Summary\n`finalize_block_with_transaction` always returns `MetaUpdate { is_best:\nfalse, .. }`, and `update_meta` only updates `best_number`/`best_hash`\nwhen `is_best` is true. If the best block is behind the block being\nfinalized (e.g. after a re-org moves `best` to an earlier block),\nfinalizing a later block leaves `best_number < finalized_number` —\nviolating the metadata invariant.\n\n## Fix\nIn `update_meta`, when applying a finalized `MetaUpdate`, if `number >\nmeta.best_number`, advance `best_number`/`best_hash` to match. A\nfinalized block is canonical by definition, so `best` can never\nlegitimately lag behind `finalized`.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-08-07T08:33:19Z",
+          "tree_id": "8cdfdaaeca6e5a011b05659202b517e657995e5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83b54d2f2c58baf0d8297933475549f19499de3f"
+        },
+        "date": 1786097719063,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19533798,
+            "range": "± 75326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19673597,
+            "range": "± 130082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21126990,
+            "range": "± 51795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26082932,
+            "range": "± 270386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57261901,
+            "range": "± 497868",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 328668361,
+            "range": "± 5457426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2490214471,
+            "range": "± 131943464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16655884,
+            "range": "± 166425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16738651,
+            "range": "± 116815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17307080,
+            "range": "± 210699",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21634148,
+            "range": "± 67649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58085063,
+            "range": "± 358940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 338962943,
+            "range": "± 2771359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2543782789,
+            "range": "± 12561159",
             "unit": "ns/iter"
           }
         ]
