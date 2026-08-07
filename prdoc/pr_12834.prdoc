@@ -1,0 +1,8 @@
+title: 'primitives: Check length of received vectors'
+doc:
+- audience: Node Dev
+  description: |-
+    Tiny PR to enhance the API surface by check the length of the G points before passing them down
+crates:
+- name: sp-crypto-ec-utils
+  bump: patch
