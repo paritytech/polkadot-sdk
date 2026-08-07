@@ -208,7 +208,7 @@ struct Metrics {
 	initial_sync_bursts_throttled_total: Counter<U64>,
 	initial_sync_in_flight_bytes: Gauge<U64>,
 	initial_sync_peers_active: Gauge<U64>,
-	initial_sync_duration_seconds: Histogram,
+	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
@@ -229,6 +229,15 @@ mod sync_abandoned {
 	pub const PEER_MISSING: &str = "peer_missing";
 	/// The statement store failed to serve the batch.
 	pub const STORE_ERROR: &str = "store_error";
+	/// The notification stream closed while the sync was still pending.
+	pub const DISCONNECTED: &str = "disconnected";
+}
+
+mod sync_outcome {
+	/// A burst found the backlog drained, so every statement reached the peer.
+	pub const COMPLETED: &str = "completed";
+	/// The sync ended before its backlog was drained.
+	pub const ABANDONED: &str = "abandoned";
 }
 
 impl Metrics {
@@ -363,12 +372,13 @@ impl Metrics {
 				r,
 			)?,
 			initial_sync_duration_seconds: register(
-				Histogram::with_opts(
+				HistogramVec::new(
 					HistogramOpts::new(
 						"substrate_sync_initial_sync_duration_seconds",
-						"Per-peer duration of initial sync from start until completion or peer disconnect (whichever comes first)",
+						"Per-peer duration of initial sync, by outcome: completed (backlog drained) or abandoned (ended with statements still queued)",
 					)
 					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
+					&["outcome"],
 				)?,
 				r,
 			)?,
@@ -403,7 +413,7 @@ impl Metrics {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sync_initial_sync_abandoned_statements_total",
-						"Statements still queued in a peer's initial-sync backlog when that sync was abandoned, by reason. An upper bound: the backlog is counted before the per-peer known and topic-affinity filters run, so a peer with a narrow affinity inflates it",
+						"Statements a peer was still owed when its initial sync was abandoned, by reason.",
 					),
 					&["reason"],
 				)?,
@@ -1179,12 +1189,7 @@ where
 				}
 
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.initial_sync_peers_active.dec();
-						metrics
-							.initial_sync_duration_seconds
-							.observe(pending.started_at.elapsed().as_secs_f64());
-					});
+					self.record_initial_sync_abandoned(sync_abandoned::DISCONNECTED, &pending);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 			},
@@ -1581,7 +1586,9 @@ where
 				peer_data.known_statements.insert(hash);
 			}
 		}
-		// The peer re-enters the queue only here, so at most one of its chunks is ever in flight.
+		// Reached only for the live sync, which is out of the queue for as long as its chunk is
+		// in flight; a superseded sync's chunk can still be in flight under the same `PeerId`, so
+		// the bound is one chunk per sync, not per peer.
 		self.initial_sync_peer_queue.push_back(peer);
 	}
 
@@ -1623,9 +1630,8 @@ where
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
 		let sync_id = self.next_initial_sync_id;
 		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
-		// If there's already a pending sync, clean it up first.
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-			self.record_initial_sync_completion(pending.started_at);
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		let hashes = self.statement_store.statement_hashes();
@@ -1679,11 +1685,12 @@ where
 	}
 
 	/// Record initial sync completion metrics for a peer being removed.
-	fn record_initial_sync_completion(&self, started_at: Instant) {
+	fn record_initial_sync_completion(&self, outcome: &str, started_at: Instant) {
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_peers_active.dec();
 			metrics
 				.initial_sync_duration_seconds
+				.with_label_values(&[outcome])
 				.observe(started_at.elapsed().as_secs_f64());
 		});
 	}
@@ -1696,7 +1703,7 @@ where
 				.with_label_values(&[reason])
 				.inc_by(pending.hashes.len() as u64);
 		});
-		self.record_initial_sync_completion(pending.started_at);
+		self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 	}
 
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
@@ -1733,7 +1740,7 @@ where
 		if entry.get().hashes.is_empty() {
 			let started_at = entry.get().started_at;
 			entry.remove();
-			self.record_initial_sync_completion(started_at);
+			self.record_initial_sync_completion(sync_outcome::COMPLETED, started_at);
 			return;
 		}
 
@@ -2954,7 +2961,7 @@ mod tests {
 		handler.process_initial_sync_burst();
 		notification_service.fail_sends();
 
-		// A reconnect or an affinity change replaces the sync while that chunk is still in flight.
+		// A reconnect replaces the sync while that chunk is still in flight.
 		handler.schedule_initial_sync_for_peer(peer_id);
 		let sync_id = handler.pending_initial_syncs.get(&peer_id).unwrap().sync_id;
 		handler.flush_pending_sends().await;
