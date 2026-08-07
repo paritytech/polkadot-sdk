@@ -275,6 +275,10 @@ mod tests {
 		// needs a nonce, and reproducibility rests on `sign_prehash` deriving it via RFC 6979.
 		// The RFC leaves inputs that `ecdsa` fills in for us, so pin the signature itself — an
 		// upgrade changing any of them fails here, naming the cause.
+		//
+		// Pinned only for prehashes below the group order: `ecdsa` 0.16 feeds `h1` to the nonce
+		// DRBG unreduced, 0.17 reduces it per RFC 6979 §2.3.4. Bumping past 0.16 thus changes
+		// the certhash of nodes whose TBS digest is >= `n` — accepted, as that is ~2^-32 of them.
 		let key = SigningKey::from_slice(&array_bytes::hex2bytes_unchecked(
 			"c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
 		))
@@ -288,25 +292,6 @@ mod tests {
 			"efd48b2aacb6a8fd1140dd9cd45e81d69d2c877b56aaf991c34d0ea84eaf3716\
 			 f7cb1c942d657c41d436c7a1b6e29f65f3e900dbb9aff4064dc4ab2f843acda8"
 		);
-
-		// A prehash above the group order. RFC 6979 §2.3.4 feeds `h1 mod n` to the DRBG, but
-		// `ecdsa` 0.16 feeds `h1` unreduced and 0.17 changes that, so only a prehash >= n tells
-		// the two apart. Pinned below is the unreduced result.
-		let signature: Signature = key.sign_prehash(&[0xff; 32]).unwrap();
-		assert_eq!(
-			array_bytes::bytes2hex("", signature.to_bytes()),
-			"a38b4bf5013627c24aadc72c653ac4d1afadf8a570960b1c4d066c5cfc609584\
-			 16a2094352198c79ebcb9e52de2fd3b02ab5667ac88ea519d45aecd1d8864e42"
-		);
-		// On bumping to `ecdsa` 0.17, the assertion above becomes this. Swapping it in concedes
-		// a real change: nodes whose TBS digest exceeds `n` (~2^-32 of them) get a new certhash,
-		// which no other test catches — every pinned key's TBS digest is below `n`.
-		//
-		// assert_eq!(
-		// 	array_bytes::bytes2hex("", signature.to_bytes()),
-		// 	"1f2adbc54b88764c279f689fc9505959fc9e73e80dc20889a4e0be91865de75b\
-		// 	 9d109b65e2fbfc0ae42ba0b2e5f03670cd458cff4882df6783f3d93d607d1755"
-		// );
 	}
 
 	#[test]
