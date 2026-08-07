@@ -34,19 +34,15 @@ fn handle_err<T>(result: std::io::Result<T>) -> T {
 	}
 }
 
-/// Read the reference counter for a key, taking into account any pending updates
+/// Read the reference counter for a key.
 /// that earlier operations in the same transaction have made but not yet committed.
 fn read_counter(
 	db: &dyn KeyValueDB,
-	pending: &HashMap<(ColumnId, Vec<u8>), Option<u32>>,
 	col: ColumnId,
 	key: &[u8],
 ) -> error::Result<(Vec<u8>, Option<u32>)> {
 	let mut counter_key = key.to_vec();
 	counter_key.push(0);
-	if let Some(counter) = pending.get(&(col, counter_key.clone())) {
-		return Ok((counter_key, *counter));
-	}
 	Ok(match db.get(col, &counter_key).map_err(|e| error::DatabaseError(Box::new(e)))? {
 		Some(data) => {
 			let mut counter_data = [0; 4];
