@@ -1712,7 +1712,9 @@ where
 		// useful data.
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
+			let started_at = entry.get().started_at;
 			entry.remove();
+			self.record_initial_sync_completion(started_at);
 			return;
 		};
 		let peer_version = peer_data.protocol_version;
