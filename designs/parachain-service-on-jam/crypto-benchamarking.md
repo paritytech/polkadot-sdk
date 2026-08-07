@@ -115,8 +115,8 @@ heavily on the host microarchitecture:
   penalty stays trivial (tens of µs per MiB).
 - **25519-family ratios improve on machine B** (3.0× → 2.5×): the PVM side
   gains ~1.5× while host times move less — with stable-built hosts. On
-  nightly-built hosts Zen 4's AVX-512-IFMA halves the host times and the
-  ratios read ~4× instead; see *Toolchain impact on host baselines*.
+  nightly-built hosts Zen 4's AVX-512-IFMA cuts host times 1.5–1.9× and the
+  ratios read 3.7–4.4× instead; see *Toolchain impact on host baselines*.
 
 The absolute PVM costs — the numbers the refine-budget question actually
 needs — improve on the newer machine across the board (e.g. ed25519 verify
@@ -128,8 +128,8 @@ Host numbers are a property of **machine × toolchain**, not machine alone.
 Measured explicitly on machine B by rebuilding all host libraries with
 `nightly-2026-08-01` vs stable 1.86 (full tables in the appendix; PVM cells
 are unaffected — guest blobs always build with the suite's pinned
-toolchain). Hashing at 1 MiB, signatures per operation; the crypto
-native-stable cells are from a separate stable run (cross-run drift ~1%):
+toolchain). Hashing at 1 MiB, signatures per operation (crypto
+native-stable cells: `output_new_01_toaster`):
 
 | algorithm | portable stable | portable nightly | Δ | native stable | native nightly | Δ |
 |---|---:|---:|---:|---:|---:|---:|
@@ -141,15 +141,19 @@ native-stable cells are from a separate stable run (cross-run drift ~1%):
 | twox_128 (1 MiB) | 117.9 µs | 106.2 µs | -10% | 77.9 µs | 91.2 µs | +17% |
 | twox_256 (1 MiB) | 205.5 µs | 205.8 µs | ≈ | 155.7 µs | 181.1 µs | +16% |
 | ed25519 (dalek) | 29.4 µs | 15.6 µs | -47% | 24.5 µs | 15.6 µs | -36% |
-| ed25519 (zebra) | 24.6 µs | 15.7 µs | -36% | 23.6 µs | 15.8 µs | -33% |
-| sr25519 | 24.9 µs | 16.4 µs | -34% | 26.3 µs | 17.2 µs | -34% |
-| ecdsa_verify (k256) | 61.4 µs | 61.5 µs | ≈ | 59.4 µs | 61.6 µs | +4% |
-| ecdsa_verify (libsecp) | 112.2 µs | 111.2 µs | ≈ | 116.4 µs | 116.5 µs | ≈ |
-| recover (k256) | 123.8 µs | 124.0 µs | ≈ | 119.9 µs | 124.8 µs | +4% |
-| recover (libsecp) | 119.3 µs | 117.8 µs | ≈ | 124.2 µs | 125.2 µs | ≈ |
+| ed25519 (zebra) | 24.6 µs | 15.7 µs | -36% | 23.0 µs | 15.8 µs | -32% |
+| sr25519 | 24.9 µs | 16.4 µs | -34% | 25.8 µs | 17.2 µs | -33% |
+| ecdsa_verify (k256) | 61.4 µs | 61.5 µs | ≈ | 59.6 µs | 61.6 µs | +3% |
+| ecdsa_verify (libsecp) | 112.2 µs | 111.2 µs | ≈ | 116.3 µs | 116.5 µs | ≈ |
+| recover (k256) | 123.8 µs | 124.0 µs | ≈ | 119.8 µs | 124.8 µs | +4% |
+| recover (libsecp) | 119.3 µs | 117.8 µs | ≈ | 124.3 µs | 125.2 µs | ≈ |
 
-- **25519 signatures: ~1.6× faster on nightly** (ed25519 host 29 → 15.6 µs;
-  PVM ratio 2.3× → 4.4×). `curve25519-dalek` compiles its SIMD backends only
+- **25519 signatures: host verification takes 1.5–1.9× less time on
+  nightly** (ed25519-dalek 29.4 → 15.6 µs = 1.9×, ed25519-zebra 24.6 →
+  15.7 µs = 1.6×; the corresponding PVM ratios worsen from 2.3–2.6× to
+  3.7–4.4×). Dalek's larger factor is partly its own handicapped stable
+  baseline (missing precomputed tables — see `x86-sig-investigation/`);
+  under nightly all three crates converge at ~15.6–16.4 µs. `curve25519-dalek` compiles its SIMD backends only
   on the nightly *channel*
   ([unstable-feature gate](https://github.com/dalek-cryptography/curve25519-dalek/blob/curve25519-4.1.3/curve25519-dalek/src/lib.rs#L13-L24),
   enabled by [channel detection in build.rs](https://github.com/dalek-cryptography/curve25519-dalek/blob/curve25519-4.1.3/curve25519-dalek/build.rs#L44-L50))
@@ -236,7 +240,7 @@ For `host_time`, note that a host-call implementation is free to choose its
 toolchain and implementation: for 25519 signatures the *achievable* host
 cost on IFMA-capable CPUs is ~16 µs (nightly-built `curve25519-dalek`, see
 *Toolchain impact on host baselines*) vs ~64–68 µs in PVM — ~48 µs per
-verification, the largest per-operation prize of any primitive here.
+verification, the largest per-operation delta of any primitive here.
 
 ## Build tweaks
 
@@ -296,7 +300,8 @@ generic harness (`runtime` variant = steady-state execution):
 Raw data for both machines: `tools/benchtool/output_new_00` (machine A),
 `tools/benchtool/output_new_00_toaster` (machine B) and
 `tools/benchtool/output_new_nightly_20260801_00_toaster` (machine B, nightly
-host builds) on the `mku-bench-hash` branch (5 runs each; tables use one
+host builds) and `tools/benchtool/output_new_01_toaster` (machine B, stable
+host builds incl. signature `*-native` variants) on the `mku-bench-hash` branch (5 runs each; tables use one
 representative run). Host libraries are stable-1.86 builds unless the
 heading says otherwise.
 
@@ -340,11 +345,28 @@ indicative only; `target-cpu=native` gains little for this scalar code.
 | recover-k256 | 140.69 µs | 453.49 µs | 3.22× |
 | recover-libsecp | 145.47 µs | 252.30 µs | 1.73× |
 
+### Signatures, host-native build — machine B
+
+Stable 1.86 host builds. For the 25519 family native ≈ portable (the crates
+runtime-dispatch their backend, so `target-cpu` flags change little — see
+`x86-sig-investigation/`); the portable/PVM cells of this run agree with the
+host-portable table above within ±1%.
+
+| benchmark | host native | PVM (64-bit, sync gas) | ratio |
+|---|---:|---:|---:|
+| ed25519 | 24.47 µs | 68.05 µs | 2.78× |
+| ed25519-zebra | 23.04 µs | 63.89 µs | 2.77× |
+| sr25519 | 25.76 µs | 63.72 µs | 2.47× |
+| ecdsa-k256 | 59.58 µs | 169.73 µs | 2.85× |
+| ecdsa-libsecp | 116.27 µs | 161.06 µs | 1.39× |
+| recover-k256 | 119.81 µs | 339.07 µs | 2.83× |
+| recover-libsecp | 124.30 µs | 170.49 µs | 1.37× |
+
 ### Signatures, nightly host builds — machine B
 
 Host libraries built with `nightly-2026-08-01` (see *Toolchain impact on
 host baselines*): curve25519-dalek's runtime-dispatched IFMA backend makes
-the 25519 rows ~1.6× faster than any stable build; portable ≈ native
+the 25519 rows 1.5–1.9× faster than any stable build; portable ≈ native
 because the dispatch is at runtime.
 
 | benchmark | host portable | host native | PVM (64-bit, sync gas) | pvm/portable | pvm/native |
