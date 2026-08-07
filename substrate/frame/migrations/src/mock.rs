@@ -44,10 +44,13 @@ impl frame_system::Config for Test {
 
 frame_support::parameter_types! {
 	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
+	/// The blanket step limit that applies to all migrations.
+	pub static MaxMigrationSteps: u32 = u32::MAX;
 }
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::Config for Test {
+	type MaxMigrationSteps = MaxMigrationSteps;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = crate::mock_helpers::MockedMigrations;
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -104,6 +107,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run this closure in test externalities.
 pub fn test_closure<R>(f: impl FnOnce() -> R) -> R {
+	// Thread locals are shared between tests running on the same thread.
+	MaxMigrationSteps::set(u32::MAX);
 	let mut ext = new_test_ext();
 	ext.execute_with(f)
 }

@@ -95,8 +95,9 @@
 //! in this block, and therefore required more than the maximum amount of weight possible, the
 //! process becomes `Stuck`. Otherwise, one re-attempt is executed with the same logic in the next
 //! block (Goal 3). Progress through the migrations is guaranteed by providing a timeout for each
-//! migration via [`SteppedMigration::max_steps`]. The pallet **ONLY** guarantees progress if this
-//! is set to sensible limits (Goal 7).
+//! migration via [`SteppedMigration::max_steps`], bounded by [`Config::MaxMigrationSteps`] as a
+//! blanket fallback for migrations that do not provide one. The pallet **ONLY** guarantees progress
+//! if at least one of the two is set to a sensible limit (Goal 7).
 //!
 //! ### Scenario: Governance cleanup
 //!
@@ -413,6 +414,21 @@ pub mod pallet {
 		/// The maximum weight to spend each block to execute migrations.
 		type MaxServiceWeight: Get<Weight>;
 
+		/// The maximum number of steps that any single migration may take.
+		///
+		/// A migration advances at most once per block, so this bounds how long a single migration
+		/// can keep the chain in migration mode. It is applied both as a fallback for migrations
+		/// that do not set a [`SteppedMigration::max_steps`] of their own - which would otherwise
+		/// never be aborted - and as an upper bound for those that set a larger one. Note that the
+		/// bound is per migration, so a tuple of `n` migrations can still take `n` times as long.
+		///
+		/// Exceeding it is treated as a failed migration, which leaves the migration partially
+		/// applied and is handed to the [`Config::FailedMigrationHandler`].
+		///
+		/// Use `u32::MAX` to not impose any limit.
+		#[pallet::constant]
+		type MaxMigrationSteps: Get<u32>;
+
 		/// Weight information for the calls and functions of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -452,6 +468,7 @@ pub mod pallet {
 			type MigrationStatusHandler = ();
 			type FailedMigrationHandler = FreezeChainOnFailedMigration;
 			type MaxServiceWeight = TestMaxServiceWeight;
+			type MaxMigrationSteps = ConstU32<{ u32::MAX }>;
 			type WeightInfo = ();
 		}
 	}
@@ -695,11 +712,13 @@ pub mod pallet {
 						System::<T>::block_number().saturating_sub(cursor.started_at);
 					let estimated_steps = blocks_elapsed.saturated_into::<u32>();
 
+					let max_steps = Self::nth_max_steps(cursor.index)?;
+
 					Some(MbmProgress {
 						current_migration: cursor.index,
 						total_migrations: T::Migrations::len(),
 						current_migration_steps: estimated_steps,
-						current_migration_max_steps: T::Migrations::nth_max_steps(cursor.index)?,
+						current_migration_max_steps: (max_steps != u32::MAX).then_some(max_steps),
 					})
 				},
 				_ => None,
@@ -846,7 +865,7 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Continue(cursor));
 		}
 
-		let max_steps = T::Migrations::nth_max_steps(cursor.index);
+		let max_steps = Self::nth_max_steps(cursor.index);
 
 		// If this is the first time running this migration, exec the pre-upgrade hook.
 		#[cfg(feature = "try-runtime")]
@@ -880,7 +899,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
 				cursor.inner_cursor = Some(bound_next_cursor);
 
-				if max_steps.is_some_and(|max| took > max.into()) {
+				if took > max_steps.into() {
 					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None
@@ -922,6 +941,14 @@ impl<T: Config> Pallet<T> {
 				None
 			},
 		}
+	}
+
+	/// The step limit of the `n`th migration, bounded by [`Config::MaxMigrationSteps`].
+	///
+	/// Returns `None` if `n` is out of bounds and `u32::MAX` if the migration is unbounded.
+	fn nth_max_steps(n: u32) -> Option<u32> {
+		T::Migrations::nth_max_steps(n)
+			.map(|max_steps| max_steps.unwrap_or(u32::MAX).min(T::MaxMigrationSteps::get()))
 	}
 
 	/// Fail the current runtime upgrade, caused by `migration`.
