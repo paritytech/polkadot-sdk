@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786026327223,
+  "lastUpdate": 1786098518931,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6de451a105ca0a5feb675a215d4e8de5207febf6",
-          "message": "statement-store: New RPC result types (#10421)\n\n# Description\n\nInternal submittion result type changed to keep more information, which\nshould be useful for RPC clients.\n\nApplication-level errors moved from JSON-RPC transport errors into the\nresult type for `statement_submit` RPC method to help clients\ndistinguish between submission outcomes instead of parsing error\nstrings.\n\nRuntime API wasn't changed.\n\n## Integration\n\n**Breaking Change** - `statement_submit` now returns\n`StatementSubmitResult` enum instead of `()`.\n\n## Review Notes\n\nSubmission outcomes now return as Ok(result) with status field. Only\ninfrastructure failures (database errors, decode errors) remain as\nJSON-RPC errors.\n\nNetworkPriority removed as we never used it, reputation changes\nadjusted.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
-          "timestamp": "2025-12-02T23:02:34Z",
-          "tree_id": "a9c85b731c11359474045c22ae839311d378a4f6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6de451a105ca0a5feb675a215d4e8de5207febf6"
-        },
-        "date": 1764722535735,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00874726179999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00502608349999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002705347380000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.012047127730000011,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "unix1gl@gmail.com",
+            "name": "Nnamdi Aninye",
+            "username": "naijauser"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "83b54d2f2c58baf0d8297933475549f19499de3f",
+          "message": "[RWF] sc-client-db: fix finalization can leave best_number below finalized_number (#12334)\n\nCloses #12305.\n\n## Summary\n`finalize_block_with_transaction` always returns `MetaUpdate { is_best:\nfalse, .. }`, and `update_meta` only updates `best_number`/`best_hash`\nwhen `is_best` is true. If the best block is behind the block being\nfinalized (e.g. after a re-org moves `best` to an earlier block),\nfinalizing a later block leaves `best_number < finalized_number` —\nviolating the metadata invariant.\n\n## Fix\nIn `update_meta`, when applying a finalized `MetaUpdate`, if `number >\nmeta.best_number`, advance `best_number`/`best_hash` to match. A\nfinalized block is canonical by definition, so `best` can never\nlegitimately lag behind `finalized`.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-08-07T08:33:19Z",
+          "tree_id": "8cdfdaaeca6e5a011b05659202b517e657995e5f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83b54d2f2c58baf0d8297933475549f19499de3f"
+        },
+        "date": 1786098486391,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009715763469999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009116517720000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00264767687,
             "unit": "seconds"
           }
         ]
