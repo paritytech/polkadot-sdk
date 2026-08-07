@@ -502,10 +502,8 @@ where
 				},
 			};
 
-			let number_of_blocks = {
-				let mut api = para_client.runtime_api();
-				api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
-				match api.target_block_rate(initial_parent_hash) {
+			let number_of_blocks =
+				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
 					Ok(interval) => interval,
 					Err(error) => {
 						tracing::debug!(
@@ -518,8 +516,7 @@ where
 						// Backwards compatible we use the number of cores as number of blocks.
 						cores.total_cores()
 					},
-				}
-			};
+				};
 
 			// In total we want to have at max `number_of_blocks` cores to use.
 			cores.truncate_cores(number_of_blocks);
