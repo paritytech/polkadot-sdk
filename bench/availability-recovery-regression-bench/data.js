@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786098350628,
+  "lastUpdate": 1786100629623,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9ef2680e213a2d316d00667a7a40afb7e812554d",
-          "message": "cumulus-zombienet-tests: Some optimizations and cleanups (#10462)\n\nThis removes some unneeded code in the tests. It also makes the tests\nwork locally with native provider.\n\n---------\n\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T15:42:25Z",
-          "tree_id": "63bb0868bf0b8be617482b9c531de8feb2d98171",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9ef2680e213a2d316d00667a7a40afb7e812554d"
-        },
-        "date": 1764782442816,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1985635171666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.218102412933332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14324756609999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cde8a924504c99e768940bf6b600716725c3c438",
+          "message": "Remove `pallet-scored-pool` (#12746)\n\n## Summary\n\nRemoves `pallet-scored-pool`.\n\nRationale, as raised in\nhttps://github.com/paritytech/polkadot-sdk/pull/12333#issuecomment-3552749065:\n\n- **Unused.** No runtime in this repository (relay chains, system\nparachains, templates, kitchensink) includes it. Its only in-tree\nconsumer was its own mock.\n- **Unmaintained.** No functional change in years — the last several\ncommits touching it were purely mechanical (rustfmt rule rollouts,\n`RuntimeEvent` removal, dep cleanup, Rust version bumps).\n- **Superseded in practice.** Membership/ranking use cases in the SDK\nare served by `pallet-membership`, `pallet-ranked-collective`, and\n`pallet-core-fellowship`.\n- **Not staking-related.** As confirmed on #12333, staking does not\ninteract with this pallet, so there is no impact on the current or the\nasync staking system.\n\nThis supersedes #12333, which fixes a sort-order bug in the pallet being\nremoved here.\n\n## Changes\n\n- Delete `substrate/frame/scored-pool/`\n- Drop the workspace member entry\n- Drop the `pallet-scored-pool` optional dependency, feature,\n`std`/`try-runtime` propagation, and re-export from the `polkadot-sdk`\numbrella crate\n\n## Notes for reviewers\n\nPer the [deprecation\nchecklist](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DEPRECATION_CHECKLIST.md),\nthe usual path is a hard-deprecation notice with a ~6 month removal\nwindow before removal. I've gone straight to removal here since the\npallet is unused in-tree and has no known production users, but I'm\nhappy to split this into a deprecate-then-remove sequence instead if\nreviewers prefer to follow the checklist strictly — the crate is\npublished on crates.io, so external builders could in principle be\ndepending on it.\n\n`pallet-scored-pool` is intentionally **not** listed in the prdoc\n`crates` section: `check-prdoc.py` validates crate names against the\nworkspace, so a deleted crate cannot be listed there.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-08-07T08:36:45Z",
+          "tree_id": "9789a8131351d4fbab725abc937e68d83f5d2737",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cde8a924504c99e768940bf6b600716725c3c438"
+        },
+        "date": 1786100596957,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.77289538326667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1401633118,
             "unit": "seconds"
           }
         ]
