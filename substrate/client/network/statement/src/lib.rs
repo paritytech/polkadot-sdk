@@ -690,6 +690,15 @@ enum SendKind {
 	},
 }
 
+impl SendKind {
+	fn label(&self) -> &'static str {
+		match self {
+			Self::Propagation => "propagation",
+			Self::InitialSync { .. } => "initial_sync",
+		}
+	}
+}
+
 /// Result of an asynchronous send.
 struct PendingSendResult {
 	peer: PeerId,
@@ -1494,17 +1503,11 @@ where
 	fn handle_send_result(&mut self, send_result: PendingSendResult) {
 		let PendingSendResult { peer, statement_count, bytes_sent, result, kind } = send_result;
 
-		let kind_label = match kind {
-			SendKind::Propagation => "propagation",
-			SendKind::InitialSync { .. } => {
-				self.initial_sync_in_flight_bytes =
-					self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
-				self.metrics.as_ref().map(|metrics| {
-					metrics.initial_sync_in_flight_bytes.set(self.initial_sync_in_flight_bytes)
-				});
-				"initial_sync"
-			},
-		};
+		let kind_label = kind.label();
+		if matches!(kind, SendKind::InitialSync { .. }) {
+			let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
+			self.set_initial_sync_in_flight_bytes(in_flight);
+		}
 
 		let delivered = matches!(result, SendOutcome::Sent);
 		match result {
@@ -1647,6 +1650,14 @@ where
 		}
 	}
 
+	/// Set the in-flight initial-sync byte counter.
+	fn set_initial_sync_in_flight_bytes(&mut self, bytes: u64) {
+		self.initial_sync_in_flight_bytes = bytes;
+		self.metrics
+			.as_ref()
+			.map(|metrics| metrics.initial_sync_in_flight_bytes.set(bytes));
+	}
+
 	/// Record initial sync completion metrics for a peer being removed.
 	fn record_initial_sync_completion(&self, started_at: Instant) {
 		self.metrics.as_ref().map(|metrics| {
@@ -1737,7 +1748,7 @@ where
 			},
 		};
 
-		// Drain the processed hashes; a failed send abandons them, as it did before.
+		// Drain the processed hashes; a failed send abandons them.
 		entry.get_mut().hashes.drain(..processed);
 		drop(entry);
 
@@ -1751,7 +1762,7 @@ where
 					PeerProtocolVersion::V1 => chunk.encode(),
 					PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
 				};
-				let bytes_sent = encoded.len() as u64;
+				let bytes_to_send = encoded.len() as u64;
 				let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
 					log::debug!(
 						target: LOG_TARGET,
@@ -1767,10 +1778,8 @@ where
 					statements.into_iter().take(chunk_end).map(|(hash, _)| hash).collect();
 				let sent_latency =
 					self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
-				self.initial_sync_in_flight_bytes += bytes_sent;
-				self.metrics.as_ref().map(|metrics| {
-					metrics.initial_sync_in_flight_bytes.set(self.initial_sync_in_flight_bytes)
-				});
+				let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
+				self.set_initial_sync_in_flight_bytes(in_flight);
 				self.pending_sends.push(Box::pin(async move {
 					let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
 					let result =
@@ -1779,7 +1788,7 @@ where
 					PendingSendResult {
 						peer: peer_id,
 						statement_count: chunk_end,
-						bytes_sent,
+						bytes_sent: bytes_to_send,
 						result,
 						kind: SendKind::InitialSync { sync_id, hashes },
 					}
