@@ -29,9 +29,9 @@ use p256::{
 		signature::{hazmat::PrehashSigner, SignatureEncoding},
 		DerSignature, SigningKey,
 	},
-	elliptic_curve::sec1::ToEncodedPoint,
+	elliptic_curve::{sec1::ToEncodedPoint, Curve},
 	pkcs8::EncodePrivateKey,
-	EncodedPoint,
+	EncodedPoint, NistP256, U256,
 };
 use sha2::{Digest, Sha256};
 use x509_cert::{
@@ -140,7 +140,12 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 				.chain_update([counter])
 				.finalize()
 				.into_bytes();
-			SigningKey::from_slice(&okm).ok()
+
+			// Range-checked here rather than by letting `SigningKey::from_slice` reject: which
+			// counter wins must not depend on whether out-of-range values are rejected or reduced.
+			let scalar = U256::from_be_slice(&okm);
+			(scalar != U256::ZERO && scalar < NistP256::ORDER)
+				.then(|| SigningKey::from_slice(&okm).expect("checked to be in range; qed"))
 		})
 		.expect("each iteration succeeds with probability 1 - 2^-32, and we have 256 of them; qed")
 }
