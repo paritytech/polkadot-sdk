@@ -43,9 +43,11 @@ use unsigned_varint::encode as varint_encode;
 
 /// Bitswap client.
 mod client;
-pub(crate) mod schema;
+/// Bitswap protobuf schema, generated from the protocol definitions.
+pub mod schema;
 
 pub use cid::Cid;
+
 pub use client::{
 	request_bitswap_blocks, request_bitswap_blocks_unverified, BitswapError, FetchOutcome,
 	BLAKE2B_256_MULTIHASH_CODE, KECCAK_256_MULTIHASH_CODE, SHA2_256_MULTIHASH_CODE,
@@ -85,7 +87,7 @@ pub(crate) fn is_supported_multihash_code(code: u64) -> bool {
 
 /// CID metadata without the actual content bytes.
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub(crate) struct Prefix {
+pub struct Prefix {
 	/// The version of CID.
 	pub version: CidVersion,
 	/// The codec of CID.
@@ -109,7 +111,7 @@ impl From<&Cid> for Prefix {
 
 impl Prefix {
 	/// Convert the prefix to encoded bytes.
-	pub(crate) fn to_bytes(&self) -> Vec<u8> {
+	pub fn to_bytes(&self) -> Vec<u8> {
 		let mut res = Vec::with_capacity(4);
 		let mut buf = varint_encode::u64_buffer();
 		let version = varint_encode::u64(self.version.into(), &mut buf);
