@@ -17,28 +17,47 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! WebRTC DTLS cert/key generation from the node key.
+//!
+//! The certificate is assembled field by field. Its DER encoding is hashed into the
+//! `/certhash/...` component of every address the node advertises, so it must stay
+//! bit-identical across dependency upgrades: no field may be left to a library default that
+//! the X.509 specs leave open.
 
 use hmac::{Hmac, Mac};
 use p256::{
-	ecdsa::{DerSignature, SigningKey, VerifyingKey},
+	ecdsa::{
+		signature::{hazmat::PrehashSigner, SignatureEncoding},
+		DerSignature, SigningKey,
+	},
+	elliptic_curve::{sec1::ToEncodedPoint, Curve},
 	pkcs8::EncodePrivateKey,
+	EncodedPoint, NistP256, U256,
 };
 use sha2::{Digest, Sha256};
 use x509_cert::{
-	builder::{Builder, CertificateBuilder, Profile},
-	der::{asn1::UtcTime, oid::db::rfc5280::ANY_EXTENDED_KEY_USAGE, DateTime, Encode as _},
-	ext::pkix::ExtendedKeyUsage,
-	name::Name,
+	attr::AttributeTypeAndValue,
+	der::{
+		asn1::{Any, BitString, GeneralizedTime, SetOfVec, UtcTime},
+		oid::db::{
+			rfc4519::COMMON_NAME,
+			rfc5912::{ECDSA_WITH_SHA_256, ID_EC_PUBLIC_KEY, SECP_256_R_1},
+		},
+		DateTime, Encode as _, Tag,
+	},
+	name::{Name, RelativeDistinguishedName},
 	serial_number::SerialNumber,
-	spki::SubjectPublicKeyInfoOwned,
+	spki::{AlgorithmIdentifierOwned, SubjectPublicKeyInfoOwned},
 	time::{Time, Validity},
+	Certificate, TbsCertificate, Version,
 };
 
 use litep2p::{crypto::ed25519::SecretKey as Ed25519SecretKey, transport::webrtc::DtlsCertificate};
-use std::str::FromStr;
 
 /// Domain-separation tag used when deriving P-256 key from ed25519 key via HMAC-SHA256.
 const CERTIFICATE_KEY_DST: &[u8] = b"substrate-webrtc-p256-v1";
+
+/// Common name used for both subject and issuer, the certificate being self-signed.
+const SUBJECT_COMMON_NAME: &str = "polkadot-sdk-webrtc";
 
 /// Deterministically generate a WebRTC DTLS certificate from the node's secret key.
 pub fn derive_certificate(
@@ -46,36 +65,58 @@ pub fn derive_certificate(
 ) -> Result<DtlsCertificate, litep2p::Error> {
 	// NOTE: none of the expects in this function are input-dependent.
 	let signing_key = derive_keys(node_secret_key);
-	let spki = SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())
-		.expect("a P-256 verifying key is SPKI-encodable; qed");
-	let serial = derive_serial(signing_key.verifying_key());
-	let validity = generate_validity();
-	let name = Name::from_str("CN=polkadot-sdk-webrtc")
-		.expect("`CN=polkadot-sdk-webrtc` is a valid RDN; qed");
 
-	let mut builder = CertificateBuilder::new(
-		Profile::Manual { issuer: None }, // self-signed, no default extensions
-		serial,
-		validity,
-		name,
-		spki,
-		&signing_key,
-	)
-	.expect("the signature algorithm is fixed and both validity bounds are in range; qed");
+	// RFC 5758 §3.2: `parameters` MUST be absent for ECDSA.
+	let signature_algorithm =
+		AlgorithmIdentifierOwned { oid: ECDSA_WITH_SHA_256, parameters: None };
+	let name = common_name();
+	// Uncompressed SEC1 form, requested explicitly: RFC 5480 permits several point forms.
+	let point = signing_key.verifying_key().as_affine().to_encoded_point(false);
 
-	// Every other WebRTC stack emits v3, but [`CertificateBuilder`] downgrades the certificates
-	// without extensions to v1. Include one non-critical extension to also emit v3.
-	builder
-		.add_extension(&ExtendedKeyUsage(vec![ANY_EXTENDED_KEY_USAGE]))
-		.expect("a single OID is DER-encodable; qed");
+	let tbs_certificate = TbsCertificate {
+		// Every other WebRTC stack emits V3, let's do the same, even though it can be V1.
+		version: Version::V3,
+		serial_number: derive_serial(&point),
+		signature: signature_algorithm.clone(),
+		issuer: name.clone(),
+		validity: validity(),
+		subject: name,
+		subject_public_key_info: SubjectPublicKeyInfoOwned {
+			// RFC 5480 §2.1.1: `namedCurve`, rather than `implicitCurve` or `specifiedCurve`.
+			algorithm: AlgorithmIdentifierOwned {
+				oid: ID_EC_PUBLIC_KEY,
+				parameters: Some(Any::from(SECP_256_R_1)),
+			},
+			subject_public_key: BitString::new(0, point.as_bytes())
+				.expect("a SEC1 point is a whole number of octets; qed"),
+		},
+		// RFC 5280 §4.1.2.8: conforming CAs MUST NOT generate unique identifiers.
+		issuer_unique_id: None,
+		subject_unique_id: None,
+		extensions: None,
+	};
 
-	// Signing fails only if the RFC 6979 nonce or either signature scalar is zero, each with
-	// probability 2^-256.
-	let certificate_der = builder
-		.build::<DerSignature>()
-		.expect("the certificate is well-formed and the signing key valid; qed")
-		.to_der()
-		.expect("a built certificate is DER-encodable; qed");
+	let tbs_der = tbs_certificate.to_der().expect("the certificate is well-formed; qed");
+
+	// `PrehashSigner` is RFC 6979 deterministic ECDSA; the module's determinism rests on it. If
+	// an upgrade ever changes its output (caught by the tests), the old implementation must be
+	// vendored into `sc-network`.
+	//
+	// Signing fails only if the RFC 6979 nonce or a signature scalar is zero (each 2^-256).
+	let signature: DerSignature = signing_key
+		.sign_prehash(&Sha256::digest(&tbs_der))
+		.expect("the signing key is valid; qed");
+
+	let certificate_der = Certificate {
+		tbs_certificate,
+		signature_algorithm,
+		// RFC 3279 §2.2.3: the DER-encoded `Ecdsa-Sig-Value`, with no unused bits.
+		signature: BitString::new(0, signature.to_vec())
+			.expect("an ECDSA signature is a whole number of octets; qed"),
+	}
+	.to_der()
+	.expect("a well-formed certificate is DER-encodable; qed");
+
 	let pk_pkcs8_der = signing_key
 		.to_pkcs8_der()
 		.expect("a P-256 signing key is PKCS#8-encodable; qed")
@@ -85,10 +126,8 @@ pub fn derive_certificate(
 	DtlsCertificate::load(certificate_der, pk_pkcs8_der)
 }
 
-/// Derive P-256 key from ed25519 key.
+/// Derive the P-256 key by rejection-sampling HMAC-SHA256(node key, `DST || counter`).
 fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
-	// P-256 private key is generated via rejection-sampling of a node-secret-key-keyed HMAC-SHA256
-	// of `DST || counter` message.
 	(0u8..)
 		.find_map(|counter| {
 			let okm = Hmac::<Sha256>::new_from_slice(node_secret_key.as_ref())
@@ -97,26 +136,51 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 				.chain_update([counter])
 				.finalize()
 				.into_bytes();
-			SigningKey::from_slice(&okm).ok()
+
+			// Range-checked here rather than by letting `SigningKey::from_slice` reject: which
+			// counter wins must not depend on whether out-of-range values are rejected or reduced.
+			let scalar = U256::from_be_slice(&okm);
+			(scalar != U256::ZERO && scalar < NistP256::ORDER)
+				.then(|| SigningKey::from_slice(&okm).expect("checked to be in range; qed"))
 		})
 		.expect("each iteration succeeds with probability 1 - 2^-32, and we have 256 of them; qed")
 }
 
-/// Derive serial number from a public key. Not required for the operation, only used to not
-/// hardcode identical/zero serials for all certificates.
-fn derive_serial(pubkey: &VerifyingKey) -> SerialNumber {
-	let serial_digest = Sha256::digest(pubkey.to_sec1_bytes());
-	SerialNumber::new(&serial_digest[..16]).expect("below the 20-byte serial number limit; qed")
+/// Serial derived from the public key, only to avoid one hardcoded serial for all certificates.
+fn derive_serial(point: &EncodedPoint) -> SerialNumber {
+	let digest = Sha256::digest(point.as_bytes());
+
+	// A `u64` names exactly one integer, fixing the DER by spec; a byte string would leave
+	// signedness to `SerialNumber`.
+	SerialNumber::from(u64::from_be_bytes(digest[..8].try_into().expect("8 of 32 bytes; qed")))
+}
+
+/// `CN=polkadot-sdk-webrtc`, built explicitly so the attribute's string type is pinned.
+fn common_name() -> Name {
+	let attribute = AttributeTypeAndValue {
+		oid: COMMON_NAME,
+		value: Any::new(Tag::Utf8String, SUBJECT_COMMON_NAME.as_bytes())
+			.expect("the common name is a valid `UTF8String`; qed"),
+	};
+	let rdn = SetOfVec::try_from(vec![attribute]).expect("a single-element set is sorted; qed");
+
+	Name::from(vec![RelativeDistinguishedName::from(rdn)])
 }
 
 /// Fixed validity dates, required for determinism. WebRTC peers pin the certificate by
 /// certhash and ignore its lifetime.
-fn generate_validity() -> Validity {
-	let not_before = DateTime::new(2000, 1, 1, 0, 0, 0)
-		.and_then(UtcTime::from_date_time)
-		.expect("2000-01-01 00:00:00 is a valid date within the `DateTime`/`UtcTime` range; qed")
-		.into();
-	Validity { not_before, not_after: Time::INFINITY }
+fn validity() -> Validity {
+	// RFC 5280 §4.1.2.5.1: dates through 2049 MUST be encoded as `UTCTime`.
+	let not_before = UtcTime::from_date_time(
+		DateTime::new(2000, 1, 1, 0, 0, 0).expect("2000-01-01 00:00:00 is a valid date; qed"),
+	)
+	.expect("2000 is within the `UTCTime` range; qed");
+	// RFC 5280 §4.1.2.5: the encoding for certificates with no well-defined expiration date.
+	let not_after = GeneralizedTime::from_date_time(
+		DateTime::new(9999, 12, 31, 23, 59, 59).expect("9999-12-31 23:59:59 is a valid date; qed"),
+	);
+
+	Validity { not_before: Time::UtcTime(not_before), not_after: Time::GeneralTime(not_after) }
 }
 
 #[cfg(test)]
@@ -127,10 +191,15 @@ mod tests {
 		multihash::Code,
 	};
 
+	/// Node secret key from raw bytes.
+	fn node_key_from(bytes: [u8; 32]) -> Ed25519SecretKey {
+		Ed25519SecretKey::try_from_bytes(bytes)
+			.expect("any 32 bytes are a valid ed25519 secret key; qed")
+	}
+
 	/// Node secret key with every byte set to `byte`.
 	fn node_key(byte: u8) -> Ed25519SecretKey {
-		Ed25519SecretKey::try_from_bytes([byte; 32])
-			.expect("any 32 bytes are a valid ed25519 secret key; qed")
+		node_key_from([byte; 32])
 	}
 
 	/// Compute the `/certhash/<hash>` multiaddress component of a certificate.
@@ -151,17 +220,17 @@ mod tests {
 
 	#[test]
 	fn derive_certificate_uses_version3() {
-		use x509_cert::{der::Decode, Certificate, Version};
+		use x509_cert::der::Decode;
 
 		let certificate = derive_certificate(node_key(1)).unwrap();
 		let (certificate_der, _) = certificate.as_parts();
 
 		let parsed = Certificate::from_der(certificate_der).unwrap();
 
-		// The builder silently downgrades to v1 when the extension list is empty, which drops
-		// the `[0] EXPLICIT version` field from the DER and changes the certhash.
+		// Both fields are optional in the DER, and dropping either changes the certhash: `version`
+		// because v1 is the ASN.1 DEFAULT, `extensions` because it is absent rather than empty.
 		assert_eq!(parsed.tbs_certificate.version, Version::V3);
-		assert!(parsed.tbs_certificate.extensions.as_ref().is_some_and(|ext| !ext.is_empty()));
+		assert!(parsed.tbs_certificate.extensions.is_none());
 	}
 
 	#[test]
@@ -178,17 +247,72 @@ mod tests {
 	fn stable_certhash() {
 		// Pins the node key -> certificate derivation. If this test ever fails, the derivation
 		// changed and the certhash published by every node relying on it breaks.
-		let certificate = derive_certificate(node_key(42)).unwrap();
+		//
+		// Three vectors, because the serial's INTEGER encoding splits on its first byte:
+		// `node_key(7)` (serial `0x87..`) gets a `0x00` sign byte, `node_key(42)` (`0x6e..`)
+		// encodes plain, and the third key (`0x002b..`) has its leading zero stripped.
 		assert_eq!(
-			certhash(&certificate),
-			"/certhash/uEiAdOvFQ8-Yk6jOVs7q1W9O-UTZSPtmQBc9p7CqClfCpHg"
+			certhash(&derive_certificate(node_key(7)).unwrap()),
+			"/certhash/uEiAXqXtF_3QIfMcgXwMgneoB4EuSE_EcpGvKhY4yz7HfcA"
+		);
+		assert_eq!(
+			certhash(&derive_certificate(node_key(42)).unwrap()),
+			"/certhash/uEiAWsH8V-_VMveqodSJYiAhW5FikqSzBNLV0FyeEb_oetA"
+		);
+		let mut stripped_serial_key = [3u8; 32];
+		stripped_serial_key[31] = 26;
+		assert_eq!(
+			certhash(&derive_certificate(node_key_from(stripped_serial_key)).unwrap()),
+			"/certhash/uEiAfSKLRHZTkoALez2X0jqB0Yyh6T4DYQGM3wLpbR1u7dQ"
 		);
 	}
 
 	#[test]
+	fn rfc6979_signing_is_pinned() {
+		use p256::ecdsa::Signature;
+
+		// Everything else in this module states its own encoding; the signature cannot: ECDSA
+		// needs a nonce, and reproducibility rests on `sign_prehash` deriving it via RFC 6979.
+		// The RFC leaves inputs that `ecdsa` fills in for us, so pin the signature itself — an
+		// upgrade changing any of them fails here, naming the cause.
+		//
+		// Pinned only for prehashes below the group order: `ecdsa` 0.16 feeds `h1` to the nonce
+		// DRBG unreduced, 0.17 reduces it per RFC 6979 §2.3.4. Bumping past 0.16 thus changes
+		// the certhash of nodes whose TBS digest is >= `n` — accepted, as that is ~2^-32 of them.
+		let key = SigningKey::from_slice(&array_bytes::hex2bytes_unchecked(
+			"c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
+		))
+		.unwrap();
+
+		// RFC 6979 A.2.5: P-256 with SHA-256, message "sample". Pins the HMAC hash
+		// (`NistP256::Digest`) and the empty additional-data argument.
+		let signature: Signature = key.sign_prehash(&Sha256::digest(b"sample")).unwrap();
+		assert_eq!(
+			array_bytes::bytes2hex("", signature.to_bytes()),
+			"efd48b2aacb6a8fd1140dd9cd45e81d69d2c877b56aaf991c34d0ea84eaf3716\
+			 f7cb1c942d657c41d436c7a1b6e29f65f3e900dbb9aff4064dc4ab2f843acda8"
+		);
+	}
+
+	#[test]
+	fn golden_certificate() {
+		// Same guarantee as `stable_certhash`, but a diffable artifact: on failure, compare the
+		// two encodings field by field to see which one moved.
+		//
+		//     openssl asn1parse -inform DER -in substrate/client/network/res/webrtc_cert.der
+		//
+		// Only ever regenerate this alongside a deliberate, documented derivation change: every
+		// node's advertised `/certhash/...` changes with it.
+		const GOLDEN: &[u8] = include_bytes!("../res/webrtc_cert.der");
+
+		let certificate = derive_certificate(node_key(42)).unwrap();
+		assert_eq!(certificate.as_parts().0.as_slice(), GOLDEN);
+	}
+
+	#[test]
 	fn generated_certificate_is_valid() {
-		use p256::ecdsa::signature::Verifier;
-		use x509_cert::{der::Decode, Certificate};
+		use p256::ecdsa::{signature::Verifier, VerifyingKey};
+		use x509_cert::der::Decode;
 
 		let certificate = derive_certificate(node_key(8)).unwrap();
 		let (certificate_der, _) = certificate.as_parts();
@@ -200,9 +324,11 @@ mod tests {
 			validity.not_after.to_date_time(),
 			DateTime::new(9999, 12, 31, 23, 59, 59).unwrap()
 		);
+		// The choice of time type is part of the encoding, not just the instant it denotes.
+		assert!(matches!(validity.not_before, Time::UtcTime(_)));
+		assert!(matches!(validity.not_after, Time::GeneralTime(_)));
 
-		// The self-signature is an ordinary `ecdsa-with-SHA256` signature, verifiable with
-		// the certificate's own public key.
+		// The self-signature verifies with the certificate's own public key.
 		let public_key = VerifyingKey::from_sec1_bytes(
 			parsed
 				.tbs_certificate
