@@ -1790,60 +1790,57 @@ where
 		entry.get_mut().hashes.drain(..processed);
 		drop(entry);
 
-		let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
-		match find_sendable_chunk(&send_stmts, envelope_overhead) {
-			ChunkResult::Send(0) => {},
-			ChunkResult::Send(chunk_end) => {
-				debug_assert_eq!(send_stmts.len(), chunk_end);
-				let chunk = &send_stmts[..chunk_end];
-				let encoded = match peer_version {
-					PeerProtocolVersion::V1 => chunk.encode(),
-					PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
-				};
-				let bytes_to_send = encoded.len() as u64;
-				let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
-					log::debug!(
-						target: LOG_TARGET,
-						"Failed to get message sink for peer {peer_id}, abandoning its initial sync",
-					);
-					self.record_send_failure(send_failure::NO_SINK, chunk_end);
-					if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-						self.record_initial_sync_abandoned(send_failure::NO_SINK, &pending);
-					}
-					return;
-				};
-				let hashes: Vec<_> =
-					statements.into_iter().take(chunk_end).map(|(hash, _)| hash).collect();
-				let sent_latency =
-					self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
-				let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
-				self.set_initial_sync_in_flight_bytes(in_flight);
-				self.pending_sends.push(Box::pin(async move {
-					let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
-					let result =
-						send_with_timeout(message_sink.send_async_notification(encoded)).await;
-					drop(sent_latency_timer);
-					PendingSendResult {
-						peer: peer_id,
-						statement_count: chunk_end,
-						bytes_sent: bytes_to_send,
-						result,
-						kind: SendKind::InitialSync { sync_id, hashes },
-					}
-				}));
-				return;
-			},
-			ChunkResult::SkipOversized => {
-				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
-				self.metrics.as_ref().map(|metrics| {
-					metrics.skipped_oversized_statements.inc();
-				});
-			},
+		if accumulated_size > max_size {
+			log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+			self.metrics.as_ref().map(|metrics| {
+				metrics.skipped_oversized_statements.inc();
+			});
+			self.initial_sync_peer_queue.push_back(peer_id);
+			return;
 		}
 
-		// Nothing was queued, so no result will arrive for this peer. Put it back and let the next
-		// burst either send the remainder or observe that the sync is done.
-		self.initial_sync_peer_queue.push_back(peer_id);
+		if statements.is_empty() {
+			// Nothing was queued, so no result will arrive for this peer. Put it back and let the
+			// next burst either send the remainder or observe that the sync is done.
+			self.initial_sync_peer_queue.push_back(peer_id);
+			return;
+		}
+
+		let statement_count = statements.len();
+		let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
+		let encoded = match peer_version {
+			PeerProtocolVersion::V1 => send_stmts.encode(),
+			PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(&send_stmts),
+		};
+		let bytes_to_send = encoded.len() as u64;
+		let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to get message sink for peer {peer_id}, abandoning its initial sync",
+			);
+			self.record_send_failure(send_failure::NO_SINK, statement_count);
+			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
+				self.record_initial_sync_abandoned(send_failure::NO_SINK, &pending);
+			}
+			return;
+		};
+		let hashes: Vec<_> = statements.into_iter().map(|(hash, _)| hash).collect();
+		let sent_latency =
+			self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
+		let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
+		self.set_initial_sync_in_flight_bytes(in_flight);
+		self.pending_sends.push(Box::pin(async move {
+			let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
+			let result = send_with_timeout(message_sink.send_async_notification(encoded)).await;
+			drop(sent_latency_timer);
+			PendingSendResult {
+				peer: peer_id,
+				statement_count,
+				bytes_sent: bytes_to_send,
+				result,
+				kind: SendKind::InitialSync { sync_id, hashes },
+			}
+		}));
 	}
 }
 
@@ -2974,6 +2971,49 @@ mod tests {
 			handler.initial_sync_peer_queue.iter().filter(|peer| **peer == peer_id).count(),
 			1
 		);
+	}
+
+	#[tokio::test]
+	async fn initial_sync_respects_the_payload_size_boundary() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+		let peer_id = peer_ids[0];
+		let overhead = handler.peers.get(&peer_id).unwrap().protocol_version.envelope_overhead();
+		let max_size = max_statement_payload_size(overhead);
+
+		let mut data_len = max_size - 32;
+		let exact = loop {
+			let mut candidate = Statement::new();
+			candidate.set_plain_data(vec![7u8; data_len]);
+			let size = candidate.encoded_size();
+			assert!(size <= max_size, "no data length encodes to exactly {max_size}");
+			if size == max_size {
+				break candidate;
+			}
+			data_len += 1;
+		};
+		let exact_hash = exact.hash();
+		let mut oversized = Statement::new();
+		oversized.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
+		let oversized_hash = oversized.hash();
+		statement_store.statements.lock().unwrap().insert(exact_hash, exact);
+		statement_store.statements.lock().unwrap().insert(oversized_hash, oversized);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		for _ in 0..10 {
+			if !handler.pending_initial_syncs.contains_key(&peer_id) {
+				break;
+			}
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().skipped_oversized_statements.get(), 1);
+		let known = &handler.peers.get(&peer_id).unwrap().known_statements;
+		assert!(known.contains(&exact_hash));
+		assert!(!known.contains(&oversized_hash));
 	}
 
 	#[tokio::test]
