@@ -123,6 +123,16 @@ pub struct Schedule<N> {
 	///
 	/// Schedules are forming a queue.
 	next_schedule: Option<N>,
+
+	/// Maximum number of blocks this schedule may serve, if it is block-capped.
+	///
+	/// `None` means the assignments are served on every block until `end_hint` (bulk
+	/// semantics). `Some(n)` means the schedule is exhausted once its assignments have been
+	/// offered on `n` blocks, even if the window given by `end_hint` has not ended yet. This
+	/// expresses "up to `n` blocks, whenever the para manages to claim them within the
+	/// window" — the semantics needed for on-demand orders placed via the coretime chain. An
+	/// offer on a blocked core does not count against the cap.
+	max_blocks: Option<u32>,
 }
 
 impl<N> Schedule<N> {
@@ -133,7 +143,7 @@ impl<N> Schedule<N> {
 		end_hint: Option<N>,
 		next_schedule: Option<N>,
 	) -> Self {
-		Self { assignments, end_hint, next_schedule }
+		Self { assignments, end_hint, next_schedule, max_blocks: None }
 	}
 
 	/// Accessor for assignments (needed by tests).
@@ -236,6 +246,13 @@ pub struct WorkState<N> {
 	///
 	/// How much we subtract from `AssignmentState::remaining` for a core served.
 	pub step: PartsOf57600,
+	/// Blocks this workload may still serve, if it is block-capped.
+	///
+	/// Seeded from `Schedule::max_blocks`. Decremented each time an assignment is offered;
+	/// credited back when the offer could not be served because the core was blocked. Once
+	/// `Some(0)`, the workload is exhausted and the core idles until the window ends or the
+	/// next schedule becomes due.
+	pub remaining_blocks: Option<u32>,
 }
 
 #[derive(Encode, Decode, TypeInfo)]
@@ -309,18 +326,22 @@ impl<'a, T: Config> AccessMode<'a, T> {
 struct AdvancedAssignments {
 	bulk_assignments: Vec<(CoreIndex, ParaId)>,
 	pool_assignments: Vec<(CoreIndex, ParaId)>,
+	/// Cores whose offered assignment consumed a block of a capped workload this round.
+	///
+	/// Used to credit the cap back for cores that turn out to be blocked.
+	capped_cores: Vec<CoreIndex>,
 }
 
 impl AdvancedAssignments {
 	fn into_iter(self) -> impl Iterator<Item = (CoreIndex, ParaId)> {
-		let Self { bulk_assignments, pool_assignments } = self;
+		let Self { bulk_assignments, pool_assignments, capped_cores: _ } = self;
 		bulk_assignments.into_iter().chain(pool_assignments.into_iter())
 	}
 }
 
 impl<N> From<Schedule<N>> for WorkState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
-		let Schedule { assignments, end_hint, next_schedule: _ } = schedule;
+		let Schedule { assignments, end_hint, next_schedule: _, max_blocks } = schedule;
 		let step =
 			if let Some(min_step_assignment) = assignments.iter().min_by(|a, b| a.1.cmp(&b.1)) {
 				min_step_assignment.1
@@ -334,7 +355,7 @@ impl<N> From<Schedule<N>> for WorkState<N> {
 			.map(|(a, ratio)| (a, AssignmentState { ratio, remaining: ratio }))
 			.collect();
 
-		Self { assignments, end_hint, pos: 0, step }
+		Self { assignments, end_hint, pos: 0, step, remaining_blocks: max_blocks }
 	}
 }
 
@@ -401,6 +422,28 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 		on_demand::Pallet::<T>::push_back_order(blocked);
 	}
 
+	// Same for capped workloads: an offer on a blocked core does not count against the cap.
+	let blocked_capped: Vec<CoreIndex> = assignments
+		.capped_cores
+		.iter()
+		.filter(|core_idx| is_blocked(**core_idx))
+		.copied()
+		.collect();
+	if !blocked_capped.is_empty() {
+		super::CoreDescriptors::<T>::mutate(|core_states| {
+			for core_idx in blocked_capped {
+				let Some(remaining) = core_states
+					.get_mut(&core_idx)
+					.and_then(|d| d.current_work.as_mut())
+					.and_then(|w| w.remaining_blocks.as_mut())
+				else {
+					continue
+				};
+				*remaining = remaining.saturating_add(1);
+			}
+		});
+	}
+
 	let mut assignments: BTreeMap<CoreIndex, ParaId> =
 		assignments.into_iter().filter(|(core_idx, _)| !is_blocked(*core_idx)).collect();
 
@@ -448,9 +491,35 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 // least in theory).
 pub(super) fn assign_core<T: Config>(
 	core_idx: CoreIndex,
+	begin: BlockNumberFor<T>,
+	assignments: Vec<(CoreAssignment, PartsOf57600)>,
+	end_hint: Option<BlockNumberFor<T>>,
+) -> Result<(), Error> {
+	assign_core_impl::<T>(core_idx, begin, assignments, end_hint, None)
+}
+
+/// Like [`assign_core`], but the schedule serves at most `max_blocks` blocks within its window.
+///
+/// This is the primitive backing on-demand orders placed on the coretime chain: "give this
+/// para up to `max_blocks` blocks, whenever it manages to claim them between `begin` and
+/// `end`". `end` is required (not a hint) — a capped schedule without an end would occupy
+/// the core's schedule queue forever once exhausted.
+pub(super) fn assign_core_capped<T: Config>(
+	core_idx: CoreIndex,
+	begin: BlockNumberFor<T>,
+	assignments: Vec<(CoreAssignment, PartsOf57600)>,
+	end: BlockNumberFor<T>,
+	max_blocks: u32,
+) -> Result<(), Error> {
+	assign_core_impl::<T>(core_idx, begin, assignments, Some(end), Some(max_blocks))
+}
+
+fn assign_core_impl<T: Config>(
+	core_idx: CoreIndex,
 	mut begin: BlockNumberFor<T>,
 	mut assignments: Vec<(CoreAssignment, PartsOf57600)>,
 	end_hint: Option<BlockNumberFor<T>>,
+	max_blocks: Option<u32>,
 ) -> Result<(), Error> {
 	// There should be at least one assignment.
 	ensure!(!assignments.is_empty(), Error::AssignmentsEmpty);
@@ -493,13 +562,21 @@ pub(super) fn assign_core<T: Config>(
 				}
 
 				super::CoreSchedules::<T>::mutate((begin, core_idx), |schedule| {
-					let assignments = if let Some(mut old_schedule) = schedule.take() {
+					let (assignments, max_blocks) = if let Some(mut old_schedule) = schedule.take()
+					{
 						old_schedule.assignments.append(&mut assignments);
-						old_schedule.assignments
+						// Merging caps: an uncapped part makes the whole schedule uncapped,
+						// otherwise each merged order contributes its own blocks.
+						let merged_cap = old_schedule
+							.max_blocks
+							.zip(max_blocks)
+							.map(|(a, b)| a.saturating_add(b));
+						(old_schedule.assignments, merged_cap)
 					} else {
-						assignments
+						(assignments, max_blocks)
 					};
-					*schedule = Some(Schedule { assignments, end_hint, next_schedule: None });
+					*schedule =
+						Some(Schedule { assignments, end_hint, next_schedule: None, max_blocks });
 				});
 
 				QueueDescriptor { first: queue.first, last: begin }
@@ -508,7 +585,7 @@ pub(super) fn assign_core<T: Config>(
 				// Queue empty, just insert:
 				super::CoreSchedules::<T>::insert(
 					(begin, core_idx),
-					Schedule { assignments, end_hint, next_schedule: None },
+					Schedule { assignments, end_hint, next_schedule: None, max_blocks },
 				);
 				QueueDescriptor { first: begin, last: begin }
 			},
@@ -564,10 +641,17 @@ fn advance_assignments_single_impl<T: Config>(
 ) -> AdvancedAssignments {
 	let mut bulk_assignments = Vec::with_capacity(num_coretime_cores::<T>() as _);
 	let mut pool_cores = Vec::with_capacity(num_coretime_cores::<T>() as _);
+	let mut capped_cores = Vec::new();
 	for (core_idx, core_state) in core_states.iter_mut() {
 		ensure_workload::<T>(now, *core_idx, core_state, &mode);
 
 		let Some(work_state) = core_state.current_work.as_mut() else { continue };
+
+		// Capped workload exhausted? Core idles until the window ends or the next schedule
+		// becomes due.
+		if work_state.remaining_blocks == Some(0) {
+			continue
+		}
 
 		// Wrap around:
 		work_state.pos = work_state.pos % work_state.assignments.len() as u16;
@@ -585,17 +669,29 @@ fn advance_assignments_single_impl<T: Config>(
 			// Reset to ratio + still remaining "credits":
 			a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
 		}
-		match *a_type {
-			CoreAssignment::Pool => pool_cores.push(*core_idx),
-			CoreAssignment::Task(para_id) => bulk_assignments.push((*core_idx, para_id.into())),
-			CoreAssignment::Idle => {},
+		let offered = match *a_type {
+			CoreAssignment::Pool => {
+				pool_cores.push(*core_idx);
+				true
+			},
+			CoreAssignment::Task(para_id) => {
+				bulk_assignments.push((*core_idx, para_id.into()));
+				true
+			},
+			CoreAssignment::Idle => false,
+		};
+		if offered {
+			if let Some(remaining) = work_state.remaining_blocks.as_mut() {
+				*remaining = remaining.saturating_sub(1);
+				capped_cores.push(*core_idx);
+			}
 		}
 	}
 
 	let pool_assignments = mode.pop_assignment_for_ondemand_cores(now, pool_cores.len() as _);
 	let pool_assignments = pool_cores.into_iter().zip(pool_assignments).collect();
 
-	AdvancedAssignments { bulk_assignments, pool_assignments }
+	AdvancedAssignments { bulk_assignments, pool_assignments, capped_cores }
 }
 
 /// Ensure given workload for core is up to date.

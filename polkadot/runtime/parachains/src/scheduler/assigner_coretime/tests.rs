@@ -82,7 +82,12 @@ fn default_test_assignments() -> Vec<(CoreAssignment, PartsOf57600)> {
 }
 
 fn default_test_schedule() -> Schedule<BlockNumberFor<Test>> {
-	Schedule { assignments: default_test_assignments(), end_hint: None, next_schedule: None }
+	Schedule {
+		assignments: default_test_assignments(),
+		end_hint: None,
+		next_schedule: None,
+		max_blocks: None,
+	}
 }
 
 #[test]
@@ -347,6 +352,7 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 				(CoreAssignment::Pool, PartsOf57600(28800)),
 				(CoreAssignment::Idle, PartsOf57600(28800)),
 			],
+			max_blocks: None,
 		};
 
 		// Call assign_core for each of five schedules
@@ -457,6 +463,7 @@ fn ensure_workload_works() {
 			end_hint: Some(BlockNumberFor::<Test>::from(15u32)),
 			pos: 0,
 			step: PartsOf57600::FULL,
+			remaining_blocks: None,
 		}),
 	};
 
@@ -787,4 +794,108 @@ fn parts_of_57600_ops() {
 	assert_eq!(PartsOf57600::ZERO.saturating_sub(PartsOf57600(1)), PartsOf57600::ZERO);
 	assert_eq!(PartsOf57600::FULL.checked_add(PartsOf57600(0)), Some(PartsOf57600::FULL));
 	assert_eq!(PartsOf57600::FULL.checked_add(PartsOf57600(1)), None);
+}
+
+/// Read the remaining block budget of a core's active workload.
+fn remaining_blocks(core_idx: CoreIndex) -> Option<u32> {
+	CoreDescriptors::<Test>::get()
+		.get(&core_idx)
+		.and_then(|d| d.current_work())
+		.and_then(|w| w.remaining_blocks)
+}
+
+#[test]
+fn capped_schedule_serves_at_most_max_blocks() {
+	let core_idx = CoreIndex(0);
+	let task = TaskId::from(1u32); // on-demand para
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
+
+		// GIVEN: a capped schedule: up to 2 blocks for `task` within [11, 30).
+		assert_ok!(assign_core_capped::<Test>(
+			core_idx,
+			BlockNumberFor::<Test>::from(11u32),
+			vec![(CoreAssignment::Task(task), PartsOf57600::FULL)],
+			BlockNumberFor::<Test>::from(30u32),
+			2,
+		));
+
+		// WHEN: the window begins (`run_to_block` advances the claim queue once per block,
+		// consuming the first of the two capped blocks at block 11).
+		run_to_block(11, |_| None);
+
+		// THEN: one block of the cap is consumed, one is left.
+		assert_eq!(remaining_blocks(core_idx), Some(1));
+
+		// WHEN: the assignment is offered again.
+		// THEN: the para is served and the cap is exhausted.
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task.into()));
+		assert_eq!(remaining_blocks(core_idx), Some(0));
+
+		// THEN: no further offers are made, even though the window is still open.
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), None);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), None);
+	});
+}
+
+#[test]
+fn capped_schedule_credits_back_blocked_offers() {
+	let core_idx = CoreIndex(0);
+	let task = TaskId::from(1u32); // on-demand para
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
+
+		// GIVEN: a capped schedule: up to 2 blocks for `task` within [11, 30). One block
+		// is consumed at block 11 by `run_to_block`.
+		assert_ok!(assign_core_capped::<Test>(
+			core_idx,
+			BlockNumberFor::<Test>::from(11u32),
+			vec![(CoreAssignment::Task(task), PartsOf57600::FULL)],
+			BlockNumberFor::<Test>::from(30u32),
+			2,
+		));
+		run_to_block(11, |_| None);
+		assert_eq!(remaining_blocks(core_idx), Some(1));
+
+		// WHEN: the core is blocked while the assignment is offered.
+		// THEN: nothing is served and the cap is credited back.
+		assert_eq!(advance_assignments::<Test, _>(|_| true).get(&core_idx), None);
+		assert_eq!(remaining_blocks(core_idx), Some(1));
+
+		// WHEN: the core is free again.
+		// THEN: the para is served and the cap is consumed.
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task.into()));
+		assert_eq!(remaining_blocks(core_idx), Some(0));
+	});
+}
+
+#[test]
+fn capped_schedule_dropped_at_window_end() {
+	let core_idx = CoreIndex(0);
+	let task = TaskId::from(1u32); // on-demand para
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
+
+		// GIVEN: a capped schedule whose cap (5) exceeds its window [11, 13).
+		assert_ok!(assign_core_capped::<Test>(
+			core_idx,
+			BlockNumberFor::<Test>::from(11u32),
+			vec![(CoreAssignment::Task(task), PartsOf57600::FULL)],
+			BlockNumberFor::<Test>::from(13u32),
+			5,
+		));
+
+		// WHEN: the window ends (blocks 11 and 12 are served by `run_to_block`, block 13
+		// hits the end).
+		run_to_block(13, |_| None);
+
+		// THEN: the workload is dropped with unserved cap remaining, and nothing is offered.
+		assert!(CoreDescriptors::<Test>::get().get(&core_idx).map_or(true, |d| d
+			.current_work()
+			.is_none()));
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), None);
+	});
 }

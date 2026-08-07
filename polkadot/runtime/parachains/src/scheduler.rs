@@ -198,6 +198,21 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Assign a particular core for at most `max_blocks` blocks within `[begin, end)`.
+	///
+	/// Backs on-demand orders placed on the coretime chain.
+	pub(crate) fn assign_core_capped(
+		core: CoreIndex,
+		begin: BlockNumberFor<T>,
+		assignment: Vec<(CoreAssignment, PartsOf57600)>,
+		end: BlockNumberFor<T>,
+		max_blocks: u32,
+	) -> DispatchResult {
+		assigner_coretime::assign_core_capped::<T>(core, begin, assignment, end, max_blocks)
+			.map_err(Error::<T>::from)?;
+		Ok(())
+	}
+
 	/// Advance claim queue.
 	///
 	/// Parameters:

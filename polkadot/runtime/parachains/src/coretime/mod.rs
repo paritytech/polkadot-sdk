@@ -245,6 +245,44 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
 			Ok(())
 		}
+
+		/// Assign a core for at most `max_blocks` blocks within the window `[begin, end)`.
+		///
+		/// Unlike `assign_core`, which hands the assignees every block of the window, this
+		/// serves the assignment for a bounded number of blocks, whenever the assignees manage
+		/// to claim them within the window. This is how on-demand orders placed on the coretime
+		/// chain are scheduled: one order for `para` becomes
+		/// `assign_core_capped(core, now-ish, vec![(Task(para), FULL)], now-ish + window, 1)`.
+		///
+		/// Parameters:
+		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the coretime chain.
+		/// -`core`: The core that should be scheduled.
+		/// -`begin`: The starting blockheight of the instruction.
+		/// -`assignment`: How the blockspace should be utilised.
+		/// -`end`: The end of the window (exclusive); the assignment is dropped at this block
+		///   even if not all `max_blocks` were served.
+		/// -`max_blocks`: How many blocks may be served in total within the window.
+		// Reuses the `assign_core` weight: the code path is identical except for storing one
+		// extra field.
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core(assignment.len() as u32))]
+		pub fn assign_core_capped(
+			origin: OriginFor<T>,
+			core: BrokerCoreIndex,
+			begin: BlockNumberFor<T>,
+			assignment: Vec<(CoreAssignment, PartsOf57600)>,
+			end: BlockNumberFor<T>,
+			max_blocks: u32,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
+
+			let core = u32::from(core).into();
+
+			<scheduler::Pallet<T>>::assign_core_capped(core, begin, assignment, end, max_blocks)?;
+			Self::deposit_event(Event::<T>::CoreAssigned { core });
+			Ok(())
+		}
 	}
 }
 
