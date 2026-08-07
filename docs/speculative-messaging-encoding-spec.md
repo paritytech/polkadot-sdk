@@ -251,6 +251,19 @@ scheduling_proof` precedent); never in the block body or commitments.
 Request-response protocol name: **`/spec-msg/exchange/1`** (the design's
 `EventRequest`/`EventResponse` pair rides the same protocol —
 ⚠ confirm single- vs two-protocol split when the event path lands).
+
+Both request kinds travel in one **exchange envelope**; the discriminant
+byte is part of the wire format and the variant indices are **frozen**:
+
+```rust
+enum ExchangeRequest  { Messages(MessagesRequest)  = 0, Event(EventRequest)  = 1 }
+enum ExchangeResponse { Messages(MessagesResponse) = 0, Event(EventResponse) = 1 }
+```
+
+A response's variant must match its request's — a `Messages` request
+answered by an `Event` response is malformed, independently of its
+proofs.
+
 Objects exactly as the design doc's §Fetch Protocol:
 `MessagesRequest { stream, start, under, max_bytes }`,
 `MessagesResponse { base, leaf_version, payloads, start_peaks, extension,
