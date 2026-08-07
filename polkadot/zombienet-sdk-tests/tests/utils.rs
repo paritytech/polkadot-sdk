@@ -9,7 +9,7 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx::dynamic, OnlineClient, PolkadotConfig},
 	tx_helper::parachain::{fetch_genesis_header, fetch_validation_code},
-	LocalFileSystem, Network, NetworkConfig, NetworkNode,
+	Arg, LocalFileSystem, Network, NetworkConfig, NetworkNode,
 };
 
 pub const PARACHAIN_VALIDATOR_METRIC: &str = "polkadot_node_is_parachain_validator";
@@ -49,6 +49,19 @@ pub async fn initialize_network(
 
 pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
+}
+
+/// Appends `--experimental-collator-protocol` to the command line arguments list if
+/// `with_experimental_collator_protocol` is set to `true`.
+pub fn maybe_enable_experimental_collator_protocol(
+	mut args: Vec<Arg>,
+	with_experimental_collator_protocol: bool,
+) -> Vec<Arg> {
+	if with_experimental_collator_protocol {
+		args.push("--experimental-collator-protocol".into());
+	}
+
+	args
 }
 
 /// Enables the given `node_features` bits at runtime via a single sudo extrinsic.

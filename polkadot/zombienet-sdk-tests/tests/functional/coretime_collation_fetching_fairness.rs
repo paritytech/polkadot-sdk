@@ -7,7 +7,8 @@
 
 use crate::utils::{
 	assert_nodes_are_validators, create_force_register_call, env_or_default,
-	fetch_header_and_validation_code, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	fetch_header_and_validation_code, initialize_network,
+	maybe_enable_experimental_collator_protocol, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -15,6 +16,7 @@ use cumulus_zombienet_sdk_helpers::{
 	wait_for_nth_session_change,
 };
 use polkadot_primitives::Id as ParaId;
+use rstest::rstest;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx},
@@ -26,13 +28,18 @@ use zombienet_sdk::{
 const PARAS: [(u32, &str); 2] =
 	[(2000, "-lparachain=debug,parachain::collator-protocol=trace"), (2001, "-lparachain=debug")];
 
+#[rstest]
+#[case::legacy(false)]
+#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error> {
+async fn coretime_collation_fetching_fairness_test(
+	#[case] with_experimental_collator_protocol: bool,
+) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let config = build_network_config()?;
+	let config = build_network_config(with_experimental_collator_protocol)?;
 	let network = initialize_network(config).await?;
 
 	let validator_nodes = network.relaychain().nodes();
@@ -128,7 +135,9 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 	Ok(())
 }
 
-fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+fn build_network_config(
+	with_experimental_collator_protocol: bool,
+) -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
 	let col_image = env_or_default(COL_IMAGE_ENV, images.cumulus.as_str());
@@ -137,7 +146,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
+			.with_default_args(maybe_enable_experimental_collator_protocol(
+				vec!["-lparachain=debug,runtime=debug".into()],
+				with_experimental_collator_protocol,
+			))
 			.with_genesis_overrides(json!({
 				"patch": {
 					"configuration": {

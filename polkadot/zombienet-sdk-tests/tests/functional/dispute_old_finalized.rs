@@ -17,14 +17,21 @@
 // Test if disputes triggered on finalized blocks out of scope never get to be confirmed and
 // concluded.
 
+use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use rstest::rstest;
 use serde_json::json;
 use tokio::time::Duration;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 
+#[rstest]
+#[case::legacy(false)]
+#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
+async fn dispute_old_finalized(
+	#[case] with_experimental_collator_protocol: bool,
+) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -35,7 +42,10 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(maybe_enable_experimental_collator_protocol(
+					vec![("-lparachain=debug").into()],
+					with_experimental_collator_protocol,
+				))
 				.with_genesis_overrides(json!({
 					"patch": {
 						"configuration" : {
