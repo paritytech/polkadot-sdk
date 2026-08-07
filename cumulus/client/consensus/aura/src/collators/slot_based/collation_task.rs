@@ -211,7 +211,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				}])
 				.expect("One element segment should fit;qed!"),
 			}),
-			"SubmitCollation",
+			"SubmitSegment",
 		)
 		.await;
 }

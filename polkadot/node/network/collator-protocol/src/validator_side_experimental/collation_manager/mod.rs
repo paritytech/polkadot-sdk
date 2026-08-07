@@ -906,15 +906,10 @@ impl CollationManager {
 					// Single-claim shapes synthesize their advertisement; a multi-entry V4
 					// segment gets the TIP as its interim resolution — replaced by the
 					// fetch-time selection walk later
-					let advertisement = segment
-						.as_advertisement(*peer_id, scheduling_parent)
-						.unwrap_or_else(|| Advertisement {
-							scheduling_parent,
-							para_id,
-							peer_id: *peer_id,
-							prospective_candidate: segment.entries.last().copied(),
-							advertised_descriptor_version: segment.descriptor_version,
-						});
+					let advertisement =
+						segment.as_advertisement(*peer_id, scheduling_parent).unwrap_or_else(
+							|| segment.unchecked_as_advertisement(*peer_id, scheduling_parent),
+						);
 					if fetching.contains(&advertisement) {
 						return None;
 					}
@@ -1459,18 +1454,30 @@ struct StoredSegment {
 }
 
 impl StoredSegment {
-	/// The `Advertisement` this segment stands for — only meaningful for the
-	/// single-claim shapes (V1's empty entries, V2/V3's one by-hash entry). A multi-entry
-	/// segment has no single advertisement: which entry gets fetched is the planner's
-	/// fetch-time decision, and the advertisement is built from the resolved entry there.
-	fn as_advertisement(&self, peer_id: PeerId, scheduling_parent: Hash) -> Option<Advertisement> {
-		(self.entries.len() <= 1).then(|| Advertisement {
+	fn unchecked_as_advertisement(
+		&self,
+		peer_id: PeerId,
+		scheduling_parent: Hash,
+	) -> Advertisement {
+		Advertisement {
 			scheduling_parent,
 			para_id: self.para_id,
 			peer_id,
 			prospective_candidate: self.entries.last().copied(),
 			advertised_descriptor_version: self.descriptor_version,
-		})
+		}
+	}
+
+	/// The `Advertisement` this segment stands for — only meaningful for the
+	/// single-claim shapes (V1's empty entries, V2/V3's one by-hash entry). A multi-entry
+	/// segment has no single advertisement: which entry gets fetched is the planner's
+	/// fetch-time decision, and the advertisement is built from the resolved entry there.
+	fn as_advertisement(&self, peer_id: PeerId, scheduling_parent: Hash) -> Option<Advertisement> {
+		if self.entries.len() <= 1 {
+			return Some(self.unchecked_as_advertisement(peer_id, scheduling_parent));
+		}
+
+		None
 	}
 }
 

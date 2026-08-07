@@ -538,7 +538,7 @@ where
 								}])
 								.expect("One element segment should fit;qed!"),
 							}),
-							"SubmitCollation",
+							"SubmitSegment",
 						)
 						.await;
 

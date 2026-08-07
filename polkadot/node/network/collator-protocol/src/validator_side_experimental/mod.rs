@@ -506,7 +506,7 @@ async fn process_incoming_peer_message<Sender, B>(
 			candidates,
 		}) => {
 			if candidates.is_empty() {
-				gum::info!(
+				gum::error!(
 					target: LOG_TARGET,
 					?scheduling_parent,
 					?origin,

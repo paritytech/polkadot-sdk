@@ -572,7 +572,7 @@ pub struct SegmentCollation {
 pub struct SubmitSegmentParams {
 	/// The scheduling parent shared by all collations in the segment.
 	///
-	/// For V2 segments this is the collations' relay parent.For V3 segments it
+	/// For V2 segments this is the collations' relay parent. For V3 segments it
 	/// is the explicit scheduling parent written into every candidate descriptor.
 	///
 	/// WARNING: A scheduling parent distinct from the relay parent (i.e. a V3 segment)
