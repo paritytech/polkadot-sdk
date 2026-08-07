@@ -18,6 +18,8 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 use std::collections::HashMap;
+#[cfg(debug_assertions)]
+use std::collections::HashSet;
 
 use crate::{error, Change, ColumnId, Database, Transaction};
 
@@ -49,10 +51,10 @@ fn read_counter(
 		Some(data) => {
 			let mut counter_data = [0; 4];
 			if data.len() != 4 {
-				return Err(error::DatabaseError(Box::new(std::io::Error::new(
-					std::io::ErrorKind::Other,
-					format!("Unexpected counter len {}", data.len()),
-				))));
+				return Err(error::DatabaseError(Box::new(std::io::Error::other(format!(
+					"Unexpected counter len {}",
+					data.len(),
+				)))));
 			}
 			counter_data.copy_from_slice(&data);
 			let counter = u32::from_le_bytes(counter_data);
@@ -62,61 +64,117 @@ fn read_counter(
 	})
 }
 
+enum RefCountedOp {
+	Store(Vec<u8>),
+	Reference,
+	Release,
+}
+
 /// Commit a transaction to a KeyValueDB.
+///
+/// Ref-counted ops on the same `(col, key)` are replayed in order against one on-disk counter
+/// read, then the final counter/value state is emitted. Without this, multiple
+/// `Store`/`Reference`/`Release` in one tx would each read the stale on-disk counter and write
+/// back to the same counter key — the underlying batch keeps only the last `put`, collapsing N
+/// ops into one.
+///
+/// `Set`/`Remove` are emitted in submission order; ref-counted ops are emitted afterwards.
+/// Debug builds assert that raw and ref-counted ops are not mixed on the same `(col, key)`.
 fn commit_impl<H: Clone + AsRef<[u8]>>(
 	db: &dyn KeyValueDB,
 	transaction: Transaction<H>,
 ) -> error::Result<()> {
 	let mut tx = DBTransaction::new();
-	// Tracks the reference counter value left by `Store`/`Reference`/`Release` operations
-	// already processed in this transaction, so later operations on the same key observe
-	// those pending updates instead of the last committed value.
-	let mut pending_counters: HashMap<(ColumnId, Vec<u8>), Option<u32>> = HashMap::new();
+	let mut ref_counted: HashMap<(ColumnId, Vec<u8>), Vec<RefCountedOp>> = HashMap::new();
+	#[cfg(debug_assertions)]
+	let mut raw_keys: HashSet<(ColumnId, Vec<u8>)> = HashSet::new();
+
 	for change in transaction.0.into_iter() {
 		match change {
-			Change::Set(col, key, value) => tx.put_vec(col, &key, value),
-			Change::Remove(col, key) => tx.delete(col, &key),
+			Change::Set(col, key, value) => {
+				#[cfg(debug_assertions)]
+				raw_keys.insert((col, key.clone()));
+				tx.put_vec(col, &key, value);
+			},
+			Change::Remove(col, key) => {
+				#[cfg(debug_assertions)]
+				raw_keys.insert((col, key.clone()));
+				tx.delete(col, &key);
+			},
 			Change::Store(col, key, value) => {
-				match read_counter(db, &pending_counters, col, key.as_ref())? {
-					(counter_key, Some(mut counter)) => {
-						counter += 1;
-						tx.put(col, &counter_key, &counter.to_le_bytes());
-						pending_counters.insert((col, counter_key), Some(counter));
-					},
-					(counter_key, None) => {
-						let counter = 1u32;
-						tx.put(col, &counter_key, &counter.to_le_bytes());
-						tx.put_vec(col, key.as_ref(), value);
-						pending_counters.insert((col, counter_key), Some(counter));
-					},
-				}
+				ref_counted
+					.entry((col, key.as_ref().to_vec()))
+					.or_default()
+					.push(RefCountedOp::Store(value));
 			},
 			Change::Reference(col, key) => {
-				let (counter_key, counter) =
-					read_counter(db, &pending_counters, col, key.as_ref())?;
-				if let Some(mut counter) = counter {
-					counter += 1;
-					tx.put(col, &counter_key, &counter.to_le_bytes());
-					pending_counters.insert((col, counter_key), Some(counter));
-				}
+				ref_counted
+					.entry((col, key.as_ref().to_vec()))
+					.or_default()
+					.push(RefCountedOp::Reference);
 			},
 			Change::Release(col, key) => {
-				let (counter_key, counter) =
-					read_counter(db, &pending_counters, col, key.as_ref())?;
-				if let Some(mut counter) = counter {
-					counter -= 1;
-					if counter == 0 {
-						tx.delete(col, &counter_key);
-						tx.delete(col, key.as_ref());
-						pending_counters.insert((col, counter_key), None);
-					} else {
-						tx.put(col, &counter_key, &counter.to_le_bytes());
-						pending_counters.insert((col, counter_key), Some(counter));
-					}
-				}
+				ref_counted
+					.entry((col, key.as_ref().to_vec()))
+					.or_default()
+					.push(RefCountedOp::Release);
 			},
 		}
 	}
+
+	#[cfg(debug_assertions)]
+	for raw_key in &raw_keys {
+		debug_assert!(
+			!ref_counted.contains_key(raw_key),
+			"mixed raw/ref-counted database ops on column {}, key {:02x?}",
+			raw_key.0,
+			raw_key.1,
+		);
+	}
+
+	for ((col, key), ops) in ref_counted {
+		let (counter_key, mut counter) = read_counter(db, col, &key)?;
+
+		let mut value_to_write = None;
+		for op in ops {
+			match op {
+				RefCountedOp::Store(value) => match counter {
+					Some(c) => counter = Some(c + 1),
+					None => {
+						counter = Some(1);
+						value_to_write = Some(value);
+					},
+				},
+				RefCountedOp::Reference => {
+					if let Some(c) = counter {
+						counter = Some(c + 1);
+					}
+				},
+				RefCountedOp::Release => match counter {
+					Some(1) => {
+						counter = None;
+						value_to_write = None;
+					},
+					Some(c) => counter = Some(c - 1),
+					None => {},
+				},
+			}
+		}
+
+		match counter {
+			Some(counter) => {
+				tx.put(col, &counter_key, &counter.to_le_bytes());
+				if let Some(value) = value_to_write {
+					tx.put_vec(col, &key, value);
+				}
+			},
+			None => {
+				tx.delete(col, &counter_key);
+				tx.delete(col, &key);
+			},
+		}
+	}
+
 	db.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
 }
 
