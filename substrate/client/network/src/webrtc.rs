@@ -70,8 +70,7 @@ pub fn derive_certificate(
 	let signature_algorithm =
 		AlgorithmIdentifierOwned { oid: ECDSA_WITH_SHA_256, parameters: None };
 	let name = common_name();
-	// Uncompressed SEC1 form, requested explicitly: the `EncodePublicKey` impl would pick the
-	// point form and the curve parameter encoding for us, and RFC 5480 permits several.
+	// Uncompressed SEC1 form, requested explicitly: RFC 5480 permits several point forms.
 	let point = signing_key.verifying_key().as_affine().to_encoded_point(false);
 
 	let tbs_certificate = TbsCertificate {
@@ -99,12 +98,11 @@ pub fn derive_certificate(
 
 	let tbs_der = tbs_certificate.to_der().expect("the certificate is well-formed; qed");
 
-	// `PrehashSigner` is RFC 6979 deterministic ECDSA. Determinism of this whole module rests on
-	// it. If its implementation ever changes and produces different signature than checked in the
-	// tests, we will need to include the old implementation in the source code of `sc-network`.
+	// `PrehashSigner` is RFC 6979 deterministic ECDSA; the module's determinism rests on it. If
+	// an upgrade ever changes its output (caught by the tests), the old implementation must be
+	// vendored into `sc-network`.
 	//
-	// Signing fails only if the RFC 6979 nonce or either signature scalar is zero, each with
-	// probability 2^-256.
+	// Signing fails only if the RFC 6979 nonce or a signature scalar is zero (each 2^-256).
 	let signature: DerSignature = signing_key
 		.sign_prehash(&Sha256::digest(&tbs_der))
 		.expect("the signing key is valid; qed");
@@ -128,10 +126,8 @@ pub fn derive_certificate(
 	DtlsCertificate::load(certificate_der, pk_pkcs8_der)
 }
 
-/// Derive P-256 key from ed25519 key.
+/// Derive the P-256 key by rejection-sampling HMAC-SHA256(node key, `DST || counter`).
 fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
-	// P-256 private key is generated via rejection-sampling of a node-secret-key-keyed HMAC-SHA256
-	// of `DST || counter` message.
 	(0u8..)
 		.find_map(|counter| {
 			let okm = Hmac::<Sha256>::new_from_slice(node_secret_key.as_ref())
@@ -150,13 +146,12 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 		.expect("each iteration succeeds with probability 1 - 2^-32, and we have 256 of them; qed")
 }
 
-/// Derive serial number from a public key. Not required for the operation, only used to not
-/// hardcode identical/zero serials for all certificates.
+/// Serial derived from the public key, only to avoid one hardcoded serial for all certificates.
 fn derive_serial(point: &EncodedPoint) -> SerialNumber {
 	let digest = Sha256::digest(point.as_bytes());
 
-	// A `u64` names exactly one integer, so the DER encoding follows from the spec alone: passing
-	// a byte string instead would leave it to `SerialNumber` whether to read it as signed.
+	// A `u64` names exactly one integer, fixing the DER by spec; a byte string would leave
+	// signedness to `SerialNumber`.
 	SerialNumber::from(u64::from_be_bytes(digest[..8].try_into().expect("8 of 32 bytes; qed")))
 }
 
@@ -276,18 +271,17 @@ mod tests {
 	fn rfc6979_signing_is_pinned() {
 		use p256::ecdsa::Signature;
 
-		// Everything else in this module states its own encoding, but the signature cannot: ECDSA
-		// needs a nonce, and reproducibility rests entirely on `sign_prehash` deriving it via
-		// RFC 6979. The RFC leaves inputs that `ecdsa` fills in on our behalf, so pin the
-		// signature itself — an upgrade that changes any of them fails here, naming the cause,
-		// instead of silently handing every node a new certhash.
+		// Everything else in this module states its own encoding; the signature cannot: ECDSA
+		// needs a nonce, and reproducibility rests on `sign_prehash` deriving it via RFC 6979.
+		// The RFC leaves inputs that `ecdsa` fills in for us, so pin the signature itself — an
+		// upgrade changing any of them fails here, naming the cause.
 		let key = SigningKey::from_slice(&array_bytes::hex2bytes_unchecked(
 			"c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
 		))
 		.unwrap();
 
-		// RFC 6979 A.2.5, P-256 with SHA-256, message "sample" — the vector published in the RFC.
-		// Pins the HMAC hash (`NistP256::Digest`) and the empty additional-data argument.
+		// RFC 6979 A.2.5: P-256 with SHA-256, message "sample". Pins the HMAC hash
+		// (`NistP256::Digest`) and the empty additional-data argument.
 		let signature: Signature = key.sign_prehash(&Sha256::digest(b"sample")).unwrap();
 		assert_eq!(
 			array_bytes::bytes2hex("", signature.to_bytes()),
@@ -305,9 +299,8 @@ mod tests {
 			 16a2094352198c79ebcb9e52de2fd3b02ab5667ac88ea519d45aecd1d8864e42"
 		);
 		// On bumping to `ecdsa` 0.17, the assertion above becomes this. Swapping it in concedes
-		// a real change: nodes whose TBS digest happens to exceed `n` (~2^-32 of them) get a new
-		// certhash, which no other test here will catch, because `node_key(7)` and `node_key(42)`
-		// both hash below `n`.
+		// a real change: nodes whose TBS digest exceeds `n` (~2^-32 of them) get a new certhash,
+		// which no other test catches — every pinned key's TBS digest is below `n`.
 		//
 		// assert_eq!(
 		// 	array_bytes::bytes2hex("", signature.to_bytes()),
@@ -350,8 +343,7 @@ mod tests {
 		assert!(matches!(validity.not_before, Time::UtcTime(_)));
 		assert!(matches!(validity.not_after, Time::GeneralTime(_)));
 
-		// The self-signature is an ordinary `ecdsa-with-SHA256` signature, verifiable with
-		// the certificate's own public key.
+		// The self-signature verifies with the certificate's own public key.
 		let public_key = VerifyingKey::from_sec1_bytes(
 			parsed
 				.tbs_certificate
