@@ -107,6 +107,12 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 				// A finalized block is on the best chain, so the best block is never behind it.
 				let mut best = self.latest_block.write().await;
 				if finalized_block.block_number() >= best.block_number() {
+					log::debug!(target: LOG_TARGET,
+						"Advancing the latest block #{} ({:?}) to the finalized block #{} ({:?}): it is no longer ahead",
+						best.block_number(),
+						best.block_hash(),
+						finalized_block.block_number(),
+						finalized_block.block_hash());
 					*best = finalized_block;
 				}
 			},
@@ -121,7 +127,12 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 				drop(best);
 
 				// A block below the finalized one can never be the chain's best block.
-				if block.block_number() < self.latest_finalized_block.read().await.block_number() {
+				let finalized_number = self.latest_finalized_block.read().await.block_number();
+				if block.block_number() < finalized_number {
+					log::warn!(target: LOG_TARGET,
+						"Ignoring best block #{} ({:?}) below the finalized block #{finalized_number}",
+						block.block_number(),
+						block.block_hash());
 					return;
 				}
 
@@ -131,7 +142,7 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 					Ok(_) => {},
 					Err(err) => {
 						log::debug!(target: LOG_TARGET,
-							"Failed to check if block #{best_number} ({best_hash:?}) is canonical: {err:?}");
+							"Failed to check if block #{best_number} ({best_hash:?}) is canonical, keeping it as the latest block: {err:?}");
 						return;
 					},
 				}
@@ -147,6 +158,10 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 				} else if block.block_number() >=
 					self.latest_finalized_block.read().await.block_number()
 				{
+					log::debug!(target: LOG_TARGET,
+						"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): the chain no longer lists it",
+						block.block_number(),
+						block.block_hash());
 					*best = block;
 				}
 			},
