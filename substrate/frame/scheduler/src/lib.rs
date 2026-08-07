@@ -110,9 +110,9 @@ use sp_runtime::{
 /// [`Config::PriorityReserve`](pallet::Config::PriorityReserve) only if its
 /// [`Priority`](schedule::Priority) is at most this value; otherwise it is rejected with
 /// [`DispatchError::Exhausted`] once the rest of the agenda is full. The scale is inverted (`0`
-/// is most urgent). It is `63` because governance enactments schedule at `63` and privileged
-/// alarms below it.
-pub const RESERVED_PRIORITY_THRESHOLD: schedule::Priority = 63;
+/// is most urgent). It sits just below the `63` that governance uses for enactments, so ordinary
+/// scheduling keeps its existing priority without gaining access to the reserved slots.
+pub const RESERVED_PRIORITY_THRESHOLD: schedule::Priority = 62;
 
 pub use pallet::*;
 pub use weights::WeightInfo;

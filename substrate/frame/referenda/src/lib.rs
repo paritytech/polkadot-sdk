@@ -108,6 +108,11 @@ pub use self::{
 pub use alloc::vec::Vec;
 use sp_runtime::traits::BlockNumberProvider;
 
+/// Scheduler priority used for a referendum's enactment, and the least urgent priority a track's
+/// alarms may use. Tracks default to the neutral `128`, so only a track explicitly configured
+/// below this value gains access to the scheduler's reserved slots.
+const ENACTMENT_PRIORITY: frame_support::traits::schedule::Priority = 63;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -924,13 +929,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Earliest allowed block is always at minimum the next block.
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
-		// Enactment is only reached after the referendum passed, which required the decision
-		// deposit; the track's reserve-band `alarm_priority` therefore applies directly.
+		// Enactment is reached only once the referendum passed, which required the decision
+		// deposit, so the track's `alarm_priority` applies. Tracks without a reserved-band
+		// priority keep the historical enactment priority rather than being demoted.
+		let priority = track.alarm_priority.min(ENACTMENT_PRIORITY);
 		let _ = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
 			None,
-			track.alarm_priority,
+			priority,
 			origin,
 			call,
 		);
