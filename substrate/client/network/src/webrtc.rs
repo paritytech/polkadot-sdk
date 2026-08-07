@@ -17,11 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! WebRTC DTLS cert/key generation from the node key.
-//!
-//! The certificate is assembled field by field. Its DER encoding is hashed into the
-//! `/certhash/...` component of every address the node advertises, so it must stay
-//! bit-identical across dependency upgrades: no field may be left to a library default that
-//! the X.509 specs leave open.
 
 use hmac::{Hmac, Mac};
 use p256::{
