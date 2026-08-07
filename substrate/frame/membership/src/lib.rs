@@ -319,7 +319,7 @@ pub mod pallet {
 				prime = Some(new);
 			}
 
-			T::MembershipChanged::set_prime(Some(prime));
+			T::MembershipChanged::set_prime(prime);
 
 			Self::deposit_event(Event::KeyChanged);
 			Ok(Some(T::WeightInfo::change_key(members_length)).into())
