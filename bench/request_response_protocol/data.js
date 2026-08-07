@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786029997122,
+  "lastUpdate": 1786095767655,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -111887,6 +111887,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2669276126,
             "range": "± 22302117",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b9b2f58e173fdfb982677035ee3691873c7a79c1",
+          "message": "[pallet-revive] eth-rpc: fix `latest` block initialization and reduce per-block RPC calls (#12742)\n\nBoth the finalized and best blocks were initialized using\n`at_current_block()`, which in subxt 0.50 returns the *finalized* block;\nthe best block therefore started behind the chain tip and served stale\nblocks until the subscription caught up. Also reduce the number of RPC\ncalls by reusing the already resolved block in `fetch_receipt_data`, and\nby only requesting receipt data when a block contains EVM extrinsics.\n\n## Changes\n\n- Initialize `latest_block` from the actual best block.\n- Make `update_latest` monotonic, so the startup backlog replayed by\nsubxt 0.50's chainHead subscription can no longer walk a head backwards.\n- Pass the already resolved block to `fetch_receipt_data` instead of a\nhash.\n- Only request receipt data when the block contains pallet-revive\nextrinsics.\n- Raise the `differential-tests` job timeout from 60 to 120 minutes; the\nfull corpus no longer finishes within 60 minutes since the subxt 0.50\nbump. Further investigation of the slowdown will be tackled separately.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-07T08:14:31Z",
+          "tree_id": "4ab121e520b90db75704535cab066cca5685b0cf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9b2f58e173fdfb982677035ee3691873c7a79c1"
+        },
+        "date": 1786095738341,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19337740,
+            "range": "± 326761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19987791,
+            "range": "± 344089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21366540,
+            "range": "± 199291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25595239,
+            "range": "± 240775",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57252395,
+            "range": "± 683975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 324735288,
+            "range": "± 4877013",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2473237781,
+            "range": "± 95808107",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16882092,
+            "range": "± 177054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16781101,
+            "range": "± 162302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17481027,
+            "range": "± 187128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21789738,
+            "range": "± 170432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60794362,
+            "range": "± 689235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 343095453,
+            "range": "± 4812948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2624161101,
+            "range": "± 30123731",
             "unit": "ns/iter"
           }
         ]
