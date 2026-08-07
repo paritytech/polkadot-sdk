@@ -24,8 +24,10 @@ pub use pallet_message_queue;
 pub use pallet_whitelist;
 pub use pallet_xcm;
 
-pub use frame_support::assert_ok;
-pub use frame_support::storage::{with_transaction_unchecked, TransactionOutcome};
+pub use frame_support::{
+	assert_ok,
+	storage::{with_transaction_unchecked, TransactionOutcome},
+};
 
 // Polkadot
 pub use polkadot_runtime_parachains::dmp::Pallet as Dmp;

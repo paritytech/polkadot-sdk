@@ -15,4 +15,4 @@ crates:
 - name: pallet-xcm
   bump: patch
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
