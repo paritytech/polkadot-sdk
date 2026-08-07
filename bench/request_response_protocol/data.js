@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786097752061,
+  "lastUpdate": 1786099881738,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -112103,6 +112103,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2543782789,
             "range": "± 12561159",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cde8a924504c99e768940bf6b600716725c3c438",
+          "message": "Remove `pallet-scored-pool` (#12746)\n\n## Summary\n\nRemoves `pallet-scored-pool`.\n\nRationale, as raised in\nhttps://github.com/paritytech/polkadot-sdk/pull/12333#issuecomment-3552749065:\n\n- **Unused.** No runtime in this repository (relay chains, system\nparachains, templates, kitchensink) includes it. Its only in-tree\nconsumer was its own mock.\n- **Unmaintained.** No functional change in years — the last several\ncommits touching it were purely mechanical (rustfmt rule rollouts,\n`RuntimeEvent` removal, dep cleanup, Rust version bumps).\n- **Superseded in practice.** Membership/ranking use cases in the SDK\nare served by `pallet-membership`, `pallet-ranked-collective`, and\n`pallet-core-fellowship`.\n- **Not staking-related.** As confirmed on #12333, staking does not\ninteract with this pallet, so there is no impact on the current or the\nasync staking system.\n\nThis supersedes #12333, which fixes a sort-order bug in the pallet being\nremoved here.\n\n## Changes\n\n- Delete `substrate/frame/scored-pool/`\n- Drop the workspace member entry\n- Drop the `pallet-scored-pool` optional dependency, feature,\n`std`/`try-runtime` propagation, and re-export from the `polkadot-sdk`\numbrella crate\n\n## Notes for reviewers\n\nPer the [deprecation\nchecklist](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DEPRECATION_CHECKLIST.md),\nthe usual path is a hard-deprecation notice with a ~6 month removal\nwindow before removal. I've gone straight to removal here since the\npallet is unused in-tree and has no known production users, but I'm\nhappy to split this into a deprecate-then-remove sequence instead if\nreviewers prefer to follow the checklist strictly — the crate is\npublished on crates.io, so external builders could in principle be\ndepending on it.\n\n`pallet-scored-pool` is intentionally **not** listed in the prdoc\n`crates` section: `check-prdoc.py` validates crate names against the\nworkspace, so a deleted crate cannot be listed there.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-08-07T08:36:45Z",
+          "tree_id": "9789a8131351d4fbab725abc937e68d83f5d2737",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cde8a924504c99e768940bf6b600716725c3c438"
+        },
+        "date": 1786099848859,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19772266,
+            "range": "± 116548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19830408,
+            "range": "± 148994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21454615,
+            "range": "± 103605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26171512,
+            "range": "± 134268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59863802,
+            "range": "± 906437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 351816423,
+            "range": "± 2525357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2863435588,
+            "range": "± 34567204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16943701,
+            "range": "± 148945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17427006,
+            "range": "± 219368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17639478,
+            "range": "± 246119",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22097666,
+            "range": "± 168828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63473264,
+            "range": "± 645377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375908933,
+            "range": "± 5224695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2717700195,
+            "range": "± 12497125",
             "unit": "ns/iter"
           }
         ]
