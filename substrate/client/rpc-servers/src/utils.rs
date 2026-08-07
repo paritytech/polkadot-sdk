@@ -177,8 +177,7 @@ pub(crate) struct Listener {
 impl Listener {
 	/// Accepts a new connection.
 	///
-	/// Sets `TCP_NODELAY` on the accepted socket: jsonrpsee sets it in its own accept loop, which
-	/// this server bypasses by accepting connections itself.
+	/// Sets `TCP_NODELAY` on the accepted socket, disabling Nagle's algorithm.
 	pub(crate) async fn accept(&mut self) -> std::io::Result<(tokio::net::TcpStream, SocketAddr)> {
 		let (sock, remote_addr) = self.listener.accept().await?;
 		if let Err(err) = sock.set_nodelay(true) {
