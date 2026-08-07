@@ -75,7 +75,7 @@ pub mod async_backing;
 pub mod executor_params;
 pub mod slashing;
 pub mod speculative;
-pub use speculative::{CommitmentError, RequiresSet, StreamsRoot, MAX_SOURCES_PER_BLOCK};
+pub use speculative::{CommitmentError, RequiresSet, StreamsRoot, MAX_COMMITMENT_ENTRIES};
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{

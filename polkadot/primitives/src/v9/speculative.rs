@@ -36,8 +36,11 @@ use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 /// Maximum number of source parachains a receiver can consume from in one block.
-/// Bounds the size of the `requires` commitment (one entry per source).
-pub const MAX_SOURCES_PER_BLOCK: u32 = 128;
+/// Bounds the size of the `requires` commitment (one entry per source). The design's
+/// `MaxCommitmentEntries`: today's registered-parachain count (~200) rounded up, so a
+/// maximally-connected receiver is expressible; the bound is consensus-relevant (decode
+/// rejects larger sets), so all implementations must agree on it.
+pub const MAX_COMMITMENT_ENTRIES: u32 = 256;
 
 /// Root of a sender's stream commitment tree: a binary compact (Patricia) trie keyed by the
 /// canonical SCALE encoding of `StreamId` (8 bytes), leaves = the streams' MMR roots.
@@ -74,14 +77,14 @@ pub struct StreamsRoot(pub Hash);
 	Clone, codec::Encode, codec::MaxEncodedLen, Debug, Default, Eq, PartialEq, scale_info::TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
-pub struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), ConstU32<MAX_SOURCES_PER_BLOCK>>);
+pub struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), ConstU32<MAX_COMMITMENT_ENTRIES>>);
 
 /// Decode is manually implemented to enforce that `ParaId`s are strictly increasing (canonical
 /// form).
 impl codec::Decode for RequiresSet {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let inner =
-			BoundedVec::<(ParaId, StreamsRoot), ConstU32<MAX_SOURCES_PER_BLOCK>>::decode(input)?;
+			BoundedVec::<(ParaId, StreamsRoot), ConstU32<MAX_COMMITMENT_ENTRIES>>::decode(input)?;
 
 		for pair in inner.windows(2) {
 			if pair[0].0 >= pair[1].0 {
@@ -155,7 +158,7 @@ impl<'a> IntoIterator for &'a RequiresSet {
 pub enum CommitmentError {
 	/// The same source `ParaId` appears more than once.
 	DuplicateParaId,
-	/// More entries were provided than `MAX_SOURCES_PER_BLOCK` allows.
+	/// More entries were provided than `MAX_COMMITMENT_ENTRIES` allows.
 	TooManyEntries,
 }
 
@@ -195,7 +198,7 @@ mod tests {
 
 	#[test]
 	fn try_from_iter_rejects_too_many_entries() {
-		let result = RequiresSet::try_from_iter(many(MAX_SOURCES_PER_BLOCK + 1));
+		let result = RequiresSet::try_from_iter(many(MAX_COMMITMENT_ENTRIES + 1));
 		assert_eq!(result, Err(CommitmentError::TooManyEntries));
 	}
 
@@ -230,7 +233,7 @@ mod tests {
 
 	#[test]
 	fn decode_rejects_too_many_entries() {
-		let encoded = many(MAX_SOURCES_PER_BLOCK + 1).encode();
+		let encoded = many(MAX_COMMITMENT_ENTRIES + 1).encode();
 		assert!(RequiresSet::decode(&mut &encoded[..]).is_err());
 	}
 

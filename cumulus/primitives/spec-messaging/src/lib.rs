@@ -72,9 +72,8 @@ pub use streams_root::{StreamProof, StreamsRoot};
 
 // Domain Tags to ensure that the same message structure used in different contexts (e.g. leaf vs
 // inner node) do not collide on the same hash. Tag values are part of the hash preimages. The MMR
-// tags are `LEAF/INNER/PEAK = 0x1/0x2/0x3`, matching the poc-mvp branch; there is no `EMPTY_TAG`
-// (empty streams are never committed to a `StreamsRoot`, so an empty MMR simply has no root). The
-// commitment-tree tags continue at `0x5/0x6`, leaving `0x4` free.
+// tags are `LEAF/INNER/PEAK/EMPTY = 0x1/0x2/0x3/0x4` and the commitment-tree tags `0x5/0x6`,
+// matching the poc-mvp branch (encoding spec §1).
 
 /// Tag for a leaf node.
 pub const LEAF_TAG: u8 = 0x1;
@@ -84,6 +83,12 @@ pub const INNER_TAG: u8 = 0x2;
 
 /// Tag for a peak.
 pub const PEAK_TAG: u8 = 0x3;
+
+/// Tag hashed to produce the defined root of an *empty* MMR frontier, `H(EMPTY_TAG)`
+/// (see [`mmr::empty_root`]): `mmr_lib` errors on empty MMRs, but the protocol needs a
+/// comparable value — the `Interval.start` of a stream's first-ever consumption is
+/// exactly this root.
+pub const EMPTY_TAG: u8 = 0x4;
 
 /// Tag for a `StreamsRoot` commitment-tree leaf: `H(STREAMS_LEAF_TAG ++ key[8] ++
 /// stream_root[32])`. Distinct from [`LEAF_TAG`] so a trie leaf can never collide with an MMR
@@ -112,6 +117,6 @@ pub const LEAF_VERSION: u8 = 0x0;
 ///
 /// A foreign node verifies against this digest **directly** — a pure function of header, response
 /// and proofs, no chain state — so its format is **protocol-standard, not chain-internal**: the
-/// engine-id value is consensus-visible across chains and must be finalized with the design before
-/// mainnet. The current `*b"spmf"` is a placeholder.
-pub const SPMS_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"spmf";
+/// engine-id value is consensus-visible across chains, frozen once anything cross-chain ships.
+/// `*b"SPMS"` is the encoding spec's proposed-final value (§7.4), pending design sign-off.
+pub const SPMS_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"SPMS";

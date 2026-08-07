@@ -353,9 +353,7 @@ pub fn verify_event_response(
 	}
 	let leaf = leaf_hash::<SpecHasher>(resp.leaf_version, &resp.payload);
 	let (position, frontier) = resp.inclusion.verify_head(leaf)?;
-	// `verify_head` always yields ≥ 1 peak, so `root()` is `Some`; treat the impossible `None` as a
-	// proof inconsistency rather than panicking.
-	let root = frontier.root().ok_or(VerifyError::Proof(ProofError::InconsistentFrontier))?;
+	let root = frontier.root();
 	let streams_root =
 		streams_root_from_proof(stream, root.0, &resp.tree_proof).ok_or(VerifyError::TreeProof)?;
 	(streams_root == under)
@@ -522,7 +520,7 @@ mod tests {
 				vec![(
 					stream,
 					Interval {
-						start: frontier_at(&leaves, 2).root().unwrap(),
+						start: frontier_at(&leaves, 2).root(),
 						end: frontier_at(&leaves, 4),
 					},
 				)],
@@ -793,7 +791,7 @@ mod tests {
 		assert_eq!(pos, MessagePosition(head as u64));
 		assert_eq!(payload, payloads[head]);
 		assert_eq!(frontier.leaf_count, 6);
-		assert_eq!(frontier.root().map(|r| r.0), Some(stream_root));
+		assert_eq!(frontier.root().0, stream_root);
 
 		// The request-aware dispatcher (`at = None`) yields the same head result.
 		let req = EventRequest { stream, under, at: None };

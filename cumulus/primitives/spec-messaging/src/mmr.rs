@@ -40,7 +40,7 @@ use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Hash as HashT;
 
-use crate::{INNER_TAG, PEAK_TAG};
+use crate::{EMPTY_TAG, INNER_TAG, PEAK_TAG};
 
 /// A leaf position within a stream's MMR (its leaf count). Newtype, per the design's
 /// `MessagePosition` — a position is not an arbitrary `u64`. Lives here (a leaf module both `lift`
@@ -90,6 +90,14 @@ fn tagged_node<H: HashT<Output = Hash>>(tag: u8, left: &Hash, right: &Hash) -> H
 	<H as HashT>::hash(&preimage)
 }
 
+/// The defined root of an *empty* MMR frontier: `H(EMPTY_TAG)`. `mmr_lib` errors on
+/// empty MMRs, but the protocol needs a comparable value — the `Interval.start` of a
+/// stream's first-ever consumption is exactly this root (encoding spec §3.4). Empty
+/// streams are still never committed to a `StreamsRoot` tree entry.
+pub fn empty_root<H: HashT<Output = Hash>>() -> Hash {
+	<H as HashT>::hash(&[EMPTY_TAG])
+}
+
 /// Compute the MMR root from its non-empty peaks (highest to lowest), matching
 /// `mmr_lib`'s bagging (`merge_peaks(right, left)` folded right-to-left).
 ///
@@ -99,16 +107,13 @@ fn tagged_node<H: HashT<Output = Hash>>(tag: u8, left: &Hash, right: &Hash) -> H
 ///
 /// # Panics
 ///
-/// Panics on an empty `peaks` slice. An empty MMR has no root (`mmr_lib::MMR::
-/// get_root` itself errors on empty), and the protocol never commits one: a
-/// per-stream outbox state only exists after at least one append, and empty
-/// streams are omitted from the `StreamsRoot` tree. So callers always pass a
-/// non-empty slice.
+/// Panics on an empty `peaks` slice — the empty root is a *distinct constant*, not a
+/// bag of zero peaks: use [`empty_root`] (via `MmrFrontier::root`, which branches).
 pub fn root_from_peaks<H: HashT<Output = Hash>>(peaks: &[Hash]) -> Hash {
 	let mut iter = peaks.iter().rev();
-	let mut acc = *iter
-		.next()
-		.expect("root_from_peaks called on empty peaks; an empty MMR has no root; qed");
+	let mut acc = *iter.next().expect(
+		"root_from_peaks called on empty peaks; the empty root is `empty_root`, not a bag; qed",
+	);
 	for left in iter {
 		// mmr_lib bags as merge_peaks(right, left); `acc` carries the right side.
 		acc =
@@ -249,6 +254,18 @@ mod tests {
 			assert_eq!(acc.peaks().len() as u32, acc.size().count_ones());
 		}
 		assert_eq!(acc.root(), reference.get_root().unwrap());
+	}
+
+	#[test]
+	fn empty_root_frozen_vector() {
+		// FROZEN consensus vector: blake2b-256 of the single byte 0x04 (EMPTY_TAG),
+		// the defined root of an empty frontier (encoding spec §3.4).
+		assert_eq!(
+			empty_root::<H>(),
+			Hash::from(hex_literal::hex!(
+				"642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342"
+			))
+		);
 	}
 
 	#[test]

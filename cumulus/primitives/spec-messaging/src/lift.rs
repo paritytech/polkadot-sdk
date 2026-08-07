@@ -51,7 +51,7 @@ use polkadot_primitives::RequiresSet;
 use scale_info::TypeInfo;
 
 use crate::{
-	mmr::{root_from_peaks, MessagePosition, SpecMerge},
+	mmr::{empty_root, root_from_peaks, MessagePosition, SpecMerge},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	SpecHasher,
@@ -87,8 +87,7 @@ pub enum ProofError {
 	PositionOutOfRange,
 	/// An extension does not go strictly forward (its target is not newer than the frontier).
 	NotForward,
-	/// The frontier is self-inconsistent (its peak count does not match its leaf count), or empty
-	/// (an empty frontier has no root to extend from).
+	/// The frontier is self-inconsistent (its peak count does not match its leaf count).
 	InconsistentFrontier,
 	/// An inclusion proof carries more items than any valid single-leaf proof
 	/// ([`MAX_INCLUSION_PROOF_ITEMS`]) — rejected before doing untrusted-input work.
@@ -115,9 +114,16 @@ pub struct MmrFrontier {
 }
 
 impl MmrFrontier {
-	/// The bagged root of this frontier, or `None` for an empty frontier (which has no root).
-	pub fn root(&self) -> Option<MmrRoot> {
-		(!self.peaks.is_empty()).then(|| MmrRoot(root_from_peaks::<SpecHasher>(&self.peaks)))
+	/// The bagged root of this frontier; the empty frontier has the *defined* root
+	/// `H(EMPTY_TAG)` ([`crate::mmr::empty_root`], encoding spec §3.4) — a comparable
+	/// value, so an `Interval.start` of a stream's first-ever consumption stitches
+	/// like any other.
+	pub fn root(&self) -> MmrRoot {
+		if self.peaks.is_empty() {
+			MmrRoot(empty_root::<SpecHasher>())
+		} else {
+			MmrRoot(root_from_peaks::<SpecHasher>(&self.peaks))
+		}
 	}
 
 	/// The `mmr_lib` node count (size) of this frontier's MMR.
@@ -175,7 +181,7 @@ impl MMRExtensionProof {
 			return Err(ProofError::InconsistentFrontier);
 		}
 		if self.is_identity() {
-			return from.root().ok_or(ProofError::InconsistentFrontier);
+			return Ok(from.root());
 		}
 		// Strictly forward: the extended MMR must have more leaves than the frontier.
 		if self.leaf_count <= from.leaf_count {
@@ -195,12 +201,11 @@ impl MMRExtensionProof {
 			if self.connecting_nodes.len() != peaks.len() {
 				return Err(ProofError::InvalidProof);
 			}
-			return MmrFrontier {
+			return Ok(MmrFrontier {
 				peaks: self.connecting_nodes.clone(),
 				leaf_count: self.leaf_count,
 			}
-			.root()
-			.ok_or(ProofError::InvalidProof);
+			.root());
 		}
 
 		// General: `from`'s peaks are complete subtrees of the new MMR at their unchanged
@@ -498,7 +503,7 @@ pub fn stitch(
 	let mut gaps = advances.iter();
 	let mut current = first.end.clone();
 	for next in rest {
-		let current_root = current.root().ok_or(LiftError::BrokenChain)?;
+		let current_root = current.root();
 		if next.start != current_root {
 			// A gap must be a proven forward extension of where we ended.
 			let proof = gaps.next().ok_or(LiftError::MissingAdvance)?;
@@ -586,7 +591,7 @@ mod tests {
 		streams_root::{gen_stream_proof, streams_root},
 	};
 	use mmr_lib::util::{MemMMR, MemStore};
-	use polkadot_primitives::{v9::MAX_SOURCES_PER_BLOCK, MAX_POV_SIZE};
+	use polkadot_primitives::{v9::MAX_COMMITMENT_ENTRIES, MAX_POV_SIZE};
 	use sp_core::H256;
 
 	type H = SpecHasher;
@@ -607,7 +612,7 @@ mod tests {
 
 	/// Bagged root over the first `k` leaves.
 	fn root_at(all: &[Hash], k: usize) -> MmrRoot {
-		frontier_at(all, k).root().unwrap()
+		frontier_at(all, k).root()
 	}
 
 	/// `mmr_lib` node count for `k` leaves.
@@ -711,11 +716,14 @@ mod tests {
 	}
 
 	#[test]
-	fn extension_verify_rejects_inconsistent_frontier() {
-		// An empty frontier has no root to extend from — even the identity extension rejects.
+	fn extension_identity_on_empty_frontier_yields_empty_root() {
+		// The empty frontier has the defined root H(EMPTY_TAG) (encoding spec §3.4); the
+		// identity extension yields it like any other frontier's own root. Nothing binds
+		// it to a committed entry — an empty stream is never in the StreamsRoot tree, so
+		// a downstream tree walk fails naturally.
 		assert_eq!(
 			MMRExtensionProof::identity().verify(&MmrFrontier::default()),
-			Err(ProofError::InconsistentFrontier),
+			Ok(MmrFrontier::default().root()),
 		);
 	}
 
@@ -930,29 +938,28 @@ mod tests {
 		let budget = MAX_POV_SIZE as usize;
 
 		// --- Angle 1: empirical PoV share (real proofs, ≤100k messages, no gaps) ---
-		// A full-source candidate (MAX_SOURCES_PER_BLOCK sources) with a conservative *measured*
-		// lift (deepest 100k-message extension + a 1024-stream tree_proof): what fraction of the
-		// budget do real proofs at representative scale consume? Guards the typical footprint at
-		// <10%.
-		const STREAMS_PER_SOURCE: usize = 4;
+		// A full-cap candidate — `MaxTouchedStreams` touched streams, itself capped at
+		// MAX_COMMITMENT_ENTRIES (one lift per touched stream, regardless of how they spread
+		// over sources) — with a conservative *measured* lift (deepest 100k-message extension +
+		// a 1024-stream tree_proof): what fraction of the budget do real proofs at
+		// representative scale consume? Guards the typical footprint at <10%.
 		let empirical_lift = RequiresLift {
 			advances: Vec::new(),
 			extension: sample_ext, // deepest 100k-message extension measured above
 			tree_proof: tree_proof(1024),
 		};
 		let empirical_per_lift = empirical_lift.encoded_size();
-		let full_candidate =
-			MAX_SOURCES_PER_BLOCK as usize * STREAMS_PER_SOURCE * empirical_per_lift;
+		let full_candidate = MAX_COMMITMENT_ENTRIES as usize * empirical_per_lift;
 		println!(
-			"\n[empirical share]  {} sources × {STREAMS_PER_SOURCE} streams × {empirical_per_lift} B \
+			"\n[empirical share]  {} touched streams × {empirical_per_lift} B \
 			 = {full_candidate} B ({:.2}% of MAX_POV_SIZE = {} MiB)",
-			MAX_SOURCES_PER_BLOCK,
+			MAX_COMMITMENT_ENTRIES,
 			100.0 * full_candidate as f64 / budget as f64,
 			budget / (1024 * 1024),
 		);
 		assert!(
 			full_candidate < budget / 10,
-			"empirical full-source candidate {full_candidate} B exceeds 10% of MAX_POV_SIZE",
+			"empirical full-cap candidate {full_candidate} B exceeds 10% of MAX_POV_SIZE",
 		);
 
 		// --- Angle 2: day-scale worst-case lift (the design's "Proof Size Considerations" sizing)
@@ -981,14 +988,15 @@ mod tests {
 		let max_streams = budget / worst_per_lift;
 		println!(
 			"[headroom]  MAX_POV_SIZE {} MiB / {worst_per_lift} B ≈ {max_streams} day-scale touched streams \
-			 (source cap = {MAX_SOURCES_PER_BLOCK})",
+			 (source cap = {MAX_COMMITMENT_ENTRIES})",
 			budget / (1024 * 1024),
 		);
-		// A candidate names ≤ MAX_SOURCES_PER_BLOCK sources; even at day-scale the PoV must hold at
-		// least that many touched streams, or authoring couldn't fill a block. (Ample margin here.)
+		// A candidate names ≤ MAX_COMMITMENT_ENTRIES sources; even at day-scale the PoV must hold
+		// at least that many touched streams, or authoring couldn't fill a block. (Ample margin
+		// here.)
 		assert!(
-			max_streams >= MAX_SOURCES_PER_BLOCK as usize,
-			"day-scale worst case leaves room for only {max_streams} streams (< {MAX_SOURCES_PER_BLOCK})",
+			max_streams >= MAX_COMMITMENT_ENTRIES as usize,
+			"day-scale worst case leaves room for only {max_streams} streams (< {MAX_COMMITMENT_ENTRIES})",
 		);
 		println!("===== end =====\n");
 	}
@@ -1015,13 +1023,13 @@ mod tests {
 		let (pos, frontier) = proof.verify_head(all[5]).expect("well-formed head proof");
 		assert_eq!(pos, MessagePosition(5));
 		assert_eq!(frontier.leaf_count, 6);
-		assert_eq!(frontier.root(), Some(root_at(&all, 6)));
+		assert_eq!(frontier.root(), root_at(&all, 6));
 
 		// A different leaf under the same proof derives a frontier whose root does NOT match — an
 		// old leaf cannot be forged as the head (the derived-root mismatch is what downstream
 		// `under` comparison rejects).
 		let (_, forged) = proof.verify_head(all[0]).expect("shape still parses");
-		assert_ne!(forged.root(), Some(root_at(&all, 6)));
+		assert_ne!(forged.root(), root_at(&all, 6));
 
 		// Wrong item count (one extra item) → structural reject.
 		let mut bad = proof.clone();
@@ -1046,14 +1054,14 @@ mod tests {
 		let (pos1, f1) = inclusion(&all1, 1, 0).verify_head(all1[0]).expect("n=1 head");
 		assert_eq!(pos1, MessagePosition(0));
 		assert_eq!(f1.leaf_count, 1);
-		assert_eq!(f1.root(), Some(root_at(&all1, 1)));
+		assert_eq!(f1.root(), root_at(&all1, 1));
 
 		// n = 8: a perfect single-peak MMR — a full 3-step sibling path with NO other peaks.
 		let all8 = leaves(8);
 		let (pos8, f8) = inclusion(&all8, 8, 7).verify_head(all8[7]).expect("n=8 head");
 		assert_eq!(pos8, MessagePosition(7));
 		assert_eq!(f8.leaf_count, 8);
-		assert_eq!(f8.root(), Some(root_at(&all8, 8)));
+		assert_eq!(f8.root(), root_at(&all8, 8));
 	}
 
 	#[test]
@@ -1113,7 +1121,7 @@ mod tests {
 		let proof = inclusion(&all, 6, 5);
 		let (pos, frontier) = proof.verify_head(all[5]).expect("head verifies");
 		assert_eq!(pos, MessagePosition(5));
-		let via_head = frontier.root().expect("non-empty frontier");
+		let via_head = frontier.root();
 		let via_leaf = proof.verify_leaf(pos, all[5]).expect("leaf verifies");
 		assert_eq!(via_head, via_leaf);
 		assert_eq!(via_head, root_at(&all, 6));
