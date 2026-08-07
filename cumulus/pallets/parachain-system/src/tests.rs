@@ -1760,10 +1760,10 @@ fn ump_fee_factor_increases_and_decreases() {
 }
 
 #[test]
-fn claim_queue_offset_at_the_v3_lookahead_is_accepted() {
+fn claim_queue_offset_at_the_bound_is_accepted() {
 	let core_info = CoreInfo {
 		selector: CoreSelector(0),
-		claim_queue_offset: ClaimQueueOffset(2),
+		claim_queue_offset: ClaimQueueOffset(1),
 		number_of_cores: codec::Compact(1),
 	};
 
@@ -1776,8 +1776,7 @@ fn claim_queue_offset_at_the_v3_lookahead_is_accepted() {
 			1,
 			|| {},
 			move || {
-				// The offset the collator asked for is forwarded to the relay chain untouched; the
-				// relay is what resolves the core from it.
+				// Forwarded to the relay untouched; the relay resolves the core from it.
 				assert_eq!(
 					UpwardMessages::<Test>::get(),
 					vec![
@@ -1792,14 +1791,14 @@ fn claim_queue_offset_at_the_v3_lookahead_is_accepted() {
 
 /// One past the bound is still rejected, so the check has not been widened into a no-op.
 #[test]
-#[should_panic(expected = "claim_queue_offset 3 exceeds maximum allowed 2")]
+#[should_panic(expected = "claim_queue_offset 2 exceeds maximum allowed 1")]
 fn claim_queue_offset_beyond_the_bound_is_rejected() {
 	BlockTests::new()
 		.with_pre_inherent_digests(vec![DigestItem::PreRuntime(
 			CUMULUS_CONSENSUS_ID,
 			CumulusDigestItem::CoreInfo(CoreInfo {
 				selector: CoreSelector(0),
-				claim_queue_offset: ClaimQueueOffset(3),
+				claim_queue_offset: ClaimQueueOffset(2),
 				number_of_cores: codec::Compact(1),
 			})
 			.encode(),

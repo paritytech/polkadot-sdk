@@ -50,7 +50,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::{ApiExt, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -127,16 +127,25 @@ pub struct BuilderTaskParams<
 	pub max_pov_percentage: Option<u32>,
 }
 
+/// Call context for the runtime queries that shape the candidate.
+///
+/// Resolves `:pending_code` when a code upgrade is staged, matching the blob that will execute the
+/// block and that `ValidationCodeHashProvider` names. The default offchain context resolves `:code`
+/// only, so on an upgrade it shapes the candidate from the *outgoing* runtime — which
+/// `validate_v3_scheduling` then rejects. Differs from the default only for the straddling block.
+const BLOCK_PRODUCTION_CONTEXT: CallContext = CallContext::Onchain { import: false };
+
 fn get_best_hash_and_v3_status<Block: BlockT, Client>(
 	para_client: &Arc<Client>,
 ) -> (Block::Hash, bool)
 where
 	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	Client::Api: SchedulingV3EnabledApi<Block>,
+	Client::Api: SchedulingV3EnabledApi<Block> + ApiExt<Block>,
 {
 	let para_best_hash = para_client.info().best_hash;
-	let v3_enabled_on_para =
-		para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
+	let mut api = para_client.runtime_api();
+	api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+	let v3_enabled_on_para = api.scheduling_v3_enabled(para_best_hash).unwrap_or(false);
 	(para_best_hash, v3_enabled_on_para)
 }
 
@@ -265,10 +274,11 @@ where
 
 			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
-			let relay_parent_offset = para_client
-				.runtime_api()
-				.relay_parent_offset(para_best_hash)
-				.unwrap_or_default();
+			let relay_parent_offset = {
+				let mut api = para_client.runtime_api();
+				api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+				api.relay_parent_offset(para_best_hash).unwrap_or_default()
+			};
 			let mut max_relay_parent_session_age = 0;
 			if v3_enabled {
 				max_relay_parent_session_age = relay_client
@@ -399,8 +409,7 @@ where
 
 			{
 				let mut runtime_api = para_client.runtime_api();
-				runtime_api
-					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+				runtime_api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
 				if let Ok(authorities) = runtime_api.authorities(initial_parent_hash) {
 					connection_helper.update::<P>(para_slot.slot, &authorities).await;
 				}
@@ -450,10 +459,11 @@ where
 			// V1/V2: look up at relay_parent which is relay_parent_offset blocks
 			// behind the tip, so the offset includes relay_parent_offset to
 			// compensate.
-			let maybe_max_claim_queue_offset = para_client
-				.runtime_api()
-				.max_claim_queue_offset(para_best_hash)
-				.map(|offset| offset as u32);
+			let maybe_max_claim_queue_offset = {
+				let mut api = para_client.runtime_api();
+				api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+				api.max_claim_queue_offset(para_best_hash).map(|offset| offset as u32)
+			};
 			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip)
 				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))
@@ -492,8 +502,10 @@ where
 				},
 			};
 
-			let number_of_blocks =
-				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
+			let number_of_blocks = {
+				let mut api = para_client.runtime_api();
+				api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+				match api.target_block_rate(initial_parent_hash) {
 					Ok(interval) => interval,
 					Err(error) => {
 						tracing::debug!(
@@ -506,7 +518,8 @@ where
 						// Backwards compatible we use the number of cores as number of blocks.
 						cores.total_cores()
 					},
-				};
+				}
+			};
 
 			// In total we want to have at max `number_of_blocks` cores to use.
 			cores.truncate_cores(number_of_blocks);
