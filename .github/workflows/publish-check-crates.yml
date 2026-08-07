@@ -27,13 +27,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: install parity-publish
-<<<<<<< HEAD
         run: cargo install parity-publish@0.10.6 --locked -q
-=======
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.17 --locked -q
->>>>>>> d698e656 ([CI/CD] Bump parity-publish version to 0.10.17 (#12819))
 
       - name: parity-publish check
         run: parity-publish --color always check --allow-unpublished
