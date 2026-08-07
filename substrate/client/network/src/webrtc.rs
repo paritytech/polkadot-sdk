@@ -27,17 +27,21 @@ use hmac::{Hmac, Mac};
 use p256::{
 	ecdsa::{
 		signature::{hazmat::PrehashSigner, SignatureEncoding},
-		DerSignature, SigningKey, VerifyingKey,
+		DerSignature, SigningKey,
 	},
 	elliptic_curve::sec1::ToEncodedPoint,
 	pkcs8::EncodePrivateKey,
+	EncodedPoint,
 };
 use sha2::{Digest, Sha256};
 use x509_cert::{
 	attr::AttributeTypeAndValue,
 	der::{
 		asn1::{Any, BitString, GeneralizedTime, SetOfVec, UtcTime},
-		oid::db::{rfc4519::COMMON_NAME, rfc5912::ECDSA_WITH_SHA_256},
+		oid::db::{
+			rfc4519::COMMON_NAME,
+			rfc5912::{ECDSA_WITH_SHA_256, ID_EC_PUBLIC_KEY, SECP_256_R_1},
+		},
 		DateTime, Encode as _, Tag,
 	},
 	name::{Name, RelativeDistinguishedName},
@@ -66,17 +70,27 @@ pub fn derive_certificate(
 	let signature_algorithm =
 		AlgorithmIdentifierOwned { oid: ECDSA_WITH_SHA_256, parameters: None };
 	let name = common_name();
+	// Uncompressed SEC1 form, requested explicitly: the `EncodePublicKey` impl would pick the
+	// point form and the curve parameter encoding for us, and RFC 5480 permits several.
+	let point = signing_key.verifying_key().as_affine().to_encoded_point(false);
 
 	let tbs_certificate = TbsCertificate {
 		// Every other WebRTC stack emits V3, let's do the same, even though it can be V1.
 		version: Version::V3,
-		serial_number: derive_serial(signing_key.verifying_key()),
+		serial_number: derive_serial(&point),
 		signature: signature_algorithm.clone(),
 		issuer: name.clone(),
 		validity: validity(),
 		subject: name,
-		subject_public_key_info: SubjectPublicKeyInfoOwned::from_key(*signing_key.verifying_key())
-			.expect("a P-256 verifying key is SPKI-encodable; qed"),
+		subject_public_key_info: SubjectPublicKeyInfoOwned {
+			// RFC 5480 §2.1.1: `namedCurve`, rather than `implicitCurve` or `specifiedCurve`.
+			algorithm: AlgorithmIdentifierOwned {
+				oid: ID_EC_PUBLIC_KEY,
+				parameters: Some(Any::from(SECP_256_R_1)),
+			},
+			subject_public_key: BitString::new(0, point.as_bytes())
+				.expect("a SEC1 point is a whole number of octets; qed"),
+		},
 		// RFC 5280 §4.1.2.8: conforming CAs MUST NOT generate unique identifiers.
 		issuer_unique_id: None,
 		subject_unique_id: None,
@@ -133,10 +147,12 @@ fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
 
 /// Derive serial number from a public key. Not required for the operation, only used to not
 /// hardcode identical/zero serials for all certificates.
-fn derive_serial(pubkey: &VerifyingKey) -> SerialNumber {
-	let point = pubkey.as_affine().to_encoded_point(false);
-	let serial_digest = Sha256::digest(point.as_bytes());
-	SerialNumber::new(&serial_digest[..16]).expect("below the 20-byte serial number limit; qed")
+fn derive_serial(point: &EncodedPoint) -> SerialNumber {
+	let digest = Sha256::digest(point.as_bytes());
+
+	// A `u64` names exactly one integer, so the DER encoding follows from the spec alone: passing
+	// a byte string instead would leave it to `SerialNumber` whether to read it as signed.
+	SerialNumber::from(u64::from_be_bytes(digest[..8].try_into().expect("8 of 32 bytes; qed")))
 }
 
 /// `CN=polkadot-sdk-webrtc`, built explicitly so the attribute's string type is pinned.
@@ -226,10 +242,16 @@ mod tests {
 	fn stable_certhash() {
 		// Pins the node key -> certificate derivation. If this test ever fails, the derivation
 		// changed and the certhash published by every node relying on it breaks.
-		let certificate = derive_certificate(node_key(42)).unwrap();
+		//
+		// Two vectors, because the serial is encoded differently depending on the top bit of its
+		// first byte: `node_key(7)` takes the `0x00` sign-byte branch, `node_key(42)` does not.
 		assert_eq!(
-			certhash(&certificate),
-			"/certhash/uEiBzHuauYbJMeEYVh8i8jB_KX2DGTppLI4yLF1fUwKTMig"
+			certhash(&derive_certificate(node_key(7)).unwrap()),
+			"/certhash/uEiAXqXtF_3QIfMcgXwMgneoB4EuSE_EcpGvKhY4yz7HfcA"
+		);
+		assert_eq!(
+			certhash(&derive_certificate(node_key(42)).unwrap()),
+			"/certhash/uEiAWsH8V-_VMveqodSJYiAhW5FikqSzBNLV0FyeEb_oetA"
 		);
 	}
 
@@ -250,7 +272,7 @@ mod tests {
 
 	#[test]
 	fn generated_certificate_is_valid() {
-		use p256::ecdsa::signature::Verifier;
+		use p256::ecdsa::{signature::Verifier, VerifyingKey};
 		use x509_cert::der::Decode;
 
 		let certificate = derive_certificate(node_key(8)).unwrap();
