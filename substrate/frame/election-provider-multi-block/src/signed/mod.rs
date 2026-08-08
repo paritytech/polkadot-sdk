@@ -272,8 +272,8 @@ pub mod pallet {
 		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
-		/// Handler for slashed deposits. Use `()` to burn them. On DAP chains use `type Slash = Dap`
-		/// to redirect slashed funds back to the DAP buffer instead.
+		/// Handler for slashed deposits. Use `()` to burn them. On DAP chains use `type Slash =
+		/// Dap` to redirect slashed funds back to the DAP buffer instead.
 		type Slash: OnUnbalanced<FungibleCredit<Self::AccountId, Self::Currency>>;
 
 		/// Source account for reward payments. `Some(pot)` transfers from that account; a failed
@@ -989,7 +989,13 @@ impl<T: Config> Pallet<T> {
 	fn pay_reward(to: &T::AccountId, amount: BalanceOf<T>) {
 		if let Some(source) = T::RewardSource::get() {
 			if T::Currency::transfer(&source, to, amount, Preservation::Expendable).is_err() {
-				sublog!(warn, "signed", "reward pot insufficient; skipping {:?} to {:?}", amount, to);
+				sublog!(
+					warn,
+					"signed",
+					"reward pot insufficient; skipping {:?} to {:?}",
+					amount,
+					to
+				);
 			}
 		} else {
 			let _r = T::Currency::mint_into(to, amount);
