@@ -815,6 +815,15 @@ impl VersionAwareRuntimeApiProvider {
 		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
 	}
 
+	/// Returns the version-aware runtime API of the given block handle.
+	pub async fn at_resolved_block(
+		&self,
+		at_block: OnlineClientAtBlock<SrcChainConfig>,
+	) -> Result<VersionAwareRuntimeApi, ClientError> {
+		let capabilities = self.capabilities(&at_block).await?;
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
+	}
+
 	/// Returns the capabilities of the handle's runtime spec version, computing and caching them
 	/// if they are not cached yet.
 	async fn capabilities(
