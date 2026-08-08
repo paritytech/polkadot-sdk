@@ -420,6 +420,7 @@ parameter_types! {
 	pub static DepositPerPage: Balance = 1;
 	pub static MaxSubmissions: u32 = 2;
 	pub static RewardBase: Balance = 5;
+	pub static SignedRewardSource: Option<AccountId> = None;
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -432,6 +433,8 @@ impl multi_block::signed::Config for Runtime {
 	type EstimateCallFee = ConstU32<1>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
+	type Slash = ();
+	type RewardSource = SignedRewardSource;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
