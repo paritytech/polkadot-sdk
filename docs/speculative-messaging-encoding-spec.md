@@ -308,11 +308,12 @@ Reference algorithms: design §Requires Lifting (`stitch`,
 | `W` (RecentProvides ring) | 128 | governance-adjustable |
 | `MAX_COMMITMENT_ENTRIES` | 256 | frozen — §7.3 |
 | `MAX_UMP_SIGNALS` | 4 | = variant count |
-| Lift reservation | 4096 B/stream | structural ceiling |
-| Advance reservation | 2048 B/gap | structural ceiling |
-| `MaxTouchedStreams` | **⚠ unset** (must be ≤ 256) | needs a recommended value |
-| `MaxContextGaps` | **⚠ unset** | needs a recommended value |
-| `MaxMsgLen` / `MaxMessagesPerBlock` | sender-chain constants | per-chain, STF-enforced sender-side |
+| `MAX_SPECULATIVE_MESSAGE_LEN` | 102 400 B | frozen — wire-enforced hard payload bound (`PayloadTooLarge`) |
+| Lift reservation | design ceiling ~4.2 KB/stream; implemented `LIFT_RESERVATION_BYTES` = 4096 | **⚠ align** — the constant sits below the design's stated ceiling |
+| Advance reservation | design ceiling ~2.1 KB/gap; implemented `ADVANCE_PROOF_RESERVATION_BYTES` = 2048 | **⚠ align** — same |
+| `MAX_EXTENSION_CONNECTING_NODES` / `MAX_INCLUSION_PROOF_ITEMS` | 256 / 128 | defense ceilings — must exceed the valid maxima; exact values not consensus |
+| `MaxTouchedStreams` / `MaxContextGaps` | per-chain receiver constants; reference values 32 / 8 | bound the receiver's own inherent + PoV reservation — nothing cross-chain observes them; constraint `MaxTouchedStreams` ≤ 256 (integrity-checked) |
+| `MaxMessagesPerBlock` / per-chain `MaxMsgLen` (≤ the wire bound) | sender-chain constants | per-chain, STF-enforced sender-side |
 | `SPMS_ENGINE_ID` | **⚠ `*b"SPMS"` proposed**, to be frozen | §7.4 |
 
 ## 12. Conformance test vectors (normative requirement)
@@ -349,7 +350,7 @@ authority on the bytes** — a vector change is a spec change.
 | 2 | `TreeInclusionProof` decode bound in the PoC | bound at 64 (§4.3) |
 | 3 | `SPMS_ENGINE_ID` freeze | `*b"SPMS"` (§7.4) |
 | 4 | `leaf_count` encoding | `u64` (as implemented) + one-word design-doc fix, or `Compact` (§5.3) |
-| 5 | `MaxTouchedStreams` / `MaxContextGaps` | recommended values (§11) |
+| 5 | Reservation constants | bump `LIFT_RESERVATION_BYTES` / `ADVANCE_PROOF_RESERVATION_BYTES` above the design ceilings (§11 ⚠ align) |
 | 6 | Event wire path | single- vs two-protocol split (§9) |
 
 Everything else in this document is settled and implemented in the
