@@ -134,6 +134,7 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type OnParaFrozen = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
 	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<u64>;

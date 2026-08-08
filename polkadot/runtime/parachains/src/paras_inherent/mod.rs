@@ -82,8 +82,9 @@ mod tests;
 
 const LOG_TARGET: &str = "runtime::inclusion-inherent";
 
-/// A bitfield concerning concluded disputes for candidates
-/// associated to the core index equivalent to the bit position.
+/// A bitfield marking cores whose availability votes must be ignored. Bits are set
+/// for cores associated with concluded disputes, and for cores occupied by candidates
+/// belonging to a frozen parachain. The core index corresponds to the bit position.
 #[derive(Default, PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub(crate) struct DisputedBitfield(pub(crate) BitVec<u8, bitvec::order::Lsb0>);
 
@@ -485,9 +486,24 @@ impl<T: Config> Pallet<T> {
 		// I.e. 010100 would indicate, the candidates on Core 1 and 3 would be disputed.
 		let disputed_bitfield = create_disputed_bitfield(expected_bits, freed_disputed.iter());
 
+		// Extend the disputed bitfield to also cover cores occupied by frozen parachains.
+		// This ensures that availability votes for frozen para cores are dropped.
+		let unavailable_cores_bitfield = {
+			let mut bitvec = disputed_bitfield.0;
+			for (core_idx, candidate) in inclusion::Pallet::<T>::get_occupied_cores() {
+				if paras::Pallet::<T>::is_para_frozen(candidate.candidate_descriptor().para_id()) {
+					let idx = core_idx.0 as usize;
+					if idx < bitvec.len() {
+						bitvec.set(idx, true);
+					}
+				}
+			}
+			DisputedBitfield::from(bitvec)
+		};
+
 		let bitfields = sanitize_bitfields::<T>(
 			bitfields,
-			disputed_bitfield,
+			unavailable_cores_bitfield,
 			expected_bits,
 			parent_hash,
 			current_session,
@@ -602,6 +618,19 @@ impl<T: Config> Pallet<T> {
 		for (core_idx, para_id) in scheduled {
 			eligible.entry(para_id).or_default().insert(core_idx);
 		}
+
+		// Filter out frozen parachains from the eligible set.
+		eligible.retain(|para_id, _| {
+			let frozen = paras::Pallet::<T>::is_para_frozen(*para_id);
+			if frozen {
+				log::debug!(
+					target: LOG_TARGET,
+					"Filtering out backed candidates for frozen parachain {:?}",
+					para_id,
+				);
+			}
+			!frozen
+		});
 
 		let node_features = configuration::ActiveConfig::<T>::get().node_features;
 		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
@@ -836,12 +865,12 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 ///  2. bitfields are ascending by validator index.
 ///  3. each bitfield has exactly `expected_bits`
 ///  4. signature is valid
-///  5. remove any disputed core indices
+///  5. remove any disputed core indices or cores occupied by frozen parachains
 ///
 /// If any of those is not passed, the bitfield is dropped.
 pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 	unchecked_bitfields: UncheckedSignedAvailabilityBitfields,
-	disputed_bitfield: DisputedBitfield,
+	unavailable_cores_bitfield: DisputedBitfield,
 	expected_bits: usize,
 	parent_hash: T::Hash,
 	session_index: SessionIndex,
@@ -851,10 +880,10 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 
 	let mut last_index: Option<ValidatorIndex> = None;
 
-	if disputed_bitfield.0.len() != expected_bits {
+	if unavailable_cores_bitfield.0.len() != expected_bits {
 		// This is a system logic error that should never occur, but we want to handle it gracefully
 		// so we just drop all bitfields
-		log::error!(target: LOG_TARGET, "BUG: disputed_bitfield != expected_bits");
+		log::error!(target: LOG_TARGET, "BUG: unavailable_cores_bitfield != expected_bits");
 		return vec![];
 	}
 
@@ -872,13 +901,14 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 			continue;
 		}
 
-		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone() !=
+		if unchecked_bitfield.unchecked_payload().0.clone() & unavailable_cores_bitfield.0.clone() !=
 			all_zeros
 		{
 			log::trace!(
 				target: LOG_TARGET,
-				"bitfield contains disputed cores: {:?}",
-				unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone()
+				"bitfield contains unavailable cores (disputed or frozen): {:?}",
+				unchecked_bitfield.unchecked_payload().0.clone() &
+					unavailable_cores_bitfield.0.clone()
 			);
 			continue;
 		}

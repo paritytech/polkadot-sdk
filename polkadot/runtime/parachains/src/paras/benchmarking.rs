@@ -321,6 +321,59 @@ mod benchmarks {
 		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
 	}
 
+	#[benchmark]
+	fn freeze_parachain() {
+		let para_id = ParaId::from(1000);
+
+		// Register the para as a stable Parachain so freeze_parachain accepts it.
+		ParaLifecycles::<T>::insert(&para_id, ParaLifecycle::Parachain);
+
+		// Give it a current code hash so it is a well-formed para.
+		let current_code = ValidationCode(vec![0u8; MIN_CODE_SIZE as usize]);
+		let current_code_hash = current_code.hash();
+		Pallet::<T>::increase_code_ref(&current_code_hash, &current_code);
+		CurrentCodeHash::<T>::insert(&para_id, current_code_hash);
+
+		// Schedule a pending code upgrade so that freeze_parachain has to cancel it.
+		let future_code = ValidationCode(vec![1u8; MIN_CODE_SIZE as usize]);
+		let config = crate::configuration::ActiveConfig::<T>::get();
+		let now = frame_system::Pallet::<T>::block_number();
+		Pallet::<T>::schedule_code_upgrade(
+			para_id,
+			future_code,
+			now,
+			&config,
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		generate_disordered_upgrades::<T>();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		// Post-conditions: lifecycle is now Frozen, all upgrade state is cleared.
+		assert_eq!(ParaLifecycles::<T>::get(&para_id), Some(ParaLifecycle::FrozenParachain));
+		assert!(FutureCodeHash::<T>::get(&para_id).is_none());
+		assert!(FutureCodeUpgrades::<T>::get(&para_id).is_none());
+		assert!(UpgradeRestrictionSignal::<T>::get(&para_id).is_none());
+		assert_last_event::<T>(Event::ParaFrozen(para_id).into());
+	}
+
+	#[benchmark]
+	fn unfreeze_parachain() {
+		let para_id = ParaId::from(1000);
+
+		// Put the para into the frozen state directly (simulating a prior freeze).
+		ParaLifecycles::<T>::insert(&para_id, ParaLifecycle::FrozenParachain);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		// Post-conditions: lifecycle is back to Parachain.
+		assert_eq!(ParaLifecycles::<T>::get(&para_id), Some(ParaLifecycle::Parachain));
+		assert_last_event::<T>(Event::ParaUnfrozen(para_id).into());
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),

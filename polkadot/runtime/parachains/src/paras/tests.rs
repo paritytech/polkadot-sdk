@@ -29,7 +29,8 @@ use std::sync::Arc;
 use crate::{
 	configuration::HostConfiguration,
 	mock::{
-		new_test_ext, Balances, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin, System, Test,
+		new_test_ext, Balances, MockGenesisConfig, Paras, ParasShared, RuntimeEvent, RuntimeOrigin,
+		System, Test,
 	},
 	paras,
 };
@@ -2419,4 +2420,280 @@ fn prune_expired_authorizations_works() {
 		assert!(AuthorizedCodeHash::<Test>::get(&para_a).is_none());
 		assert!(AuthorizedCodeHash::<Test>::get(&para_b).is_none());
 	})
+}
+
+/// Genesis with one Parachain and one Parathread, both already in stable state.
+fn freeze_test_genesis(parachain_id: ParaId, parathread_id: ParaId) -> MockGenesisConfig {
+	let paras = vec![
+		(
+			parachain_id,
+			ParaGenesisArgs {
+				para_kind: ParaKind::Parachain,
+				genesis_head: dummy_head_data(),
+				validation_code: dummy_validation_code(),
+			},
+		),
+		(
+			parathread_id,
+			ParaGenesisArgs {
+				para_kind: ParaKind::Parathread,
+				genesis_head: dummy_head_data(),
+				validation_code: dummy_validation_code(),
+			},
+		),
+	];
+	MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration { max_downward_message_size: 1024, ..Default::default() },
+		},
+		..Default::default()
+	}
+}
+
+#[test]
+fn freeze_parachain_requires_root() {
+	let para_id = ParaId::from(1);
+	new_test_ext(freeze_test_genesis(para_id, ParaId::from(2))).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+		assert_noop!(
+			Paras::freeze_parachain(RuntimeOrigin::signed(1), para_id),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		assert_noop!(
+			Paras::unfreeze_parachain(RuntimeOrigin::signed(1), para_id),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn freeze_parachain_unknown_para_fails() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+		let unknown = ParaId::from(99);
+		assert_noop!(
+			Paras::freeze_parachain(RuntimeOrigin::root(), unknown),
+			Error::<Test>::CannotFreeze
+		);
+		assert_noop!(
+			Paras::unfreeze_parachain(RuntimeOrigin::root(), unknown),
+			Error::<Test>::NotFrozen
+		);
+	});
+}
+
+#[test]
+fn freeze_parachain_transitions_lifecycle() {
+	let parachain_id = ParaId::from(1);
+	let parathread_id = ParaId::from(2);
+	new_test_ext(freeze_test_genesis(parachain_id, parathread_id)).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+
+		assert_eq!(ParaLifecycles::<Test>::get(&parachain_id), Some(ParaLifecycle::Parachain));
+		assert_eq!(ParaLifecycles::<Test>::get(&parathread_id), Some(ParaLifecycle::Parathread));
+
+		assert_ok!(Paras::freeze_parachain(RuntimeOrigin::root(), parachain_id));
+		assert_ok!(Paras::freeze_parachain(RuntimeOrigin::root(), parathread_id));
+
+		assert_eq!(
+			ParaLifecycles::<Test>::get(&parachain_id),
+			Some(ParaLifecycle::FrozenParachain)
+		);
+		assert_eq!(
+			ParaLifecycles::<Test>::get(&parathread_id),
+			Some(ParaLifecycle::FrozenParathread)
+		);
+		assert!(Paras::is_para_frozen(parachain_id));
+		assert!(Paras::is_para_frozen(parathread_id));
+
+		assert_ok!(Paras::unfreeze_parachain(RuntimeOrigin::root(), parachain_id));
+		assert_ok!(Paras::unfreeze_parachain(RuntimeOrigin::root(), parathread_id));
+
+		assert_eq!(ParaLifecycles::<Test>::get(&parachain_id), Some(ParaLifecycle::Parachain));
+		assert_eq!(ParaLifecycles::<Test>::get(&parathread_id), Some(ParaLifecycle::Parathread));
+		assert!(!Paras::is_para_frozen(parachain_id));
+		assert!(!Paras::is_para_frozen(parathread_id));
+	});
+}
+
+#[test]
+fn freeze_parachain_is_not_idempotent() {
+	let para_id = ParaId::from(1);
+	new_test_ext(freeze_test_genesis(para_id, ParaId::from(2))).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+		assert_ok!(Paras::freeze_parachain(RuntimeOrigin::root(), para_id));
+		assert_noop!(
+			Paras::freeze_parachain(RuntimeOrigin::root(), para_id),
+			Error::<Test>::CannotFreeze
+		);
+	});
+}
+
+#[test]
+fn unfreeze_parachain_on_stable_para_fails() {
+	let para_id = ParaId::from(1);
+	new_test_ext(freeze_test_genesis(para_id, ParaId::from(2))).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+		assert_noop!(
+			Paras::unfreeze_parachain(RuntimeOrigin::root(), para_id),
+			Error::<Test>::NotFrozen
+		);
+	});
+}
+
+#[test]
+fn freeze_parachain_rejects_onboarding_lifecycle() {
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		run_to_block(1, Some(vec![1]));
+		let para_id = ParaId::from(42);
+		assert_ok!(Paras::schedule_para_initialize(
+			para_id,
+			ParaGenesisArgs {
+				para_kind: ParaKind::Parachain,
+				genesis_head: dummy_head_data(),
+				validation_code: dummy_validation_code(),
+			},
+		));
+		// Now in Onboarding — freeze must be rejected.
+		assert_eq!(ParaLifecycles::<Test>::get(&para_id), Some(ParaLifecycle::Onboarding));
+		assert_noop!(
+			Paras::freeze_parachain(RuntimeOrigin::root(), para_id),
+			Error::<Test>::CannotFreeze
+		);
+	});
+}
+
+#[test]
+fn freeze_parachain_cancels_pending_runtime_upgrade() {
+	let para_id = ParaId::from(1);
+	let validation_upgrade_delay = 5;
+	let validation_upgrade_cooldown = 10;
+
+	let original_code = dummy_validation_code();
+	let paras = vec![(
+		para_id,
+		ParaGenesisArgs {
+			para_kind: ParaKind::Parachain,
+			genesis_head: dummy_head_data(),
+			validation_code: original_code,
+		},
+	)];
+	let genesis_config = MockGenesisConfig {
+		paras: GenesisConfig { paras, ..Default::default() },
+		configuration: crate::configuration::GenesisConfig {
+			config: HostConfiguration {
+				validation_upgrade_delay,
+				validation_upgrade_cooldown,
+				..Default::default()
+			},
+		},
+		..Default::default()
+	};
+
+	new_test_ext(genesis_config).execute_with(|| {
+		const EXPECTED_SESSION: SessionIndex = 1;
+		run_to_block(2, Some(vec![1]));
+
+		let new_code = test_validation_code_2();
+		Paras::schedule_code_upgrade(
+			para_id,
+			new_code.clone(),
+			1,
+			&configuration::ActiveConfig::<Test>::get(),
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+		Paras::note_new_head(para_id, Default::default(), 1);
+
+		assert!(FutureCodeHash::<Test>::contains_key(&para_id));
+		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_some());
+		assert!(UpcomingUpgrades::<Test>::get().iter().any(|(id, _)| *id == para_id));
+		assert!(UpgradeCooldowns::<Test>::get().iter().any(|(id, _)| *id == para_id));
+
+		assert_ok!(Paras::freeze_parachain(RuntimeOrigin::root(), para_id));
+
+		// All upgrade bookkeeping for the para is gone, and an Abort signal is set.
+		assert!(!FutureCodeHash::<Test>::contains_key(&para_id));
+		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
+		assert!(UpgradeRestrictionSignal::<Test>::get(&para_id).is_none());
+		assert!(!UpcomingUpgrades::<Test>::get().iter().any(|(id, _)| *id == para_id));
+		assert!(!UpgradeCooldowns::<Test>::get().iter().any(|(id, _)| *id == para_id));
+		assert_eq!(UpgradeGoAheadSignal::<Test>::get(&para_id), Some(UpgradeGoAhead::Abort));
+	});
+}
+
+#[test]
+fn freeze_parachain_invokes_on_para_frozen_hook() {
+	use crate::{dmp, inclusion};
+	let para_id = ParaId::from(1);
+	new_test_ext(freeze_test_genesis(para_id, ParaId::from(2))).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+
+		// Seed inclusion + dmp state that the hook should clear. An empty queue is
+		// sufficient to prove the storage key is removed by the hook.
+		inclusion::PendingAvailability::<Test>::insert(
+			para_id,
+			alloc::collections::VecDeque::<
+				inclusion::CandidatePendingAvailability<
+					<Test as frame_system::Config>::Hash,
+					BlockNumberFor<Test>,
+				>,
+			>::new(),
+		);
+		dmp::Pallet::<Test>::make_parachain_reachable(para_id);
+		assert_ok!(dmp::Pallet::<Test>::queue_downward_message(
+			&configuration::ActiveConfig::<Test>::get(),
+			para_id,
+			vec![1, 2, 3],
+		));
+		assert_eq!(dmp::Pallet::<Test>::dmq_length(para_id), 1);
+
+		assert_ok!(Paras::freeze_parachain(RuntimeOrigin::root(), para_id));
+
+		// Inclusion + DMP state has been wiped by the (ParaInclusion, Dmp) tuple hook.
+		assert!(!inclusion::PendingAvailability::<Test>::contains_key(&para_id));
+		assert_eq!(dmp::Pallet::<Test>::dmq_length(para_id), 0);
+
+		// Further downward messages are rejected while frozen.
+		assert!(matches!(
+			dmp::Pallet::<Test>::queue_downward_message(
+				&configuration::ActiveConfig::<Test>::get(),
+				para_id,
+				vec![4, 5, 6],
+			),
+			Err(dmp::QueueDownwardMessageError::Frozen)
+		));
+
+		// After unfreeze, downward messages flow again.
+		assert_ok!(Paras::unfreeze_parachain(RuntimeOrigin::root(), para_id));
+		assert_ok!(dmp::Pallet::<Test>::queue_downward_message(
+			&configuration::ActiveConfig::<Test>::get(),
+			para_id,
+			vec![7, 8, 9],
+		));
+		assert_eq!(dmp::Pallet::<Test>::dmq_length(para_id), 1);
+	});
+}
+
+#[test]
+fn freeze_parachain_emits_events() {
+	let para_id = ParaId::from(1);
+	new_test_ext(freeze_test_genesis(para_id, ParaId::from(2))).execute_with(|| {
+		run_to_block(2, Some(vec![1]));
+
+		frame_system::Pallet::<Test>::reset_events();
+		assert_ok!(Paras::freeze_parachain(RuntimeOrigin::root(), para_id));
+		assert!(frame_system::Pallet::<Test>::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Paras(Event::ParaFrozen(p)) if p == para_id
+		)));
+
+		frame_system::Pallet::<Test>::reset_events();
+		assert_ok!(Paras::unfreeze_parachain(RuntimeOrigin::root(), para_id));
+		assert!(frame_system::Pallet::<Test>::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Paras(Event::ParaUnfrozen(p)) if p == para_id
+		)));
+	});
 }

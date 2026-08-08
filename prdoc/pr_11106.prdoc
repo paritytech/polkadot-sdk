@@ -1,0 +1,25 @@
+title: 'paras: add freeze/unfreeze parachain functionality'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Resolves https://github.com/paritytech/polkadot-sdk/issues/7635
+
+    This PR Implements the ability to freeze and unfreeze a parachain via root-only extrinsics,
+    as described in the feature request. A frozen parachain is completely halted: it cannot
+    make progress, produce new blocks, or communicate with the relay chain until unfrozen.
+
+    Adds a new `OnParaFrozen` trait (with tuple impls) wired in production runtimes to
+    `(ParaInclusion, Dmp)` so that freezing also drops pending availability candidates,
+    sweeps the UMP queue, and drops the DMP queue for the affected para. Sending further
+    downward messages to a frozen para is rejected via a new
+    `QueueDownwardMessageError::Frozen` variant, surfaced by
+    `paras_sudo_wrapper::Error::DestinationFrozen`.
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor

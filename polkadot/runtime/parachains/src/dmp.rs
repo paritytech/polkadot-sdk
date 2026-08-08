@@ -84,6 +84,8 @@ pub enum QueueDownwardMessageError {
 	ExceedsMaxQueueSize,
 	/// The destination is unknown.
 	Unroutable,
+	/// The destination parachain is frozen and is not accepting downward messages.
+	Frozen,
 }
 
 impl From<QueueDownwardMessageError> for SendError {
@@ -92,6 +94,7 @@ impl From<QueueDownwardMessageError> for SendError {
 			QueueDownwardMessageError::ExceedsMaxMessageSize |
 			QueueDownwardMessageError::ExceedsMaxQueueSize => SendError::ExceedsMaxMessageSize,
 			QueueDownwardMessageError::Unroutable => SendError::Unroutable,
+			QueueDownwardMessageError::Frozen => SendError::Unroutable,
 		}
 	}
 }
@@ -286,6 +289,12 @@ impl<T: Config> Pallet<T> {
 			return Err(QueueDownwardMessageError::Unroutable);
 		}
 
+		// Refuse enqueue while the destination is frozen, so messages don't pile up
+		// against a parachain that cannot consume them.
+		if paras::Pallet::<T>::is_para_frozen(*para) {
+			return Err(QueueDownwardMessageError::Frozen);
+		}
+
 		Ok(())
 	}
 
@@ -421,6 +430,19 @@ impl<T: Config> FeeTracker for Pallet<T> {
 
 	fn set_fee_factor(id: Self::Id, val: FixedU128) {
 		<DeliveryFeeFactor<T>>::set(id, val);
+	}
+}
+
+impl<T: Config> paras::OnParaFrozen for Pallet<T> {
+	fn on_para_frozen(id: ParaId) -> Weight {
+		// Drop pending downward messages and reset the MQC head so the queue doesn't
+		// grow unbounded against a parachain that cannot consume them.
+		let had_queue = DownwardMessageQueues::<T>::contains_key(&id);
+		let had_head = DownwardMessageQueueHeads::<T>::contains_key(&id);
+		DownwardMessageQueues::<T>::remove(&id);
+		DownwardMessageQueueHeads::<T>::remove(&id);
+		let writes = (had_queue as u64) + (had_head as u64);
+		T::DbWeight::get().reads_writes(2, writes)
 	}
 }
 

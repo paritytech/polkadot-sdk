@@ -730,6 +730,7 @@ mod tests {
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
 		type AssignCoretime = ();
+		type OnParaFrozen = ();
 		type Fungible = Balances;
 		type CooldownRemovalMultiplier = ConstUint<1>;
 		type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;

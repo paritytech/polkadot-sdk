@@ -199,6 +199,10 @@ pub enum ParaLifecycle {
 	OffboardingParathread,
 	/// Parachain is queued to be offboarded.
 	OffboardingParachain,
+	/// Para is a frozen lease holding Parachain.
+	FrozenParachain,
+	/// Para is a frozen on-demand parachain.
+	FrozenParathread,
 }
 
 impl ParaLifecycle {
@@ -223,7 +227,8 @@ impl ParaLifecycle {
 			self,
 			ParaLifecycle::Parachain |
 				ParaLifecycle::DowngradingParachain |
-				ParaLifecycle::OffboardingParachain
+				ParaLifecycle::OffboardingParachain |
+				ParaLifecycle::FrozenParachain
 		)
 	}
 
@@ -235,7 +240,8 @@ impl ParaLifecycle {
 			self,
 			ParaLifecycle::Parathread |
 				ParaLifecycle::UpgradingParathread |
-				ParaLifecycle::OffboardingParathread
+				ParaLifecycle::OffboardingParathread |
+				ParaLifecycle::FrozenParathread
 		)
 	}
 
@@ -247,6 +253,11 @@ impl ParaLifecycle {
 	/// Returns true if para is in any transitionary state.
 	pub fn is_transitioning(&self) -> bool {
 		!Self::is_stable(self)
+	}
+
+	/// Returns true if the para is frozen (either parachain or parathread).
+	pub fn is_frozen(&self) -> bool {
+		matches!(self, ParaLifecycle::FrozenParachain | ParaLifecycle::FrozenParathread)
 	}
 }
 
@@ -551,6 +562,20 @@ impl AssignCoretime for () {
 	}
 }
 
+pub trait OnParaFrozen {
+	/// Called when a parachain transitions to a frozen state.
+	fn on_para_frozen(id: ParaId) -> Weight;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl OnParaFrozen for Tuple {
+	fn on_para_frozen(id: ParaId) -> Weight {
+		let mut weight: Weight = Default::default();
+		for_tuples!( #( weight.saturating_accrue(Tuple::on_para_frozen(id)); )* );
+		weight
+	}
+}
+
 /// Holds an authorized validation code hash along with its expiry timestamp.
 #[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -582,6 +607,8 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement() -> Weight;
 	fn authorize_force_set_current_code_hash() -> Weight;
 	fn apply_authorized_force_set_current_code(c: u32) -> Weight;
+	fn freeze_parachain() -> Weight;
+	fn unfreeze_parachain() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -634,6 +661,12 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn apply_authorized_force_set_current_code(_c: u32) -> Weight {
+		Weight::MAX
+	}
+	fn freeze_parachain() -> Weight {
+		Weight::MAX
+	}
+	fn unfreeze_parachain() -> Weight {
 		Weight::MAX
 	}
 }
@@ -689,6 +722,9 @@ pub mod pallet {
 		///
 		/// TODO: Remove once coretime is the standard across all chains.
 		type AssignCoretime: AssignCoretime;
+
+		/// Hook called when a parachain is frozen.
+		type OnParaFrozen: OnParaFrozen;
 
 		/// The fungible instance used by the runtime.
 		type Fungible: Mutate<Self::AccountId, Balance: From<BlockNumberFor<Self>>>;
@@ -747,6 +783,10 @@ pub mod pallet {
 			/// Block at which authorization expires and will be removed.
 			expire_at: BlockNumberFor<T>,
 		},
+		/// A parachain has been frozen.
+		ParaFrozen(ParaId),
+		/// A parachain has been unfrozen.
+		ParaUnfrozen(ParaId),
 	}
 
 	#[pallet::error]
@@ -783,6 +823,10 @@ pub mod pallet {
 		Unauthorized,
 		/// Invalid block number.
 		InvalidBlockNumber,
+		/// Para cannot be frozen, e.g. it is not registered or is onboarding/offboarding.
+		CannotFreeze,
+		/// Para is not currently frozen.
+		NotFrozen,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -1340,6 +1384,70 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
+
+		/// Freeze a parachain. After freezing, the parachain cannot make any progress: no new
+		/// candidates are accepted for backing, candidates pending availability are dropped, and
+		/// pending runtime upgrades are cancelled. Only callable by root.
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::freeze_parachain())]
+		pub fn freeze_parachain(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let lifecycle = ParaLifecycles::<T>::get(&para).ok_or(Error::<T>::CannotFreeze)?;
+
+			// Only stable paras (Parachain or Parathread) can be frozen.
+			let frozen_lifecycle = match lifecycle {
+				ParaLifecycle::Parachain => ParaLifecycle::FrozenParachain,
+				ParaLifecycle::Parathread => ParaLifecycle::FrozenParathread,
+				_ => return Err(Error::<T>::CannotFreeze.into()),
+			};
+
+			ParaLifecycles::<T>::insert(&para, frozen_lifecycle);
+
+			// Cancel any pending runtime upgrade.
+			if let Some(future_code_hash) = FutureCodeHash::<T>::take(&para) {
+				Self::decrease_code_ref(&future_code_hash);
+				UpgradeGoAheadSignal::<T>::insert(&para, UpgradeGoAhead::Abort);
+			}
+			FutureCodeUpgrades::<T>::remove(&para);
+			UpgradeRestrictionSignal::<T>::remove(&para);
+			FutureCodeUpgradesAt::<T>::mutate(|upgrades| {
+				upgrades.retain(|(id, _)| id != &para);
+			});
+			UpcomingUpgrades::<T>::mutate(|upgrades| {
+				upgrades.retain(|(id, _)| id != &para);
+			});
+			// Remove upgrade cooldown so it won't hold state unnecessarily.
+			UpgradeCooldowns::<T>::mutate(|cooldowns| {
+				cooldowns.retain(|(id, _)| id != &para);
+			});
+
+			// Delegate cleanup of pending candidates and UMP queue to the inclusion pallet.
+			T::OnParaFrozen::on_para_frozen(para);
+
+			Self::deposit_event(Event::ParaFrozen(para));
+			Ok(())
+		}
+
+		/// Unfreeze a previously frozen parachain, allowing it to resume progress.
+		/// Only callable by root.
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::unfreeze_parachain())]
+		pub fn unfreeze_parachain(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let lifecycle = ParaLifecycles::<T>::get(&para).ok_or(Error::<T>::NotFrozen)?;
+
+			let unfrozen_lifecycle = match lifecycle {
+				ParaLifecycle::FrozenParachain => ParaLifecycle::Parachain,
+				ParaLifecycle::FrozenParathread => ParaLifecycle::Parathread,
+				_ => return Err(Error::<T>::NotFrozen.into()),
+			};
+
+			ParaLifecycles::<T>::insert(&para, unfrozen_lifecycle);
+			Self::deposit_event(Event::ParaUnfrozen(para));
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1568,8 +1676,8 @@ impl<T: Config> Pallet<T> {
 		for para in actions {
 			let lifecycle = ParaLifecycles::<T>::get(&para);
 			match lifecycle {
-				None | Some(ParaLifecycle::Parathread) | Some(ParaLifecycle::Parachain) => { // Nothing to do...
-				},
+				None | Some(ParaLifecycle::Parathread) | Some(ParaLifecycle::Parachain) => {},
+				Some(ParaLifecycle::FrozenParachain) | Some(ParaLifecycle::FrozenParathread) => {},
 				Some(ParaLifecycle::Onboarding) => {
 					if let Some(genesis_data) = UpcomingParasGenesis::<T>::take(&para) {
 						Self::initialize_para_now(&mut parachains, para, &genesis_data);
@@ -2140,6 +2248,13 @@ impl<T: Config> Pallet<T> {
 			Some(ParaLifecycle::Parachain) => {
 				ParaLifecycles::<T>::insert(&id, ParaLifecycle::OffboardingParachain);
 			},
+			// Allow offboarding frozen paras
+			Some(ParaLifecycle::FrozenParachain) => {
+				ParaLifecycles::<T>::insert(&id, ParaLifecycle::OffboardingParachain);
+			},
+			Some(ParaLifecycle::FrozenParathread) => {
+				ParaLifecycles::<T>::insert(&id, ParaLifecycle::OffboardingParathread);
+			},
 			_ => return Err(Error::<T>::CannotOffboard.into()),
 		}
 
@@ -2468,6 +2583,11 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		}
+	}
+
+	/// Returns whether the given para is currently frozen.
+	pub fn is_para_frozen(id: ParaId) -> bool {
+		ParaLifecycles::<T>::get(&id).map_or(false, |lifecycle| lifecycle.is_frozen())
 	}
 
 	/// Returns whether the given ID refers to a para that is offboarding.

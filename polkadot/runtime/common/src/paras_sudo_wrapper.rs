@@ -52,6 +52,8 @@ pub mod pallet {
 		ExceedsMaxQueueSize,
 		/// A DMP message couldn't be sent because the destination is unreachable.
 		Unroutable,
+		/// A DMP message couldn't be sent because the destination is frozen.
+		DestinationFrozen,
 		/// Could not schedule para cleanup.
 		CouldntCleanup,
 		/// Not a parathread (on-demand parachain).
@@ -166,6 +168,7 @@ pub mod pallet {
 					Error::<T>::ExceedsMaxQueueSize.into()
 				},
 				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
+				dmp::QueueDownwardMessageError::Frozen => Error::<T>::DestinationFrozen.into(),
 			})
 		}
 
