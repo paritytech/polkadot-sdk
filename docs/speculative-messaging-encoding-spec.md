@@ -361,6 +361,9 @@ on the bytes** — a vector change is a spec change.
 | 4 | `leaf_count` encoding | `u64` (as implemented) + one-word design-doc fix, or `Compact` (§5.3) |
 | 5 | Reservation constants | bump `LIFT_RESERVATION_BYTES` / `ADVANCE_PROOF_RESERVATION_BYTES` above the design ceilings (§11 ⚠ align) |
 | 6 | Event wire path | single- vs two-protocol split (§9) |
+| 7 | Conformance vectors | port the leaf pin into the primitives; add wire-object pins; extract language-neutral vector files (§12) |
 
-Everything else in this document is settled and implemented in the
-primitives crate.
+Everything else in this document is settled: the byte-level rules are
+implemented in the primitives crate; the surfaces beyond it (inherent
+dispatch, the relay ring, archive serving) live in the pallet / relay /
+client implementations.
