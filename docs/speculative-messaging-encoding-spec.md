@@ -280,15 +280,21 @@ struct Interval { start: MmrRoot, end: MmrFrontier }
 
 - `start` of a stream's **first-ever** consumption = the empty root
   `H(EMPTY_TAG)` (§3.3).
+- Interval formation: channels — `start`/`end` = the stored frontier's
+  root before / the frontier after the block's messages. Reads
+  (`Events`) — a self-loop: `end` = the verified read context, `start` =
+  `bag(end.peaks)`; context jumps surface as `stitch` gaps, never inside
+  an interval.
 - One interval per stream per block (the inherent enforces at most one
   item per stream; strict-on-import — one invalid item invalidates the
   block).
 - `stitch`: intervals in bundle order; `next.start` must equal
   `bag(current.peaks)` or be bridged by exactly the next `advances` proof
   (forward-only); stray or missing advances invalidate.
-- `build_requires_entry`: per source, every stream's lifted root must
-  converge to **one** `StreamsRoot` (`DivergentRoots` otherwise); sources
-  must match lifts exactly, both directions.
+- `build_requires_entry`: per source, lifts match the record's streams
+  positionally and in **equal number** (`LiftCountMismatch`); every
+  stream's lifted root must converge to **one** `StreamsRoot`
+  (`DivergentRoots`); sources must match lifts exactly, both directions.
 
 Reference algorithms: design §Requires Lifting (`stitch`,
 `build_requires_entry`, `build_requires` pseudocode is normative).
