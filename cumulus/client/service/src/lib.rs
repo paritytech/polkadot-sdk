@@ -279,18 +279,11 @@ pub enum CollatorSybilResistance {
 pub struct BuildNetworkParams<
 	'a,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ BlockBackend<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ HeaderBackend<Block>
-		+ BlockIdTo<Block>
-		+ 'static,
+	Client: sc_transaction_pool::TransactionPoolClient<Block>,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 	RCInterface,
 	IQ,
-> where
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
-{
+> {
 	pub parachain_config: &'a Configuration,
 	pub net_config:
 		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,

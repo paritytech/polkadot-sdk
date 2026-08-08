@@ -23,7 +23,7 @@ use crate::{
 	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
 	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	single_state_txpool::BasicPool as SingleStateFullPool,
-	TransactionPoolWrapper, LOG_TARGET,
+	LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
@@ -119,6 +119,35 @@ impl TransactionPoolOptions {
 	}
 }
 
+/// The client capabilities the transaction pool of a full node relies on.
+///
+/// It is blanket implemented, so every client able to validate transactions against the runtime
+/// qualifies. Having it as a single bound keeps the transaction pool type parameters readable at
+/// the places holding a [`TransactionPoolHandle`].
+pub trait TransactionPoolClient<Block: BlockT>:
+	sp_api::ProvideRuntimeApi<
+		Block,
+		Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	> + sc_client_api::BlockBackend<Block>
+	+ sc_client_api::blockchain::HeaderBackend<Block>
+	+ sp_runtime::traits::BlockIdTo<Block>
+	+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
+	+ 'static
+{
+}
+
+impl<Block: BlockT, T> TransactionPoolClient<Block> for T where
+	T: sp_api::ProvideRuntimeApi<
+			Block,
+			Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+		> + sc_client_api::BlockBackend<Block>
+		+ sc_client_api::blockchain::HeaderBackend<Block>
+		+ sp_runtime::traits::BlockIdTo<Block>
+		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ 'static
+{
+}
+
 /// `FullClientTransactionPool` is a trait that combines the functionality of
 /// `MaintainedTransactionPool` and `LocalTransactionPool` for a given `Client` and `Block`.
 ///
@@ -140,26 +169,14 @@ pub trait FullClientTransactionPool<Block, Client>:
 	>
 where
 	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	Client: TransactionPoolClient<Block>,
 {
 }
 
 impl<Block, Client, P> FullClientTransactionPool<Block, Client> for P
 where
 	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ 'static,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+	Client: TransactionPoolClient<Block>,
 	P: MaintainedTransactionPool<
 			Block = Block,
 			Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
@@ -176,12 +193,12 @@ where
 {
 }
 
-/// The public type alias for the actual type providing the implementation of
+/// The public type alias for the trait object providing the implementation of
 /// `FullClientTransactionPool` with the given `Client` and `Block` types.
 ///
-/// This handle abstracts away the specific type of the transaction pool. Should be used
-/// externally to keep reference to transaction pool.
-pub type TransactionPoolHandle<Block, Client> = TransactionPoolWrapper<Block, Client>;
+/// This handle abstracts away the specific type of the transaction pool, e.g. fork-aware or
+/// single-state. It is unsized, so it is always used behind an `Arc`.
+pub type TransactionPoolHandle<Block, Client> = dyn FullClientTransactionPool<Block, Client>;
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<'a, Block, Client> {
@@ -238,7 +255,7 @@ where
 	}
 
 	/// Creates an instance of transaction pool.
-	pub fn build(self) -> TransactionPoolHandle<Block, Client> {
+	pub fn build(self) -> Arc<TransactionPoolHandle<Block, Client>> {
 		tracing::info!(
 			target: LOG_TARGET,
 			txpool_type = ?self.options.txpool_type,
@@ -246,21 +263,21 @@ where
 			future = ?self.options.options.future,
 			"Creating transaction pool"
 		);
-		TransactionPoolWrapper::<Block, Client>(match self.options.txpool_type {
-			TransactionPoolType::SingleState => Box::new(SingleStateFullPool::new_full(
+		match self.options.txpool_type {
+			TransactionPoolType::SingleState => Arc::new(SingleStateFullPool::new_full(
 				self.options.options,
 				self.is_validator,
 				self.prometheus,
 				self.spawner,
 				self.client,
 			)),
-			TransactionPoolType::ForkAware => Box::new(ForkAwareFullPool::new_full(
+			TransactionPoolType::ForkAware => Arc::new(ForkAwareFullPool::new_full(
 				self.options.options,
 				self.is_validator,
 				self.prometheus,
 				self.spawner,
 				self.client,
 			)),
-		})
+		}
 	}
 }

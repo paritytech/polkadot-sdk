@@ -27,13 +27,15 @@ mod common;
 mod fork_aware_txpool;
 mod graph;
 mod single_state_txpool;
-mod transaction_pool_wrapper;
 
 use common::{api, enactment_state};
 use std::sync::Arc;
 
 pub use api::FullChainApi;
-pub use builder::{Builder, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType};
+pub use builder::{
+	Builder, FullClientTransactionPool, TransactionPoolClient, TransactionPoolHandle,
+	TransactionPoolOptions, TransactionPoolType,
+};
 pub use common::notification_future;
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 pub use graph::{
@@ -42,7 +44,6 @@ pub use graph::{
 };
 use single_state_txpool::prune_known_txs_for_block;
 pub use single_state_txpool::{BasicPool, RevalidationType};
-pub use transaction_pool_wrapper::TransactionPoolWrapper;
 
 type BoxedReadyIterator<Hash, Data> = Box<
 	dyn sc_transaction_pool_api::ReadyTransactions<

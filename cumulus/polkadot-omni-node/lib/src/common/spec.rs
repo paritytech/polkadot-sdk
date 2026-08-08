@@ -287,16 +287,14 @@ pub(crate) trait BaseNodeSpec {
 			telemetry
 		});
 
-		let transaction_pool = Arc::from(
-			sc_transaction_pool::Builder::new(
-				task_manager.spawn_essential_handle(),
-				client.clone(),
-				config.role.is_authority().into(),
-			)
-			.with_options(config.transaction_pool.clone())
-			.with_prometheus(config.prometheus_registry())
-			.build(),
-		);
+		let transaction_pool = sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build();
 
 		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
 		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());

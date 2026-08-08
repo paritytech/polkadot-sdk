@@ -1,0 +1,46 @@
+title: 'txpool: hold the transaction pool as a trait object instead of a wrapper'
+
+doc:
+  - audience: Node Dev
+    description: |-
+      `TransactionPoolWrapper` existed only to give the boxed transaction pool a sized type that
+      could travel through the generic `Arc<Pool>` parameters used across the service builder. The
+      pool is now referenced directly as `Arc<dyn FullClientTransactionPool<Block, Client>>`, which
+      `TransactionPoolHandle` aliases, so the extra layer of forwarding is gone.
+
+      `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
+      `GenRpcModuleParams` no longer carry a transaction pool type parameter, and the client bound
+      they need is spelled out once as the new `sc_transaction_pool::TransactionPoolClient` trait.
+      Components that keep the pool behind an `Arc` (the RPC servers, the proposer factory, manual
+      seal, mixnet) accept unsized pools now, which is a relaxation and needs no changes on their
+      side.
+
+crates:
+  - name: sc-transaction-pool
+    bump: major
+  - name: sc-transaction-pool-api
+    bump: patch
+  - name: sc-service
+    bump: major
+  - name: sc-rpc
+    bump: patch
+  - name: sc-rpc-spec-v2
+    bump: patch
+  - name: sc-basic-authorship
+    bump: patch
+  - name: sc-consensus-manual-seal
+    bump: patch
+  - name: sc-mixnet
+    bump: patch
+  - name: sc-hop
+    bump: patch
+  - name: substrate-frame-rpc-system
+    bump: patch
+  - name: node-rpc
+    bump: patch
+  - name: polkadot-rpc
+    bump: patch
+  - name: cumulus-client-service
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: patch
