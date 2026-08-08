@@ -63,10 +63,10 @@ use frame_support::{
 	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
-			fungible::{Inspect, Mutate, MutateHold},
-			Fortitude, Precision,
+			fungible::{BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold},
+			Precision, Preservation,
 		},
-		Defensive, DefensiveSaturating, EstimateCallFee,
+		Defensive, DefensiveSaturating, EstimateCallFee, OnUnbalanced,
 	},
 	BoundedVec, Twox64Concat,
 };
@@ -173,8 +173,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				{
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
-					let _r = T::Currency::mint_into(&winner, reward);
-					debug_assert!(_r.is_ok());
+					Self::pay_reward(&winner, reward);
 					Self::deposit_event(Event::<T>::Rewarded(
 						current_round,
 						winner.clone(),
@@ -237,7 +236,8 @@ pub mod pallet {
 		/// Handler to the currency.
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>
+			+ BalancedHold<Self::AccountId>;
 
 		/// Base deposit amount for a submission.
 		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
@@ -271,6 +271,14 @@ pub mod pallet {
 		/// Handler to estimate the fee of a call. Useful to refund the transaction fee of the
 		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
+
+		/// Handler for slashed deposits. Use `()` to burn them. On DAP chains use `type Slash = Dap`
+		/// to redirect slashed funds back to the DAP buffer instead.
+		type Slash: OnUnbalanced<FungibleCredit<Self::AccountId, Self::Currency>>;
+
+		/// Source account for reward payments. `Some(pot)` transfers from that account; a failed
+		/// transfer is silently skipped. `None` mints directly into the winner's account.
+		type RewardSource: Get<Option<Self::AccountId>>;
 
 		/// Provided weights of this pallet.
 		type WeightInfo: WeightInfo;
@@ -918,8 +926,7 @@ pub mod pallet {
 
 			// maybe give back their fees
 			if Self::is_invulnerable(&discarded) {
-				let _r = T::Currency::mint_into(&discarded, metadata.fee);
-				debug_assert!(_r.is_ok());
+				Self::pay_reward(&discarded, metadata.fee);
 			}
 
 			Self::deposit_event(Event::<T>::Discarded(round, discarded));
@@ -977,6 +984,19 @@ impl<T: Config> Pallet<T> {
 		Invulnerables::<T>::get().contains(who)
 	}
 
+	/// Transfer `amount` from [`Config::RewardSource`] pot to `to`, or mint if `None`. A failed
+	/// transfer is silently skipped so a depleted pot never blocks solution acceptance.
+	fn pay_reward(to: &T::AccountId, amount: BalanceOf<T>) {
+		if let Some(source) = T::RewardSource::get() {
+			if T::Currency::transfer(&source, to, amount, Preservation::Expendable).is_err() {
+				sublog!(warn, "signed", "reward pot insufficient; skipping {:?} to {:?}", amount, to);
+			}
+		} else {
+			let _r = T::Currency::mint_into(to, amount);
+			debug_assert!(_r.is_ok());
+		}
+	}
+
 	fn settle_deposit(who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
 		let to_refund = grace * deposit;
 		let to_slash = deposit.defensive_saturating_sub(to_refund);
@@ -990,15 +1010,9 @@ impl<T: Config> Pallet<T> {
 		.defensive();
 		debug_assert_eq!(_res, Ok(to_refund));
 
-		let _res = T::Currency::burn_held(
-			&HoldReason::SignedSubmission.into(),
-			who,
-			to_slash,
-			Precision::BestEffort,
-			Fortitude::Force,
-		)
-		.defensive();
-		debug_assert_eq!(_res, Ok(to_slash));
+		let (credit, _remainder) =
+			T::Currency::slash(&HoldReason::SignedSubmission.into(), who, to_slash);
+		T::Slash::on_unbalanced(credit);
 	}
 
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
@@ -1012,14 +1026,9 @@ impl<T: Config> Pallet<T> {
 			// network issue that leads to an incomplete submission is much more likely than a bad
 			// faith action from an invulnerable.
 			let slash = metadata.deposit;
-			let _res = T::Currency::burn_held(
-				&HoldReason::SignedSubmission.into(),
-				&loser,
-				slash,
-				Precision::BestEffort,
-				Fortitude::Force,
-			);
-			debug_assert_eq!(_res, Ok(slash));
+			let (credit, _remainder) =
+				T::Currency::slash(&HoldReason::SignedSubmission.into(), &loser, slash);
+			T::Slash::on_unbalanced(credit);
 			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
 
 			// Try to start verification again if we still have submissions

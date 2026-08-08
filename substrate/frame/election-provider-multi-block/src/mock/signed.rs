@@ -75,6 +75,7 @@ parameter_types! {
 	pub static SignedPhaseSwitch: SignedSwitch = SignedSwitch::Real;
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
 	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
+	pub static SignedRewardSource: Option<AccountId> = None;
 }
 
 impl crate::signed::Config for Runtime {
@@ -87,6 +88,8 @@ impl crate::signed::Config for Runtime {
 	type RewardBase = SignedRewardBase;
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
+	type Slash = ();
+	type RewardSource = SignedRewardSource;
 	type WeightInfo = ();
 }
 

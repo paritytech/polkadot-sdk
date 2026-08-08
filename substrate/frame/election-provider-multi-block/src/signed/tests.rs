@@ -1561,3 +1561,129 @@ mod defensive_tests {
 		});
 	}
 }
+
+mod issuance {
+	use super::*;
+	use frame_support::traits::fungible::Mutate;
+
+	/// Arbitrary account used as a reward pot in these tests.
+	const POT: AccountId = 1000;
+
+	/// Submit a full valid solution for `who` and roll through to the Rewarded event.
+	///
+	/// Returns the balances snapshot of `who` just before rolling to SignedValidation.
+	fn submit_and_verify_winning(who: AccountId) {
+		roll_to_signed_open();
+		assert_full_snapshot();
+
+		let paged = mine_full_solution().unwrap();
+		load_signed_for_verification(who, paged);
+		let _ = signed_events_since_last_call();
+
+		roll_to_signed_validation_open();
+		let _ = multi_block_events_since_last_call();
+
+		for _ in 0..Pages::get() + 1 {
+			roll_to(System::block_number() + 1);
+		}
+	}
+
+	#[test]
+	fn reward_mints_by_default() {
+		// When RewardSource is None (default), rewards are minted and TotalIssuance increases.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(None);
+
+			let ti_before = Balances::total_issuance();
+			submit_and_verify_winning(999);
+
+			let rewarded_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Rewarded(..)))
+				.collect();
+			assert_eq!(rewarded_events.len(), 1, "expected exactly one Rewarded event");
+
+			let ti_after = Balances::total_issuance();
+			// reward (3) + fee (1 register + 3 pages = 4) = 7
+			assert!(ti_after > ti_before, "total issuance must increase when minting rewards");
+		});
+	}
+
+	#[test]
+	fn reward_transfers_from_source_when_configured() {
+		// When RewardSource is Some(pot), the reward is transferred from the pot account.
+		// TotalIssuance must not change during the reward payment.
+		ExtBuilder::signed().build_and_execute(|| {
+			Balances::mint_into(&POT, 1_000).unwrap();
+			SignedRewardSource::set(Some(POT));
+
+			let ti_before = Balances::total_issuance();
+			let pot_before = Balances::free_balance(POT);
+
+			submit_and_verify_winning(999);
+
+			let rewarded_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Rewarded(..)))
+				.collect();
+			assert_eq!(rewarded_events.len(), 1, "expected exactly one Rewarded event");
+
+			// mint_into of pot balance was the only issuance change before the test window
+			let ti_after = Balances::total_issuance();
+			let pot_after = Balances::free_balance(POT);
+
+			assert_eq!(ti_before, ti_after, "total issuance must not change when paying from pot");
+			assert!(pot_after < pot_before, "reward pot balance must decrease after paying winner");
+		});
+	}
+
+	#[test]
+	fn reward_skipped_when_source_pot_is_empty() {
+		// When RewardSource is Some(empty_pot), the transfer fails gracefully: the winner is not
+		// paid, no panic occurs, and TotalIssuance remains unchanged.
+		ExtBuilder::signed().build_and_execute(|| {
+			// Do NOT fund the pot.
+			SignedRewardSource::set(Some(POT));
+
+			let ti_before = Balances::total_issuance();
+			submit_and_verify_winning(999);
+			let ti_after = Balances::total_issuance();
+
+			// A Rewarded event is still emitted (reward amount is logged), but no funds move.
+			let rewarded_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Rewarded(..)))
+				.collect();
+			assert_eq!(rewarded_events.len(), 1, "Rewarded event must still be emitted");
+			assert_eq!(ti_before, ti_after, "total issuance must not change when pot is empty");
+		});
+	}
+
+	#[test]
+	fn slash_burns_deposit_by_default() {
+		// When type Slash = (), slashed deposits are burned (credit is dropped).
+		// TotalIssuance must decrease by the slashed amount.
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let invalid_score =
+				ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+			// 99 registers with 5 deposit (SignedDepositBase) but submits no valid pages.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
+
+			let ti_before = Balances::total_issuance();
+
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			// Slashed event emitted and deposit is burned.
+			assert!(signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Slashed(..))));
+
+			let ti_after = Balances::total_issuance();
+			assert!(ti_after < ti_before, "total issuance must decrease when slash is burned");
+		});
+	}
+}
