@@ -153,6 +153,7 @@ parameter_types! {
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
+	pub SignedRewardSource: Option<AccountId> = None;
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -165,6 +166,8 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
+	type Slash = ();
+	type RewardSource = SignedRewardSource;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 
