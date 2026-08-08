@@ -324,8 +324,9 @@ reproduce every family:
 
 1. **StreamId**: encode/decode round-trips per kind, reserved-kind
    rejection, ordering (exists).
-2. **MMR**: leaf known-answer (§3.1 ✓ exists), empty root (§3.3 ✓ exists),
-   append/bagging sequences to ≥ 64 leaves, frontier round-trips.
+2. **MMR**: leaf known-answer (§3.1 — pinned in the PoC; port to this
+   crate), empty root (§3.3 ✓ exists), append/bagging sequences to ≥ 64
+   leaves (5-leaf pin exists), frontier round-trips.
 3. **Tree**: `tree_hash` known-answers (1, 2, 4, adversarially-close
    keys), proof verification incl. **negative vectors** (non-decreasing
    step order, wrong split bit, key-aliasing attempts per §4.1
@@ -337,10 +338,18 @@ reproduce every family:
    acceptance + rejection vectors; UMP signal indices.
 6. **End-to-end synthesis**: consumption records + lifts → `RequiresSet`,
    covering hot path (bare tree proof), gap + advance, divergent-root
-   rejection, first-consumption empty-root start.
+   rejection, first-consumption empty-root start. (Shared fixture
+   machinery — the PoC's `test_utils` stream/lift generators — produces
+   this material for tests, but is implementation-derived, not itself
+   conformance evidence.)
+7. **Wire objects** (§9): exchange-envelope discriminants (both
+   directions), request/response SCALE round-trips, `MmrInclusionProof`
+   verification vectors, header-digest extraction. No pins exist today.
 
-Vector files live with the primitives crate; **this document is the
-authority on the bytes** — a vector change is a spec change.
+Vectors are **language-neutral files** shipped with the primitives crate;
+the in-code pinned tests are their Rust binding (today: pinned tests
+exist partially, vector files not yet). **This document is the authority
+on the bytes** — a vector change is a spec change.
 
 ## 13. Open decisions
 
