@@ -31,7 +31,8 @@
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use polkadot_core_primitives::Hash;
-use sp_runtime::{traits::Hash as HashT, Digest, DigestItem};
+use sp_core::ConstU32;
+use sp_runtime::{traits::Hash as HashT, BoundedVec, Digest, DigestItem};
 
 use crate::{
 	stream::StreamId, SpecHasher, SPMS_ENGINE_ID, STREAMS_INNER_TAG, STREAMS_LEAF_TAG,
@@ -40,6 +41,9 @@ use crate::{
 
 /// Bit width of a `StreamId` key (the Patricia trie's maximum depth).
 const KEY_BITS: usize = STREAM_ID_LEN * 8;
+
+// The proof container's decode bound below must equal the trie depth.
+const _: () = assert!(KEY_BITS == 64);
 
 /// The sender's per-block stream commitment root — a newtype over `Hash`, deliberately
 /// distinct from an MMR / stream root ("confusing roots must not typecheck"). Defined
@@ -63,14 +67,15 @@ pub struct TreeStep {
 
 /// A membership proof that `(stream, stream_root)` is committed under a `StreamsRoot` — served by
 /// the sender/node, verified by the receiver. The walk is keyed: it carries no leaf index, only the
-/// branch steps from the root to the leaf (root-first), and the key drives verification.
+/// branch steps, and the key drives verification.
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, scale_info::TypeInfo,
 )]
 pub struct StreamProof {
-	/// Branch steps from the root down to the leaf (root-first order). Empty for a single-stream
-	/// tree.
-	pub steps: Vec<TreeStep>,
+	/// Branch steps **leaf to root**, split bits strictly decreasing (deeper branches split on
+	/// later bits) — any other ordering is rejected at verification. Empty for a single-stream
+	/// tree. Bounded at the trie depth, so an over-long proof is rejected at decode.
+	pub steps: BoundedVec<TreeStep, ConstU32<64>>,
 }
 
 /// Bit `i` of an 8-byte key, `0` = MSB of byte 0 (so big-endian byte order = bit order).
@@ -185,6 +190,10 @@ pub fn gen_stream_proof(
 	}
 	let mut steps = Vec::new();
 	let root = prove(&entries, &key, &mut steps);
+	// `prove` pushes root-first; the wire order is leaf-to-root (split bits strictly
+	// decreasing).
+	steps.reverse();
+	let steps = BoundedVec::try_from(steps).expect("trie depth <= KEY_BITS; qed");
 	Some((StreamsRoot(root), StreamProof { steps }))
 }
 
@@ -210,20 +219,22 @@ pub fn streams_root_from_proof(
 	membership: &StreamProof,
 ) -> Option<StreamsRoot> {
 	let key = key_of(&stream);
-	// A keyed Patricia trie over `KEY_BITS`-bit keys has depth ≤ `KEY_BITS`, so a valid proof
-	// carries at most `KEY_BITS` steps. Reject a longer (untrusted) proof up front — bounds the
-	// fold work regardless of how large a malformed step vec is (PoV size only caps it loosely).
-	if membership.steps.len() > KEY_BITS {
-		return None;
-	}
 	let mut node = hash_leaf(&key, &stream_root);
-	// Steps are root-first; fold leaf -> root.
-	for step in membership.steps.iter().rev() {
+	// Steps are leaf-to-root with strictly decreasing split bits — any other ordering is
+	// rejected as early garbage (uniqueness itself rests on the key-in-leaf / bit-in-inner
+	// commitments, not on this rule). The length bound (≤ trie depth) lives in the type,
+	// enforced at decode.
+	let mut prev: Option<u8> = None;
+	for step in membership.steps.iter() {
 		let split_bit = step.split_bit as usize;
 		// Reject an out-of-range branch (would otherwise index the key out of bounds).
 		if split_bit >= KEY_BITS {
 			return None;
 		}
+		if prev.is_some_and(|p| step.split_bit >= p) {
+			return None;
+		}
+		prev = Some(step.split_bit);
 		// The branch direction is the proven key's bit at `split_bit` — this is the key binding: a
 		// proof for a different stream folds the sibling on the wrong side and yields a different
 		// root.
@@ -356,17 +367,31 @@ mod tests {
 	#[test]
 	fn out_of_range_split_bit_is_rejected() {
 		let (r, mut proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
-		proof.steps.push(TreeStep { split_bit: 64, sibling: root(0) });
+		// Splice the bogus step in FIRST (largest bit position), keeping the strictly
+		// decreasing order intact — so the range check, not the order check, rejects it.
+		let mut steps = vec![TreeStep { split_bit: 64, sibling: root(0) }];
+		steps.extend(proof.steps.iter().copied());
+		proof.steps = steps.try_into().unwrap();
 		assert!(!verify_stream_membership(r, ch(3000), root(0xC), &proof));
 	}
 
 	#[test]
-	fn over_long_proof_is_rejected() {
-		let (r, _proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
-		// A valid proof can never exceed the trie depth (`KEY_BITS`); a padded one must reject.
-		let proof =
-			StreamProof { steps: vec![TreeStep { split_bit: 0, sibling: root(0) }; KEY_BITS + 1] };
-		assert!(!verify_stream_membership(r, ch(3000), root(0xC), &proof));
+	fn over_long_proof_is_rejected_at_decode() {
+		// A valid proof can never exceed the trie depth (`KEY_BITS`), so the container is
+		// bounded in the type and longer wire input dies at decode, before any hashing.
+		let raw = vec![TreeStep { split_bit: 0, sibling: root(0) }; KEY_BITS + 1].encode();
+		assert!(StreamProof::decode(&mut &raw[..]).is_err());
+	}
+
+	#[test]
+	fn non_decreasing_step_order_is_rejected() {
+		// Wire order is leaf-to-root, split bits strictly decreasing; a reversed sequence
+		// is early garbage even though every hash in it is genuine.
+		let (r, proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
+		assert!(proof.steps.len() >= 2, "need a multi-step proof");
+		let reversed: Vec<TreeStep> = proof.steps.iter().rev().copied().collect();
+		let bad = StreamProof { steps: reversed.try_into().unwrap() };
+		assert!(!verify_stream_membership(r, ch(3000), root(0xC), &bad));
 	}
 
 	#[test]

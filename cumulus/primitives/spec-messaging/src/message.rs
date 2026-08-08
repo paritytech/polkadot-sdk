@@ -691,7 +691,7 @@ mod tests {
 			payloads: vec![vec![0x01]],
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Vec::new() },
+			tree_proof: StreamProof { steps: Default::default() },
 		};
 		assert_eq!(
 			verify_messages_response(stream, under, &crafted),
@@ -707,7 +707,7 @@ mod tests {
 			payloads: vec![vec![0x01]],
 			start_peaks: vec![H256::zero(); 64],
 			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Vec::new() },
+			tree_proof: StreamProof { steps: Default::default() },
 		};
 		assert_eq!(
 			verify_messages_response(stream, under, &overflow),
@@ -735,13 +735,13 @@ mod tests {
 			payloads: Vec::new(),
 			start_peaks: Vec::new(),
 			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Vec::new() },
+			tree_proof: StreamProof { steps: Default::default() },
 		};
 		let eresp = EventResponse {
 			payload: Vec::new(),
 			leaf_version: 0,
 			inclusion: MmrInclusionProof { mmr_size: 0, items: Vec::new() },
-			tree_proof: StreamProof { steps: Vec::new() },
+			tree_proof: StreamProof { steps: Default::default() },
 		};
 		assert_eq!(ExchangeResponse::Messages(mresp).encode()[0], 0x00);
 		assert_eq!(ExchangeResponse::Event(eresp).encode()[0], 0x01);
@@ -918,7 +918,9 @@ mod tests {
 			},
 			// `split_bit = 255` is >= KEY_BITS, so `streams_root_from_proof` rejects the walk.
 			tree_proof: StreamProof {
-				steps: vec![TreeStep { split_bit: 255, sibling: H256::zero() }],
+				steps: vec![TreeStep { split_bit: 255, sibling: H256::zero() }]
+					.try_into()
+					.unwrap(),
 			},
 		};
 		assert_eq!(
