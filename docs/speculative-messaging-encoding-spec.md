@@ -68,11 +68,14 @@ Pinned vector: `H(0x01 ‖ 0x00 ‖ "hello")` =
 
 ```
 inner = H(INNER_TAG ‖ left ‖ right)
-root  = fold peaks right-to-left with H(PEAK_TAG ‖ left ‖ right)
+root  = bag(peaks):  bag([p]) = p
+        bag([p1..pn]) = H(PEAK_TAG ‖ bag([p2..pn]) ‖ p1)
 ```
 
 Peaks ordered highest (largest subtree, leftmost) to lowest; bagging is a
-right fold: `bag([p1..pn]) = H(PEAK ‖ p1 ‖ bag([p2..pn]))`, `bag([p]) = p`.
+right fold in which the accumulated right side is the **first** hash
+argument (`mmr_lib`'s `merge_peaks(right, left)` convention — the
+preimage order is the reverse of the visual left-to-right).
 
 ### 3.3 Frontier and position
 
@@ -171,9 +174,12 @@ r3664785341). A `Vec<(u64, Hash)>` positioned form is **not** conformant
 yields the verifier's own root unchanged (the caught-up case — also the
 head-ness check for register reads). Unambiguous: a genuine extension to
 an empty MMR cannot exist. Otherwise require
-`leaf_count ≥ old.leaf_count`; verification **computes and returns** the
-new root (never declared alongside), failing if the node count is not
-exactly right for the pair.
+`leaf_count > old.leaf_count` — **strictly** forward: an equal-count
+"extension" is the identity in non-canonical clothing and is rejected
+(`NotForward`; note the design's Appendix B writes `≥`, which would admit
+that second encoding — strictness is the implemented and specified form).
+Verification **computes and returns** the new root (never declared
+alongside), failing if the node count is not exactly right for the pair.
 
 ### 5.3 `leaf_count` encoding — **⚠ DECISION**
 
@@ -289,8 +295,9 @@ struct Interval { start: MmrRoot, end: MmrFrontier }
   item per stream; strict-on-import — one invalid item invalidates the
   block).
 - `stitch`: intervals in bundle order; `next.start` must equal
-  `bag(current.peaks)` or be bridged by exactly the next `advances` proof
-  (forward-only); stray or missing advances invalidate.
+  `current`'s root (§3.3 — the empty root for an empty frontier) or be
+  bridged by exactly the next `advances` proof (forward-only); stray or
+  missing advances invalidate.
 - `build_requires_entry`: per source, lifts match the record's streams
   positionally and in **equal number** (`LiftCountMismatch`); every
   stream's lifted root must converge to **one** `StreamsRoot`
