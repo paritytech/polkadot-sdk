@@ -1872,7 +1872,7 @@ pub enum CandidateDescriptorVersion {
 	/// An unknown/not yet supported version.
 	///
 	/// Such a candidate must be dropped by the runtime and rejected by backers.
-	Unknown,
+	Unknown(u8),
 }
 
 /// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
@@ -2083,7 +2083,7 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 		match self.version {
 			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::Unknown,
+			_ => CandidateDescriptorVersion::Unknown(self.version),
 		}
 	}
 }
@@ -2106,7 +2106,7 @@ impl<H> CandidateDescriptorV2<H> {
 		match self.version {
 			0 => CandidateDescriptorVersion::V2,
 			1 => CandidateDescriptorVersion::V3,
-			_ => CandidateDescriptorVersion::Unknown,
+			_ => CandidateDescriptorVersion::Unknown(self.version),
 		}
 	}
 }
@@ -2215,7 +2215,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V1 => self.relay_parent,
 			CandidateDescriptorVersion::V2 => self.relay_parent,
 			CandidateDescriptorVersion::V3 => self.scheduling_parent,
-			CandidateDescriptorVersion::Unknown => self.relay_parent,
+			CandidateDescriptorVersion::Unknown(_) => self.relay_parent,
 		}
 	}
 
@@ -2232,7 +2232,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V3 => {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
-			CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::Unknown(_) => None,
 		}
 	}
 
@@ -2291,7 +2291,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V3 => {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
-			CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::Unknown(_) => None,
 		}
 	}
 
@@ -2303,7 +2303,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		v3_ever_seen: bool,
 	) -> Option<SessionIndex> {
 		match self.version_for_candidate_validation(v3_ever_seen) {
-			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown(_) => None,
 			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 				Some(self.session_index)
 			},
@@ -2355,8 +2355,8 @@ where
 				.field("para_head", &self.para_head)
 				.field("validation_code_hash", &self.validation_code_hash)
 				.finish(),
-			CandidateDescriptorVersion::Unknown => {
-				write!(f, "CandidateDescriptorV2(unknown version={})", self.version)
+			CandidateDescriptorVersion::Unknown(raw_version) => {
+				write!(f, "CandidateDescriptorV2(unknown version={})", raw_version)
 			},
 		}
 	}
@@ -2899,13 +2899,9 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
-		if self.descriptor.version() == CandidateDescriptorVersion::Unknown {
-			return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version));
-		}
-		parse_ump_signals_for_fields(
+		parse_ump_signals_internal(
 			&self.commitments,
 			self.descriptor.version(),
-			self.descriptor.version,
 			cores_per_para,
 			self.descriptor.para_id(),
 			CoreIndex(self.descriptor.core_index as u32),
@@ -2918,10 +2914,9 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 /// Receipt-free variant of [`CommittedCandidateReceiptV2::parse_ump_signals`]:
 /// takes the descriptor fields the check consumes instead of a built receipt.
 /// For callers that validate commitments before a receipt exists.
-pub fn parse_ump_signals_for_fields(
+pub fn parse_ump_signals_internal(
 	commitments: &CandidateCommitments,
 	version: CandidateDescriptorVersion,
-	version_raw: u8,
 	cores_per_para: &TransposedClaimQueue,
 	para_id: Id,
 	core_index: CoreIndex,
@@ -2934,13 +2929,13 @@ pub fn parse_ump_signals_for_fields(
 			// longer allowed.
 			if !signals.is_empty() {
 				return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
-			} else {
-				// Nothing else to check for v1 descriptors.
-				return Ok(CandidateUMPSignals::default());
 			}
+
+			// Nothing else to check for v1 descriptors.
+			return Ok(CandidateUMPSignals::default());
 		},
 		CandidateDescriptorVersion::V2 => {},
-		CandidateDescriptorVersion::Unknown => {
+		CandidateDescriptorVersion::Unknown(version_raw) => {
 			return Err(CommittedCandidateReceiptError::UnknownVersion(version_raw))
 		},
 		_ if signals.is_empty() => {

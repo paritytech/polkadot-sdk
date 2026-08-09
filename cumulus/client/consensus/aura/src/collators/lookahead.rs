@@ -357,7 +357,7 @@ where
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
 			let mut parent_hash = parent_search_result.best_parent_header.hash();
-			let mut parent_header = parent_search_result.best_parent_header;
+			let parent_header = parent_search_result.best_parent_header;
 			// Distance from included block to best parent.
 			let initial_parent_depth =
 				(*parent_header.number()).saturating_sub(*included_header.number());
@@ -383,181 +383,175 @@ where
 				}
 			}
 
-			// This needs to change to support elastic scaling, but for continuously
-			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2u32 {
-				let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
-					para_client,
-					parent_hash,
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				) else {
-					break;
-				};
+			let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
+				para_client,
+				parent_hash,
+				&relay_parent_header,
+				params.relay_chain_slot_duration,
+			) else {
+				continue;
+			};
 
-				let Some(slot_claim) = super::claim_slot::<_, _, P>(
-					slot_now,
-					timestamp,
-					parent_hash,
-					para_client,
-					&keystore,
-				)
-				.await
-				else {
-					break;
-				};
+			let Some(slot_claim) = super::claim_slot::<_, _, P>(
+				slot_now,
+				timestamp,
+				parent_hash,
+				para_client,
+				&keystore,
+			)
+			.await
+			else {
+				continue;
+			};
 
-				if !super::can_build_upon::<_, _>(
-					parent_hash,
-					included_block_hash,
-					relay_slot,
-					slot_now,
-					para_client,
-				)
-				.await
-				{
-					break;
-				}
+			if !super::can_build_upon::<_, _>(
+				parent_hash,
+				included_block_hash,
+				relay_slot,
+				slot_now,
+				para_client,
+			)
+			.await
+			{
+				continue;
+			}
 
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?relay_parent,
-					unincluded_segment_len = ?initial_parent_depth.saturating_add(n_built.into()),
-					"Slot claimed. Building"
-				);
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				unincluded_segment_len = ?initial_parent_depth,
+				"Slot claimed. Building"
+			);
 
-				let validation_data = PersistedValidationData {
-					parent_head: parent_header.encode().into(),
-					relay_parent_number: *relay_parent_header.number(),
-					relay_parent_storage_root: *relay_parent_header.state_root(),
-					max_pov_size,
-				};
+			let validation_data = PersistedValidationData {
+				parent_head: parent_header.encode().into(),
+				relay_parent_number: *relay_parent_header.number(),
+				relay_parent_storage_root: *relay_parent_header.state_root(),
+				max_pov_size,
+			};
 
-				// Build and announce collations recursively until
-				// `can_build_upon` fails or building a collation fails.
-				let relay_proof_request =
-					super::get_relay_proof_request(&*params.para_client, parent_hash);
+			// Build and announce collations recursively until
+			// `can_build_upon` fails or building a collation fails.
+			let relay_proof_request =
+				super::get_relay_proof_request(&*params.para_client, parent_hash);
 
-				let (parachain_inherent_data, other_inherent_data) = match collator
-					.create_inherent_data(
-						relay_parent,
-						&validation_data,
-						parent_hash,
-						slot_claim.timestamp(),
-						relay_proof_request,
-						params.collator_peer_id,
-					)
-					.await
-				{
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break;
-					},
-					Ok(x) => x,
-				};
-
-				let Some(validation_code_hash) =
-					params.code_hash_provider.code_hash_at(parent_hash)
-				else {
-					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break;
-				};
-
-				super::check_validation_code_or_log(
-					&validation_code_hash,
-					params.para_id,
-					&params.relay_client,
+			let (parachain_inherent_data, other_inherent_data) = match collator
+				.create_inherent_data(
 					relay_parent,
+					&validation_data,
+					parent_hash,
+					slot_claim.timestamp(),
+					relay_proof_request,
+					params.collator_peer_id,
+				)
+				.await
+			{
+				Err(err) => {
+					tracing::error!(target: crate::LOG_TARGET, ?err);
+					continue;
+				},
+				Ok(x) => x,
+			};
+
+			let Some(validation_code_hash) = params.code_hash_provider.code_hash_at(parent_hash)
+			else {
+				tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
+				continue;
+			};
+
+			super::check_validation_code_or_log(
+				&validation_code_hash,
+				params.para_id,
+				&params.relay_client,
+				relay_parent,
+			)
+			.await;
+
+			let allowed_pov_size = if let Some(max_pov_percentage) = params.max_pov_percentage {
+				validation_data.max_pov_size * max_pov_percentage / 100
+			} else {
+				// Set the block limit to 85% of the maximum PoV size.
+				//
+				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+				// fixed, the reservation should be removed.
+				validation_data.max_pov_size * 85 / 100
+			} as usize;
+
+			let collation_result = collator
+				.collate(
+					&parent_header,
+					&slot_claim,
+					None,
+					(parachain_inherent_data, other_inherent_data),
+					params.authoring_duration,
+					allowed_pov_size,
+					None,
 				)
 				.await;
 
-				let allowed_pov_size = if let Some(max_pov_percentage) = params.max_pov_percentage {
-					validation_data.max_pov_size * max_pov_percentage / 100
-				} else {
-					// Set the block limit to 85% of the maximum PoV size.
+			match collation_result {
+				Ok(Some((collation, block_data))) => {
+					let Some(new_block_header) =
+						block_data.blocks().first().map(|b| b.header().clone())
+					else {
+						tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
+						continue;
+					};
+
+					let new_block_hash = new_block_header.hash();
+
+					// Here we are assuming that the import logic protects against equivocations
+					// and provides sybil-resistance, as it should.
+					collator.collator_service().announce_block(new_block_hash, None);
+
+					if let Some(ref export_pov) = export_pov {
+						export_pov_to_path::<Block>(
+							export_pov.clone(),
+							collation.proof_of_validity.clone().into_compressed(),
+							new_block_hash,
+							*new_block_header.number(),
+							parent_header.clone(),
+							*relay_parent_header.state_root(),
+							*relay_parent_header.number(),
+							validation_data.max_pov_size,
+						);
+					}
+
+					// Send a submit-collation message to the collation generation subsystem,
+					// which then distributes this to validators.
 					//
-					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
-					// fixed, the reservation should be removed.
-					validation_data.max_pov_size * 85 / 100
-				} as usize;
+					// Here we are assuming that the leaf is imported, as we've gotten an
+					// import notification.
+					overseer_handle
+						.send_msg(
+							CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+								scheduling_parent: relay_parent,
+								core_index,
+								candidates_descriptor_version: CandidateDescriptorVersion::V2,
+								collations: BoundedVec::try_from(vec![SegmentCollation {
+									relay_parent,
+									collation,
+									validation_code_hash,
+									result_sender: None,
+									session_index,
+									validation_data,
+								}])
+								.expect("One element segment should fit;qed!"),
+							}),
+							"SubmitCollation",
+						)
+						.await;
 
-				let collation_result = collator
-					.collate(
-						&parent_header,
-						&slot_claim,
-						None,
-						(parachain_inherent_data, other_inherent_data),
-						params.authoring_duration,
-						allowed_pov_size,
-						None,
-					)
-					.await;
-
-				match collation_result {
-					Ok(Some((collation, block_data))) => {
-						let Some(new_block_header) =
-							block_data.blocks().first().map(|b| b.header().clone())
-						else {
-							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
-							break;
-						};
-
-						let new_block_hash = new_block_header.hash();
-
-						// Here we are assuming that the import logic protects against equivocations
-						// and provides sybil-resistance, as it should.
-						collator.collator_service().announce_block(new_block_hash, None);
-
-						if let Some(ref export_pov) = export_pov {
-							export_pov_to_path::<Block>(
-								export_pov.clone(),
-								collation.proof_of_validity.clone().into_compressed(),
-								new_block_hash,
-								*new_block_header.number(),
-								parent_header.clone(),
-								*relay_parent_header.state_root(),
-								*relay_parent_header.number(),
-								validation_data.max_pov_size,
-							);
-						}
-
-						// Send a submit-collation message to the collation generation subsystem,
-						// which then distributes this to validators.
-						//
-						// Here we are assuming that the leaf is imported, as we've gotten an
-						// import notification.
-						overseer_handle
-							.send_msg(
-								CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
-									scheduling_parent: relay_parent,
-									core_index,
-									candidates_descriptor_version: CandidateDescriptorVersion::V2,
-									collations: BoundedVec::try_from(vec![SegmentCollation {
-										relay_parent,
-										collation,
-										validation_code_hash,
-										result_sender: None,
-										session_index,
-										validation_data,
-									}])
-									.expect("One element segment should fit;qed!"),
-								}),
-								"SubmitCollation",
-							)
-							.await;
-
-						parent_hash = new_block_hash;
-						parent_header = new_block_header;
-					},
-					Ok(None) => {
-						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break;
-					},
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break;
-					},
-				}
+					parent_hash = new_block_hash;
+				},
+				Ok(None) => {
+					tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
+					continue;
+				},
+				Err(err) => {
+					tracing::error!(target: crate::LOG_TARGET, ?err);
+					continue;
+				},
 			}
 		}
 	}

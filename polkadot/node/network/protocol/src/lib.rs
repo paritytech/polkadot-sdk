@@ -647,7 +647,6 @@ pub mod v3_collation {
 /// v4 collation protocol types.
 pub mod v4_collation {
 	use codec::{Decode, Encode};
-	use polkadot_node_primitives::UncheckedSignedFullStatement;
 	// Re-exported so external code can name the bound on `AdvertiseSegment::candidates`.
 	pub use polkadot_node_primitives::MAX_SEGMENT_LEN;
 	use polkadot_primitives::{CandidateDescriptorVersion, Hash, Id as ParaId};
@@ -656,9 +655,6 @@ pub mod v4_collation {
 	/// Network messages used by the collator protocol subsystem.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub enum CollatorProtocolMessage {
-		/// A collation sent to a validator was seconded.
-		#[codec(index = 4)]
-		CollationSeconded(Hash, UncheckedSignedFullStatement),
 		/// Advertise an ordered list of unincluded candidates. The list
 		/// is ordered by age. A length 1 segment is the V3 single-candidate
 		/// equivalent.
@@ -686,6 +682,8 @@ pub mod v4_collation {
 		pub parent_head_data_hash: Hash,
 		/// Relay parent the advertised candidate builds on.
 		pub relay_parent: Hash,
+		/// The claim queue offset.
+		pub claim_queue_offset: u8,
 	}
 
 	/// All network messages on the collation peer-set.
@@ -712,6 +710,7 @@ pub mod v4_collation {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),
+					claim_queue_offset: 0,
 				};
 				candidates.push(fingerprint);
 			}
@@ -745,6 +744,7 @@ pub mod v4_collation {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
 					relay_parent: Hash::random(),
+					claim_queue_offset: 0,
 				})
 				.collect();
 			assert_eq!(fingerprints.len(), MAX_SEGMENT_LEN as usize + 1);

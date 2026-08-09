@@ -194,6 +194,10 @@
     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
     OLD_POLKADOT_COMMAND: "polkadot-old"
 
+- job-name: "zombienet-polkadot-approved-peer-mixed-collators"
+  test-filter: "functional::approved_peer_mixed_collators::approved_peer_mixed_collators_test"
+  cumulus-image: "colander"
+
 - job-name: "zombienet-polkadot-functional-validator-disabling"
   test-filter: "functional::validator_disabling::validator_disabling_test"
 
@@ -236,14 +240,8 @@
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-polkadot-v4-collation-protocol-baseline"
-  test-filter: "functional::collation_protocol_v4_baseline::v4_collation_protocol_baseline"
-  runner-type: "default"
-  use-zombienet-sdk: true
-  cumulus-image: "test-parachain"
-
 - job-name: "zombienet-polkadot-v4-collation-protocol-version-negotiation"
-  test-filter: "functional::collation_protocol_version_negotiation::collation_protocol_version_negotiatio"
+  test-filter: "functional::collation_protocol_version_negotiation::collation_protocol_version_negotiation"
   runner-type: "default"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"

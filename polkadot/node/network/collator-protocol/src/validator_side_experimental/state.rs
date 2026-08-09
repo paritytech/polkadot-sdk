@@ -680,6 +680,11 @@ impl<B: Backend> State<B> {
 	) -> std::collections::BTreeSet<(Hash, PeerId, Vec<super::common::ProspectiveCandidate>)> {
 		self.collation_manager.segments()
 	}
+
+	#[cfg(test)]
+	pub async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		self.peer_manager.processed_finalized_block_number().await
+	}
 }
 
 // Specific implementation for PersistentDb to support disk persistence.

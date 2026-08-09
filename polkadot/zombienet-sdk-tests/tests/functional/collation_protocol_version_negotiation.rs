@@ -36,7 +36,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace".into()),
-					("--network-backend=libp2p").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {
@@ -50,7 +49,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			let r = r.with_validator(|node| {
 				node.with_name("validator-exp-0").with_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace").into(),
-					("--network-backend=libp2p").into(),
 					("--experimental-collator-protocol").into(),
 				])
 			});
@@ -58,7 +56,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-exp-{i}")).with_args(vec![
 						("-lparachain=debug,parachain::collator-protocol=trace").into(),
-						("--network-backend=libp2p").into(),
 						("--experimental-collator-protocol").into(),
 					])
 				})
@@ -74,8 +71,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug".into()),
-					("--").into(),
-					("--network-backend=libp2p").into(),
+					("--authoring", "slot-based").into(),
 				])
 				.with_collator(|node| node.with_name("collator-2000"))
 		})
@@ -92,13 +88,13 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 		network.get_node("validator-exp-0")?.wait_client().await?;
 
 	// Sanity: the para keeps making progress with the mixed validator set.
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(2000), 3..11)], []).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(2000), 9..11)], []).await?;
 
 	let opts = LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(30), false);
 
 	// Experimental validators negotiate V4 and receive segment advertisements.
 	for i in 0..3 {
-		let node = network.get_node(&format!("validator-exp-{i}"))?;
+		let node = network.get_node(format!("validator-exp-{i}"))?;
 		node.wait_log_line_count_with_timeout("peer_set=Collation version=4", false, opts.clone())
 			.await?
 			.success()
@@ -117,7 +113,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 
 	// Classic validators negotiate V3 and receive classic collation advertisements.
 	for i in 0..2 {
-		let node = network.get_node(&format!("validator-classic-{i}"))?;
+		let node = network.get_node(format!("validator-classic-{i}"))?;
 		node.wait_log_line_count_with_timeout("peer_set=Collation version=3", false, opts.clone())
 			.await?
 			.success()

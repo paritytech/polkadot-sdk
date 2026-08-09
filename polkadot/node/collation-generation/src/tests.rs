@@ -28,7 +28,7 @@ use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	CandidateDescriptorVersion, ClaimQueueOffset, CollatorPair, CoreSelector,
-	PersistedValidationData, UMPSignal, UMP_SEPARATOR,
+	PersistedValidationData, UMPSignal, ValidationCodeHash, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;
@@ -324,7 +324,7 @@ fn submit_segment_v3_runtime_calls_use_scheduling_parent() {
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment {segment: Segment::V3 { scheduling_parent: sp, candidates,.. },.. }) => {
-				let [SegmentEntry::Built(entry)] = &candidates[..] else {
+				let [entry] = &candidates[..] else {
 					panic!("expected exactly one built entry")
 				};
 				assert_eq!(entry.parent_head_data.hash(), parent_head.hash());
@@ -634,7 +634,7 @@ fn approved_peer_signal() {
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::CollatorProtocol(CollatorProtocolMessage::DistributeSegment { segment: Segment::V3 { candidates,.. }, .. }) => {
-				let [SegmentEntry::Built(entry)] = &candidates[..] else {
+				let [entry] = &candidates[..] else {
 					panic!("expected exactly one built entry")
 				};
 				assert_eq!(entry.parent_head_data.hash(), parent_head.hash());

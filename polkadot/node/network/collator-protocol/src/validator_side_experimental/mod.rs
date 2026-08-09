@@ -452,8 +452,7 @@ async fn process_incoming_peer_message<Sender, B>(
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(V3::CollationSeconded(..)) |
-		CollationProtocols::V4(V4::CollationSeconded(..)) => {
+		CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,

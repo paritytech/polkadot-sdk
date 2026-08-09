@@ -967,12 +967,8 @@ pub async fn notify_collation_seconded(
 			))
 		},
 		CollationVersion::V4 => {
-			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
-				protocol_v4::CollatorProtocolMessage::CollationSeconded(
-					scheduling_parent,
-					statement,
-				),
-			))
+			// This is not supported for v4
+			return;
 		},
 	};
 	sender
@@ -1308,8 +1304,7 @@ async fn process_incoming_peer_message<Context>(
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(V3::CollationSeconded(..)) |
-		CollationProtocols::V4(V4::CollationSeconded(..)) => {
+		CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -3218,7 +3213,7 @@ pub fn descriptor_version_sanity_check_with_params(
 	match descriptor.version() {
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
-			// V3 descriptors must only arrive via V3 protocol.
+			// V3 descriptors must only arrive via V3 of V4 protocol.
 			if descriptor.version() == CandidateDescriptorVersion::V3 &&
 				!matches!(collator_protocol_version, CollationVersion::V3 | CollationVersion::V4)
 			{

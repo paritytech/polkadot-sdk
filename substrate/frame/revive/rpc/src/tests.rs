@@ -23,7 +23,10 @@ use crate::{
 	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
 	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
+	client::{
+		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 	example::TransactionBuilder,
 	subxt_client::{self, SrcChainConfig},
 };
@@ -2192,7 +2195,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
@@ -2210,6 +2214,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		receipt_provider,
 		true,
 		subscription_gap_queue,
+		runtime_api_provider,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))

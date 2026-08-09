@@ -737,11 +737,12 @@ impl<T: Config> Pallet<T> {
 			))
 		});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		let _ = frame_support::storage::migration::clear_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
+			None,
+			None,
 		);
 
 		StorageVersion::new(4).put::<Self>();
@@ -802,11 +803,12 @@ impl<T: Config> Pallet<T> {
 			))
 		});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		let _ = frame_support::storage::migration::clear_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
+			None,
+			None,
 		);
 
 		StorageVersion::new(4).put::<Self>();
@@ -912,11 +914,12 @@ impl<T: Config> Pallet<T> {
 			))
 		});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
+		let _ = frame_support::storage::migration::clear_storage_prefix(
 			Self::name().as_bytes(),
 			b"StorageVersion",
 			&[],
+			None,
+			None,
 		);
 
 		StorageVersion::new(4).put::<Self>();

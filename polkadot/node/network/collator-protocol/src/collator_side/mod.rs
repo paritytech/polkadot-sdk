@@ -40,8 +40,8 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGMENT_LEN};
 use polkadot_node_subsystem::{
 	messages::{
-		BuiltEntry, ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent,
-		NetworkBridgeTxMessage, Segment, SegmentEntry,
+		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		Segment, SegmentEntry,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
@@ -470,12 +470,9 @@ async fn distribute_segment<Context>(
 	.await;
 
 	let (scheduling_parent, descriptor_version, sp_session, entries) = match segment {
-		Segment::V2(entry) => (
-			entry.relay_parent,
-			CandidateDescriptorVersion::V2,
-			None,
-			vec![SegmentEntry::Built(entry)],
-		),
+		Segment::V2(entry) => {
+			(entry.relay_parent, CandidateDescriptorVersion::V2, None, vec![entry])
+		},
 		Segment::V3 { scheduling_parent, scheduling_session, candidates } => (
 			scheduling_parent,
 			CandidateDescriptorVersion::V3,
@@ -551,17 +548,6 @@ async fn distribute_segment<Context>(
 		return Ok(());
 	}
 
-	if !entries.iter().all(|entry| matches!(entry, SegmentEntry::Built(_))) {
-		gum::warn!(
-				target: LOG_TARGET,
-				para_id = %id,
-				?scheduling_parent,
-				?core_index,
-				"Segment contains unbuilt entries, dropping segment",
-		);
-		return Ok(());
-	}
-
 	gum::debug!(
 		target: LOG_TARGET,
 		para_id = %id,
@@ -581,14 +567,6 @@ async fn distribute_segment<Context>(
 
 	let mut segment_fingerprint = vec![];
 	for entry in entries {
-		let entry = match entry {
-			SegmentEntry::Built(entry) => entry,
-			SegmentEntry::Fingerprint(fingerprint) => {
-				segment_fingerprint.push(fingerprint);
-				continue;
-			},
-		};
-
 		let pov_hash = entry.pov.hash();
 		let receipt =
 			assemble_receipt(id, core_index, scheduling_parent, sp_session, &entry, pov_hash);
@@ -599,11 +577,12 @@ async fn distribute_segment<Context>(
 			output_head_data_hash: para_head,
 			parent_head_data_hash: entry.parent_head_data.hash(),
 			relay_parent: entry.relay_parent,
+			claim_queue_offset: 0,
 		});
 		// We have already seen collation for this scheduling parent.
 		if per_scheduling_parent.collations.contains_key(&para_head) {
 			if per_scheduling_parent.by_candidate_hash.contains_key(&candidate_hash) {
-				gum::debug!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, "Already seen this candidate.");
+				gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, "Already seen this candidate.");
 			} else {
 				gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, output_head = ?para_head, "Received a candidate with the same output head at this scheduling parent.");
 			}
@@ -645,7 +624,7 @@ async fn distribute_segment<Context>(
 	let new_segment = StoredSegment {
 		descriptor_version,
 		fingerprints: BoundedVec::try_from(segment_fingerprint)
-			.expect("at most one fingerprint per entry, entries bounded by the message; qed"),
+			.expect("exactly one fingerprint per entry, entries bounded by the message; qed"),
 	};
 
 	per_scheduling_parent.segments.insert(core_index, new_segment);
@@ -691,14 +670,14 @@ async fn distribute_segment<Context>(
 }
 
 /// Build the candidate receipt from the segment commons and a built entry.
-/// `sp_session` is `Some` exactly for V3 segments (its Someness is the
-/// version); `pov_hash` is derived by the caller from the shipped PoV.
+/// `sp_session` is `Some` only for V3 segments;
+/// `pov_hash` is derived by the caller from the shipped PoV.
 fn assemble_receipt(
 	para_id: ParaId,
 	core_index: CoreIndex,
 	scheduling_parent: Hash,
 	sp_session: Option<SessionIndex>,
-	entry: &BuiltEntry,
+	entry: &SegmentEntry,
 	pov_hash: Hash,
 ) -> CandidateReceipt {
 	let descriptor = match sp_session {
@@ -1319,8 +1298,7 @@ async fn handle_incoming_peer_message<Context>(
 			);
 		},
 		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement)) |
-		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) |
-		CollationProtocols::V4(V4::CollationSeconded(scheduling_parent, statement)) => {
+		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,

@@ -30,8 +30,7 @@ use thiserror::Error;
 pub use sc_network::IfDisconnected;
 
 use polkadot_node_network_protocol::{
-	self as net_protocol, peer_set::PeerSet, request_response::Requests,
-	v4_collation::CandidateFingerprint, PeerId,
+	self as net_protocol, peer_set::PeerSet, request_response::Requests, PeerId,
 };
 use polkadot_node_primitives::{
 	approval::{
@@ -273,7 +272,7 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 /// The collator protocol assembles a `CandidateReceipt` from these
 /// fields and the segment level commons.
 #[derive(Debug)]
-pub struct BuiltEntry {
+pub struct SegmentEntry {
 	/// Relay parent the candidate builds on.
 	pub relay_parent: Hash,
 	/// The relay parent's session index.
@@ -298,24 +297,13 @@ pub struct BuiltEntry {
 	pub result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 }
 
-/// A single candidate in a distributed segment.
-#[derive(Debug)]
-pub enum SegmentEntry {
-	/// A materialized candidate: can be advertised and fetched.
-	Built(BuiltEntry),
-	/// An advertised-only candidate. There is no collation to serve until it
-	/// is materialized on request. Collation-generation does not emit this
-	/// variant yet.
-	Fingerprint(CandidateFingerprint),
-}
-
 /// The candidates of one `DistributeSegment` message, shaped by descriptor
 /// version.
 #[derive(Debug)]
 pub enum Segment {
 	/// A V2-descriptor segment: exactly one candidate, always built. The
 	/// entry's `relay_parent` doubles as the scheduling parent.
-	V2(BuiltEntry),
+	V2(SegmentEntry),
 	/// A V3-descriptor segment: candidates ordered by age, sharing one
 	/// scheduling parent.
 	V3 {
@@ -323,8 +311,10 @@ pub enum Segment {
 		scheduling_parent: Hash,
 		/// The scheduling parent's session index.
 		scheduling_session: SessionIndex,
-		/// Ordered candidates; the list may have gaps. The last entry must
-		/// be `Built`.
+		/// Ordered candidates; the list may have gaps. Every entry is fully
+		/// built. When on-demand candidate building lands, entries become
+		/// fingerprint advertisements materialized at fetch time, and
+		/// `BuiltEntry` leaves this message entirely.
 		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 	},
 }
