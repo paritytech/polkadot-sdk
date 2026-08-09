@@ -41,6 +41,7 @@ std = [
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
 	"emulated-integration-tests-common?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -144,8 +145,8 @@ std = [
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
 	"pallet-salary?/std",
+	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
-	"pallet-scored-pool?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
@@ -342,6 +343,7 @@ runtime-benchmarks = [
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
+	"pallet-scarcity?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-session?/runtime-benchmarks",
@@ -409,6 +411,7 @@ try-runtime = [
 	"frame-support?/try-runtime",
 	"frame-system?/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"generate-bags?/try-runtime",
 	"pallet-accumulate-and-forward?/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
@@ -493,8 +496,8 @@ try-runtime = [
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
 	"pallet-salary?/try-runtime",
+	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
-	"pallet-scored-pool?/try-runtime",
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
@@ -612,6 +615,7 @@ runtime-full = [
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
 	"ethereum-standards",
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -720,8 +724,8 @@ runtime-full = [
 	"pallet-root-testing",
 	"pallet-safe-mode",
 	"pallet-salary",
+	"pallet-scarcity",
 	"pallet-scheduler",
-	"pallet-scored-pool",
 	"pallet-session",
 	"pallet-session-benchmarking",
 	"pallet-skip-feeless-payment",
@@ -905,6 +909,7 @@ node = [
 	"cumulus-client-parachain-inherent",
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
+	"cumulus-client-resubmission-store",
 	"cumulus-client-service",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
@@ -1010,6 +1015,7 @@ node = [
 	"sc-service",
 	"sc-state-db",
 	"sc-statement-store",
+	"sc-storage-chain-sync",
 	"sc-storage-monitor",
 	"sc-sync-state-rpc",
 	"sc-sysinfo",
@@ -1215,6 +1221,11 @@ path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
 path = "../substrate/primitives/ethereum-standards"
+
+[dependencies.fp-coretime]
+default-features = false
+optional = true
+path = "../substrate/frame/primitives/coretime"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -1756,15 +1767,15 @@ default-features = false
 optional = true
 path = "../substrate/frame/salary"
 
+[dependencies.pallet-scarcity]
+default-features = false
+optional = true
+path = "../substrate/frame/scarcity"
+
 [dependencies.pallet-scheduler]
 default-features = false
 optional = true
 path = "../substrate/frame/scheduler"
-
-[dependencies.pallet-scored-pool]
-default-features = false
-optional = true
-path = "../substrate/frame/scored-pool"
 
 [dependencies.pallet-session]
 default-features = false
@@ -2341,6 +2352,11 @@ default-features = false
 optional = true
 path = "../cumulus/client/proof-size-recording"
 
+[dependencies.cumulus-client-resubmission-store]
+default-features = false
+optional = true
+path = "../cumulus/client/resubmission-store"
+
 [dependencies.cumulus-client-service]
 default-features = false
 optional = true
@@ -2865,6 +2881,11 @@ path = "../substrate/client/state-db"
 default-features = false
 optional = true
 path = "../substrate/client/statement-store"
+
+[dependencies.sc-storage-chain-sync]
+default-features = false
+optional = true
+path = "../substrate/client/storage-chain-sync"
 
 [dependencies.sc-storage-monitor]
 default-features = false
