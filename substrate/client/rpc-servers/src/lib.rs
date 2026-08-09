@@ -242,7 +242,7 @@ where
 	let Config { endpoints, metrics, rpc_api, id_provider, request_logger_limit, rpc_runtime } =
 		config;
 
-	// Held as a guard so that every early error return below shuts the runtime down 
+	// Held as a guard so that every early error return below shuts the runtime down
 	let rpc_runtime = RuntimeGuard::new(rpc_runtime);
 	let rpc_handle = rpc_runtime.handle();
 
