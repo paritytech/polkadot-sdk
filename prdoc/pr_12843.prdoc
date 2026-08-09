@@ -10,4 +10,4 @@ crates:
 - name: pallet-election-provider-multi-block
   bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
