@@ -65,6 +65,7 @@ use sc_consensus::{
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
+use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -198,7 +199,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send + 'static,
 	StartConsensus: self::StartConsensus<
 			Block,
 			RuntimeApi,
@@ -226,6 +227,7 @@ where
 			ref statement_store_config,
 			ref storage_monitor,
 			ref hop,
+			collator_reserved_slots: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -250,7 +252,7 @@ where
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _, _),
+			other: (_, mut telemetry, _, _, _, _),
 		} = Self::new_partial(&config)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
@@ -631,7 +633,11 @@ where
 				Block,
 				SlotBasedBlockImport<
 					Block,
-					Arc<ParachainClient<Block, RuntimeApi>>,
+					StorageChainBlockImport<
+						Block,
+						Arc<ParachainClient<Block, RuntimeApi>>,
+						ParachainClient<Block, RuntimeApi>,
+					>,
 					ParachainClient<Block, RuntimeApi>,
 				>,
 			>,
@@ -667,7 +673,11 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 		RuntimeApi,
 		SlotBasedBlockImport<
 			Block,
-			Arc<ParachainClient<Block, RuntimeApi>>,
+			StorageChainBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
 			ParachainClient<Block, RuntimeApi>,
 		>,
 		SlotBasedBlockImportHandle<Block>,
@@ -684,7 +694,11 @@ where
 			Block,
 			SlotBasedBlockImport<
 				Block,
-				Arc<ParachainClient<Block, RuntimeApi>>,
+				StorageChainBlockImport<
+					Block,
+					Arc<ParachainClient<Block, RuntimeApi>>,
+					ParachainClient<Block, RuntimeApi>,
+				>,
 				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
@@ -786,15 +800,24 @@ where
 {
 	type BlockImport = SlotBasedBlockImport<
 		Block,
-		Arc<ParachainClient<Block, RuntimeApi>>,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 		ParachainClient<Block, RuntimeApi>,
 	>;
 	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok(SlotBasedBlockImport::new(client.clone(), client))
+		Ok(SlotBasedBlockImport::new(storage_chain_block_import, client))
 	}
 }
 
@@ -827,8 +850,16 @@ pub(crate) struct StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>(
 );
 
 impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
-	StartConsensus<Block, RuntimeApi, Arc<ParachainClient<Block, RuntimeApi>>, ()>
-	for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
+	StartConsensus<
+		Block,
+		RuntimeApi,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
+		(),
+	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
@@ -837,7 +868,14 @@ where
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, Arc<ParachainClient<Block, RuntimeApi>>>,
+		block_import: ParachainBlockImport<
+			Block,
+			StorageChainBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
+		>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,

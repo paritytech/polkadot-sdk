@@ -172,7 +172,24 @@ impl<B: Backend> PeerManager<B> {
 			.db
 			.process_bumps(finalized_block_number, bumps, Some(Score::new(INACTIVITY_DECAY)), now)
 			.await;
+
+		if !updates.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?finalized_block_hash,
+				num_updates = updates.len(),
+				"Applying reputation updates on new finalized block",
+			);
+		}
+
 		for update in updates {
+			gum::trace!(
+				target: LOG_TARGET,
+				finalized_block_number,
+				?update,
+				"Applying reputation update",
+			);
 			self.connected.update_reputation(update);
 		}
 
@@ -408,6 +425,11 @@ impl<B: Backend> PeerManager<B> {
 	#[cfg(test)]
 	pub fn connected_peers(&self) -> BTreeSet<PeerId> {
 		self.connected.clone().consume().0.into_keys().collect()
+	}
+
+	#[cfg(test)]
+	pub async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		self.db.processed_finalized_block_number().await
 	}
 
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
