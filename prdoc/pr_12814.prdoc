@@ -12,11 +12,9 @@ doc:
     `initial_sync`), and `substrate_sync_initial_sync_duration_seconds` gains an `outcome` label
     (`completed`, `abandoned`). Existing queries may therefore return one series per label value.
 
-    New metrics report outstanding initial-sync payload bytes
-    (`substrate_sync_initial_sync_in_flight_bytes`) and statements left unsent when a sync is
-    abandoned (`substrate_sync_initial_sync_abandoned_statements_total`, labelled by `reason`:
-    `disconnected`, `network`, `timeout`, `no_sink`, `peer_missing`, `store_error`). Send-failure and
-    undelivered counters can now also report `no_sink` for initial sync.
+    A new metric reports outstanding initial-sync payload bytes
+    (`substrate_sync_initial_sync_in_flight_bytes`). Send-failure and undelivered counters can now
+    also report `no_sink` for initial sync.
 
     `substrate_sync_initial_sync_peers_active` no longer leaks when a peer is already absent from the
     peer map.

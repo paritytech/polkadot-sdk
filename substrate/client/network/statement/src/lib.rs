@@ -211,7 +211,6 @@ struct Metrics {
 	statement_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
-	initial_sync_abandoned_statements: CounterVec<U64>,
 }
 
 mod send_failure {
@@ -221,15 +220,6 @@ mod send_failure {
 	pub const TIMEOUT: &str = "timeout";
 	/// The chunk was never handed to the network because the peer had no message sink.
 	pub const NO_SINK: &str = "no_sink";
-}
-
-mod sync_abandoned {
-	/// The peer left the peer map while its sync was still pending.
-	pub const PEER_MISSING: &str = "peer_missing";
-	/// The statement store failed to serve the batch.
-	pub const STORE_ERROR: &str = "store_error";
-	/// The notification stream closed while the sync was still pending.
-	pub const DISCONNECTED: &str = "disconnected";
 }
 
 mod sync_outcome {
@@ -396,16 +386,6 @@ impl Metrics {
 					Opts::new(
 						"substrate_sync_statement_undelivered_total",
 						"Total statements that were marked known to a peer but whose send failed, so the peer never received them, by reason",
-					),
-					&["reason"],
-				)?,
-				r,
-			)?,
-			initial_sync_abandoned_statements: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_initial_sync_abandoned_statements_total",
-						"Statements a peer was still owed when its initial sync was abandoned, by reason.",
 					),
 					&["reason"],
 				)?,
@@ -1181,7 +1161,10 @@ where
 				}
 
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-					self.record_initial_sync_abandoned(sync_abandoned::DISCONNECTED, &pending);
+					self.record_initial_sync_completion(
+						sync_outcome::ABANDONED,
+						pending.started_at,
+					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 			},
@@ -1563,9 +1546,9 @@ where
 			return;
 		}
 
-		if let Some(reason) = failure {
+		if failure.is_some() {
 			if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-				self.record_initial_sync_abandoned(reason, &pending);
+				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			}
 			return;
 		}
@@ -1687,17 +1670,6 @@ where
 		});
 	}
 
-	/// Record an initial sync that ended before delivering its remaining backlog.
-	fn record_initial_sync_abandoned(&self, reason: &str, pending: &PendingInitialSync) {
-		self.metrics.as_ref().map(|metrics| {
-			metrics
-				.initial_sync_abandoned_statements
-				.with_label_values(&[reason])
-				.inc_by(pending.hashes.len() as u64);
-		});
-		self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
-	}
-
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
 	fn process_initial_sync_burst(&mut self) {
 		if self.sync.is_major_syncing() {
@@ -1740,7 +1712,7 @@ where
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
 			let pending = entry.remove();
-			self.record_initial_sync_abandoned(sync_abandoned::PEER_MISSING, &pending);
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			return;
 		};
 		let peer_version = peer_data.protocol_version;
@@ -1770,7 +1742,7 @@ where
 			Err(e) => {
 				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
 				let pending = entry.remove();
-				self.record_initial_sync_abandoned(sync_abandoned::STORE_ERROR, &pending);
+				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 				return;
 			},
 		};
@@ -1809,7 +1781,7 @@ where
 			);
 			self.record_send_failure(send_failure::NO_SINK, statement_count);
 			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-				self.record_initial_sync_abandoned(send_failure::NO_SINK, &pending);
+				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			}
 			return;
 		};
