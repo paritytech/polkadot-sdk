@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
+use super::{AccountId, Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
 use crate::{
 	mock::*,
 	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
@@ -25,7 +25,13 @@ use crate::{
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	assert_ok, dispatch::PostDispatchInfo, parameter_types, traits::EstimateCallFee,
+	assert_ok,
+	dispatch::PostDispatchInfo,
+	parameter_types,
+	traits::{
+		fungible::{Balanced, Credit},
+		EstimateCallFee, OnUnbalanced,
+	},
 };
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Zero, Perbill};
@@ -76,6 +82,18 @@ parameter_types! {
 	pub static BailoutGraceRatio: Perbill = Perbill::from_percent(20);
 	pub static EjectGraceRatio: Perbill = Perbill::from_percent(20);
 	pub static SignedRewardSource: Option<AccountId> = None;
+	pub static SignedSlashTarget: Option<AccountId> = None;
+}
+
+/// Routes slashed deposits to [`SignedSlashTarget`] if set, otherwise drops (burns) them.
+pub struct MockSlash;
+impl OnUnbalanced<Credit<AccountId, Balances>> for MockSlash {
+	fn on_unbalanced(credit: Credit<AccountId, Balances>) {
+		if let Some(target) = SignedSlashTarget::get() {
+			let _ = Balances::resolve(&target, credit).map_err(|c| drop(c));
+		}
+		// else: `credit` is dropped here.
+	}
 }
 
 impl crate::signed::Config for Runtime {
@@ -88,7 +106,7 @@ impl crate::signed::Config for Runtime {
 	type RewardBase = SignedRewardBase;
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
-	type Slash = ();
+	type Slash = MockSlash;
 	type RewardSource = SignedRewardSource;
 	type WeightInfo = ();
 }

@@ -1403,7 +1403,10 @@ mod invulnerables {
 				0,
 				Pages::get()
 			));
-			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
+			assert_eq!(
+				signed_events_since_last_call(),
+				vec![Event::Rewarded(0, 99, 1), Event::Discarded(0, 99)]
+			);
 			// full deposit is returned + tx-fee
 			assert_eq!(balances(99), (101, 0));
 		})
@@ -1638,9 +1641,10 @@ mod issuance {
 	}
 
 	#[test]
-	fn reward_skipped_when_source_pot_is_empty() {
-		// When RewardSource is Some(empty_pot), the transfer fails gracefully: the winner is not
-		// paid, no panic occurs, and TotalIssuance remains unchanged.
+	fn reward_failed_when_source_pot_is_empty() {
+		// When RewardSource is Some(empty_pot), the transfer fails: the winner is not paid, no
+		// panic occurs, RewardPaymentFailed is emitted instead of Rewarded, and TotalIssuance
+		// remains unchanged.
 		ExtBuilder::signed().build_and_execute(|| {
 			// Do NOT fund the pot.
 			SignedRewardSource::set(Some(POT));
@@ -1649,19 +1653,23 @@ mod issuance {
 			submit_and_verify_winning(999);
 			let ti_after = Balances::total_issuance();
 
-			// A Rewarded event is still emitted (reward amount is logged), but no funds move.
-			let rewarded_events: Vec<_> = signed_events_since_last_call()
+			let events = signed_events_since_last_call();
+			assert!(
+				!events.iter().any(|e| matches!(e, SignedEvent::Rewarded(..))),
+				"Rewarded must not be emitted when the pot transfer fails"
+			);
+			let failed_events: Vec<_> = events
 				.into_iter()
-				.filter(|e| matches!(e, SignedEvent::Rewarded(..)))
+				.filter(|e| matches!(e, SignedEvent::RewardPaymentFailed(..)))
 				.collect();
-			assert_eq!(rewarded_events.len(), 1, "Rewarded event must still be emitted");
+			assert_eq!(failed_events.len(), 1, "expected exactly one RewardPaymentFailed event");
 			assert_eq!(ti_before, ti_after, "total issuance must not change when pot is empty");
 		});
 	}
 
 	#[test]
 	fn slash_burns_deposit_by_default() {
-		// When type Slash = (), slashed deposits are burned (credit is dropped).
+		// When SignedSlashTarget is None, slashed deposits are burned (credit is dropped).
 		// TotalIssuance must decrease by the slashed amount.
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
@@ -1684,6 +1692,40 @@ mod issuance {
 
 			let ti_after = Balances::total_issuance();
 			assert!(ti_after < ti_before, "total issuance must decrease when slash is burned");
+		});
+	}
+
+	#[test]
+	fn slash_transfers_to_target_when_configured() {
+		// When SignedSlashTarget is Some(target), slashed deposits are transferred to target
+		// instead of being burned. TotalIssuance must not change.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedSlashTarget::set(Some(POT));
+
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let invalid_score =
+				ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
+
+			let ti_before = Balances::total_issuance();
+			let target_before = Balances::free_balance(POT);
+
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			let slashed_events: Vec<_> = signed_events_since_last_call()
+				.into_iter()
+				.filter(|e| matches!(e, SignedEvent::Slashed(..)))
+				.collect();
+			assert_eq!(slashed_events.len(), 1, "expected exactly one Slashed event");
+
+			let ti_after = Balances::total_issuance();
+			let target_after = Balances::free_balance(POT);
+
+			assert_eq!(ti_before, ti_after, "total issuance must not change when slash is routed");
+			assert!(target_after > target_before, "slash target balance must increase");
 		});
 	}
 }

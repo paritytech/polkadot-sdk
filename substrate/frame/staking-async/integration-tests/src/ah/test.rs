@@ -23,8 +23,8 @@ use frame_support::{
 	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
 };
 use pallet_election_provider_multi_block::{
-	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
-	ElectionScore, Event as ElectionEvent, Phase,
+	signed::Event as SignedEvent, unsigned::miner::OffchainWorkerMiner,
+	verifier::Event as VerifierEvent, CurrentPhase, ElectionScore, Event as ElectionEvent, Phase,
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
@@ -1419,6 +1419,46 @@ mod poll_operations {
 			);
 		});
 	}
+}
+
+#[test]
+fn signed_slash_routes_to_dap_not_burned() {
+	// type Slash = Dap for MultiBlockSigned here, mirroring WAH/staking-async parachain.
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 0,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
+
+		// Register but never submit any pages: this claim is infeasible and will be rejected
+		// (and slashed) once the validation phase evaluates it.
+		let invalid_score =
+			ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+		assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), invalid_score));
+
+		// unlike `TotalIssuance`, staging_account isn't touched by DAP's ambient issuance drip.
+		let staging_before = Balances::free_balance(Dap::staging_account());
+
+		roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
+
+		assert!(
+			signed_events_since_last_call().iter().any(|e| matches!(e, SignedEvent::Slashed(..))),
+			"expected a Slashed event for the infeasible submission"
+		);
+
+		let staging_after = Balances::free_balance(Dap::staging_account());
+		assert!(
+			staging_after > staging_before,
+			"slashed deposit must be routed to the DAP staging account, not burned"
+		);
+	});
 }
 
 mod session_keys {

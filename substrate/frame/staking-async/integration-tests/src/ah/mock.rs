@@ -420,7 +420,21 @@ parameter_types! {
 	pub static DepositPerPage: Balance = 1;
 	pub static MaxSubmissions: u32 = 2;
 	pub static RewardBase: Balance = 5;
-	pub static SignedRewardSource: Option<AccountId> = None;
+}
+
+/// Draws signed-phase rewards from the DAP buffer, reactivating the paid amount so
+/// `TotalIssuance`'s active/inactive split stays correct.
+pub struct SignedRewardsFromDapBuffer;
+impl multi_block::signed::RewardSource<AccountId, Balance> for SignedRewardsFromDapBuffer {
+	fn account() -> Option<AccountId> {
+		Some(Dap::buffer_account())
+	}
+
+	fn paid(amount: Balance) {
+		<Balances as frame_support::traits::tokens::fungible::Unbalanced<AccountId>>::reactivate(
+			amount,
+		);
+	}
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -433,8 +447,8 @@ impl multi_block::signed::Config for Runtime {
 	type EstimateCallFee = ConstU32<1>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
-	type Slash = ();
-	type RewardSource = SignedRewardSource;
+	type Slash = Dap;
+	type RewardSource = SignedRewardsFromDapBuffer;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
@@ -968,6 +982,19 @@ parameter_types! {
 	static ElectionEventsIndex: usize = 0;
 	static VerifierEventsIndex: usize = 0;
 	static RcClientEventsIndex: usize = 0;
+	static SignedEventsIndex: usize = 0;
+}
+
+pub(crate) fn signed_events_since_last_call() -> Vec<multi_block::signed::Event<T>> {
+	let all: Vec<_> = System::events()
+		.into_iter()
+		.filter_map(
+			|r| if let RuntimeEvent::MultiBlockSigned(inner) = r.event { Some(inner) } else { None },
+		)
+		.collect();
+	let seen = SignedEventsIndex::get();
+	SignedEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
 }
 
 pub(crate) fn rc_client_events_since_last_call() -> Vec<pallet_staking_async_rc_client::Event<T>> {

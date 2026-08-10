@@ -1,13 +1,16 @@
 title: '[EPMB] Add configurable reward source and slash destination to signed phase'
 doc:
 - audience: Runtime Dev
-  description: "Fixes #12813 by introducing `type RewardSource` (pay rewards from\
-    \ a pot account instead of minting) and `type Slash` (route slashed deposits to\
-    \ a handler instead of burning) to `pallet-election-provider-multi-block::signed::Config`,\
-    \ keeping `TotalIssuance` reconcilable with the DAP emission curve on Asset Hub.\r\
-    \n"
+  description: |-
+    Adds `type RewardSource` (pay rewards from a pot account instead of minting) and `type Slash`
+    (route slashed deposits to a handler instead of burning) to
+    `pallet-election-provider-multi-block::signed::Config`. Asset Hub and the staking-async
+    parachain runtime now wire both through the DAP buffer, keeping `TotalIssuance` reconcilable
+    with the DAP emission curve.
 crates:
 - name: pallet-election-provider-multi-block
   bump: major
 - name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
   bump: minor

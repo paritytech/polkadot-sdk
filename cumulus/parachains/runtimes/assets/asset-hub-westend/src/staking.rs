@@ -153,7 +153,19 @@ parameter_types! {
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
-	pub SignedRewardSource: Option<AccountId> = None;
+}
+
+pub struct SignedRewardsFromDapBuffer;
+impl multi_block::signed::RewardSource<AccountId, Balance> for SignedRewardsFromDapBuffer {
+	fn account() -> Option<AccountId> {
+		Some(Dap::buffer_account())
+	}
+
+	fn paid(amount: Balance) {
+		<Balances as frame_support::traits::tokens::fungible::Unbalanced<AccountId>>::reactivate(
+			amount,
+		);
+	}
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -166,8 +178,8 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	type Slash = ();
-	type RewardSource = SignedRewardSource;
+	type Slash = Dap;
+	type RewardSource = SignedRewardsFromDapBuffer;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 
