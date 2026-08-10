@@ -14,7 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, Pallet, ReservedDmpWeightOverride, ReservedXcmpWeightOverride};
+use crate::{
+	Config, LastProcessedHrmpMessage, Pallet, ReservedDmpWeightOverride, ReservedXcmpWeightOverride,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
@@ -22,37 +24,87 @@ use frame_support::{
 };
 
 /// The in-code storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
-/// Migrates the pallet storage to the most recent version.
-pub struct Migration<T: Config>(PhantomData<T>);
+pub use v4::MigrateV3ToV4;
 
-impl<T: Config> OnRuntimeUpgrade for Migration<T> {
-	fn on_runtime_upgrade() -> Weight {
-		let mut weight: Weight = T::DbWeight::get().reads(2);
+// V4: Extend the `InboundMessageId` to also contain the sender.
+pub mod v4 {
+	use super::*;
+	use crate::parachain_inherent::{InboundHrmpMessageId, InboundMessageId};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-		if StorageVersion::get::<Pallet<T>>() == 0 {
-			weight = weight
-				.saturating_add(v1::migrate::<T>())
-				.saturating_add(T::DbWeight::get().writes(1));
-			StorageVersion::new(1).put::<Pallet<T>>();
+	mod unversioned {
+		use super::*;
+
+		pub struct UncheckedMigrateV3ToV4<T: Config>(PhantomData<T>);
+	}
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV3ToV4<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let result =
+				LastProcessedHrmpMessage::<T>::translate(|maybe_pre: Option<InboundMessageId>| {
+					maybe_pre.map(|pre| InboundHrmpMessageId::Generic(pre))
+				});
+			if result.is_err() {
+				log::error!(
+					target: "parachain_system",
+					"unexpected error when performing translation of the LastProcessedHrmpMessage to the new InboundMessageId type"
+				);
+			}
+
+			T::DbWeight::get().reads_writes(1, 1)
 		}
+	}
 
-		if StorageVersion::get::<Pallet<T>>() == 1 {
-			weight = weight
-				.saturating_add(v2::migrate::<T>())
-				.saturating_add(T::DbWeight::get().writes(1));
-			StorageVersion::new(2).put::<Pallet<T>>();
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), that is performed
+	/// only when the on-chain version is 3.
+	pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
+		3,
+		4,
+		unversioned::UncheckedMigrateV3ToV4<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
+pub mod v3 {
+	use super::*;
+	use crate::parachain_inherent::InboundMessageId;
+
+	#[frame_support::storage_alias]
+	pub type LastProcessedHrmpMessage<T: Config> = StorageValue<Pallet<T>, InboundMessageId>;
+
+	/// Migrates the pallet storage to the most recent version.
+	pub struct Migration<T: Config>(PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight: Weight = T::DbWeight::get().reads(2);
+
+			if StorageVersion::get::<Pallet<T>>() == 0 {
+				weight = weight
+					.saturating_add(v1::migrate::<T>())
+					.saturating_add(T::DbWeight::get().writes(1));
+				StorageVersion::new(1).put::<Pallet<T>>();
+			}
+
+			if StorageVersion::get::<Pallet<T>>() == 1 {
+				weight = weight
+					.saturating_add(v2::migrate::<T>())
+					.saturating_add(T::DbWeight::get().writes(1));
+				StorageVersion::new(2).put::<Pallet<T>>();
+			}
+
+			if StorageVersion::get::<Pallet<T>>() == 2 {
+				// Runtime upgrades are in their own PoV so there is no issue with killing this.
+				crate::PoVMessagesTracker::<T>::kill();
+				weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+				StorageVersion::new(3).put::<Pallet<T>>();
+			}
+
+			weight
 		}
-
-		if StorageVersion::get::<Pallet<T>>() == 2 {
-			// Runtime upgrades are in their own PoV so there is no issue with killing this.
-			crate::PoVMessagesTracker::<T>::kill();
-			weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-			StorageVersion::new(3).put::<Pallet<T>>();
-		}
-
-		weight
 	}
 }
 

@@ -870,7 +870,8 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
 );
 
 // Helpers for the core fellowship pallet v1->v2 storage migration.

@@ -282,6 +282,47 @@ impl InboundMessage for (ParaId, InboundHrmpMessage) {
 	}
 }
 
+/// Similar to [`InboundMessageId`], but also containing the sending parachain id.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
+pub enum InboundHrmpMessageId {
+	Generic(InboundMessageId),
+	Specific {
+		/// The block number at which this message was added to the message passing queue
+		/// on the relay chain.
+		sent_at: BlockNumber,
+		/// The sending parachain id.
+		sender: ParaId,
+		/// The reverse index of the message in the collection of messages sent at `sent_at`
+		/// by `sender`.
+		reverse_idx: u32,
+	},
+}
+
+impl InboundHrmpMessageId {
+	pub fn sent_at(&self) -> BlockNumber {
+		match self {
+			InboundHrmpMessageId::Generic(id) => id.sent_at,
+			InboundHrmpMessageId::Specific { sent_at, .. } => *sent_at,
+		}
+	}
+
+	pub fn sender(&self) -> Option<ParaId> {
+		match self {
+			InboundHrmpMessageId::Generic(_) => None,
+			InboundHrmpMessageId::Specific { sender, .. } => Some(*sender),
+		}
+	}
+
+	pub fn inc_reverse_idx(&mut self) {
+		let reverse_idx = match self {
+			InboundHrmpMessageId::Generic(id) => &mut id.reverse_idx,
+			InboundHrmpMessageId::Specific { reverse_idx, .. } => reverse_idx,
+		};
+
+		*reverse_idx += 1;
+	}
+}
+
 pub type InboundHrmpMessages = InboundMessagesCollection<(ParaId, InboundHrmpMessage)>;
 
 impl InboundHrmpMessages {
@@ -304,6 +345,39 @@ impl InboundHrmpMessages {
 		});
 
 		Self { messages }
+	}
+
+	/// Drop all the messages up to `last_processed_msg`.
+	pub fn drop_hrmp_processed_messages(&mut self, last_processed_msg: &InboundHrmpMessageId) {
+		let (input_sent_at, input_sender, input_reverse_idx) = match last_processed_msg {
+			InboundHrmpMessageId::Generic(id) => {
+				return self.drop_processed_messages(id);
+			},
+			InboundHrmpMessageId::Specific { sent_at, sender, reverse_idx } => {
+				(sent_at, sender, reverse_idx)
+			},
+		};
+
+		let mut last_processed_msg_idx = None;
+		let messages = &mut self.messages;
+		for (idx, (sender, message)) in messages.iter().enumerate().rev() {
+			let sent_at = message.sent_at;
+			if sent_at == *input_sent_at && input_sender == sender {
+				last_processed_msg_idx = idx.checked_sub(*input_reverse_idx as usize);
+				break;
+			}
+			// If we build on the same relay parent twice, we will receive the same messages again
+			// while `last_processed_msg` may have been increased.
+			// Also, if an HRMP channel was closed, the messages from that sender will not be sent,
+			// even if our `last_processed_msg` point to a message from it.
+			if sent_at < *input_sent_at || (sender < input_sender && sent_at == *input_sent_at) {
+				last_processed_msg_idx = Some(idx);
+				break;
+			}
+		}
+		if let Some(last_processed_msg_idx) = last_processed_msg_idx {
+			messages.drain(..=last_processed_msg_idx);
+		}
 	}
 }
 
@@ -383,38 +457,206 @@ mod tests {
 	}
 
 	#[test]
+	fn drop_hrmp_processed_messages_works() {
+		let msgs_vec = vec![
+			// sent_at: 0
+			(0.into(), InboundHrmpMessage { sent_at: 0, data: vec![1] }),
+			(2.into(), InboundHrmpMessage { sent_at: 0, data: vec![2] }),
+			(2.into(), InboundHrmpMessage { sent_at: 0, data: vec![3] }),
+			// sent_at: 1
+			(0.into(), InboundHrmpMessage { sent_at: 1, data: vec![4] }),
+			(2.into(), InboundHrmpMessage { sent_at: 1, data: vec![5] }),
+			(2.into(), InboundHrmpMessage { sent_at: 1, data: vec![6] }),
+		];
+
+		// until sent_at: 0
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 0.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 0.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 0.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[1..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 1.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[1..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 2.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[1..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 2.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[2..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 2.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[3..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 0,
+			sender: 3.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[3..]);
+
+		// until sent_at: 1
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 0.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[3..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 0.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[4..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 1.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[4..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 2.into(),
+			reverse_idx: 2,
+		});
+		assert_eq!(msgs.messages, msgs_vec[4..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 2.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[5..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 2.into(),
+			reverse_idx: 0,
+		});
+		assert_eq!(msgs.messages, msgs_vec[6..]);
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Specific {
+			sent_at: 1,
+			sender: 3.into(),
+			reverse_idx: 1,
+		});
+		assert_eq!(msgs.messages, msgs_vec[6..]);
+	}
+
+	#[test]
 	fn drop_processed_messages_works() {
-		let msgs_vec =
-			build_inbound_dm_vec(&[(0, 0), (0, 0), (2, 0), (2, 0), (2, 0), (2, 0), (3, 0)]);
+		let msgs_vec = vec![
+			(0.into(), InboundHrmpMessage { sent_at: 0, data: vec![1] }),
+			(0.into(), InboundHrmpMessage { sent_at: 0, data: vec![2] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![3] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![4] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![5] }),
+			(0.into(), InboundHrmpMessage { sent_at: 2, data: vec![6] }),
+			(0.into(), InboundHrmpMessage { sent_at: 3, data: vec![7] }),
+		];
 
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 3, reverse_idx: 0 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 3,
+			reverse_idx: 0,
+		}));
 		assert_eq!(msgs.messages, []);
 
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 0 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 0,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[6..]);
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 1 });
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 1,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[5..]);
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 4 });
+
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 4,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[2..]);
 
 		// Go back starting from the last message sent at block 2, with 1 more message than the
 		// total number of messages sent at 2.
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 2, reverse_idx: 5 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 2,
+			reverse_idx: 5,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[1..]);
 
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 0, reverse_idx: 1 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 0,
+			reverse_idx: 1,
+		}));
 		assert_eq!(msgs.messages, msgs_vec[1..]);
+
 		// Go back starting from the last message sent at block 0, with 1 more message than the
 		// total number of messages sent at 0.
-		let mut msgs = InboundDownwardMessages::new(msgs_vec.clone());
-		msgs.drop_processed_messages(&InboundMessageId { sent_at: 0, reverse_idx: 3 });
+		let mut msgs = InboundHrmpMessages::new(msgs_vec.clone());
+		msgs.drop_hrmp_processed_messages(&InboundHrmpMessageId::Generic(InboundMessageId {
+			sent_at: 0,
+			reverse_idx: 3,
+		}));
 		assert_eq!(msgs.messages, msgs_vec);
 	}
 
