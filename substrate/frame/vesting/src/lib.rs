@@ -858,8 +858,8 @@ impl<T: Config> Pallet<T> {
 		incoming: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
 		let now = T::BlockNumberProvider::current_block_number();
-		let now_as_balance = T::BlockNumberToBalance::convert(now);
-		let incoming_end = incoming.ending_block_as_balance::<T::BlockNumberToBalance>();
+		let now_block = T::BlockNumberToBalance::convert(now);
+		let incoming_end_block = incoming.ending_block_as_balance::<T::BlockNumberToBalance>();
 
 		with_storage_layer(|| {
 			let schedules = Vesting::<T>::get(dest).unwrap_or_default();
@@ -870,30 +870,33 @@ impl<T: Config> Pallet<T> {
 				.enumerate()
 				.filter(|(_, (_, k))| *k == VestingKind::System)
 				.min_by_key(|(_, (vi, _))| {
-					let end = vi.ending_block_as_balance::<T::BlockNumberToBalance>();
+					let end_block = vi.ending_block_as_balance::<T::BlockNumberToBalance>();
 
-					// Absolute value: | end - incoming_end |
-					end.max(incoming_end) - end.min(incoming_end)
+					// Absolute value: | end_block - incoming_end_block |
+					end_block.max(incoming_end_block) - end_block.min(incoming_end_block)
 				})
 				.map(|(i, (vi, _))| (i, *vi))
 				.ok_or(Error::<T>::NotVesting)?;
 
 			// New locked amount at `now`: target's remaining locked + full incoming amount.
-			let target_locked_now = target_vi.locked_at::<T::BlockNumberToBalance>(now);
-			let target_end = target_vi.ending_block_as_balance::<T::BlockNumberToBalance>();
-			let merged_locked_now = target_locked_now.saturating_add(incoming.locked());
-			let remaining = target_end.saturating_sub(now_as_balance).max(One::one());
+			let target_locked_now_tokens = target_vi.locked_at::<T::BlockNumberToBalance>(now);
+			let target_end_block = target_vi.ending_block_as_balance::<T::BlockNumberToBalance>();
+			let merged_locked_now_tokens =
+				target_locked_now_tokens.saturating_add(incoming.locked());
+			let remaining_blocks = target_end_block.saturating_sub(now_block).max(One::one());
 
 			// Ceiling division so no dust slips through.
-			let per_block =
-				(merged_locked_now.saturating_add(remaining).saturating_sub(One::one()) /
-					remaining)
-					.max(One::one());
+			let per_block = (merged_locked_now_tokens
+				.saturating_add(remaining_blocks)
+				.saturating_sub(One::one()) /
+				remaining_blocks)
+				.max(One::one());
 
-			// Back-calculate `locked` so that `locked_at(now) == merged_locked_now` exactly.
-			let elapsed = now_as_balance
+			// Back-calculate `locked` so that `locked_at(now) == merged_locked_now_tokens` exactly.
+			let elapsed_blocks = now_block
 				.saturating_sub(T::BlockNumberToBalance::convert(target_vi.starting_block()));
-			let locked = merged_locked_now.saturating_add(per_block.saturating_mul(elapsed));
+			let locked =
+				merged_locked_now_tokens.saturating_add(per_block.saturating_mul(elapsed_blocks));
 			let merged_vi = VestingInfo::new(locked, per_block, target_vi.starting_block());
 
 			T::Currency::transfer(
@@ -988,11 +991,8 @@ where
 		} else if kind == VestingKind::System &&
 			Self::check_per_kind_room(&schedules, kind).is_err()
 		{
-			// No room for a new System schedule. Retain the incoming amount but drop
-			// its vesting params (starting_block, duration): merge into the existing
-			// System schedule whose ending block is closest to the incoming one. This
-			// preserves as much of the intended vesting duration as possible when the
-			// config has changed over time, without requiring a staging account.
+			// System slot cap reached: merge the incoming amount into the existing System
+			// schedule whose ending block is closest to the incoming one.
 			Self::merge_into_closest_system_schedule(source, dest, incoming)
 		} else {
 			Self::do_vested_transfer(source, dest, incoming, kind)

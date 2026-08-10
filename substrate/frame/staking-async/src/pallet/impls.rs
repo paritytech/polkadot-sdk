@@ -760,11 +760,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer validator incentive from era pot to the validator's payout account.
 	///
-	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. When system vesting slots are
-	/// exhausted, the incoming amount is merged into the existing system schedule whose ending
-	/// block is closest to the incoming one (current schedule is discarded), so delivery always
-	/// succeeds. [`Event::ValidatorIncentiveDropped`] is emitted only for non-recoverable
-	/// failures (e.g. misconfigured `BondingDuration`).
+	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. On success emits
+	/// [`Event::ValidatorIncentivePaid`]. On failure emits
+	/// [`Event::Unexpected`]`(`[`UnexpectedKind::ValidatorIncentiveDropped`]`)`, indicating
+	/// a non-recoverable condition (e.g. misconfigured runtime parameters).
 	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
@@ -794,12 +793,10 @@ impl<T: Config> Pallet<T> {
 			let bonding_duration = T::BondingDuration::get();
 
 			if bonding_duration == 0 {
-				// This should never happen in vesting mode, so we treat it as non-recoverable.
-				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-					era,
-					validator_stash: stash.clone(),
-					amount,
-				});
+				defensive!("Incentive dropped: BondingDuration is zero in vesting mode", era);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveDropped { era, stash: stash.clone(), amount },
+				));
 				return;
 			}
 
@@ -835,12 +832,11 @@ impl<T: Config> Pallet<T> {
 					amount,
 				});
 			},
-			Err(_) => {
-				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-					era,
-					validator_stash: stash.clone(),
-					amount,
-				});
+			Err(e) => {
+				log!(warn, "Incentive for era {:?} dropped: {:?}", era, e);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveDropped { era, stash: stash.clone(), amount },
+				));
 			},
 		}
 	}

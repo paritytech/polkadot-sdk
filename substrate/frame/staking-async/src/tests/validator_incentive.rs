@@ -819,7 +819,10 @@ fn incentive_creates_vesting_schedule_end_to_end() {
 		// THEN: incentive was paid (not dropped).
 		let incentive = incentive_paid_for(alice, &events).expect("incentive should be paid");
 		assert!(incentive > 0);
-		assert!(!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })));
+		assert!(!events.iter().any(|e| matches!(
+			e,
+			Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { .. })
+		)));
 
 		// THEN: a single vesting schedule exists for alice with the full incentive locked
 		// and starting at the epoch start for era 2's bonding window (period 0, eras 0..2).
@@ -1055,7 +1058,10 @@ fn incentive_dropped_event_not_emitted_on_success() {
 
 		let events = staking_events_since_last_call();
 		assert!(
-			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })),
+			!events.iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { .. })
+			)),
 			"ValidatorIncentiveDropped should not be emitted on success"
 		);
 		assert!(
@@ -1743,8 +1749,8 @@ fn incentive_merged_into_existing_schedule_when_system_slots_exhausted() {
 		assert!(
 			!events.iter().any(|e| matches!(
 				e,
-				Event::ValidatorIncentiveDropped { validator_stash, .. }
-				if *validator_stash == alice
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { stash, .. })
+				if *stash == alice
 			)),
 			"ValidatorIncentiveDropped must NOT be emitted: merge-on-exhaustion must succeed"
 		);
@@ -1833,8 +1839,8 @@ fn consecutive_payouts_with_full_slots_both_succeed() {
 		assert!(
 			!era2_events.iter().any(|e| matches!(
 				e,
-				Event::ValidatorIncentiveDropped { validator_stash, .. }
-				if *validator_stash == alice
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { stash, .. })
+				if *stash == alice
 			)),
 			"era 2: ValidatorIncentiveDropped must NOT be emitted when slots are exhausted"
 		);
@@ -1871,8 +1877,8 @@ fn consecutive_payouts_with_full_slots_both_succeed() {
 		assert!(
 			!era3_events.iter().any(|e| matches!(
 				e,
-				Event::ValidatorIncentiveDropped { validator_stash, .. }
-				if *validator_stash == alice
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { stash, .. })
+				if *stash == alice
 			)),
 			"era 3: ValidatorIncentiveDropped must NOT be emitted when slots are exhausted"
 		);
