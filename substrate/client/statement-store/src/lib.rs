@@ -275,8 +275,17 @@ fn dec_key_index_key(dec_key: &Option<DecryptionKey>, hash: &Hash) -> Vec<u8> {
 fn parse_dec_key_index_prefix(prefix: &[u8]) -> Option<Option<DecryptionKey>> {
 	match prefix.split_first() {
 		Some((&DEC_KEY_TAG_NONE, [])) => Some(None),
-		Some((&DEC_KEY_TAG_SOME, dec_key)) => dec_key.try_into().ok().map(Some),
-		_ => None,
+		Some((&DEC_KEY_TAG_SOME, dec_key)) if dec_key.len() == size_of::<DecryptionKey>() => {
+			dec_key.try_into().ok().map(Some)
+		},
+		_ => {
+			log::error!(
+				target: LOG_TARGET,
+				"Corrupt decryption-key index prefix: {:?}",
+				HexDisplay::from(&prefix)
+			);
+			None
+		},
 	}
 }
 
@@ -299,6 +308,11 @@ fn account_index_key(account: &AccountId, expiry: Expiry, hash: &Hash) -> Vec<u8
 /// Reverses [`account_index_key`]; `None` if `key` does not have that layout.
 fn parse_account_index_key(key: &[u8]) -> Option<(AccountId, Expiry, Hash)> {
 	if key.len() != size_of::<AccountId>() + size_of::<u64>() + size_of::<Hash>() {
+		log::error!(
+			target: LOG_TARGET,
+			"Corrupt account index key: {:?}",
+			HexDisplay::from(&key)
+		);
 		return None;
 	}
 	let (account, rest) = key.split_at(size_of::<AccountId>());
@@ -323,6 +337,7 @@ fn expiry_index_key(expiry: Expiry, hash: &Hash) -> Vec<u8> {
 /// `None` if `key` does not have that layout.
 fn parse_time_index_key(key: &[u8]) -> Option<(u64, Hash)> {
 	if key.len() != size_of::<u64>() + size_of::<Hash>() {
+		log::error!(target: LOG_TARGET, "Corrupt time index key: {:?}", HexDisplay::from(&key));
 		return None;
 	}
 	let (time, hash) = key.split_at(size_of::<u64>());
@@ -398,14 +413,20 @@ fn next_account_id(mut account: AccountId) -> Option<AccountId> {
 
 /// Extracts the trailing hash from a composite index key, if it is long enough.
 fn hash_from_index_key(key: &[u8]) -> Option<Hash> {
-	let prefix_len = key.len().checked_sub(size_of::<Hash>())?;
+	let Some(prefix_len) = key.len().checked_sub(size_of::<Hash>()) else {
+		log::error!(target: LOG_TARGET, "Corrupt index key: {:?}", HexDisplay::from(&key));
+		return None;
+	};
 	key[prefix_len..].try_into().ok()
 }
 
 /// The prefix of a composite index key — everything before the trailing hash — if it is long
 /// enough.
 fn prefix_from_index_key(key: &[u8]) -> Option<&[u8]> {
-	let prefix_len = key.len().checked_sub(size_of::<Hash>())?;
+	let Some(prefix_len) = key.len().checked_sub(size_of::<Hash>()) else {
+		log::error!(target: LOG_TARGET, "Corrupt index key: {:?}", HexDisplay::from(&key));
+		return None;
+	};
 	Some(&key[..prefix_len])
 }
 
@@ -777,9 +798,10 @@ impl IndexSet {
 impl SubmitIndex {
 	fn new(config: Config) -> SubmitIndex {
 		SubmitIndex {
-			// The real bound is [`Self::cached_statement_count`], enforced by [`Self::cache_record`];
-			// this length limiter must never trigger on its own, and cannot: every record costs
-			// at least one unit, so the cost trimming keeps the length at or below the budget.
+			// The real bound is [`Self::cached_statement_count`], enforced by
+			// [`Self::cache_record`]; this length limiter must never trigger on its own, and
+			// cannot: every record costs at least one unit, so the cost trimming keeps the
+			// length at or below the budget.
 			account_statements: LruMap::new(ByLength::new(u32::MAX)),
 			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
 			config,
@@ -1332,6 +1354,11 @@ impl Store {
 			// Read-side cardinality counters, rebuilt from the index keys alone.
 			for (prefix, count) in self.count_index_prefixes(col::INDEX_BY_TOPIC)? {
 				let Ok(topic) = <[u8; 32]>::try_from(prefix.as_slice()).map(Topic::from) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Corrupt topic index prefix: {:?}",
+						HexDisplay::from(&prefix)
+					);
 					continue;
 				};
 				query_index.topic_counts.insert(topic, count);
@@ -1382,13 +1409,18 @@ impl Store {
 		self.db
 			.iter_column_while(col::STATEMENTS, |item| {
 				let Ok(statement) = Statement::decode(&mut item.value.as_slice()) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Corrupt statement {:?}",
+						HexDisplay::from(&sp_statement_store::hash_encoded(&item.value))
+					);
 					return true;
 				};
 				let hash = statement.hash();
 				let Some(account) = statement.account_id() else {
-					log::debug!(
+					log::error!(
 						target: LOG_TARGET,
-						"Error decoding statement loaded from the DB: {:?}",
+						"Statement without an account id loaded from the DB: {:?}",
 						HexDisplay::from(&hash)
 					);
 					return true;
@@ -1533,7 +1565,7 @@ impl Store {
 			}
 			let Some((_, expiry, hash)) = parse_account_index_key(&key) else { continue };
 			let Ok(details) = EntryDetails::decode(&mut value.as_slice()) else {
-				log::warn!(
+				log::error!(
 					target: LOG_TARGET,
 					"Corrupt account index row for statement {:?}",
 					HexDisplay::from(&hash)
@@ -1725,7 +1757,7 @@ impl Store {
 		match Statement::decode(&mut entry.as_slice()) {
 			Ok(statement) => Ok(Some(statement)),
 			Err(_) => {
-				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
 				Ok(None)
 			},
 		}
@@ -1919,9 +1951,9 @@ impl Store {
 						HexDisplay::from(&hash)
 					);
 				},
-				// The row survived its statement; without cleanup the sweep would re-collect
-				// this hash on every pass, wasting its budget and counting phantom expiries.
-				Ok(false) => self.delete_orphan_expiry_row(expiry, &hash),
+				// The row survived its statement: either a concurrent removal won the race (and
+				// deleted the row along with the body), or the store is inconsistent.
+				Ok(false) => self.report_orphan_expiry_row(expiry, &hash),
 				Err(e) => {
 					log::debug!(
 						target: LOG_TARGET,
@@ -2169,8 +2201,13 @@ impl StatementStore for Store {
 			else {
 				continue;
 			};
-			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-				result.push((hash, statement));
+			match Statement::decode(&mut encoded.as_slice()) {
+				Ok(statement) => result.push((hash, statement)),
+				Err(_) => log::error!(
+					target: LOG_TARGET,
+					"Corrupt statement {:?}",
+					HexDisplay::from(&hash)
+				),
 			}
 		}
 		Ok(result)
@@ -2185,8 +2222,13 @@ impl StatementStore for Store {
 			else {
 				continue;
 			};
-			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-				result.push((hash, statement));
+			match Statement::decode(&mut encoded.as_slice()) {
+				Ok(statement) => result.push((hash, statement)),
+				Err(_) => log::error!(
+					target: LOG_TARGET,
+					"Corrupt statement {:?}",
+					HexDisplay::from(&hash)
+				),
 			}
 		}
 		Ok(result)
@@ -2207,10 +2249,14 @@ impl StatementStore for Store {
 						"Queried statement {:?}",
 						HexDisplay::from(hash)
 					);
-					Some(
-						Statement::decode(&mut entry.as_slice())
-							.map_err(|e| Error::Decode(e.to_string()))?,
-					)
+					Some(Statement::decode(&mut entry.as_slice()).map_err(|e| {
+						log::error!(
+							target: LOG_TARGET,
+							"Corrupt statement {:?}",
+							HexDisplay::from(hash)
+						);
+						Error::Decode(e.to_string())
+					})?)
 				},
 				None => {
 					log::trace!(
@@ -2260,7 +2306,10 @@ impl StatementStore for Store {
 			else {
 				continue;
 			};
-			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else { continue };
+			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				continue;
+			};
 			match filter(hash, &encoded, &statement) {
 				FilterDecision::Skip => {},
 				FilterDecision::Take => {
@@ -2618,17 +2667,26 @@ impl StatementStore for Store {
 				));
 				commit.extend(account_index_ops(&account_id, key.expiry, &key.hash, None));
 				match self.db.get(col::STATEMENTS, &key.hash) {
-					Ok(Some(encoded)) => {
-						if let Ok(evicted_statement) = Statement::decode(&mut encoded.as_slice()) {
+					Ok(Some(encoded)) => match Statement::decode(&mut encoded.as_slice()) {
+						Ok(evicted_statement) => {
 							commit.extend(statement_index_ops(
 								&key.hash,
 								&evicted_statement,
 								false,
 							));
 							evicted_statements.push(evicted_statement);
-						}
+						},
+						Err(_) => log::error!(
+							target: LOG_TARGET,
+							"Corrupt statement {:?}",
+							HexDisplay::from(&key.hash)
+						),
 					},
-					Ok(None) => {},
+					Ok(None) => log::error!(
+						target: LOG_TARGET,
+						"Missing body of the indexed statement {:?}",
+						HexDisplay::from(&key.hash)
+					),
 					Err(e) => log::warn!(
 						target: LOG_TARGET,
 						"Could not read evicted statement {:?} to clear its index: {:?}",
@@ -2742,13 +2800,22 @@ impl StatementStore for Store {
 				}
 				freed_size += details.data_len;
 				match self.db.get(col::STATEMENTS, &key.hash) {
-					Ok(Some(encoded)) => {
-						if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
+					Ok(Some(encoded)) => match Statement::decode(&mut encoded.as_slice()) {
+						Ok(statement) => {
 							commit.extend(statement_index_ops(&key.hash, &statement, false));
 							removed_statements.push((key.hash, statement));
-						}
+						},
+						Err(_) => log::error!(
+							target: LOG_TARGET,
+							"Corrupt statement {:?}",
+							HexDisplay::from(&key.hash)
+						),
 					},
-					Ok(None) => {},
+					Ok(None) => log::error!(
+						target: LOG_TARGET,
+						"Missing body of the indexed statement {:?}",
+						HexDisplay::from(&key.hash)
+					),
 					Err(e) => {
 						log::warn!(
 							target: LOG_TARGET,
@@ -2854,11 +2921,9 @@ impl StatementStoreSubscriptionApi for Store {
 impl Store {
 	/// Body of [`StatementStore::remove`], reporting whether a statement was actually removed.
 	///
-	/// `Ok(false)` means no (decodable) statement remains under `hash` — it was already gone, or
-	/// its body was corrupt and only the body itself could be dropped. In the latter case the
-	/// index rows cannot be located and stay behind; a caller that knows a row's key from its
-	/// own scan is expected to clean that row up (see the expiry sweep in
-	/// [`Self::enforce_limits_bounded`]).
+	/// `Ok(false)` means no (decodable) statement is stored under `hash` — it was already gone,
+	/// or its body is corrupt. A corrupt body cannot be tied back to its index rows, so nothing
+	/// is removed at all.
 	fn remove_statement(&self, hash: &Hash) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
@@ -2873,11 +2938,8 @@ impl Store {
 				.ok()
 				.and_then(|statement| statement.account_id().map(|account| (statement, account)))
 			else {
-				// A corrupt body cannot be tied back to its index rows; drop the body alone.
-				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
-				self.db
-					.commit([(col::STATEMENTS, hash.to_vec(), None)])
-					.map_err(|e| Error::Db(e.to_string()))?;
+				// A corrupt body cannot be tied back to its index rows
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
 				return Ok(false);
 			};
 			let expiry = Expiry(statement.expiry());
@@ -2900,9 +2962,9 @@ impl Store {
 				)),
 				// Nothing points at the admission entry any more; replay skips it once the body
 				// is gone.
-				None => log::warn!(
+				None => log::error!(
 					target: LOG_TARGET,
-					"Missing account index entry for statement {:?}",
+					"Missing or corrupt account index entry for statement {:?}",
 					HexDisplay::from(hash)
 				),
 			}
@@ -2947,33 +3009,25 @@ impl Store {
 		Ok(true)
 	}
 
-	/// Deletes an [`col::INDEX_BY_EXPIRY`] row that survived its statement (the body was corrupt,
-	/// so its removal could not locate the row), re-checking under the submit lock — every
-	/// commit happens under it — that the body is indeed gone: a concurrent re-admission of the
-	/// same statement recreates the same content-derived key and must keep its row.
-	fn delete_orphan_expiry_row(&self, expiry: u64, hash: &Hash) {
+	/// Reports an [`col::INDEX_BY_EXPIRY`] row that survived its statement,
+	/// re-checking under the submit lock — every commit happens under it — that the row is indeed
+	/// orphaned: a concurrent removal deletes the row along with its statement, and a concurrent
+	/// re-admission of the same statement recreates the same content-derived key together with a
+	/// body.
+	fn report_orphan_expiry_row(&self, expiry: u64, hash: &Hash) {
 		let _submit_index = self.submit_index.write();
-		match self.db.get_size(col::STATEMENTS, hash.as_slice()) {
-			Ok(None) => {
-				let key = expiry_index_key(Expiry(expiry), hash);
-				if let Err(e) = self.db.commit([(col::INDEX_BY_EXPIRY, key, None)]) {
-					log::debug!(
-						target: LOG_TARGET,
-						"Error deleting an orphan expiry row: {}",
-						e
-					);
-				} else {
-					log::debug!(
-						target: LOG_TARGET,
-						"Deleted the orphan expiry row of statement {:?}",
-						HexDisplay::from(hash)
-					);
-				}
-			},
-			Ok(Some(_)) => {},
-			Err(e) => {
+		let body = self.db.get_size(col::STATEMENTS, hash.as_slice());
+		let row = self.db.get(col::INDEX_BY_EXPIRY, &expiry_index_key(Expiry(expiry), hash));
+		match (body, row) {
+			(Ok(None), Ok(Some(_))) => log::error!(
+				target: LOG_TARGET,
+				"Orphan expiry index row for statement {:?}",
+				HexDisplay::from(hash)
+			),
+			(Err(e), _) | (_, Err(e)) => {
 				log::debug!(target: LOG_TARGET, "Error checking statement presence: {:?}", e)
 			},
+			_ => {},
 		}
 	}
 
@@ -3032,7 +3086,7 @@ impl Store {
 			let statement = match Statement::decode(&mut encoded.as_slice()) {
 				Ok(statement) => statement,
 				Err(e) => {
-					log::warn!(
+					log::error!(
 						target: LOG_TARGET,
 						"Could not decode statement {:?} while replaying it: {:?}",
 						HexDisplay::from(&hash),
@@ -4783,12 +4837,12 @@ mod tests {
 	}
 
 	#[test]
-	fn expiry_sweep_heals_orphaned_expiry_rows() {
+	fn expiry_sweep_leaves_inconsistent_data_in_place() {
 		let (mut store, _temp) = test_store();
 		store.set_time(100);
 
-		// A statement whose body is then corrupted in place: its removal can only drop the
-		// body, stranding the index rows it cannot locate any more.
+		// A statement whose body is then corrupted in place: it cannot be tied back to its
+		// index rows any more.
 		let mut stmt = unsigned_statement(1, 1, None, 100);
 		stmt.set_expiry_from_parts(200, 1);
 		sign_with(&mut stmt, 1);
@@ -4800,17 +4854,20 @@ mod tests {
 		let expiry_key = crate::expiry_index_key(expiry, &hash);
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
 
-		// The sweep drops the corrupt body and, seeing that no statement was removed, heals the
-		// orphaned expiry row in the same pass — instead of re-collecting the hash and counting
-		// a phantom expiry on every pass forever.
+		// The sweep cannot remove the statement; the corruption is logged as an error and
+		// everything is left exactly as it is, on every pass.
 		store.set_time(300);
 		store.enforce_limits();
-		assert!(!store.has_statement(&hash));
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
-
-		// Nothing left for further sweeps to re-collect.
 		store.enforce_limits();
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
+		assert!(store.has_statement(&hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+
+		// Same for an expiry row orphaned by external interference: the sweep reports it and
+		// leaves it in place.
+		store.db.commit([(col::STATEMENTS, hash.to_vec(), None)]).unwrap();
+		store.enforce_limits();
+		assert!(!store.has_statement(&hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
 	}
 
 	#[test]
