@@ -257,8 +257,8 @@ struct PerSchedulingParent {
 	collations: HashMap<Hash, CollationData>,
 	/// Reverse index over materialized collations.
 	by_candidate_hash: HashMap<CandidateHash, Hash>,
-	/// Number of assignments per core
-	assignments: HashMap<CoreIndex, usize>,
+	/// Cores our para is assigned to at this scheduling parent.
+	assignments: HashSet<CoreIndex>,
 	/// The relay parent block number
 	block_number: Option<BlockNumber>,
 	/// The session index of this relay parent.
@@ -279,17 +279,17 @@ impl PerSchedulingParent {
 		session_index: SessionIndex,
 	) -> Result<Self> {
 		let assignments =
-			claim_queue.iter_all_claims().fold(HashMap::new(), |mut acc, (core, claims)| {
+			claim_queue.iter_all_claims().fold(HashSet::new(), |mut acc, (core, claims)| {
 				let n_claims = claims.iter().filter(|para| para == &&para_id).count();
 				if n_claims > 0 {
-					acc.insert(*core, n_claims);
+					acc.insert(*core);
 				}
 				acc
 			});
 
 		let mut validator_groups = HashMap::default();
 
-		for (core, _) in &assignments {
+		for core in &assignments {
 			let GroupValidators { validators } =
 				determine_our_validators(ctx, runtime, *core, block_hash).await?;
 			let mut group = ValidatorGroup::default();
@@ -510,7 +510,7 @@ async fn distribute_segment<Context>(
 			target: LOG_TARGET,
 			para_id = %id,
 			?scheduling_parent,
-			cores = ?per_scheduling_parent.assignments.keys(),
+			cores = ?per_scheduling_parent.assignments,
 			?core_index,
 			"Attempting to distribute collation for a core we are not assigned to ",
 		);
@@ -523,7 +523,7 @@ async fn distribute_segment<Context>(
 		gum::debug!(
 			target: LOG_TARGET,
 			para_id = %id,
-			cores = ?per_scheduling_parent.assignments.keys(),
+			cores = ?per_scheduling_parent.assignments,
 			"{} is assigned to {} cores at {}", id, per_scheduling_parent.assignments.len(), scheduling_parent,
 		);
 	}
