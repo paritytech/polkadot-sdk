@@ -224,8 +224,8 @@ enum RefineLog {
     /// validation code preimage is not available in the service's store
     /// at the lookup-anchor. See §4.1 step 4.
     InvalidCodeHash,
-    /// Opaque payload supplied by the PVF via `report_error(data)` before
-    /// failing the execution (max 1024 bytes).
+    /// Opaque payload with which the PVF aborted itself via `report_error(data)`
+    /// (max 1024 bytes). See §4.2.
     Opaque(BoundedVec<u8, 1024>),
     /// A `set_validator_keys` chunk contained more than 30 keys, or
     /// `set_validator_keys` was called more than once in a single Refine
@@ -451,9 +451,8 @@ enum ParachainWorkDigest {
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
-    /// Carries a structured `RefineLog`. The PVF may call
-    /// `report_error(data)` to provide an opaque payload (max 1024 bytes)
-    /// before failing.
+    /// Carries a structured `RefineLog`. A PVF reaches this by aborting itself
+    /// with `report_error(data)` (§4.2).
     Err {
         /// The parachain this failure belongs to.
         para_id: ParaId,
@@ -574,9 +573,13 @@ writes its outputs (head data, code upgrades, transfers) through host functions.
 not return a value directly. The `ParachainWorkDigest` is assembled by the Parachain
 Service's Refine wrapper from the accumulated host-function side effects.
 
-If the PVF exits abnormally (panic, trap, or other failed execution), Refine treats this as
-`Err` and records the opaque error payload previously supplied through `report_error(data)` if
-one was provided.
+A PVF has two ways to fail, and they differ in what is recorded. Calling
+`report_error(data)` aborts it immediately and fails Refine with `RefineLog::Opaque(data)`.
+Any other abnormal exit (panic, trap, failed execution) is deliberately not caught: the
+service's entire `refine` fails with it, so the work-digest's result is a gray-paper work
+error (`WorkExecResult::Error`) and §3.3 applies.
+Recording a failure is therefore opt-in: a PVF that wants one to leave no trace simply
+panics.
 
 The Refine wrapper also fails the invocation as `Err` if the PVF exits without calling
 `set_parent_head_hash` exactly once or without calling `set_head` exactly once. Both the
@@ -627,7 +630,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). See §5.1. |
 | `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` if the new code's preimage is not in the Parachain Service's preimage store. See §5.4. |
-| `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload before aborting the execution of the PVF; any bytes beyond 1024 are truncated. Stored per-parachain by Accumulate (see §3.3). |
+| `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`; any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
 | `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
@@ -713,9 +716,10 @@ and `MAX_INCOMING_TRANSFERS` derived from it.
 #### Per-work-package work
 
 Performed once for each work package that is being accumulated in this block, in order.
-A work result of gray-paper `WorkExecResult::Error` indicates a bug in the parachain
-service's `refine` and is skipped entirely here: no `parachain_log` entry, no state
-change, and it never reaches the steps below. Otherwise:
+A work result of gray-paper `WorkExecResult::Error`, either a bug in the parachain
+service's `refine` or a PVF that failed without reporting an actual error (§4.2), is skipped entirely
+here: no `parachain_log` entry, no state change, and it never reaches the steps below.
+Otherwise:
 
 1. **Registration check**: Reject the work-package immediately, and record no
    `parachain_log` entry, if `para_id` is not in `parachains` or its `ParaInfo`
@@ -725,9 +729,9 @@ change, and it never reaches the steps below. Otherwise:
     (`ParachainWorkDigest::Err`, where `refine` completed and returned an error digest,
     see §3.3), forward its `RefineLog` into a `RefineLogEntry` appended to
     `parachain_log[para_id]` (the work-report's authorizer trace is already attached)
-    under the eviction rules below, then stop: no further steps run and no log
-    pruning is done. A **Refine success**
-    (`ParachainWorkDigest::Ok`) proceeds through the remaining steps.
+     under the eviction rules below, then stop: no further steps run and no log
+     pruning is done. A **Refine success** (`ParachainWorkDigest::Ok`) proceeds through
+     the remaining steps.
 3. **Parent head check**: Verify the work digest's `parent_head_hash` equals
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
@@ -1406,9 +1410,15 @@ anchor timeslots T and T+4 both yield the same collator index).
 Preventing this is the responsibility of the **parachain's validation code**, not the
 authorizer. If the PVF detects that the claimed anchor timeslot is inconsistent with the
 parachain's own slot progression (e.g. the same collator claiming back-to-back slots they
-are not entitled to), it can fail Refine and use `report_error(data)` to record a
-structured complaint against the offending collator in the parachain log, which can
-then be read by the parachain's slashing logic.
+are not entitled to), it can call `report_error(data)` to record a structured complaint
+against the offending collator in the parachain log, which can then be read by the
+parachain's slashing logic.
+
+The mirror case is an author the parachain does not recognise at all: anyone can buy
+coretime on a core assigned to the parachain and submit whatever they like for it. Here
+`report_error` is the wrong tool. There is no known account to slash, so the complaint has
+no reader, and writing one would hand the buyer a free way to evict genuine entries from
+the capacity-bounded `parachain_log` (§3.1). The PVF should simply panic (§4.2).
 
 #### Collator Set Rotation Flow
 
