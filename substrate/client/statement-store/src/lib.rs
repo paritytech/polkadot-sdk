@@ -1534,15 +1534,18 @@ impl Store {
 		Ok(counts)
 	}
 
-	/// First account at or after `from` in the on-disk per-account index.
+	/// First account at or after `from` in the on-disk per-account index. Corrupt keys are skipped
+	/// rather than treated as the end of the index: they must not disable allowance enforcement
+	/// for the accounts sorted after them.
 	fn next_account_from(&self, from: &AccountId) -> Result<Option<AccountId>> {
 		let mut iter = self.db.iter(col::INDEX_BY_ACCOUNT).map_err(|e| Error::Db(e.to_string()))?;
 		iter.seek(&from[..]).map_err(|e| Error::Db(e.to_string()))?;
-		Ok(iter
-			.next()
-			.map_err(|e| Error::Db(e.to_string()))?
-			.and_then(|(key, _)| parse_account_index_key(&key))
-			.map(|(account, _, _)| account))
+		while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			if let Some((account, _, _)) = parse_account_index_key(&key) {
+				return Ok(Some(account));
+			}
+		}
+		Ok(None)
 	}
 
 	/// Number of accounts with at least one stored statement, counted by hopping over the
@@ -4938,6 +4941,49 @@ mod tests {
 		store.enforce_limits();
 		assert!(!store.has_statement(&hash));
 		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+	}
+
+	#[test]
+	fn corrupt_account_index_key_does_not_end_account_enumeration() {
+		let (store, _temp) = test_store();
+		assert_eq!(
+			store.submit(statement(1, 1, None, 1), StatementSource::Network),
+			SubmitResult::New
+		);
+		assert_eq!(
+			store.submit(statement(2, 1, None, 1), StatementSource::Network),
+			SubmitResult::New
+		);
+		assert_eq!(store.account_count(), 2);
+
+		// Two unparseable keys: one sorting before every valid key (but after the scan's
+		// starting cursor) and one sorting between the two accounts' rows. Both must be skipped
+		// by account enumeration, not taken for the end of the index.
+		let (first, second) = {
+			let (a, b) = (account(1), account(2));
+			if a < b {
+				(a, b)
+			} else {
+				(b, a)
+			}
+		};
+		let mut between = first.to_vec();
+		between.extend_from_slice(&[0xFF; 41]);
+		store
+			.db
+			.commit([
+				(col::INDEX_BY_ACCOUNT, vec![0u8; 33], Some(Vec::new())),
+				(col::INDEX_BY_ACCOUNT, between, Some(Vec::new())),
+			])
+			.unwrap();
+
+		assert_eq!(store.account_count(), 2);
+		assert!(store.has_account(&first));
+		assert!(store.has_account(&second));
+
+		// A full allowance pass still sees both accounts and reports the true account count.
+		store.enforce_limits();
+		assert_eq!(store.known_accounts_count.load(std::sync::atomic::Ordering::Relaxed), 2);
 	}
 
 	#[test]
