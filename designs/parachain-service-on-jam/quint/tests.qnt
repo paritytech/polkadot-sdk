@@ -21,6 +21,7 @@ module tests {
   import management.* from "./management"
   import state_vars.* from "./state_vars"
   import main.* from "./main"
+  import invariants.* from "./invariants"
 
   // --- Deterministic helpers ---------------------------------------------
 
@@ -74,7 +75,6 @@ module tests {
       solicitedSet' = blockOut.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
-      lastStepBouncedTransfers' = List(),
       lastStepAssigns' = blockOut.assigns,
       logPrunedBelow' =
         blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
@@ -96,7 +96,18 @@ module tests {
     solicitedSet' = solicitedSet,
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers,
+    lastStepAssigns' = lastStepAssigns,
+    logPrunedBelow' = logPrunedBelow
+  }
+
+  /// Force `svc` to a specific state so an invariant can be evaluated on it.
+  action setSvc(s: ParachainServiceState): bool = all {
+    svc' = s,
+    now' = now,
+    jamStagingSet' = jamStagingSet,
+    solicitedSet' = solicitedSet,
+    prevSvc' = prevSvc,
+    lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     logPrunedBelow' = logPrunedBelow
   }
@@ -110,42 +121,90 @@ module tests {
     solicitedSet' = solicitedSet,
     prevSvc' = prevSvc,
     lastStepWorkResults' = lastStepWorkResults,
-    lastStepBouncedTransfers' = lastStepBouncedTransfers,
     lastStepAssigns' = lastStepAssigns,
     logPrunedBelow' = logPrunedBelow
   }
 
-  // --- Bounce-on-full -----------------------------------------------------
+  // --- Best-effort transfer admission (§5.1) ------------------------------
 
-  /// Pre-built `incoming_transfers` at capacity for the bounce/recovery tests.
-  pure val fullIncomingTransfersFixture: List[{
-    from: ServiceId, amount: Balance, memo: Memo
-  }] =
-    range(0, IncomingTransfersMaxLen).foldl(List(), (acc, i) =>
-      acc.append({ from: MkServiceId(0), amount: i, memo: 0 }))
+  /// `incoming_transfers` at capacity, maximally fragmented: one transfer per
+  /// slot in slots `0 .. MaxIncomingTransfers`, chained head to tail.
+  pure val fullIncomingTransfersFixture: Timeslot -> {
+    transfers: List[{ from: ServiceId, amount: Balance, memo: Memo }],
+    nextSlot: Option[Timeslot]
+  } =
+    range(0, MaxIncomingTransfers).foldl(Map(), (acc, i) =>
+      acc.put(i, {
+        transfers: List({ from: MkServiceId(0), amount: 1000 + i, memo: 0 }),
+        nextSlot: if (i == MaxIncomingTransfers - 1) None else Some(i + 1)
+      }))
 
-  /// With `incoming_transfers` at capacity, a normal transfer bounces: the queue
-  /// does not grow and the transfer is returned for the service to send back.
-  run bounceOnFullTest = {
-    val full = { ...initialState, incomingTransfers: fullIncomingTransfersFixture }
-    val out = applyIncomingTransfer(full, { from: MkServiceId(0), amount: 100, memo: 0 })
+  pure val fullTransferQueue: ParachainServiceState = {
+    ...initialState,
+    incomingTransfers: fullIncomingTransfersFixture,
+    incomingTransferChain:
+      Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 1 })
+  }
+
+  /// `MaxIncomingTransfers` is a reservation, not a cap (§5.1). Below it a
+  /// transfer is recorded whatever it carries. At it the slot is unreserved, so
+  /// only a transfer covering its own entry cost is recorded, and the queue then
+  /// grows past the bound.
+  run reservedPortionThenSelfFundedTest = {
+    val full = fullTransferQueue
+    val at = MaxIncomingTransfers   // a fresh slot past the fixture's tail
+    // Below the bound: a zero-amount transfer is still recorded.
+    val below = applyIncomingTransfer(initialState, 7,
+      { from: MkServiceId(0), amount: 0, memo: 0 })
+    // At the bound: too little to pay for its own slot, so not recorded.
+    val short = applyIncomingTransfer(full, at,
+      { from: MkServiceId(0), amount: IncomingTransferEntryFootprint - 1, memo: 0 })
+    // At the bound: exactly covers its slot, so recorded past the reserved portion.
+    val paid = applyIncomingTransfer(full, at,
+      { from: MkServiceId(0), amount: IncomingTransferEntryFootprint, memo: 0 })
     all {
-      assert(out.state.incomingTransfers.length() == IncomingTransfersMaxLen),
-      assert(out.bounced.length() == 1),
+      // Empty queue: the new bucket is both endpoints.
+      assert(below.incomingTransferChain == Some({ firstSlot: 7, lastSlot: 7 })),
+      assert(queuedTransferCount(below) == 1),
+      assert(short == full),
+      // Past the bound: a new bucket, chained from the old tail.
+      assert(queuedTransferCount(paid) == MaxIncomingTransfers + 1),
+      assert(paid.incomingTransferChain == Some({ firstSlot: 0, lastSlot: at })),
+      assert(paid.incomingTransfers.get(at - 1).nextSlot == Some(at)),
+      assert(paid.incomingTransfers.get(at).nextSlot == None),
       init
     }
   }
 
-  /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is neither queued nor
-  /// bounced, even when `incoming_transfers` is at capacity — the mechanism to
-  /// fund a service that has run out of storage.
-  run recoveryTransferNotQueuedTest = {
-    val full = { ...initialState, incomingTransfers: fullIncomingTransfersFixture }
-    val out = applyIncomingTransfer(
-      full, { from: MkServiceId(0), amount: 100, memo: AllOnesMemo })
+  /// Arrivals sharing a slot append to the same bucket, adding no storage item.
+  run sameSlotSharesBucketTest = {
+    val a = applyIncomingTransfer(initialState, 5,
+      { from: MkServiceId(0), amount: 500, memo: 0 })
+    val b = applyIncomingTransfer(a, 5, { from: MkServiceId(3), amount: 600, memo: 0 })
     all {
-      assert(out.state.incomingTransfers == full.incomingTransfers),
-      assert(out.bounced == List()),
+      assert(b.incomingTransfers.keys() == Set(5)),
+      assert(b.incomingTransfers.get(5).transfers.length() == 2),
+      assert(b.incomingTransferChain == Some({ firstSlot: 5, lastSlot: 5 })),
+      assert(queuedTransferCount(b) == 2),
+      init
+    }
+  }
+
+  /// `consume_transfers_up_to(slot)` drops whole buckets up to and including
+  /// `slot`, re-heads the chain, and clears it once nothing survives.
+  run consumeDrainsBucketsUpToSlotTest = {
+    val a = applyIncomingTransfer(initialState, 1,
+      { from: MkServiceId(0), amount: 500, memo: 0 })
+    val b = applyIncomingTransfer(a, 4, { from: MkServiceId(0), amount: 500, memo: 0 })
+    val c = applyIncomingTransfer(b, 9, { from: MkServiceId(0), amount: 500, memo: 0 })
+    val partial = dropBucketsUpTo(c, 4)     // drops slots 1 and 4
+    val everything = dropBucketsUpTo(c, 9)  // drains the chain
+    all {
+      assert(c.incomingTransferChain == Some({ firstSlot: 1, lastSlot: 9 })),
+      assert(partial.incomingTransfers.keys() == Set(9)),
+      assert(partial.incomingTransferChain == Some({ firstSlot: 9, lastSlot: 9 })),
+      assert(everything.incomingTransfers.keys() == Set()),
+      assert(everything.incomingTransferChain == None),
       init
     }
   }
@@ -207,7 +266,6 @@ module tests {
       solicitedSet' = out.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
-      lastStepBouncedTransfers' = List(),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
       logPrunedBelow' = logPrunedBelow
     }
@@ -1563,5 +1621,51 @@ module tests {
   /// The `pinned` bit of a para's active validation code, or `false` if it has none.
   pure def activeCodePinned(pi: ParaInfo): bool =
     match pi.validationCode { | Some(vc) => vc.pinned | None => false }
+
+  /// The chain invariant itself must reject a bucket no predecessor points at.
+  /// Buckets 1 and 2 both link to 3, so walking from `firstSlot` goes 1 -> 3 and
+  /// never visits 2, leaving it charged for but unreachable by
+  /// `consume_transfers_up_to`. Every per-bucket conjunct still holds (endpoints
+  /// present, keys in range, only the tail terminating, successors later and
+  /// occupied), so only the successor-coverage conjunct catches it.
+  pure val oneTransfer: List[{ from: ServiceId, amount: Balance, memo: Memo }] =
+    List({ from: MkServiceId(0), amount: 1, memo: 0 })
+
+  pure val skippingChainState: ParachainServiceState = {
+    ...initialState,
+    incomingTransfers: Map(
+      1 -> { transfers: oneTransfer, nextSlot: Some(3) },
+      2 -> { transfers: oneTransfer, nextSlot: Some(3) },
+      3 -> { transfers: oneTransfer, nextSlot: None }),
+    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3 })
+  }
+
+  pure val linkedChainState: ParachainServiceState = {
+    ...initialState,
+    incomingTransfers: Map(
+      1 -> { transfers: oneTransfer, nextSlot: Some(2) },
+      2 -> { transfers: oneTransfer, nextSlot: Some(3) },
+      3 -> { transfers: oneTransfer, nextSlot: None }),
+    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3 })
+  }
+
+  run chainMustNotSkipBucketTest =
+    init
+      // The skipping chain satisfies every per-bucket check...
+      .then(setSvc(skippingChainState))
+      .then(expectThat(all {
+        svc.incomingTransfers.keys().forall(k =>
+          (k == 3) == (svc.incomingTransfers.get(k).nextSlot == None)),
+        svc.incomingTransfers.keys().forall(k =>
+          match svc.incomingTransfers.get(k).nextSlot {
+            | None => true
+            | Some(nxt) => nxt > k and svc.incomingTransfers.keys().contains(nxt)
+          }),
+        // ...but the invariant rejects it, because bucket 2 is unreachable.
+        not(incoming_transfers_chain_consistent)
+      }))
+      // A properly linked chain over the same buckets is accepted.
+      .then(setSvc(linkedChainState))
+      .then(expectThat(incoming_transfers_chain_consistent))
 
 }

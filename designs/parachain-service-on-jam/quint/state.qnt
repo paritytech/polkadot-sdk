@@ -69,11 +69,17 @@ module state {
 
   type ParachainServiceState = {
     parachains: ParaId -> ParaInfo,
-    incomingTransfers: List[{
-        from: ServiceId,
-        amount: Balance,
-        memo: Memo
-    }],
+    // Incoming transfers for Asset Hub, bucketed by arrival timeslot (§3.1).
+    // Arrivals sharing a slot append to the same bucket, so they add no storage
+    // item. `nextSlot` chains a bucket to the next occupied one, `None` at the
+    // tail: JAM storage has no prefix iteration, so the order cannot be
+    // recovered from key enumeration.
+    incomingTransfers: Timeslot -> {
+        transfers: List[{ from: ServiceId, amount: Balance, memo: Memo }],
+        nextSlot: Option[Timeslot]
+    },
+    // Head and tail of the bucket chain, `None` when the queue is empty.
+    incomingTransferChain: Option[{ firstSlot: Timeslot, lastSlot: Timeslot }],
     parachainLog: ParaId -> ParachainLog,
     preimageRegistry: (Hash, int) -> PreimageEntry,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
@@ -111,7 +117,8 @@ module state {
 
   pure val emptyState: ParachainServiceState = {
     parachains: Map(),
-    incomingTransfers: List(),
+    incomingTransfers: Map(),
+    incomingTransferChain: None,
     parachainLog: Map(),
     preimageRegistry: Map(),
     pendingAssigns: Map(),
@@ -136,6 +143,35 @@ module state {
     pi: ParaInfo, fallback: ValidationCodeHash
   ): ValidationCodeHash =
   pi.validationCode.optionMap(vc => vc.ref.hash).optionGetOr(fallback)
+
+  /// Total transfers held across every bucket (§5.1 admission counts transfers,
+  /// not buckets).
+  pure def queuedTransferCount(s: ParachainServiceState): int =
+  s.incomingTransfers.keys().fold(0, (acc, k) =>
+    acc + s.incomingTransfers.get(k).transfers.length())
+
+  /// Walk the bucket chain from `firstSlot`, dropping every bucket whose slot is
+  /// `<= slot` (§5.1 `consume_transfers_up_to`). Returns the surviving map and
+  /// the new chain endpoints, `None` once the chain is exhausted.
+  pure def dropBucketsUpTo(
+    s: ParachainServiceState, slot: Timeslot
+  ): ParachainServiceState = {
+    val survivors = s.incomingTransfers.mapFilterKeys(k => k > slot)
+    match s.incomingTransferChain {
+      | None => s
+      | Some(chain) =>
+        if (survivors.keys() == Set())
+          { ...s, incomingTransfers: Map(), incomingTransferChain: None }
+        else {
+          // The chain is ordered, so the first survivor is the smallest key left.
+          val newFirst =
+            survivors.keys().fold(chain.lastSlot, (m, k) => if (k < m) k else m)
+          { ...s,
+            incomingTransfers: survivors,
+            incomingTransferChain: Some({ ...chain, firstSlot: newFirst }) }
+        }
+    }
+  }
 
   pure def hasReferencer(
     s: ParachainServiceState, h: Hash, len: int, para_id: ParaId

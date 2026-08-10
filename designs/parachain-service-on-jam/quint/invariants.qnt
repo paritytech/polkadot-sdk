@@ -322,22 +322,40 @@ module invariants {
       }
     })
 
-  /// `incoming_transfers` must never exceed its cap; overflow is bounced
-  /// at ingress in `stepIncomingTransfer`.
-  val incoming_transfers_bounded: bool =
-    svc.incomingTransfers.length() <= IncomingTransfersMaxLen
+  /// The bucket chain is well formed: endpoints exist and bound every occupied
+  /// slot, only the tail has `nextSlot == None`, and every other bucket links
+  /// forward to a later occupied slot.
+  val incoming_transfers_chain_consistent: bool =
+    match svc.incomingTransferChain {
+      // No chain iff no buckets.
+      | None => svc.incomingTransfers.keys() == Set()
+      | Some(chain) =>
+        svc.incomingTransfers.keys() != Set() and
+        // Endpoints are real buckets, and bound every occupied slot.
+        svc.incomingTransfers.keys().contains(chain.firstSlot) and
+        svc.incomingTransfers.keys().contains(chain.lastSlot) and
+        svc.incomingTransfers.keys().forall(k =>
+          k >= chain.firstSlot and k <= chain.lastSlot) and
+        // The tail terminates the chain...
+        svc.incomingTransfers.get(chain.lastSlot).nextSlot == None and
+        // ...and every other bucket carries on to a successor.
+        svc.incomingTransfers.keys().forall(k =>
+          k == chain.lastSlot or
+          svc.incomingTransfers.get(k).nextSlot != None) and
+        // Every non-tail bucket links to a later, occupied slot.
+        svc.incomingTransfers.keys().forall(k =>
+          match svc.incomingTransfers.get(k).nextSlot {
+            | None => true
+            | Some(nxt) => nxt > k and svc.incomingTransfers.keys().contains(nxt)
+          }) and
+        // The links must hit exactly the non-head buckets.
+        svc.incomingTransfers.keys().fold(Set(), (acc, k) =>
+          match svc.incomingTransfers.get(k).nextSlot {
+            | Some(nxt) => acc.union(Set(nxt))
+            | None => acc
+          }) == svc.incomingTransfers.keys().exclude(Set(chain.firstSlot))
+    }
 
-  /// A recovery transfer (memo = all-1-bits `AllOnesMemo`) is never queued: it
-  /// is dropped from the queue at ingress (§5.1), so no queued transfer ever
-  /// carries `AllOnesMemo`.
-  val recovery_memo_never_queued: bool =
-    svc.incomingTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
-
-  /// A recovery transfer (memo = `AllOnesMemo`) is also never bounced: it is
-  /// dropped at ingress so its balance credits the service without producing
-  /// a JAM-level outgoing transfer. Complements `recovery_memo_never_queued`.
-  val recovery_memo_never_bounced: bool =
-    lastStepBouncedTransfers.foldl(true, (acc, t) => acc and t.memo != AllOnesMemo)
 
   /// Each pending assign's queue must fit within JAM's queue length.
   val pending_authorizer_queue_bounded: bool =
@@ -434,9 +452,7 @@ module invariants {
     parent_head_continuity,
     refine_error_logged,
     acc_error_logged,
-    incoming_transfers_bounded,
-    recovery_memo_never_queued,
-    recovery_memo_never_bounced,
+    incoming_transfers_chain_consistent,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
     pending_authorizer_apply_at_future,

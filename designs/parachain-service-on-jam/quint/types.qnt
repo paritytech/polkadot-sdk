@@ -50,12 +50,6 @@ module types {
   type HeadData = int
   type Memo = int
 
-  /// The all-1-bits transfer memo (`[0xFF; 128]` in the real 128-byte memo),
-  /// used as a RECOVERY marker: a transfer carrying it is not queued for Asset
-  /// Hub (§5.1). Modeled as -1 (all bits set in the i64 evaluator), distinct
-  /// from the ordinary small-int memos the model samples.
-  pure val AllOnesMemo: Memo = -1
-
   // --- Hash conversion helpers -------------------------------------------
   //
   // The cross-parachain `preimage_registry` keys preimages by `Hash`, so a
@@ -115,8 +109,29 @@ module types {
   /// §3.1: bounded cap on `staged_validator_keys` (= `CoreCount * 3 = 1023`).
   pure val MaxStagedValidatorKeys: int = CoreCount * 3
 
-  /// §3.1: bounded cap on `incoming_transfers`.
-  pure val IncomingTransfersMaxLen: int = 1000
+  /// §3.1 cap on `incoming_transfers`. PROVISIONAL: the real bound must be
+  /// derived from the benchmarked cost of processing one transfer, so that a
+  /// single work-report's accumulation gas (`C_reportaccgas`) cannot deliver
+  /// more transfers than the queue can hold (§5.1). Asset Hub's baseline
+  /// footprint is computed from this constant, so changing it moves that too.
+  pure val MaxIncomingTransfers: int = 1000
+
+  /// Value octets of one `incoming_transfers` entry:
+  /// `ServiceId 4 + Amount (Compact<u128> worst case 17) + Memo 128`.
+  pure val IncomingTransferValueOctets: int = 4 + 17 + 128
+
+  /// Octets of one worst-case `incoming_transfers` bucket — a bucket holding a
+  /// single transfer (maximal fragmentation, §6.1): JAM's per-entry overhead (34),
+  /// the key (1 B tag + 4 B `Timeslot`), the `Vec` length prefix (1), the transfer
+  /// itself, and `Some(next_slot)` (5).
+  pure val IncomingTransferBucketOctets: int =
+    34 + 5 + 1 + IncomingTransferValueOctets + 5
+
+  /// Full balance-unit cost of one worst-case bucket (§6.1): its octets plus the
+  /// one storage item it occupies.
+  pure val IncomingTransferEntryFootprint: int =
+    10 + IncomingTransferBucketOctets
+
 
   // --- Polymorphic Option ------------------------------------------------
 

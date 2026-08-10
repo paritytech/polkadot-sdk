@@ -61,7 +61,6 @@ module main {
     solicitedSet' = Set(),
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
-    lastStepBouncedTransfers' = List(),
     lastStepAssigns' = List(),
     logPrunedBelow' = Map()
   }
@@ -258,7 +257,6 @@ module main {
       solicitedSet' = blockOut.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
-      lastStepBouncedTransfers' = List(),
       lastStepAssigns' = blockOut.assigns,
       logPrunedBelow' = newLogPrunedBelow
     }
@@ -268,18 +266,15 @@ module main {
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
-    nondet amount = oneOf(Set(100, 1000, 10000))
-    // `AllOnesMemo` exercises the recovery path (neither queued nor bounced).
-    nondet memo = oneOf(Set(0, 1, 2, AllOnesMemo))
-    val out = applyIncomingTransfer(svc, { from: senderId, amount: amount, memo: memo })
+    nondet amount = oneOf(Set(0, 100, 10000))
+    nondet memo = oneOf(Set(0, 1, 2))
     all {
-      svc' = out.state,
+      svc' = applyIncomingTransfer(svc, now, { from: senderId, amount: amount, memo: memo }),
       now' = now,
       jamStagingSet' = jamStagingSet,
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
       lastStepWorkResults' = List(),
-      lastStepBouncedTransfers' = out.bounced,
       lastStepAssigns' = List(),
       logPrunedBelow' = logPrunedBelow
     }
@@ -299,7 +294,6 @@ module main {
       solicitedSet' = solicitedSet,
       prevSvc' = svc,
       lastStepWorkResults' = List(),
-      lastStepBouncedTransfers' = List(),
       lastStepAssigns' = List(),
       logPrunedBelow' = logPrunedBelow
     }

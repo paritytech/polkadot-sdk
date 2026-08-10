@@ -283,16 +283,11 @@ module accumulate {
               acc.state.pendingAssignCores.put(payload.core, payload.jamSlot)
           }
         }
-      | ConsumeTransfersUpTo(idx) =>
-      // Asset Hub prunes the consumed prefix. Both Refine and
-      // `accumulateOkPrefix`'s service-restriction check (§4.3) reject
+      | ConsumeTransfersUpTo(slot) =>
+      // Asset Hub drains whole buckets up to and including `slot`. Both Refine
+      // and `accumulateOkPrefix`'s service-restriction check (§4.3) reject
       // non-Asset-Hub origins before we reach this branch.
-      { ...acc,
-        state: { ...acc.state,
-          incomingTransfers:
-          acc.state.incomingTransfers.slice(idx, acc.state.incomingTransfers.length())
-        }
-      }
+      { ...acc, state: dropBucketsUpTo(acc.state, slot) }
       | UpgradeService(payload) =>
       // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
       // the new code's preimage is in the service's preimage store before
@@ -559,18 +554,38 @@ module accumulate {
   /// §5.1 incoming-transfer processing.
   pure def applyIncomingTransfer(
     s: ParachainServiceState,
+    now: Timeslot,
     t: { from: ServiceId, amount: Balance, memo: Memo }
-  ): {
-    state: ParachainServiceState,
-    bounced: List[{ from: ServiceId, amount: Balance, memo: Memo }]
-  } = {
-    if (t.memo == AllOnesMemo)
-      { state: s, bounced: List() }
-    else if (s.incomingTransfers.length() >= IncomingTransfersMaxLen)
-      { state: s, bounced: List(t) }
+  ): ParachainServiceState = {
+    val admitted =
+      queuedTransferCount(s) < MaxIncomingTransfers or
+        t.amount >= IncomingTransferEntryFootprint
+    if (not(admitted)) s
     else
-      { state: { ...s, incomingTransfers: s.incomingTransfers.append(t) },
-        bounced: List() }
+      match s.incomingTransferChain {
+        // Empty queue: `now` becomes the only bucket, so both endpoints.
+        | None =>
+          { ...s,
+            incomingTransfers:
+              s.incomingTransfers.put(now, { transfers: List(t), nextSlot: None }),
+            incomingTransferChain: Some({ firstSlot: now, lastSlot: now }) }
+        | Some(chain) =>
+          if (chain.lastSlot == now) {
+            // Same slot as the tail: append in place, no new storage item.
+            val bucket = s.incomingTransfers.get(now)
+            { ...s,
+              incomingTransfers: s.incomingTransfers.put(
+                now, { ...bucket, transfers: bucket.transfers.append(t) }) }
+          } else {
+            // New bucket at `now`; link the old tail to it and move `lastSlot`.
+            val oldTail = s.incomingTransfers.get(chain.lastSlot)
+            { ...s,
+              incomingTransfers: s.incomingTransfers
+                .put(chain.lastSlot, { ...oldTail, nextSlot: Some(now) })
+                .put(now, { transfers: List(t), nextSlot: None }),
+              incomingTransferChain: Some({ ...chain, lastSlot: now }) }
+          }
+      }
   }
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
