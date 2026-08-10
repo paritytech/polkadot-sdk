@@ -453,7 +453,6 @@ members = [
 	"substrate/frame/sassafras",
 	"substrate/frame/scarcity",
 	"substrate/frame/scheduler",
-	"substrate/frame/scored-pool",
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
