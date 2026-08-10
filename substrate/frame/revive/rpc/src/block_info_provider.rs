@@ -106,7 +106,9 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 
 				// A finalized block is on the best chain, so the best block is never behind it.
 				let mut best = self.latest_block.write().await;
-				if finalized_block.block_number() >= best.block_number() {
+				if finalized_block.block_number() >= best.block_number() &&
+					finalized_block.block_hash() != best.block_hash()
+				{
 					log::debug!(target: LOG_TARGET,
 						"Advancing the latest block #{} ({:?}) to the finalized block #{} ({:?}): it is no longer ahead",
 						best.block_number(),
@@ -802,6 +804,18 @@ pub mod test {
 			provider.latest_block().await.block_hash(),
 			MockBlockId::MainBranch(best + 2).hash(),
 			"a finalized block replaces a same-numbered latest block from another branch"
+		);
+
+		let latest = provider.latest_block().await;
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::MainBranch(best + 2)).await,
+				SubscriptionType::FinalizedBlocks,
+			)
+			.await;
+		assert!(
+			Arc::ptr_eq(&latest, &provider.latest_block().await),
+			"the latest block is unchanged when is already the finalized block"
 		);
 	}
 
