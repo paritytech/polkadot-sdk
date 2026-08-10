@@ -68,6 +68,12 @@ pub trait EVMFrameTraceInfo: FrameTraceInfo {
 }
 
 /// Defines methods to trace contract interactions.
+///
+/// # Contract
+///
+/// Every [`Tracing::enter_opcode`] and [`Tracing::enter_ecall`] must be followed by exactly one
+/// [`Tracing::exit_step`], on every path including reverts and traps. Tracers pair the two to
+/// attribute a step's cost, so an unmatched call charges that step to an enclosing one.
 pub trait Tracing {
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
