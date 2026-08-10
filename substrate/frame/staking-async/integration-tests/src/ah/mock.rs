@@ -422,6 +422,14 @@ parameter_types! {
 	pub static RewardBase: Balance = 5;
 }
 
+/// The DAP buffer account, used as the signed-phase reward pot.
+pub struct SignedRewardPot;
+impl Get<Option<AccountId>> for SignedRewardPot {
+	fn get() -> Option<AccountId> {
+		Some(Dap::buffer_account())
+	}
+}
+
 impl multi_block::signed::Config for Runtime {
 	type Currency = Balances;
 	type EjectGraceRatio = ();
@@ -433,7 +441,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
 	type Slash = Dap;
-	type RewardSource = pallet_dap::DapBufferRewardSource<Runtime>;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
@@ -973,9 +981,13 @@ parameter_types! {
 pub(crate) fn signed_events_since_last_call() -> Vec<multi_block::signed::Event<T>> {
 	let all: Vec<_> = System::events()
 		.into_iter()
-		.filter_map(
-			|r| if let RuntimeEvent::MultiBlockSigned(inner) = r.event { Some(inner) } else { None },
-		)
+		.filter_map(|r| {
+			if let RuntimeEvent::MultiBlockSigned(inner) = r.event {
+				Some(inner)
+			} else {
+				None
+			}
+		})
 		.collect();
 	let seen = SignedEventsIndex::get();
 	SignedEventsIndex::set(all.len());

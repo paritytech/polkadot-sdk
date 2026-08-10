@@ -155,6 +155,14 @@ parameter_types! {
 	pub MaxSubmissions: u32 = 8;
 }
 
+/// The DAP buffer account, used as the signed-phase reward pot.
+pub struct SignedRewardPot;
+impl frame_support::traits::Get<Option<AccountId>> for SignedRewardPot {
+	fn get() -> Option<AccountId> {
+		Some(Dap::buffer_account())
+	}
+}
+
 impl multi_block::signed::Config for Runtime {
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
@@ -166,7 +174,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type Slash = Dap;
-	type RewardSource = pallet_dap::DapBufferRewardSource<Runtime>;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 

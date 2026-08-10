@@ -307,6 +307,14 @@ impl multi_block::verifier::Config for Runtime {
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
+/// The DAP buffer account, used as the signed-phase reward pot.
+pub struct SignedRewardPot;
+impl Get<Option<AccountId>> for SignedRewardPot {
+	fn get() -> Option<AccountId> {
+		Some(Dap::buffer_account())
+	}
+}
+
 impl multi_block::signed::Config for Runtime {
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
@@ -318,7 +326,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type Slash = Dap;
-	type RewardSource = pallet_dap::DapBufferRewardSource<Runtime>;
+	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo<Self>;
 }
 

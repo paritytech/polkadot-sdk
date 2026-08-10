@@ -529,23 +529,6 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	}
 }
 
-/// `RewardSource` drawing from the DAP buffer, reactivating on payout.
-/// Use as `type RewardSource = pallet_dap::DapBufferRewardSource<Runtime>`.
-pub struct DapBufferRewardSource<T>(core::marker::PhantomData<T>);
-
-impl<T: Config>
-	pallet_election_provider_multi_block::signed::RewardSource<T::AccountId, BalanceOf<T>>
-	for DapBufferRewardSource<T>
-{
-	fn account() -> Option<T::AccountId> {
-		Some(Pallet::<T>::buffer_account())
-	}
-
-	fn paid(amount: BalanceOf<T>) {
-		<T::Currency as Unbalanced<T::AccountId>>::reactivate(amount);
-	}
-}
-
 /// Type alias for legacy `NegativeImbalance` from the `Currency` trait.
 type LegacyNegativeImbalance<A, C> = <C as Currency<A>>::NegativeImbalance;
 

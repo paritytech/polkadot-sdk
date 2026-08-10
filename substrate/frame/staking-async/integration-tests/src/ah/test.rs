@@ -1448,7 +1448,9 @@ fn signed_slash_routes_to_dap_not_burned() {
 		roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
 
 		assert!(
-			signed_events_since_last_call().iter().any(|e| matches!(e, SignedEvent::Slashed(..))),
+			signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Slashed(..))),
 			"expected a Slashed event for the infeasible submission"
 		);
 

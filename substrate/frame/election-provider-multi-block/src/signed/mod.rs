@@ -63,7 +63,9 @@ use frame_support::{
 	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
-			fungible::{BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold},
+			fungible::{
+				BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold, Unbalanced,
+			},
 			Imbalance, Precision, Preservation,
 		},
 		Defensive, DefensiveSaturating, EstimateCallFee, OnUnbalanced,
@@ -247,6 +249,27 @@ impl<AccountId, Balance, P: Get<Option<AccountId>>> RewardSource<AccountId, Bala
 {
 	fn account() -> Option<AccountId> {
 		P::get()
+	}
+}
+
+/// A [`RewardSource`] drawing from the account in `P`, reactivating the paid amount in
+/// `Currency` afterwards.
+///
+/// For pots holding previously-deactivated issuance, such as a DAP buffer.
+pub struct ReactivatingPot<P, Currency>(sp_std::marker::PhantomData<(P, Currency)>);
+
+impl<AccountId, Balance, P, Currency> RewardSource<AccountId, Balance>
+	for ReactivatingPot<P, Currency>
+where
+	P: Get<Option<AccountId>>,
+	Currency: Unbalanced<AccountId, Balance = Balance>,
+{
+	fn account() -> Option<AccountId> {
+		P::get()
+	}
+
+	fn paid(amount: Balance) {
+		Currency::reactivate(amount);
 	}
 }
 
@@ -1028,7 +1051,13 @@ impl<T: Config> Pallet<T> {
 		match Self::transfer_or_mint(to, amount) {
 			Ok(()) => Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount)),
 			Err(()) => {
-				sublog!(warn, "signed", "reward pot insufficient; {:?} to {:?} not paid", amount, to);
+				sublog!(
+					warn,
+					"signed",
+					"reward pot insufficient; {:?} to {:?} not paid",
+					amount,
+					to
+				);
 				Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
 			},
 		}
@@ -1066,7 +1095,9 @@ impl<T: Config> Pallet<T> {
 		debug_assert!(remainder.is_zero(), "the full deposit was held; slash must not be partial");
 		let slashed = credit.peek();
 		T::Slash::on_unbalanced(credit);
-		Self::deposit_event(Event::<T>::Slashed(round, who.clone(), slashed));
+		if !slashed.is_zero() {
+			Self::deposit_event(Event::<T>::Slashed(round, who.clone(), slashed));
+		}
 	}
 
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
@@ -1082,10 +1113,15 @@ impl<T: Config> Pallet<T> {
 			let slash = metadata.deposit;
 			let (credit, remainder) =
 				T::Currency::slash(&HoldReason::SignedSubmission.into(), &loser, slash);
-			debug_assert!(remainder.is_zero(), "the full deposit was held; slash must not be partial");
+			debug_assert!(
+				remainder.is_zero(),
+				"the full deposit was held; slash must not be partial"
+			);
 			let slashed = credit.peek();
 			T::Slash::on_unbalanced(credit);
-			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slashed));
+			if !slashed.is_zero() {
+				Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slashed));
+			}
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =
