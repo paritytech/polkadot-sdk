@@ -777,7 +777,7 @@ impl IndexSet {
 impl SubmitIndex {
 	fn new(config: Config) -> SubmitIndex {
 		SubmitIndex {
-			// The real bound is [`Self::accounts_cost`], enforced by [`Self::cache_record`];
+			// The real bound is [`Self::cached_statement_count`], enforced by [`Self::cache_record`];
 			// this length limiter must never trigger on its own, and cannot: every record costs
 			// at least one unit, so the cost trimming keeps the length at or below the budget.
 			account_statements: LruMap::new(ByLength::new(u32::MAX)),
