@@ -10,8 +10,8 @@ doc:
     - stop implementing / reexporting `NativeExecutionDispatch`
 crates:
 - name: polkadot-service
-  bump: major
+  bump: patch
 - name: sc-executor
   bump: major
 - name: sc-service
-  bump: major
+  bump: patch
