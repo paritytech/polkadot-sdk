@@ -195,10 +195,6 @@ mod same_head_retry {
 	/// first fetch FAILS at the network level. The second collator's parked segment is
 	/// the retry channel: a fetch of A to the other peer must fire, and the candidate
 	/// seconds.
-	///
-	/// RED until the soft/hard exhaustion amendment (see module doc): today the second
-	/// segment is consumed as all-blocked while the first fetch is merely in flight,
-	/// so after the failure nothing remains to retry from.
 	#[crate::sim_test(only = "experimental")]
 	fn same_head_fetch_failure_retries_from_second_collator<S: CollatorSut>() {
 		let mut w = v4_world::<S>(None);
@@ -236,10 +232,6 @@ mod same_head_retry {
 	/// different candidate) that real validation rejects — backing reports it invalid
 	/// and the slot is released. The second collator's parked segment must then retry
 	/// A, and the good twin seconds.
-	///
-	/// RED until the soft/hard exhaustion amendment (see module doc): the second
-	/// segment is consumed while A is in flight, so after the invalidation nothing
-	/// remains to retry from.
 	#[crate::sim_test(only = "experimental")]
 	fn same_head_invalid_collation_retries_from_second_collator<S: CollatorSut>() {
 		let invalid = SharedInvalidSet::default();
