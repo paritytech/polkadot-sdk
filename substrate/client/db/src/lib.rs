@@ -562,6 +562,14 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			}
 			meta.finalized_number = number;
 			meta.finalized_hash = hash;
+
+			// A finalized block is canonical and must be reflected by the best block.
+			// If the current best block is behind the newly finalized one, advance it
+			// to maintain the invariant `best_number >= finalized_number`.
+			if number > meta.best_number {
+				meta.best_number = number;
+				meta.best_hash = hash;
+			}
 		}
 	}
 
@@ -4140,6 +4148,38 @@ pub(crate) mod tests {
 			just
 		};
 		assert_eq!(backend.blockchain().justifications(block1).unwrap(), Some(justifications),);
+	}
+
+	#[test]
+	fn finalize_block_does_not_leave_best_behind_finalized() {
+		let backend = Backend::<Block>::new_test(10, 10);
+
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let block1 = insert_header(&backend, 1, block0, None, Default::default());
+		let block2 = insert_header(&backend, 2, block1, None, Default::default());
+		let block3 = insert_header(&backend, 3, block2, None, Default::default());
+		let block4 = insert_header(&backend, 4, block3, None, Default::default());
+
+		assert_eq!(backend.blockchain().info().best_number, 4);
+
+		// Move `best` back to block 3, e.g. as the result of a re-org.
+		let mut op = backend.begin_operation().unwrap();
+		op.mark_head(block3).unwrap();
+		backend.commit_operation(op).unwrap();
+		assert_eq!(backend.blockchain().info().best_hash, block3);
+		assert_eq!(backend.blockchain().info().best_number, 3);
+
+		// Finalizing block 4 must not leave `best_number` behind `finalized_number`.
+		backend.finalize_block(block1, None).unwrap();
+		backend.finalize_block(block2, None).unwrap();
+		backend.finalize_block(block3, None).unwrap();
+		backend.finalize_block(block4, None).unwrap();
+
+		let info = backend.blockchain().info();
+		assert_eq!(info.finalized_number, 4);
+		assert_eq!(info.finalized_hash, block4);
+		assert!(info.best_number >= info.finalized_number);
+		assert_eq!(info.best_hash, block4);
 	}
 
 	#[test]

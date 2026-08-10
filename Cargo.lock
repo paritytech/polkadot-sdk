@@ -1779,7 +1779,6 @@ dependencies = [
  "pallet-nomination-pools",
  "pallet-nomination-pools-benchmarking",
  "pallet-nomination-pools-runtime-api",
- "pallet-parameters",
  "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
@@ -1845,6 +1844,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-parachain-info",
  "staging-xcm",
@@ -4993,6 +4993,7 @@ dependencies = [
  "sp-crypto-ec-utils",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "sp-transaction-pool",
  "sp-trie 29.0.0",
 ]
@@ -8556,6 +8557,14 @@ dependencies = [
  "libc",
  "match_cfg",
  "winapi",
+]
+
+[[package]]
+name = "hrmp-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -13351,6 +13360,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-hrmp-para"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "pallet-hrmp-relay"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-identity"
 version = "29.0.0"
 dependencies = [
@@ -14007,6 +14036,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-registrar-para"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "pallet-registrar-relay"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-remark"
 version = "28.0.0"
 dependencies = [
@@ -14294,6 +14343,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-scarcity"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "29.0.0"
 dependencies = [
@@ -14310,19 +14373,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-scored-pool"
-version = "28.0.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -17438,8 +17488,8 @@ dependencies = [
  "pallet-root-testing",
  "pallet-safe-mode",
  "pallet-salary",
+ "pallet-scarcity",
  "pallet-scheduler",
- "pallet-scored-pool",
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-skip-feeless-payment",
@@ -19493,6 +19543,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
+name = "registrar-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "relative-path"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19586,6 +19644,7 @@ dependencies = [
  "pallet-psm",
  "pallet-psm-remote-tests",
  "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "staging-xcm",
  "tokio",
@@ -26839,6 +26898,7 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
+ "scale-info",
  "tokio",
  "zombienet-configuration",
  "zombienet-orchestrator",
