@@ -203,16 +203,18 @@ module state {
     | InvalidCodeHashAcc(_) => 32
     | InsufficientStateBalance(r) =>
       1 + match r {
-        | FromSolicit(_) => 32
+        // hash 32 + Compact<u32> len.
+        | FromSolicit(p) => 32 + compactLen(p.len)
         | FromSetKV(_) => 32
       }
     | StateBalanceUpdateRejected(p) =>
       compactLen(p.attempted) + compactLen(p.currentTotal) + compactLen(p.currentUsed)
-    | DesignateRejected(_) => 4
+    | DesignateRejected(p) => compactLen(p.len)
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32
     | TransferFailed(_) => 32
-    | ForgetAgainAt(_) => 32 + 4 + 4
+    // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
+    | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
     | TooMuchStateHeld => 0
   }
 

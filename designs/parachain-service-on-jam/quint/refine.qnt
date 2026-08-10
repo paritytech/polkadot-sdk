@@ -64,10 +64,11 @@ module refine {
   // 1 B enum discriminant (the message tag) + the variant's payload size.
   pure def upwardMessageSize(m: UpwardMessage): int =
   1 + match m {
-    | RequestCodeUpgrade(_) => 36
-    | Solicit(_) => 36
-    // paraId 4 + hash 32 + len 4.
-    | Forget(_) => 40
+    // hash 32 + Compact<u32> len.
+    | RequestCodeUpgrade(p) => 32 + compactLen(p.len)
+    | Solicit(p) => 32 + compactLen(p.len)
+    // paraId 4 + hash 32 + Compact<u32> len.
+    | Forget(p) => 36 + compactLen(p.len)
     | SetKV(p) =>
       compactLen(p.key.length()) + p.key.length()
         + compactLen(p.value.length()) + p.value.length()
@@ -85,12 +86,13 @@ module refine {
       1 + compactLen(p.keys.length()) + p.keys.length() * 336
     | ConsumeTransfersUpTo(_) => 4
     | ParachainSetHead(_) => 4102
-    | ParachainSetValidationCode(_) => 40
+    // paraId 4 + hash 32 + Compact<u32> len.
+    | ParachainSetValidationCode(p) => 36 + compactLen(p.newValidationCodeLen)
     | ParachainCleanUp(_) => 4
     // paraId 4 + newTotal Compact<u128>.
     | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
-    // codeHash 32 + len 4 + minItemGas 8 + minMemoGas 8.
-    | UpgradeService(_) => 52
+    // codeHash 32 + Compact<u32> len + minItemGas 8 + minMemoGas 8.
+    | UpgradeService(p) => 48 + compactLen(p.len)
   }
 
   /// `true` iff the work result (`paraId` + `vch` + `parentHeadHash` +
