@@ -857,6 +857,19 @@ impl SubmitIndex {
 		}
 	}
 
+	/// Puts a record into the details cache together with the summary derived from it. An
+	/// account with no statements is represented in both caches by absence, so an empty record
+	/// refreshes neither.
+	fn cache_record_with_summary(&mut self, account: AccountId, record: StatementsForAccount) {
+		if !record.by_priority.is_empty() {
+			self.summaries.insert(
+				account,
+				AccountSummary { count: record.by_priority.len(), data_size: record.data_size },
+			);
+		}
+		self.cache_record(account, record);
+	}
+
 	/// Records a sequence number in the snapshot window, once its statement and admission entries
 	/// have committed atomically. The number itself is claimed earlier, by [`Self::insert`].
 	fn note_seq(&mut self, hash: Hash, seq: u64) {
@@ -1070,11 +1083,7 @@ impl SubmitIndex {
 					record.remove_entry(key);
 				}
 				record.insert_entry(hash, Expiry(statement.expiry()), details);
-				self.summaries.insert(
-					*account,
-					AccountSummary { count: record.by_priority.len(), data_size: record.data_size },
-				);
-				self.cache_record(*account, record);
+				self.cache_record_with_summary(*account, record);
 			},
 			None => {
 				// Summary fast path: no record was materialised, only the summary is maintained.
@@ -2594,7 +2603,9 @@ impl StatementStore for Store {
 			let statement_len = statement.data_len();
 			// The account record is materialised only when the constraint check actually needs
 			// it: a channel-less statement from an account whose cached summary shows headroom
-			// is admitted without touching the account's on-disk index at all.
+			// is admitted without touching the account's on-disk index at all, and an oversize
+			// statement is rejected by `plan_insert` before it ever looks at the record.
+			let oversize = statement_len > validation.max_size as usize;
 			let cached = submit_index.account_statements.peek(&account_id).is_some();
 			let summary_admits = !cached &&
 				statement.channel().is_none() &&
@@ -2604,7 +2615,7 @@ impl StatementStore for Store {
 				}) && submit_index.statement_count <
 				submit_index.config.max_total_statements &&
 				submit_index.total_size + statement_len <= submit_index.config.max_total_size;
-			let loaded_record = if cached || summary_admits {
+			let loaded_record = if cached || summary_admits || oversize {
 				None
 			} else {
 				match self.load_account_record(&account_id) {
@@ -2636,6 +2647,14 @@ impl StatementStore for Store {
 					self.metrics.report(|metrics| {
 						metrics.rejections.with_label_values(&[reason.label()]).inc();
 					});
+					// The rejection left the store untouched, so a record loaded for planning
+					// still mirrors the disk. Cache it: rejections cost the sender nothing, and
+					// dropping the record here would let rejected submissions against a large
+					// account rescan its whole on-disk index, under the write lock, on every
+					// attempt.
+					if let Some(record) = loaded_record {
+						submit_index.cache_record_with_summary(account_id, record);
+					}
 					return SubmitResult::Rejected(reason);
 				},
 			};
@@ -3167,6 +3186,11 @@ impl Store {
 	/// Whether the details cache currently holds `who`'s record.
 	fn details_cached(&self, who: &AccountId) -> bool {
 		self.submit_index.read().account_statements.peek(who).is_some()
+	}
+
+	/// Whether the summary cache currently holds `who`'s entry.
+	fn summary_cached(&self, who: &AccountId) -> bool {
+		self.submit_index.read().summaries.peek(who).is_some()
 	}
 
 	/// Total stored data size, per the in-memory counter.
@@ -4111,6 +4135,52 @@ mod tests {
 		let filler_statements = 2 * per_filler_account;
 		assert_eq!(store.statement_count(), 2 + filler_statements);
 		assert_eq!(store.total_size(), 50 + 900 + filler_statements * 10);
+	}
+
+	#[test]
+	fn rejected_submission_caches_the_loaded_record() {
+		let (store, temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 5 owns one channel statement.
+		assert_eq!(store.submit(statement(5, 2, Some(1), 100), source), SubmitResult::New);
+
+		// Reopen the store so that both caches start cold.
+		let keystore = store.keystore.clone();
+		drop(store);
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+
+		// An oversize statement is rejected before the account record is even loaded, so the
+		// caches stay cold.
+		assert_eq!(
+			store.submit(statement(5, 3, None, 1500), source),
+			SubmitResult::Rejected(RejectionReason::DataTooLarge {
+				submitted_size: 1500,
+				available_size: 1000,
+			})
+		);
+		assert!(!store.details_cached(&account(5)));
+		assert!(!store.summary_cached(&account(5)));
+
+		// A channel statement of too low a priority is rejected only after planning against the
+		// record loaded from disk. The record and its summary must stay cached: rejections cost
+		// the sender nothing, so retries must not rescan the on-disk index every time.
+		assert!(matches!(
+			store.submit(statement(5, 1, Some(1), 100), source),
+			SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })
+		));
+		assert!(store.details_cached(&account(5)));
+		assert!(store.summary_cached(&account(5)));
 	}
 
 	#[test]
