@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786100756181,
+  "lastUpdate": 1786393059861,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2938a5c197ebfed47f0508cb24db18e86edfea6c",
-          "message": "Add substrate-zombienet-sdk-tests package and update workflows (#10372)\n\n#10331\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
-          "timestamp": "2025-12-03T09:51:44Z",
-          "tree_id": "fede98da77d880a2ce4e82aa80c0adc38d2e0672",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2938a5c197ebfed47f0508cb24db18e86edfea6c"
-        },
-        "date": 1764761311926,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.97199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03418236159000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044441305073999925,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.040121963531999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e2258427d5681144d33a3eba4ed7feab0c537b1",
+          "message": "Version bumps and prdocs reordering 2606-1 (#12849)\n\nThis PR backports regular version node version bumps and prdocs\nreordering after stable2606-1 release from release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-08-10T18:02:41Z",
+          "tree_id": "49f6d2a692bcaf25a3cd26a3654563ca59ffe35a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e2258427d5681144d33a3eba4ed7feab0c537b1"
+        },
+        "date": 1786393027315,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039617258946,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0857354843839999,
             "unit": "seconds"
           }
         ]
