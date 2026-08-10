@@ -12892,6 +12892,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-election-provider-multi-block",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",

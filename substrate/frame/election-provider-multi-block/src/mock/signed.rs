@@ -18,7 +18,7 @@
 use super::{AccountId, Balance, Balances, Pages, Runtime, RuntimeEvent, SignedPallet, System};
 use crate::{
 	mock::*,
-	signed::{self as signed_pallet, Event as SignedEvent, Submissions},
+	signed::{self as signed_pallet, ActivePot, Event as SignedEvent, Submissions},
 	unsigned::miner::MinerConfig,
 	verifier::{self, AsynchronousVerifier, SolutionDataProvider, VerificationResult, Verifier},
 	Event, PadSolutionPages, PagedRawSolution, Pagify, Phase, SolutionOf,
@@ -107,7 +107,7 @@ impl crate::signed::Config for Runtime {
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
 	type Slash = MockSlash;
-	type RewardSource = SignedRewardSource;
+	type RewardSource = ActivePot<SignedRewardSource>;
 	type WeightInfo = ();
 }
 

@@ -422,21 +422,6 @@ parameter_types! {
 	pub static RewardBase: Balance = 5;
 }
 
-/// Draws signed-phase rewards from the DAP buffer, reactivating the paid amount so
-/// `TotalIssuance`'s active/inactive split stays correct.
-pub struct SignedRewardsFromDapBuffer;
-impl multi_block::signed::RewardSource<AccountId, Balance> for SignedRewardsFromDapBuffer {
-	fn account() -> Option<AccountId> {
-		Some(Dap::buffer_account())
-	}
-
-	fn paid(amount: Balance) {
-		<Balances as frame_support::traits::tokens::fungible::Unbalanced<AccountId>>::reactivate(
-			amount,
-		);
-	}
-}
-
 impl multi_block::signed::Config for Runtime {
 	type Currency = Balances;
 	type EjectGraceRatio = ();
@@ -448,7 +433,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
 	type Slash = Dap;
-	type RewardSource = SignedRewardsFromDapBuffer;
+	type RewardSource = pallet_dap::DapBufferRewardSource<Runtime>;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 

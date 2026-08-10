@@ -64,7 +64,7 @@ use frame_support::{
 	traits::{
 		tokens::{
 			fungible::{BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold},
-			Precision, Preservation,
+			Imbalance, Precision, Preservation,
 		},
 		Defensive, DefensiveSaturating, EstimateCallFee, OnUnbalanced,
 	},
@@ -226,8 +226,8 @@ impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Bala
 
 /// Provides the account that reward payments and invulnerable fee refunds are drawn from.
 ///
-/// `None` mints directly. `Some(account)` transfers from `account`; implementations drawing from
-/// previously-deactivated issuance must reactivate the paid amount in [`Self::paid`].
+/// `None` mints directly. `Some(account)` transfers from `account`, followed by a call to
+/// [`Self::paid`] for any bookkeeping the source needs to perform after a successful payout.
 pub trait RewardSource<AccountId, Balance> {
 	/// The pot account to draw the reward from, or `None` to mint directly.
 	fn account() -> Option<AccountId>;
@@ -236,9 +236,17 @@ pub trait RewardSource<AccountId, Balance> {
 	fn paid(_amount: Balance) {}
 }
 
-impl<AccountId, Balance, G: Get<Option<AccountId>>> RewardSource<AccountId, Balance> for G {
+/// A [`RewardSource`] drawing from the account in `P`, with no issuance reactivation.
+///
+/// Correct only for pots holding *active* funds. A pot holding deactivated issuance, such as a
+/// DAP buffer, must use a source that reactivates in [`RewardSource::paid`].
+pub struct ActivePot<P>(sp_std::marker::PhantomData<P>);
+
+impl<AccountId, Balance, P: Get<Option<AccountId>>> RewardSource<AccountId, Balance>
+	for ActivePot<P>
+{
 	fn account() -> Option<AccountId> {
-		G::get()
+		P::get()
 	}
 }
 
@@ -527,6 +535,7 @@ pub mod pallet {
 
 						if let Some(metadata) = maybe_metadata {
 							Pallet::<T>::settle_deposit(
+								round,
 								&discarded,
 								metadata.deposit,
 								T::EjectGraceRatio::get(),
@@ -782,8 +791,7 @@ pub mod pallet {
 		Stored(u32, T::AccountId, PageIndex),
 		/// The given account has been rewarded with the given amount.
 		Rewarded(u32, T::AccountId, BalanceOf<T>),
-		/// The reward transfer from [`Config::RewardSource`] failed; no funds moved. Recovery
-		/// requires governance to top up the pot, there is no automatic retry.
+		/// A [`Config::RewardSource`] payout failed; no funds moved, no automatic retry.
 		RewardPaymentFailed(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
@@ -902,7 +910,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::NoSubmission)?;
 
 			let deposit = metadata.deposit;
-			Self::settle_deposit(&who, deposit, T::BailoutGraceRatio::get());
+			Self::settle_deposit(round, &who, deposit, T::BailoutGraceRatio::get());
 			Self::deposit_event(Event::<T>::Bailed(round, who));
 
 			Ok(None.into())
@@ -945,7 +953,7 @@ pub mod pallet {
 
 			// maybe give back their fees
 			if Self::is_invulnerable(&discarded) {
-				Self::pay_reward(round, &discarded, metadata.fee);
+				Self::refund_fee(round, &discarded, metadata.fee);
 			}
 
 			Self::deposit_event(Event::<T>::Discarded(round, discarded));
@@ -1003,35 +1011,44 @@ impl<T: Config> Pallet<T> {
 		Invulnerables::<T>::get().contains(who)
 	}
 
-	/// Transfer `amount` from [`Config::RewardSource`] pot to `to`, or mint if `None`. Emits
-	/// [`Event::Rewarded`] on success, or [`Event::RewardPaymentFailed`] if the pot transfer
-	/// fails; either way solution acceptance is never blocked by a depleted pot.
-	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
+	/// Transfer `amount` from [`Config::RewardSource`] pot to `to`, or mint if `None`.
+	fn transfer_or_mint(to: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
 		if let Some(source) = T::RewardSource::account() {
-			match T::Currency::transfer(&source, to, amount, Preservation::Preserve) {
-				Ok(_) => {
-					T::RewardSource::paid(amount);
-					Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount));
-				},
-				Err(_) => {
-					sublog!(
-						warn,
-						"signed",
-						"reward pot insufficient; {:?} to {:?} not paid",
-						amount,
-						to
-					);
-					Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
-				},
-			}
+			T::Currency::transfer(&source, to, amount, Preservation::Preserve).map_err(|_| ())?;
+			T::RewardSource::paid(amount);
 		} else {
 			let _r = T::Currency::mint_into(to, amount);
 			debug_assert!(_r.is_ok());
-			Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount));
+		}
+		Ok(())
+	}
+
+	/// Pay the round's winner. Emits `Rewarded` on success, `RewardPaymentFailed` otherwise.
+	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
+		match Self::transfer_or_mint(to, amount) {
+			Ok(()) => Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount)),
+			Err(()) => {
+				sublog!(warn, "signed", "reward pot insufficient; {:?} to {:?} not paid", amount, to);
+				Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
+			},
 		}
 	}
 
-	fn settle_deposit(who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
+	/// Refund an invulnerable's tx fee on discard. Unlike `pay_reward`, never emits `Rewarded`.
+	fn refund_fee(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
+		if Self::transfer_or_mint(to, amount).is_err() {
+			sublog!(
+				warn,
+				"signed",
+				"reward pot insufficient; fee refund of {:?} to {:?} not paid",
+				amount,
+				to
+			);
+			Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
+		}
+	}
+
+	fn settle_deposit(round: u32, who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
 		let to_refund = grace * deposit;
 		let to_slash = deposit.defensive_saturating_sub(to_refund);
 
@@ -1047,7 +1064,9 @@ impl<T: Config> Pallet<T> {
 		let (credit, remainder) =
 			T::Currency::slash(&HoldReason::SignedSubmission.into(), who, to_slash);
 		debug_assert!(remainder.is_zero(), "the full deposit was held; slash must not be partial");
+		let slashed = credit.peek();
 		T::Slash::on_unbalanced(credit);
+		Self::deposit_event(Event::<T>::Slashed(round, who.clone(), slashed));
 	}
 
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
@@ -1064,8 +1083,9 @@ impl<T: Config> Pallet<T> {
 			let (credit, remainder) =
 				T::Currency::slash(&HoldReason::SignedSubmission.into(), &loser, slash);
 			debug_assert!(remainder.is_zero(), "the full deposit was held; slash must not be partial");
+			let slashed = credit.peek();
 			T::Slash::on_unbalanced(credit);
-			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slashed));
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =

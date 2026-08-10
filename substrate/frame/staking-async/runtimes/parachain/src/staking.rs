@@ -307,19 +307,6 @@ impl multi_block::verifier::Config for Runtime {
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
-pub struct SignedRewardsFromDapBuffer;
-impl multi_block::signed::RewardSource<AccountId, Balance> for SignedRewardsFromDapBuffer {
-	fn account() -> Option<AccountId> {
-		Some(Dap::buffer_account())
-	}
-
-	fn paid(amount: Balance) {
-		<Balances as frame_support::traits::tokens::fungible::Unbalanced<AccountId>>::reactivate(
-			amount,
-		);
-	}
-}
-
 impl multi_block::signed::Config for Runtime {
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
@@ -331,7 +318,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type Slash = Dap;
-	type RewardSource = SignedRewardsFromDapBuffer;
+	type RewardSource = pallet_dap::DapBufferRewardSource<Runtime>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo<Self>;
 }
 

@@ -20,7 +20,7 @@ use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::{
 	assert_ok, hypothetically,
-	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
+	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
 };
 use pallet_election_provider_multi_block::{
 	signed::Event as SignedEvent, unsigned::miner::OffchainWorkerMiner,
@@ -1423,7 +1423,6 @@ mod poll_operations {
 
 #[test]
 fn signed_slash_routes_to_dap_not_burned() {
-	// type Slash = Dap for MultiBlockSigned here, mirroring WAH/staking-async parachain.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 			RuntimeOrigin::root(),
@@ -1457,6 +1456,60 @@ fn signed_slash_routes_to_dap_not_burned() {
 		assert!(
 			staging_after > staging_before,
 			"slashed deposit must be routed to the DAP staging account, not burned"
+		);
+	});
+}
+
+#[test]
+fn signed_reward_reactivates_dap_buffer_inactive_issuance() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// Route DAP's ambient drip away from the buffer, so InactiveIssuance only moves due to
+		// our own reward payout.
+		pallet_dap::BudgetAllocation::<T>::put(build_budget(&[(staker_reward_key(), 100)]));
+
+		// Seed the buffer with deactivated funds to pay the reward from.
+		Balances::mint_into(&Dap::buffer_account(), 1_000).unwrap();
+		<Balances as Unbalanced<AccountId>>::deactivate(1_000);
+
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 0,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
+
+		let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
+		assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
+		for (index, page) in solution.solution_pages.into_iter().enumerate() {
+			assert_ok!(MultiBlockSigned::submit_page(
+				RuntimeOrigin::signed(1),
+				index as u32,
+				Some(Box::new(page))
+			));
+		}
+
+		let inactive_before = pallet_balances::InactiveIssuance::<T>::get();
+
+		roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
+
+		let rewarded = signed_events_since_last_call()
+			.into_iter()
+			.find_map(|e| match e {
+				SignedEvent::Rewarded(_, _, amount) => Some(amount),
+				_ => None,
+			})
+			.expect("expected a Rewarded event for the winning submission");
+
+		let inactive_after = pallet_balances::InactiveIssuance::<T>::get();
+		assert_eq!(
+			inactive_before - inactive_after,
+			rewarded,
+			"reactivate() must drop InactiveIssuance by exactly the reward paid"
 		);
 	});
 }

@@ -287,6 +287,7 @@ mod calls {
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
+					SignedEvent::Slashed(_, 92, _),
 					SignedEvent::Ejected(_, 92),
 					SignedEvent::Registered(_, 94, _),
 				]
@@ -311,8 +312,10 @@ mod calls {
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
 					SignedEvent::Registered(..),
+					SignedEvent::Slashed(..),
 					SignedEvent::Ejected(..),
 					SignedEvent::Registered(..),
+					SignedEvent::Slashed(_, 91, _),
 					SignedEvent::Ejected(_, 91),
 					SignedEvent::Registered(_, 95, _),
 				]
@@ -341,7 +344,11 @@ mod calls {
 
 			assert_eq!(
 				signed_events(),
-				vec![Event::Registered(0, 99, score), Event::Bailed(0, 99)]
+				vec![
+					Event::Registered(0, 99, score),
+					Event::Slashed(0, 99, 4),
+					Event::Bailed(0, 99)
+				]
 			);
 		});
 	}
@@ -1403,10 +1410,7 @@ mod invulnerables {
 				0,
 				Pages::get()
 			));
-			assert_eq!(
-				signed_events_since_last_call(),
-				vec![Event::Rewarded(0, 99, 1), Event::Discarded(0, 99)]
-			);
+			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
 			// full deposit is returned + tx-fee
 			assert_eq!(balances(99), (101, 0));
 		})
