@@ -420,14 +420,8 @@ parameter_types! {
 	pub static DepositPerPage: Balance = 1;
 	pub static MaxSubmissions: u32 = 2;
 	pub static RewardBase: Balance = 5;
-}
-
-/// The DAP buffer account, used as the signed-phase reward pot.
-pub struct SignedRewardPot;
-impl Get<Option<AccountId>> for SignedRewardPot {
-	fn get() -> Option<AccountId> {
-		Some(Dap::buffer_account())
-	}
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
 }
 
 impl multi_block::signed::Config for Runtime {

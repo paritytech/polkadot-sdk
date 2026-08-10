@@ -307,12 +307,9 @@ impl multi_block::verifier::Config for Runtime {
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
-/// The DAP buffer account, used as the signed-phase reward pot.
-pub struct SignedRewardPot;
-impl Get<Option<AccountId>> for SignedRewardPot {
-	fn get() -> Option<AccountId> {
-		Some(Dap::buffer_account())
-	}
+parameter_types! {
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
 }
 
 impl multi_block::signed::Config for Runtime {

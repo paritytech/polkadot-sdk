@@ -153,14 +153,8 @@ parameter_types! {
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
-}
-
-/// The DAP buffer account, used as the signed-phase reward pot.
-pub struct SignedRewardPot;
-impl frame_support::traits::Get<Option<AccountId>> for SignedRewardPot {
-	fn get() -> Option<AccountId> {
-		Some(Dap::buffer_account())
-	}
+	/// The DAP buffer account, used as the signed-phase reward pot.
+	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
 }
 
 impl multi_block::signed::Config for Runtime {

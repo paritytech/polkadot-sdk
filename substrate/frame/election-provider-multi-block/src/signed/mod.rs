@@ -235,7 +235,7 @@ pub trait RewardSource<AccountId, Balance> {
 	fn account() -> Option<AccountId>;
 
 	/// Called after `amount` has been successfully transferred out of the pot.
-	fn paid(_amount: Balance) {}
+	fn paid(amount: Balance);
 }
 
 /// A [`RewardSource`] drawing from the account in `P`, with no issuance reactivation.
@@ -250,6 +250,8 @@ impl<AccountId, Balance, P: Get<Option<AccountId>>> RewardSource<AccountId, Bala
 	fn account() -> Option<AccountId> {
 		P::get()
 	}
+
+	fn paid(_amount: Balance) {}
 }
 
 /// A [`RewardSource`] drawing from the account in `P`, reactivating the paid amount in
