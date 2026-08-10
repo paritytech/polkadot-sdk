@@ -32,8 +32,8 @@ use tokio::sync::RwLock;
 /// BlockInfoProvider cache and retrieves information about blocks.
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
-	/// Update the latest block for the provided `subscription_type` to the given block, which is
-	/// ignored if it is not a valid new head.
+	/// Update the latest block or the latest finalized block, depending on `subscription_type`,
+	/// ignoring a block that is not a valid new head.
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType);
 
 	/// Return the latest finalized block.
@@ -44,7 +44,7 @@ pub trait BlockInfoProvider: Send + Sync {
 
 	/// Return the latest block number
 	async fn latest_block_number(&self) -> SubstrateBlockNumber {
-		return self.latest_block().await.block_number();
+		self.latest_block().await.block_number()
 	}
 
 	/// Get block by block_number.
@@ -88,85 +88,97 @@ impl SubxtBlockInfoProvider {
 			latest_finalized_block: Arc::new(RwLock::new(latest_finalized_block)),
 		})
 	}
+
+	/// Whether `number` still resolves to `hash` on chain.
+	async fn is_canonical(&self, number: SubstrateBlockNumber, hash: H256) -> bool {
+		match self.rpc.chain_get_block_hash(Some(number.into())).await {
+			Ok(canonical) => canonical == Some(hash),
+			Err(err) => {
+				log::debug!(target: LOG_TARGET,
+					"Failed to check if block #{number} ({hash:?}) is canonical, keeping it as the latest block: {err:?}");
+				true
+			},
+		}
+	}
+
+	/// Update the latest finalized block, and the latest block when it is no longer ahead of it.
+	async fn update_finalized(&self, block: Arc<SubstrateBlock>) {
+		// The finalized block only ever increases; a lower block is the block the subscription is
+		// seeded with on (re)init.
+		let mut finalized = self.latest_finalized_block.write().await;
+		if block.block_number() >= finalized.block_number() {
+			*finalized = block;
+		}
+		let finalized_block = finalized.clone();
+		drop(finalized);
+
+		// A finalized block is on the best chain, so the best block is never behind it.
+		let mut best = self.latest_block.write().await;
+		if finalized_block.block_number() >= best.block_number() &&
+			finalized_block.block_hash() != best.block_hash()
+		{
+			log::debug!(target: LOG_TARGET,
+				"Advancing the latest block #{} ({:?}) to the finalized block #{} ({:?}): it is no longer ahead",
+				best.block_number(),
+				best.block_hash(),
+				finalized_block.block_number(),
+				finalized_block.block_hash());
+			*best = finalized_block;
+		}
+	}
+
+	/// Update the latest block, ignoring a replay of a block below the cached one.
+	async fn update_best(&self, block: Arc<SubstrateBlock>) {
+		// The best block can move back on a reorg, and a lower block can also be the block the
+		// subscription is seeded with on (re)init.
+		let mut best = self.latest_block.write().await;
+		if block.block_number() >= best.block_number() {
+			*best = block;
+			return;
+		}
+
+		let (best_number, best_hash) = (best.block_number(), best.block_hash());
+		drop(best);
+
+		// A block below the finalized one can never be the chain's best block.
+		let finalized_number = self.latest_finalized_block.read().await.block_number();
+		if block.block_number() < finalized_number {
+			log::debug!(target: LOG_TARGET,
+				"Ignoring best block #{} ({:?}) below the finalized block #{finalized_number}",
+				block.block_number(),
+				block.block_hash());
+			return;
+		}
+
+		// A lower block is a replay, unless the stored best block is no longer canonical.
+		if self.is_canonical(best_number, best_hash).await {
+			return;
+		}
+
+		let mut best = self.latest_block.write().await;
+		if best.block_hash() != best_hash {
+			log::debug!(target: LOG_TARGET,
+				"Ignoring stale best block #{} ({:?}): the latest block changed to #{} ({:?}) during the check",
+				block.block_number(),
+				block.block_hash(),
+				best.block_number(),
+				best.block_hash());
+		} else if block.block_number() >= self.latest_finalized_block.read().await.block_number() {
+			log::debug!(target: LOG_TARGET,
+				"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): the chain no longer lists it",
+				block.block_number(),
+				block.block_hash());
+			*best = block;
+		}
+	}
 }
 
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
-		// The finalized block only ever increases, while the best block can move back on a reorg.
-		// Both streams are seeded with the finalized block on subscription (re)init.
 		match subscription_type {
-			SubscriptionType::FinalizedBlocks => {
-				let mut finalized = self.latest_finalized_block.write().await;
-				if block.block_number() >= finalized.block_number() {
-					*finalized = block;
-				}
-				let finalized_block = finalized.clone();
-				drop(finalized);
-
-				// A finalized block is on the best chain, so the best block is never behind it.
-				let mut best = self.latest_block.write().await;
-				if finalized_block.block_number() >= best.block_number() &&
-					finalized_block.block_hash() != best.block_hash()
-				{
-					log::debug!(target: LOG_TARGET,
-						"Advancing the latest block #{} ({:?}) to the finalized block #{} ({:?}): it is no longer ahead",
-						best.block_number(),
-						best.block_hash(),
-						finalized_block.block_number(),
-						finalized_block.block_hash());
-					*best = finalized_block;
-				}
-			},
-			SubscriptionType::BestBlocks => {
-				let mut best = self.latest_block.write().await;
-				if block.block_number() >= best.block_number() {
-					*best = block;
-					return;
-				}
-
-				let (best_number, best_hash) = (best.block_number(), best.block_hash());
-				drop(best);
-
-				// A block below the finalized one can never be the chain's best block.
-				let finalized_number = self.latest_finalized_block.read().await.block_number();
-				if block.block_number() < finalized_number {
-					log::warn!(target: LOG_TARGET,
-						"Ignoring best block #{} ({:?}) below the finalized block #{finalized_number}",
-						block.block_number(),
-						block.block_hash());
-					return;
-				}
-
-				// A lower block is a replay, unless the stored best block is no longer canonical.
-				match self.rpc.chain_get_block_hash(Some(best_number.into())).await {
-					Ok(canonical) if canonical == Some(best_hash) => return,
-					Ok(_) => {},
-					Err(err) => {
-						log::debug!(target: LOG_TARGET,
-							"Failed to check if block #{best_number} ({best_hash:?}) is canonical, keeping it as the latest block: {err:?}");
-						return;
-					},
-				}
-
-				let mut best = self.latest_block.write().await;
-				if best.block_hash() != best_hash {
-					log::debug!(target: LOG_TARGET,
-						"Ignoring stale best block #{} ({:?}): the latest block changed to #{} ({:?}) during the check",
-						block.block_number(),
-						block.block_hash(),
-						best.block_number(),
-						best.block_hash());
-				} else if block.block_number() >=
-					self.latest_finalized_block.read().await.block_number()
-				{
-					log::debug!(target: LOG_TARGET,
-						"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): the chain no longer lists it",
-						block.block_number(),
-						block.block_hash());
-					*best = block;
-				}
-			},
+			SubscriptionType::FinalizedBlocks => self.update_finalized(block).await,
+			SubscriptionType::BestBlocks => self.update_best(block).await,
 		}
 	}
 
