@@ -167,7 +167,7 @@ jobs:
       subweight: ${{ steps.subweight.outputs.result }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.REPO }}
           ref: ${{ env.PR_BRANCH }}
@@ -318,14 +318,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # needs to be able to trigger CI, as default token does not retrigger
-      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
           repository: ${{ env.REPO }}
