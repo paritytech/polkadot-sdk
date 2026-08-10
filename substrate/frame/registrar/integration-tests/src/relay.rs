@@ -63,8 +63,6 @@ pub type BlockNumber = u32;
 
 /// Blocks in a session in this mock, matching `paras_registrar/mock.rs`.
 pub const BLOCKS_PER_SESSION: BlockNumber = 3;
-/// How long the relay chain waits for a validation code before abandoning a request.
-pub const PENDING_TIMEOUT: BlockNumber = 10;
 pub const MAX_PENDING: u32 = 4;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
@@ -197,7 +195,6 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = frame_support::traits::ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = frame_support::traits::ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
-	type PendingTimeout = frame_support::traits::ConstU32<PENDING_TIMEOUT>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
 	type WeightInfo = ();
 }

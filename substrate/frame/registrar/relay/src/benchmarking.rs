@@ -22,7 +22,7 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use registrar_primitives::{MessageToRelay, MessageToRelayV1};
-use sp_runtime::traits::{BlakeTwo256, Hash, Saturating};
+use sp_runtime::traits::{BlakeTwo256, Hash};
 
 /// A para id no benchmark setup will collide on.
 const PARA_ID: ParaId = 4_242;
@@ -44,12 +44,9 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 		genesis_head: genesis_head.try_into().map_err(|_| "head data exceeds its own bound")?,
 		code_hash: BlakeTwo256::hash(code),
 		code_len: code.len() as u32,
-		expire_at: frame_system::Pallet::<T>::block_number()
-			.saturating_add(T::PendingTimeout::get()),
 	};
 
 	PendingRegistrations::<T>::insert(PARA_ID, pending);
-	PendingCount::<T>::mutate(|n| *n = n.saturating_add(1));
 	Ok(())
 }
 
@@ -111,6 +108,20 @@ mod benchmarks {
 				.ok_or("call must give some authorization")??;
 		}
 
+		Ok(())
+	}
+
+	/// Dropping an authorization. The worst case carries the largest head data, since that is what
+	/// the entry being removed holds.
+	#[benchmark]
+	fn cancel_authorization() -> Result<(), BenchmarkError> {
+		park::<T>(&code_of(T::MaxCodeSize::get()))?;
+		let message = MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id: PARA_ID });
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, message);
+
+		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
 	}
 

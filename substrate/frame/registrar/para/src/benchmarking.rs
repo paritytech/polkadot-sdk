@@ -93,6 +93,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Asking the registry chain to drop an authorization. The deposit stays held, so this is the
+	/// state write plus the message.
 	#[benchmark]
 	fn cancel_registration() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
@@ -106,25 +108,26 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(who), para_id);
 
-		assert_eq!(Paras::<T>::get(para_id).map(|i| i.state), Some(RegistrationState::Reserved));
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Pending { .. })
+		));
 		Ok(())
 	}
 
-	/// The worst case is a success report, which leaves the deposit held rather than releasing it.
+	/// The worst case of the messages this call serves is a confirmed cancellation, which releases
+	/// the deposit on top of writing the new state.
 	#[benchmark]
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
 		let para_id = make_pending::<T>(&who)?;
 		let message =
-			MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome: Ok(()) });
+			MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome: Ok(()) });
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, message);
 
-		assert!(matches!(
-			Paras::<T>::get(para_id).map(|i| i.state),
-			Some(RegistrationState::Registered { .. })
-		));
+		assert_eq!(Paras::<T>::get(para_id).map(|i| i.state), Some(RegistrationState::Reserved));
 		Ok(())
 	}
 

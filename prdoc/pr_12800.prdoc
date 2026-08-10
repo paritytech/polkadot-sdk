@@ -17,9 +17,9 @@ doc:
       2. `pallet-registrar-para::register` holds a deposit for the head data and the declared code
          length, and asks the relay chain to accept the registration.
       3. `pallet-registrar-relay::authorize_code` validates the request against the relay chain's
-         live configuration and parks it with an expiry. Only callable by a trusted XCM origin
-         (e.g. the Coretime chain). A request it will not act on is rejected and reported rather
-         than failed, so the parachain never sits on a stuck deposit.
+         live configuration and parks it. Only callable by a trusted XCM origin (e.g. the Coretime
+         chain). A request it will not act on is rejected and reported rather than failed, so the
+         parachain never sits on a stuck deposit.
       4. `pallet-registrar-relay::apply_authorized_code` takes the blob itself. It is unsigned,
          pays no fee and authorizes itself through `#[pallet::authorize]`: the pending entry
          already pins down the exact bytes that will be accepted and the manager has already paid
@@ -28,9 +28,12 @@ doc:
       5. `pallet-registrar-para::receive` applies the verdict, keeping the deposit held or
          releasing it.
 
-      If the code never arrives, the relay pallet's `on_initialize` expires the entry and reports
-      the failure. `cancel_registration` on the parachain is the backstop for a report that is lost
-      entirely; its deadline is deliberately much longer than the relay chain's expiry.
+      Nothing on the relay chain times an authorization out: no per-block sweep runs there, and
+      missing the deadline is the manager's problem rather than every block's. If the code never
+      arrives, `pallet-registrar-para::cancel_registration` ends the registration and the manager
+      pays for the round trip. It does not release the deposit on its own either: the relay chain
+      is asked to drop the authorization and only its answer frees the funds, which is what stops a
+      cancellation from refunding a para that did get registered while its verdict was lost.
 
       `registrar-primitives` carries the versioned wire types and depends on neither FRAME nor XCM,
       so one version of the format serves Westend, Kusama and Polkadot and neither pallet has to

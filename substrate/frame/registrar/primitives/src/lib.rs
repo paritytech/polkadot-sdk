@@ -75,6 +75,17 @@ pub enum MessageToRelayV1<AccountId> {
 		/// blob whose length differs.
 		code_len: u32,
 	},
+	/// Ask the relay chain to drop the authorization it is holding for `para_id`.
+	///
+	/// Sent when the manager gives up on a registration whose validation code never arrived. The
+	/// relay chain never abandons an authorization by itself, so this is what ends a registration
+	/// that is going nowhere, and the manager pays for it. Answered with
+	/// [`MessageToParaV1::CancelResponse`].
+	#[codec(index = 1)]
+	CancelRegistration {
+		/// The para id whose authorization should be dropped.
+		para_id: ParaId,
+	},
 }
 
 /// Registrar report messages sent back to the parachain.
@@ -106,6 +117,19 @@ pub enum MessageToParaV1 {
 		/// Whether the registration was applied on the relay chain.
 		outcome: Outcome,
 	},
+	/// Answer a [`MessageToRelayV1::CancelRegistration`].
+	///
+	/// `Ok(())` means the relay chain is no longer holding an authorization for this para id, so
+	/// the deposit can be released. The only refusal is
+	/// [`FailureReason::AlreadyRegistered`]: the code did land after all and the para is
+	/// registered, so the deposit stays where it is.
+	#[codec(index = 1)]
+	CancelResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// Whether the authorization was dropped.
+		outcome: Outcome,
+	},
 }
 
 /// How a request ended.
@@ -122,14 +146,14 @@ pub type Outcome = Result<(), FailureReason>;
 )]
 pub enum FailureReason {
 	/// The relay chain already knows this para id.
+	///
+	/// Also the answer to a [`MessageToRelayV1::CancelRegistration`] that came too late, because
+	/// the validation code landed first.
 	#[codec(index = 0)]
 	AlreadyRegistered,
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
-	/// The validation code was not uploaded before the request expired.
-	#[codec(index = 2)]
-	Expired,
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,

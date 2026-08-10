@@ -51,8 +51,8 @@ pub const FIRST_PARA_ID: u32 = 2000;
 
 pub const PARA_DEPOSIT: Balance = 1_000;
 pub const PER_BYTE: Balance = 10;
-/// Long enough that the relay chain always expires a stuck request first.
-pub const PENDING_DEADLINE: u64 = 1_000;
+/// How long a manager waits for the relay chain before giving up on a registration.
+pub const PENDING_DEADLINE: u64 = 50;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {

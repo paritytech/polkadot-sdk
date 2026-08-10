@@ -28,15 +28,18 @@
 //! two pieces:
 //!
 //! 1. [`Pallet::authorize_code`] takes the parachain's request, which carries the head data plus
-//!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`] with
-//!    an expiry. Only callable by a trusted XCM origin (e.g. the Coretime chain).
+//!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`].
+//!    Only callable by a trusted XCM origin (e.g. the Coretime chain).
 //! 2. [`Pallet::apply_authorized_code`] takes the blob itself. It needs no signature: anybody may
 //!    push the code, because a pending entry already pins down exactly which bytes are acceptable,
 //!    and the parachain has already made the manager pay for them. If the blob matches, the para is
 //!    onboarded and the outcome is reported back to the parachain.
 //!
-//! If the code never turns up, [`Pallet::on_initialize`] expires the entry and reports the failure
-//! so the parachain can release the manager's deposit. No deposit is ever taken here.
+//! An authorization does not time out here. If the code never turns up, missing the deadline is the
+//! manager's problem, not this chain's: the parachain sends [`Pallet::cancel_authorization`] when
+//! it gives up, this pallet drops the entry and confirms, and the parachain releases the deposit.
+//! So no per-block sweep runs on the relay chain, and whoever wants the deposit back pays for the
+//! round trip. No deposit is ever taken here.
 //!
 //! ## Runtime requirement
 //!
@@ -124,7 +127,7 @@ pub trait ParachainRegistrar {
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug,
 )]
 #[scale_info(skip_type_params(MaxHeadDataSize))]
-pub struct PendingRegistration<AccountId, BlockNumber, MaxHeadDataSize: Get<u32>> {
+pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
 	/// The account managing this registration on the parachain.
 	pub manager: AccountId,
 	/// The genesis head data, held here until the code arrives.
@@ -136,8 +139,6 @@ pub struct PendingRegistration<AccountId, BlockNumber, MaxHeadDataSize: Get<u32>
 	/// The parachain sized the manager's deposit from this, so a blob of any other length would
 	/// mean the manager underpaid, even if the hash somehow matched.
 	pub code_len: u32,
-	/// The block at which this request is abandoned and reported as failed.
-	pub expire_at: BlockNumber,
 }
 
 /// How much head data a message carries, for weighing [`Pallet::authorize_code`].
@@ -149,22 +150,20 @@ pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
 		MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) => {
 			genesis_head.len() as u32
 		},
+		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => 0,
 	}
 }
 
 /// [`PendingRegistration`] as this pallet stores it.
-pub type PendingRegistrationOf<T> = PendingRegistration<
-	<T as frame_system::Config>::AccountId,
-	frame_system::pallet_prelude::BlockNumberFor<T>,
-	<T as Config>::MaxHeadDataSize,
->;
+pub type PendingRegistrationOf<T> =
+	PendingRegistration<<T as frame_system::Config>::AccountId, <T as Config>::MaxHeadDataSize>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{BlakeTwo256, Hash, Saturating};
+	use sp_runtime::traits::{BlakeTwo256, Hash};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -195,13 +194,11 @@ pub mod pallet {
 
 		/// How many registrations may be waiting on their code at once.
 		///
-		/// Bounds the work [`Pallet::on_initialize`] can be made to do.
+		/// Bounds the head data this pallet stores while no deposit is held here. Entries only ever
+		/// leave by the code landing or by the parachain cancelling, so a manager who does neither
+		/// occupies a slot for as long as they keep paying the deposit on the parachain.
 		#[pallet::constant]
 		type MaxPendingRegistrations: Get<u32>;
-
-		/// How long a registration waits for its validation code before being abandoned.
-		#[pallet::constant]
-		type PendingTimeout: Get<BlockNumberFor<Self>>;
 
 		/// Priority given to a valid [`Pallet::apply_authorized_code`] in the transaction pool.
 		#[pallet::constant]
@@ -215,32 +212,29 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// Registrations waiting on their validation code, by para id.
+	///
+	/// Counted so [`Config::MaxPendingRegistrations`] can be enforced with a single read.
 	#[pallet::storage]
 	pub type PendingRegistrations<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, PendingRegistrationOf<T>>;
-
-	/// How many entries [`PendingRegistrations`] currently holds.
-	///
-	/// Kept alongside the map so the `on_initialize` sweep knows whether there is anything to do
-	/// without walking the map first.
-	#[pallet::storage]
-	pub type PendingCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+		CountedStorageMap<_, Twox64Concat, ParaId, PendingRegistrationOf<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A registration request was accepted and is waiting on its validation code.
-		RegistrationPending { para_id: ParaId, code_hash: H256, expire_at: BlockNumberFor<T> },
+		RegistrationPending { para_id: ParaId, code_hash: H256 },
 		/// A registration request was rejected out of hand.
 		RegistrationRejected { para_id: ParaId, reason: FailureReason },
 		/// A para was onboarded.
 		Registered { para_id: ParaId, manager: T::AccountId },
-		/// A registration was abandoned because its validation code never arrived.
-		RegistrationExpired { para_id: ParaId },
+		/// An authorization was dropped at the parachain's request.
+		AuthorizationCancelled { para_id: ParaId },
+		/// A cancellation arrived after the para had already been onboarded, and was refused.
+		CancellationRefused { para_id: ParaId },
 		/// A report could not be sent back to the parachain.
 		///
 		/// The relay chain's own state is already correct; the parachain is now out of step and
-		/// will need its manager to fall back on `cancel_registration`.
+		/// will need its manager to ask again.
 		ReportFailed { para_id: ParaId },
 	}
 
@@ -248,21 +242,14 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// No registration is waiting on code for this para id.
 		NothingPending,
-		/// The registration expired before the code arrived.
-		Expired,
 		/// The validation code does not match the hash the parachain committed to.
 		CodeHashMismatch,
 		/// The validation code is not the length the parachain committed to.
 		CodeLenMismatch,
 		/// The validation code is larger than this pallet will accept.
 		CodeTooLarge,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			Self::expire_pending(now)
-		}
+		/// The message is not one this call serves.
+		UnexpectedMessage,
 	}
 
 	#[pallet::call]
@@ -295,6 +282,7 @@ pub mod pallet {
 					Self::on_register_request(para_id, manager, genesis_head, code_hash, code_len);
 					Ok(())
 				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
 			}
 		}
 
@@ -322,11 +310,41 @@ pub mod pallet {
 				pending.genesis_head.into_inner(),
 				validation_code,
 			)?;
-			Self::remove_pending(para_id);
+			PendingRegistrations::<T>::remove(para_id);
 
-			Self::report(para_id, Ok(()));
+			Self::report_registration(para_id, Ok(()));
 			Self::deposit_event(Event::Registered { para_id, manager: pending.manager });
 			Ok(Pays::No.into())
+		}
+
+		/// Drop the authorization held for a para id, at the parachain's request.
+		///
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. This is
+		/// the only way an authorization that never received its code goes away, and the manager
+		/// pays for it on the parachain: nothing here expires on its own.
+		///
+		/// Answered with [`MessageToParaV1::CancelResponse`], which is what lets the parachain
+		/// release the deposit. Refused, and reported as such, if the code did land in the meantime
+		/// and the para is registered: the deposit is then owed after all.
+		///
+		/// Cancelling something that was never pending is not an error. The request may simply have
+		/// been rejected here and the report lost, and the parachain still needs an answer it can
+		/// act on.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::cancel_authorization())]
+		pub fn cancel_authorization(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id }) => {
+					Self::on_cancel_request(para_id);
+					Ok(())
+				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
+			}
 		}
 	}
 
@@ -347,12 +365,10 @@ pub mod pallet {
 			let pending = Self::validate_pending_code(*para_id, validation_code)
 				.map_err(|e| InvalidTransaction::Custom(Self::invalid_tx_code(e)))?;
 
-			let now = frame_system::Pallet::<T>::block_number();
-			let longevity = pending.expire_at.saturating_sub(now);
-
+			// No longevity bound: an authorization does not expire, so the transaction stays valid
+			// until the code is applied or the parachain cancels, and revalidation drops it then.
 			let validity = ValidTransaction::with_tag_prefix("RegistrarApplyAuthorizedCode")
 				.priority(T::UnsignedPriority::get())
-				.longevity(TryInto::<u64>::try_into(longevity).unwrap_or(64_u64))
 				.and_provides((*para_id, pending.code_hash))
 				.propagate(true)
 				.build()?;
@@ -377,7 +393,7 @@ pub mod pallet {
 			{
 				return Self::reject(para_id, FailureReason::AlreadyRegistered);
 			}
-			if PendingCount::<T>::get() >= T::MaxPendingRegistrations::get() {
+			if PendingRegistrations::<T>::count() >= T::MaxPendingRegistrations::get() {
 				return Self::reject(para_id, FailureReason::TooManyPending);
 			}
 			if code_len > T::MaxCodeSize::get() ||
@@ -389,21 +405,37 @@ pub mod pallet {
 				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
 			};
 
-			let expire_at =
-				frame_system::Pallet::<T>::block_number().saturating_add(T::PendingTimeout::get());
 			PendingRegistrations::<T>::insert(
 				para_id,
-				PendingRegistration { manager, genesis_head, code_hash, code_len, expire_at },
+				PendingRegistration { manager, genesis_head, code_hash, code_len },
 			);
-			PendingCount::<T>::mutate(|n| *n = n.saturating_add(1));
 
-			Self::deposit_event(Event::RegistrationPending { para_id, code_hash, expire_at });
+			Self::deposit_event(Event::RegistrationPending { para_id, code_hash });
 		}
 
 		/// Turn a request away and tell the parachain to release the deposit.
 		fn reject(para_id: ParaId, reason: FailureReason) {
-			Self::report(para_id, Err(reason.clone()));
+			Self::report_registration(para_id, Err(reason.clone()));
 			Self::deposit_event(Event::RegistrationRejected { para_id, reason });
+		}
+
+		/// Drop the authorization for `para_id`, unless the code beat the cancellation here.
+		///
+		/// The relay chain is the authority on which of the two happened first, which is what makes
+		/// it safe for the parachain to release a deposit on the strength of this answer. A para id
+		/// this chain has registered is not one whose deposit can be handed back, so that is the
+		/// whole test. The entry goes either way: once the id is taken, an authorization for it can
+		/// never be applied.
+		fn on_cancel_request(para_id: ParaId) {
+			PendingRegistrations::<T>::remove(para_id);
+
+			if T::Registrar::is_registered(para_id) {
+				Self::report_cancellation(para_id, Err(FailureReason::AlreadyRegistered));
+				return Self::deposit_event(Event::CancellationRefused { para_id });
+			}
+
+			Self::report_cancellation(para_id, Ok(()));
+			Self::deposit_event(Event::AuthorizationCancelled { para_id });
 		}
 
 		/// Check `validation_code` against the pending entry for `para_id`.
@@ -418,10 +450,6 @@ pub mod pallet {
 
 			let pending =
 				PendingRegistrations::<T>::get(para_id).ok_or(Error::<T>::NothingPending)?;
-			ensure!(
-				frame_system::Pallet::<T>::block_number() < pending.expire_at,
-				Error::<T>::Expired
-			);
 			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
 			ensure!(
 				BlakeTwo256::hash(validation_code) == pending.code_hash,
@@ -435,50 +463,26 @@ pub mod pallet {
 		fn invalid_tx_code(error: Error<T>) -> u8 {
 			match error {
 				Error::<T>::NothingPending => INVALID_TX_NOTHING_PENDING,
-				Error::<T>::Expired => INVALID_TX_EXPIRED,
 				_ => INVALID_TX_BAD_CODE,
 			}
 		}
 
-		/// Drop a pending entry and keep the counter honest.
-		fn remove_pending(para_id: ParaId) {
-			if PendingRegistrations::<T>::take(para_id).is_some() {
-				PendingCount::<T>::mutate(|n| *n = n.saturating_sub(1));
-			}
-		}
-
-		/// Abandon every pending registration whose code never arrived.
-		fn expire_pending(now: BlockNumberFor<T>) -> Weight {
-			let mut weight = T::DbWeight::get().reads(1);
-			if PendingCount::<T>::get() == 0 {
-				return weight;
-			}
-
-			let expired = PendingRegistrations::<T>::iter()
-				.filter(|(_, pending)| pending.expire_at <= now)
-				.map(|(para_id, _)| para_id)
-				.collect::<Vec<_>>();
-			weight.saturating_accrue(
-				T::DbWeight::get().reads(T::MaxPendingRegistrations::get().into()),
-			);
-
-			for para_id in expired {
-				Self::remove_pending(para_id);
-				Self::report(para_id, Err(FailureReason::Expired));
-				Self::deposit_event(Event::RegistrationExpired { para_id });
-				weight.saturating_accrue(T::DbWeight::get().writes(2));
-			}
-
-			weight
-		}
-
 		/// Tell the parachain how a registration ended.
+		fn report_registration(para_id: ParaId, outcome: Outcome) {
+			Self::report(para_id, MessageToParaV1::RegisterResponse { para_id, outcome });
+		}
+
+		/// Tell the parachain what became of its cancellation.
+		fn report_cancellation(para_id: ParaId, outcome: Outcome) {
+			Self::report(para_id, MessageToParaV1::CancelResponse { para_id, outcome });
+		}
+
+		/// Hand a report to the transport.
 		///
 		/// A transport failure is only logged and surfaced as an event: every caller has already
 		/// committed relay-chain state that must not be unwound just because the report bounced.
-		fn report(para_id: ParaId, outcome: Outcome) {
-			let message = MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome });
-			if T::SendToPara::send(message).is_err() {
+		fn report(para_id: ParaId, message: MessageToParaV1) {
+			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
 					target: "runtime::registrar-relay",
 					"failed to report the outcome for para {para_id} back to the parachain",
@@ -491,5 +495,4 @@ pub mod pallet {
 
 /// Custom `InvalidTransaction` codes reported by [`Pallet::authorize_apply_authorized_code`].
 pub const INVALID_TX_NOTHING_PENDING: u8 = 1;
-pub const INVALID_TX_EXPIRED: u8 = 2;
 pub const INVALID_TX_BAD_CODE: u8 = 3;

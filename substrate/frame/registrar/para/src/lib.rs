@@ -40,6 +40,13 @@
 //! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
 //!    releases the registration deposit.
 //!
+//! ## Giving up
+//!
+//! Nothing on the registry chain times a registration out, so a request whose code never turns up
+//! waits until the manager ends it with [`Pallet::cancel_registration`]. That asks the registry
+//! chain to drop the authorization and only releases the deposit once it confirms, which is what
+//! keeps a cancellation from freeing the deposit on a para that did register after all.
+//!
 //! Deposits only ever live on this chain; the registry chain takes nothing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -83,8 +90,8 @@ pub type BalanceOf<T> =
 /// Block number used for registration deadlines.
 ///
 /// On a parachain, configure [`Config::BlockNumberProvider`] to
-/// `cumulus_pallet_parachain_system::RelaychainDataProvider` so deadlines are expressed in
-/// relay-chain blocks — the same unit as the relay pallet's `PendingTimeout`.
+/// `cumulus_pallet_parachain_system::RelaychainDataProvider`, so deadlines are expressed in
+/// relay-chain blocks and keep their meaning through a stall in this chain's own block production.
 pub type ProvidedBlockNumberOf<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
@@ -128,11 +135,12 @@ pub enum RegistrationState<Balance, BlockNumber> {
 	Pending {
 		/// The registration deposit, released if the registration does not go through.
 		deposit: Balance,
-		/// The block from which the manager may give up and reclaim `deposit` themselves.
+		/// The block from which the manager may give up on this registration.
 		///
-		/// Expressed in [`Config::BlockNumberProvider`] blocks. This is a backstop for a report
-		/// that never arrives; the relay chain expires pending registrations on its own, sooner
-		/// than this.
+		/// Expressed in [`Config::BlockNumberProvider`] blocks. Long enough that a verdict already
+		/// on its way arrives first, so a cancellation is only ever sent for a registration that
+		/// really has gone quiet. Pushed out again by every [`Pallet::cancel_registration`], so a
+		/// cancellation that gets lost can be retried but not spammed.
 		cancellable_at: BlockNumber,
 	},
 	/// The relay chain has onboarded this para.
@@ -213,11 +221,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxHeadDataSize: Get<u32>;
 
-		/// How long a manager must wait before abandoning a pending registration themselves.
+		/// How long a manager waits for the registry chain before giving up on a registration.
 		///
-		/// Measured in [`Config::BlockNumberProvider`] blocks. Must be comfortably longer than
-		/// the relay chain's own expiry, so that in the normal course of events the relay chain's
-		/// report arrives first and this never comes into play.
+		/// Measured in [`Config::BlockNumberProvider`] blocks. Should comfortably cover a round
+		/// trip, so that a verdict that is merely slow lands before anybody tries to cancel.
 		#[pallet::constant]
 		type PendingDeadline: Get<ProvidedBlockNumberOf<Self>>;
 
@@ -270,7 +277,10 @@ pub mod pallet {
 		Registered { para_id: ParaId, manager: T::AccountId },
 		/// The relay chain rejected a registration. The registration deposit was released.
 		RegistrationFailed { para_id: ParaId, manager: T::AccountId, reason: FailureReason },
-		/// A manager abandoned a pending registration. The registration deposit was released.
+		/// A manager gave up on a pending registration, and the registry chain has been asked to
+		/// drop the authorization. The deposit stays held until it answers.
+		CancelRequested { para_id: ParaId, manager: T::AccountId },
+		/// The registry chain confirmed a cancellation. The registration deposit was released.
 		RegistrationCancelled { para_id: ParaId, manager: T::AccountId },
 	}
 
@@ -383,30 +393,48 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Abandon a registration the relay chain never reported on, and reclaim its deposit.
+		/// Give up on a registration the registry chain never reported on.
 		///
-		/// A backstop for a report that got lost. The relay chain expires pending registrations
-		/// well before [`Config::PendingDeadline`], so under normal operation the report arrives
-		/// first and this is never needed.
+		/// Callable from [`Config::PendingDeadline`] blocks after the request. Nothing on the
+		/// registry chain abandons a registration on its own, so this is what ends one whose code
+		/// never turned up, and the manager pays for the round trip rather than every relay-chain
+		/// block paying for a sweep.
 		///
-		/// The para id itself stays reserved, so the manager can simply try again.
+		/// The deposit is not released here: the registry chain is asked to drop the authorization
+		/// first, and [`Pallet::receive`] releases the deposit when it confirms. Waiting for that
+		/// answer is the point. A registration that did go through, with a verdict that got lost on
+		/// the way here, must not have its deposit refunded, and only the registry chain knows
+		/// which of the two happened.
+		///
+		/// The para id itself stays reserved either way, so the manager can simply try again.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::cancel_registration())]
 		pub fn cancel_registration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { cancellable_at, .. } = info.state else {
+			let RegistrationState::Pending { deposit, cancellable_at } = info.state else {
 				return Err(Error::<T>::NotPending.into());
 			};
-			ensure!(
-				T::BlockNumberProvider::current_block_number() >= cancellable_at,
-				Error::<T>::CannotCancelYet
-			);
+			let now = T::BlockNumberProvider::current_block_number();
+			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
 
-			Self::release_registration_deposit(para_id)?;
-			Self::deposit_event(Event::RegistrationCancelled { para_id, manager: who });
+			// Another deadline's grace before the manager may ask again, so a request that goes
+			// missing can be retried without the relay chain being asked once per block.
+			info.state = RegistrationState::Pending {
+				deposit,
+				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+			};
+			Paras::<T>::insert(para_id, info);
+
+			// A transport failure returns `Err` and unwinds the new deadline with it.
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
+				para_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::CancelRequested { para_id, manager: who });
 			Ok(())
 		}
 
@@ -421,6 +449,9 @@ pub mod pallet {
 			match message {
 				MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome }) => {
 					Self::on_register_response(para_id, outcome)
+				},
+				MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome }) => {
+					Self::on_cancel_response(para_id, outcome)
 				},
 			}
 		}
@@ -463,6 +494,50 @@ impl<T: Config> Pallet<T> {
 				let manager = info.manager.clone();
 				Self::release_registration_deposit(para_id)?;
 				Self::deposit_event(Event::RegistrationFailed { para_id, manager, reason });
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Apply the registry chain's answer to a cancellation.
+	///
+	/// `Ok(())` means the authorization is gone, so the deposit goes back. The one refusal is
+	/// [`FailureReason::AlreadyRegistered`]: the code landed after all and the earlier verdict was
+	/// simply lost, so the para is recorded as registered and the deposit stays held.
+	///
+	/// Unlike a register response, an answer for a para that is no longer pending is expected
+	/// rather than defensive: a verdict already in flight when the cancellation was sent settles
+	/// the registration first, and this then has nothing left to do.
+	fn on_cancel_response(para_id: ParaId, outcome: Outcome) -> sp_runtime::DispatchResult {
+		let Some(mut info) = Paras::<T>::get(para_id) else {
+			defensive!("cancel response for unknown para, dropping", para_id);
+			return Ok(());
+		};
+		let RegistrationState::Pending { deposit, .. } = info.state else {
+			log::debug!(
+				target: "runtime::registrar-para",
+				"cancel response for para {para_id} which is no longer pending, dropping",
+			);
+			return Ok(());
+		};
+
+		match outcome {
+			Ok(()) => {
+				let manager = info.manager.clone();
+				Self::release_registration_deposit(para_id)?;
+				Self::deposit_event(Event::RegistrationCancelled { para_id, manager });
+			},
+			Err(FailureReason::AlreadyRegistered) => {
+				info.state = RegistrationState::Registered { deposit };
+				let manager = info.manager.clone();
+				Paras::<T>::insert(para_id, info);
+				Self::deposit_event(Event::Registered { para_id, manager });
+			},
+			// Nothing else is a cancellation the registry chain refuses, so leave the registration
+			// pending: the manager can ask again once the deadline comes round.
+			Err(reason) => {
+				defensive!("unexpected cancel refusal, leaving pending", (para_id, &reason));
 			},
 		}
 

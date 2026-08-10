@@ -277,6 +277,10 @@ mod receive {
 		MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome })
 	}
 
+	fn cancel_message(para_id: u32, outcome: Outcome) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome })
+	}
+
 	#[test]
 	fn success_finalises_the_registration_and_keeps_the_deposit() {
 		new_test_ext().execute_with(|| {
@@ -353,10 +357,75 @@ mod receive {
 			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(())));
 		});
 	}
+
+	#[test]
+	fn a_refused_cancellation_records_the_registration_and_keeps_the_deposit() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+			let deposit = PER_BYTE * (20 + 300);
+
+			// The code landed on the relay chain after all and the success report was lost, so the
+			// cancellation comes back refused and the deposit is owed.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, Err(FailureReason::AlreadyRegistered)),
+			));
+
+			assert_eq!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { deposit }
+			);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert_eq!(registrar_events(), vec![Event::Registered { para_id, manager: ALICE }]);
+		});
+	}
+
+	#[test]
+	fn a_cancel_response_that_lost_the_race_to_a_report_is_dropped_quietly() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let deposit = PER_BYTE * (20 + 300);
+
+			// A verdict already in flight settles the registration first.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(()))));
+			let _ = registrar_events();
+
+			// The answer to the cancellation then has nothing left to do. Unlike a stray register
+			// response this is expected, so it is not defensive.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_message(para_id, Ok(()))));
+
+			assert_eq!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { deposit }
+			);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "cancel response for unknown para, dropping")]
+	fn a_cancel_response_for_an_unknown_para_is_defensive() {
+		new_test_ext().execute_with(|| {
+			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, Ok(())));
+		});
+	}
 }
 
 mod cancel_registration {
 	use super::*;
+
+	fn cancel_request(para_id: u32) -> MessageToRelay<AccountId> {
+		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id })
+	}
+
+	fn cancel_confirmation(para_id: u32) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome: Ok(()) })
+	}
 
 	#[test]
 	fn is_refused_before_the_deadline() {
@@ -373,14 +442,34 @@ mod cancel_registration {
 	}
 
 	#[test]
-	fn releases_the_deposit_once_the_deadline_passes() {
+	fn asks_the_relay_chain_and_only_the_answer_releases_the_deposit() {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
+			let _ = take_sent();
+			let deposit = PER_BYTE * (20 + 300);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+
+			// The relay chain has been asked, and until it answers nothing is given back: it is the
+			// only side that knows whether the code landed.
+			assert_eq!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending {
+					deposit,
+					cancellable_at: System::block_number() + PENDING_DEADLINE,
+				}
+			);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert_eq!(take_sent(), vec![cancel_request(para_id)]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CancelRequested { para_id, manager: ALICE }]
+			);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id)));
 
 			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
@@ -391,6 +480,53 @@ mod cancel_registration {
 
 			// And the manager can simply try again on the same id.
 			request_registration(ALICE, para_id, 20, 300);
+		});
+	}
+
+	#[test]
+	fn cannot_be_asked_again_until_another_deadline_passes() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = take_sent();
+
+			// One request per deadline, so a cancellation that goes missing can be retried without
+			// the relay chain being asked once per block.
+			run_to_block(System::block_number() + PENDING_DEADLINE - 1);
+			assert_noop!(
+				Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::CannotCancelYet
+			);
+
+			run_to_block(System::block_number() + 1);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			assert_eq!(take_sent(), vec![cancel_request(para_id)]);
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let cancellable_at = System::block_number() + PENDING_DEADLINE;
+			run_to_block(cancellable_at);
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::SendFailed
+			);
+
+			// The pushed-out deadline went with it, so the manager can retry immediately.
+			assert_eq!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { deposit: PER_BYTE * (20 + 300), cancellable_at }
+			);
+			SendFails::set(false);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 		});
 	}
 

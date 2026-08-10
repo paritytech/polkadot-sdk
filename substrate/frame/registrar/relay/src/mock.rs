@@ -29,7 +29,6 @@ use registrar_primitives::{MessageToPara, ParaId};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
-pub type BlockNumber = u32;
 
 pub const ALICE: AccountId = 1;
 pub const PARA_A: ParaId = 2000;
@@ -39,7 +38,6 @@ pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const MAX_PENDING: u32 = 2;
-pub const PENDING_TIMEOUT: BlockNumber = 10;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -145,7 +143,6 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
-	type PendingTimeout = ConstU32<PENDING_TIMEOUT>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = ();
 }
@@ -168,16 +165,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-/// Advance to block `n`, running `on_initialize` for each block along the way.
-pub fn run_to_block(n: BlockNumber) {
-	use frame_support::traits::Hooks;
-	while System::block_number() < n {
-		let next = System::block_number() + 1;
-		System::set_block_number(next);
-		Registrar::on_initialize(next);
-	}
 }
 
 /// Every event this pallet emitted, oldest first, clearing the log.

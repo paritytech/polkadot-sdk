@@ -246,30 +246,44 @@ fn a_para_the_relay_chain_already_knows_is_refused_and_the_deposit_comes_back() 
 }
 
 #[test]
-fn code_that_never_arrives_expires_and_the_deposit_comes_back() {
+fn a_manager_who_gives_up_drives_the_cancellation_and_gets_the_deposit_back() {
 	MockNet::reset();
 
 	let para_id = reserve(ALICE);
-	let _blob = request_registration(ALICE, para_id, 32, 64);
+	let blob = request_registration(ALICE, para_id, 32, 64);
 
+	// Nothing on the relay chain abandons the request: it waits for the code indefinitely.
 	Relay::execute_with(|| {
-		let expire_at =
-			pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(para_id)
-				.unwrap()
-				.expire_at;
-
-		// One block short of the deadline: still waiting.
-		relay::run_to_block(expire_at - 1);
+		relay::run_to_block(relay::BLOCKS_PER_SESSION * 20);
 		assert!(
 			pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(para_id).is_some()
 		);
+	});
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Pending { .. })));
+	});
 
-		relay::run_to_block(expire_at);
+	// So the manager gives up, and pays for the round trip that ends it.
+	RegistrarPara::execute_with(|| {
+		para::System::set_block_number(para::PENDING_DEADLINE + 1);
+		assert_ok!(para::Registrar::cancel_registration(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id
+		));
+
+		// The deposit is still held: the relay chain has not answered yet.
+		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64));
+	});
+
+	// The relay chain drops the authorization, so the code can no longer be pushed through.
+	Relay::execute_with(|| {
 		assert!(
 			pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(para_id).is_none()
 		);
+		assert!(submit_code(para_id, blob).is_err());
 	});
 
+	// And its confirmation is what frees the deposit, leaving the para id reserved to retry with.
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_state(para_id), Some(RegistrationState::Reserved));
 		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT);
@@ -277,10 +291,9 @@ fn code_that_never_arrives_expires_and_the_deposit_comes_back() {
 		let events = para::System::events();
 		assert!(events.iter().any(|e| matches!(
 			&e.event,
-			para::RuntimeEvent::Registrar(pallet_registrar_para::Event::RegistrationFailed {
-				reason: FailureReason::Expired,
-				..
-			})
+			para::RuntimeEvent::Registrar(
+				pallet_registrar_para::Event::RegistrationCancelled { .. }
+			)
 		)));
 	});
 }

@@ -32,6 +32,7 @@ pub trait WeightInfo {
 	///
 	/// `c` is the length of the validation code in bytes; the check hashes the whole blob.
 	fn authorize_apply_authorized_code(c: u32) -> Weight;
+	fn cancel_authorization() -> Weight;
 }
 
 /// Zero weights, for tests and mocks only.
@@ -43,6 +44,9 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn authorize_apply_authorized_code(_c: u32) -> Weight {
+		Weight::zero()
+	}
+	fn cancel_authorization() -> Weight {
 		Weight::zero()
 	}
 }
