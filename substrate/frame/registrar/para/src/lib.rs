@@ -42,18 +42,18 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::traits::{
+use frame_support::{defensive, traits::{
 	fungible::{Inspect, Mutate, MutateHold},
 	tokens::Precision,
 	Get,
-};
+}};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
 	RegistrationOutcome,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::traits::Saturating;
+use sp_runtime::traits::{BlockNumberProvider, Saturating};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -70,6 +70,14 @@ mod tests;
 /// Balance of the pallet's currency.
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+/// Block number used for registration deadlines.
+///
+/// On a parachain, configure [`Config::BlockNumberProvider`] to
+/// `cumulus_pallet_parachain_system::RelaychainDataProvider` so deadlines are expressed in
+/// relay-chain blocks — the same unit as the relay pallet's `PendingTimeout`.
+pub type ProvidedBlockNumberOf<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// Used to send an XCM `Transact` to the registrar pallet on the remote relay chain.
 ///
@@ -113,8 +121,9 @@ pub enum RegistrationState<Balance, BlockNumber> {
 		deposit: Balance,
 		/// The block from which the manager may give up and reclaim `deposit` themselves.
 		///
-		/// This is a backstop for a report that never arrives; the relay chain expires pending
-		/// registrations on its own, sooner than this.
+		/// Expressed in [`Config::BlockNumberProvider`] blocks. This is a backstop for a report
+		/// that never arrives; the relay chain expires pending registrations on its own, sooner
+		/// than this.
 		cancellable_at: BlockNumber,
 	},
 	/// The relay chain has onboarded this para.
@@ -131,8 +140,6 @@ pub enum RegistrationState<Balance, BlockNumber> {
 pub struct ParaInfo<AccountId, Balance, BlockNumber> {
 	/// The account that reserved the para id and controls it.
 	pub manager: AccountId,
-	/// The deposit held for the para id itself, released only on deregistration.
-	pub reservation_deposit: Balance,
 	/// Where this para id sits in the registration flow.
 	pub state: RegistrationState<Balance, BlockNumber>,
 }
@@ -199,10 +206,18 @@ pub mod pallet {
 
 		/// How long a manager must wait before abandoning a pending registration themselves.
 		///
-		/// Must be comfortably longer than the relay chain's own expiry, so that in the normal
-		/// course of events the relay chain's report arrives first and this never comes into play.
+		/// Measured in [`Config::BlockNumberProvider`] blocks. Must be comfortably longer than
+		/// the relay chain's own expiry, so that in the normal course of events the relay chain's
+		/// report arrives first and this never comes into play.
 		#[pallet::constant]
-		type PendingDeadline: Get<BlockNumberFor<Self>>;
+		type PendingDeadline: Get<ProvidedBlockNumberOf<Self>>;
+
+		/// Source of block numbers for registration deadlines.
+		///
+		/// On a parachain this should be
+		/// `cumulus_pallet_parachain_system::RelaychainDataProvider`, so
+		/// [`Config::PendingDeadline`] is in relay-chain blocks.
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -232,7 +247,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		ParaId,
-		ParaInfo<T::AccountId, BalanceOf<T>, BlockNumberFor<T>>,
+		ParaInfo<T::AccountId, BalanceOf<T>, ProvidedBlockNumberOf<T>>,
 	>;
 
 	#[pallet::event]
@@ -296,7 +311,6 @@ pub mod pallet {
 				para_id,
 				ParaInfo {
 					manager: who.clone(),
-					reservation_deposit: deposit,
 					state: RegistrationState::Reserved,
 				},
 			);
@@ -344,8 +358,8 @@ pub mod pallet {
 			let deposit = Self::registration_deposit(head_len, code_len);
 			T::Currency::hold(&HoldReason::Registration.into(), &who, deposit)?;
 
-			let cancellable_at =
-				frame_system::Pallet::<T>::block_number().saturating_add(T::PendingDeadline::get());
+			let cancellable_at = T::BlockNumberProvider::current_block_number()
+				.saturating_add(T::PendingDeadline::get());
 			info.state = RegistrationState::Pending { deposit, cancellable_at };
 			Paras::<T>::insert(para_id, info);
 
@@ -381,7 +395,7 @@ pub mod pallet {
 				return Err(Error::<T>::NotPending.into());
 			};
 			ensure!(
-				frame_system::Pallet::<T>::block_number() >= cancellable_at,
+				T::BlockNumberProvider::current_block_number() >= cancellable_at,
 				Error::<T>::CannotCancelYet
 			);
 
@@ -418,24 +432,22 @@ impl<T: Config> Pallet<T> {
 
 	/// Apply the relay chain's verdict on a registration.
 	///
-	/// A report about a para id we are not expecting one for is dropped rather than treated as an
-	/// error: erroring here would unwind the whole XCM `Transact` for a message we can do nothing
-	/// about anyway.
+	/// A report about a para id we are not expecting one for is dropped rather than treated as a
+	/// dispatch error: erroring here would unwind the whole XCM `Transact` for a message we can do
+	/// nothing about anyway. Unexpected reports still trip a defensive failure so they are loud in
+	/// logs (and panic under `debug_assertions`).
 	fn on_registration_result(
 		para_id: ParaId,
 		outcome: RegistrationOutcome,
 	) -> sp_runtime::DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			log::warn!(
-				target: "runtime::registrar-para",
-				"registration result for unknown para {para_id}, dropping",
-			);
+			defensive!("registration result for unknown para, dropping", para_id);
 			return Ok(());
 		};
 		let RegistrationState::Pending { deposit, .. } = info.state else {
-			log::warn!(
-				target: "runtime::registrar-para",
-				"registration result for para {para_id} which is not pending, dropping",
+			defensive!(
+				"registration result for para which is not pending, dropping",
+				para_id
 			);
 			return Ok(());
 		};

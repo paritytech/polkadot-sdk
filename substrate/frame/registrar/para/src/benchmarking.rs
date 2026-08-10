@@ -97,8 +97,8 @@ mod benchmarks {
 	fn cancel_registration() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
 		let para_id = make_pending::<T>(&who)?;
-		frame_system::Pallet::<T>::set_block_number(
-			frame_system::Pallet::<T>::block_number()
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get())
 				.saturating_add(1u32.into()),
 		);

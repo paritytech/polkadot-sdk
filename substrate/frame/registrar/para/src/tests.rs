@@ -97,7 +97,6 @@ mod reserve {
 				Paras::<Test>::get(para_id),
 				Some(ParaInfo {
 					manager: ALICE,
-					reservation_deposit: PARA_DEPOSIT,
 					state: RegistrationState::Reserved,
 				})
 			);
@@ -350,24 +349,27 @@ mod receive {
 	}
 
 	#[test]
-	fn a_report_we_are_not_waiting_for_is_dropped_rather_than_failed() {
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "registration result for unknown para, dropping")]
+	fn a_report_for_an_unknown_para_is_defensive() {
 		new_test_ext().execute_with(|| {
-			// Unknown para: the call succeeds so the surrounding XCM is not unwound, but nothing
-			// is created out of thin air.
-			assert_ok!(Registrar::receive(
+			let _ = Registrar::receive(
 				RuntimeOrigin::root(),
 				result_message(4242, RegistrationOutcome::Registered),
-			));
-			assert!(Paras::<Test>::get(4242).is_none());
+			);
+		});
+	}
 
-			// Known para that is merely reserved: same treatment, and it stays reserved.
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "registration result for para which is not pending, dropping")]
+	fn a_report_for_a_non_pending_para_is_defensive() {
+		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
-			assert_ok!(Registrar::receive(
+			let _ = Registrar::receive(
 				RuntimeOrigin::root(),
 				result_message(para_id, RegistrationOutcome::Registered),
-			));
-			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
-			assert!(registrar_events().is_empty());
+			);
 		});
 	}
 }

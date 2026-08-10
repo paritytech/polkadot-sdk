@@ -187,6 +187,9 @@ impl pallet_registrar_para::Config for Runtime {
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type PendingDeadline = ConstU64<PENDING_DEADLINE>;
+	// No parachain-system in this simulator; production runtimes should use
+	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
+	type BlockNumberProvider = System;
 	type WeightInfo = ();
 }
 
