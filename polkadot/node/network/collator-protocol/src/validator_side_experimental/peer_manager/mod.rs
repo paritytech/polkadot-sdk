@@ -439,6 +439,11 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.clone().consume().0.into_keys().collect()
 	}
 
+	#[cfg(test)]
+	pub async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		self.db.processed_finalized_block_number().await
+	}
+
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
