@@ -95,29 +95,28 @@ pub enum MessageToPara {
 )]
 pub enum MessageToParaV1 {
 	/// Report how a registration requested with [`MessageToRelayV1::Register`] ended.
+	///
+	/// `para_id` alone correlates the response with its request: a parachain only sends
+	/// [`MessageToRelayV1::Register`] for a para id that is reserved and otherwise idle, so at
+	/// most one request per para id is ever in flight.
 	#[codec(index = 0)]
-	RegistrationResult {
+	RegisterResponse {
 		/// The para id the report is about.
 		para_id: ParaId,
 		/// Whether the registration was applied on the relay chain.
-		outcome: RegistrationOutcome,
+		outcome: Outcome,
 	},
 }
 
-/// The end state of a registration request on the relay chain.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub enum RegistrationOutcome {
-	/// The para was onboarded on the relay chain. The deposit stays held on the parachain.
-	#[codec(index = 0)]
-	Registered,
-	/// The registration did not happen. The parachain should release the registration deposit.
-	#[codec(index = 1)]
-	Failed(FailureReason),
-}
+/// How a request ended.
+///
+/// `Ok(())` means the relay chain applied it, `Err(reason)` that it did not. Shared by every
+/// response in this protocol rather than one outcome type per request, the same way a pallet has
+/// one `Error` enum instead of one per extrinsic. Encodes as `0x00` for success and `0x01` plus
+/// the reason for failure.
+pub type Outcome = Result<(), FailureReason>;
 
-/// Why a registration was rejected by the relay chain.
+/// Why a request was rejected by the relay chain.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]

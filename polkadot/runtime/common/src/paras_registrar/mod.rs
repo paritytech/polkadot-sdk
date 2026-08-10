@@ -571,7 +571,7 @@ impl<T: Config> Registrar for Pallet<T> {
 /// Lets a system parachain drive relay-chain registrations while the deposits stay on that
 /// parachain. The trait deals in plain `u32`/`Vec<u8>` so the relay pallet can live in
 /// `substrate/` without depending on any Polkadot crate; the conversions happen here.
-impl<T: Config> pallet_registrar_relay::RegisterPara for Pallet<T> {
+impl<T: Config> pallet_registrar_relay::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {

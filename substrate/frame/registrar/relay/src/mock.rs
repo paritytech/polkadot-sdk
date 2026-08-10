@@ -23,7 +23,7 @@
 //! crate is what lets it stay free of any Polkadot dependency; the two halves meeting for real is
 //! the job of the `pallet-registrar-test` crate.
 
-use crate::{self as pallet_registrar_relay, RegisterPara, SendToPara};
+use crate::{self as pallet_registrar_relay, ParachainRegistrar, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use registrar_primitives::{MessageToPara, ParaId};
 use sp_runtime::BuildStorage;
@@ -87,7 +87,7 @@ parameter_types! {
 /// Stands in for the relay chain's `paras_registrar`.
 pub struct MockRegistrar;
 
-impl RegisterPara for MockRegistrar {
+impl ParachainRegistrar for MockRegistrar {
 	type AccountId = AccountId;
 
 	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {

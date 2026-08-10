@@ -24,7 +24,6 @@ use crate::{
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
-	RegistrationOutcome,
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
@@ -68,17 +67,11 @@ fn request(para_id: ParaId, head_len: usize, code_len: usize) -> Vec<u8> {
 }
 
 fn failure_report(para_id: ParaId, reason: FailureReason) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::RegistrationResult {
-		para_id,
-		outcome: RegistrationOutcome::Failed(reason),
-	})
+	MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome: Err(reason) })
 }
 
 fn success_report(para_id: ParaId) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::RegistrationResult {
-		para_id,
-		outcome: RegistrationOutcome::Registered,
-	})
+	MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome: Ok(()) })
 }
 
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.

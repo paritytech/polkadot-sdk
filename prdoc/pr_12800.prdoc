@@ -10,8 +10,8 @@ doc:
       hand out para ids, hold the deposits, and drive registration on the relay chain over XCM.
       Deposits only ever live on the parachain; the relay chain takes nothing.
 
-      Validation code is too large to travel in an XCM `Transact`, so registration is split in two
-      and only the code hash and length cross the bridge:
+      Pushing a multi-megabyte validation code through an XCM `Transact` would be wasteful, so
+      registration is split in two and only the code hash and length cross the bridge:
 
       1. `pallet-registrar-para::reserve` allocates the next free para id and holds `ParaDeposit`.
       2. `pallet-registrar-para::register` holds a deposit for the head data and the declared code
@@ -38,7 +38,7 @@ doc:
       a message means is the pallet's business, how it travels is the runtime's.
 
       `paras_registrar` gains `do_register_without_deposit` and an implementation of the relay
-      pallet's `RegisterPara` trait. Head data and code are still validated against the live
+      pallet's `ParachainRegistrar` trait. Head data and code are still validated against the live
       configuration and the para still goes through the usual onboarding and PVF pre-check; only
       the deposit is skipped.
 

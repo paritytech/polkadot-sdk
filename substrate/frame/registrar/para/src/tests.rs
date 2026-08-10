@@ -20,8 +20,7 @@
 use crate::{mock::*, Error, Event, HoldReason, ParaInfo, Paras, RegistrationState};
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	RegistrationOutcome,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
@@ -95,10 +94,7 @@ mod reserve {
 
 			assert_eq!(
 				Paras::<Test>::get(para_id),
-				Some(ParaInfo {
-					manager: ALICE,
-					state: RegistrationState::Reserved,
-				})
+				Some(ParaInfo { manager: ALICE, state: RegistrationState::Reserved })
 			);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
 			assert_eq!(Balances::free_balance(ALICE), before - PARA_DEPOSIT);
@@ -277,8 +273,8 @@ mod register {
 mod receive {
 	use super::*;
 
-	fn result_message(para_id: u32, outcome: RegistrationOutcome) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::RegistrationResult { para_id, outcome })
+	fn result_message(para_id: u32, outcome: Outcome) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome })
 	}
 
 	#[test]
@@ -289,10 +285,7 @@ mod receive {
 			let _ = registrar_events();
 			let deposit = PER_BYTE * (20 + 300);
 
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				result_message(para_id, RegistrationOutcome::Registered),
-			));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(())),));
 
 			assert_eq!(
 				Paras::<Test>::get(para_id).unwrap().state,
@@ -312,10 +305,7 @@ mod receive {
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				result_message(
-					para_id,
-					RegistrationOutcome::Failed(FailureReason::AlreadyRegistered)
-				),
+				result_message(para_id, Err(FailureReason::AlreadyRegistered)),
 			));
 
 			// Back to square one, para id still ours, only the para deposit still held.
@@ -339,10 +329,7 @@ mod receive {
 			request_registration(ALICE, para_id, 20, 300);
 
 			assert_noop!(
-				Registrar::receive(
-					RuntimeOrigin::signed(ALICE),
-					result_message(para_id, RegistrationOutcome::Registered),
-				),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), result_message(para_id, Ok(())),),
 				DispatchError::BadOrigin
 			);
 		});
@@ -350,26 +337,20 @@ mod receive {
 
 	#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = "registration result for unknown para, dropping")]
+	#[should_panic(expected = "register response for unknown para, dropping")]
 	fn a_report_for_an_unknown_para_is_defensive() {
 		new_test_ext().execute_with(|| {
-			let _ = Registrar::receive(
-				RuntimeOrigin::root(),
-				result_message(4242, RegistrationOutcome::Registered),
-			);
+			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(4242, Ok(())));
 		});
 	}
 
 	#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = "registration result for para which is not pending, dropping")]
+	#[should_panic(expected = "register response for para which is not pending, dropping")]
 	fn a_report_for_a_non_pending_para_is_defensive() {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
-			let _ = Registrar::receive(
-				RuntimeOrigin::root(),
-				result_message(para_id, RegistrationOutcome::Registered),
-			);
+			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(())));
 		});
 	}
 }

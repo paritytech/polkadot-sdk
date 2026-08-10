@@ -21,7 +21,7 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::fungible::Mutate as FungibleMutate;
 use frame_system::RawOrigin;
-use registrar_primitives::{MessageToPara, MessageToParaV1, RegistrationOutcome};
+use registrar_primitives::{MessageToPara, MessageToParaV1};
 
 /// An account with enough to cover every deposit this pallet can ask for.
 fn funded_manager<T: Config>() -> T::AccountId {
@@ -115,10 +115,8 @@ mod benchmarks {
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
 		let para_id = make_pending::<T>(&who)?;
-		let message = MessageToPara::V1(MessageToParaV1::RegistrationResult {
-			para_id,
-			outcome: RegistrationOutcome::Registered,
-		});
+		let message =
+			MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome: Ok(()) });
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, message);

@@ -35,7 +35,7 @@ fn code_of(len: u32) -> Vec<u8> {
 ///
 /// Written straight to storage rather than pushed through [`Pallet::authorize_code`]: going
 /// through the call would put the whole range at the mercy of whatever minimum code size the
-/// configured [`RegisterPara`] enforces, and `c = 0` would fail setup instead of measuring
+/// configured [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring
 /// anything.
 fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	let genesis_head = alloc::vec![2u8; T::MaxHeadDataSize::get() as usize];

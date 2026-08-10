@@ -23,7 +23,9 @@
 //!
 //! ## Two-phase registration
 //!
-//! Instead of sending the validation code over XCM, so registration arrives in two pieces:
+//! Pushing a multi-megabyte validation code through XCM would be wasteful when the parachain can
+//! commit to the exact bytes and let anybody upload them here directly, so registration arrives in
+//! two pieces:
 //!
 //! 1. [`Pallet::authorize_code`] takes the parachain's request, which carries the head data plus
 //!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`] with
@@ -49,8 +51,8 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::Get;
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
-	RegistrationOutcome,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
+	ParaId,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -87,11 +89,11 @@ impl SendToPara for () {
 	}
 }
 
-/// The relay chain's actual parachain registry, as this pallet needs to see it.
+/// The actual parachain registry, as this pallet needs to see it.
 ///
-/// Implemented for the relay chain's `paras_registrar` pallet. Kept abstract so this crate stays
+/// Implemented by whichever pallet owns parachain registration. Kept abstract so this crate stays
 /// free of relay-chain dependencies.
-pub trait RegisterPara {
+pub trait ParachainRegistrar {
 	/// The account id used to identify a registration's manager.
 	type AccountId;
 
@@ -177,7 +179,7 @@ pub mod pallet {
 		type SendToPara: SendToPara;
 
 		/// The relay chain's parachain registry.
-		type Registrar: RegisterPara<AccountId = Self::AccountId>;
+		type Registrar: ParachainRegistrar<AccountId = Self::AccountId>;
 
 		/// The largest head data this pallet will hold onto while waiting for code.
 		///
@@ -322,7 +324,7 @@ pub mod pallet {
 			)?;
 			Self::remove_pending(para_id);
 
-			Self::report(para_id, RegistrationOutcome::Registered);
+			Self::report(para_id, Ok(()));
 			Self::deposit_event(Event::Registered { para_id, manager: pending.manager });
 			Ok(Pays::No.into())
 		}
@@ -400,7 +402,7 @@ pub mod pallet {
 
 		/// Turn a request away and tell the parachain to release the deposit.
 		fn reject(para_id: ParaId, reason: FailureReason) {
-			Self::report(para_id, RegistrationOutcome::Failed(reason.clone()));
+			Self::report(para_id, Err(reason.clone()));
 			Self::deposit_event(Event::RegistrationRejected { para_id, reason });
 		}
 
@@ -462,7 +464,7 @@ pub mod pallet {
 
 			for para_id in expired {
 				Self::remove_pending(para_id);
-				Self::report(para_id, RegistrationOutcome::Failed(FailureReason::Expired));
+				Self::report(para_id, Err(FailureReason::Expired));
 				Self::deposit_event(Event::RegistrationExpired { para_id });
 				weight.saturating_accrue(T::DbWeight::get().writes(2));
 			}
@@ -474,9 +476,8 @@ pub mod pallet {
 		///
 		/// A transport failure is only logged and surfaced as an event: every caller has already
 		/// committed relay-chain state that must not be unwound just because the report bounced.
-		fn report(para_id: ParaId, outcome: RegistrationOutcome) {
-			let message =
-				MessageToPara::V1(MessageToParaV1::RegistrationResult { para_id, outcome });
+		fn report(para_id: ParaId, outcome: Outcome) {
+			let message = MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome });
 			if T::SendToPara::send(message).is_err() {
 				log::error!(
 					target: "runtime::registrar-relay",

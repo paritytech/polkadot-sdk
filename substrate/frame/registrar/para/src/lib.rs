@@ -15,26 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # User Interface Pallet For Parachain Registrations
+//! # Parachain registrar pallet
 //!
-//! This pallet exposes the extrinsics that can be used to manage parachain registrations. It
-//! communicates over XCM with the `pallet-registrar-relay`
+//! The user-facing half of parachain registration. It hands out para ids, holds the manager's
+//! deposits, and coordinates the registration itself asynchronously with the chain that owns the
+//! parachain registry.
+//!
+//! Both directions of that coordination are abstract: requests go out through [`SendToRelay`],
+//! verdicts come back in through [`Pallet::receive`], gated by [`Config::RelayOrigin`]. Nothing
+//! here depends on XCM or on the other chain's extrinsics.
 //!
 //! ## Registration flow
 //!
-//! Registering a parachain takes two transactions on two different chains, because the validation
-//! code is far too large to travel over XCM:
+//! Registration takes two transactions on two chains. Sending a multi-megabyte validation code
+//! through the messaging layer would be wasteful, so this chain only commits to its hash and
+//! length and the blob is uploaded to the registry chain directly:
 //!
 //! 1. [`Pallet::reserve`] allocates a para id here and holds [`Config::ParaDeposit`].
-//! 2. [`Pallet::register`] holds the deposit for the head data and the *declared* code length, and
-//!    asks the relay chain to accept the registration. Only the code hash and length cross the
-//!    bridge.
-//! 3. The user uploads the actual validation code via the relay's `apply_authorized_code`, which
-//!    checks it against the hash and length it was told about, onboards the para, and reports back.
-//! 4. The relay chain's report arrives here as [`Pallet::receive`], which either finalises the
-//!    registration or releases the registration deposit.
+//! 2. [`Pallet::register`] holds a deposit covering the head data and the *declared* code length,
+//!    then asks the registry chain to accept the registration. Only the code hash and length are
+//!    sent.
+//! 3. The manager uploads the validation code to the registry chain, which accepts it only if it
+//!    matches the hash and length committed to in step 2.
+//! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
+//!    releases the registration deposit.
 //!
-//! Deposits only ever live on this chain. The relay chain takes nothing.
+//! Deposits only ever live on this chain; the registry chain takes nothing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -42,14 +48,17 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{defensive, traits::{
-	fungible::{Inspect, Mutate, MutateHold},
-	tokens::Precision,
-	Get,
-}};
+use frame_support::{
+	defensive,
+	traits::{
+		fungible::{Inspect, Mutate, MutateHold},
+		tokens::Precision,
+		Get,
+	},
+};
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
-	RegistrationOutcome,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
+	ParaId,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -309,10 +318,7 @@ pub mod pallet {
 
 			Paras::<T>::insert(
 				para_id,
-				ParaInfo {
-					manager: who.clone(),
-					state: RegistrationState::Reserved,
-				},
+				ParaInfo { manager: who.clone(), state: RegistrationState::Reserved },
 			);
 			NextFreeParaId::<T>::put(next);
 
@@ -413,8 +419,8 @@ pub mod pallet {
 			T::RelayOrigin::ensure_origin_or_root(origin)?;
 
 			match message {
-				MessageToPara::V1(MessageToParaV1::RegistrationResult { para_id, outcome }) => {
-					Self::on_registration_result(para_id, outcome)
+				MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome }) => {
+					Self::on_register_response(para_id, outcome)
 				},
 			}
 		}
@@ -430,36 +436,30 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte.saturating_mul(code_len.into()))
 	}
 
-	/// Apply the relay chain's verdict on a registration.
+	/// Apply the registry chain's verdict on a registration.
 	///
-	/// A report about a para id we are not expecting one for is dropped rather than treated as a
-	/// dispatch error: erroring here would unwind the whole XCM `Transact` for a message we can do
-	/// nothing about anyway. Unexpected reports still trip a defensive failure so they are loud in
-	/// logs (and panic under `debug_assertions`).
-	fn on_registration_result(
-		para_id: ParaId,
-		outcome: RegistrationOutcome,
-	) -> sp_runtime::DispatchResult {
+	/// A response about a para id we are not expecting one for is dropped rather than treated as a
+	/// dispatch error: erroring here would unwind the whole incoming message for something we can
+	/// do nothing about anyway. Unexpected responses still trip a defensive failure so they are
+	/// loud in logs (and panic under `debug_assertions`).
+	fn on_register_response(para_id: ParaId, outcome: Outcome) -> sp_runtime::DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			defensive!("registration result for unknown para, dropping", para_id);
+			defensive!("register response for unknown para, dropping", para_id);
 			return Ok(());
 		};
 		let RegistrationState::Pending { deposit, .. } = info.state else {
-			defensive!(
-				"registration result for para which is not pending, dropping",
-				para_id
-			);
+			defensive!("register response for para which is not pending, dropping", para_id);
 			return Ok(());
 		};
 
 		match outcome {
-			RegistrationOutcome::Registered => {
+			Ok(()) => {
 				info.state = RegistrationState::Registered { deposit };
 				let manager = info.manager.clone();
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, manager });
 			},
-			RegistrationOutcome::Failed(reason) => {
+			Err(reason) => {
 				let manager = info.manager.clone();
 				Self::release_registration_deposit(para_id)?;
 				Self::deposit_event(Event::RegistrationFailed { para_id, manager, reason });
