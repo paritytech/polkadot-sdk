@@ -103,8 +103,7 @@ impl SubxtBlockInfoProvider {
 
 	/// Update the latest finalized block, and the latest block when it is no longer ahead of it.
 	async fn update_finalized(&self, block: Arc<SubstrateBlock>) {
-		// The finalized block only ever increases; a lower block is the block the subscription is
-		// seeded with on (re)init.
+		// The finalized block only ever increases.
 		let mut finalized = self.latest_finalized_block.write().await;
 		if block.block_number() >= finalized.block_number() {
 			*finalized = block;
@@ -127,12 +126,14 @@ impl SubxtBlockInfoProvider {
 		}
 	}
 
-	/// Update the latest block, ignoring a replay of a block below the cached one.
+	/// Update the latest block, ignoring a replay of a block at or below the cached one.
 	async fn update_best(&self, block: Arc<SubstrateBlock>) {
-		// The best block can move back on a reorg, and a lower block can also be the block the
-		// subscription is seeded with on (re)init.
+		let is_same_or_above = |other: &SubstrateBlock| {
+			block.block_number() > other.block_number() || block.block_hash() == other.block_hash()
+		};
+
 		let mut best = self.latest_block.write().await;
-		if block.block_number() >= best.block_number() {
+		if is_same_or_above(&best) {
 			*best = block;
 			return;
 		}
@@ -140,13 +141,15 @@ impl SubxtBlockInfoProvider {
 		let (best_number, best_hash) = (best.block_number(), best.block_hash());
 		drop(best);
 
-		// A block below the finalized one can never be the chain's best block.
-		let finalized_number = self.latest_finalized_block.read().await.block_number();
-		if block.block_number() < finalized_number {
+		// The chain's best block never falls behind the finalized block.
+		let finalized = self.latest_finalized_block.read().await.clone();
+		if !is_same_or_above(&finalized) {
 			log::debug!(target: LOG_TARGET,
-				"Ignoring best block #{} ({:?}) below the finalized block #{finalized_number}",
+				"Ignoring best block #{} ({:?}): it is neither the finalized block #{} ({:?}) nor above it",
 				block.block_number(),
-				block.block_hash());
+				block.block_hash(),
+				finalized.block_number(),
+				finalized.block_hash());
 			return;
 		}
 
@@ -157,19 +160,21 @@ impl SubxtBlockInfoProvider {
 
 		let mut best = self.latest_block.write().await;
 		if best.block_hash() != best_hash {
-			log::debug!(target: LOG_TARGET,
-				"Ignoring stale best block #{} ({:?}): the latest block changed to #{} ({:?}) during the check",
+			debug_assert!(false, "the latest block must have a single writer");
+			log::warn!(target: LOG_TARGET,
+				"Ignoring best block #{} ({:?}): the latest block was concurrently replaced with #{} ({:?})",
 				block.block_number(),
 				block.block_hash(),
 				best.block_number(),
 				best.block_hash());
-		} else if block.block_number() >= self.latest_finalized_block.read().await.block_number() {
-			log::debug!(target: LOG_TARGET,
-				"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): the chain no longer lists it",
-				block.block_number(),
-				block.block_hash());
-			*best = block;
+			return;
 		}
+
+		log::trace!(target: LOG_TARGET,
+			"Moving the latest block back from #{best_number} ({best_hash:?}) to #{} ({:?}): the chain no longer lists it",
+			block.block_number(),
+			block.block_hash());
+		*best = block;
 	}
 }
 
@@ -601,8 +606,8 @@ pub mod test {
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
-			0,
-			"no block hash lookup for a same-number block"
+			1,
+			"one block hash lookup to accept a same-number block from another branch"
 		);
 
 		chain_heads
@@ -615,8 +620,25 @@ pub mod test {
 		);
 		assert_eq!(
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
-			0,
+			1,
 			"no block hash lookup for a higher side-branch block"
+		);
+
+		let latest = provider.latest_block().await;
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::SideBranch(best + 2)).await,
+				SubscriptionType::BestBlocks,
+			)
+			.await;
+		assert!(
+			!Arc::ptr_eq(&latest, &provider.latest_block().await),
+			"a repeat of the latest block replaces the cached one"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			1,
+			"no block hash lookup for a repeat of the latest block"
 		);
 	}
 
@@ -706,6 +728,41 @@ pub mod test {
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
 			3,
 			"no block hash lookup for a block below the finalized block"
+		);
+
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::SideBranch(finalized)).await,
+				SubscriptionType::BestBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best).hash(),
+			"a block from another branch at the finalized block's number is ignored"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			3,
+			"no block hash lookup for a block conflicting with the finalized block"
+		);
+
+		provider
+			.update_latest(
+				block_at(&api, MockBlockId::SideBranch(best)).await,
+				SubscriptionType::BestBlocks,
+			)
+			.await;
+		assert_eq!(
+			provider.latest_block().await.block_hash(),
+			MockBlockId::MainBranch(best).hash(),
+			"a same-number block from another branch is ignored while the chain still lists the \
+			 stored latest block"
+		);
+		assert_eq!(
+			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
+			4,
+			"one more block hash lookup to ignore a same-number block"
 		);
 	}
 
