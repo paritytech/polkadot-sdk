@@ -25,12 +25,19 @@
 //! blocked is launched. An entry is blocked when its output head is already fetched
 //! (para-wide, across in-view scheduling parents), in flight, or known to prospective
 //! parachains (whose snapshot unions candidate output heads with best-chain parent
-//! heads, so an entry that would cycle the chain is blocked too).
+//! heads, so an entry that would cycle the chain is blocked too). Blockers are
+//! classified: prospective-parachains knowledge is hard (durable); fetched and
+//! in-flight heads are soft (pending attempts that may still fail). A head that is
+//! both is hard.
 //!
-//! Launching consumes the picked segment, win or lose: if every entry is blocked, the
-//! segment is consumed without a launch and the position falls through to the
-//! next-ranked one. Consumption sets a flag; memory is reclaimed by a sweep at the top
-//! of `note_fetched`, and consumed segments are invisible to every reader via
+//! A launch consumes the picked segment. A segment with no launchable entry is
+//! consumed only when every entry is hard-blocked; with at least one soft blocker it
+//! is held un-consumed instead — stored as the retry channel, picked again once the
+//! pending attempt concludes. A failed fetch or an invalidated collation frees the
+//! head and the held segment launches; a seconded one turns the blocker hard and the
+//! segment is consumed on a later pick. Either way the position falls through to the
+//! next-ranked segment. Consumption sets a flag; memory is reclaimed by a sweep at
+//! the top of `note_fetched`, and consumed segments are invisible to every reader via
 //! `live_segments`.
 //!
 //! The prospective-parachains record (`para_knowledge`) is replaced wholesale at leaf
@@ -969,6 +976,9 @@ impl CollationManager {
 		match segment.entries.first() {
 			Some(ProspectiveCandidate::ByOutputHead { .. }) => {
 				let known_by_pp = self.para_knowledge.get(&para_id);
+				// PP-first: a PP-known head is a hard blocker even if it is
+				// also in flight or fetched.
+				let mut saw_soft_blocker = false;
 				segment
 					.entries
 					.iter()
@@ -977,18 +987,30 @@ impl CollationManager {
 						let output_head_hash = entry
 							.output_head_data_hash()
 							.expect("homogenous ByOutputHead segment; qed");
-						!known.contains(&output_head_hash) &&
-							!known_by_pp.is_some_and(|pp| pp.contains(&output_head_hash))
+						if known_by_pp.is_some_and(|pp| pp.contains(&output_head_hash)) {
+							// Hard: prospective parachains already has this head —
+							// PP-first, even if it is also in flight or fetched.
+							false
+						} else if known.contains(&output_head_hash) {
+							// Soft: blocked by an attempt that may still fail.
+							saw_soft_blocker = true;
+							false
+						} else {
+							true
+						}
 					})
-					.map_or(Resolution::Exhausted, |entry| {
-						Resolution::Launch(Advertisement {
-							scheduling_parent: item.scheduling_parent,
-							para_id,
-							peer_id: item.peer_id,
-							prospective_candidate: Some(entry),
-							advertised_descriptor_version: segment.descriptor_version,
-						})
-					})
+					.map_or(
+						if saw_soft_blocker { Resolution::Waiting } else { Resolution::Exhausted },
+						|entry| {
+							Resolution::Launch(Advertisement {
+								scheduling_parent: item.scheduling_parent,
+								para_id,
+								peer_id: item.peer_id,
+								prospective_candidate: Some(entry),
+								advertised_descriptor_version: segment.descriptor_version,
+							})
+						},
+					)
 			},
 			_ => segment
 				.as_advertisement(item.peer_id, item.scheduling_parent)
@@ -1163,6 +1185,16 @@ impl CollationManager {
 						&item.scheduling_parent,
 						&item.peer_id,
 						item.segment_index,
+					);
+					continue;
+				},
+				Resolution::Waiting => {
+					gum::trace!(
+							target: LOG_TARGET,
+							peer_id = ?item.peer_id,
+							scheduling_parent = ?item.scheduling_parent,
+							?para_id,
+							"Picked segment blocked only by pending attempts; holding it",
 					);
 					continue;
 				},
@@ -1435,6 +1467,11 @@ impl FetchedCollation {
 enum Resolution {
 	/// The fetch target minted from the picked segment.
 	Launch(Advertisement),
+	/// V4 only: no entry is launchable, but at least one blocker is soft — its
+	/// output head is in flight or fetched with the verdict pending, an attempt
+	/// that may still fail. Nothing is consumed: the segment stays stored as the
+	/// retry channel, and the position falls through to the next-ranked segment.
+	Waiting,
 	/// V4 only: every entry blocked - spend the fetch
 	/// entitlement without a launch, fall through to the
 	/// next ranked segment
@@ -2395,10 +2432,12 @@ mod tests {
 		}
 	}
 
-	// An all-blocked segment is consumed on pick (the deletion) and the position falls
-	// through to the next-ranked segment IN THE SAME CALL.
+	// A segment blocked only by SOFT blockers (the injected known-set: fetched or
+	// in-flight heads — attempts that may still fail) is HELD on pick: nothing is
+	// consumed, the position falls through to the next-ranked segment in the same
+	// call, and the held segment stays stored as the retry channel.
 	#[test]
-	fn all_blocked_segment_is_consumed_and_falls_through() {
+	fn soft_blocked_segment_is_held_and_falls_through() {
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 		let peer_hi = PeerId::random();
@@ -2420,7 +2459,7 @@ mod tests {
 		push_segment(&mut manager, scheduling_parent, peer_lo, para_id, vec![free_entry]);
 		let known: HashSet<Hash> = [Hash::repeat_byte(0xb1)].into();
 
-		// peer_hi ranks first but resolves all-blocked → consumed → peer_lo launches.
+		// peer_hi ranks first but resolves all-soft-blocked → held → peer_lo launches.
 		assert_eq!(
 			manager.pick_best_advertisement(
 				now,
@@ -2432,7 +2471,110 @@ mod tests {
 			),
 			PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_lo, free_entry))
 		);
-		// Both spent: the all-blocked one by deletion, the winner by launch.
+		// The winner was spent at launch; the soft-blocked segment survives.
+		assert_eq!(manager.segments(), [(scheduling_parent, peer_hi, vec![blocked_entry])].into());
+	}
+
+	// A segment whose every entry is HARD-blocked (prospective parachains knows the
+	// heads) is consumed on pick and the position falls through to the next-ranked
+	// segment IN THE SAME CALL.
+	#[test]
+	fn hard_blocked_segment_is_consumed_and_falls_through() {
+		let scheduling_parent = Hash::random();
+		let para_id = ParaId::new(1);
+		let peer_hi = PeerId::random();
+		let peer_lo = PeerId::random();
+		let now = Instant::now();
+		let get_rep = move |peer: &PeerId, _: &ParaId| {
+			if *peer == peer_hi {
+				Some(Score::new(100))
+			} else {
+				Some(Score::new(50))
+			}
+		};
+
+		let blocked_entry = v4_entry(0xb1);
+		let free_entry = v4_entry(0xb5);
+
+		let mut manager = test_collation_manager(scheduling_parent);
+		push_segment(&mut manager, scheduling_parent, peer_hi, para_id, vec![blocked_entry]);
+		push_segment(&mut manager, scheduling_parent, peer_lo, para_id, vec![free_entry]);
+		manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xb1)].into());
+
+		// peer_hi ranks first but resolves all-hard-blocked → consumed → peer_lo launches.
+		assert_eq!(
+			manager.pick_best_advertisement(
+				now,
+				para_id,
+				std::iter::once(scheduling_parent),
+				&HashSet::new(),
+				Score::new(100),
+				&get_rep,
+			),
+			PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_lo, free_entry))
+		);
+		// Both spent: the hard-blocked one by deletion, the winner by launch.
+		assert!(manager.segments().is_empty());
+	}
+
+	// One hard-blocked entry does not exhaust a segment while a sibling entry is only
+	// soft-blocked: any soft blocker makes the segment Waiting, so it is held.
+	#[test]
+	fn mixed_hard_and_soft_blocked_segment_is_held() {
+		let scheduling_parent = Hash::random();
+		let para_id = ParaId::new(1);
+		let peer_id = PeerId::random();
+		let now = Instant::now();
+		let get_rep = |_: &PeerId, _: &ParaId| Some(Score::new(100));
+		let entries = vec![v4_entry(0xc1), v4_entry(0xc2)];
+
+		let mut manager = test_collation_manager(scheduling_parent);
+		push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
+		manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xc1)].into());
+		let known: HashSet<Hash> = [Hash::repeat_byte(0xc2)].into();
+
+		assert_eq!(
+			manager.pick_best_advertisement(
+				now,
+				para_id,
+				std::iter::once(scheduling_parent),
+				&known,
+				Score::new(100),
+				&get_rep,
+			),
+			PickOutcome::Nothing
+		);
+		assert_eq!(manager.segments(), [(scheduling_parent, peer_id, entries)].into());
+	}
+
+	// PP-first classification: an entry that is BOTH soft-known (fetched/in-flight)
+	// AND PP-known counts as hard — a segment of such entries is exhausted and
+	// consumed, not held.
+	#[test]
+	fn pp_known_wins_over_soft_for_the_same_entry() {
+		let scheduling_parent = Hash::random();
+		let para_id = ParaId::new(1);
+		let peer_id = PeerId::random();
+		let now = Instant::now();
+		let get_rep = |_: &PeerId, _: &ParaId| Some(Score::new(100));
+		let entry = v4_entry(0xd1);
+
+		let mut manager = test_collation_manager(scheduling_parent);
+		push_segment(&mut manager, scheduling_parent, peer_id, para_id, vec![entry]);
+		manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xd1)].into());
+		let known: HashSet<Hash> = [Hash::repeat_byte(0xd1)].into();
+
+		assert_eq!(
+			manager.pick_best_advertisement(
+				now,
+				para_id,
+				std::iter::once(scheduling_parent),
+				&known,
+				Score::new(100),
+				&get_rep,
+			),
+			PickOutcome::Nothing
+		);
 		assert!(manager.segments().is_empty());
 	}
 

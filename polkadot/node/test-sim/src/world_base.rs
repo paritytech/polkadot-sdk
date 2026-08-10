@@ -108,9 +108,12 @@ pub struct WorldConfig {
 	/// slot by one. Defaults to 0. Increase this for V3 tests that need
 	/// leaf-parent / leaf at specific slots.
 	pub genesis_slot: Slot,
-	/// Set the `CandidateReceiptV2` node feature flag (`FeatureIndex::CandidateReceiptV2 = 3`).
-	/// V3 advertisements / descriptors are gated on this. Defaults to `false`.
-	pub enable_v3_node_feature: bool,
+	/// Node feature bits the chain's runtime reports (`NodeFeatures`), stored as raw
+	/// bit indices (`FeatureIndex as u8` — the enum itself doesn't impl `Debug`).
+	/// Empty by default. Populate via [`Self::with_node_feature`]: V3 candidate
+	/// descriptors are gated on `CandidateReceiptV2`; V4 segment scenarios
+	/// additionally need `CandidateReceiptV3`.
+	pub node_features: Vec<u8>,
 }
 
 impl Default for WorldConfig {
@@ -126,7 +129,7 @@ impl Default for WorldConfig {
 			validator_groups: Vec::new(),
 			group_rotation_frequency: 1,
 			genesis_slot: Slot::from(0),
-			enable_v3_node_feature: false,
+			node_features: Vec::new(),
 		}
 	}
 }
@@ -171,11 +174,21 @@ impl WorldConfig {
 		self
 	}
 
-	/// Enable the `CandidateReceiptV2` node feature (FeatureIndex 3) on the chain.
-	/// Required for any scenario that exercises a V3 candidate descriptor.
-	pub fn with_v3_descriptors_enabled(mut self) -> Self {
-		self.enable_v3_node_feature = true;
+	/// Enable one node feature bit on the chain's reported `NodeFeatures`. Chainable;
+	/// call once per feature.
+	pub fn with_node_feature(
+		mut self,
+		feature: polkadot_primitives::node_features::FeatureIndex,
+	) -> Self {
+		self.node_features.push(feature as u8);
 		self
+	}
+
+	/// Enable the `CandidateReceiptV2` node feature on the chain. Required for any
+	/// scenario that exercises a V3 candidate descriptor. Sugar over
+	/// [`Self::with_node_feature`].
+	pub fn with_v3_descriptors_enabled(self) -> Self {
+		self.with_node_feature(polkadot_primitives::node_features::FeatureIndex::CandidateReceiptV2)
 	}
 
 	/// Override the runtime API version reported by the chain model. Lets tests
@@ -279,11 +292,15 @@ pub fn build_chain_model(config: &WorldConfig) -> SharedChain {
 		chain.set_core_schedule(*core, schedule.clone());
 	}
 	chain.set_runtime_api_version(config.runtime_api_version);
-	if config.enable_v3_node_feature {
+	if !config.node_features.is_empty() {
 		let mut features = polkadot_primitives::NodeFeatures::EMPTY;
-		// FeatureIndex::CandidateReceiptV2 = 3
-		features.resize(4, false);
-		features.set(3, true);
+		features.resize(
+			polkadot_primitives::node_features::FeatureIndex::FirstUnassigned as u8 as usize,
+			false,
+		);
+		for feature in &config.node_features {
+			features.set(*feature as usize, true);
+		}
 		chain.set_node_features(features);
 	}
 	SharedChain::new(chain)
