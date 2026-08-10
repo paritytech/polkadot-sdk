@@ -1,0 +1,67 @@
+title: '[pallet-revive] Rollback receipt logs on frame revert'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Ethereum receipt logs are accumulated outside the frame-level storage
+    transaction used for contract execution. As a result, a log emitted by a
+    nested call can remain in the final Ethereum receipt and bloom when that
+    frame later reverts, even though its storage changes and FRAME events are
+    rolled back.
+
+    This change checkpoints the Ethereum receipt state at frame entry and restores
+    the receipt encoding and bloom when the frame rolls back.
+
+    This also preserves nested rollback semantics: logs produced by successful
+    descendant calls are discarded if an ancestor frame later reverts.
+
+    ## Integration
+
+    This is a behavioral correctness fix for `pallet-revive`'s Ethereum-compatible
+    receipt construction.
+
+    No storage migration, runtime configuration change, or public API change is
+    required.
+
+    Downstream runtimes using the updated pallet will construct Ethereum receipts,
+    blooms, and receipt roots using only logs from execution frames that ultimately
+    commit.
+
+    ## Review Notes
+
+    The receipt accumulator contains an append-only encoded log buffer and a logs
+    bloom.
+
+    At frame entry, the implementation checkpoints:
+
+    - the current encoded receipt length;
+    - the current logs bloom.
+
+    If the frame commits, no additional action is required and its receipt changes
+    remain.
+
+    If the frame rolls back, the encoded receipt is truncated to the checkpointed
+    length and the previous bloom is restored.
+
+    The checkpoint is constant-size and does not clone the accumulated receipt.
+
+    Because checkpoints follow execution-frame boundaries, nested behavior is
+    preserved. For example, if a descendant call succeeds but one of its ancestor
+    frames later reverts, the ancestor checkpoint also removes the descendant's
+    logs.
+
+    Event weight accounting is intentionally unchanged. Work charged while
+    executing a reverted frame remains charged.
+
+    Regression coverage includes:
+
+    - a reverted child call followed by a successful parent;
+    - a successful child call followed by a successful parent;
+    - a successful descendant whose ancestor later reverts.
+
+    The tests also verify storage rollback, surviving FRAME events, encoded receipt
+    contents, receipt root, and block bloom.
+crates:
+- name: pallet-revive
+  bump: major
