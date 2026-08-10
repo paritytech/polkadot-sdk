@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786100671874,
+  "lastUpdate": 1786392976088,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9ef2680e213a2d316d00667a7a40afb7e812554d",
-          "message": "cumulus-zombienet-tests: Some optimizations and cleanups (#10462)\n\nThis removes some unneeded code in the tests. It also makes the tests\nwork locally with native provider.\n\n---------\n\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T15:42:25Z",
-          "tree_id": "63bb0868bf0b8be617482b9c531de8feb2d98171",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9ef2680e213a2d316d00667a7a40afb7e812554d"
-        },
-        "date": 1764782475241,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0076418318933333075,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013167947366666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02261422616666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15825228125333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14395428342000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e2258427d5681144d33a3eba4ed7feab0c537b1",
+          "message": "Version bumps and prdocs reordering 2606-1 (#12849)\n\nThis PR backports regular version node version bumps and prdocs\nreordering after stable2606-1 release from release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-08-10T18:02:41Z",
+          "tree_id": "49f6d2a692bcaf25a3cd26a3654563ca59ffe35a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e2258427d5681144d33a3eba4ed7feab0c537b1"
+        },
+        "date": 1786392943406,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022756939073333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00968904602666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007654314213333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14223375083333337,
             "unit": "seconds"
           }
         ]
