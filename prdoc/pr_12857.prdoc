@@ -1,0 +1,48 @@
+title: '[RWF] sp-maybe-compressed-blob: fix bomb-limit overflow'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Fixes #12779.
+
+    `read_from_decoder` added one to `bomb_limit` in `usize`, which panicked for
+    `decompress(..., usize::MAX)` in debug builds and wrapped to a zero-byte read cap in release
+    builds. Convert the limit to `u64` before saturating addition so valid compressed blobs decode at
+    the maximum public limit.
+
+    ## Integration
+
+    No downstream integration changes are required. The public API and ordinary bomb-limit behavior
+    remain unchanged.
+
+    ## Review Notes
+
+    The regression test performs a small zstd round trip through the public `decompress` function and
+    compares against a fixed original byte string.
+
+    RED:
+
+    - Debug: the regression test panicked with `attempt to add with overflow`.
+    - Release: the regression test received an empty decoded blob because the read cap wrapped to zero.
+
+    GREEN:
+
+    - `cargo test -p sp-maybe-compressed-blob` passes all five tests.
+    - The targeted release-mode regression test passes.
+    - Nightly rustfmt and crate-scoped clippy with warnings denied pass.
+
+    Local verification used `x86_64-unknown-linux-gnu`; a 32-bit target was not installed. On 32-bit
+    targets the new read cap is `2^32`, preserving the extra byte used to detect output above the limit.
+    On 64-bit targets the read cap saturates at `u64::MAX`.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [ ] My PR follows the labeling requirements of this project (at minimum one label for `T` required).
+        * The external-contributor label command will request `T17-primitives`.
+    * [x] I have made corresponding changes to the documentation (not applicable; no documentation change is required).
+    * [x] I have added tests that prove my fix is effective or that my feature works.
+crates:
+- name: sp-maybe-compressed-blob
+  bump: patch
