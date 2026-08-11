@@ -28,7 +28,6 @@ use assets_common::{
 	},
 	TrustBackedAssetsAsLocation,
 };
-use codec::Decode;
 use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	parameter_types,
@@ -54,10 +53,7 @@ use testnet_parachains_constants::westend::{
 use westend_runtime_constants::system_parachain::{
 	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
 };
-use xcm::{
-	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
-	DoubleEncodedT,
-};
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
@@ -547,13 +543,6 @@ pub type XcmRouter = WithUniqueTopic<(
 parameter_types! {
 	pub Collectives: Location = Location::new(1, [Parachain(COLLECTIVES_ID)]);
 	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
-}
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
 }
 
 impl pallet_xcm::Config for Runtime {

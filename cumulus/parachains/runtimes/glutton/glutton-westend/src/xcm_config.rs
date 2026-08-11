@@ -17,16 +17,12 @@ use super::{
 	AccountId, AllPalletsWithSystem, ParachainInfo, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin,
 };
-use codec::Decode;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
-use xcm::{
-	latest::{prelude::*, WESTEND_GENESIS_HASH},
-	DoubleEncodedT,
-};
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
 	LocationAsSuperuser, ParentAsSuperuser, ParentIsPreset, SovereignSignedViaLocation,
@@ -68,13 +64,6 @@ parameter_types! {
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-}
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
 }
 
 pub struct XcmConfig;

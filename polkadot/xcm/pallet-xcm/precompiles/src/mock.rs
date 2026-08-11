@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::Decode;
 pub use core::cell::RefCell;
 use frame_support::{
 	derive_impl, parameter_types,
@@ -30,7 +29,7 @@ use sp_runtime::{
 	traits::{Convert, Identity, IdentityLookup, TryConvertInto},
 	AccountId32, BuildStorage,
 };
-use xcm::{prelude::*, DoubleEncodedT};
+use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainConvertsVia, DescribeAllTerminal,
@@ -265,13 +264,6 @@ pub struct ConvertDeposit;
 impl Convert<Footprint, u128> for ConvertDeposit {
 	fn convert(a: Footprint) -> u128 {
 		(a.count * 2 + a.size) as u128
-	}
-}
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
 	}
 }
 

@@ -21,7 +21,6 @@ use crate::{
 	mocks::msg_queue::pallet as mock_msg_queue,
 	primitives::{AccountId, AssetIdForAssets, Balance},
 };
-use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -38,7 +37,7 @@ use pallet_xcm::XcmPassthrough;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::traits::{Get, IdentityLookup, MaybeEquivalence, TryConvertInto};
 
-use xcm::{latest::prelude::*, DoubleEncodedT};
+use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
@@ -300,13 +299,6 @@ impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedL
 	fn contains(origin: &Location, asset: &Asset) -> bool {
 		let (o, a) = T::get();
 		a.matches(asset) && &o == origin
-	}
-}
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
 	}
 }
 

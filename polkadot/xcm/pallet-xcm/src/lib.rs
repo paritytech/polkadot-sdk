@@ -57,7 +57,7 @@ use sp_runtime::{
 	},
 	Debug, Either, SaturatedConversion,
 };
-use xcm::{latest::QueryResponseInfo, prelude::*, DoubleEncodedT};
+use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, InspectMessageQueues, QueryController,
 	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
@@ -303,7 +303,6 @@ pub mod pallet {
 
 		/// The runtime `Call` type.
 		type RuntimeCall: Parameter
-			+ DoubleEncodedT
 			+ GetDispatchInfo
 			+ Dispatchable<
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,

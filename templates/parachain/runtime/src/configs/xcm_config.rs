@@ -4,8 +4,6 @@ use crate::{
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 
-use codec::Decode;
-
 use polkadot_sdk::{
 	staging_xcm as xcm, staging_xcm_builder as xcm_builder, staging_xcm_executor as xcm_executor, *,
 };
@@ -21,7 +19,6 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
 use polkadot_sdk::{
 	polkadot_sdk_frame::traits::Disabled,
-	staging_xcm::DoubleEncodedT,
 	staging_xcm_builder::{DenyRecursively, DenyThenTry},
 };
 use xcm::latest::prelude::*;
@@ -170,13 +167,6 @@ pub type XcmRouter = WithUniqueTopic<(
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

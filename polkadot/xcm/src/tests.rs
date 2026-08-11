@@ -14,10 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-	double_encoded::{DoubleEncodedT, DECODE_RECURSION_LIMIT_MSG},
-	*,
-};
+use crate::{double_encoded::DECODE_RECURSION_LIMIT_MSG, *};
 use alloc::vec;
 use codec::MemTrackingInput;
 
@@ -26,12 +23,6 @@ enum TestCall {
 	Empty,
 	Allocate { arg: Vec<u8> },
 	Xcm { xcm: Box<VersionedXcm<TestCall>> },
-}
-
-impl DoubleEncodedT for TestCall {
-	fn try_get_decode_fn<I: Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>> {
-		Some(Self::decode)
-	}
 }
 
 impl TestCall {

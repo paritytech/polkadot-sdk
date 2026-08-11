@@ -91,26 +91,11 @@ impl<'a> codec::Input for NestedInput<'a> {
 	}
 }
 
-/// Trait representing an object that can be wrapped inside a `DoubleEncoded` struct.
-pub trait DoubleEncodedT: Sized + Decode {
-	/// Try to get the decoding function for the `DoubleEncodedT`.
-	///
-	/// Returns the decoding function, if the object implements `Decode` or `None` otherwise.
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>;
-}
-
-impl DoubleEncodedT for () {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		None::<fn(&mut I) -> Result<Self, codec::Error>>
-	}
-}
-
 /// Wrapper around the encoded and decoded versions of a value.
 /// Caches the decoded value once computed.
 #[derive(Encode, DecodeWithMemTracking, scale_info::TypeInfo)]
 #[codec(encode_bound())]
-#[codec(decode_with_mem_tracking_bound(T: DoubleEncodedT))]
+#[codec(decode_with_mem_tracking_bound(T: Decode))]
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
@@ -122,7 +107,7 @@ pub struct DoubleEncoded<T> {
 
 impl<T> Decode for DoubleEncoded<T>
 where
-	T: DoubleEncodedT,
+	T: Decode,
 {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let mut obj = Self { encoded: Vec::<u8>::decode(input)?, decoded: None };

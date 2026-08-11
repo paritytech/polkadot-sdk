@@ -19,7 +19,6 @@
 mod xcm_config;
 pub use xcm_config::*;
 
-use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -34,7 +33,7 @@ use sp_runtime::{
 	traits::{Get, IdentityLookup},
 	AccountId32,
 };
-use xcm::{latest::prelude::*, DoubleEncodedT};
+use xcm::latest::prelude::*;
 use xcm_builder::{EnsureXcmOrigin, SignedToAccountId32};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::mock_message_queue;
@@ -144,13 +143,6 @@ parameter_types! {
 }
 
 pub type TrustedLockers = TrustedLockerCase<RelayTokenForRelay>;
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

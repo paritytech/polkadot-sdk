@@ -29,7 +29,6 @@ use sp_runtime::{
 	traits::{MaybeEquivalence, TryConvertInto},
 	AccountId32, BuildStorage,
 };
-use xcm::DoubleEncodedT;
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 use xcm_simulator::ParaId;
 
@@ -282,13 +281,6 @@ pub(crate) type SovereignAccountOf = (
 	TreasuryToAccount,
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

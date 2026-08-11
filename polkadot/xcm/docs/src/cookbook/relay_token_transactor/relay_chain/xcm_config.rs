@@ -22,7 +22,7 @@ use frame::{
 	runtime::prelude::*,
 	traits::{Disabled, Everything, Nothing},
 };
-use xcm::{latest::prelude::*, DoubleEncodedT};
+use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
@@ -123,13 +123,6 @@ impl xcm_executor::Config for XcmConfig {
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 impl pallet_xcm::Config for Runtime {
 	// No one can call `send`

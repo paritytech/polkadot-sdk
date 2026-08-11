@@ -24,7 +24,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_weights::{Weight, WeightMeter};
-use xcm::{prelude::*, DoubleEncodedT};
+use xcm::prelude::*;
 
 const LOG_TARGET: &str = "xcm::process-message";
 
@@ -35,7 +35,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 impl<
 		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
-		Call: Decode + DoubleEncodedT + GetDispatchInfo,
+		Call: Decode + GetDispatchInfo,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
 {
 	type Origin = MessageOrigin;

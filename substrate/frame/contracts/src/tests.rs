@@ -66,7 +66,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, IdentityLookup},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
-use xcm::DoubleEncodedT;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -83,13 +82,6 @@ frame_support::construct_runtime!(
 		Dummy: pallet_dummy
 	}
 );
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 macro_rules! assert_return_code {
 	( $x:expr , $y:expr $(,)? ) => {{

@@ -24,8 +24,6 @@ use super::{
 
 use crate::governance::StakingAdmin;
 
-use codec::Decode;
-
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Disabled, Equals, Everything, Nothing},
@@ -38,10 +36,7 @@ use polkadot_runtime_common::{
 };
 use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use sp_core::ConstU32;
-use xcm::{
-	latest::{prelude::*, ROCOCO_GENESIS_HASH},
-	DoubleEncodedT,
-};
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
@@ -271,13 +266,6 @@ pub type LocalPalletOriginToLocation = (
 	// Treasurer origin to be used in XCM as a corresponding Plurality `Location` value.
 	TreasurerToPlurality,
 );
-
-impl DoubleEncodedT for RuntimeCall {
-	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
-	{
-		Some(Self::decode)
-	}
-}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
