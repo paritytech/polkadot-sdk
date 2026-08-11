@@ -550,6 +550,10 @@ mod tests {
 				Some("execution reverted"),
 				"{callee_steps} callee steps: the CALL is captured and is what failed",
 			);
+			assert!(
+				!trace.failed,
+				"{callee_steps} callee steps: the reverting frame is not the outermost one",
+			);
 		}
 	}
 
