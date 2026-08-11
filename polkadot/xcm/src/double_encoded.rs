@@ -115,35 +115,33 @@ where
 		// If it's a local call, we also decode the inner double encoded object,
 		// in order to make sure that its heap memory is accounted for.
 		nesting_count::using_once(&mut 0, || {
-			{
-				nesting_count::with(|count| {
-					descend_ref_and_check_depth(
-						count,
-						RECURSION_LIMIT as u32,
-						DECODE_RECURSION_LIMIT_MSG,
-					)
-				})
-				.unwrap_or(Err("Could not access nesting_count env variable".into()))?;
+			nesting_count::with(|count| {
+				descend_ref_and_check_depth(
+					count,
+					RECURSION_LIMIT as u32,
+					DECODE_RECURSION_LIMIT_MSG,
+				)
+			})
+			.unwrap_or(Err("Could not access nesting_count env variable".into()))?;
 
-				let mut nested_input =
-					NestedInput { downstream_input: input, encoded: &obj.encoded[..], depth: 0 };
-				let decoded = T::decode(&mut nested_input)?;
-				// If we didn't manage to consume any byte, this is a remote call, and it can't
-				// be decoded locally.
-				if nested_input.encoded.len() == obj.encoded.len() {
-					let _ = nesting_count::with(|count| {
-						count.saturating_dec();
-					});
+			let mut nested_input =
+				NestedInput { downstream_input: input, encoded: &obj.encoded[..], depth: 0 };
+			let decoded = T::decode(&mut nested_input)?;
+			// If we didn't manage to consume any byte, this is a remote call, and it can't
+			// be decoded locally.
+			if nested_input.encoded.len() == obj.encoded.len() {
+				let _ = nesting_count::with(|count| {
+					count.saturating_dec();
+				});
 
-					return Ok(obj);
-				}
-				obj.decoded = Some(decoded);
+				return Ok(obj);
+			}
+			obj.decoded = Some(decoded);
 
-				// We need to also make sure that we consumed all the input data, but we can't use
-				// `decode_all()`, because it only accepts a byte slice as input.
-				if !nested_input.encoded.is_empty() {
-					return Err(DECODE_ALL_ERR_MSG.into());
-				}
+			// We need to also make sure that we consumed all the input data, but we can't use
+			// `decode_all()`, because it only accepts a byte slice as input.
+			if !nested_input.encoded.is_empty() {
+				return Err(DECODE_ALL_ERR_MSG.into());
 			}
 
 			let _ = nesting_count::with(|count| {

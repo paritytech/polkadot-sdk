@@ -23,6 +23,7 @@ enum TestCall {
 	Empty,
 	Allocate { arg: Vec<u8> },
 	Xcm { xcm: Box<VersionedXcm<TestCall>> },
+	RemoteXcm { xcm: Box<VersionedXcm<()>> },
 }
 
 impl TestCall {
@@ -35,7 +36,15 @@ impl TestCall {
 	}
 }
 
-fn new_transact(call: TestCall) -> latest::Instruction<TestCall> {
+fn new_local_transact(call: TestCall) -> latest::Instruction<TestCall> {
+	latest::Instruction::Transact {
+		origin_kind: latest::OriginKind::Native,
+		fallback_max_weight: None,
+		call: call.encode().into(),
+	}
+}
+
+fn new_remote_transact(call: TestCall) -> latest::Instruction<()> {
 	latest::Instruction::Transact {
 		origin_kind: latest::OriginKind::Native,
 		fallback_max_weight: None,
@@ -296,21 +305,36 @@ fn ensure_type_info_is_correct() {
 fn ensure_decode_tracks_nested_transacts_mem() {
 	use crate::latest::*;
 
-	let xcm = VersionedXcm::V5(Xcm(vec![
+	// Local calls should be decoded
+	let basic_xcm = Xcm(vec![
 		Instruction::ClearOrigin,
-		new_transact(TestCall::new_xcm_from_instrs(vec![
-			new_transact(TestCall::Allocate { arg: vec![0; 1000] }),
-			new_transact(TestCall::new_xcm_from_instrs(vec![new_transact(TestCall::Allocate {
-				arg: vec![0; 1000],
-			})])),
+		new_local_transact(TestCall::new_xcm_from_instrs(vec![
+			new_local_transact(TestCall::Allocate { arg: vec![0; 1000] }),
+			new_local_transact(TestCall::new_xcm_from_instrs(vec![new_local_transact(
+				TestCall::Allocate { arg: vec![0; 1000] },
+			)])),
 		])),
-	]));
-
-	let encoded_xcm = xcm.encode();
+	]);
+	let versioned_xcm = VersionedXcm::V5(basic_xcm.clone());
+	let encoded_xcm = versioned_xcm.encode();
 	let binding = &mut &encoded_xcm[..];
 	let mut input = MemTrackingInput::new(binding, usize::MAX);
-	assert_eq!(VersionedXcm::decode(&mut input), Ok(xcm));
-	assert!(input.used_mem() > 7000);
+	assert_eq!(VersionedXcm::decode(&mut input), Ok(versioned_xcm));
+	assert_eq!(input.used_mem(), 7748);
+
+	// Remote calls shouldn't be decoded
+	let versioned_xcm = VersionedXcm::V5(Xcm::<TestCall>(vec![Instruction::ExportMessage {
+		network: NetworkId::Polkadot,
+		destination: Junctions::Here,
+		xcm: Xcm(vec![new_remote_transact(TestCall::Xcm {
+			xcm: Box::new(VersionedXcm::V5(basic_xcm)),
+		})]),
+	}]));
+	let encoded_xcm = versioned_xcm.encode();
+	let binding = &mut &encoded_xcm[..];
+	let mut input = MemTrackingInput::new(binding, usize::MAX);
+	assert_eq!(VersionedXcm::decode(&mut input), Ok(versioned_xcm));
+	assert_eq!(input.used_mem(), 2292);
 }
 
 #[test]
@@ -323,11 +347,11 @@ fn ensure_decode_checks_transacts_recursion_and_depth() {
 	fn nest_xcm_in_transact(xcm: Xcm<TestCall>) -> Xcm<TestCall> {
 		Xcm(vec![
 			// Add some more transacts on the same level
-			new_transact(TestCall::Empty),
-			new_transact(TestCall::Empty),
-			new_transact(TestCall::Empty),
+			new_local_transact(TestCall::Empty),
+			new_local_transact(TestCall::Empty),
+			new_local_transact(TestCall::Empty),
 			// Add one more recursion level
-			new_transact(TestCall::new_xcm(VersionedXcm::V5(xcm))),
+			new_local_transact(TestCall::new_xcm(VersionedXcm::V5(xcm))),
 		])
 	}
 
@@ -337,11 +361,7 @@ fn ensure_decode_checks_transacts_recursion_and_depth() {
 			Instruction::ExportMessage {
 				network: NetworkId::Polkadot,
 				destination: Junctions::Here,
-				xcm: Xcm(vec![Instruction::Transact {
-					origin_kind: latest::OriginKind::Native,
-					fallback_max_weight: None,
-					call: TestCall::Allocate { arg: vec![1; 10] }.encode().into(),
-				}]),
+				xcm: Xcm(vec![new_remote_transact(TestCall::Allocate { arg: vec![1; 10] })]),
 			},
 			// Add one more nesting level
 			Instruction::SetErrorHandler(xcm),
