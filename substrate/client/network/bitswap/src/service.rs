@@ -237,7 +237,13 @@ struct RequestScheduler {
 
 impl RequestScheduler {
 	fn new(max_live_cids: usize) -> Self {
-		Self { cid_states: HashMap::new(), pending: VecDeque::new(), live_cids: 0, queued_cids: 0, max_live_cids }
+		Self {
+			cid_states: HashMap::new(),
+			pending: VecDeque::new(),
+			live_cids: 0,
+			queued_cids: 0,
+			max_live_cids,
+		}
 	}
 
 	fn contains(&self, cid: &Cid) -> bool {
@@ -267,7 +273,10 @@ impl RequestScheduler {
 
 	/// Removes a delivered CID and returns every user request that should receive it.
 	/// Scheduler counters are released according to the CID's previous phase.
-	fn take_user_requests_for_delivered_cid(&mut self, cid: Cid) -> Option<SmallVec<[UserRequestId; 2]>> {
+	fn take_user_requests_for_delivered_cid(
+		&mut self,
+		cid: Cid,
+	) -> Option<SmallVec<[UserRequestId; 2]>> {
 		self.cid_states.remove(&cid).map(|cid_state| {
 			if matches!(cid_state.phase, CidRequestPhase::InFlight { .. }) {
 				self.live_cids -= 1;
@@ -308,7 +317,9 @@ impl RequestScheduler {
 	) -> Option<litep2p::PeerId> {
 		let has_window_capacity = self.has_window_capacity();
 		let cid_state = self.cid_states.get_mut(&cid)?;
-		if !cid_state.has_user_requests() || matches!(cid_state.phase, CidRequestPhase::InFlight { .. }) {
+		if !cid_state.has_user_requests() ||
+			matches!(cid_state.phase, CidRequestPhase::InFlight { .. })
+		{
 			return None;
 		}
 
@@ -787,7 +798,10 @@ impl<B: BlockT> BitswapService<B> {
 	/// Delivers a resolved block to every user request sharing its CID.
 	/// The CID is removed once, releasing any replacement in-flight request.
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
-		let Some(user_request_ids) = self.scheduler.take_user_requests_for_delivered_cid(cid) else { return };
+		let Some(user_request_ids) = self.scheduler.take_user_requests_for_delivered_cid(cid)
+		else {
+			return;
+		};
 		self.metrics.record_outbound(outbound_events::DELIVERED, 1);
 
 		for user_request_id in user_request_ids {
@@ -835,15 +849,16 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
-	/// Periodic housekeeping: drop user requests whose receiver was dropped, expire per-peer request
-	/// timeouts, and start new rounds for CIDs whose retry delay has passed.
+	/// Periodic housekeeping: drop user requests whose receiver was dropped, expire per-peer
+	/// request timeouts, and start new rounds for CIDs whose retry delay has passed.
 	async fn on_sweep(&mut self) {
 		let abandoned_user_requests: Vec<UserRequestId> = self
 			.user_requests
 			.iter()
 			.filter_map(|(id, user_request)| user_request.sink.is_closed().then_some(id))
 			.collect();
-		self.metrics.record_outbound(outbound_events::ABANDONED, abandoned_user_requests.len());
+		self.metrics
+			.record_outbound(outbound_events::ABANDONED, abandoned_user_requests.len());
 		for id in abandoned_user_requests {
 			log::trace!(target: LOG_TARGET, "dropping abandoned user request {id:?}");
 			self.drop_user_request(id);
@@ -853,7 +868,8 @@ impl<B: BlockT> BitswapService<B> {
 		let (mut cids_to_top_up, timed_out_count) = self.scheduler.expire_peer_timeouts(now);
 		self.metrics.record_outbound(outbound_events::TIMED_OUT, timed_out_count);
 		let restarted_cids = self.scheduler.restart_exhausted_rounds(now);
-		self.metrics.record_outbound(outbound_events::ROUND_RESTARTED, restarted_cids.len());
+		self.metrics
+			.record_outbound(outbound_events::ROUND_RESTARTED, restarted_cids.len());
 		cids_to_top_up.extend(restarted_cids);
 		self.top_up_in_flight(cids_to_top_up).await;
 
@@ -885,7 +901,11 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	fn update_metrics(&self) {
-		self.metrics.set_state(self.scheduler.live_cids, self.scheduler.queued_cids, self.user_requests.len());
+		self.metrics.set_state(
+			self.scheduler.live_cids,
+			self.scheduler.queued_cids,
+			self.user_requests.len(),
+		);
 	}
 
 	/// Notifies every user request that the service closed and clears scheduler state.
