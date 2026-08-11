@@ -108,8 +108,8 @@ fn build_rig_with_inbound_limits(
 		inbound_lookup_rx,
 		inbound_queue: InboundQueue::new(queued_entries_per_peer),
 		connected_peers: HashSet::new(),
-		wants: WantSet::new(max_live_cids),
-		waiters: SlotMap::with_key(),
+		scheduler: RequestScheduler::new(max_live_cids),
+		user_requests: SlotMap::with_key(),
 		metrics,
 	};
 
@@ -218,16 +218,16 @@ fn want_set_removes_cid_after_last_waiter_and_peer_complete() {
 	let peer = litep2p::PeerId::random();
 	let mut waiter_ids = SlotMap::with_key();
 	let waiter_id = waiter_ids.insert(());
-	let mut wants = WantSet::new(MAX_LIVE_CIDS);
+	let mut wants = RequestScheduler::new(MAX_LIVE_CIDS);
 	let mut rng = StdRng::seed_from_u64(0);
 
-	wants.add_waiter(cid, waiter_id);
+	wants.add_user_request(cid, waiter_id);
 	let selected = wants
 		.next_peer_to_request(cid, &HashSet::from([peer]), Instant::now(), &mut rng)
 		.unwrap();
 	assert_eq!(selected, peer);
 
-	wants.remove_waiter(cid, waiter_id);
+	wants.remove_user_request(cid, waiter_id);
 	assert!(wants.contains(&cid));
 
 	wants.mark_peer_done_for_cid(peer, cid);
@@ -242,17 +242,17 @@ fn want_set_window_queues_and_promotes() {
 	let peers = HashSet::from([peer]);
 	let mut waiter_ids = SlotMap::with_key();
 	let waiter_id = waiter_ids.insert(());
-	let mut wants = WantSet::new(1);
+	let mut wants = RequestScheduler::new(1);
 	let mut rng = StdRng::seed_from_u64(0);
 
-	wants.add_waiter(cid_a, waiter_id);
-	wants.add_waiter(cid_b, waiter_id);
+	wants.add_user_request(cid_a, waiter_id);
+	wants.add_user_request(cid_b, waiter_id);
 
 	assert_eq!(wants.next_peer_to_request(cid_a, &peers, Instant::now(), &mut rng), Some(peer));
 	assert_eq!(wants.next_peer_to_request(cid_b, &peers, Instant::now(), &mut rng), None);
 	assert!(!wants.has_window_capacity());
 
-	wants.take_waiters_for_delivered_cid(cid_a);
+	wants.take_user_requests_for_delivered_cid(cid_a);
 	assert!(wants.has_window_capacity());
 	assert_eq!(wants.pop_pending(), Some(cid_b));
 	assert_eq!(wants.next_peer_to_request(cid_b, &peers, Instant::now(), &mut rng), Some(peer));
@@ -263,14 +263,14 @@ fn want_set_window_queues_and_promotes() {
 fn peer_selection_varies_across_cids() {
 	let peers: HashSet<_> = (0..3).map(|_| litep2p::PeerId::random()).collect();
 	let mut waiter_ids = SlotMap::with_key();
-	let mut wants = WantSet::new(32);
+	let mut wants = RequestScheduler::new(32);
 	let mut rng = StdRng::seed_from_u64(0);
 	let mut selected = HashSet::new();
 
 	for byte in 0..32 {
 		let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [byte; 32]);
 		let waiter = waiter_ids.insert(());
-		wants.add_waiter(cid, waiter);
+		wants.add_user_request(cid, waiter);
 		selected.insert(
 			wants
 				.next_peer_to_request(cid, &peers, Instant::now(), &mut rng)
@@ -1011,7 +1011,7 @@ async fn too_many_waiters_per_cid_yields_overloaded() {
 	let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x77; 32]);
 
 	let mut receivers = Vec::new();
-	for _ in 0..MAX_WAITERS_PER_CID {
+	for _ in 0..MAX_USER_REQUESTS_PER_CID {
 		receivers.push(rig.user_handle.request_stream(vec![cid]).unwrap());
 	}
 	// Give the actor a chance to admit all waiters before the one-too-many request.
@@ -1059,8 +1059,8 @@ mod proptests {
 	}
 
 	struct Harness {
-		wants: WantSet,
-		waiters: SlotMap<WaiterId, Cid>,
+		scheduler: RequestScheduler,
+		user_requests: SlotMap<UserRequestId, Cid>,
 		peers: Vec<litep2p::PeerId>,
 		cids: Vec<Cid>,
 		connected: HashSet<litep2p::PeerId>,
@@ -1078,8 +1078,8 @@ mod proptests {
 				})
 				.collect();
 			Self {
-				wants: WantSet::new(SMALL_WINDOW),
-				waiters: SlotMap::with_key(),
+				scheduler: RequestScheduler::new(SMALL_WINDOW),
+				user_requests: SlotMap::with_key(),
 				peers: (0..NUM_PEERS).map(|_| litep2p::PeerId::random()).collect(),
 				cids,
 				connected: HashSet::new(),
@@ -1092,96 +1092,96 @@ mod proptests {
 			match op {
 				Op::AddWaiter(c) => {
 					let cid = self.cids[c as usize];
-					let id = self.waiters.insert(cid);
-					self.wants.add_waiter(cid, id);
+					let id = self.user_requests.insert(cid);
+					self.scheduler.add_user_request(cid, id);
 				},
 				Op::RemoveWaiter(seed) => {
-					let Some(id) = self.waiters.keys().nth(seed % self.waiters.len().max(1)) else {
+					let Some(id) = self.user_requests.keys().nth(seed % self.user_requests.len().max(1)) else {
 						return;
 					};
-					let cid = self.waiters.remove(id).expect("listed waiter exists");
-					self.wants.remove_waiter(cid, id);
+					let cid = self.user_requests.remove(id).expect("listed waiter exists");
+					self.scheduler.remove_user_request(cid, id);
 				},
 				Op::Deliver(c) => {
 					let waiter_ids = self
-						.wants
-						.take_waiters_for_delivered_cid(self.cids[c as usize])
+						.scheduler
+						.take_user_requests_for_delivered_cid(self.cids[c as usize])
 						.unwrap_or_default();
 					for id in waiter_ids {
-						self.waiters.remove(id);
+						self.user_requests.remove(id);
 					}
 				},
 				Op::MarkPeerDone(p, c) => {
-					self.wants.mark_peer_done_for_cid(self.peers[p], self.cids[c as usize])
+					self.scheduler.mark_peer_done_for_cid(self.peers[p], self.cids[c as usize])
 				},
 				Op::NoteHave(p, c) => {
-					self.wants.note_peer_have_for_cid(self.peers[p], self.cids[c as usize])
+					self.scheduler.note_peer_have_for_cid(self.peers[p], self.cids[c as usize])
 				},
 				Op::Connect(p) => {
 					self.connected.insert(self.peers[p]);
 				},
 				Op::Disconnect(p) => {
 					self.connected.remove(&self.peers[p]);
-					let _ = self.wants.remove_in_flight_peer(self.peers[p]);
+					let _ = self.scheduler.remove_in_flight_peer(self.peers[p]);
 				},
 				Op::Sweep(secs) => {
 					self.now += Duration::from_secs(secs);
-					let _ = self.wants.expire_peer_timeouts(self.now);
-					let _ = self.wants.restart_exhausted_rounds(self.now);
+					let _ = self.scheduler.expire_peer_timeouts(self.now);
+					let _ = self.scheduler.restart_exhausted_rounds(self.now);
 				},
 			}
 		}
 
 		fn top_up(&mut self) {
-			for cid in self.wants.all_cids() {
+			for cid in self.scheduler.all_cids() {
 				let _ =
-					self.wants.next_peer_to_request(cid, &self.connected, self.now, &mut self.rng);
+					self.scheduler.next_peer_to_request(cid, &self.connected, self.now, &mut self.rng);
 			}
-			while self.wants.has_window_capacity() {
-				let Some(cid) = self.wants.pop_pending() else { break };
+			while self.scheduler.has_window_capacity() {
+				let Some(cid) = self.scheduler.pop_pending() else { break };
 				let _ =
-					self.wants.next_peer_to_request(cid, &self.connected, self.now, &mut self.rng);
+					self.scheduler.next_peer_to_request(cid, &self.connected, self.now, &mut self.rng);
 			}
 		}
 
 		fn check_invariants(&self) {
 			let live = self
-				.wants
-				.inner
+				.scheduler
+				.cid_states
 				.values()
-				.filter(|state| matches!(state.phase, CidPhase::InFlight { .. }))
+				.filter(|state| matches!(state.phase, CidRequestPhase::InFlight { .. }))
 				.count();
-			assert_eq!(self.wants.live, live, "live counter drifted");
-			assert!(self.wants.live <= self.wants.max_live, "dispatch window overrun");
-			let queued = self.wants.inner.values().filter(|state| state.is_queued()).count();
-			assert_eq!(self.wants.queued, queued, "queued counter drifted");
+			assert_eq!(self.scheduler.live_cids, live, "live counter drifted");
+			assert!(self.scheduler.live_cids <= self.scheduler.max_live_cids, "dispatch window overrun");
+			let queued = self.scheduler.cid_states.values().filter(|state| state.is_queued()).count();
+			assert_eq!(self.scheduler.queued_cids, queued, "queued counter drifted");
 
-			for (cid, state) in &self.wants.inner {
+			for (cid, state) in &self.scheduler.cid_states {
 				assert!(!state.is_idle(), "idle entry retained for {cid}");
-				if let CidPhase::InFlight { peer, .. } = state.phase {
+				if let CidRequestPhase::InFlight { peer, .. } = state.phase {
 					assert!(!state.tried_peers.contains(&peer), "peer both tried and in flight");
 				}
 				if state.is_queued() {
 					assert!(
-						self.wants.pending.contains(cid),
+						self.scheduler.pending.contains(cid),
 						"queued CID without queue entry for {cid}",
 					);
 				}
 				let retry_at = match state.phase {
-					CidPhase::Queued { retry_at } => retry_at,
-					CidPhase::RetryAt(at) => Some(at),
-					CidPhase::Ready | CidPhase::InFlight { .. } => None,
+					CidRequestPhase::Queued { retry_at } => retry_at,
+					CidRequestPhase::RetryAt(at) => Some(at),
+					CidRequestPhase::Ready | CidRequestPhase::InFlight { .. } => None,
 				};
 				if let Some(at) = retry_at {
 					assert!(at > self.now, "overdue round never restarted for {cid}");
 				}
-				if state.has_waiters() && !self.connected.is_empty() {
+				if state.has_user_requests() && !self.connected.is_empty() {
 					assert!(
 						matches!(
 							state.phase,
-							CidPhase::Queued { .. } |
-								CidPhase::InFlight { .. } |
-								CidPhase::RetryAt(_)
+							CidRequestPhase::Queued { .. } |
+								CidRequestPhase::InFlight { .. } |
+								CidRequestPhase::RetryAt(_)
 						),
 						"stranded CID {cid}",
 					);

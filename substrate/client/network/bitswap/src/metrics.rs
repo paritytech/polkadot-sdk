@@ -52,7 +52,7 @@ struct Inner {
 	outbound_events_total: CounterVec<U64>,
 	live_cids: Gauge<U64>,
 	queued_cids: Gauge<U64>,
-	waiters: Gauge<U64>,
+	user_requests: Gauge<U64>,
 }
 
 impl Inner {
@@ -120,9 +120,9 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			waiters: register(
+			user_requests: register(
 				Gauge::new(
-					"substrate_sub_libp2p_bitswap_waiters",
+					"substrate_sub_libp2p_bitswap_user_requests",
 					"Number of active outbound bitswap requests",
 				)?,
 				registry,
@@ -191,11 +191,11 @@ impl BitswapMetrics {
 		}
 	}
 
-	pub(crate) fn set_state(&self, live_cids: usize, queued_cids: usize, waiters: usize) {
+	pub(crate) fn set_state(&self, live_cids: usize, queued_cids: usize, user_requests: usize) {
 		if let Some(inner) = &self.inner {
 			inner.live_cids.set(live_cids as u64);
 			inner.queued_cids.set(queued_cids as u64);
-			inner.waiters.set(waiters as u64);
+			inner.user_requests.set(user_requests as u64);
 		}
 	}
 
@@ -267,7 +267,7 @@ mod tests {
 		);
 		assert_eq!(inner.live_cids.get(), 1);
 		assert_eq!(inner.queued_cids.get(), 2);
-		assert_eq!(inner.waiters.get(), 3);
+		assert_eq!(inner.user_requests.get(), 3);
 		assert_eq!(inner.inbound_request_duration_seconds.get_sample_count(), 1);
 		assert_eq!(inner.response_bytes_total.get(), response_payload_bytes(&responses));
 	}
