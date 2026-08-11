@@ -23,7 +23,6 @@ enum TestCall {
 	Empty,
 	Allocate { arg: Vec<u8> },
 	Xcm { xcm: Box<VersionedXcm<TestCall>> },
-	RemoteXcm { xcm: Box<VersionedXcm<()>> },
 }
 
 impl TestCall {
