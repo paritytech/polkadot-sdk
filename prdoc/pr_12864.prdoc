@@ -1,0 +1,35 @@
+title: '[RWF] polkadot-gossip-support: authority refresh can erase a surviving peer mapping'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #12783.
+
+    ## Summary
+    `GossipSupport` tracks connected validators in two maps that are meant to be inverses of each
+    other: `connected_authorities` and `connected_peers`. The same `AuthorityDiscoveryId` can
+    legitimately be carried by more than one connected peer — for instance while a validator that
+    changed its network key is still connected under both its old and its new `PeerId` — but
+    `connected_authorities` was a `HashMap<AuthorityDiscoveryId, PeerId>` and could only hold one
+    of them.
+
+    Because of that, every removal was a guess. When `update_authority_ids` drained a peer that no
+    longer resolves to any authority, it unconditionally removed each of that peer's authorities
+    from `connected_authorities`, without checking whether another connected peer still carried
+    them. The second loop then skipped the surviving peer, since its authority set had not
+    changed, so the mapping was never restored. The authority stayed in `connected_peers` but was
+    permanently absent from `connected_authorities` until that peer reconnected. `PeerDisconnected`
+    had the same defect.
+
+    The visible effect is that `check_connectivity` undercounts connected authorities, deflating
+    the reported connectivity ratio and potentially emitting a spurious "Connectivity seems low"
+    error on a node that is in fact fully connected.
+
+    ## Fix
+    `connected_authorities` is now a `HashMap<AuthorityDiscoveryId, HashSet<PeerId>>`, making it
+    the exact inverse of `connected_peers`. Removals disassociate a single peer and only drop the
+    authority once no connected peer carries it anymore, which fixes both the refresh and the
+    disconnect path. `check_connectivity` is unaffected: it only uses `len()` and `contains_key()`,
+    whose meaning is unchanged.
+crates:
+- name: polkadot-gossip-support
+  bump: patch
