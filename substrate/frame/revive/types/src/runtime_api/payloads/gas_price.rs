@@ -27,6 +27,10 @@ pub struct GasPriceInputPayloadV1;
 /// replaces the unversioned `gas_price` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GasPriceVersionedInputPayload {
+	/// The arguments provided when calling the `gas_price_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `gas_price` runtime API function.
 	V1(GasPriceInputPayloadV1),
 }
 
@@ -39,5 +43,10 @@ pub struct GasPriceOutputPayloadV1 {
 /// function replaces the unversioned `gas_price` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GasPriceVersionedOutputPayload {
+	/// The output returned when calling the `gas_price_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `gas_price` runtime API
+	/// function.
 	V1(GasPriceOutputPayloadV1),
 }

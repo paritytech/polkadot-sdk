@@ -29,6 +29,10 @@ pub struct NonceInputPayloadV1 {
 /// replaces the unversioned `nonce` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum NonceVersionedInputPayload {
+	/// The arguments provided when calling the `nonce_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `nonce` runtime API function.
 	V1(NonceInputPayloadV1),
 }
 
@@ -41,5 +45,10 @@ pub struct NonceOutputPayloadV1<Nonce> {
 /// replaces the unversioned `nonce` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum NonceVersionedOutputPayload<Nonce> {
+	/// The output returned when calling the `nonce_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `nonce` runtime API
+	/// function.
 	V1(NonceOutputPayloadV1<Nonce>),
 }

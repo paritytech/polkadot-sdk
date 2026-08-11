@@ -29,6 +29,10 @@ pub struct ReceiptDataInputPayloadV1;
 /// function replaces the unversioned `eth_receipt_data` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum ReceiptDataVersionedInputPayload {
+	/// The arguments provided when calling the `eth_receipt_data_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `eth_receipt_data` runtime API function.
 	V1(ReceiptDataInputPayloadV1),
 }
 
@@ -41,5 +45,10 @@ pub struct ReceiptDataOutputPayloadV1 {
 /// This function replaces the unversioned `eth_receipt_data` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum ReceiptDataVersionedOutputPayload {
+	/// The output returned when calling the `eth_receipt_data_versioned` runtime API function with
+	/// `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `eth_receipt_data`
+	/// runtime API function.
 	V1(ReceiptDataOutputPayloadV1),
 }

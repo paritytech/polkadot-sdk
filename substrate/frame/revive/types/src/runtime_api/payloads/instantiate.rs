@@ -38,6 +38,10 @@ pub struct InstantiateInputPayloadV1<AccountId, Balance> {
 /// replaces the unversioned `instantiate` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum InstantiateVersionedInputPayload<AccountId, Balance> {
+	/// The arguments provided when calling the `instantiate_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `instantiate` runtime API function.
 	V1(InstantiateInputPayloadV1<AccountId, Balance>),
 }
 
@@ -50,5 +54,10 @@ pub struct InstantiateOutputPayloadV1<Balance> {
 /// function replaces the unversioned `instantiate` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum InstantiateVersionedOutputPayload<Balance> {
+	/// The output returned when calling the `instantiate_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `instantiate` runtime API
+	/// function.
 	V1(InstantiateOutputPayloadV1<Balance>),
 }

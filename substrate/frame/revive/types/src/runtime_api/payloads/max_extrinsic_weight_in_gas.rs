@@ -28,6 +28,11 @@ pub struct MaxExtrinsicWeightInGasInputPayloadV1;
 /// function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum MaxExtrinsicWeightInGasVersionedInputPayload {
+	/// The arguments provided when calling the `max_extrinsic_weight_in_gas_versioned` runtime API
+	/// function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `max_extrinsic_weight_in_gas` runtime API function.
 	V1(MaxExtrinsicWeightInGasInputPayloadV1),
 }
 
@@ -41,5 +46,10 @@ pub struct MaxExtrinsicWeightInGasOutputPayloadV1 {
 /// function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum MaxExtrinsicWeightInGasVersionedOutputPayload {
+	/// The output returned when calling the `max_extrinsic_weight_in_gas_versioned` runtime API
+	/// function with `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned
+	/// `max_extrinsic_weight_in_gas` runtime API function.
 	V1(MaxExtrinsicWeightInGasOutputPayloadV1),
 }

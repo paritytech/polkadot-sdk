@@ -29,6 +29,10 @@ pub struct BalanceInputPayloadV1 {
 /// replaces the unversioned `balance` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BalanceVersionedInputPayload {
+	/// The arguments provided when calling the `balance_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `balance` runtime API function.
 	V1(BalanceInputPayloadV1),
 }
 
@@ -41,5 +45,10 @@ pub struct BalanceOutputPayloadV1 {
 /// function replaces the unversioned `balance` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BalanceVersionedOutputPayload {
+	/// The output returned when calling the `balance_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `balance` runtime API
+	/// function.
 	V1(BalanceOutputPayloadV1),
 }

@@ -34,6 +34,13 @@ pub struct TransactInputPayloadV1<Moment> {
 /// functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TransactVersionedInputPayload<Moment> {
+	/// The arguments provided when calling the `eth_transact_versioned` runtime API function.
+	///
+	/// This version combines the unversioned `eth_transact` and `eth_transact_with_config` runtime
+	/// API functions. `eth_transact` maps to no timestamp or state overrides with balance checks
+	/// enabled. `eth_transact_with_config` maps its configuration fields into the payload and
+	/// resolves an unspecified balance-check setting to `false`. Each mapping preserves the
+	/// corresponding behavior and output.
 	V1(TransactInputPayloadV1<Moment>),
 }
 
@@ -47,5 +54,10 @@ pub struct TransactOutputPayloadV1<Balance> {
 /// functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TransactVersionedOutputPayload<Balance> {
+	/// The output returned when calling the `eth_transact_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the corresponding unversioned
+	/// `eth_transact` or `eth_transact_with_config` runtime API function.
 	V1(TransactOutputPayloadV1<Balance>),
 }
