@@ -140,7 +140,6 @@ enum CidRequestPhase {
 #[derive(Default)]
 struct CidRequestState {
 	tried_peers: HashSet<litep2p::PeerId>,
-	have_peers: SmallVec<[litep2p::PeerId; 1]>,
 	user_requests: SmallVec<[UserRequestId; 2]>,
 	phase: CidRequestPhase,
 }
@@ -213,7 +212,6 @@ impl CidRequestState {
 			_ => return false,
 		};
 		self.tried_peers.clear();
-		self.have_peers.clear();
 		true
 	}
 }
@@ -331,15 +329,9 @@ impl RequestScheduler {
 			return None;
 		}
 
-		// Prefer peers that advertised HAVE before falling back to any untried peer.
 		let is_untried = |peer: &litep2p::PeerId| !cid_state.tried_peers.contains(peer);
-		let Some(peer) = cid_state
-			.have_peers
-			.iter()
-			.filter(|peer| connected_peers.contains(*peer) && is_untried(peer))
-			.choose(&mut *rng)
-			.or_else(|| connected_peers.iter().filter(|peer| is_untried(peer)).choose(&mut *rng))
-			.copied()
+		let Some(peer) =
+			connected_peers.iter().filter(|peer| is_untried(peer)).choose(&mut *rng).copied()
 		else {
 			if !connected_peers.is_empty() {
 				// Retry later once every connected peer has been tried.
@@ -370,22 +362,6 @@ impl RequestScheduler {
 				self.live_cids -= 1;
 			}
 			cid_state.tried_peers.insert(peer);
-		}
-		self.remove_if_idle(cid);
-	}
-
-	/// Records that `peer` has a CID and releases its active request.
-	/// A repeated `HAVE` marks that peer tried so another peer is selected next.
-	fn note_peer_have_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
-		if let Some(cid_state) = self.cid_states.get_mut(&cid) {
-			if cid_state.have_peers.contains(&peer) {
-				cid_state.tried_peers.insert(peer);
-			} else {
-				cid_state.have_peers.push(peer);
-			}
-			if cid_state.finish_peer(peer) {
-				self.live_cids -= 1;
-			}
 		}
 		self.remove_if_idle(cid);
 	}
@@ -775,18 +751,18 @@ impl<B: BlockT> BitswapService<B> {
 						);
 					}
 				},
-				TransportResponse::Presence { cid, presence } => {
-					match presence {
-						BlockPresenceType::DontHave => {
-							log::trace!(target: LOG_TARGET, "{peer:?} DONT_HAVE {cid}");
-							self.scheduler.mark_peer_done_for_cid(peer, cid);
-						},
-						BlockPresenceType::Have => {
-							log::trace!(target: LOG_TARGET, "{peer:?} HAVE {cid}");
-							self.scheduler.note_peer_have_for_cid(peer, cid);
-						},
-					}
-					cids_to_top_up.insert(cid);
+				TransportResponse::Presence { cid, presence } => match presence {
+					BlockPresenceType::DontHave => {
+						log::trace!(target: LOG_TARGET, "{peer:?} DONT_HAVE {cid}");
+						self.scheduler.mark_peer_done_for_cid(peer, cid);
+						cids_to_top_up.insert(cid);
+					},
+					BlockPresenceType::Have => {
+						log::debug!(
+							target: LOG_TARGET,
+							"{peer:?} sent unsolicited HAVE for {cid}; only WANT-BLOCK is issued",
+						);
+					},
 				},
 			}
 		}

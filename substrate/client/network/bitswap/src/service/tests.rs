@@ -357,57 +357,6 @@ async fn single_cid_single_peer_block_response() {
 	expect_block(&mut rx, cid, &data).await;
 }
 
-#[tokio::test(start_paused = true)]
-async fn have_response_reasks_same_peer_then_delivers() {
-	let mut rig = empty_rig();
-	let peer = litep2p::PeerId::random();
-	let data = b"payload-have".to_vec();
-	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
-
-	rig.connect(peer).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
-
-	let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
-	assert_eq!(out_peer, peer);
-
-	rig.send_presence(peer, cid, BlockPresenceType::Have).await;
-
-	let (out_peer, out_cids) = drain_next(&mut rig.outbound_req_rx).await.expect("re-ask");
-	assert_eq!(out_peer, peer);
-	assert_eq!(out_cids, vec![(cid, WantType::Block)]);
-
-	rig.send_block(peer, cid, &data).await;
-	expect_block(&mut rx, cid, &data).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn second_have_without_block_moves_to_other_peer() {
-	let mut rig = empty_rig();
-	let peer_a = litep2p::PeerId::random();
-	let peer_b = litep2p::PeerId::random();
-	let data = b"payload-have-2".to_vec();
-	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
-
-	rig.connect(peer_a).await;
-	rig.connect(peer_b).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
-
-	let (first, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
-	let other = if first == peer_a { peer_b } else { peer_a };
-
-	rig.send_presence(first, cid, BlockPresenceType::Have).await;
-	let (out_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("re-ask");
-	assert_eq!(out_peer, first);
-
-	rig.send_presence(first, cid, BlockPresenceType::Have).await;
-	let (out_peer, out_cids) = drain_next(&mut rig.outbound_req_rx).await.expect("failover WANT");
-	assert_eq!(out_peer, other);
-	assert_eq!(out_cids, vec![(cid, WantType::Block)]);
-
-	rig.send_block(other, cid, &data).await;
-	expect_block(&mut rx, cid, &data).await;
-}
-
 #[rstest]
 #[case::after_dont_have(true)]
 #[case::after_timeout(false)]
@@ -1039,7 +988,6 @@ mod proptests {
 		RemoveWaiter(usize),
 		Deliver(u8),
 		MarkPeerDone(usize, u8),
-		NoteHave(usize, u8),
 		Connect(usize),
 		Disconnect(usize),
 		Sweep(u64),
@@ -1051,7 +999,6 @@ mod proptests {
 			any::<usize>().prop_map(Op::RemoveWaiter),
 			(0..NUM_CIDS).prop_map(Op::Deliver),
 			(0..NUM_PEERS, 0..NUM_CIDS).prop_map(|(p, c)| Op::MarkPeerDone(p, c)),
-			(0..NUM_PEERS, 0..NUM_CIDS).prop_map(|(p, c)| Op::NoteHave(p, c)),
 			(0..NUM_PEERS).prop_map(Op::Connect),
 			(0..NUM_PEERS).prop_map(Op::Disconnect),
 			(1u64..8).prop_map(Op::Sweep),
@@ -1113,9 +1060,6 @@ mod proptests {
 				},
 				Op::MarkPeerDone(p, c) => {
 					self.scheduler.mark_peer_done_for_cid(self.peers[p], self.cids[c as usize])
-				},
-				Op::NoteHave(p, c) => {
-					self.scheduler.note_peer_have_for_cid(self.peers[p], self.cids[c as usize])
 				},
 				Op::Connect(p) => {
 					self.connected.insert(self.peers[p]);
