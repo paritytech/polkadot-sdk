@@ -130,7 +130,7 @@ pub trait TransactionPoolClient<Block: BlockT>:
 		Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 	> + sc_client_api::BlockBackend<Block>
 	+ sc_client_api::blockchain::HeaderBackend<Block>
-	+ sp_runtime::traits::BlockIdTo<Block>
+	+ sp_runtime::traits::BlockIdTo<Block, Error = sp_blockchain::Error>
 	+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
 	+ 'static
 {
@@ -142,7 +142,7 @@ impl<Block: BlockT, T> TransactionPoolClient<Block> for T where
 			Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 		> + sc_client_api::BlockBackend<Block>
 		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
+		+ sp_runtime::traits::BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ 'static
 {
@@ -213,18 +213,10 @@ pub struct Builder<'a, Block, Client> {
 impl<'a, Client, Block> Builder<'a, Block, Client>
 where
 	Block: BlockT,
-	Client: sp_api::ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
-		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block>
+	Client: TransactionPoolClient<Block>
 		+ sc_client_api::ExecutorProvider<Block>
-		+ sc_client_api::UsageProvider<Block>
-		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Send
-		+ Sync
-		+ 'static,
+		+ sc_client_api::UsageProvider<Block>,
 	<Block as BlockT>::Hash: std::marker::Unpin,
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
 	/// Creates new instance of `Builder`
 	pub fn new(

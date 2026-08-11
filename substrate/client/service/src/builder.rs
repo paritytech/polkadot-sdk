@@ -93,7 +93,7 @@ use sp_consensus::block_validation::{
 };
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
@@ -499,24 +499,15 @@ pub fn spawn_tasks<TBl, TBackend, TRpc, TCl>(
 ) -> Result<RpcHandlers, Error>
 where
 	TCl: TransactionPoolClient<TBl>
-		+ ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ Chain<TBl>
-		+ BlockBackend<TBl>
-		+ BlockIdTo<TBl, Error = sp_blockchain::Error>
 		+ ProofProvider<TBl>
-		+ HeaderBackend<TBl>
 		+ BlockchainEvents<TBl>
 		+ ExecutorProvider<TBl>
 		+ UsageProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
-		+ CallApiAt<TBl>
-		+ Send
-		+ 'static,
-	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_api::Metadata<TBl>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<TBl>
-		+ sp_session::SessionKeys<TBl>
-		+ sp_api::ApiExt<TBl>,
+		+ CallApiAt<TBl>,
+	<TCl as ProvideRuntimeApi<TBl>>::Api:
+		sp_api::Metadata<TBl> + sp_session::SessionKeys<TBl> + sp_api::ApiExt<TBl>,
 	TBl: BlockT,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
@@ -845,18 +836,11 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc>(
 where
 	TBl: BlockT,
 	TCl: TransactionPoolClient<TBl>
-		+ ProvideRuntimeApi<TBl>
 		+ BlockchainEvents<TBl>
-		+ HeaderBackend<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
 		+ ProofProvider<TBl>
-		+ StorageProvider<TBl, TBackend>
-		+ BlockBackend<TBl>
-		+ Send
-		+ Sync
-		+ 'static,
+		+ StorageProvider<TBl, TBackend>,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
 	TBl::Hash: Unpin,
@@ -1027,7 +1011,6 @@ where
 	Block: BlockT,
 	Client: TransactionPoolClient<Block>
 		+ Chain<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
 		+ BlockchainEvents<Block>,
 	IQ: ImportQueue<Block> + 'static,
@@ -1189,7 +1172,6 @@ where
 	Block: BlockT,
 	Client: TransactionPoolClient<Block>
 		+ Chain<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
 		+ BlockchainEvents<Block>,
 	IQ: ImportQueue<Block> + 'static,
