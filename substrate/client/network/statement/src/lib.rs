@@ -588,7 +588,7 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Next value to hand out as [`PendingInitialSync::sync_id`].
 	next_initial_sync_id: u64,
-	/// Encoded bytes of initial-sync chunks in `pending_sends`, bounded by
+	/// Encoded bytes of initial-sync chunks in `pending_sends`, throttled at the soft limit
 	/// [`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES`].
 	initial_sync_in_flight_bytes: u64,
 	/// Pending propagation sends, polled by the main event loop.
