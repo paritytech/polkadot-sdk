@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786393059861,
+  "lastUpdate": 1786442809021,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f67648a75325006078cef3e800738cb9bafd4337",
-          "message": "[pallet-revive] fix delegate_call_contract in evm-test-suites (#10510)\n\nevm-test-suite was not correctly executing delegate_call_contract\ncausing pallet-revive to silently reject the delegatecall. After\nevm-test-suite was fixed we found that the trace for delegate calls is\nincorrect. This fixes it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T12:16:29Z",
-          "tree_id": "9a17eb2c42def6c20e00f86be6e50911192ff9e0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f67648a75325006078cef3e800738cb9bafd4337"
-        },
-        "date": 1764770062580,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034275745842,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04412355120199993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0857354843839999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "551ad310d15a95778297205f62ce77303b086f49",
+          "message": "feat(webrtc): derive DTLS certificate deterministically from node key (#12693)\n\nDerive the WebRTC DTLS cert/key deterministically from the node's\nEd25519 secret key instead of persisting it to a separate file on disk.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-11T08:39:00Z",
+          "tree_id": "f4bcd85658136d91f283b27a86c7e676e222a9cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/551ad310d15a95778297205f62ce77303b086f49"
+        },
+        "date": 1786442775990,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.098,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08839740894799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039787488279999984,
             "unit": "seconds"
           }
         ]
