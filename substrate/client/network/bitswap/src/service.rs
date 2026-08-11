@@ -113,7 +113,7 @@ impl BitswapTransport for LitepBitswapHandle {
 }
 
 const MAX_LIVE_CIDS: usize = 1024;
-const MAX_WAITERS_PER_CID: usize = 64;
+const MAX_USER_REQUESTS_PER_CID: usize = 64;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const MAX_QUEUED_INBOUND_ENTRIES_PER_PEER: usize = MAX_LIVE_CIDS;
 const CMD_CHANNEL_CAPACITY: usize = 256;
@@ -122,10 +122,10 @@ const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const ROUND_RETRY_DELAY: Duration = Duration::from_secs(5);
 const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
 
-new_key_type! { struct WaiterId; }
+new_key_type! { struct UserRequestId; }
 
 #[derive(Clone, Copy, Default)]
-enum CidPhase {
+enum CidRequestPhase {
 	#[default]
 	Ready,
 	Queued {
@@ -139,54 +139,54 @@ enum CidPhase {
 }
 
 #[derive(Default)]
-struct CidState {
+struct CidRequestState {
 	tried_peers: HashSet<litep2p::PeerId>,
 	have_peers: SmallVec<[litep2p::PeerId; 1]>,
-	waiters: SmallVec<[WaiterId; 2]>,
-	phase: CidPhase,
+	user_requests: SmallVec<[UserRequestId; 2]>,
+	phase: CidRequestPhase,
 }
 
-impl CidState {
-	fn has_waiters(&self) -> bool {
-		!self.waiters.is_empty()
+impl CidRequestState {
+	fn has_user_requests(&self) -> bool {
+		!self.user_requests.is_empty()
 	}
 
 	fn is_idle(&self) -> bool {
-		self.waiters.is_empty() && !matches!(self.phase, CidPhase::InFlight { .. })
+		self.user_requests.is_empty() && !matches!(self.phase, CidRequestPhase::InFlight { .. })
 	}
 
 	fn is_queued(&self) -> bool {
-		matches!(self.phase, CidPhase::Queued { .. })
+		matches!(self.phase, CidRequestPhase::Queued { .. })
 	}
 
 	/// Moves a ready CID into the pending queue while preserving its retry deadline.
 	/// Returns `false` when the CID is already queued or in flight.
 	fn queue(&mut self) -> bool {
 		let retry_at = match self.phase {
-			CidPhase::Ready => None,
-			CidPhase::RetryAt(at) => Some(at),
-			CidPhase::Queued { .. } | CidPhase::InFlight { .. } => return false,
+			CidRequestPhase::Ready => None,
+			CidRequestPhase::RetryAt(at) => Some(at),
+			CidRequestPhase::Queued { .. } | CidRequestPhase::InFlight { .. } => return false,
 		};
-		self.phase = CidPhase::Queued { retry_at };
+		self.phase = CidRequestPhase::Queued { retry_at };
 		true
 	}
 
 	/// Removes a CID from the pending queue and restores its prior scheduling phase.
 	/// Returns `false` when the state was not queued.
 	fn dequeue(&mut self) -> bool {
-		let CidPhase::Queued { retry_at } = self.phase else { return false };
-		self.phase = retry_at.map_or(CidPhase::Ready, CidPhase::RetryAt);
+		let CidRequestPhase::Queued { retry_at } = self.phase else { return false };
+		self.phase = retry_at.map_or(CidRequestPhase::Ready, CidRequestPhase::RetryAt);
 		true
 	}
 
 	/// Finishes the active request only when `peer` currently owns it.
 	/// The return value indicates whether an in-flight slot was released.
 	fn finish_peer(&mut self, peer: litep2p::PeerId) -> bool {
-		let CidPhase::InFlight { peer: active, .. } = self.phase else { return false };
-		if active != peer {
+		let CidRequestPhase::InFlight { peer: active_peer, .. } = self.phase else { return false };
+		if active_peer != peer {
 			return false;
 		}
-		self.phase = CidPhase::Ready;
+		self.phase = CidRequestPhase::Ready;
 		true
 	}
 
@@ -194,11 +194,11 @@ impl CidState {
 	/// Returns `false` when a retry is already scheduled or work remains in flight.
 	fn schedule_retry(&mut self, at: Instant) -> bool {
 		match &mut self.phase {
-			CidPhase::Ready => self.phase = CidPhase::RetryAt(at),
-			CidPhase::Queued { retry_at: slot @ None } => *slot = Some(at),
-			CidPhase::Queued { retry_at: Some(_) } |
-			CidPhase::InFlight { .. } |
-			CidPhase::RetryAt(_) => return false,
+			CidRequestPhase::Ready => self.phase = CidRequestPhase::RetryAt(at),
+			CidRequestPhase::Queued { retry_at: slot @ None } => *slot = Some(at),
+			CidRequestPhase::Queued { retry_at: Some(_) } |
+			CidRequestPhase::InFlight { .. } |
+			CidRequestPhase::RetryAt(_) => return false,
 		}
 		true
 	}
@@ -207,9 +207,9 @@ impl CidState {
 	/// Peer history is cleared so every connected peer becomes eligible again.
 	fn restart_round(&mut self, now: Instant) -> bool {
 		self.phase = match self.phase {
-			CidPhase::RetryAt(at) if at <= now => CidPhase::Ready,
-			CidPhase::Queued { retry_at: Some(at) } if at <= now => {
-				CidPhase::Queued { retry_at: None }
+			CidRequestPhase::RetryAt(at) if at <= now => CidRequestPhase::Ready,
+			CidRequestPhase::Queued { retry_at: Some(at) } if at <= now => {
+				CidRequestPhase::Queued { retry_at: None }
 			},
 			_ => return false,
 		};
@@ -219,77 +219,77 @@ impl CidState {
 	}
 }
 
-struct WantSet {
-	inner: HashMap<Cid, CidState>,
+struct RequestScheduler {
+	cid_states: HashMap<Cid, CidRequestState>,
 	/// FIFO of CIDs waiting for a free dispatch-window slot. May contain stale entries
 	/// (resolved, abandoned or already-dispatched CIDs); those are skipped on pop, guarded
-	/// by [`CidState::is_queued`].
+	/// by [`CidRequestState::is_queued`].
 	pending: VecDeque<Cid>,
 	/// Number of CIDs with at least one in-flight peer request.
-	live: usize,
-	/// Number of queued [`CidState`] entries, maintained incrementally: the
+	live_cids: usize,
+	/// Number of queued [`CidRequestState`] entries, maintained incrementally: the
 	/// metrics path reads it after every actor event, so recomputing it by scanning
-	/// `inner` would make large requests quadratic.
-	queued: usize,
+	/// `cid_states` would make large requests quadratic.
+	queued_cids: usize,
 	/// Dispatch-window size.
-	max_live: usize,
+	max_live_cids: usize,
 }
 
-impl WantSet {
-	fn new(max_live: usize) -> Self {
-		Self { inner: HashMap::new(), pending: VecDeque::new(), live: 0, queued: 0, max_live }
+impl RequestScheduler {
+	fn new(max_live_cids: usize) -> Self {
+		Self { cid_states: HashMap::new(), pending: VecDeque::new(), live_cids: 0, queued_cids: 0, max_live_cids }
 	}
 
 	fn contains(&self, cid: &Cid) -> bool {
-		self.inner.contains_key(cid)
+		self.cid_states.contains_key(cid)
 	}
 
-	fn waiter_count(&self, cid: &Cid) -> usize {
-		self.inner.get(cid).map_or(0, |state| state.waiters.len())
+	fn user_request_count(&self, cid: &Cid) -> usize {
+		self.cid_states.get(cid).map_or(0, |cid_state| cid_state.user_requests.len())
 	}
 
-	fn add_waiter(&mut self, cid: Cid, waiter: WaiterId) {
-		self.inner.entry(cid).or_default().waiters.push(waiter);
+	fn add_user_request(&mut self, cid: Cid, user_request: UserRequestId) {
+		self.cid_states.entry(cid).or_default().user_requests.push(user_request);
 	}
 
 	/// Detaches a user request from `cid` and removes newly idle state.
 	/// In-flight state remains until its response, timeout, or disconnect arrives.
-	fn remove_waiter(&mut self, cid: Cid, waiter: WaiterId) {
-		if let Some(state) = self.inner.get_mut(&cid) {
-			state.waiters.retain(|w| *w != waiter);
+	fn remove_user_request(&mut self, cid: Cid, user_request: UserRequestId) {
+		if let Some(cid_state) = self.cid_states.get_mut(&cid) {
+			cid_state.user_requests.retain(|r| *r != user_request);
 		}
 		self.remove_if_idle(cid);
 	}
 
 	fn all_cids(&self) -> Vec<Cid> {
-		self.inner.keys().copied().collect()
+		self.cid_states.keys().copied().collect()
 	}
 
-	/// Removes a delivered CID and returns every waiter that should receive it.
+	/// Removes a delivered CID and returns every user request that should receive it.
 	/// Scheduler counters are released according to the CID's previous phase.
-	fn take_waiters_for_delivered_cid(&mut self, cid: Cid) -> Option<SmallVec<[WaiterId; 2]>> {
-		self.inner.remove(&cid).map(|state| {
-			if matches!(state.phase, CidPhase::InFlight { .. }) {
-				self.live -= 1;
+	fn take_user_requests_for_delivered_cid(&mut self, cid: Cid) -> Option<SmallVec<[UserRequestId; 2]>> {
+		self.cid_states.remove(&cid).map(|cid_state| {
+			if matches!(cid_state.phase, CidRequestPhase::InFlight { .. }) {
+				self.live_cids -= 1;
 			}
-			if state.is_queued() {
-				self.queued -= 1;
+			if cid_state.is_queued() {
+				self.queued_cids -= 1;
 			}
-			state.waiters
+			cid_state.user_requests
 		})
 	}
 
 	fn has_window_capacity(&self) -> bool {
-		self.live < self.max_live
+		self.live_cids < self.max_live_cids
 	}
 
 	/// Pops the next still-valid queued CID and updates its queue accounting.
 	/// Stale FIFO entries are skipped until a queued state is found.
 	fn pop_pending(&mut self) -> Option<Cid> {
 		while let Some(cid) = self.pending.pop_front() {
-			if let Some(state) = self.inner.get_mut(&cid) {
-				if state.dequeue() {
-					self.queued -= 1;
+			if let Some(cid_state) = self.cid_states.get_mut(&cid) {
+				if cid_state.dequeue() {
+					self.queued_cids -= 1;
 					return Some(cid);
 				}
 			}
@@ -307,33 +307,33 @@ impl WantSet {
 		rng: &mut R,
 	) -> Option<litep2p::PeerId> {
 		let has_window_capacity = self.has_window_capacity();
-		let state = self.inner.get_mut(&cid)?;
-		if !state.has_waiters() || matches!(state.phase, CidPhase::InFlight { .. }) {
+		let cid_state = self.cid_states.get_mut(&cid)?;
+		if !cid_state.has_user_requests() || matches!(cid_state.phase, CidRequestPhase::InFlight { .. }) {
 			return None;
 		}
 
 		if !has_window_capacity {
 			// Preserve the CID for promotion when a dispatch slot opens.
-			if state.queue() {
+			if cid_state.queue() {
 				self.pending.push_back(cid);
-				self.queued += 1;
+				self.queued_cids += 1;
 			}
 			return None;
 		}
 
 		// Prefer peers that advertised HAVE before falling back to any untried peer.
-		let eligible = |peer: &litep2p::PeerId| !state.tried_peers.contains(peer);
-		let Some(peer) = state
+		let is_untried = |peer: &litep2p::PeerId| !cid_state.tried_peers.contains(peer);
+		let Some(peer) = cid_state
 			.have_peers
 			.iter()
-			.filter(|peer| connected_peers.contains(*peer) && eligible(peer))
+			.filter(|peer| connected_peers.contains(*peer) && is_untried(peer))
 			.choose(&mut *rng)
-			.or_else(|| connected_peers.iter().filter(|peer| eligible(peer)).choose(&mut *rng))
+			.or_else(|| connected_peers.iter().filter(|peer| is_untried(peer)).choose(&mut *rng))
 			.copied()
 		else {
 			if !connected_peers.is_empty() {
 				// Retry later once every connected peer has been tried.
-				if state.schedule_retry(now + ROUND_RETRY_DELAY) {
+				if cid_state.schedule_retry(now + ROUND_RETRY_DELAY) {
 					log::trace!(
 						target: LOG_TARGET,
 						"all peers tried for {cid}, scheduling new round",
@@ -343,11 +343,11 @@ impl WantSet {
 			return None;
 		};
 
-		if state.is_queued() {
-			self.queued -= 1;
+		if cid_state.is_queued() {
+			self.queued_cids -= 1;
 		}
-		self.live += 1;
-		state.phase = CidPhase::InFlight { peer, deadline: now + PER_PEER_TIMEOUT };
+		self.live_cids += 1;
+		cid_state.phase = CidRequestPhase::InFlight { peer, deadline: now + PER_PEER_TIMEOUT };
 
 		Some(peer)
 	}
@@ -355,11 +355,11 @@ impl WantSet {
 	/// Records a terminal response from `peer` and releases its active slot.
 	/// Late responses cannot finish a newer request owned by a different peer.
 	fn mark_peer_done_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
-		if let Some(state) = self.inner.get_mut(&cid) {
-			if state.finish_peer(peer) {
-				self.live -= 1;
+		if let Some(cid_state) = self.cid_states.get_mut(&cid) {
+			if cid_state.finish_peer(peer) {
+				self.live_cids -= 1;
 			}
-			state.tried_peers.insert(peer);
+			cid_state.tried_peers.insert(peer);
 		}
 		self.remove_if_idle(cid);
 	}
@@ -367,14 +367,14 @@ impl WantSet {
 	/// Records that `peer` has a CID and releases its active request.
 	/// A repeated `HAVE` marks that peer tried so another peer is selected next.
 	fn note_peer_have_for_cid(&mut self, peer: litep2p::PeerId, cid: Cid) {
-		if let Some(state) = self.inner.get_mut(&cid) {
-			if state.have_peers.contains(&peer) {
-				state.tried_peers.insert(peer);
+		if let Some(cid_state) = self.cid_states.get_mut(&cid) {
+			if cid_state.have_peers.contains(&peer) {
+				cid_state.tried_peers.insert(peer);
 			} else {
-				state.have_peers.push(peer);
+				cid_state.have_peers.push(peer);
 			}
-			if state.finish_peer(peer) {
-				self.live -= 1;
+			if cid_state.finish_peer(peer) {
+				self.live_cids -= 1;
 			}
 		}
 		self.remove_if_idle(cid);
@@ -383,53 +383,53 @@ impl WantSet {
 	/// Releases every active request owned by a disconnected peer.
 	/// Returned CIDs are still wanted and ready for immediate failover.
 	fn remove_in_flight_peer(&mut self, peer: litep2p::PeerId) -> Vec<Cid> {
-		let mut affected = Vec::new();
-		for (cid, state) in self.inner.iter_mut() {
-			if state.finish_peer(peer) {
-				self.live -= 1;
-				affected.push(*cid);
+		let mut affected_cids = Vec::new();
+		for (cid, cid_state) in self.cid_states.iter_mut() {
+			if cid_state.finish_peer(peer) {
+				self.live_cids -= 1;
+				affected_cids.push(*cid);
 			}
 		}
 
-		self.remove_idle_and_filter_existing(affected)
+		self.remove_idle_and_filter_existing(affected_cids)
 	}
 
 	/// Expire in-flight requests whose per-peer deadline passed. Returns the affected CIDs
 	/// still wanted (for re-dispatch) and the total number of timed-out peer requests.
 	fn expire_peer_timeouts(&mut self, now: Instant) -> (Vec<Cid>, usize) {
-		let mut timed_out = Vec::new();
-		for (cid, state) in self.inner.iter_mut() {
-			if let CidPhase::InFlight { peer, deadline } = state.phase {
+		let mut timed_out_cids = Vec::new();
+		for (cid, cid_state) in self.cid_states.iter_mut() {
+			if let CidRequestPhase::InFlight { peer, deadline } = cid_state.phase {
 				if deadline <= now {
-					state.phase = CidPhase::Ready;
-					state.tried_peers.insert(peer);
-					timed_out.push(*cid);
+					cid_state.phase = CidRequestPhase::Ready;
+					cid_state.tried_peers.insert(peer);
+					timed_out_cids.push(*cid);
 				}
 			}
 		}
-		let timed_out_count = timed_out.len();
-		self.live -= timed_out_count;
+		let timed_out_count = timed_out_cids.len();
+		self.live_cids -= timed_out_count;
 
-		(self.remove_idle_and_filter_existing(timed_out), timed_out_count)
+		(self.remove_idle_and_filter_existing(timed_out_cids), timed_out_count)
 	}
 
 	/// Restarts every exhausted CID whose retry delay has elapsed.
 	/// Returned CIDs should be reconsidered for immediate dispatch.
 	fn restart_exhausted_rounds(&mut self, now: Instant) -> Vec<Cid> {
-		let mut cids = Vec::new();
-		for (cid, state) in self.inner.iter_mut() {
-			if state.has_waiters() && state.restart_round(now) {
-				cids.push(*cid);
+		let mut restarted_cids = Vec::new();
+		for (cid, cid_state) in self.cid_states.iter_mut() {
+			if cid_state.has_user_requests() && cid_state.restart_round(now) {
+				restarted_cids.push(*cid);
 			}
 		}
-		cids
+		restarted_cids
 	}
 
 	fn clear(&mut self) {
-		self.inner.clear();
+		self.cid_states.clear();
 		self.pending.clear();
-		self.live = 0;
-		self.queued = 0;
+		self.live_cids = 0;
+		self.queued_cids = 0;
 	}
 
 	/// Removes idle states from `cids` and returns those still tracked.
@@ -438,22 +438,22 @@ impl WantSet {
 		for cid in &cids {
 			self.remove_if_idle(*cid);
 		}
-		cids.into_iter().filter(|cid| self.inner.contains_key(cid)).collect()
+		cids.into_iter().filter(|cid| self.cid_states.contains_key(cid)).collect()
 	}
 
 	fn remove_if_idle(&mut self, cid: Cid) {
-		let Entry::Occupied(entry) = self.inner.entry(cid) else { return };
+		let Entry::Occupied(entry) = self.cid_states.entry(cid) else { return };
 		if !entry.get().is_idle() {
 			return;
 		}
-		let state = entry.remove();
-		if state.is_queued() {
-			self.queued -= 1;
+		let cid_state = entry.remove();
+		if cid_state.is_queued() {
+			self.queued_cids -= 1;
 		}
 	}
 }
 
-struct Waiter {
+struct UserRequest {
 	cids_remaining: HashSet<Cid>,
 	sink: mpsc::Sender<FetchItem>,
 }
@@ -526,9 +526,9 @@ impl InboundQueue {
 			return 0;
 		}
 		let queue = self.per_peer.entry(peer).or_default();
-		let free = self.max_entries_per_peer.saturating_sub(queue.len());
-		let dropped = entries.len().saturating_sub(free);
-		entries.truncate(free);
+		let free_slots = self.max_entries_per_peer.saturating_sub(queue.len());
+		let dropped = entries.len().saturating_sub(free_slots);
+		entries.truncate(free_slots);
 		// Enter the rotation only on the empty-to-nonempty transition.
 		if queue.is_empty() && !entries.is_empty() {
 			self.rotation.push_back(peer);
@@ -577,8 +577,8 @@ pub(crate) struct BitswapService<B: BlockT> {
 	inbound_queue: InboundQueue,
 
 	connected_peers: HashSet<litep2p::PeerId>,
-	wants: WantSet,
-	waiters: SlotMap<WaiterId, Waiter>,
+	scheduler: RequestScheduler,
+	user_requests: SlotMap<UserRequestId, UserRequest>,
 	metrics: BitswapMetrics,
 }
 
@@ -612,8 +612,8 @@ where
 		inbound_lookup_rx,
 		inbound_queue: InboundQueue::new(MAX_QUEUED_INBOUND_ENTRIES_PER_PEER),
 		connected_peers: HashSet::new(),
-		wants: WantSet::new(MAX_LIVE_CIDS),
-		waiters: SlotMap::with_key(),
+		scheduler: RequestScheduler::new(MAX_LIVE_CIDS),
+		user_requests: SlotMap::with_key(),
 		metrics,
 	};
 
@@ -641,7 +641,7 @@ impl<B: BlockT> BitswapService<B> {
 						self.on_inbound_response(peer, responses).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "litep2p bitswap stream ended; shutting down");
-						self.shutdown_waiters();
+						self.shutdown_user_requests();
 						return;
 					},
 				},
@@ -658,13 +658,13 @@ impl<B: BlockT> BitswapService<B> {
 					},
 				},
 
-				sync_ev = self.sync_event_stream.next() => match sync_ev {
+				sync_event = self.sync_event_stream.next() => match sync_event {
 					Some(SyncEvent::PeerConnected { peer_id, roles }) =>
 						self.on_peer_connected(peer_id.into(), roles).await,
 					Some(SyncEvent::PeerDisconnected(peer)) => self.on_peer_disconnected(peer.into()).await,
 					None => {
 						log::debug!(target: LOG_TARGET, "sync event stream ended; shutting down");
-						self.shutdown_waiters();
+						self.shutdown_user_requests();
 						return;
 					},
 				},
@@ -683,11 +683,11 @@ impl<B: BlockT> BitswapService<B> {
 		}
 	}
 
-	/// Admits a user wantlist and attaches one waiter to all requested CIDs.
-	/// Requests exceeding the per-CID waiter limit are rejected as overloaded.
+	/// Admits a user wantlist and attaches one user request to all requested CIDs.
+	/// Requests exceeding the per-CID user-request limit are rejected as overloaded.
 	async fn on_request_stream(&mut self, cids: Vec<Cid>, sink: mpsc::Sender<FetchItem>) {
 		for cid in &cids {
-			if self.wants.waiter_count(cid) >= MAX_WAITERS_PER_CID {
+			if self.scheduler.user_request_count(cid) >= MAX_USER_REQUESTS_PER_CID {
 				self.metrics.record_outbound(outbound_events::OVERLOADED, 1);
 				let _ = sink.try_send(Err(BitswapError::Overloaded));
 				return;
@@ -695,10 +695,10 @@ impl<B: BlockT> BitswapService<B> {
 		}
 
 		let cids_remaining: HashSet<Cid> = cids.iter().copied().collect();
-		let waiter_id = self.waiters.insert(Waiter { cids_remaining, sink });
+		let user_request_id = self.user_requests.insert(UserRequest { cids_remaining, sink });
 
 		for cid in &cids {
-			self.wants.add_waiter(*cid, waiter_id);
+			self.scheduler.add_user_request(*cid, user_request_id);
 		}
 
 		self.top_up_in_flight(cids).await;
@@ -708,32 +708,32 @@ impl<B: BlockT> BitswapService<B> {
 	/// Eligible wants are grouped by peer and sent in protocol-sized batches.
 	async fn top_up_in_flight(&mut self, cids: impl IntoIterator<Item = Cid>) {
 		let now = Instant::now();
-		let by_peer = {
+		let wants_by_peer = {
 			let mut rng = rand::thread_rng();
-			let mut by_peer: HashMap<litep2p::PeerId, Vec<(Cid, WantType)>> = HashMap::new();
+			let mut wants_by_peer: HashMap<litep2p::PeerId, Vec<(Cid, WantType)>> = HashMap::new();
 			for cid in cids {
 				if let Some(peer) =
-					self.wants.next_peer_to_request(cid, &self.connected_peers, now, &mut rng)
+					self.scheduler.next_peer_to_request(cid, &self.connected_peers, now, &mut rng)
 				{
 					log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?}");
-					by_peer.entry(peer).or_default().push((cid, WantType::Block));
+					wants_by_peer.entry(peer).or_default().push((cid, WantType::Block));
 				}
 			}
 
 			// Fill remaining dispatch slots from the pending FIFO.
-			while self.wants.has_window_capacity() {
-				let Some(cid) = self.wants.pop_pending() else { break };
+			while self.scheduler.has_window_capacity() {
+				let Some(cid) = self.scheduler.pop_pending() else { break };
 				if let Some(peer) =
-					self.wants.next_peer_to_request(cid, &self.connected_peers, now, &mut rng)
+					self.scheduler.next_peer_to_request(cid, &self.connected_peers, now, &mut rng)
 				{
 					log::trace!(target: LOG_TARGET, "WANT-BLOCK {cid} -> {peer:?} (promoted)");
-					by_peer.entry(peer).or_default().push((cid, WantType::Block));
+					wants_by_peer.entry(peer).or_default().push((cid, WantType::Block));
 				}
 			}
-			by_peer
+			wants_by_peer
 		};
 
-		for (peer, wants) in by_peer {
+		for (peer, wants) in wants_by_peer {
 			self.metrics.record_outbound(outbound_events::REQUESTED, wants.len());
 			for chunk in wants.chunks(MAX_WANTED_BLOCKS) {
 				self.handle.send_request(peer, chunk.to_vec()).await;
@@ -754,9 +754,9 @@ impl<B: BlockT> BitswapService<B> {
 			match response {
 				TransportResponse::VerifiedBlock { cid, bytes } => {
 					// A late verified block may satisfy a want reassigned to another peer.
-					self.wants.mark_peer_done_for_cid(peer, cid);
+					self.scheduler.mark_peer_done_for_cid(peer, cid);
 
-					if self.wants.contains(&cid) {
+					if self.scheduler.contains(&cid) {
 						self.deliver_block(cid, bytes);
 					} else {
 						log::debug!(
@@ -769,11 +769,11 @@ impl<B: BlockT> BitswapService<B> {
 					match presence {
 						BlockPresenceType::DontHave => {
 							log::trace!(target: LOG_TARGET, "{peer:?} DONT_HAVE {cid}");
-							self.wants.mark_peer_done_for_cid(peer, cid);
+							self.scheduler.mark_peer_done_for_cid(peer, cid);
 						},
 						BlockPresenceType::Have => {
 							log::trace!(target: LOG_TARGET, "{peer:?} HAVE {cid}");
-							self.wants.note_peer_have_for_cid(peer, cid);
+							self.scheduler.note_peer_have_for_cid(peer, cid);
 						},
 					}
 					cids_to_top_up.insert(cid);
@@ -784,35 +784,35 @@ impl<B: BlockT> BitswapService<B> {
 		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
-	/// Delivers a resolved block to every waiter sharing its CID.
+	/// Delivers a resolved block to every user request sharing its CID.
 	/// The CID is removed once, releasing any replacement in-flight request.
 	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
-		let Some(waiter_ids) = self.wants.take_waiters_for_delivered_cid(cid) else { return };
+		let Some(user_request_ids) = self.scheduler.take_user_requests_for_delivered_cid(cid) else { return };
 		self.metrics.record_outbound(outbound_events::DELIVERED, 1);
 
-		for waiter_id in waiter_ids {
-			let Some(waiter) = self.waiters.get_mut(waiter_id) else { continue };
-			if !waiter.cids_remaining.remove(&cid) {
+		for user_request_id in user_request_ids {
+			let Some(user_request) = self.user_requests.get_mut(user_request_id) else { continue };
+			if !user_request.cids_remaining.remove(&cid) {
 				continue;
 			}
-			if waiter.sink.try_send(Ok((cid, bytes.clone()))).is_err() {
-				log::trace!(target: LOG_TARGET, "waiter sink full/closed for {cid}");
-				self.drop_waiter(waiter_id);
+			if user_request.sink.try_send(Ok((cid, bytes.clone()))).is_err() {
+				log::trace!(target: LOG_TARGET, "user request sink full/closed for {cid}");
+				self.drop_user_request(user_request_id);
 				continue;
 			}
-			if waiter.cids_remaining.is_empty() {
-				self.drop_waiter(waiter_id);
+			if user_request.cids_remaining.is_empty() {
+				self.drop_user_request(user_request_id);
 			}
 		}
 	}
 
-	/// Removes a waiter and detaches it from every unresolved CID.
-	/// CID state is retained only while another waiter or request needs it.
-	fn drop_waiter(&mut self, id: WaiterId) {
-		let Some(waiter) = self.waiters.remove(id) else { return };
+	/// Removes a user request and detaches it from every unresolved CID.
+	/// CID state is retained only while another user request or peer request needs it.
+	fn drop_user_request(&mut self, id: UserRequestId) {
+		let Some(user_request) = self.user_requests.remove(id) else { return };
 
-		for cid in &waiter.cids_remaining {
-			self.wants.remove_waiter(*cid, id);
+		for cid in &user_request.cids_remaining {
+			self.scheduler.remove_user_request(*cid, id);
 		}
 	}
 
@@ -823,7 +823,7 @@ impl<B: BlockT> BitswapService<B> {
 			return;
 		}
 		self.connected_peers.insert(peer);
-		let cids = self.wants.all_cids();
+		let cids = self.scheduler.all_cids();
 		self.top_up_in_flight(cids).await;
 	}
 
@@ -831,31 +831,31 @@ impl<B: BlockT> BitswapService<B> {
 	/// Late responses remain safe because peer ownership is checked on completion.
 	async fn on_peer_disconnected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.remove(&peer);
-		let cids_to_top_up = self.wants.remove_in_flight_peer(peer);
+		let cids_to_top_up = self.scheduler.remove_in_flight_peer(peer);
 		self.top_up_in_flight(cids_to_top_up).await;
 	}
 
-	/// Periodic housekeeping: drop waiters whose receiver was dropped, expire per-peer request
+	/// Periodic housekeeping: drop user requests whose receiver was dropped, expire per-peer request
 	/// timeouts, and start new rounds for CIDs whose retry delay has passed.
 	async fn on_sweep(&mut self) {
-		let abandoned: Vec<WaiterId> = self
-			.waiters
+		let abandoned_user_requests: Vec<UserRequestId> = self
+			.user_requests
 			.iter()
-			.filter_map(|(id, waiter)| waiter.sink.is_closed().then_some(id))
+			.filter_map(|(id, user_request)| user_request.sink.is_closed().then_some(id))
 			.collect();
-		self.metrics.record_outbound(outbound_events::ABANDONED, abandoned.len());
-		for id in abandoned {
-			log::trace!(target: LOG_TARGET, "dropping abandoned waiter {id:?}");
-			self.drop_waiter(id);
+		self.metrics.record_outbound(outbound_events::ABANDONED, abandoned_user_requests.len());
+		for id in abandoned_user_requests {
+			log::trace!(target: LOG_TARGET, "dropping abandoned user request {id:?}");
+			self.drop_user_request(id);
 		}
 
 		let now = Instant::now();
-		let (mut cids, timed_out) = self.wants.expire_peer_timeouts(now);
-		self.metrics.record_outbound(outbound_events::TIMED_OUT, timed_out);
-		let restarted = self.wants.restart_exhausted_rounds(now);
-		self.metrics.record_outbound(outbound_events::ROUND_RESTARTED, restarted.len());
-		cids.extend(restarted);
-		self.top_up_in_flight(cids).await;
+		let (mut cids_to_top_up, timed_out_count) = self.scheduler.expire_peer_timeouts(now);
+		self.metrics.record_outbound(outbound_events::TIMED_OUT, timed_out_count);
+		let restarted_cids = self.scheduler.restart_exhausted_rounds(now);
+		self.metrics.record_outbound(outbound_events::ROUND_RESTARTED, restarted_cids.len());
+		cids_to_top_up.extend(restarted_cids);
+		self.top_up_in_flight(cids_to_top_up).await;
 
 		// Recover capacity after a lookup task exits without a result.
 		self.dispatch_inbound_lookups();
@@ -885,16 +885,16 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	fn update_metrics(&self) {
-		self.metrics.set_state(self.wants.live, self.wants.queued, self.waiters.len());
+		self.metrics.set_state(self.scheduler.live_cids, self.scheduler.queued_cids, self.user_requests.len());
 	}
 
-	/// Notifies every waiter that the service closed and clears scheduler state.
+	/// Notifies every user request that the service closed and clears scheduler state.
 	/// Send failures are ignored because the corresponding receiver already vanished.
-	fn shutdown_waiters(&mut self) {
-		for (_, waiter) in self.waiters.drain() {
-			let _ = waiter.sink.try_send(Err(BitswapError::ServiceClosed));
+	fn shutdown_user_requests(&mut self) {
+		for (_, user_request) in self.user_requests.drain() {
+			let _ = user_request.sink.try_send(Err(BitswapError::ServiceClosed));
 		}
-		self.wants.clear();
+		self.scheduler.clear();
 		self.update_metrics();
 	}
 }
