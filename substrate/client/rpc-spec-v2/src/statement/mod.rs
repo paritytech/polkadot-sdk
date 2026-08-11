@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! TODO: No node registers these methods, remove this module and the statement-store support code
+//! it relies on.
+
 /// JSON-RPC method definitions for statement store RPC.
 pub mod api;
 /// Error types for statement store RPC.

@@ -120,6 +120,10 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 /// End-to-end smoke test of the v2 unstable statement RPC API on a two-node network: replay and
 /// live delivery on the submitting node, cross-node live delivery, and multi-filter attribution
 /// plus filter removal
+///
+/// Ignored: the node no longer registers the `statement_unstable_*` methods.
+/// TODO: remove this test together with the RPC implementation.
+#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(

@@ -1,0 +1,15 @@
+title: 'statement-store: stop exposing the statement_unstable_* JSON-RPC API'
+doc:
+- audience: Node Operator
+  description: |-
+    The `statement_unstable_submit`, `statement_unstable_subscribe`, `statement_unstable_add_filter`,
+    and `statement_unstable_remove_filter` methods are no longer registered by the node. The API
+    specifies a replay of the statements already in the store, which only a node holding the
+    complete store can deliver. Light nodes cannot, and full nodes will not once statements are
+    sharded by DHT affinity. Use the `statement_*` methods instead.
+
+    The methods were never released, so no client migration is needed. The implementation stays in
+    the tree and is removed in a follow-up.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
