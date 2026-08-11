@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786442809021,
+  "lastUpdate": 1786458304763,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f75716203c2579336bed659199680329cb9fb120",
-          "message": "Align Events between Bulletin and SDK (#10445)\n\n* Align events between Bulletin and SDK\n* Extends `Stored` and `Renewed` events with a `hash: ContentHash`\nfield.\n* Replaces `log` with `tracing` to match Bulletin’s logging approach.\n\nAddresses\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/86,\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/123\n\nRelates to\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/124\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/127\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/129\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T13:23:14Z",
-          "tree_id": "b79a56b0ff4c2b9c75522a36746ffe7a64dc0bec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f75716203c2579336bed659199680329cb9fb120"
-        },
-        "date": 1764774108317,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.98199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04422469869999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03426485691800002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039787488279999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "519726f3f2ee9542771241c1eec153255993d2d7",
+          "message": "Re-enable zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-va… (#12856)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12839\n\nThe throughput for v3 will be flaky until we have resubmissions.\nDecreasing the expected ranges according to the CI failures for the\nmoment",
+          "timestamp": "2026-08-11T12:38:52Z",
+          "tree_id": "532d3ffa78bb94b239df3d096b9c32f4c787bccb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/519726f3f2ee9542771241c1eec153255993d2d7"
+        },
+        "date": 1786458270869,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.04599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08837197627799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04002860145799999,
             "unit": "seconds"
           }
         ]
