@@ -101,7 +101,7 @@ module state_balance {
       })
   }
 
-  // --- Preimage-registry referencer multiplexing (§6.1) -------------------
+  // --- Preimage-registry referencer sharing (§6.1) ------------------------
   //
   // `solicit` is forwarded to JAM iff the referencer set transitions from
   // empty to non-empty. `forget` is forwarded iff the set transitions back

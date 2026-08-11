@@ -185,7 +185,7 @@ struct ParachainServiceState {
     /// Cross-parachain preimage registry. Holds every preimage the service
     /// has solicited from JAM (each parachain's active validation code, any
     /// pending-upgrade code, and PVF-initiated `solicit` requests) under the
-    /// same referencer-multiplexing scheme. In the key, `Hash` is
+    /// same referencer-sharing scheme. In the key, `Hash` is
     /// the preimage's hash and `u32` its byte length. See §6.1.
     preimage_registry: Map<(Hash, u32), PreimageEntry>,
 
@@ -806,7 +806,7 @@ recorded per-code by the `pinned` bit in `ParaInfo` (§3.1):
   superseding request), this parachain's referencer is released unless its
   `pinned` bit is set (in which case the slot survives as an ordinary
   solicited preimage). The JAM `forget` itself is governed by the
-  referencer multiplexing of §6.1, not by one parachain's state: it is
+  referencer sharing of §6.1, not by one parachain's state: it is
   forwarded only when the *last* referencer across all parachains is
   removed, so a code shared by several parachains is never dropped from JAM
   while any of them still references it.
@@ -1031,10 +1031,10 @@ Deposits, sizing, and refunds are owned end-to-end by the Coretime chain; end us
 interact with it via its usual extrinsics, and the Coretime chain reflects those
 interactions into the Parachain Service via `parachain_set_state_balance`.
 
-#### Preimage multiplexing
+#### Preimage handling
 
 JAM allows only one `(hash, len)` solicitation per service. The Parachain Service is
-a single service hosting many parachains, so it multiplexes via `preimage_registry`:
+a single service hosting many parachains, so they share one request via `preimage_registry`:
 each entry records the set of `ParaId`s referencing the hash. JAM `solicit` is
 called when the set transitions empty → non-empty; JAM `forget` is called when it
 transitions back to empty.

@@ -10,7 +10,7 @@ design, written in [Quint](https://quint-lang.org).
 | [`types.qnt`](./types.qnt) | Foundational types (`ParaId`, `Hash`, `ValidatorKey`, …) and protocol constants (`ValCount`, `MaxReportVarSize`, …) | — |
 | [`messages.qnt`](./messages.qnt) | `UpwardMessage`, `ParachainWorkDigest`, `RefineLog`, `AccumulateLog` | §3.3, §4 |
 | [`state.qnt`](./state.qnt) | `ParaInfo`, `PreimageEntry`, `ParachainServiceState` | §3.1 |
-| [`state_balance.qnt`](./state_balance.qnt) | `baseline_footprint`, `used`/`total_state_balance` accounting, preimage-registry referencer multiplexing | §6.1 |
+| [`state_balance.qnt`](./state_balance.qnt) | `baseline_footprint`, `used`/`total_state_balance` accounting, preimage-registry referencer sharing | §6.1 |
 | [`code_upgrades.qnt`](./code_upgrades.qnt) | Pending-upgrade lifecycle: request, transition, activation, timeout | §5.2 |
 | [`validator_keys.qnt`](./validator_keys.qnt) | Chunked `designate`: `set_validator_keys`, `staged_validator_keys`, finalize/abort | §5.3 |
 | [`refine.qnt`](./refine.qnt) | Refine per work-item, abstract PVF execution, `ParachainWorkDigest` assembly | §4 |
@@ -27,7 +27,7 @@ design, written in [Quint](https://quint-lang.org).
 - All Parachain Service state per §3.1.
 - The full upward-message vocabulary the PVF can emit during Refine.
 - Accumulate replay semantics: parent-head check, code-upgrade activation,
- preimage-registry referencer multiplexing, state-balance accounting,
+ preimage-registry referencer sharing, state-balance accounting,
  chunked `designate`.
 - Coretime-chain-only host calls for registration, forced updates, clean-up.
 - The pending-authorizer-queue cache flush on the always-accumulate path.
