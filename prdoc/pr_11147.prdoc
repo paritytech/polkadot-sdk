@@ -1,0 +1,99 @@
+title: 'Track nested memory used by `xcm::DoubleEncoded`: approach #2'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Resolves https://github.com/paritytech/polkadot-sdk/issues/8675
+    Follow-up for https://github.com/paritytech/polkadot-sdk/pull/10747 (approach # 1)
+
+    Different approach for tracking the nested memory used by `xcm::DoubleEncoded`
+
+    The idea is to decode the entire `xcm::DoubleEncoded<Call>` when possible. This can be done when the `Call` is the  `RuntimeCall` of our local Runtime. When the `Call` is `()` it means that it's a remote `RuntimeCall`, and it will be decoded on the destination chain.
+
+    This covers the XCMP/UMP/DMP pathways and the `pallet_xcm::execute()` extrinsic or any other extrinsic that accepts XCMs. For extrinsics we have the heap memory limit used for decoding the extrinsic (16 MB) and for XCMP/UMP/DMP we call `decode_with_constraints()` which uses a hardcoded 10MB limit now. We can adjust it or make it configurable. I hope I'm not missing any use cases.
+
+    Known issues (to be fixed in future PRs):
+    - dry-running: The methods defined in `RecordXcm` return `VersionedXcm<()>` directly. We should add the `RuntimeCall` as a generic type param (`RecordXcm<Call>`) and modify all the methods to return `VersionedXcm<Call>`
+    - `DoubleEncoded::transmute_encoded()` is used in some mocks. Not sure if it's needed outside of mocks. Maybe we can remove it with some cleanup.
+crates:
+- name: sp-runtime
+  bump: major
+- name: snowbridge-outbound-queue-primitives
+  bump: major
+- name: staging-xcm
+  bump: major
+- name: staging-xcm-executor
+  bump: major
+- name: pallet-xcm-bridge-hub-router
+  bump: major
+- name: snowbridge-core
+  bump: major
+- name: snowbridge-test-utils
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: bp-asset-hub-rococo
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: bp-asset-hub-westend
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: asset-test-utils
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: bridge-hub-common
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: parachains-runtimes-test-utils
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: xcm-procedural
+  bump: major
+- name: staging-xcm-builder
+  bump: major
+- name: xcm-runtime-apis
+  bump: major
+- name: xcm-simulator-example
+  bump: major
+- name: xcm-simulator
+  bump: major
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-system
+  bump: major
+- name: snowbridge-inbound-queue-primitives
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: pallet-contracts-mock-network
+  bump: major
+- name: pallet-contracts
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
