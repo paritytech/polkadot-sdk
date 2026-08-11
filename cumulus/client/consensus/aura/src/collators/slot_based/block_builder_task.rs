@@ -357,6 +357,8 @@ where
 				anchor_hash = build_parent_hash;
 			};
 
+			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
+
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
 
