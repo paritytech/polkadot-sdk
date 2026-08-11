@@ -152,12 +152,9 @@ pub fn new_test_ext() -> TestState {
 }
 
 /// Run `test` in a fresh externality, then assert the pallet invariants hold.
-///
-/// The `do_try_state` check only runs under the `try-runtime` feature.
 fn new_test_ext_and_execute(test: impl FnOnce()) {
 	new_test_ext().execute_with(|| {
 		test();
-		#[cfg(feature = "try-runtime")]
 		Proxy::do_try_state().expect("All invariants must hold after each test");
 	});
 }
@@ -876,4 +873,170 @@ fn poke_deposit_fails_for_unsigned_origin() {
 	new_test_ext_and_execute(|| {
 		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin,);
 	});
+}
+
+mod try_state {
+	use super::*;
+
+	type ProxiesValue =
+		(BoundedVec<ProxyDefinition<u64, ProxyType, u64>, <Test as Config>::MaxProxies>, u64);
+	type AnnouncementsValue =
+		(BoundedVec<Announcement<u64, CallHashOf<Test>, u64>, <Test as Config>::MaxPending>, u64);
+
+	#[test]
+	fn passes_on_genesis_state() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Proxy::do_try_state());
+		});
+	}
+
+	#[test]
+	fn passes_with_pure_proxy_and_announcement() {
+		// Exercises the trickiest legitimate case: a pure proxy's deposit is held by its
+		// spawner, not by the pure account itself, which must not trip the deposit check.
+		new_test_ext_and_execute(|| {
+			assert_ok!(Proxy::create_pure(RuntimeOrigin::signed(1), ProxyType::Any, 0, 0));
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+		});
+	}
+
+	#[test]
+	fn detects_empty_proxies_entry() {
+		new_test_ext().execute_with(|| {
+			let value: ProxiesValue = (vec![].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies entry must never be empty")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_unsorted_proxies_entry() {
+		new_test_ext().execute_with(|| {
+			let higher = ProxyDefinition { delegate: 3, proxy_type: ProxyType::Any, delay: 0 };
+			let lower = ProxyDefinition { delegate: 2, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![higher, lower].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies must be strictly sorted and duplicate-free")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_duplicate_proxies_entry() {
+		new_test_ext().execute_with(|| {
+			let def = ProxyDefinition { delegate: 2, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![def, def].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies must be strictly sorted and duplicate-free")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_self_proxy() {
+		new_test_ext().execute_with(|| {
+			let def = ProxyDefinition { delegate: 1, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![def].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Proxies entry must not list the key account as its own delegate"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn proxies_deposit_shortfall_only_warns() {
+		// Mirrors an untouched pure proxy: a deposit is recorded but nothing is reserved on
+		// the key account itself. This must not fail the check, only warn.
+		new_test_ext().execute_with(|| {
+			let def = ProxyDefinition { delegate: 2, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![def].try_into().unwrap(), 2);
+			Proxies::<Test>::insert(1, value);
+			assert_ok!(Proxy::do_try_state());
+		});
+	}
+
+	#[test]
+	fn detects_empty_announcements_entry() {
+		new_test_ext().execute_with(|| {
+			let value: AnnouncementsValue = (vec![].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Announcements entry must never be empty")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_decreasing_announcement_heights() {
+		new_test_ext().execute_with(|| {
+			let later = Announcement { real: 2, call_hash: [1; 32].into(), height: 5 };
+			let earlier = Announcement { real: 2, call_hash: [2; 32].into(), height: 4 };
+			let value: AnnouncementsValue = (vec![later, earlier].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Announcements heights must be non-decreasing")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_self_announcement() {
+		new_test_ext().execute_with(|| {
+			let ann = Announcement { real: 1, call_hash: [1; 32].into(), height: 1 };
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements entry must not name the key account as `real`"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_future_announcement_height() {
+		new_test_ext().execute_with(|| {
+			// `new_test_ext` starts at block 1.
+			let ann = Announcement { real: 2, call_hash: [1; 32].into(), height: 100 };
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements entry has a height later than the current block"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_underreserved_announcement_deposit() {
+		new_test_ext().execute_with(|| {
+			let ann = Announcement { real: 2, call_hash: [1; 32].into(), height: 1 };
+			// Nothing is reserved on account 1, but a deposit is recorded.
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 5);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements deposit exceeds the key account's reserved balance"
+				)
+			);
+		});
+	}
 }

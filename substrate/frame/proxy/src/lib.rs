@@ -42,8 +42,8 @@ use frame::{
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-#[cfg(feature = "try-runtime")]
-use frame::try_runtime::TryRuntimeError;
+#[cfg(any(feature = "try-runtime", test))]
+use frame::deps::sp_runtime::TryRuntimeError;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
@@ -1058,24 +1058,65 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-#[cfg(feature = "try-runtime")]
+/// The log target used by this pallet's `try-runtime` checks.
+#[cfg(any(feature = "try-runtime", test))]
+const LOG_TARGET: &str = "runtime::proxy";
+
+#[cfg(any(feature = "try-runtime", test))]
 impl<T: Config> Pallet<T> {
 	/// Invariants that must hold before and after every state transition of this pallet.
 	///
-	/// Deposits are not checked: stored deposits go stale (until poked) when the `*Deposit*`
-	/// parameters change, and a pure proxy holds its deposit on the creator, not the stored key.
+	/// Iterated by key + `get`, since `iter()` silently skips undecodable entries. `Proxies`
+	/// deposit shortfalls only warn: `create_pure` holds the initial deposit on the spawner,
+	/// not the pure account.
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
-		// Empty entries are always removed; `Proxies` is kept sorted (hence duplicate-free) by
-		// the `binary_search` insertion in `add_proxy_delegate`.
-		for (_, (proxies, _)) in Proxies::<T>::iter() {
+		let now = T::BlockNumberProvider::current_block_number();
+
+		for delegator in Proxies::<T>::iter_keys() {
+			let (proxies, deposit) = Proxies::<T>::get(&delegator);
 			ensure!(!proxies.is_empty(), "Proxies entry must never be empty");
 			ensure!(
 				proxies.windows(2).all(|w| w[0] < w[1]),
 				"Proxies must be strictly sorted and duplicate-free"
 			);
+			ensure!(
+				proxies.iter().all(|p| p.delegate != delegator),
+				"Proxies entry must not list the key account as its own delegate"
+			);
+
+			let reserved = T::Currency::reserved_balance(&delegator);
+			if !deposit.is_zero() && reserved < deposit {
+				log::warn!(
+					target: LOG_TARGET,
+					"Proxies deposit for {:?} is {:?}, but only {:?} is reserved on the key \
+					account; expected for an untouched pure proxy, whose initial deposit is held \
+					by its spawner instead",
+					delegator,
+					deposit,
+					reserved,
+				);
+			}
 		}
-		for (_, (pending, _)) in Announcements::<T>::iter() {
+
+		for delegate in Announcements::<T>::iter_keys() {
+			let (pending, deposit) = Announcements::<T>::get(&delegate);
 			ensure!(!pending.is_empty(), "Announcements entry must never be empty");
+			ensure!(
+				pending.windows(2).all(|w| w[0].height <= w[1].height),
+				"Announcements heights must be non-decreasing"
+			);
+			ensure!(
+				pending.iter().all(|a| a.real != delegate),
+				"Announcements entry must not name the key account as `real`"
+			);
+			ensure!(
+				pending.iter().all(|a| a.height <= now),
+				"Announcements entry has a height later than the current block"
+			);
+			ensure!(
+				T::Currency::reserved_balance(&delegate) >= deposit,
+				"Announcements deposit exceeds the key account's reserved balance"
+			);
 		}
 
 		Ok(())
