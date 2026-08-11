@@ -152,8 +152,8 @@ pub enum ClientError {
 	ContractNotFound,
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
-	/// The transaction exists but a recorder-less replay could not produce its trace.
-	#[error("Trace unavailable: replay without proof recorder may have dropped it")]
+	/// The transaction exists but the node could not produce its trace.
+	#[error("trace unavailable: the node could not produce a trace for this transaction")]
 	TraceUnavailable,
 	/// The transaction fee could not be found
 	#[error("transactionFeePaid event not found")]
