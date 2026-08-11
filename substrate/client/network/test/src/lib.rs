@@ -72,6 +72,7 @@ use sc_network_sync::{
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		chain_sync::BlockBodyRetention,
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
 			EncodedProof, VerificationResult, Verifier as WarpVerifier, WarpSyncConfig,
@@ -992,7 +993,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			archive_blocks: config.blocks_pruning.is_none(),
+			body_retention: match config.blocks_pruning {
+				None => BlockBodyRetention::All,
+				Some(n) => BlockBodyRetention::Recent(n),
+			},
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

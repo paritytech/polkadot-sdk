@@ -93,7 +93,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -159,7 +159,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		8,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -369,7 +369,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -544,7 +544,7 @@ fn can_sync_huge_fork() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -700,7 +700,7 @@ fn syncs_fork_without_duplicate_requests() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -856,7 +856,7 @@ fn removes_target_fork_on_disconnect() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -892,7 +892,7 @@ fn can_import_response_with_missing_blocks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -934,7 +934,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -1087,7 +1087,7 @@ fn request_across_forks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -1196,7 +1196,7 @@ fn sync_verification_failed_with_gap_filled() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -1335,7 +1335,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)
@@ -1390,25 +1390,46 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 }
 
 #[test]
-fn gap_sync_body_request_depends_on_pruning_mode() {
+fn gap_sync_body_request_depends_on_body_retention() {
 	sp_tracing::try_init_simple();
 
-	for archive_blocks in [true, false] {
-		// Bodies only needed for archive mode
-		let should_request_bodies = archive_blocks;
-		log::info!("Testing gap sync with archive_blocks: {}", archive_blocks);
+	let bodies = BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION;
+	let headers_only = BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION;
+
+	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9, so with
+	// `Recent(3)` the body cutoff is #7. `max_blocks_per_request` is 2, so the
+	// requested range is the two blocks above `best_queued_number`.
+	let cases = [
+		// Archive nodes request bodies for the whole gap.
+		(BlockBodyRetention::All, 0, bodies),
+		// Range #1..=#2 is entirely below the cutoff.
+		(BlockBodyRetention::Recent(3), 0, headers_only),
+		// Range #8..=#9 is entirely above the cutoff.
+		(BlockBodyRetention::Recent(3), 7, bodies),
+		// Range #7..=#8 straddles the cutoff: bodies are requested for all of it.
+		(BlockBodyRetention::Recent(3), 6, bodies),
+		// A retention window larger than the chain never strips bodies.
+		(BlockBodyRetention::Recent(100), 0, bodies),
+	];
+
+	for (body_retention, best_queued_number, expected_fields) in cases {
+		log::info!(
+			"Testing gap sync with body_retention: {body_retention:?}, \
+			 gap best queued: {best_queued_number}",
+		);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+		client.finalize_block(blocks[9].hash(), None).unwrap();
 
 		let mut sync = ChainSync::new(
 			ChainSyncMode::Full,
 			client.clone(),
 			5,
-			64,
+			2,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			archive_blocks,
+			body_retention,
 			None,
 			std::iter::empty(),
 		)
@@ -1416,10 +1437,9 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 
 		let peer_id = PeerId::random();
 
-		// Simulate gap: blocks 5-10 missing
 		sync.gap_sync = Some(GapSync {
-			best_queued_number: 5,
-			target: 10,
+			best_queued_number,
+			target: 9,
 			blocks: BlockCollection::new(),
 			stats: GapSyncStats::new(),
 		});
@@ -1429,21 +1449,15 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 		let requests = sync.block_requests();
 		assert!(
 			!requests.is_empty(),
-			"[archive_blocks={archive_blocks}] Should generate gap sync request"
+			"[{body_retention:?}, best_queued={best_queued_number}] Should generate gap sync request"
 		);
 
 		let (_peer, request) = &requests[0];
 
-		// Verify the exact expected field combination
-		let expected_fields = if should_request_bodies {
-			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
-		} else {
-			BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION
-		};
-
 		assert_eq!(
 			request.fields, expected_fields,
-			"[archive_blocks={archive_blocks}] Gap sync fields mismatch: expected {expected_fields:?}, got {:?}",
+			"[{body_retention:?}, best_queued={best_queued_number}] Gap sync fields mismatch: \
+			 expected {expected_fields:?}, got {:?}",
 			request.fields
 		);
 	}
@@ -1455,8 +1469,8 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 	// Verify that regular (non-gap) sync always requests bodies,
 	// regardless of pruning mode - our optimization only applies to gap sync
-	for archive_blocks in [true, false] {
-		log::info!("Testing regular sync with archive_blocks: {}", archive_blocks);
+	for body_retention in [BlockBodyRetention::All, BlockBodyRetention::Recent(0)] {
+		log::info!("Testing regular sync with body_retention: {body_retention:?}");
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..5).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1468,7 +1482,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			archive_blocks,
+			body_retention,
 			None,
 			std::iter::empty(),
 		)
@@ -1477,10 +1491,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 		let peer_id = PeerId::random();
 
 		// Ensure we're NOT in gap sync mode
-		assert!(
-			sync.gap_sync.is_none(),
-			"[archive_blocks={archive_blocks}] Should not have gap sync active"
-		);
+		assert!(sync.gap_sync.is_none(), "[{body_retention:?}] Should not have gap sync active");
 
 		// Add peer ahead of us to trigger regular sync
 		sync.add_peer(peer_id, blocks[4].hash(), 5);
@@ -1498,7 +1509,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 			assert_eq!(
 				request.fields, expected_fields,
-				"[archive_blocks={archive_blocks}] Regular sync fields mismatch: expected {expected_fields:?}, got {:?}",
+				"[{body_retention:?}] Regular sync fields mismatch: expected {expected_fields:?}, got {:?}",
 				request.fields
 			);
 		}
@@ -1544,7 +1555,7 @@ fn no_ancestry_search_during_major_sync() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		BlockBodyRetention::Recent(0),
 		None,
 		std::iter::empty(),
 	)

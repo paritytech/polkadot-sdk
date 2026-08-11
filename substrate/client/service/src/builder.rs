@@ -60,6 +60,7 @@ use sc_network_sync::{
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		chain_sync::BlockBodyRetention,
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		SyncingStrategy,
 	},
@@ -1085,6 +1086,10 @@ where
 		),
 	};
 
+	let body_retention = match config.blocks_pruning {
+		BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => BlockBodyRetention::All,
+		BlocksPruning::Some(n) => BlockBodyRetention::Recent(n),
+	};
 	let syncing_strategy = build_polkadot_syncing_strategy(
 		protocol_id.clone(),
 		fork_id,
@@ -1094,7 +1099,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
-		config.blocks_pruning.is_archive(),
+		body_retention,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1382,9 +1387,9 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
-	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-	/// block history.
-	pub archive_blocks: bool,
+	/// Block-body retention of the local node. Gap sync requests bodies only for blocks
+	/// the pruning configuration would retain.
+	pub body_retention: BlockBodyRetention,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1417,7 +1422,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
-		archive_blocks,
+		body_retention,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1438,7 +1443,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
-		archive_blocks,
+		body_retention,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1506,7 +1511,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
-	archive_blocks: bool,
+	body_retention: BlockBodyRetention,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1576,7 +1581,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
-		archive_blocks,
+		body_retention,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

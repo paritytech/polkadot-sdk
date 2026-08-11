@@ -276,8 +276,8 @@ pub enum ChainSyncMode {
 
 impl ChainSyncMode {
 	/// Returns the base block attributes required for this sync mode.
-	pub fn required_block_attributes(&self, is_gap: bool, is_archive: bool) -> BlockAttributes {
-		let attrs = match self {
+	pub fn required_block_attributes(&self) -> BlockAttributes {
+		match self {
 			ChainSyncMode::Full => {
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
 			},
@@ -289,15 +289,23 @@ impl ChainSyncMode {
 					BlockAttributes::JUSTIFICATION |
 					BlockAttributes::INDEXED_BODY
 			},
-		};
-		// Skip body requests for gap sync only if not in archive mode.
-		// Archive nodes need bodies to maintain complete block history.
-		if is_gap && !is_archive {
-			attrs & !BlockAttributes::BODY
-		} else {
-			attrs
 		}
 	}
+}
+
+/// How many historical block bodies the local node retains, mirroring the client's
+/// block pruning configuration.
+///
+/// During gap sync, bodies are requested only for blocks the pruning configuration
+/// would retain anyway: the whole gap for [`BlockBodyRetention::All`], and blocks
+/// above `finalized - n` for [`BlockBodyRetention::Recent`]. Everything below is
+/// backfilled with headers and justifications only.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum BlockBodyRetention {
+	/// All (finalized) block bodies are retained.
+	All,
+	/// Only the bodies of the most recent `n` finalized blocks are retained.
+	Recent(u32),
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -424,9 +432,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-	/// block history.
-	archive_blocks: bool,
+	/// Block-body retention of the local node. Gap sync requests bodies only for blocks
+	/// the pruning configuration would retain.
+	body_retention: BlockBodyRetention,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -1062,7 +1070,7 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		archive_blocks: bool,
+		body_retention: BlockBodyRetention,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -1086,7 +1094,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
-			archive_blocks,
+			body_retention,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1969,11 +1977,22 @@ where
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
-		let is_archive = self.archive_blocks;
+		let finalized_number = self.client.info().finalized_number;
+		// Gap sync requests bodies only for blocks the pruning configuration would
+		// retain: everything above this cutoff. The gap is created by importing a
+		// finalized block right above it, so `gap.target + 1` is a lower bound for the
+		// finalized number even while the client's finality info still lags right
+		// after warp sync.
+		let body_anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
+			std::cmp::max(finalized_number, gap.target + One::one())
+		});
+		let gap_body_cutoff = match self.body_retention {
+			BlockBodyRetention::All => None,
+			BlockBodyRetention::Recent(n) => Some(body_anchor.saturating_sub(n.into())),
+		};
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
-		let last_finalized =
-			std::cmp::min(self.best_queued_number, self.client.info().finalized_number);
+		let last_finalized = std::cmp::min(self.best_queued_number, finalized_number);
 		let best_queued = self.best_queued_number;
 		let client = &self.client;
 		let queue_blocks = &self.queue_blocks;
@@ -2023,7 +2042,7 @@ where
 					&id,
 					peer,
 					blocks,
-					mode.required_block_attributes(false, is_archive),
+					mode.required_block_attributes(),
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -2044,7 +2063,7 @@ where
 					fork_targets,
 					best_queued,
 					last_finalized,
-					mode.required_block_attributes(false, is_archive),
+					mode.required_block_attributes(),
 					|hash| {
 						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
@@ -2063,7 +2082,8 @@ where
 						&id,
 						peer,
 						&mut sync.blocks,
-						mode.required_block_attributes(true, is_archive),
+						mode.required_block_attributes(),
+						gap_body_cutoff,
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
@@ -2364,12 +2384,18 @@ fn peer_block_request<B: BlockT>(
 	Some((range, request))
 }
 
-/// Get a new block request for the peer if any.
+/// Get a new gap block request for the peer if any.
+///
+/// Bodies are stripped from the request if the whole range is at or below
+/// `body_cutoff`. A range straddling the cutoff requests bodies for all its blocks:
+/// splitting it would desync the [`BlockCollection`] bookkeeping, and the few extra
+/// bodies below the cutoff are harmless.
 fn peer_gap_block_request<B: BlockT>(
 	id: &PeerId,
 	peer: &PeerSync<B>,
 	blocks: &mut BlockCollection<B>,
 	attrs: BlockAttributes,
+	body_cutoff: Option<NumberFor<B>>,
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
@@ -2386,6 +2412,11 @@ fn peer_gap_block_request<B: BlockT>(
 	// The end is not part of the range.
 	let last = range.end.saturating_sub(One::one());
 	let from = FromBlock::Number(last);
+
+	let attrs = match body_cutoff {
+		Some(cutoff) if last <= cutoff => attrs & !BlockAttributes::BODY,
+		_ => attrs,
+	};
 
 	let request = BlockRequest::<B> {
 		id: 0,
