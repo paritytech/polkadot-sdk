@@ -19,11 +19,11 @@
 //! In-memory counters are caches rebuilt at startup. RMW ops serialise on
 //! `rmw_lock` since parity-db has no CAS.
 //!
-//! The database carries a schema version row in [`COL_DB_META`], checked on
+//! The database carries a schema version row in `COL_DB_META`, checked on
 //! every open so a database written by a newer binary is rejected rather than
 //! misread. Startup also imports any leftover `<data_dir>/meta/` metadata files
 //! from the pre-KV-store layout and removes that tree; see
-//! [`HopDataPool::import_legacy_meta_files`].
+//! `HopDataPool::import_legacy_meta_files`.
 
 use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
