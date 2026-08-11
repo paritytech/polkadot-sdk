@@ -178,7 +178,10 @@ async fn v3_dynamic_enablement_test(
 			p.with_id(2900)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
+				.with_default_args(vec![
+					("--authoring=slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
 				.with_collator(|n| n.with_name("collator-2900-a"))
 				.with_collator(|n| n.with_name("collator-2900-b"))
 		})
