@@ -50,6 +50,12 @@ fn main() {
 		.set_file_name(relay_parent_offset::WASM_FILE_NAME)
 		.build();
 
+	// V3 disabled at a relay parent offset of 4 — the rollback target for `v3_rpo_4`.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("relay-parent-offset-4")
+		.set_file_name(relay_parent_offset_4::WASM_FILE_NAME)
+		.build();
+
 	WasmBuilder::init_with_defaults()
 		.enable_feature("sync-backing")
 		.enable_feature("12s-slot")
