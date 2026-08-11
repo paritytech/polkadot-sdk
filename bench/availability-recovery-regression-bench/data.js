@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786442678555,
+  "lastUpdate": 1786458175898,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1547c302a243e0c5ded61d297704460865895f99",
-          "message": "Do not send both `assign_cores` calls in parallel (#10539)\n\nThe internal logic fetches the `nonce` of the sender and this will lead\nto both transaction using the same `nonce`. Ultimately this leads to the\nnode rejecting one of the transactions because both transactions look\nlike the same transaction to the node.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10536",
-          "timestamp": "2025-12-04T11:06:44Z",
-          "tree_id": "083af5c9139aa9e83ca8d1e372d97d334ec354ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1547c302a243e0c5ded61d297704460865895f99"
-        },
-        "date": 1764852213702,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.670531998166663,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19911088476666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.8325846211,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "519726f3f2ee9542771241c1eec153255993d2d7",
+          "message": "Re-enable zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-va… (#12856)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12839\n\nThe throughput for v3 will be flaky until we have resubmissions.\nDecreasing the expected ranges according to the CI failures for the\nmoment",
+          "timestamp": "2026-08-11T12:38:52Z",
+          "tree_id": "532d3ffa78bb94b239df3d096b9c32f4c787bccb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/519726f3f2ee9542771241c1eec153255993d2d7"
+        },
+        "date": 1786458142015,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.893369019899998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13963033673333336,
             "unit": "seconds"
           }
         ]
