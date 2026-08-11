@@ -123,7 +123,7 @@ pub fn derive_certificate(
 
 /// Derive the P-256 key by rejection-sampling HMAC-SHA256(node key, `DST || counter`).
 fn derive_keys(node_secret_key: Ed25519SecretKey) -> SigningKey {
-	(0u8..)
+	(0u8..255u8)
 		.find_map(|counter| {
 			let okm = Hmac::<Sha256>::new_from_slice(node_secret_key.as_ref())
 				.expect("HMAC accepts keys of any length; qed")
