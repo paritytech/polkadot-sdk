@@ -57,10 +57,10 @@ module tests {
         items: List({ validationCode: { hash: p._2, len: FixedCodeLen }, pov: 0 })
       }
       val wr: WorkResult = {
-        result: WorkOk(refine(
-          svc, pkg, false, false,
+        result: refine(
+          svc, pkg, false, PvfOk,
           Some(headHash(pi.headData)), Some(pi.headData + 1), p._3, 0
-        )[0]),
+        )[0],
         authTrace: 0
       }
       acc.append(wr)
@@ -246,10 +246,10 @@ module tests {
       items: List({ validationCode: { hash: codeHash, len: FixedCodeLen }, pov: 0 })
     }
     val wr: WorkResult = {
-      result: WorkOk(refine(
-        svc, pkg, false, false,
+      result: refine(
+        svc, pkg, false, PvfOk,
         Some(headHash(StaleParentHead)), Some(StaleParentHead), msgs, 0
-      )[0]),
+      )[0],
       authTrace: 0
     }
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
@@ -1326,27 +1326,27 @@ module tests {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val parentOnly =
-      refine(initialState, pkg, false, false, Some(headHash(0)), None, List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), None, List(), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, false, None, Some(1), List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, None, Some(1), List(), 0)[0]
     val neither =
-      refine(initialState, pkg, false, false, None, None, List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, None, None, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), List(), 0)[0]
     all {
       // Missing new head, missing parent head, or both → rejected.
-      assert(parentOnly == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
-      assert(headOnly == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
-      assert(neither == Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration })),
+      assert(parentOnly == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
+      assert(headOnly == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
+      assert(neither == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
       // Both declared → not a MissingHeadDeclaration error (succeeds here).
-      assert(both == Ok({
+      assert(both == WorkOk(Ok({
         paraId: CoretimeParaId,
         validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen },
         parentHeadHash: headHash(0),
         headData: 1,
         upwardMessages: List(),
         lookupAnchor: 0
-      })),
+      }))),
       init
     }
   }
@@ -1363,13 +1363,13 @@ module tests {
     val msg = Solicit({ hash: { hashBytes: 7 }, len: 1024 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
-    val overOut = refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), over, 0)[0]
-    val atCapOut = refine(initialState, pkg, false, false, Some(headHash(0)), Some(1), atCap, 0)[0]
+    val overOut = refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), over, 0)[0]
+    val atCapOut = refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), atCap, 0)[0]
     all {
       assert(over.length() == 1025),
-      assert(overOut == Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages })),
+      assert(overOut == WorkOk(Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages }))),
       // Exactly at the cap is not a TooManyUpwardMessages error.
-      assert(atCapOut != Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages })),
+      assert(atCapOut != WorkOk(Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages }))),
       init
     }
   }
@@ -1531,7 +1531,7 @@ module tests {
   /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
   pure def refineWithMsgs(
     s: ParachainServiceState, caller: ParaId, msgs: List[UpwardMessage]
-  ): ParachainWorkDigest = {
+  ): WorkExecResult = {
     val pi = s.paraInfo(caller)
     val pkg: WorkPackage = {
       authorizedParas: List(caller),
@@ -1540,13 +1540,70 @@ module tests {
         pov: 0
       })
     }
-    refine(s, pkg, false, false,
+    refine(s, pkg, false, PvfOk,
       Some(headHash(pi.headData)), Some(pi.headData + 1), msgs, 0)[0]
   }
 
-  /// True iff a digest is `Ok`.
-  pure def isOkDigest(d: ParachainWorkDigest): bool =
-    match d { | Ok(_) => true | Err(_) => false }
+  /// Activating an upgrade over an old code that was still `Provided` cannot
+  /// free its slot in one step: §6.1's two-step forget only unrequests it and
+  /// RETAINS the referencer until a second forget past `ForgetAgainAt`. 
+  run activationOverProvidedCodeRetainsSlotTest = {
+    val para = CoretimeParaId
+    val oldRef: ValidationCodeRef = { hash: { vchBytes: 1 }, len: FixedCodeLen }
+    val oldHash = vchAsHash(oldRef.hash)
+    val newHash: ValidationCodeHash = { vchBytes: 101 }
+    // The old (active) code has been supplied to JAM.
+    val provided = markProvided(initialState, oldHash, FixedCodeLen)
+    // Arm an upgrade to `newHash`, then activate it with a candidate using it.
+    val requested = requestCodeUpgrade(provided, 0, para, newHash, FixedCodeLen)
+    val activated = activateUpgradeIfMatch(requested.state, para, newHash, FixedCodeLen, 5)
+    val pi = activated.state.paraInfo(para)
+    all {
+      // The upgrade did activate.
+      assert(pi.validationCode == Some({ ref: { hash: newHash, len: FixedCodeLen }, pinned: false })),
+      assert(pi.pendingUpgrade == None),
+      // ...yet the old code's referencer legitimately survives, in limbo.
+      assert(activated.state.hasReferencer(oldHash, FixedCodeLen, para)),
+      assert(isUnrequested(activated.state.preimageStatus.get((oldHash, FixedCodeLen)))),
+      assert(activated.retained),
+      init
+    }
+  }
+
+  /// True iff a work result carries a successful digest.
+  pure def isOkDigest(r: WorkExecResult): bool =
+    match r { | WorkOk(d) => match d { | Ok(_) => true | Err(_) => false } | WorkErr => false }
+
+  /// §4.2: a PVF has exactly two ways to fail, and they differ in what is
+  /// recorded. `report_error(data)` aborts it and is logged as
+  /// `RefineLog::Opaque(data)`; any other abnormal exit is not caught, so the
+  /// whole `refine` fails and yields a work error with NO digest — which
+  /// Accumulate then skips entirely, leaving the para's log untouched.
+  run pvfFailureModesTest = {
+    val para = CoretimeParaId
+    val pkg: WorkPackage = {
+      authorizedParas: List(para),
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+    }
+    val reported = refine(initialState, pkg, false, PvfReportError(42),
+      Some(headHash(0)), Some(1), List(), 0)[0]
+    val panicked = refine(initialState, pkg, false, PvfPanic,
+      Some(headHash(0)), Some(1), List(), 0)[0]
+    // Accumulating the panicking result must touch nothing at all.
+    val accPanic = accumulateOnePackage(
+      initialState, { result: panicked, authTrace: 7 }, Set(), None, FixedCodeLen, 5)
+    all {
+      // Reporting is the only way a PVF records a reason.
+      assert(reported == WorkOk(Err({ paraId: para, error: Opaque(42) }))),
+      // A bare panic produces no digest whatsoever.
+      assert(panicked == WorkErr),
+      // ...and therefore no log entry and no state change (§3.3).
+      assert(accPanic.state == initialState),
+      assert(accPanic.state.paraLog(para) == List()),
+      assert(accPanic.logPruned == None),
+      init
+    }
+  }
 
   /// §4.3: naming a `para_id` the caller may not touch makes REFINE fail with
   /// `RestrictedHostFunction`, so the message never reaches Accumulate at all.
@@ -1557,10 +1614,10 @@ module tests {
       // Asset Hub reaching for Coretime's state — Refine rejects, for both calls.
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(Forget({ paraId: CoretimeParaId, hash: h, len: 1024 })))
-        == refineErr(AssetHubParaId, RestrictedHostFunction)),
+        == WorkOk(refineErr(AssetHubParaId, RestrictedHostFunction))),
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: CoretimeParaId, key: List(0) })))
-        == refineErr(AssetHubParaId, RestrictedHostFunction)),
+        == WorkOk(refineErr(AssetHubParaId, RestrictedHostFunction))),
       // Asset Hub releasing its own state — refines fine.
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
         List(Forget({ paraId: AssetHubParaId, hash: h, len: 1024 }))))),

@@ -145,13 +145,29 @@ module refine {
     s.preimageRegistry.get(key).referencers != Set()
   }
 
+  /// How the PVF terminated (design §4.2). The service treats these differently:
+  ///   - `PvfOk`: ran to completion; the wrapper's own checks decide the outcome.
+  ///   - `PvfReportError(payload)`: the PVF aborted itself with
+  ///     `report_error(data)`. That call IS the abort, and it is the only way a
+  ///     PVF records a reason for its failure (`RefineLog::Opaque`).
+  ///   - `PvfPanic`: any other abnormal exit. Deliberately NOT caught, so the
+  ///     service's whole `refine` fails with it and there is no
+  ///     `ParachainWorkDigest` at all — the work-digest result is a gray-paper
+  ///     work error, which Accumulate skips entirely (§3.3).
+  type PvfOutcome =
+    | PvfOk
+    | PvfReportError(int)
+    | PvfPanic
+
   /// Per-item Refine semantics (§4.1). The PVF is modeled as an oracle whose
-  /// visible effects are `pvfPanic` (did it trap / report_error?), the
-  /// `set_parent_head_hash` and `set_head` declarations (`parentHead` /
-  /// `newHead`, both `None` if the PVF never called them — §4.2), and the
-  /// emitted upward `msgs`. The wrapper applies the §4.1/§4.3 checks in order
-  /// and otherwise forwards the declarations verbatim; the authoritative
-  /// parent-head match and the head write happen in Accumulate (§5.1).
+  /// visible effects are how it terminated (`pvf`), the `set_parent_head_hash`
+  /// and `set_head` declarations (`parentHead` / `newHead`, both `None` if the
+  /// PVF never called them — §4.2), and the emitted upward `msgs`. The wrapper
+  /// applies the §4.1/§4.3 checks in order and otherwise forwards the
+  /// declarations verbatim; the authoritative parent-head match and the head
+  /// write happen in Accumulate (§5.1).
+  ///
+  /// `None` means the invocation produced no digest at all (`PvfPanic`).
   ///
   /// Refine is stateless: it reads no `ParaInfo` (registration is checked in
   /// Accumulate, §5.1 step 1); the only state it touches is the preimage
@@ -160,34 +176,38 @@ module refine {
     s: ParachainServiceState,
     para_id: ParaId,
     candidate: ParachainCandidate,
-    pvfPanic: bool,
+    pvf: PvfOutcome,
     parentHead: Option[Hash],
     newHead: Option[HeadData],
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
-  ): ParachainWorkDigest = {
+  ): Option[ParachainWorkDigest] = {
     if (not(codeAvailable(s, candidate.validationCode)))
-    refineErr(para_id, InvalidCodeHash)
-    else if (pvfPanic)
-    refineErr(para_id, Opaque(0))
-    else if (msgs.length() > MaxUpwardMessages)
-    refineErr(para_id, TooManyUpwardMessages)
-    else if (not(wellFormedUpwardMessages(msgs)))
-    refineErr(para_id, SetValidatorKeysTooManyKeys)
-    else if (violatesParachainRestrictions(msgs, para_id))
-    refineErr(para_id, RestrictedHostFunction)
-    else if (resultExceedsBudget(msgs))
-    refineErr(para_id, RefineOutputTooLarge)
+    Some(refineErr(para_id, InvalidCodeHash))
     else
-    // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
-    // missing declaration (`None`) is rejected with `MissingHeadDeclaration`.
-    match parentHead {
-      | None => refineErr(para_id, MissingHeadDeclaration)
-      | Some(ph) =>
-        match newHead {
-          | None => refineErr(para_id, MissingHeadDeclaration)
-          | Some(nh) =>
-            refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor)
+    match pvf {
+      | PvfPanic => None
+      | PvfReportError(payload) => Some(refineErr(para_id, Opaque(payload)))
+      | PvfOk =>
+        if (msgs.length() > MaxUpwardMessages)
+        Some(refineErr(para_id, TooManyUpwardMessages))
+        else if (not(wellFormedUpwardMessages(msgs)))
+        Some(refineErr(para_id, SetValidatorKeysTooManyKeys))
+        else if (violatesParachainRestrictions(msgs, para_id))
+        Some(refineErr(para_id, RestrictedHostFunction))
+        else if (resultExceedsBudget(msgs))
+        Some(refineErr(para_id, RefineOutputTooLarge))
+        else
+        // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
+        // missing declaration (`None`) is rejected with `MissingHeadDeclaration`.
+        match parentHead {
+          | None => Some(refineErr(para_id, MissingHeadDeclaration))
+          | Some(ph) =>
+            match newHead {
+              | None => Some(refineErr(para_id, MissingHeadDeclaration))
+              | Some(nh) =>
+                Some(refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor))
+            }
         }
     }
   }
@@ -200,33 +220,36 @@ module refine {
   /// step 1). Otherwise each item is refined independently via
   /// `refineItem`, with its `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `pvfPanic`, `parentHead`,
-  /// `newHead`, and `msgs` are per-item scalars declared by the PVF.
-  /// `parentHead` / `newHead` are `None` when the PVF skipped the
-  /// corresponding mandatory host call (§4.2).
+  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`, and
+  /// `msgs` are per-item scalars declared by the PVF. `parentHead` / `newHead`
+  /// are `None` when the PVF skipped the corresponding mandatory host call
+  /// (§4.2).
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
     authConfigMalformed: bool,
-    pvfPanic: bool,
+    pvf: PvfOutcome,
     parentHead: Option[Hash],
     newHead: Option[HeadData],
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
-  ): List[ParachainWorkDigest] = {
+  ): List[WorkExecResult] = {
     val errParaId =
       if (pkg.authorizedParas.length() > 0) pkg.authorizedParas[0]
       else MkParaId(0)
     if (authConfigMalformed)
-    List(refineErr(errParaId, MalformedAuthorizerConfig))
+    List(WorkOk(refineErr(errParaId, MalformedAuthorizerConfig)))
     else if (pkg.items.length() != 1)
-    List(refineErr(errParaId, InvalidItemCount))
+    List(WorkOk(refineErr(errParaId, InvalidItemCount)))
     else if (pkg.authorizedParas.length() != pkg.items.length())
-    List(refineErr(errParaId, AuthConfigMismatch))
+    List(WorkOk(refineErr(errParaId, AuthConfigMismatch)))
     else
-    List(refineItem(
+    match refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      pvfPanic, parentHead, newHead, msgs, lookupAnchor
-    ))
+      pvf, parentHead, newHead, msgs, lookupAnchor
+    ) {
+      | Some(d) => List(WorkOk(d))
+      | None => List(WorkErr)
+    }
   }
 }

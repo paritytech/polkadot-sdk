@@ -183,10 +183,23 @@ module invariants {
                 | None => false
                 | Some(pair) => pair._1.ref == beforeVc.ref
               }
+            // The two-step forget (§6.1) deliberately RETAINS the last
+            // referencer when the code was still `Provided`: that first forget
+            // only unrequests it, and the slot is freed by a second forget past
+            // the logged `ForgetAgainAt` deadline. A referencer surviving in
+            // that limbo is correct, not a leaked slot.
+            val inForgetLimbo =
+              svc.preimageStatus.keys().contains((oldHash, oldLen)) and
+              (match svc.preimageStatus.get((oldHash, oldLen)) {
+                | Unrequested(_) => true
+                | Rerequested(_) => true
+                | _ => false
+              })
             not(activated) or
               not(svc.hasReferencer(oldHash, oldLen, para_id)) or
               beforeVc.pinned or
               reRequested or
+              inForgetLimbo or
               solicitedSet.contains((para_id, oldHash, oldLen))
           }
         }

@@ -159,7 +159,9 @@ module main {
     // state (it must not see this block's always-accumulate effects).
     nondet wp1Para = oneOf(svc.parachains.keys())
     nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
-    nondet wp1PvfPanic = oneOf(Set(false, true))
+    // §4.2: `report_error` aborts and is logged; a bare panic is not caught and
+    // yields a work error with no digest at all.
+    nondet wp1Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
     val wp1Pool = arbitraryMessages(
       wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash))
     nondet wp1M1 = oneOf(wp1Pool)
@@ -191,17 +193,17 @@ module main {
     val wp1Wr: WorkResult = {
       result:
         if (wp1IsJamSkip) WorkErr
-        else WorkOk(refine(
-          svc, wp1.pkg, wp1AuthMalformed, wp1PvfPanic,
+        else refine(
+          svc, wp1.pkg, wp1AuthMalformed, wp1Pvf,
           wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1
-        )[0]),
+        )[0],
       authTrace: wp1AuthTrace
     }
 
     // Second work package. 
     nondet wp2Para = oneOf(svc.parachains.keys())
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
-    nondet wp2PvfPanic = oneOf(Set(false, true))
+    nondet wp2Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
     val wp2Pool = arbitraryMessages(
       wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash))
     nondet wp2M1 = oneOf(wp2Pool)
@@ -225,10 +227,10 @@ module main {
     val wp2Wr: WorkResult = {
       result:
         if (wp2IsJamSkip) WorkErr
-        else WorkOk(refine(
-          svc, wp2.pkg, wp2AuthMalformed, wp2PvfPanic,
+        else refine(
+          svc, wp2.pkg, wp2AuthMalformed, wp2Pvf,
           wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2
-        )[0]),
+        )[0],
       authTrace: wp2AuthTrace
     }
 
