@@ -19,13 +19,6 @@ doc:
     The `FutureBlockVotingProof` branch already returns `InvalidFutureBlockVotingProof` for its block-number guard. The invalid-signature branch now uses the same proof-specific error.
 
     The regression test creates a valid future-block-voting proof, changes its payload without re-signing it, and verifies that reporting it returns `InvalidFutureBlockVotingProof`.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description and integration notes.
-    * [x] I have added a regression test that proves the fix.
-    * [x] No documentation changes are required for this internal error-selection correction.
-    * [ ] A `T*` label and prdoc will be requested through command-bot comments.
 crates:
 - name: pallet-beefy
   bump: patch
