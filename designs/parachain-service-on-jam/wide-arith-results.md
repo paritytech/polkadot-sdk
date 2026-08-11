@@ -669,11 +669,17 @@ operand+clobber pool is {ra, t0-t2, a0-a5}.)
   glue shrank — it was +21% before the point-layer fixes; research predicted
   +25%). The (d) route stays fully generic (mul256_by_u64 + add256, no
   number-theoretic opcode) at 117,161 — still 7.1× better than baseline.
-- Wall: pending bare metal (below). The research model says (d) also loses
-  ~13% wall; the measured x86 sequence sizes shift both variants' absolute
-  wall numbers (see next section), but the *relative* delta logic is
-  unchanged: (d) burns 3 extra add256 + 1 mul256_by_u64 per reduction vs one
-  redc256.
+- Wall: **+64% in-container** (noredc 93.6 vs redc 57.2 µs), against a research
+  model that predicted ~13%. Never re-measured on the rig, deliberately: a 64%
+  wall gap plus a 32% gas gap settles the question several times over, and rig
+  time was better spent on the optimizations. The mechanism is unchanged from
+  the model — (d) burns 3 extra `add256` + 1 `mul256_by_u64` per reduction
+  against one `redc256`.
+- **Verdict: `redc256` earns its opcode.** Michał's original objection (quirky,
+  non-generic, "no ISA has this") is on the record and unrebutted as a *design*
+  point; the measurement is simply lopsided enough to override it. Worth
+  presenting to Jan as exactly that — a cost-justified special-purpose opcode,
+  not an elegant one.
 
 ## How the instructions are implemented (recompiler anatomy)
 
@@ -901,68 +907,70 @@ one is measured, one is analysis, one is the surviving open path.
   non-redc-only). Selected via
   `--cfg curve25519_dalek_backend="pvm"` (+ `--cfg pvm_redc` for the redc
   route); stock builds are unaffected (controls byte-identical).
-- Blob sets (off/noredc/redc × 5 benches):
-  `~/parity/45-jam-parachain-service/wide-arith-blobs/`, built reproducibly
-  by `guest-programs/build-wide-arith-blobs.sh` (always relinks; verifies the
-  controls stay byte-identical). `WIDE_ARITH=1|redc ./build-benchmarks.sh`
-  also works for in-place builds.
+- Blob sets (off/noredc/redc × 5 benches each), built reproducibly by
+  `guest-programs/build-wide-arith-blobs.sh` (always relinks; verifies the
+  controls stay byte-identical). `WIDE_ARITH=1|redc ./build-benchmarks.sh` also
+  works for in-place builds. Under `~/parity/45-jam-parachain-service/`:
+
+  | set | commit | zebra redc gas |
+  |---|---|---:|
+  | `wide-arith-blobs/` | pre-contract | 89,743 |
+  | `wide-arith-blobs-contract/` | `04bfc06` | 109,685 |
+  | `wide-arith-blobs-fusedfold/` | `aa0dff7` | **92,106** (current) |
+
+  **Pairing rule, for any run:** copy the chosen redc set into
+  `guest-programs/target/riscv64emac-unknown-none-polkavm/release/`, rebuild
+  benchtool at that set's commit, and confirm with opcount that the loaded zebra
+  blob reports the gas above *before* timing anything. Each blob set only works
+  with its own binary — an older binary hits opcodes it cannot decode and
+  **prints nothing while exiting 0** (silent, no trap message); a newer binary
+  against older blobs is invalid because those blobs rely on registers the
+  instructions now destroy. Numbers coming back at a previous config's values is
+  the stale-blob tell (from PoC #1).
 - Profiler: `cargo run -q --release -p opcount -- <blob>` (runs
-  initialize+run under the interpreter, per-opcode dynamic counts + gas).
+  initialize+run under the interpreter, per-opcode dynamic counts + gas);
+  add `--time` for relative wall-clock A/B.
 
-## Remaining (bare metal, Michał)
+## Open items
 
-- **Rebuild benchtool at `04bfc06` first** — a stale binary decodes the new
-  opcode 237 as a trap, and the old blobs are *incompatible with the new
-  binary by design* (they rely on registers the instructions now destroy):
-  every configuration must pair the binary with its own blob set. The
-  baseline numbers of record are the 2026-08-10 branch-tip run
-  (49.83/51.66/49.69 µs) — no need to re-run them.
-- **Contract blob sets**:
-  `~/parity/45-jam-parachain-service/wide-arith-blobs-contract/`
-  ({off,noredc,redc} × 5 benches; `off` and both controls byte-identical to
-  the old sets ✓). Copy the redc set into
-  `guest-programs/target/riscv64emac-unknown-none-polkavm/release/` and
-  sanity-check with opcount that the loaded zebra blob reports
-  **109,685 gas** (redc) / 175,684 (noredc) / 836,825 (off) *before*
-  timing (stale-blob tell from PoC #1).
-- ~~Wall-clock~~ **Done 2026-08-10** (machine B, redc set — official table
-  in the contract section above; −5.4…−6.4%, controls flat). Optional
-  follow-ups: machine A for the second rig; a noredc-set run if the
-  (d)-vs-(e) decision table wants a bare-metal wall point (in-container the
-  noredc route is +64% wall vs redc — 93.6 vs 57.2 µs — which together with
-  the +32% gas delta likely already settles that redc256 earns its opcode).
-- `cargo test -p polkavm wide_arith` Linux-sandbox variants on bare metal
-  (blocked in-container by `clone`; interpreter + generic sandbox + tracing
-  crosscheck all green in-container: 30 wide-arith tests + full suite,
-  incl. the new `wide_arith_destroyed_regs`).
-- ~~Fused add/sub folds on machine B~~ **Done 2026-08-11** (`aa0dff7`, blob set
-  `~/parity/45-jam-parachain-service/wide-arith-blobs-fusedfold/`, zebra
-  verified at 92,106 gas): **38.58/39.59/38.83 µs, −18.1/−18.1/−17.4%**,
-  controls flat. Official table in the optimization-2 section above; these are
-  the numbers of record.
-- Still rig-only, in value order (backlog in
-  [wide-arith-probe-removal-handoff.md](wide-arith-probe-removal-handoff.md)):
-  1. `mul256_redc256` v2 — 4 operands, explicit `k`, no product-buffer write
-     (~24k stores/verify, and it makes the fold family's `k` convention
-     uniform).
-  2. `ADD_SUB`-vs-`MUL_FAMILY` destroyed-set variant for 238/239 (push-free
-     kernels vs sparing `A4`/`A5`) — a store-traffic *trade*, i.e. exactly the
-     class the container gets wrong.
-  3. Opt-1 mode-harness re-run on the new instruction mix → the probe-removal
-     adoption call (its spec sentences stay conditional).
-  4. Shorter probes (discarded 32-byte vector load, 3→2 instructions).
-  Also needs the rig: the static trampoline size table, since native
-  disassembly (`polkatool disassemble -f native`) requires the Linux sandbox.
+All wall-clock rounds are measured and recorded; nothing above is awaiting a
+number. What is genuinely outstanding:
+
+- **One unrun check: the Linux-sandbox test variants.**
+  `cargo test -p polkavm wide_arith` `compiler_linux_*` / `tracing_linux_*`
+  have never run for any of this work — the sandbox's `clone` is blocked in the
+  container (errno 38), and they fail identically on every baseline commit.
+  This is not cosmetic: the Linux sandbox addresses guest memory differently
+  from the generic one (`reg_indirect` vs base+index), so the kernels emit
+  *different code* there, and a Linux-sandbox-specific restart bug has already
+  been found once in this project. Everything else is green in-container
+  (interpreter + generic + the exemption-free tracing crosscheck).
+- **The experiment queue** lives in
+  [wide-arith-probe-removal-handoff.md](wide-arith-probe-removal-handoff.md)
+  ("Backlog", four items in value order) — not duplicated here. All four are
+  rig-only, as is the static trampoline size table (native disassembly needs
+  the Linux sandbox).
+- **Optional:** a machine A run for cross-microarchitecture confirmation. Worth
+  something in this project specifically — the store-forwarding stall fix
+  helped measurably more on Zen 4 than Zen 3 — but nothing is blocked on it.
 
 ## Open design questions (updated)
 
 1. **Gas pricing** — unchanged from research §7 Q1; calibrated arithmetic
    above. Surface for Jan with the measured counts.
 2. **Carry-out ergonomics for EVM/resolc** — unchanged (rc always written;
-   written last, so it may alias any operand — now specified and tested).
-3. **Fault model** — resolved by implementation (see note 2 above); the spec
-   text for a GP proposal can copy it.
-4. **New:** the point-layer memcpy overhead (50k/verify) suggests the next
-   guest-side win is dalek point-struct handling (or an LLVM memcpy
-   threshold tweak for the PVM target), not more field-arithmetic ISA.
-   Consistent with the research's "glue dominates after the knee" finding.
+   written last, so it may alias any operand — now specified and tested). Note
+   the fused folds have *no* carry-out at all, which is the cleaner shape if a
+   general-purpose ISA wants one.
+3. ~~Fault model~~ — resolved by implementation (see note 2 under
+   "Implementation notes"); a GP proposal can copy that text verbatim.
+4. **Where the remaining instructions actually go** (supersedes the earlier
+   "point-layer memcpy is the next win" note — that win was already taken, and
+   `memset`/memcpy no longer appear in the profile at all). The current zebra
+   redc mix is **65% address arithmetic and memory traffic**: `add_imm_64`
+   35,827, `load_indirect_u64` 12,563, `store_indirect_u64` 11,826 out of
+   92,106. Wide-arithmetic ops are 5,177 of them. So the next guest-side win is
+   pointer/offset code — how dalek's field and point structs are addressed, and
+   what LLVM emits for the PVM target — not more field-arithmetic ISA. This is
+   the research's "glue dominates after the knee" finding, now with the knee
+   well behind us.
