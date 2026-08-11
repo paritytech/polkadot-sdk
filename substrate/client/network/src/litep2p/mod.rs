@@ -45,10 +45,10 @@ use crate::{
 		out_events,
 		traits::{BandwidthSink, NetworkBackend, NetworkService},
 	},
-	NetworkStatus, NotificationService, ProtocolName,
+	webrtc, NetworkStatus, NotificationService, ProtocolName,
 };
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use futures::StreamExt;
 use litep2p::{
 	config::ConfigBuilder,
@@ -60,10 +60,8 @@ use litep2p::{
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
-		tcp::config::Config as TcpTransportConfig,
-		webrtc::{config::Config as WebRtcTransportConfig, DtlsCertificate},
-		websocket::config::Config as WebSocketTransportConfig,
-		ConnectionLimitsConfig, Endpoint,
+		tcp::config::Config as TcpTransportConfig, webrtc::config::Config as WebRtcTransportConfig,
+		websocket::config::Config as WebSocketTransportConfig, ConnectionLimitsConfig, Endpoint,
 	},
 	types::{
 		multiaddr::{Multiaddr, Protocol},
@@ -101,9 +99,6 @@ mod ipfs_dht;
 mod peerstore;
 mod service;
 mod shim;
-
-/// File name for the persisted WebRTC DTLS certificate.
-pub const NODE_KEY_WEBRTC_FILE: &str = "webrtc_certificate";
 
 /// Litep2p bandwidth sink.
 struct Litep2pBandwidthSink {
@@ -274,7 +269,8 @@ impl Litep2pNetworkBackend {
 	/// Configure transport protocols for `Litep2pNetworkBackend`.
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
-	) -> ConfigBuilder {
+		keypair: Keypair,
+	) -> Result<ConfigBuilder, Error> {
 		let _ = match config.network_config.transport {
 			TransportConfig::MemoryOnly => panic!("memory transport not supported"),
 			TransportConfig::Normal { .. } => false,
@@ -349,38 +345,22 @@ impl Litep2pNetworkBackend {
 			});
 
 		if !webrtc_addresses.is_empty() {
-			config_builder = config_builder.with_webrtc({
-				// If WebRTC has been specified within the listen address and there
-				// is an on-disk config dir, attempt to use an already existing
-				// DTLS certificate, or generate a fresh one.
-				// Otherwise, fall back to an ephemeral certificate.
-				let certificate = match &config.network_config.net_config_path {
-					Some(dir) => {
-						read_or_generate_webrtc_certificate(&dir.join(NODE_KEY_WEBRTC_FILE))
-					},
-					None => {
-						log::warn!(
-							target: LOG_TARGET,
-							"WebRtc enabled but no networking path specified, using an ephemeral certificate"
-						);
-						None
-					},
-				};
-
-				WebRtcTransportConfig {
-					listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
-					certificate,
-					..Default::default()
-				}
+			// WebRTC cert/key are unambiguously defined by the node key.
+			let certificate =
+				webrtc::derive_certificate(keypair.secret()).map_err(Error::Litep2p)?;
+			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
+				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
+				certificate: Some(certificate),
+				..Default::default()
 			});
 		} else if config.network_config.experimental_webrtc {
 			log::warn!(
 				target: LOG_TARGET,
-				"WebRtc enabled but no listen address specified"
+				"WebRTC enabled but no listen address specified"
 			);
 		}
 
-		config_builder
+		Ok(config_builder.with_keypair(keypair))
 	}
 }
 
@@ -437,7 +417,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		params.network_config.sanity_check_bootnodes()?;
 
 		let mut config_builder =
-			Self::configure_transport(&params.network_config).with_keypair(keypair.clone());
+			Self::configure_transport(&params.network_config, keypair.clone())?;
 		let known_addresses = params.network_config.known_addresses();
 		let peer_store_handle = params.network_config.peer_store_handle();
 		let executor = Arc::new(Litep2pExecutor { executor: params.executor });
@@ -1342,51 +1322,5 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 			}
 		}
-	}
-}
-
-/// Load the encoded WebRTC DTLS certificate from `file`, or generate a new one,
-/// persist it (0600), and return it.
-///
-/// Returns `None` if any error occurred while reading, writing, or generating the certificate.
-fn read_or_generate_webrtc_certificate(file: &std::path::Path) -> Option<DtlsCertificate> {
-	match inner_read_or_generate_webrtc_certificate(file) {
-		Ok(maybe_certificate) => maybe_certificate,
-		Err(err) => {
-			log::warn!(target: LOG_TARGET, "{err}");
-			None
-		},
-	}
-}
-
-/// Inner helper that wraps errors with context, the caller logs them.
-fn inner_read_or_generate_webrtc_certificate(
-	file: &std::path::Path,
-) -> Result<Option<DtlsCertificate>, String> {
-	match std::fs::read(file) {
-		Ok(bytes) => {
-			log::info!(target: LOG_TARGET, "WebRTC certificate found at {file:?}, using existing one");
-			let (certificate, private_key) = Decode::decode(&mut bytes.as_slice())
-				.map_err(|err| format!("Failed to decode WebRTC certificate: {err:?}"))?;
-			DtlsCertificate::load(certificate, private_key)
-				.map_err(|err| format!("Failed to load WebRTC certificate: {err:?}"))
-				.map(Some)
-		},
-		Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-			log::info!(target: LOG_TARGET, "No WebRTC certificate found at {file:?}, generating a new one");
-			file.parent()
-				.map_or(Ok(()), fs::create_dir_all)
-				.map_err(|err| format!("Failed to create WebRTC certificate directory: {err:?}"))?;
-			let certificate = DtlsCertificate::new()
-				.map_err(|err| format!("Failed to generate WebRTC certificate: {err:?}"))?;
-			let certificate_bytes = certificate.as_parts().encode();
-			crate::config::write_secret_file(file, &certificate_bytes).map_err(|err| {
-				format!("Failed to persist WebRTC certificate to {file:?}: {err:?}")
-			})?;
-			Ok(Some(certificate))
-		},
-		Err(err) => Err(format!(
-			"Failed to read WebRTC certificate at {file:?}: {err:?}, using an ephemeral one"
-		)),
 	}
 }
