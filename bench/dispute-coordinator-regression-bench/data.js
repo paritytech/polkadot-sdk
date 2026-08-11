@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786442851540,
+  "lastUpdate": 1786458347768,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "178801527+raymondkfcheung@users.noreply.github.com",
-            "name": "Raymond Cheung",
-            "username": "raymondkfcheung"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f75716203c2579336bed659199680329cb9fb120",
-          "message": "Align Events between Bulletin and SDK (#10445)\n\n* Align events between Bulletin and SDK\n* Extends `Stored` and `Renewed` events with a `hash: ContentHash`\nfield.\n* Replaces `log` with `tracing` to match Bulletin’s logging approach.\n\nAddresses\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/86,\nhttps://github.com/paritytech/polkadot-bulletin-chain/issues/123\n\nRelates to\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/124\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/127\n- [x] https://github.com/paritytech/polkadot-bulletin-chain/pull/129\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T13:23:14Z",
-          "tree_id": "b79a56b0ff4c2b9c75522a36746ffe7a64dc0bec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f75716203c2579336bed659199680329cb9fb120"
-        },
-        "date": 1764774141230,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008915241589999979,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027132214999999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0053191990899999955,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010153415219999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "519726f3f2ee9542771241c1eec153255993d2d7",
+          "message": "Re-enable zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-va… (#12856)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12839\n\nThe throughput for v3 will be flaky until we have resubmissions.\nDecreasing the expected ranges according to the CI failures for the\nmoment",
+          "timestamp": "2026-08-11T12:38:52Z",
+          "tree_id": "532d3ffa78bb94b239df3d096b9c32f4c787bccb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/519726f3f2ee9542771241c1eec153255993d2d7"
+        },
+        "date": 1786458313928,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026123207299999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00970193189999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010553362509999996,
             "unit": "seconds"
           }
         ]
