@@ -30,7 +30,7 @@ use crate::{
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use litep2p::protocol::libp2p::bitswap::{
-	BitswapEvent, BitswapHandle as LitepBitswapHandle, BlockPresenceType, ResponseType, WantType,
+	BitswapEvent, BitswapHandle as Litep2pBitswapHandle, BlockPresenceType, ResponseType, WantType,
 };
 use prometheus_endpoint::Registry;
 use rand::{seq::IteratorRandom, Rng};
@@ -82,7 +82,7 @@ enum TransportResponse {
 }
 
 #[async_trait]
-impl BitswapTransport for LitepBitswapHandle {
+impl BitswapTransport for Litep2pBitswapHandle {
 	async fn next_event(&mut self) -> Option<TransportEvent> {
 		StreamExt::next(self).await.map(|event| match event {
 			BitswapEvent::Request { peer, cids } => TransportEvent::Request { peer, cids },
@@ -104,11 +104,11 @@ impl BitswapTransport for LitepBitswapHandle {
 	}
 
 	async fn send_request(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
-		LitepBitswapHandle::send_request(self, peer, cids).await
+		Litep2pBitswapHandle::send_request(self, peer, cids).await
 	}
 
 	async fn send_response(&self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
-		LitepBitswapHandle::send_response(self, peer, responses).await
+		Litep2pBitswapHandle::send_response(self, peer, responses).await
 	}
 }
 
@@ -117,7 +117,6 @@ const MAX_USER_REQUESTS_PER_CID: usize = 64;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const MAX_QUEUED_INBOUND_ENTRIES_PER_PEER: usize = MAX_LIVE_CIDS;
 const CMD_CHANNEL_CAPACITY: usize = 256;
-const LOOKUP_CHANNEL_CAPACITY: usize = MAX_CONCURRENT_INBOUND_LOOKUPS;
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const ROUND_RETRY_DELAY: Duration = Duration::from_secs(5);
 const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
@@ -487,7 +486,7 @@ impl<B: BlockT> InboundLookupPool<B> {
 		max_lookups: usize,
 		metrics: BitswapMetrics,
 	) -> (Self, mpsc::Receiver<InboundLookupResult>) {
-		let (result_tx, result_rx) = mpsc::channel(LOOKUP_CHANNEL_CAPACITY);
+		let (result_tx, result_rx) = mpsc::channel(max_lookups);
 		(
 			Self { client, result_tx, semaphore: Arc::new(Semaphore::new(max_lookups)), metrics },
 			result_rx,
@@ -597,7 +596,7 @@ pub(crate) struct BitswapService<B: BlockT> {
 pub fn start<B: BlockT, S>(
 	client: Arc<dyn BlockBackend<B> + Send + Sync>,
 	sync: &S,
-	litep2p_handle: LitepBitswapHandle,
+	litep2p_handle: Litep2pBitswapHandle,
 	metrics_registry: Option<&Registry>,
 ) -> (Pin<Box<dyn Future<Output = ()> + Send>>, BitswapHandle)
 where
@@ -936,20 +935,32 @@ fn serve_inbound<B: BlockT>(
 			}
 			// Supported CIDs always carry a 32-byte digest.
 			let hash = H256::from_slice(&cid.hash().digest()[0..32]);
-			let transaction = match client.indexed_transaction(hash) {
-				Ok(t) => t,
-				Err(e) => {
-					metrics.record_error(metric_errors::CLIENT);
-					log::error!(target: LOG_TARGET, "indexed_transaction({hash}) failed: {e}");
-					None
+			match want_type {
+				// A HAVE query only needs an existence check: `has_indexed_transaction`
+				// answers it via `Database::contains` without loading the transaction body.
+				WantType::Have => match client.has_indexed_transaction(hash) {
+					Ok(true) => ResponseType::Presence { cid, presence: BlockPresenceType::Have },
+					Ok(false) =>
+						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
+					Err(e) => {
+						metrics.record_error(metric_errors::CLIENT);
+						log::error!(
+							target: LOG_TARGET,
+							"has_indexed_transaction({hash}) failed: {e}",
+						);
+						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }
+					},
 				},
-			};
-			match (transaction, want_type) {
-				(Some(transaction), WantType::Block) => {
-					ResponseType::Block { cid, block: transaction }
+				WantType::Block => match client.indexed_transaction(hash) {
+					Ok(Some(transaction)) => ResponseType::Block { cid, block: transaction },
+					Ok(None) =>
+						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
+					Err(e) => {
+						metrics.record_error(metric_errors::CLIENT);
+						log::error!(target: LOG_TARGET, "indexed_transaction({hash}) failed: {e}");
+						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }
+					},
 				},
-				(Some(_), _) => ResponseType::Presence { cid, presence: BlockPresenceType::Have },
-				(None, _) => ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
 			}
 		})
 		.collect::<Vec<_>>();
