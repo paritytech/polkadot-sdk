@@ -26,4 +26,6 @@ doc:
     * [x] I have added a regression test that proves the fix.
     * [x] No documentation changes are required for this internal error-selection correction.
     * [ ] A `T*` label and prdoc will be requested through command-bot comments.
-crates: []
+crates:
+- name: pallet-beefy
+  bump: patch
