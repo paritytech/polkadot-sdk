@@ -151,9 +151,10 @@ pub struct HopParams {
 
 	/// Maximum number of distinct sender accounts tracked in the rate-limiter map.
 	///
-	/// When this limit is reached the least-recently-active sender is evicted to
-	/// make room. Bounds the rate-limiter's memory usage to roughly
-	/// `max_rate_limit_senders × 200` bytes. Must be at least 1.
+	/// When this limit is reached the sender with the most remaining token capacity
+	/// is evicted — actively-limited senders stay tracked so an exhausted attacker
+	/// cannot re-enter with a fresh bucket. Bounds the rate-limiter's memory usage
+	/// to roughly `max_rate_limit_senders × 200` bytes. Must be at least 1.
 	#[arg(
 		long = "hop-max-rate-limit-senders",
 		default_value_t = DEFAULT_MAX_RATE_LIMIT_SENDERS,

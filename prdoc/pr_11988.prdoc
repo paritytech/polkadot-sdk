@@ -9,15 +9,26 @@ doc:
         set of authorized accounts can no longer saturate the pool by each
         staying within its per-account limit.
       - Per-sender rate-limiter map bounded at `max_tracked_senders`; when full,
-        the sender with the most remaining capacity is evicted so exhausted
-        senders stay tracked.
-      - Crate-level `MAX_DATA_SIZE` (2 MiB) hard cap on a single submission,
-        enforced in the pool independently of the runtime-reported
-        `max_promotion_size`. `HopError::DataTooLarge`'s limit field widens
-        from `u32` to `u64` accordingly.
+        the sender with the most remaining token capacity is evicted —
+        actively-limited senders stay tracked so an exhausted attacker cannot
+        re-enter with a fresh bucket.
       - `HopDataPool::new` rejects `max_size`, `max_user_size`, and both
         `bandwidth_burst` values that are smaller than the accounted cost of a
         max-size blob at full recipient fan-out — new `HopError::InvalidConfig`.
+      - `hop_claim` / `hop_ack` map `NotRecipient` to `NotFound` to close an
+        existence oracle.
+      - `HopDataPool::index` switched from `RwLock` to `Mutex`; `ack` and
+        `insert` hold the write lock across their `meta` write to keep on-disk
+        state and the in-memory index in sync.
+      - Startup recovery cleans orphan `.tmp.*` files left by prior crashes.
+      - Runtime API dispatch is now dynamic (`ApiExt::has_api_with`), removing
+        the previous supertrait requirement on `NodeRuntimeApi`; runtimes
+        without `HopRuntimeApi` fall back to cleanup-only automatically.
+      - Node-side per-submit size check dropped; enforcement is delegated to
+        `HopRuntimeApi::can_account_promote(who, data_len)` (the runtime is
+        authoritative and can express size-tiered policy).
+      - Wall-clock retention: `--hop-retention-blocks` /
+        `--hop-promotion-buffer-blocks` renamed to `*-secs`.
 
   - audience: Node Operator
     description: |
