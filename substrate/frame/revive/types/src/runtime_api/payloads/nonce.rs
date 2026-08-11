@@ -25,6 +25,8 @@ pub struct NonceInputPayloadV1 {
 	pub address: H160,
 }
 
+/// The input type used when calling the `nonce_versioned` runtime API function. This function
+/// replaces the unversioned `nonce` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum NonceVersionedInputPayload {
 	V1(NonceInputPayloadV1),
@@ -35,6 +37,8 @@ pub struct NonceOutputPayloadV1<Nonce> {
 	pub nonce: Nonce,
 }
 
+/// The output type returned when calling the `nonce_versioned` runtime API function. This function
+/// replaces the unversioned `nonce` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum NonceVersionedOutputPayload<Nonce> {
 	V1(NonceOutputPayloadV1<Nonce>),

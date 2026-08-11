@@ -34,6 +34,8 @@ pub struct InstantiateInputPayloadV1<AccountId, Balance> {
 	pub salt: Option<[u8; 32]>,
 }
 
+/// The input type used when calling the `instantiate_versioned` runtime API function. This function
+/// replaces the unversioned `instantiate` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum InstantiateVersionedInputPayload<AccountId, Balance> {
 	V1(InstantiateInputPayloadV1<AccountId, Balance>),
@@ -44,6 +46,8 @@ pub struct InstantiateOutputPayloadV1<Balance> {
 	pub contract_result: ContractResultV1<InstantiateReturnValueV1, Balance>,
 }
 
+/// The output type returned when calling the `instantiate_versioned` runtime API function. This
+/// function replaces the unversioned `instantiate` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum InstantiateVersionedOutputPayload<Balance> {
 	V1(InstantiateOutputPayloadV1<Balance>),

@@ -23,6 +23,8 @@ use sp_core::U256;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct GasPriceInputPayloadV1;
 
+/// The input type used when calling the `gas_price_versioned` runtime API function. This function
+/// replaces the unversioned `gas_price` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GasPriceVersionedInputPayload {
 	V1(GasPriceInputPayloadV1),
@@ -33,6 +35,8 @@ pub struct GasPriceOutputPayloadV1 {
 	pub gas_price: U256,
 }
 
+/// The output type returned when calling the `gas_price_versioned` runtime API function. This
+/// function replaces the unversioned `gas_price` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GasPriceVersionedOutputPayload {
 	V1(GasPriceOutputPayloadV1),

@@ -29,6 +29,8 @@ pub struct GetStorageInputPayloadV1 {
 	pub key: StorageKeyV1,
 }
 
+/// The input type used when calling the `get_storage_versioned` runtime API function. This function
+/// replaces the unversioned `get_storage` and `get_storage_var_key` runtime API functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GetStorageVersionedInputPayload {
 	V1(GetStorageInputPayloadV1),
@@ -39,6 +41,8 @@ pub struct GetStorageOutputPayloadV1 {
 	pub storage: Option<Vec<u8>>,
 }
 
+/// The output type returned when calling the `get_storage_versioned` runtime API function. This
+/// function replaces the unversioned `get_storage` and `get_storage_var_key` runtime API functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GetStorageVersionedOutputPayload {
 	V1(GetStorageOutputPayloadV1),

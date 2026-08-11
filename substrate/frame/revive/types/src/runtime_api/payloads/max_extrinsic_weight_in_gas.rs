@@ -23,6 +23,9 @@ use sp_core::U256;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct MaxExtrinsicWeightInGasInputPayloadV1;
 
+/// The input type used when calling the `max_extrinsic_weight_in_gas_versioned` runtime API
+/// function. This function replaces the unversioned `max_extrinsic_weight_in_gas` runtime API
+/// function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum MaxExtrinsicWeightInGasVersionedInputPayload {
 	V1(MaxExtrinsicWeightInGasInputPayloadV1),
@@ -33,6 +36,9 @@ pub struct MaxExtrinsicWeightInGasOutputPayloadV1 {
 	pub max_extrinsic_weight_in_gas: U256,
 }
 
+/// The output type returned when calling the `max_extrinsic_weight_in_gas_versioned` runtime API
+/// function. This function replaces the unversioned `max_extrinsic_weight_in_gas` runtime API
+/// function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum MaxExtrinsicWeightInGasVersionedOutputPayload {
 	V1(MaxExtrinsicWeightInGasOutputPayloadV1),

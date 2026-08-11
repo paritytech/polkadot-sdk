@@ -101,6 +101,14 @@ Let's assume that we want to version a runtime API function called `${function-n
     - With the same generics as the unversioned runtime API function `${function-name}` has in its arguments.
   - An enum with the following specifications:
     - Named `${function-name} VersionedInputPayload`
+    - With the following doc comment, substituting the name of the unversioned runtime API function for
+      `${function-name}`:
+
+      ```rust
+      /// The input type used when calling the `${function-name}_versioned` runtime API function. This
+      /// function replaces the unversioned `${function-name}` runtime API function.
+      ```
+
     - With a single variant named `V1` which uses tuple-fields with a single field of the type
       `${function-name} InputPayloadV1`.
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional
@@ -122,6 +130,14 @@ Let's assume that we want to version a runtime API function called `${function-n
     -->
   - An enum with the following specifications:
     - Named `${function-name} VersionedOutputPayload`
+    - With the following doc comment, substituting the name of the unversioned runtime API function for
+      `${function-name}`:
+
+      ```rust
+      /// The output type returned when calling the `${function-name}_versioned` runtime API function.
+      /// This function replaces the unversioned `${function-name}` runtime API function.
+      ```
+
     - With a single variant named `V1` which uses tuple-fields with a single field of the type
       `${function-name} OutputPayloadV1`.
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional

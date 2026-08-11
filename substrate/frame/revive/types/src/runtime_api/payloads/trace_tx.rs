@@ -35,6 +35,8 @@ pub struct TraceTxInputPayloadV2<Block> {
 	pub config: TracerTypeV1,
 }
 
+/// The input type used when calling the `trace_tx_versioned` runtime API function. This function
+/// replaces the unversioned `trace_tx` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceTxVersionedInputPayload<Block> {
 	V1(TraceTxInputPayloadV1<Block>),
@@ -51,6 +53,8 @@ pub struct TraceTxOutputPayloadV2 {
 	pub trace: Option<TraceV2>,
 }
 
+/// The output type returned when calling the `trace_tx_versioned` runtime API function. This
+/// function replaces the unversioned `trace_tx` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceTxVersionedOutputPayload {
 	V1(TraceTxOutputPayloadV1),

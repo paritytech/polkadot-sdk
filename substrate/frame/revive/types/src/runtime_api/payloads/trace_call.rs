@@ -35,6 +35,8 @@ pub struct TraceCallInputPayloadV2 {
 	pub state_overrides: Option<StateOverrideSetV1>,
 }
 
+/// The input type used when calling the `trace_call_versioned` runtime API function. This function
+/// replaces the unversioned `trace_call` and `trace_call_with_config` runtime API functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceCallVersionedInputPayload {
 	V1(TraceCallInputPayloadV1),
@@ -51,6 +53,9 @@ pub struct TraceCallOutputPayloadV2 {
 	pub trace: TraceV2,
 }
 
+/// The output type returned when calling the `trace_call_versioned` runtime API function. This
+/// function replaces the unversioned `trace_call` and `trace_call_with_config` runtime API
+/// functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceCallVersionedOutputPayload {
 	V1(TraceCallOutputPayloadV1),

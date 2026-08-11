@@ -25,6 +25,8 @@ pub struct BalanceInputPayloadV1 {
 	pub address: H160,
 }
 
+/// The input type used when calling the `balance_versioned` runtime API function. This function
+/// replaces the unversioned `balance` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BalanceVersionedInputPayload {
 	V1(BalanceInputPayloadV1),
@@ -35,6 +37,8 @@ pub struct BalanceOutputPayloadV1 {
 	pub balance: U256,
 }
 
+/// The output type returned when calling the `balance_versioned` runtime API function. This
+/// function replaces the unversioned `balance` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BalanceVersionedOutputPayload {
 	V1(BalanceOutputPayloadV1),

@@ -26,6 +26,8 @@ pub struct CodeInputPayloadV1 {
 	pub address: H160,
 }
 
+/// The input type used when calling the `code_versioned` runtime API function. This function
+/// replaces the unversioned `code` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum CodeVersionedInputPayload {
 	V1(CodeInputPayloadV1),
@@ -36,6 +38,8 @@ pub struct CodeOutputPayloadV1 {
 	pub code: Vec<u8>,
 }
 
+/// The output type returned when calling the `code_versioned` runtime API function. This function
+/// replaces the unversioned `code` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum CodeVersionedOutputPayload {
 	V1(CodeOutputPayloadV1),

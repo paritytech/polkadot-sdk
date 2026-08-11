@@ -23,6 +23,8 @@ use sp_core::H160;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct RuntimePalletsAddressInputPayloadV1;
 
+/// The input type used when calling the `runtime_pallets_address_versioned` runtime API function.
+/// This function replaces the unversioned `runtime_pallets_address` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum RuntimePalletsAddressVersionedInputPayload {
 	V1(RuntimePalletsAddressInputPayloadV1),
@@ -33,6 +35,8 @@ pub struct RuntimePalletsAddressOutputPayloadV1 {
 	pub runtime_pallets_address: H160,
 }
 
+/// The output type returned when calling the `runtime_pallets_address_versioned` runtime API
+/// function. This function replaces the unversioned `runtime_pallets_address` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum RuntimePalletsAddressVersionedOutputPayload {
 	V1(RuntimePalletsAddressOutputPayloadV1),

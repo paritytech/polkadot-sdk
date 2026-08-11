@@ -25,6 +25,8 @@ pub struct NewBalanceWithDustInputPayloadV1 {
 	pub balance: U256,
 }
 
+/// The input type used when calling the `new_balance_with_dust_versioned` runtime API function.
+/// This function replaces the unversioned `new_balance_with_dust` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum NewBalanceWithDustVersionedInputPayload {
 	V1(NewBalanceWithDustInputPayloadV1),
@@ -36,6 +38,8 @@ pub struct NewBalanceWithDustOutputPayloadV1<Balance> {
 	pub dust: u32,
 }
 
+/// The output type returned when calling the `new_balance_with_dust_versioned` runtime API
+/// function. This function replaces the unversioned `new_balance_with_dust` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum NewBalanceWithDustVersionedOutputPayload<Balance> {
 	V1(NewBalanceWithDustOutputPayloadV1<Balance>),

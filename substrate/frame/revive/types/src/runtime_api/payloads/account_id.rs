@@ -25,6 +25,8 @@ pub struct AccountIdInputPayloadV1 {
 	pub address: H160,
 }
 
+/// The input type used when calling the `account_id_versioned` runtime API function. This function
+/// replaces the unversioned `account_id` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum AccountIdVersionedInputPayload {
 	V1(AccountIdInputPayloadV1),
@@ -35,6 +37,8 @@ pub struct AccountIdOutputPayloadV1<AccountId> {
 	pub account_id: AccountId,
 }
 
+/// The output type returned when calling the `account_id_versioned` runtime API function. This
+/// function replaces the unversioned `account_id` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum AccountIdVersionedOutputPayload<AccountId> {
 	V1(AccountIdOutputPayloadV1<AccountId>),

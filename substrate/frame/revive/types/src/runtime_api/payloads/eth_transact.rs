@@ -29,6 +29,9 @@ pub struct TransactInputPayloadV1<Moment> {
 	pub state_overrides: Option<StateOverrideSetV1>,
 }
 
+/// The input type used when calling the `eth_transact_versioned` runtime API function. This
+/// function replaces the unversioned `eth_transact` and `eth_transact_with_config` runtime API
+/// functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TransactVersionedInputPayload<Moment> {
 	V1(TransactInputPayloadV1<Moment>),
@@ -39,6 +42,9 @@ pub struct TransactOutputPayloadV1<Balance> {
 	pub transact_info: EthTransactInfoV1<Balance>,
 }
 
+/// The output type returned when calling the `eth_transact_versioned` runtime API function. This
+/// function replaces the unversioned `eth_transact` and `eth_transact_with_config` runtime API
+/// functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TransactVersionedOutputPayload<Balance> {
 	V1(TransactOutputPayloadV1<Balance>),

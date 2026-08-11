@@ -34,6 +34,8 @@ pub struct TraceBlockInputPayloadV2<Block> {
 	pub config: TracerTypeV1,
 }
 
+/// The input type used when calling the `trace_block_versioned` runtime API function. This function
+/// replaces the unversioned `trace_block` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceBlockVersionedInputPayload<Block> {
 	V1(TraceBlockInputPayloadV1<Block>),
@@ -50,6 +52,8 @@ pub struct TraceBlockOutputPayloadV2 {
 	pub traces: Vec<(u32, TraceV2)>,
 }
 
+/// The output type returned when calling the `trace_block_versioned` runtime API function. This
+/// function replaces the unversioned `trace_block` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceBlockVersionedOutputPayload {
 	V1(TraceBlockOutputPayloadV1),
