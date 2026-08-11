@@ -278,12 +278,16 @@ parameter_types! {
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
 	pub static ExistentialDeposit: u128 = 1;
+	// Non-zero, so tests fail when a DB access is not charged.
+	pub const TestDbWeight: frame_support::weights::RuntimeDbWeight =
+		frame_support::weights::RuntimeDbWeight { read: 100, write: 300 };
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockWeights = BlockWeights;
+	type DbWeight = TestDbWeight;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u128>;

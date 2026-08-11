@@ -23,7 +23,10 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
-use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
+use frame_support::{
+	traits::Get,
+	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
+};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -200,6 +203,7 @@ macro_rules! cost_storage {
         T::WeightInfo::$name($( $arg ),*)
             .saturating_add(T::WeightInfo::get_storage_full()
             .saturating_sub(T::WeightInfo::get_storage_empty()))
+            .saturating_add(RuntimeCosts::storage_write_overhead::<T>())
     };
 }
 
@@ -222,6 +226,12 @@ impl RuntimeCosts {
 		let per_read = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
 		per_read(T::WeightInfo::overlay_probe_full)
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
+	}
+
+	/// How much more a write costs than a read, per the runtime's `DbWeight`.
+	fn storage_write_overhead<T: Config>() -> Weight {
+		let db = T::DbWeight::get();
+		db.writes(1).saturating_sub(db.reads(1))
 	}
 
 	/// Pick the matching storage bench for the access `kind`.
@@ -431,6 +441,52 @@ mod tests {
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
 			);
 		}
+	}
+
+	#[test]
+	fn cold_reads_prepay_the_write() {
+		const LEN: u32 = 64;
+		type W = <Test as Config>::WeightInfo;
+		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		let prepay = RuntimeCosts::storage_write_overhead::<Test>();
+		assert!(prepay.ref_time() > 0, "mock DbWeight must price the prepay");
+		assert_eq!(prepay.proof_size(), 0, "the prepay adds no proof: {prepay:?}");
+
+		// Not `cost_storage!`: it contains the prepay under test.
+		let strip = |token: RuntimeCosts, bench: Weight, full: Weight, empty: Weight| {
+			weight(token).saturating_sub(bench).saturating_sub(full.saturating_sub(empty))
+		};
+
+		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
+		let cold_read_overhead = strip(
+			RuntimeCosts::GetStorage { len: LEN, kind: cold },
+			W::seal_get_storage(LEN),
+			W::get_storage_full(),
+			W::get_storage_empty(),
+		);
+		let cold_write_overhead = strip(
+			RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind: cold },
+			W::seal_set_storage(LEN, LEN),
+			W::set_storage_full(),
+			W::set_storage_empty(),
+		);
+		assert_eq!(
+			cold_read_overhead,
+			cold_write_overhead.saturating_add(prepay),
+			"a cold read and a cold write differ only by the read's prepay",
+		);
+
+		let hot = StorageAccessKind::Persistent(Warmth::Hot);
+		let hot_read_overhead = weight(RuntimeCosts::GetStorage { len: LEN, kind: hot })
+			.saturating_sub(W::seal_get_storage_hot(LEN));
+		let hot_write_overhead =
+			weight(RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind: hot })
+				.saturating_sub(W::seal_set_storage_hot(LEN, LEN));
+		assert_eq!(
+			hot_read_overhead, hot_write_overhead,
+			"hot reads and hot writes carry the same overhead: the write was prepaid",
+		);
 	}
 
 	#[test]
