@@ -60,63 +60,65 @@ fused kernel).
 **Open:** spec-text package for Jan (contract, fused opcodes, gas pricing
 constants); unifying the fold ops' `k` convention by dropping 237's unused
 product-buffer write (~24k stores/verify on its own); then the batch family
-(`mul256x4`, vector-resident lanes), which is PoC #3, not this. Full queue in
+(`mul256x4`, vector-resident lanes), which is a separate piece of work. Full
+queue in
 [wide-arith-probe-removal-handoff.md](wide-arith-probe-removal-handoff.md).
 
-## Scope and provenance
+## Scope
 
-PoC #2 of the PVM ISA-evolution track, per
-[wide-arith-handoff.md](wide-arith-handoff.md) /
-[wide-arith-instr-research.md](wide-arith-instr-research.md).
-Five base instructions (`mul256`, `add256`, `sub256`, `mul256_by_u64`,
-`redc256`) plus three fused ones (`mul256_redc256`, `add256_redc256`,
-`sub256_redc256`), implemented across interpreter + amd64 recompiler + linker,
-plus a 4×64 curve25519-dalek backend. **Both reduction routes** implemented and
-measured (`redc256` vs `mul256_by_u64` glue), per the decision to let the
-measured delta settle whether `redc256` earns a permanent opcode.
+Eight PVM instructions — `mul256`, `add256`, `sub256`, `mul256_by_u64`,
+`redc256`, and the fused `mul256_redc256`, `add256_redc256`, `sub256_redc256` —
+implemented across interpreter, amd64 recompiler and linker, plus a 4×64-limb
+curve25519-dalek backend to exercise them. The workload is signature
+verification: ed25519 (two implementations), sr25519, with ECDSA benches as
+controls.
 
-## Predictions vs actuals (ed25519-zebra, one verify, naive gas = dynamic instruction count, interpreter, in-container)
+The problem being solved: PVM inherits RISC-V's lack of wide-arithmetic
+primitives, and its recompiler translates 1:1, so 256-bit field arithmetic
+becomes long limb loops with carry emulation and heavy spilling. These
+instructions take whole limb loops into one opcode operating on memory operands.
 
-| | research prediction | measured | Δ |
-|---|---:|---:|---:|
-| baseline (5×51 + mul_wide fusion) | 837k | **836,825** | exact |
-| (e) +redc256 | ~100k | **89,743** | **−10%** |
-| (d) mul256_by_u64 route | ~125k | **117,161** | −6% |
-| (d) vs (e) delta | +25% | **+31.8%** | — |
+**Both reduction routes are implemented and measured** — `redc256` versus
+generic `mul256_by_u64` glue — because `redc256` is the one family member
+encoding a number-theoretic idiom, and whether it earns a permanent opcode was
+left to the measurement (see "The redc256 question").
 
-(After two guest-side optimization passes; the first-cut backend measured
-191k/303k, then 133k/161k — see "Where the numbers come from".)
+Background, not needed to read this doc:
+[wide-arith-handoff.md](wide-arith-handoff.md) (build order and plumbing) and
+[wide-arith-instr-research.md](wide-arith-instr-research.md) (instruction
+semantics and the pre-implementation analysis). This work is the second in a
+series: its predecessor fused the `mulhu`+`mul` pair into a single widening
+multiply ([mul-wide-results.md](mul-wide-results.md), −9…−11% wall), and its
+successor would be the batch family (`mul256x4`).
 
-- Baselines reproduce mul-wide-results.md `ab` numbers **exactly** (zebra
-  836,825; ed25519 888,299; sr25519 840,408) — same pipeline, no drift.
-- All benches verify green under the interpreter (the guest `unwrap()`s the
-  signature check; a wrong field result would trap).
-- **Controls: k256 and libsecp blobs are byte-identical** across all three
-  variants.
+## Gas: dynamic instruction count per verify
 
-All three 25519 benches:
+Naive gas = one per instruction, so these are instruction counts. Measured
+under the interpreter with `tools/opcount`; the two ECDSA benches are controls
+whose blobs are byte-identical across every variant.
 
-| bench | baseline | (d) no-redc | (e) redc | redc gain |
+| bench | baseline (5×51 limbs) | no-redc route | redc route | redc gain |
 |---|---:|---:|---:|---:|
 | ed25519-zebra | 836,825 | 117,161 | **89,743** | **9.3×** |
 | ed25519 | 888,299 | 117,382 | **86,534** | 10.3× |
 | sr25519 | 840,408 | 129,208 | **105,749** | 7.9× |
 
-> **These are 2026-08-07 figures, not current.** Gas moved twice since: the
+> **Historical (2026-08-07).** Gas moved twice after this: the
 > destroyed-register contract raised zebra to 109,685 (the guest must
 > re-materialize pointers the instructions now destroy), then the fused folds
-> cut it to **92,106**. The current end-to-end ratio is **9.1×**, not 9.3×. The
-> table is kept because it is the prediction-vs-actual record.
+> cut it to **92,106** — a 9.1× end-to-end reduction. The table is kept for the
+> route comparison, which is what settled `redc256`.
 
-The research predicted 8.4× on zebra; the measured 9.3× beats it because the
-point-layer memcpy elimination (below) also removed glue the research's ~71k
-floor assumed untouchable.
+The baselines reproduce the predecessor PoC's numbers exactly (same pipeline, no
+drift), and every bench verifies green under the interpreter — the guest
+`unwrap()`s the signature check, so a wrong field result would trap rather than
+silently pass.
 
 ## Where the numbers come from
 
 Per-opcode dynamic counts (tools/opcount, new step-tracing profiler):
 
-- **Wide-op counts land exactly on the research predictions**: mul256 = 2,976
+- **Wide-op counts per verify** (redc route): mul256 = 2,976
   (= 1,445 fe_mul + 1,531 fe_square), redc256 = 2,976; sub256 = 3,087
   (3 per fe_sub: op + two borrow folds); add256 = 3,372; no-redc variant:
   12,300 add256 + 2,976 mul256_by_u64 (1 mul + 3 folds per reduction).
@@ -138,11 +140,11 @@ Per-opcode dynamic counts (tools/opcount, new step-tracing profiler):
   Scalar52 1.1k. Residual per-wide-op glue is ~2 `add_imm_64` of address
   materialization — inherent to a memory-operand ISA.
 
-Calibrated-gas arithmetic (research §7 suggested constants: mul256=16,
-redc256=8, add/sub256=4, mul256_by_u64=4), computed from the counts, not
-implemented: redc variant ≈ 218k gas-cycles (research predicted ≈168k) —
-naive pricing undercharges these instructions ~1.6× on this workload. Still
-a constants decision (CostModel v4), not a design change.
+Calibrated gas, computed from the counts but **not implemented** (naive
+pricing of 1/instruction is what ships): with plausible per-op costs of
+mul256=16, redc256=8, add/sub256=4, mul256_by_u64=4, the redc variant comes to
+≈218k gas-cycles. So **naive pricing undercharges these instructions by ~1.6×**
+on this workload — a cost-constants decision, not a design change.
 
 ## Wall-clock (machine B, bare metal, sync gas; redc blob set verified at 133,054 gas before the run)
 
@@ -648,29 +650,54 @@ the container gets wrong *including the sign*. Order the two variants with the
 static size table; decide on machine B. (Backlog item 2 in the probe-removal
 hand-off, which also carries the rest of the queue in value order.)
 
-## Negative result, reread after the contract experiment: clobber *hints*
+## Clobber declarations: the hint version failed, the contract version worked
 
-The earlier "guest-side clobber declarations: falsified" result stands only
-for clobbers-as-a-*hint*: declarations feeding the (now-removed) liveness
-scan, with the recompiler still saving anything not proven dead — there the
-free-register count stayed ~4.2 regardless (LLVM spills buffer addresses
-into *other* registers, which are live at the next site) and the guest paid
-+4–8% gas for nothing. Under the *contract* regime the question inverts:
-freedom is guaranteed by spec (9 registers, not ~4), and the only issue is
-what the guest glue costs — measured above at −8…−9% wall net. The old
-conclusion "~4 dead registers/site is the ceiling" described the hint
-mechanism, not the idea.
-(rv64e asm constraints, for future work: s0/s1 are not legal clobbers;
-operand+clobber pool is {ra, t0-t2, a0-a5}.)
+These are two implementations of one idea — *let the guest tell the VM which
+registers a wide operation may destroy, so the recompiler can skip saving
+them*. They got opposite results. The distinction is recorded here because the
+first result reads like evidence against the second, and it is not.
+
+**Version 1 — clobbers as a hint (falsified, reverted).** The guest
+over-declares clobbers on its inline-asm blocks; the recompiler runs a
+block-local liveness scan and uses as save-free scratch only the registers it
+can *prove* are dead at that site.
+
+- The provably-dead count per wide-op site stayed at **~4.2 regardless of how
+  many the guest declared.** LLVM's answer to over-declaring is to spill the
+  field-buffer addresses into *other* registers — and those are live at the next
+  site, so nothing is actually freed.
+- The guest paid **+4–8% gas** for that, in extra spill/reload glue, and got no
+  reduction in save/restore work.
+
+**Version 2 — clobbers as a contract (shipped).** The ISA *specifies* the
+destroyed set, so nothing has to be proven: **9 registers** for the mul family,
+unconditionally, on every site.
+
+- **−5.4…−6.4% wall on machine B** (−8…−9% in-container; the container
+  overweights save/restore traffic).
+- The remaining cost is the guest glue that keeps live values out of the
+  destroyed set: **+22% gas** (89,743 → 109,685, spill/re-materialization of
+  pointers the instructions now destroy). That is the trade the contract makes —
+  more guest instructions, fewer host save/restores — and on wall clock it wins.
+  Under the priority in force (wall only, gas is free) it is the right side of
+  the trade; a gas-constrained caller would judge it differently.
+
+**The point:** the old conclusion *"~4 dead registers per site is the ceiling"*
+was a property of **requiring proof**, not a property of the workload. A
+liveness scan can never see what a specification can simply assert. (The scan
+was separately vetoed on design grounds — an observable-state change gated on an
+analysis the spec cannot pin down — and reverted in `4262d03`. So the contract
+is not merely the better-performing option; it is the only one of the two that
+was ever admissible.)
 
 ## The redc256 question — measured data for the decision
 
 - Gas: dropping redc256 costs **+32%** (zebra; the delta grew as the shared
-  glue shrank — it was +21% before the point-layer fixes; research predicted
-  +25%). The (d) route stays fully generic (mul256_by_u64 + add256, no
+  glue shrank — it was +21% before the point-layer fixes). The generic route
+  stays free of number-theoretic opcodes (mul256_by_u64 + add256, no
   number-theoretic opcode) at 117,161 — still 7.1× better than baseline.
-- Wall: **+64% in-container** (noredc 93.6 vs redc 57.2 µs), against a research
-  model that predicted ~13%. Never re-measured on the rig, deliberately: a 64%
+- Wall: **+64% in-container** (noredc 93.6 vs redc 57.2 µs). Never re-measured
+  on the rig, deliberately: a 64%
   wall gap plus a 32% gas gap settles the question several times over, and rig
   time was better spent on the optimizations. The mechanism is unchanged from
   the model — (d) burns 3 extra `add256` + 1 `mul256_by_u64` per reduction
@@ -735,6 +762,9 @@ stack buffer even with thousands of sites sharing one trampoline.
 - Never destroyed: **RA, SP, S0, S1** (s0/s1 aren't legal rv64e asm
   clobbers; destroying RA breaks `op; ret`) — plus A4/A5 for the add/sub
   family, deliberately left alive between multiplies for the guest compiler.
+  This is a constraint, not a choice: the entire pool available to a guest
+  inline-asm block as operands or clobbers is `{ra, t0–t2, a0–a5}`, which is
+  what caps a fixed destroyed set at 9 registers.
 - Carry/borrow-out: written **after** the zeroing, so it may alias any
   operand.
 - A **faulting** instruction destroys nothing — all faults precede all
@@ -819,8 +849,9 @@ one is measured, one is analysis, one is the surviving open path.
      serial chain of 4-cycle `vpmadd52` steps plus conversion chains fore
      and aft, against 16 `mulx` pipelining at 1/cycle (~20–25 cycles
      total, 53.8 cycles/op measured for the whole fused kernel).
-3. **What survives: batching (PoC #3).** All three blockers amortize or
-   vanish when four independent products run in lanes: conversions divide
+3. **What survives: batching**, as a separate piece of work. All three
+   blockers amortize or vanish when four independent products run in lanes:
+   conversions divide
    by 4 (or disappear if lanes stay resident across a region), the lanes
    fill with independent work so latencies pipeline, and — key point from
    the xmm experiment — **memory→vector loads do not pay the domain
@@ -842,7 +873,7 @@ one is measured, one is analysis, one is the surviving open path.
    adversarial code bloat: worst case is the operand-encoding space
    (~90k variants), not code size. Any JAM implementation faces the same
    sizing question.
-2. **Fault contract (resolves research open question #3):** every trampoline
+2. **Fault contract:** every trampoline
    probes the first+last 8 bytes of each memory operand (read-probes for
    sources, 8-byte RMW for dst; sources first, dst last) using only the
    non-guest TMP register, *before* touching any guest state or the stack.
@@ -876,13 +907,14 @@ one is measured, one is analysis, one is the surviving open path.
    were already taken — worth knowing before anyone adds a sixth wide shape.
    The zero register is rejected for `k`, so a guest wanting `k = 0` (legal;
    it degenerates to `mod 2^256`) must materialize the zero itself.
-5. **Executed x86 per op exceeds the research sketches** (mul256 ≈ 112 vs
-   65–85; redc256 ≈ 70 vs 30–40; add256 ≈ 40 vs 14): the deltas are operand
-   probes (~6–9) and scratch save/restores (~14–24; read-all-then-write needs
-   the full 512-bit product in registers, and 13 of 16 host registers hold
-   guest state). Levers if bare-metal wall disappoints: dead-guest-register
-   knowledge, windowed accumulation, merging probe loads into the body.
-   The mulx + adcx/adox dual-carry-chain core matches the research sketch.
+5. **These sequences are heavier than a limb-loop count suggests**: mul256 ≈ 112
+   executed x86 instructions, redc256 ≈ 70, add256 ≈ 40 — roughly 1.3–2.9× the
+   arithmetic alone. The overhead is operand probes (~6–9) and scratch
+   save/restores (~14–24; read-all-then-write needs the full 512-bit product in
+   registers, and 13 of 16 host registers hold guest state). Both were then
+   attacked directly: the destroyed-register contract removed most of the
+   save/restores, and fusion removed whole probe sets. Anyone pricing a wide
+   instruction from its arithmetic alone will underestimate it by this much.
 
 ## Artifacts
 
@@ -926,7 +958,8 @@ one is measured, one is analysis, one is the surviving open path.
   **prints nothing while exiting 0** (silent, no trap message); a newer binary
   against older blobs is invalid because those blobs rely on registers the
   instructions now destroy. Numbers coming back at a previous config's values is
-  the stale-blob tell (from PoC #1).
+  the stale-blob tell — a footgun that has already cost one bogus measurement
+  round in this project.
 - Profiler: `cargo run -q --release -p opcount -- <blob>` (runs
   initialize+run under the interpreter, per-opcode dynamic counts + gas);
   add `--time` for relative wall-clock A/B.
@@ -956,8 +989,8 @@ number. What is genuinely outstanding:
 
 ## Open design questions (updated)
 
-1. **Gas pricing** — unchanged from research §7 Q1; calibrated arithmetic
-   above. Surface for Jan with the measured counts.
+1. **Gas pricing** — still open. The calibrated arithmetic above says naive
+   pricing undercharges by ~1.6×; surface it for Jan with the measured counts.
 2. **Carry-out ergonomics for EVM/resolc** — unchanged (rc always written;
    written last, so it may alias any operand — now specified and tested). Note
    the fused folds have *no* carry-out at all, which is the cleaner shape if a
@@ -972,5 +1005,5 @@ number. What is genuinely outstanding:
    92,106. Wide-arithmetic ops are 5,177 of them. So the next guest-side win is
    pointer/offset code — how dalek's field and point structs are addressed, and
    what LLVM emits for the PVM target — not more field-arithmetic ISA. This is
-   the research's "glue dominates after the knee" finding, now with the knee
-   well behind us.
+   the expected "glue dominates once the arithmetic is cheap" outcome, now with
+   the arithmetic well and truly cheap.
