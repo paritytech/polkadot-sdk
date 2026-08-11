@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786442764783,
+  "lastUpdate": 1786458261786,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "90b7cafd8cfba509cc0f6ea476acc1a8c9ad0c11",
-          "message": "[Staking] Async Election and Export (#10311)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/10142\n\n## Context\nEra rotation in `pallet-staking-async` coordinates validator set changes\nbetween Asset Hub and Relay Chain. Currently:\n\nHappy Era Lifecycle (On Polkadot):\n- Session 0-4: Idle\n- Start of Session 5: Election starts for era N+1\n- At some point in Session 5: Election completes → validators sent to RC\n- End of Session 5: AH Client on RC queues validators to session pallet\n- End of Session 6: Queued validator set gets activated. RC returns\nactivation timestamp to AH, and AH rotates active era to N+1.\n\n## Issue with current approach\n\n1. **If election takes longer than a session**: Active Era will become\nlonger than 6 sessions.\n2. **If we allow two sessions for election, and election completes\nfaster**: Active Era will be shorter than 6 sessions.\n\nThese issues are currently unlikely, but with elastic scaling (multiple\ncores in AH), they become more probable.\n\n## Solution\n1. Start the election as soon as Era N starts for Era N+1.\n2. Buffer elected validators in RC Client pallet and send them after the\nstart of Session 5.\n\n## Result\nThis ensures we send elected validators for the next era always at the\nright time. It also has two good side effects:\n\n1. Election can run for longer and do less work per block than it is\ndoing currently. We can split the work well across the whole lifecycle\nof the era instead of very compute heavy election session blocks.\n2. Validator/nominator snapshot for the era election has a much cleaner\nboundary.\n\n---\n\n## Note for Reviewers\n- [This\ntest](https://github.com/paritytech/polkadot-sdk/pull/10311/files#diff-4debb79dd5fb5bd745453a7c67652b2e9716636ae211badecbcb500d41f0d9dbR1088)\ndemonstrates the change from older configuration to new.\n\n### Open Questions\n- Should we get rid of PlanningEraOffset completely and make election\nstart asap (not configurable)\n\n---\n## TODO\n- Early exit signed validation (in separate PR)\n- [x] Two equivalent test with different configurations of\n`PlanningEraOffset` and `ValidatorSetExportSession`, demonstrating same\noutcome except election timings.\n- [ ] ~~Documentation~~\n\n---\n**Update:**\nI have removed the new storage\n`LastEraActivationSessionReportEndingIndex` and instead rely only on\nsession index from staking. I guess there is some tiny bit value in\ncreating this new storage since:\n– this pallet already knows everything it needs to know via session\nreports,\n– keeping its logic lean and self-contained, without adding a dependency\non the staking pallet.\n\nBut the pallets already talk via `AHStakingInterface` and so I don't\nthink above reason holds.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T16:24:29Z",
-          "tree_id": "994b610f294eed77a0edabd5b3b9f49f384ba1d4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/90b7cafd8cfba509cc0f6ea476acc1a8c9ad0c11"
-        },
-        "date": 1764784928469,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.21,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.50739013598,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001878487,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001725524,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001725524,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4958912441399983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.343171957119996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001878487,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006340735689999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.4771072441699986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9573516346999937,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4411557047500043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.457935257689999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.705922492180995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.386328348382914,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "519726f3f2ee9542771241c1eec153255993d2d7",
+          "message": "Re-enable zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-va… (#12856)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12839\n\nThe throughput for v3 will be flaky until we have resubmissions.\nDecreasing the expected ranges according to the CI failures for the\nmoment",
+          "timestamp": "2026-08-11T12:38:52Z",
+          "tree_id": "532d3ffa78bb94b239df3d096b9c32f4c787bccb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/519726f3f2ee9542771241c1eec153255993d2d7"
+        },
+        "date": 1786458227843,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63573.119999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.439577123072629,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.657671198839998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022098579999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.684434917099978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002349327,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022098579999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005419347720000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002349327,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6164972354700016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6550044085599978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.630240225799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3352958175899983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7843066831199836,
             "unit": "seconds"
           }
         ]
