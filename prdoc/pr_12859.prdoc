@@ -11,3 +11,5 @@ doc:
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
