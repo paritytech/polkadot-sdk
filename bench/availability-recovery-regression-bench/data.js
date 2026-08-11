@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786392934035,
+  "lastUpdate": 1786442678555,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "34034a943bf67268f9e59a991f00eef1ff1fb9c8",
-          "message": "Revert \"xcm: Do not require `Asset` to be sorted on `decode`\" (#10459)\n\nReverts paritytech/polkadot-sdk#9842\n\nFollowing on the discussion at\nhttps://github.com/paritytech/polkadot-sdk/issues/10391, we don't want\nto sort at decode level but rather to not require sorting at all among\nthe codebase",
-          "timestamp": "2025-12-04T07:45:10Z",
-          "tree_id": "d3cbd9093c14af5a2afd1dc11541c765de645202",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/34034a943bf67268f9e59a991f00eef1ff1fb9c8"
-        },
-        "date": 1764840335120,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2022263991,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.748073532266668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13761300606666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "551ad310d15a95778297205f62ce77303b086f49",
+          "message": "feat(webrtc): derive DTLS certificate deterministically from node key (#12693)\n\nDerive the WebRTC DTLS cert/key deterministically from the node's\nEd25519 secret key instead of persisting it to a separate file on disk.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-11T08:39:00Z",
+          "tree_id": "f4bcd85658136d91f283b27a86c7e676e222a9cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/551ad310d15a95778297205f62ce77303b086f49"
+        },
+        "date": 1786442645460,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13833210563333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.8325846211,
             "unit": "seconds"
           }
         ]
