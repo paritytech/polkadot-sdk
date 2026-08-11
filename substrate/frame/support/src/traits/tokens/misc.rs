@@ -496,7 +496,27 @@ pub trait VestedPayout<AccountId, Balance> {
 	/// Transfer `amount` from `source` to `dest`, merging with the same-kind schedule
 	/// whose `starting_block` equals `start_at`, or creating a new one. The merge path
 	/// bypasses `MinVestedTransfer` — safe only because trait callers are trusted.
+	///
+	/// Returns `AtMaxVestingSchedules` if the per-kind slot cap is reached and no
+	/// same-start schedule exists to merge into.
 	fn add_to_vesting(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		duration: Self::BlockNumber,
+		start_at: Self::BlockNumber,
+		kind: VestingKind,
+	) -> sp_runtime::DispatchResult;
+
+	/// Returns `true` if `who` has room for at least one more schedule of `kind`.
+	fn has_capacity_for_kind(who: &AccountId, kind: VestingKind) -> bool;
+
+	/// Transfer `amount` from `source` to `dest` and merge it into the existing schedule of
+	/// `kind` whose ending block is closest to the incoming one.
+	///
+	/// Unlike [`add_to_vesting`](Self::add_to_vesting), this method does not check
+	/// capacity and always merges into some existing schedule.
+	fn merge_amount_into_closest_schedule(
 		source: &AccountId,
 		dest: &AccountId,
 		amount: Balance,

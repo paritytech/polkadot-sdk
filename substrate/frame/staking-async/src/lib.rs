@@ -782,7 +782,18 @@ where
 			));
 		}
 
-		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System)
+		if V::has_capacity_for_kind(dest, VestingKind::System) {
+			V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System)
+		} else {
+			V::merge_amount_into_closest_schedule(
+				source,
+				dest,
+				amount,
+				duration,
+				start_at,
+				VestingKind::System,
+			)
+		}
 	}
 }
 
