@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786392976088,
+  "lastUpdate": 1786442721545,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "90b7cafd8cfba509cc0f6ea476acc1a8c9ad0c11",
-          "message": "[Staking] Async Election and Export (#10311)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/10142\n\n## Context\nEra rotation in `pallet-staking-async` coordinates validator set changes\nbetween Asset Hub and Relay Chain. Currently:\n\nHappy Era Lifecycle (On Polkadot):\n- Session 0-4: Idle\n- Start of Session 5: Election starts for era N+1\n- At some point in Session 5: Election completes → validators sent to RC\n- End of Session 5: AH Client on RC queues validators to session pallet\n- End of Session 6: Queued validator set gets activated. RC returns\nactivation timestamp to AH, and AH rotates active era to N+1.\n\n## Issue with current approach\n\n1. **If election takes longer than a session**: Active Era will become\nlonger than 6 sessions.\n2. **If we allow two sessions for election, and election completes\nfaster**: Active Era will be shorter than 6 sessions.\n\nThese issues are currently unlikely, but with elastic scaling (multiple\ncores in AH), they become more probable.\n\n## Solution\n1. Start the election as soon as Era N starts for Era N+1.\n2. Buffer elected validators in RC Client pallet and send them after the\nstart of Session 5.\n\n## Result\nThis ensures we send elected validators for the next era always at the\nright time. It also has two good side effects:\n\n1. Election can run for longer and do less work per block than it is\ndoing currently. We can split the work well across the whole lifecycle\nof the era instead of very compute heavy election session blocks.\n2. Validator/nominator snapshot for the era election has a much cleaner\nboundary.\n\n---\n\n## Note for Reviewers\n- [This\ntest](https://github.com/paritytech/polkadot-sdk/pull/10311/files#diff-4debb79dd5fb5bd745453a7c67652b2e9716636ae211badecbcb500d41f0d9dbR1088)\ndemonstrates the change from older configuration to new.\n\n### Open Questions\n- Should we get rid of PlanningEraOffset completely and make election\nstart asap (not configurable)\n\n---\n## TODO\n- Early exit signed validation (in separate PR)\n- [x] Two equivalent test with different configurations of\n`PlanningEraOffset` and `ValidatorSetExportSession`, demonstrating same\noutcome except election timings.\n- [ ] ~~Documentation~~\n\n---\n**Update:**\nI have removed the new storage\n`LastEraActivationSessionReportEndingIndex` and instead rely only on\nsession index from staking. I guess there is some tiny bit value in\ncreating this new storage since:\n– this pallet already knows everything it needs to know via session\nreports,\n– keeping its logic lean and self-contained, without adding a dependency\non the staking pallet.\n\nBut the pallets already talk via `AHStakingInterface` and so I don't\nthink above reason holds.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T16:24:29Z",
-          "tree_id": "994b610f294eed77a0edabd5b3b9f49f384ba1d4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/90b7cafd8cfba509cc0f6ea476acc1a8c9ad0c11"
-        },
-        "date": 1764784896177,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0128551205,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15750650344000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022479111320000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007180191419999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14223375083333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "551ad310d15a95778297205f62ce77303b086f49",
+          "message": "feat(webrtc): derive DTLS certificate deterministically from node key (#12693)\n\nDerive the WebRTC DTLS cert/key deterministically from the node's\nEd25519 secret key instead of persisting it to a separate file on disk.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-11T08:39:00Z",
+          "tree_id": "f4bcd85658136d91f283b27a86c7e676e222a9cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/551ad310d15a95778297205f62ce77303b086f49"
+        },
+        "date": 1786442688005,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1455435113000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02281409265333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009768896146666702,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007558684853333334,
             "unit": "seconds"
           }
         ]
