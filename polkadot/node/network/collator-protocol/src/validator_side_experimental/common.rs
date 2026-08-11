@@ -205,7 +205,7 @@ impl TryAcceptOutcome {
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub enum ProspectiveCandidate {
 	ByHash { candidate_hash: CandidateHash, parent_head_data_hash: Hash },
-	ByOutputHead { output_head_data_hash: Hash, parent_head_data_hash: Hash, relay_parent: Hash },
+	ByOutputHead { output_head_data_hash: Hash, parent_head_data_hash: Hash },
 }
 
 impl ProspectiveCandidate {

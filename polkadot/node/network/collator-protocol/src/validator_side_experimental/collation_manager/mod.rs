@@ -1215,16 +1215,9 @@ impl FetchedCollation {
 					return Err(SecondingError::CandidateHashMismatch);
 				}
 			},
-			Some(ProspectiveCandidate::ByOutputHead {
-				output_head_data_hash,
-				relay_parent,
-				..
-			}) => {
+			Some(ProspectiveCandidate::ByOutputHead { output_head_data_hash, .. }) => {
 				if output_head_data_hash != candidate_receipt.descriptor().para_head() {
 					return Err(SecondingError::OutputHeadHashMismatch);
-				}
-				if relay_parent != candidate_receipt.descriptor().relay_parent() {
-					return Err(SecondingError::RelayParentMismatch);
 				}
 				if advertised.para_id != candidate_receipt.descriptor.para_id() {
 					return Err(SecondingError::ParaIdMismatch);

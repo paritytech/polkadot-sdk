@@ -576,7 +576,6 @@ async fn distribute_segment<Context>(
 		segment_fingerprint.push(CandidateFingerprint {
 			output_head_data_hash: para_head,
 			parent_head_data_hash: entry.parent_head_data.hash(),
-			relay_parent: entry.relay_parent,
 			claim_queue_offset: 0,
 		});
 		// We have already seen collation for this scheduling parent.
@@ -1044,7 +1043,7 @@ async fn advertise_segment<Context>(
 					candidate_hash: tip_candidate_hash,
 					parent_head_data_hash: newest_candidate.parent_head_data_hash,
 					candidate_descriptor_version: candidates_descriptor_version,
-					relay_parent: newest_candidate.relay_parent,
+					relay_parent: tip.collation().receipt.descriptor.relay_parent(),
 				},
 			))
 		},

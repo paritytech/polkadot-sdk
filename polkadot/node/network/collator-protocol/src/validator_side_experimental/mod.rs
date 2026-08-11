@@ -519,7 +519,6 @@ async fn process_incoming_peer_message<Sender, B>(
 				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {
 					output_head_data_hash: candidate_fingerprint.output_head_data_hash,
 					parent_head_data_hash: candidate_fingerprint.parent_head_data_hash,
-					relay_parent: candidate_fingerprint.relay_parent,
 				})
 				.collect();
 			state

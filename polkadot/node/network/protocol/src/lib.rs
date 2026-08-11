@@ -680,8 +680,6 @@ pub mod v4_collation {
 		pub output_head_data_hash: Hash,
 		/// Parachain head data hash before candidate execution.
 		pub parent_head_data_hash: Hash,
-		/// Relay parent the advertised candidate builds on.
-		pub relay_parent: Hash,
 		/// The claim queue offset.
 		pub claim_queue_offset: u8,
 	}
@@ -709,7 +707,6 @@ pub mod v4_collation {
 				let fingerprint = CandidateFingerprint {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
-					relay_parent: Hash::random(),
 					claim_queue_offset: 0,
 				};
 				candidates.push(fingerprint);
@@ -743,7 +740,6 @@ pub mod v4_collation {
 				.map(|_| CandidateFingerprint {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
-					relay_parent: Hash::random(),
 					claim_queue_offset: 0,
 				})
 				.collect();
