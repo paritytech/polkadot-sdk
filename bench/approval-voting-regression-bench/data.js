@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786550068445,
+  "lastUpdate": 1786552689463,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4b29e160c6e96234512cfe29fc568297514f831",
-          "message": "Minor `pallet-scheduler` documentation/unit test additions (#10511)\n\n# Description\n\nThis adds some comments to scheduler pallet calls, a couple of checks to\n`Lookup<T>` in some unit tests, and a test that verifies rescheduling of\na task to a full block.\n\n## Integration\n\nN/A\n\n## Review Notes\n\nN/A\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
-          "timestamp": "2025-12-04T17:55:01Z",
-          "tree_id": "31d9597395d32868f79e1608fae7d719dddb7624",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4b29e160c6e96234512cfe29fc568297514f831"
-        },
-        "date": 1764876795409,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63635.81,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001884185,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6685553393710437,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.020316887059996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006160943050000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019697639999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019697639999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4530921906200005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.384897152230002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3705151830999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.411242439569999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9764559716099943,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4179530068800016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001884185,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.480558141612869,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4341b842a21a735b227f1da39af5b8f0eec795f2",
+          "message": "Statement store index optimization, state 2b (#12774)\n\nThis PR aims to conclude the statement store index optimizations\ndescribed in #10910. It introduces an on-disk submit index backed by\nwrite-through LRU caches.\n\nBeyond the changes proposed by the mentioned issue, the following\nimprovements have been implemented:\n* Persistent counters are written into the DB, so the statement bodies\nare not even decoded on startup;\n* Instead of the account snapshot, the limit enforcer uses a much more\nmemory-efficient DB cursor;\n* Some possible race conditions have been fixed along the way.\n\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12624\nhttps://github.com/paritytech/polkadot-sdk/issues/10910",
+          "timestamp": "2026-08-12T14:04:41Z",
+          "tree_id": "ac25650f1ea7cea49280cb96240eda53db32621a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4341b842a21a735b227f1da39af5b8f0eec795f2"
+        },
+        "date": 1786552655736,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.12000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.712891299259951,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001671749,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.319550267279996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001802174,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8000035232899524,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.497781649842803,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.659479050260003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005208128010000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.625279458619999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001802174,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6318151075199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6715557642800025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001671749,
             "unit": "seconds"
           }
         ]
