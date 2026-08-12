@@ -416,8 +416,8 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 			FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
 		// The relay chain side of a collator doesn't listen on WebRTC by default.
-		if para_config.role.is_authority() && base.base.network_params.webrtc().is_none() {
-			base.base.network_params.disable_webrtc = true;
+		if para_config.role.is_authority() {
+			base.base.network_params.webrtc_params.enable.get_or_insert(false);
 		}
 
 		let extension = Extensions::try_get(&*para_config.chain_spec);
