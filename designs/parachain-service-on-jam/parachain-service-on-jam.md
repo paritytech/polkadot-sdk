@@ -791,11 +791,13 @@ The log is a `Vec` built by appending, so entries sit in arrival order and their
 inline timeslots are non-decreasing. The entry evicted is the one of the lowest
 occupied rank *at or below* the incoming entry's own rank and, within that rank, the
 earliest inline timeslot; this repeats until the log fits. Entries sharing a rank and
-a timeslot are equally old, so exactly one of them goes and which is immaterial. So a new `Opaque`
-displaces rank-0 entries first and, failing those, the oldest existing `Opaque`; a
-new accumulate entry displaces refine entries of either rank before the oldest
-accumulate entry. An entry is **never** evicted to make room for something of lower
-rank: when only higher-ranked entries remain, the incoming entry is dropped instead.
+a timeslot are equally old, so exactly one of them goes and which is immaterial.
+
+So a new `Opaque` displaces rank-0 entries first and, failing those, the oldest
+existing `Opaque`; a new accumulate entry displaces refine entries of either rank
+before the oldest accumulate entry. An entry is **never** evicted to make room for
+something of lower rank: when only higher-ranked entries remain, the incoming entry
+is dropped instead.
 
 **Why the ranking exists.** Coretime on a core assigned to a parachain can be bought
 by anyone, and a work package submitted that way still reaches Refine, so its
