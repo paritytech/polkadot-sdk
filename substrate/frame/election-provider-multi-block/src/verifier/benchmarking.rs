@@ -16,12 +16,14 @@
 // limitations under the License.
 
 use crate::{
+	signed::RewardSource,
 	verifier::{Config, Event, FeasibilityError, Pallet, Status, StatusStorage},
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::{ElectionProvider, NposSolution};
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::tokens::fungible::Unbalanced};
+use sp_runtime::traits::Zero;
 use sp_std::prelude::*;
 
 #[benchmarks(where
@@ -77,6 +79,16 @@ mod benchmarks {
 		);
 
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
+
+		// Worst case: drain a configured pot so the reward payout defers into UnpaidRewards.
+		if let Some(source) = <T as crate::signed::Config>::RewardSource::account() {
+			let _ =
+				<<T as crate::signed::Config>::Currency as Unbalanced<T::AccountId>>::write_balance(
+					&source,
+					Zero::zero(),
+				);
+		}
+
 		// roll to before the last page of verification
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_))
