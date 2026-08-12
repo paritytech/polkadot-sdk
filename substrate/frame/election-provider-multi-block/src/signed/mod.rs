@@ -116,12 +116,8 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, T::Pages>,
 }
 
-/// A round-winner reward that failed to pay out of [`Config::RewardSource`] and is pending a
-/// permissionless claim via [`Pallet::claim_unpaid_reward`].
-///
-/// Scoped to round-winner rewards only, not invulnerable fee refunds: a round has at most one
-/// winner, so `round` alone is a unique key. Widening this to fee refunds would break that
-/// uniqueness for comparatively little benefit, given the much smaller amounts involved.
+/// A round-winner reward that failed to pay, pending a permissionless claim via
+/// [`Pallet::claim_unpaid_reward`]. Rewards only, not fee refunds, so `round` is a unique key.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, DebugNoBound)]
 #[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
 #[codec(mel_bound(T: Config))]

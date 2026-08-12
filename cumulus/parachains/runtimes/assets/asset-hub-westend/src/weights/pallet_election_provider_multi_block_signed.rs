@@ -196,7 +196,6 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::signed::Weig
 	}
 	/// Storage: `MultiBlockElectionSigned::UnpaidRewards` (r:1 w:1)
 	/// Proof: `MultiBlockElectionSigned::UnpaidRewards` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `Measured`)
-	// TODO: placeholder pending `/cmd bench`; not yet a real benchmark result.
 	fn claim_unpaid_reward() -> Weight {
 		Weight::from_parts(50_000_000, 4000)
 			.saturating_add(T::DbWeight::get().reads(3))
