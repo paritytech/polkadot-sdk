@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786526204434,
+  "lastUpdate": 1786547553366,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -112751,6 +112751,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2659304242,
             "range": "± 28144070",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d1a97a93e9fa1b1257bd8f87ca34c1eabeca660a",
+          "message": "statement-store: avoid blocking event loop during initial sync (#12814)\n\n## Problem\n\n`process_initial_sync_burst` awaited its send inline, inside the\n`select_biased!` arm. While that await was pending no other arm ran —\nnot propagation, not `notification_service.next_event()`, not sync\nevents, not pending statement imports, and not the `pending_sends` arm.\nA single peer that stopped reading its substream stalled every\nresponsibility of the handler for up to `SEND_TIMEOUT` (10s).\n\n`INITIAL_SYNC_BURST_INTERVAL` is 10ms and each burst serves one peer\nwith one chunk, so the design assumes ~100 cheap bursts/sec. One\nback-pressuring peer turned that into one burst per 10s.\n\nThe stall also cost statements on unrelated peers: in-flight propagation\nfutures made no progress while their own `SEND_TIMEOUT` deadline ran in\nwall clock, so a send to a perfectly healthy peer could come back as\n`TimedOut`.\n\n#12657 did this extraction for propagation and explicitly left initial\nsync out ([review\nthread](https://github.com/paritytech/polkadot-sdk/pull/12657#issuecomment-5034025217)).\n\n## Fix\n\nInitial-sync chunks are queued to `pending_sends` and driven by the main\nloop, the same way #12657 did it for propagation.\n`process_initial_sync_burst` is no longer `async`. Everything it used to\ndo after the await moved to `handle_send_result`: marking the statements\nknown, requeueing the peer, and closing the sync on failure.\n\n### Memory bound\n\nQueued chunks hold their encoded payload until the send resolves, so\n`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` bounds that at 16 notifications. It\nis checked before `pop_front`, so the queue order is untouched and the\nstore walk is skipped entirely. A saturated budget pauses initial-sync\nprogress only; the event loop keeps serving propagation, imports and\nnotification events.\n\n## Metrics\n\n| Metric | Change |\n| --- | --- |\n| `substrate_sync_initial_sync_in_flight_bytes` | new gauge |\n| `substrate_sync_propagated_statements_chunks` | new label `kind` =\n`propagation`, `initial_sync` |\n| `substrate_sync_initial_sync_duration_seconds` | new label `outcome` =\n`completed`, `abandoned` |\n| `substrate_sync_statement_send_failures_total`,\n`substrate_sync_statement_undelivered_total` | `reason=\"no_sink\"` now\nreachable from initial sync |\n| `substrate_sync_initial_sync_peers_active` | fixed: no longer leaks\nwhen the peer is already gone from the peer map |\n\nCloses #12794\n\n- [ ] #12838 \n- [ ] #12868\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-12T13:42:12Z",
+          "tree_id": "70c6d11944b6a91503e1698da7f71192368dbd28",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d1a97a93e9fa1b1257bd8f87ca34c1eabeca660a"
+        },
+        "date": 1786547519050,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19619496,
+            "range": "± 126367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19680947,
+            "range": "± 97275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21115290,
+            "range": "± 111594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25718074,
+            "range": "± 86165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57553411,
+            "range": "± 331596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 339070894,
+            "range": "± 3603074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2427577749,
+            "range": "± 96893260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17067823,
+            "range": "± 157186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17107552,
+            "range": "± 159593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17536732,
+            "range": "± 176914",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21848710,
+            "range": "± 176642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58706731,
+            "range": "± 271019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341421683,
+            "range": "± 1257700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2601013501,
+            "range": "± 9152017",
             "unit": "ns/iter"
           }
         ]
