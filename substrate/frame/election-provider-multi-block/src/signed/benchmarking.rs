@@ -16,17 +16,20 @@
 // limitations under the License.
 
 use crate::{
-	signed::{Config, Pallet, Submissions},
+	signed::{Config, Pallet, RewardSource, Submissions},
 	types::PagedRawSolution,
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionProvider;
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	pallet_prelude::*,
+	traits::fungible::{Inspect, Mutate},
+};
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::traits::One;
+use sp_runtime::traits::{One, Saturating};
 use sp_std::boxed::Box;
 
 #[benchmarks(where T: crate::Config + crate::verifier::Config + crate::unsigned::Config)]
@@ -213,6 +216,15 @@ mod benchmarks {
 				.map_err(|_| BenchmarkError::Stop("UnpaidRewards is full"))?;
 		}
 		let target_round = 15u32;
+
+		// The claim pays out of `RewardSource`, so it must be able to cover one entry and still
+		// hold ED afterwards, as the payout uses `Preservation::Preserve`. A `None` source mints
+		// and needs no funding.
+		if let Some(source) = T::RewardSource::account() {
+			let funds =
+				<T as Config>::RewardBase::get().saturating_add(T::Currency::minimum_balance());
+			T::Currency::mint_into(&source, funds)?;
+		}
 
 		let caller = crate::Pallet::<T>::funded_account("caller", 0);
 
