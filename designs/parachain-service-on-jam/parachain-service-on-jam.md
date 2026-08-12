@@ -219,6 +219,13 @@ struct AccumulateLogEntry {
     entries: Vec<AccumulateLog>,
 }
 
+/// Why Refine failed, as recorded in `parachain_log`.
+///
+/// `Opaque` is the most important variant: it is the only one carrying a payload
+/// the parachain's own code chose, and so the only one conveying context the
+/// parachain can act on. The rest are valuable for debugging, but each is a fixed
+/// structural failure carrying no parachain-supplied detail. The log's eviction
+/// ranking is built around that (§5.1).
 enum RefineLog {
     /// `historical_lookup(validation_code_hash)` returned `None`: the
     /// validation code preimage is not available in the service's store
@@ -234,8 +241,9 @@ enum RefineLog {
     /// The PVF emitted more than 1024 upward messages in a single Refine
     /// invocation. See §4.3.
     TooManyUpwardMessages,
-    /// The PVF invoked a host function restricted to another parachain
-    /// (Asset Hub or the Coretime chain). See §4.3.
+    /// The PVF invoked a host function restricted to another parachain (Asset
+    /// Hub or the Coretime chain), or named a `para_id` it may not act for.
+    /// See §4.3.
     RestrictedHostFunction,
     /// The authorizer config's `authorized_paras` prefix length does not
     /// match the work package's item count. See §4.1 step 1.
@@ -768,13 +776,46 @@ during Accumulate. When a candidate is processed, before its own refine/accumula
 entries are appended, entries whose inline timeslot is strictly less than the
 candidate's lookup-anchor timeslot are pruned. The log
 is additionally bounded to a 64 KiB total encoded size (not a fixed entry count),
-so each entry is charged only its actual size; whenever a new entry would push the
-log over 64 KiB, entries are evicted until it fits: the oldest `RefineLogEntry` is
-dropped first (Refine failures are the most disposable, whereas an
-`AccumulateLogEntry` records an actual on-chain state change and so carries
-information worth retaining), and only once no refine
-entry remains is the oldest entry overall dropped, so accumulate events are
-retained under capacity pressure.
+so each entry is charged only its actual size.
+
+When a new entry would push the log over 64 KiB, eviction follows a **fixed rank
+order**, lowest rank discarded first:
+
+| Rank | Entry |
+|---|---|
+| 0 | `RefineLogEntry` whose error is **not** `Opaque` |
+| 1 | `RefineLogEntry` carrying `Opaque` |
+| 2 | `LogEntry::Accumulate` |
+
+The log is a `Vec` built by appending, so entries sit in arrival order and their
+inline timeslots are non-decreasing. The entry evicted is the one of the lowest
+occupied rank *at or below* the incoming entry's own rank and, within that rank, the
+earliest inline timeslot; this repeats until the log fits. Entries sharing a rank and
+a timeslot are equally old, so exactly one of them goes and which is immaterial. So a new `Opaque`
+displaces rank-0 entries first and, failing those, the oldest existing `Opaque`; a
+new accumulate entry displaces refine entries of either rank before the oldest
+accumulate entry. An entry is **never** evicted to make room for something of lower
+rank: when only higher-ranked entries remain, the incoming entry is dropped instead.
+
+**Why the ranking exists.** Coretime on a core assigned to a parachain can be bought
+by anyone, and a work package submitted that way still reaches Refine, so its
+failures are recorded against the parachain even though the parachain did not cause
+them. Every such failure lands in rank 0: producing an `Opaque` requires the
+parachain's own PVF to call `report_error` (§4.2), and only Accumulate produces
+rank 2. A buyer can therefore churn rank 0 against itself, but can never evict the
+parachain's own reports or its on-chain state changes, which bounds the damage to
+losing diagnostics that were, by construction, the attacker's own noise.
+
+**What this means for parachain implementors.** `parachain_log` is the only channel
+through which a parachain learns why its candidates failed, and it is lossy by
+design: entries below a candidate's lookup-anchor are pruned, and entries are
+evicted under capacity pressure. It should be read promptly through the validation
+inputs (§5.4 phase 2 shows the pattern) and never treated as a durable record.
+Rank-0 entries in particular are both evictable and producible by anyone holding
+coretime, so parachain logic must not depend on one being present, nor on one being
+absent. Anything a parachain needs to act on reliably belongs either in an `Opaque`
+payload its own PVF emitted, or in an accumulate event, which records a state change
+that has already happened.
 
 The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
 tracking code upgrades, applying queued authorizer updates, and managing incoming

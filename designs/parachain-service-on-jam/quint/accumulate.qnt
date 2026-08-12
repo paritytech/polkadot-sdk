@@ -444,7 +444,7 @@ module accumulate {
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
             if (pre.rejected) {
               // §5.1: a candidate rejected at the parent-head or validation-code
-              // check may still record an accumulate event (e.g. `InvalidCodeHash`).
+              // check may still record an accumulate event (e.g. `InvalidCodeHashAcc`).
               // Prune below the lookup-anchor before persisting it.
               {
                 state: pruneLogBelow(pre.state, ok.paraId, ok.lookupAnchor)

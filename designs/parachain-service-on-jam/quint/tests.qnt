@@ -1319,7 +1319,7 @@ module tests {
   /// and/or `set_head` is rejected by Refine with `MissingHeadDeclaration`.
   /// Coretime's active code (`{ vchBytes: 1 }`) is solicited in
   /// `initialState`, so the candidate passes `codeAvailable` and reaches the
-  /// head-declaration check rather than failing earlier with `InvalidCodeHash`.
+  /// head-declaration check rather than failing the whole invocation earlier.
   run refineMissingHeadDeclarationTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
@@ -1566,6 +1566,67 @@ module tests {
       assert(activated.state.hasReferencer(oldHash, FixedCodeLen, para)),
       assert(isUnrequested(activated.state.preimageStatus.get((oldHash, FixedCodeLen)))),
       assert(activated.retained),
+      init
+    }
+  }
+
+  /// Count entries of a given rank in a log.
+  pure def countRank(log: ParachainLog, rank: int): int =
+    log.foldl(0, (n, e) => if (entryRank(e) == rank) n + 1 else n)
+
+  /// §5.1 rank order: 0 = non-`Opaque` refine error, 1 = `Opaque`, 2 = accumulate.
+  run entryRankOrderTest = {
+    all {
+      assert(entryRank((0, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))) == 0),
+      assert(entryRank((0, RefineLogEntry({ error: MissingHeadDeclaration, authTrace: 0 }))) == 0),
+      assert(entryRank((0, RefineLogEntry({ error: Opaque(8), authTrace: 0 }))) == 1),
+      assert(entryRank((0, AccumulateLogEntry(List(TooMuchStateHeld)))) == 2),
+      init
+    }
+  }
+
+  /// The property the ranking exists for: a parachain's own `Opaque` reports are
+  /// never evicted to make room for the submitter-provoked errors anyone with
+  /// coretime can generate. Filling a log with `Opaque`, then pushing rank-0
+  /// errors, must leave every `Opaque` intact and drop the newcomers instead.
+  run spamCannotEvictOpaqueTest = {
+    val opaqueEntry = (1, RefineLogEntry({ error: Opaque(1014), authTrace: 0 }))
+    // Pack the log with the parachain's own reports until it is near capacity.
+    val packed = range(0, 64).foldl(List(), (log, _) => pushLogEntry(log, opaqueEntry))
+    val opaquesBefore = countRank(packed, 1)
+    // Now a buyer floods it with rank-0 refine errors.
+    val spam = (2, RefineLogEntry({ error: InvalidCodeHash, authTrace: 256 }))
+    val flooded = range(0, 40).foldl(packed, (log, _) => pushLogEntry(log, spam))
+    all {
+      // The log was genuinely full: further Opaques could only displace Opaques.
+      assert(opaquesBefore > 0),
+      assert(parachainLogSize(packed) <= ParachainLogByteCap),
+      // Not one of the parachain's own reports was evicted by the flood.
+      assert(countRank(flooded, 1) == opaquesBefore),
+      assert(parachainLogSize(flooded) <= ParachainLogByteCap),
+      init
+    }
+  }
+
+  /// The converse: a higher-ranked newcomer DOES displace lower-ranked entries,
+  /// so the ranking is not simply "reject everything once full".
+  run higherRankEvictsLowerTest = {
+    // ~1008 B each, so ~80 pushes drive the log past the 64 KiB cap.
+    val spam = (1, RefineLogEntry({ error: InvalidCodeHash, authTrace: 1000 }))
+    val packed = range(0, 80).foldl(List(), (log, _) => pushLogEntry(log, spam))
+    val spamBefore = countRank(packed, 0)
+    // A ~506 B accumulate entry (rank 2) arriving at the saturated log.
+    val bigAcc = (2, AccumulateLogEntry(
+      range(0, 500).foldl(List(), (l, _) => l.append(TooMuchStateHeld))))
+    val withAcc = pushLogEntry(packed, bigAcc)
+    all {
+      assert(spamBefore > 0),
+      // Saturated: another rank-0 push evicts one and adds one, so the count holds.
+      assert(countRank(pushLogEntry(packed, spam), 0) == spamBefore),
+      // The accumulate entry IS admitted, at the cost of rank-0 entries.
+      assert(countRank(withAcc, 2) == 1),
+      assert(countRank(withAcc, 0) < spamBefore),
+      assert(parachainLogSize(withAcc) <= ParachainLogByteCap),
       init
     }
   }

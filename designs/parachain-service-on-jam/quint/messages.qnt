@@ -18,10 +18,17 @@ module messages {
 
   // --- Refine-side log payloads -------------------------------------------
 
+  /// Why Refine failed, as recorded in `parachain_log`.
+  ///
+  /// `Opaque` is the most important variant: it is the only one carrying a
+  /// payload the parachain's own code chose, and so the only one conveying
+  /// context the parachain can act on. The rest are valuable for debugging, but
+  /// each is a fixed structural failure carrying no parachain-supplied detail.
+  /// `entryRank` (state.qnt) ranks them accordingly.
   type RefineLog =
   // historical_lookup(validation_code_hash) returned None.
   | InvalidCodeHash
-  // PVF called report_error(data) before failing. Payload ≤ 1024 B.
+  // PVF aborted itself via report_error(data). Payload ≤ 1024 B.
   | Opaque(int)
   // A `set_validator_keys` chunk exceeded 30 keys, or
   // `set_validator_keys` was called more than once in a single
@@ -30,8 +37,8 @@ module messages {
   // The PVF emitted more than `MaxUpwardMessages` (1024) upward messages
   // in a single Refine invocation (§4.3).
   | TooManyUpwardMessages
-  // The PVF invoked a host function restricted to another parachain
-  // (Asset Hub or the Coretime chain).
+  // The PVF invoked a host function restricted to another parachain (Asset Hub
+  // or the Coretime chain), or named a `para_id` it may not act for (§4.3).
   | RestrictedHostFunction
   // The authorizer config's `authorized_paras` prefix has a different
   // length than the work package's items (§4.1 step 1).

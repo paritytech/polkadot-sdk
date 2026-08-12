@@ -246,30 +246,66 @@ module state {
   pure def parachainLogSize(log: ParachainLog): int =
   compactLen(log.length()) + log.foldl(0, (a, e) => a + logEntrySize(e))
 
-  /// Append `e`; then evict entries one at a time (oldest RefineLogEntry first,
-  /// else oldest overall) until `parachainLogSize` is within `ParachainLogByteCap`.
-  /// Uses a bounded fold (at most log.length()+1 iterations) since Quint has no
-  /// while-loop; iterations that find the log already under cap are no-ops.
-  pure def evictOneEntry(log: ParachainLog): ParachainLog = {
-    val refineIdx = log.foldl((-1, 0), (acc, e) =>
-      if (acc._1 >= 0) acc
-      else match e._2 {
-        | RefineLogEntry(_) => (acc._2, acc._2 + 1)
-        | AccumulateLogEntry(_) => (acc._1, acc._2 + 1)
-      })._1
-    val dropIdx = if (refineIdx >= 0) refineIdx else 0
-    log.foldl((List(), 0), (acc, e) =>
-      (if (acc._2 == dropIdx) acc._1 else acc._1.append(e), acc._2 + 1))._1
+  /// Eviction rank of a log entry (§5.1). Lower ranks are discarded first.
+  ///   0 - a refine error other than `Opaque`: useful for debugging, but a fixed
+  ///       structural failure carrying no parachain-supplied detail, and the rank
+  ///       into which every failure a coretime buyer can provoke falls. The most
+  ///       disposable of the three.
+  ///   1 - `Opaque`: the payload the parachain's own PVF chose to report (§4.2),
+  ///       the only refine entry carrying context the parachain can act on.
+  ///   2 - an accumulate event: an actual on-chain state change.
+  pure def entryRank(e: (Timeslot, LogEntry)): int =
+  match e._2 {
+    | RefineLogEntry(r) => match r.error { | Opaque(_) => 1 | _ => 0 }
+    | AccumulateLogEntry(_) => 2
   }
 
+  /// Drop the single best eviction candidate on behalf of an incoming entry of
+  /// rank `rank`: the OLDEST entry of the lowest occupied rank at or below
+  /// `rank`. Nothing above `rank` is ever touched, so a low-ranked newcomer can
+  /// never displace a higher-ranked entry; if no candidate exists the log is
+  /// returned unchanged, which `pushLogEntry` turns into dropping the newcomer.
+  pure def evictOneFor(log: ParachainLog, rank: int): ParachainLog = {
+    // The victim is the lowest rank at or below `rank` and, within it, the
+    // earliest timeslot. Age is read from the stored timeslot rather than list
+    // position, so eviction does not depend on the log being kept in order.
+    // `None` when every entry present outranks the newcomer.
+    val victim: Option[(int, Timeslot)] = log.foldl(None, (best, e) => {
+      val r = entryRank(e)
+      if (r > rank) best
+      else match best {
+        | None => Some((r, e._1))
+        | Some(b) =>
+          if (r < b._1 or (r == b._1 and e._1 < b._2)) Some((r, e._1)) else best
+      }
+    })
+    match victim {
+      | None => log
+      | Some(v) =>
+        // Remove one entry with that (rank, timeslot); the flag stops it there,
+        // so entries sharing a timeslot lose exactly one of their number.
+        log.foldl((List(), false), (acc, e) =>
+          if (not(acc._2) and entryRank(e) == v._1 and e._1 == v._2) (acc._1, true)
+          else (acc._1.append(e), acc._2))._1
+    }
+  }
+
+  /// Append `e`, then evict by rank until `parachainLogSize` is within
+  /// `ParachainLogByteCap`. Uses a bounded fold (at most `log.length()+1`
+  /// iterations) since Quint has no while-loop; iterations that find the log
+  /// already under cap are no-ops.
+  ///
+  /// The newcomer is itself an eviction candidate at its own rank, so when it is
+  /// the only entry at or below that rank it evicts itself — exactly the
+  /// "incoming entry is dropped instead" rule. The final guard restores the
+  /// original log if no amount of permitted eviction makes room.
   pure def pushLogEntry(log: ParachainLog, e: (Timeslot, LogEntry)): ParachainLog = {
+    val rank = entryRank(e)
     val appended = log.append(e)
-    // Evict until under the byte cap. Folding over `appended` runs the eviction
-    // step exactly `appended.length()` times (the element is ignored); once under
-    // cap the state passes through unchanged.
-    appended.foldl(appended, (cur, _) =>
+    val shrunk = appended.foldl(appended, (cur, _) =>
       if (parachainLogSize(cur) <= ParachainLogByteCap) cur
-      else evictOneEntry(cur))
+      else evictOneFor(cur, rank))
+    if (parachainLogSize(shrunk) <= ParachainLogByteCap) shrunk else log
   }
 
   /// Append a `RefineLogEntry` for a failed Refine at timeslot `now`
