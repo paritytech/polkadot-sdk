@@ -218,6 +218,16 @@ impl NetworkParams {
 	) -> NetworkConfiguration {
 		let port = self.port.unwrap_or(default_listen_port);
 
+		if let Some(enable) = self.webrtc_params.enable {
+			if !matches!(self.network_backend, NetworkBackendType::Litep2p) {
+				let flag = if enable { "--enable-webrtc" } else { "--disable-webrtc" };
+				log::warn!(
+					"`{flag}` has no effect: WebRTC is only supported by the litep2p \
+					 network backend",
+				);
+			}
+		}
+
 		let listen_addresses = if self.listen_addr.is_empty() {
 			let mut listen_addresses = if is_validator || is_dev {
 				// Validator/dev: TCP
