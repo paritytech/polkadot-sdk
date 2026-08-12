@@ -446,11 +446,40 @@ mod tests {
 	#[test]
 	fn verify_relay_host_configuration_prefix() {
 		let mut ground_truth = HostConfiguration::<u32>::default();
-		// Non-default values in the trailing fields, so a misaligned decode cannot pass by matching
-		// defaults on both sides.
+		// Every field gets a distinct non-default value, so swapping any two same-typed neighbours
+		// on the relay side cannot decode cleanly here.
+		ground_truth.max_code_size = 1;
+		ground_truth.max_head_data_size = 2;
+		ground_truth.max_upward_queue_count = 3;
+		ground_truth.max_upward_queue_size = 4;
+		ground_truth.max_upward_message_size = 5;
+		ground_truth.max_upward_message_num_per_candidate = 6;
+		ground_truth.hrmp_max_message_num_per_candidate = 7;
+		ground_truth.validation_upgrade_cooldown = 8;
+		ground_truth.validation_upgrade_delay = 9;
 		ground_truth.async_backing_params =
 			AsyncBackingParams { allowed_ancestry_len: 111, max_candidate_depth: 222 };
 		ground_truth.max_pov_size = 12_345;
+		ground_truth.max_downward_message_size = 10;
+		ground_truth.hrmp_max_parachain_outbound_channels = 11;
+		ground_truth.hrmp_sender_deposit = 12;
+		ground_truth.hrmp_recipient_deposit = 13;
+		ground_truth.hrmp_channel_max_capacity = 14;
+		ground_truth.hrmp_channel_max_total_size = 15;
+		ground_truth.hrmp_max_parachain_inbound_channels = 16;
+		ground_truth.hrmp_channel_max_message_size = 17;
+		ground_truth.code_retention_period = 18;
+		ground_truth.max_validators = Some(19);
+		ground_truth.dispute_period = 20;
+		ground_truth.dispute_post_conclusion_acceptance_period = 21;
+		ground_truth.no_show_slots = 22;
+		ground_truth.n_delay_tranches = 23;
+		ground_truth.zeroth_delay_tranche_width = 24;
+		ground_truth.needed_approvals = 25;
+		ground_truth.relay_vrf_modulo_samples = 26;
+		ground_truth.pvf_voting_ttl = 27;
+		ground_truth.minimum_validation_upgrade_delay = 28;
+		ground_truth.minimum_backing_votes = 29;
 		let mut node_features = NodeFeatures::EMPTY;
 		node_features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
 		node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);

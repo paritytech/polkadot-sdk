@@ -50,7 +50,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_api::{ApiExt, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::{ApiExt, ApiRef, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -133,22 +133,42 @@ pub struct BuilderTaskParams<
 /// The default offchain context sees `:code` only, shaping the candidate from the outgoing runtime.
 const BLOCK_PRODUCTION_CONTEXT: CallContext = CallContext::Onchain { import: false };
 
-/// Read `(v3_enabled_on_para, relay_parent_offset)` from the runtime that will execute the block.
+/// A runtime API handle set to [`BLOCK_PRODUCTION_CONTEXT`].
+fn onchain_runtime_api<Block: BlockT, Client>(para_client: &Client) -> ApiRef<'_, Client::Api>
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: ApiExt<Block>,
+{
+	let mut api = para_client.runtime_api();
+	api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+	api
+}
+
+/// The scheduling values that shape the candidate, read from the runtime executing the block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SchedulingParams {
+	v3_enabled: bool,
+	relay_parent_offset: u32,
+}
+
+/// Read the [`SchedulingParams`] from the runtime that will execute the block.
 ///
 /// Must be read at the parent we build on, not the best head: the two straddle a runtime upgrade
 /// whenever `find_parent` walks back into an unbackable segment.
-fn scheduling_params_at<Block: BlockT, Client>(para_client: &Client, at: Block::Hash) -> (bool, u32)
+fn scheduling_params_at<Block: BlockT, Client>(
+	para_client: &Client,
+	at: Block::Hash,
+) -> SchedulingParams
 where
 	Client: ProvideRuntimeApi<Block>,
 	Client::Api: SchedulingV3EnabledApi<Block> + RelayParentOffsetApi<Block> + ApiExt<Block>,
 {
-	let mut api = para_client.runtime_api();
-	api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+	let api = onchain_runtime_api(para_client);
 
-	(
-		api.scheduling_v3_enabled(at).unwrap_or(false),
-		api.relay_parent_offset(at).unwrap_or_default(),
-	)
+	SchedulingParams {
+		v3_enabled: api.scheduling_v3_enabled(at).unwrap_or(false),
+		relay_parent_offset: api.relay_parent_offset(at).unwrap_or_default(),
+	}
 }
 
 /// Run block-builder.
@@ -238,7 +258,7 @@ where
 			.await;
 
 		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
-			scheduling_params_at(&*para_client, para_client.info().best_hash).0,
+			scheduling_params_at(&*para_client, para_client.info().best_hash).v3_enabled,
 			maybe_best_relay_block_data,
 		);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
@@ -266,7 +286,7 @@ where
 				let anchor_params = scheduling_params_at(&*para_client, anchor_hash);
 
 				let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-					.wait_for_scheduling_parent(&mut relay_chain_data_cache, anchor_params.0)
+					.wait_for_scheduling_parent(&mut relay_chain_data_cache, anchor_params.v3_enabled)
 					.await
 				else {
 					tracing::warn!(
@@ -287,7 +307,7 @@ where
 				let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
 					&mut relay_chain_data_cache,
 					scheduling_parent_header.clone(),
-					anchor_params.1,
+					anchor_params.relay_parent_offset,
 					max_relay_parent_session_age,
 				)
 				.await
@@ -301,7 +321,7 @@ where
 					},
 					true => ParentSearchParams::V3 {
 						scheduling_parent: scheduling_parent_hash,
-						relay_parent_offset: anchor_params.1,
+						relay_parent_offset: anchor_params.relay_parent_offset,
 					},
 				};
 				let Some(parent_search_result) = crate::collators::find_parent(
@@ -329,7 +349,7 @@ where
 					break (
 						scheduling_parent_header,
 						v3_enabled,
-						anchor_params.1,
+						anchor_params.relay_parent_offset,
 						relay_parent_data,
 						parent_search_result,
 					);
@@ -451,12 +471,10 @@ where
 
 			let included_hash_at_execution = included_header_at_execution.hash();
 
+			if let Ok(authorities) =
+				onchain_runtime_api(&*para_client).authorities(initial_parent_hash)
 			{
-				let mut runtime_api = para_client.runtime_api();
-				runtime_api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
-				if let Ok(authorities) = runtime_api.authorities(initial_parent_hash) {
-					connection_helper.update::<P>(para_slot.slot, &authorities).await;
-				}
+				connection_helper.update::<P>(para_slot.slot, &authorities).await;
 			}
 
 			let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
@@ -503,11 +521,9 @@ where
 			// V1/V2: look up at relay_parent which is relay_parent_offset blocks
 			// behind the tip, so the offset includes relay_parent_offset to
 			// compensate.
-			let maybe_max_claim_queue_offset = {
-				let mut api = para_client.runtime_api();
-				api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
-				api.max_claim_queue_offset(initial_parent_hash).map(|offset| offset as u32)
-			};
+			let maybe_max_claim_queue_offset = onchain_runtime_api(&*para_client)
+				.max_claim_queue_offset(initial_parent_hash)
+				.map(|offset| offset as u32);
 			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip)
 				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))

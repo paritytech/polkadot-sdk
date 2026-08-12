@@ -12,6 +12,8 @@ doc:
       The slot-based collator reads the scheduling values at the parent it builds on rather than at
       the best head, so they come from the runtime that executes the block.
 crates:
+  - name: cumulus-client-consensus-common
+    bump: major
   - name: cumulus-pallet-parachain-system
     bump: minor
   - name: cumulus-client-consensus-aura

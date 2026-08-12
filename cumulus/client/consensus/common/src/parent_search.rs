@@ -260,7 +260,8 @@ async fn get_relay_parent<Block: BlockT>(
 }
 
 /// True if `header`'s relay parent is a known ancestor of `scheduling_parent` on the relay chain
-/// and no more than `max_depth` blocks below it. See [`v3_max_depth`] for the bound.
+/// and no more than `max_depth` blocks below it. See [`build_relay_parent_ancestry`] for how the
+/// bound is derived.
 async fn can_anchor_at_scheduling_parent<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	scheduling_parent: RelayHash,
