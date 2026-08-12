@@ -259,8 +259,8 @@ async fn get_relay_parent<Block: BlockT>(
 	Ok(None)
 }
 
-/// True if `header`'s relay parent is a known ancestor of `scheduling_parent` on the relay chain and
-/// no more than `max_depth` blocks below it. See [`v3_max_depth`] for the bound.
+/// True if `header`'s relay parent is a known ancestor of `scheduling_parent` on the relay chain
+/// and no more than `max_depth` blocks below it. See [`v3_max_depth`] for the bound.
 async fn can_anchor_at_scheduling_parent<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	scheduling_parent: RelayHash,
@@ -358,8 +358,8 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			.await
 		},
 		ParentSearchParams::V3 { scheduling_parent, relay_parent_offset } => {
-			// Resolve the scheduling parent before deriving the bound, so a missing header bails out
-			// here instead of silently shortening the ancestry walk below.
+			// Resolve the scheduling parent before deriving the bound, so a missing header bails
+			// out here instead of silently shortening the ancestry walk below.
 			let Some(scheduling_parent_number) = relay_client
 				.header(RelayBlockId::hash(scheduling_parent))
 				.await?
