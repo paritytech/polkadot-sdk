@@ -1,24 +1,66 @@
-# Wide-arithmetic (256-bit) PoC — results (gas and wall clock measured; optimization continuing)
+# Wide-arithmetic (256-bit) PVM instructions — results
+
+**The metric that matters is wall clock.** Gas is reported where it is
+informative, but it was never the goal here and it is not the score: this PoC
+saw gas improve ~9× while wall clock got *worse*, and then saw wall clock
+improve 33% while gas moved both directions. Sections that dwell on gas are
+kept for the cost-model decision, not as results.
 
 ## Executive summary
 
 Everything below is the lab notebook, in chronological/by-experiment order.
 This section is the standalone read.
 
-**End-to-end, ed25519-zebra on machine B** (stock PVM = no wide instructions):
+**Wall clock, ed25519-zebra, machine B, one signature verification:**
 
-| | stock PVM | now (`aa0dff7`) | |
-|---|---:|---:|---|
-| gas (= dynamic instruction count) | 836,825 | **92,106** | **9.1× fewer** |
-| wall clock | 57.24 µs | **38.58 µs** | **−33%** |
-| vs host portable | 2.34× | **1.56×** | |
+| configuration | wall | vs host portable |
+|---|---:|---:|
+| stock PVM — no wide instructions at all | 63.21 µs | 2.60× |
+| branch point — after PoC #1 `mul_wide`, before any 256-bit instruction | 57.24 µs | 2.34× |
+| first working implementation | 62.62 µs | *worse than the branch point* |
+| after the stall fix and the first optimizations | 49.83 µs | 2.03× |
+| after the destroyed-register contract | 47.11 µs | 1.94× |
+| **current — fused add/sub folds (`aa0dff7`)** | **38.58 µs** | **1.56×** |
 
-All three signature benches are now **under 1.7× host on both axes** (zebra
-1.56×/1.66×, ed25519 **1.32×**/1.64×, sr25519 1.57×/**1.47×**), from "under 2×"
-before the fused folds. Controls flat throughout, with byte-identical blobs.
+(Each row is a shipped configuration. An intermediate 46.03 µs was measured but
+came from a configuration that was later vetoed and reverted — see "Rejected
+configuration" below; it is not part of this chain.)
+
+**−33% against the branch point**, and all three signature benches are now
+under **1.7× host on both axes** — zebra 1.56×/1.66×, ed25519 1.32×/1.64×,
+sr25519 1.57×/1.47× (portable/native). The controls never moved, and their
+blobs are byte-identical across every configuration, so no control delta can be
+structural.
+
+Two things to be careful about with that top line:
+
+- **The branch point already contained one wide instruction.** This work builds
+  on a predecessor that fused RISC-V's `mulhu`+`mul` pair into a single
+  widening multiply, worth −9…−11% wall on its own. True stock PVM (no wide
+  instructions at all) is 871,817 gas on zebra against the branch point's
+  836,825, and **63.21 µs wall** (63.89 µs on the native-build host run) —
+  machine B, pre-PoC benchmarking campaign (`crypto-benchamarking.md`,
+  `results/output_new_00_toaster/crypto-03.txt`). So the full-arc wall story
+  is 63.21 → 38.58 µs (**−39%**, ~2.60× → 1.56× host-portable), of which −33%
+  is this PoC. Provenance caveat: PoC #1's own post-fusion bare-metal run was
+  never written into a doc — it survives as an oral ~57.5–57.6 µs
+  (63.21 → ~57.6 ≈ the −9%), and the 57.24 in the table is the PoC #2-era
+  re-measurement of that same configuration.
+- **The −33% chains deltas across rig runs on different days** (the table above,
+  plus intermediate measurements). Host columns drift between runs by up to
+  ~2.6% (2.56% on zebra host-native, 1.89% on host-portable), and the
+  branch-point baseline was not re-measured in the same session as the 38.58.
+  Each individual step's controls were flat, so the direction is not in doubt,
+  but the exact total carries that chaining.
+
+Gas, for completeness: 836,825 → 92,106 on the same axis (9.1×), having gone
+*up* to 109,685 in between when the destroyed-register contract shifted work
+from the host into the guest.
 
 **What was built** (each item spans interpreter + recompiler + linker + gas +
-simulator + gastool + tests; `git show 3d2cab6` is the per-site checklist):
+simulator + gastool + tests; the commit that added the contract and the first
+fused opcode, `3d2cab6`, touches every one of those sites and is the checklist
+for adding another):
 
 1. **Eight PVM instructions**, opcodes 232–239, `Latest64` only: `mul256`,
    `redc256`, `add256`, `sub256`, `mul256_by_u64`, and the fused
@@ -40,29 +82,42 @@ simulator + gastool + tests; `git show 3d2cab6` is the per-site checklist):
    attribution. Any JAM implementation faces this sizing question.
 5. **Determinism enforcement** — interpreter and recompiler held bit-identical
    on every register and every fault path by the step-tracing crosscheck,
-   exemption-free.
+   exemption-free. **Caveat, and it is the one real verification gap:** this
+   holds for the interpreter and the generic sandbox. The Linux-sandbox test
+   variants have never run — they need privileges the container lacks — and that
+   sandbox addresses guest memory differently, so the kernels emit *different
+   code* there. See "Open items".
 6. **Tooling** — `tools/opcount` (per-opcode dynamic counts, gas, `--time` A/B),
    `build-wide-arith-blobs.sh` (3 routes × 5 benches, asserts controls stay
    byte-identical), benchtool wiring.
 7. **Both reduction routes**, so whether `redc256` earns a permanent opcode is a
-   measured question rather than a taste one: it does — dropping it costs +32%
-   gas, and +64% wall in-container (93.6 vs 57.2 µs, never re-measured on the
-   rig because the gas delta alone settled it).
+   measured question rather than a taste one: it does — dropping it costs **+64%
+   wall** (93.6 vs 57.2 µs in-container; +60% instructions on the same build).
 
-**The lesson worth carrying up:** gas fell ~9× as soon as the instructions
-existed, but the first wide-arith build was **slower than baseline** (62.62 vs
-57.24 µs, +9.4%). Getting to −33% took five separate recompiler fixes, the
-decisive one being a store-to-load forwarding stall — not an instruction count.
-At this level naive gas is not a wall-clock proxy, and neither is a
-cycle-accurate model (`llvm-mca`'s znver3 numbers were wrong by ~1.8× on the
-fused kernel).
+**The lesson worth carrying up:** instruction counts fell ~9× as soon as the
+instructions existed, and the wall clock got **worse** (62.62 vs 57.24 µs,
++9.4%). Recovering that and going 33% beyond it took six separate shipped
+changes — widening the operand probes from 1 byte to 8 (the decisive one),
+`call`/`ret` trampoline dispatch, fusing mul+redc, eliminating point-struct
+memcpys in the guest, the destroyed-register contract, and the fused add/sub
+folds. A seventh (liveness-based scratch stealing) was measured, vetoed and
+reverted.
 
-**Open:** spec-text package for Jan (contract, fused opcodes, gas pricing
-constants); unifying the fold ops' `k` convention by dropping 237's unused
-product-buffer write (~24k stores/verify on its own); then the batch family
-(`mul256x4`, vector-resident lanes), which is a separate piece of work. Full
-queue in
-[wide-arith-probe-removal-handoff.md](wide-arith-probe-removal-handoff.md).
+The decisive fix was a **store-to-load forwarding stall**, not an instruction
+count: 1-byte read-modify-write probes left byte stores that partially overlapped
+the next field operation's 8-byte loads, defeating store forwarding on every edge
+of the serial dependency chain. Until that was found, three real
+instruction-count wins had produced almost no wall-clock movement. At this level
+naive gas is not a wall-clock proxy — and neither is a cycle-accurate model
+(`llvm-mca`'s znver3 figures were off by ~1.8× on the fused kernel, because it
+prices every `adc`/`adcx`/`adox` as occupying all four ALU pipes).
+
+**Open:** the spec-text package (destroyed-register contract, the fused opcodes,
+gas pricing constants); dropping `mul256_redc256`'s unused product-buffer write,
+worth ~24k x86 stores per verify and unifying the fold ops' operand convention;
+and the one verification gap — the Linux-sandbox test variants have never run,
+and that sandbox emits different kernel code than the one that was tested. Full
+queue under "Open items" at the end.
 
 ## Scope
 
@@ -78,51 +133,113 @@ primitives, and its recompiler translates 1:1, so 256-bit field arithmetic
 becomes long limb loops with carry emulation and heavy spilling. These
 instructions take whole limb loops into one opcode operating on memory operands.
 
-**Both reduction routes are implemented and measured** — `redc256` versus
-generic `mul256_by_u64` glue — because `redc256` is the one family member
-encoding a number-theoretic idiom, and whether it earns a permanent opcode was
-left to the measurement (see "The redc256 question").
+**Both reduction routes are implemented and measured**, because one family
+member is contentious. Reducing a 512-bit product modulo `2^256 - k` can be
+done two ways:
 
-Background, not needed to read this doc:
-[wide-arith-handoff.md](wide-arith-handoff.md) (build order and plumbing) and
-[wide-arith-instr-research.md](wide-arith-instr-research.md) (instruction
-semantics and the pre-implementation analysis). This work is the second in a
-series: its predecessor fused the `mulhu`+`mul` pair into a single widening
-multiply ([mul-wide-results.md](mul-wide-results.md), −9…−11% wall), and its
-successor would be the batch family (`mul256x4`).
+- **the redc route** — a dedicated `redc256` instruction that folds the product
+  in one opcode. Fast, but it encodes a number-theoretic idiom, which is a
+  reasonable thing to object to in a general-purpose ISA.
+- **the generic route** — no number-theoretic opcode: `mul256_by_u64` plus three
+  `add256` folds per reduction, all primitives that any ISA could justify.
 
-## Gas: dynamic instruction count per verify
+Both are built, and blob sets exist for each, so the choice rests on measurement
+rather than taste. Verdict and numbers: "The redc256 question", below. Where
+older tables say "(e)" they mean the redc route and "(d)" the generic one.
 
-Naive gas = one per instruction, so these are instruction counts. Measured
-under the interpreter with `tools/opcount`; the two ECDSA benches are controls
-whose blobs are byte-identical across every variant.
+### Terms, machines, and criteria
 
-| bench | baseline (5×51 limbs) | no-redc route | redc route | redc gain |
-|---|---:|---:|---:|---:|
-| ed25519-zebra | 836,825 | 117,161 | **89,743** | **9.3×** |
-| ed25519 | 888,299 | 117,382 | **86,534** | 10.3× |
-| sr25519 | 840,408 | 129,208 | **105,749** | 7.9× |
+Everything needed to read this document is defined here; the only external
+reference is
+[crypto-benchamarking.md](crypto-benchamarking.md), the benchmark suite this
+work is measured against (host baselines, per-machine tables, methodology).
 
-> **Historical (2026-08-07).** Gas moved twice after this: the
-> destroyed-register contract raised zebra to 109,685 (the guest must
-> re-materialize pointers the instructions now destroy), then the fused folds
-> cut it to **92,106** — a 9.1× end-to-end reduction. The table is kept for the
-> route comparison, which is what settled `redc256`.
+- **machine B** — AMD Ryzen Threadripper PRO 7995WX (Zen 4). Bare metal, quiet,
+  ASLR disabled by benchtool. **All numbers of record come from here**, and
+  "the rig" always means machine B.
+- **machine A** — AMD Ryzen 9 5950X (Zen 3). Referenced only for
+  microarchitecture comparisons; no numbers of record.
+- **in-container** — a container on machine A (Zen 3) hardware, used for fast
+  relative A/B during development. Its *percentages* mostly transfer to the rig;
+  its absolute microseconds do not, and part of that gap is a real
+  microarchitecture difference rather than noise. It is never a source of numbers of record, and
+  there is one class of experiment it gets wrong outright (see the
+  store-traffic finding under "Source-probe removal").
+- **host portable** — the same crypto library built as plain x86-64, no
+  `target-cpu` flags. **host native** — built with `-C target-cpu=native`.
+  Both are what the *host* implementation of the same signature check costs, so
+  the PVM/host ratio is the real question: how much does running this in the VM
+  cost versus running it natively. Host libraries are built with stable Rust;
+  this matters, because on the nightly channel `curve25519-dalek` enables
+  AVX-512-IFMA backends that cut host 25519 times 1.5–1.9× and would move every
+  ratio here. Stable is the production configuration.
+- **branch point** — the commit this work started from, which already contained
+  the predecessor's widening-multiply instruction but none of the 256-bit ones.
+  Every "vs branch point" figure is against it, *not* against a PVM with no wide
+  instructions at all.
+- **redc route / generic route**, also called **redc** and **noredc** in table
+  rows and blob-set names — the two reduction strategies described above.
+- **Latest64** — the newest 64-bit PVM instruction set. All eight instructions
+  are gated to it; older instruction sets (including the JAM-frozen one) reject
+  them at blob-build time.
+- **sync gas** — gas metering accounted synchronously per instruction, the mode
+  the benchmarks run in.
+- **zygote** — the pre-built sandbox process the Linux backend forks from. It
+  is compiled ahead of time, so its view of the VM context struct is fixed:
+  new fields must be appended at the end.
+- **GP** — the Gray Paper, the JAM protocol specification. "A GP proposal must
+  carry these" means: text that has to end up in the spec, not just in code.
+- **Jan / Michał** — the two people whose decisions are recorded here. Jan owns
+  what is admissible in the VM design and the spec; Michał set the priorities
+  for this PoC (wall clock only; gas may regress) and owns the bare-metal rig.
+  Where the doc says something was "vetoed" or "agreed", that is one of them.
 
-The baselines reproduce the predecessor PoC's numbers exactly (same pipeline, no
-drift), and every bench verifies green under the interpreter — the guest
-`unwrap()`s the signature check, so a wrong field result would trap rather than
-silently pass.
+**Success criteria, set before the final round:** ed25519-zebra ≤ 44–45 µs on
+machine B, controls flat, all in-container test families green, the
+interpreter/recompiler crosscheck exemption-free. Stretch: sr25519 under 1.7×
+host-native. All met — see the fused-folds section.
 
-## Where the numbers come from
+## Instruction counts (naive gas) — context, not the result
+
+Naive gas is one unit per instruction, so these are dynamic instruction counts
+per verify, measured under the interpreter with `tools/opcount`. They are useful
+for seeing *what the guest stopped executing*; they are a poor predictor of wall
+clock, which is the whole lesson of the next section.
+
+**2026-08-07, before the destroyed-register contract and the fused folds:**
+
+| bench | branch point (5×51 limbs, `mul_wide` present) | generic route | redc route | redc vs generic | redc vs branch point |
+|---|---:|---:|---:|---:|---:|
+| ed25519-zebra | 836,825 | 117,161 | **89,743** | 1.31× | 9.3× |
+| ed25519 | 888,299 | 117,382 | **86,534** | 1.36× | 10.3× |
+| sr25519 | 840,408 | 129,208 | **105,749** | 1.22× | 7.9× |
+
+The "redc vs generic" column is the one that bears on whether `redc256` earns an
+opcode; the last column is total reduction against the branch point and says
+nothing about the route choice.
+
+> **Later movements, same axis (zebra):** 89,743 → **109,685** when the
+> destroyed-register contract shifted work into the guest (it must now
+> re-materialize pointers the instructions destroy) → **92,106** with the fused
+> folds. Current end-to-end reduction against the branch point: **9.1×**.
+
+Every bench verifies green under the interpreter — the guest `unwrap()`s the
+signature check, so a wrong field result traps rather than silently passing.
+
+## Where the instruction counts come from
 
 Per-opcode dynamic counts (tools/opcount, new step-tracing profiler):
 
-- **Wide-op counts per verify** (redc route): mul256 = 2,976
+- **Wide-op counts per verify**, redc route, **as of 2026-08-07** (the contract
+  and the fused folds later changed this mix substantially — see the fused-folds
+  section for the current one): mul256 = 2,976
   (= 1,445 fe_mul + 1,531 fe_square), redc256 = 2,976; sub256 = 3,087
   (3 per fe_sub: op + two borrow folds); add256 = 3,372; no-redc variant:
   12,300 add256 + 2,976 mul256_by_u64 (1 mul + 3 folds per reduction).
 - Getting from the first-cut backend (191k) to 88.9k took two passes, both
+  (88.9k became 89,743 a little later, when the guest started emitting the
+  mul+redc pair from a single asm block: +0.9%, and worth it — see the
+  wall-clock sections)
   instructive for any "hand-written backend" effort:
   1. **Field-layer copies (191k → 133k):** in-place pointer intrinsics (the
      read-all-then-write/aliasing-tolerant spec is what makes this safe),
@@ -140,17 +257,31 @@ Per-opcode dynamic counts (tools/opcount, new step-tracing profiler):
   Scalar52 1.1k. Residual per-wide-op glue is ~2 `add_imm_64` of address
   materialization — inherent to a memory-operand ISA.
 
-Calibrated gas, computed from the counts but **not implemented** (naive
-pricing of 1/instruction is what ships): with plausible per-op costs of
-mul256=16, redc256=8, add/sub256=4, mul256_by_u64=4, the redc variant comes to
-≈218k gas-cycles. So **naive pricing undercharges these instructions by ~1.6×**
-on this workload — a cost-constants decision, not a design change.
+**Cost-model note** (the one place gas matters as a decision, not a score).
+Naive pricing of 1/instruction is what ships, but these instructions clearly are
+not unit-cost. Pricing them at plausible weights — mul256 = 16, redc256 = 8,
+add/sub256 = 4, mul256_by_u64 = 4 — and leaving everything else at 1 gives
+174,592 weighted units against the 89,743 counted: **naive pricing undercharges
+this workload by ~1.95×**. On the current fused mix (92,106 counted), pricing
+`mul256_redc256` at 24 (= 16 + 8, the sum of its parts) and the two folds at 6
+(*not* 4 + 8: their fold tail is a pair of conditional moves, not a multiply)
+gives 171,415, i.e. **~1.86×**. Pricing the folds at a full 12 would give
+184,189, i.e. 2.00× — so the conclusion is insensitive to that choice. So the undercharge is ~1.9× either way, and
+fusing did not change it much: fewer instructions, but each worth more.
+Choosing the real constants is an open item for the spec, not a design change.
 
-## Wall-clock (machine B, bare metal, sync gas; redc blob set verified at 133,054 gas before the run)
+## Wall-clock, first measurements (machine B) — SUPERSEDED, kept for the diagnosis
+
+These runs used the **pre-memcpy-fix guest blobs** (133,054 instructions/verify;
+the 89,743 of the previous section came later), so the instruction counts here do
+not match that table. What matters in this section is the diagnosis, not the
+absolute PVM numbers. The **branch-point column is unaffected** — those blobs
+contain no 256-bit instructions and no `pvm64` backend at all — so 57.24 µs
+remains the baseline of record and the denominator of the headline −33%.
 
 First measurement — **before** the recompiler optimization iteration:
 
-| benchmark | host portable | host native | PVM redc | PVM baseline (same rig) | Δ wall |
+| benchmark | host portable | host native | PVM redc | branch point (same rig) | Δ wall |
 |---|---:|---:|---:|---:|---:|
 | ed25519-zebra | 24.48 µs | 23.05 µs | 62.62 µs | 57.24 µs | +9.4% |
 | ed25519 | 29.21 µs | 24.34 µs | 65.20 µs | 59.81 µs | +9.0% |
@@ -191,25 +322,30 @@ stayed ≈ 1.0M ≈ baseline. Optimization iterations so far (second bench run:
    eliminating 2–5 of the 8–12 push/pop pairs per operation. Disabled under
    step tracing; fault-safe for free because all faults happen in the probe
    phase, before any clobbering. This is also the one optimization that
-   relaxes an observable (dead registers' values at execution end — see the
-   spec note under the final table). A follow-up experiment showed the
+   relaxes an observable (dead registers' values at execution end), which is
+   exactly why it was later rejected — see the note directly under this
+   section's table. A follow-up experiment showed the
    remaining saves are near-irreducible: the live registers hold the field
    buffers' addresses, and neither clobber-declarations in the guest nor
-   hand-written asm can shrink that working set (see the negative-results
+   hand-written asm can shrink that working set (see "Clobber declarations"
    section).
 
-Final official run-crypto-benches table (machine B, redc blobs, after all
-five recompiler iterations — probe widening, call/ret dispatch, pair fusion,
-point-layer memcpy elimination, liveness-based scratch stealing):
+**Rejected configuration (2026-08-09) — do not quote these numbers.** They were
+the official table at the time, after all five iterations above, but the fifth
+(liveness-based scratch stealing) was subsequently vetoed and reverted; see the
+note under the table. Kept because the observable-state problem it exposed is a
+live spec question.
 
-| benchmark | host portable | host native | PVM redc | vs baseline 57.2/59.8/56.7 |
+| benchmark | host portable | host native | PVM redc | vs branch point 57.2/59.8/56.7 |
 |---|---:|---:|---:|---:|
 | ed25519-zebra | 24.51 µs | 23.45 µs | **46.03 µs** (1.88× / 1.96×) | **−19.6%** |
 | ed25519 | 29.47 µs | 23.99 µs | **48.21 µs** (**1.64×** / 2.01×) | −19.4% |
 | sr25519 | 24.92 µs | 26.20 µs | **48.77 µs** (1.96× / **1.86×**) | −13.9% |
 | controls (k256/libsecp) | — | — | flat ✓ | — |
 
-All three signature benches are below 2× host on both axes. The
+All three benches are below 2× host-portable, and sr25519 below 2× on both axes;
+zebra and ed25519 sit at 1.96–2.01× host-native, i.e. essentially *at* 2×, not
+under it. The
 liveness-stealing step (commit d00fcf4) relaxes one observable: guest
 registers proven dead (written-before-read in the same basic block) may hold
 different values than the interpreter's at execution end and are exempt from
@@ -229,7 +365,7 @@ implementation-private to non-consensus contexts).
 
 Earlier intermediate table (before pair fusion + liveness):
 
-| benchmark | host portable | host native | PVM redc | PVM baseline | Δ wall |
+| benchmark | host portable | host native | PVM redc | branch point | Δ wall |
 |---|---:|---:|---:|---:|---:|
 | ed25519-zebra | 24.34 µs | 23.64 µs | **51.13 µs** | 57.24 µs | **−10.7%** |
 | ed25519 | 29.05 µs | 24.61 µs | **53.82 µs** | 59.81 µs | −10.0% |
@@ -237,20 +373,20 @@ Earlier intermediate table (before pair fusion + liveness):
 | ecdsa-k256 (control) | 61.61 µs | 59.80 µs | 166.60 µs | 166.58 µs | flat ✓ |
 | ecdsa-libsecp (control) | 112.19 µs | 116.24 µs | 161.92 µs | 162.54 µs | flat ✓ |
 
-Ratios vs host: zebra 2.10× portable / 2.16× native (baseline was 2.35× /
-2.44×); **sr25519 is below 2× host-native (1.93×)** for the first time.
-A further ~5 µs remains in the probes (POLKAVM_WIDE_ARITH_NO_PROBES knob:
-45.1 µs on the same rig) — a safe recovery design exists (drop the source
+Ratios vs host: zebra 2.10× portable / 2.16× native (branch point was 2.35× /
+2.42×); **sr25519 is below 2× host-native (1.93×)** for the first time.
+A further ~6 µs sits in the operand probes (measured against this table's
+51.13 µs with the POLKAVM_WIDE_ARITH_NO_PROBES knob: 45.1 µs on the same rig) — a safe recovery design exists (drop the source
 read-probes, report faulting-register state via a host-side fixup from a
 vmctx save area; the destination write-probes stay for restart safety).
-The noredc wall point for the (d)-vs-(e) decision table still needs a
-bench run with the noredc blob set swapped in.
+The generic-route wall point was later measured in-container (+64%) and
+deliberately never re-run on the rig — see "The redc256 question".
 
 Method note: in-container relative A/B timing (generic-sandbox compiler)
 proved reliable (<1% repeatability) and found the stall; per-component
 measurement knobs beat modeling every time we disagreed.
 
-## The destroyed-register contract (clobbers as ISA semantics) — measured
+## The destroyed-register contract (clobbers as ISA semantics) — SHIPPED, 2026-08-10
 
 After the liveness scan was rejected (recompiler must stay a 1:1 mapper —
 Jan's ruling) and its commits reverted, the same win was re-earned the
@@ -311,7 +447,7 @@ shape that earns its opcode.
 **Official bare-metal run (machine B, redc blobs, 2026-08-10) — numbers of
 record for the contract configuration:**
 
-| benchmark | host portable | host native | PVM redc | vs baseline 49.83/51.66/49.69 |
+| benchmark | host portable | host native | PVM redc | vs previous config 49.83/51.66/49.69 |
 |---|---:|---:|---:|---:|
 | ed25519-zebra | 24.30 µs | 23.39 µs | **47.11 µs** (1.94× / 2.01×) | **−5.5%** |
 | ed25519 | 29.47 µs | 24.23 µs | **48.36 µs** (**1.64×** / 2.00×) | −6.4% |
@@ -319,7 +455,7 @@ record for the contract configuration:**
 | controls (k256/libsecp, sign+recover) | — | — | flat ✓ | — |
 
 The rig delta (−5.4…−6.4%) is smaller than the in-container prediction
-(−8…−9%) — the container consistently overweights save/restore memory
+(−7.5…−9.2%) — the container consistently overweights save/restore memory
 traffic — but the verdict is unambiguous: summed over the three benches the
 contract (142.46 µs) matches-to-beats the rejected liveness configuration
 (143.01 µs), *replacing* the scan at parity while being deterministic,
@@ -336,20 +472,32 @@ fault-pristineness assertions per opcode) and the fused-opcode aliasing/
 fault tests. All 2,976 fe_mul/fe_square pairs fuse in the linker
 (opcount: mul256_redc256 = 2,976, redc256 standalone = 1,100 from fe_add).
 
-## Source-probe removal via a vmctx save area (optimization 1): container-negative, rig-positive
+## Source-probe removal via a vmctx save area — MEASURED, NOT ADOPTED (2026-08-10)
 
 Measured, not modelled, on a knob-gated measurement build
 (branch `mku-wide-arith-probe-experiment`, off `04bfc06`) before building any
 fault-path machinery — the probe saving and the price of making a mid-body
 fault recoverable were priced *separately*, per opcode family.
 
-**Verdict: adopt for `add256`/`sub256` only.** On machine B the design is worth
-**−1.2…−1.7 µs/verify** (drift-corrected; −1.81…−2.29 raw), carried entirely by
-the add/sub family; the fused opcode loses ~0.6–1.0 µs and `redc256` is
-neutral. This *reverses* the in-container reading below, which had the design as
+> **Read the verdict below as history, not as a recommendation.** It was measured
+> on the instruction mix as it stood on 2026-08-10 — *before* the fused add/sub
+> folds existed. Its conclusion was "adopt for `add256`/`sub256` only", and those
+> two instructions have since almost entirely stopped executing: per verify,
+> `sub256` is now **0** (was 3,087) and `add256` is **72** (was 1,172). So the
+> family carrying the entire measured win is gone, and the win with it. The
+> re-measurement is queue item 3 under "Open items". Everything below is still
+> the right *method*; only the per-family numbers are obsolete.
+
+**Verdict at the time: adopt for `add256`/`sub256` only.** On machine B the
+design was worth **−1.2…−1.7 µs/verify** (drift-corrected; −1.81…−2.29 raw),
+carried entirely by the add/sub family; the fused multiply-reduce lost
+~0.6–1.0 µs and `redc256` was neutral. This *reverses* the in-container reading below, which had the design as
 a +0.2…+2.4 µs regression, and it does so for the reason the container is
 already known to distort: it over-weights save/restore memory traffic, which is
-all mode C adds. The distortion is much larger than the ~0.7× seen on the
+all that mode C adds. (The modes are defined with the container table below:
+**A** = unchanged baseline, **B** = source probes removed and not paid for,
+**C** = the vmctx saves added and nothing removed, **D** = both, i.e. the actual
+design.) The distortion is much larger than the ~0.7× seen on the
 contract experiment — mode C costs +2.8…+3.6 µs in the container and
 **+0.1…+0.6 µs (inside the error bar) on the rig**.
 
@@ -357,7 +505,7 @@ contract experiment — mode C costs +2.8…+3.6 µs in the container and
 traffic, the container is not a usable proxy — not even for the sign. In-container
 A/B remains reliable for instruction-count and stall effects (it found the
 store-forwarding stall), but a store-traffic trade has to be settled on the rig.
-Partial adoption is available for free because probes and saves are emitted per
+Partial adoption was available for free because probes and saves are emitted per
 trampoline, so the per-family rows are the actionable output, not the aggregate.
 
 Two orthogonal, family-scoped knobs
@@ -373,24 +521,27 @@ hazard; gas is unchanged in every mode (109,685 zebra) which doubles as the
 stale-blob check.
 
 In-container, generic sandbox, `taskset -c 2 opcount --time`, 15 interleaved
-rounds (6 for the others), best-of-batch / mean, µs per verify:
+rounds (6 for the others), µs per verify. Row A gives `best-of-batch / mean`;
+every other row gives best-of-batch and, in bold, its delta against A:
 
 | mode | zebra | ed25519 | sr25519 | k256 (control) |
 |---|---|---|---|---|
 | A (current tip) | 56.48 / 57.41 | 60.02 / 60.42 | 58.90 / 58.98 | 252.69 / 253.85 |
 | B source probes gone, unpaid | 53.96 **−2.53** | 56.19 **−3.83** | 55.62 **−3.28** | 253.94 +1.25 |
 | C vmctx saves only | 60.06 **+3.58** | 63.65 **+3.64** | 61.74 **+2.84** | 252.51 −0.18 |
-| **D both (the design)** | 57.98 **+1.49** | 62.39 **+2.38** | 59.12 +0.22 | 253.63 +0.94 |
+| **D both (the design)** | 57.98 **+1.50** | 62.39 **+2.38** | 59.12 +0.22 | 253.63 +0.94 |
 | D, fused family only | 57.80 +1.31 | 61.24 +1.22 | 58.78 −0.12 | 249.60 −3.09 |
 | D, redc256 only | 57.98 +1.50 | 61.37 +1.35 | 60.01 +1.11 | 253.68 +0.99 |
 | D, add256/sub256 only | 56.83 +0.35 | 58.77 −1.24 | 58.93 +0.03 | 252.77 +0.07 |
 
 - **The prize is real**: the source read-probes cost **2.5–3.8 µs/verify**
-  (4–6%), consistent with the older `NO_PROBES` bound of ~5 µs once the
+  (4–6%), the same order as the older `NO_PROBES` bound of ~6 µs once the
   destination probes' ~1.5 µs is subtracted.
 - In-container the substitution appeared to cost more than the prize
   (+2.8…+3.6 µs, net +0.2…+2.4 µs), which read as the same phenomenon as
-  parked `0fb9df6` (−17 µs when *all* 8–12 registers went to vmctx) scaled to
+  an earlier parked experiment (commit `0fb9df6`) that saved *all* 8–12 live
+  registers to the VM context instead of 2–3 and **regressed the wall clock by
+  17 µs** — the reading looked like that same effect scaled down to
   post-contract slot counts. **The rig says otherwise** — see below. The
   container's save-traffic distortion, not the design, produced that reading.
 - **Noise floor, read off the control**: k256 contains no wide-arithmetic
@@ -398,8 +549,10 @@ rounds (6 for the others), best-of-batch / mean, µs per verify:
   spread (up to 3 µs on 253 µs, incl. the −3.09 outlier) is pure measurement
   noise, i.e. **±0.7 µs on a 57–60 µs bench**.
 
-**Machine B, generic sandbox, 20 interleaved rounds, error bar ±0.80 µs
-(from the control):**
+**Machine B, generic sandbox, 20 interleaved rounds, error bar ±0.80 µs.** The
+bar and the drift correction below were both derived from the k256/libsecp
+controls, which execute byte-identical machine code in every mode; their columns
+are not reproduced here, only the spread taken from them.
 
 | mode | zebra | ed25519 | sr25519 | drift-corrected |
 |---|---|---|---|---|
@@ -418,13 +571,14 @@ conservative reading; it leaves D_all and D_addsub clear wins and turns the
 fused row into a small loss. The runner now alternates mode order every round
 so the bias cannot recur.
 
-Per-family sums are roughly additive here (+0.36 − 0.40 − 1.66 = −1.70 ≈ the
-−1.81 aggregate), so the actionable shape is: **drop the source probes on
-`add256`/`sub256`, keep them on `mul256_redc256`, and `redc256` is a
-free choice.** Adopting the add/sub family alone is worth ~2.4% of wall for the
-full fault-path build (host fixup on both sandboxes, interpreter mirror,
-probe-order flip) plus two spec sentences — a positive-value decision now, but a
-decision, not a foregone conclusion.
+Per-family sums were roughly additive (+0.36 − 0.40 − 1.66 = −1.70 ≈ the −1.81
+aggregate), so the actionable shape *at the time* was: drop the source probes on
+`add256`/`sub256`, keep them on `mul256_redc256`, and treat `redc256` as a free
+choice. Adopting the add/sub family alone was worth ~2.4% of wall for the full
+fault-path build (host fixup on both sandboxes, interpreter mirror, probe-order
+flip) plus two spec sentences. **That arithmetic no longer applies** — those two
+instructions have since been fused away (see the caveat at the top of this
+section); the same harness has to be re-run on the current mix.
 
 Not decomposed on the rig: per-family **B** and **C** (only per-family D was
 measured), so *why* the fused kernel loses is inferred rather than measured — its
@@ -438,7 +592,7 @@ route emits no standalone `mul256`/`mul256_by_u64`):
 |---|---:|---:|---:|---:|---:|---:|
 | `mul256_redc256` | 645 | 616 | 717 | 688 | **+43** | 2,976 |
 | `redc256` | 236 | 222 | 252 | 238 | +2 | 1,100 |
-| `add256` | 140 | 112 | 164 | 136 | −4 | ~1,100 |
+| `add256` | 140 | 112 | 164 | 136 | −4 | 1,172 |
 | `sub256` | 140 | 112 | 164 | 136 | −4 | 3,087 |
 
 Displacement width is structural, not fixable: the save area must be appended
@@ -459,10 +613,13 @@ Two findings, with their scope corrected by the rig run:
    count, sets the price") described the container's inflated store traffic;
    on the rig mode C is inside the error bar everywhere. What survives is the
    *ranking*, not the coefficients.
-2. **Removing `redc256`'s source probe alone is neutral on both machines**
-   (+0.34 µs in-container, −0.36…−0.44 µs on the rig, both inside their error
-   bars). Its source is 64 bytes and the probe touches the first and last 8 —
-   plausibly acting as a prefetch ahead of the dependent `mulx` stream. Still a
+2. **`redc256` is the family that gains nothing from this design** (mode D,
+   redc-only: −0.36…−0.44 µs on the rig, inside the ±0.80 µs error bar). Note
+   this is the *combined* probes-removed-plus-saves-added figure; probe removal
+   was never isolated per family on either machine, so "its probe is free" is an
+   inference, not a measurement. Its source is 64 bytes and the probe touches
+   the first and last 8 — plausibly acting as a prefetch ahead of the dependent
+   `mulx` stream. Still a
    hypothesis, but it does argue against assuming probe removal is
    monotonically good.
 
@@ -497,7 +654,7 @@ the old xmm negative result does not apply (that measured GPR↔vector
 `adc`/`adcx`/`adox` as occupying all four ALU pipes (96 cyc/op for the fused
 kernel vs 53.8 measured), so it would report the added stores as free.
 
-## Fused add/sub folds (optimization 2): −18% on machine B — NUMBERS OF RECORD
+## Fused add/sub folds — SHIPPED, 2026-08-11: NUMBERS OF RECORD
 
 Two new opcodes, `add256_redc256` (238) and `sub256_redc256` (239):
 `[d] = ([s1] ± [s2])` with the carry/borrow-out folded back in modulo
@@ -535,9 +692,12 @@ Design points worth carrying:
 | **total (= naive gas)** | **109,685** | **92,106** |
 
 −17,579 instructions (−16.0%), of which only 3,158 are the fused wide ops
-themselves. The rest is guest glue that the fusion deletes outright: the three
-scratch zero-stores per `fe_add` (−3,300 stores) and the `fold_operand` table
-index shifts, two per `fe_sub` (−2,058 shifts, exactly 2 × 1,029). The 72
+themselves. The rest is guest glue the fusion deletes. Two items are itemized:
+the three scratch zero-stores per `fe_add` (−3,300 stores) and the
+`fold_operand` table index shifts, two per `fe_sub` (−2,058 shifts, exactly
+2 × 1,029). That accounts for 8,516; the remaining ~9,060 is assorted
+address-materialization and carry-handling code around the old sequences, not
+separately attributed. The 72
 surviving `add256`s are the canonicalization path in `reduce`, which still
 needs the carry as a value. Gas per verify is *down*, not up — the first
 optimization in this PoC that improves both metrics.
@@ -559,7 +719,8 @@ run; benchtool rebuilt at `aa0dff7`.
 
 −8.53 / −8.77 / −8.16 µs. The success criterion was **ed25519-zebra ≤ 44–45 µs**;
 it came in at 38.58. **All three signature benches are now under 1.7× host on
-both axes** (the previous milestone was "under 2×"), and both per-axis records
+both axes** (the previous best had zebra and ed25519 essentially *at* 2× on the
+native axis, 2.00–2.01×), and both per-axis records
 move: ed25519 at **1.32× host-portable** and sr25519 at **1.47× host-native**,
 the latter clearing the 1.7×-native stretch goal outright.
 
@@ -636,7 +797,8 @@ interpreter/recompiler crosscheck), extended with the fused ops across the
 the four register roles, misaligned dst/src overlap, all-operands-aliased (the
 pointer *is* the fold constant, which forces k to be read before the destroyed
 set is zeroed), per-operand OOB faults, and fault-path register pristineness.
-4,629 non-linux tests pass; the 1,899 failures are all `_linux_`/`core_pinning`,
+4,629 tests pass; every one of the 1,899 failures is either a Linux-sandbox
+variant or `core_pinning` (which also needs privileges the container lacks),
 which fail identically on the baseline commit.
 
 ### Follow-up that must be settled on the rig
@@ -647,10 +809,9 @@ destroying `A4`/`A5` for the guest, i.e. possible spill traffic. At ~2,100
 fused ops/verify that is ~8,400 stack ops traded against unknown guest spills —
 a pure store-traffic trade, exactly the class this project has already proven
 the container gets wrong *including the sign*. Order the two variants with the
-static size table; decide on machine B. (Backlog item 2 in the probe-removal
-hand-off, which also carries the rest of the queue in value order.)
+static size table; decide on machine B. (Queue item 2 under "Open items".)
 
-## Clobber declarations: the hint version failed, the contract version worked
+## Clobber declarations: the hint version failed, the contract version shipped
 
 These are two implementations of one idea — *let the guest tell the VM which
 registers a wide operation may destroy, so the recompiler can skip saving
@@ -673,7 +834,7 @@ can *prove* are dead at that site.
 destroyed set, so nothing has to be proven: **9 registers** for the mul family,
 unconditionally, on every site.
 
-- **−5.4…−6.4% wall on machine B** (−8…−9% in-container; the container
+- **−5.4…−6.4% wall on machine B** (−7.5…−9.2% in-container; the container
   overweights save/restore traffic).
 - The remaining cost is the guest glue that keeps live values out of the
   destroyed set: **+22% gas** (89,743 → 109,685, spill/re-materialization of
@@ -690,18 +851,23 @@ analysis the spec cannot pin down — and reverted in `4262d03`. So the contract
 is not merely the better-performing option; it is the only one of the two that
 was ever admissible.)
 
-## The redc256 question — measured data for the decision
+## The redc256 question — SETTLED: it earns its opcode
 
-- Gas: dropping redc256 costs **+32%** (zebra; the delta grew as the shared
-  glue shrank — it was +21% before the point-layer fixes). The generic route
-  stays free of number-theoretic opcodes (mul256_by_u64 + add256, no
-  number-theoretic opcode) at 117,161 — still 7.1× better than baseline.
-- Wall: **+64% in-container** (noredc 93.6 vs redc 57.2 µs). Never re-measured
-  on the rig, deliberately: a 64%
-  wall gap plus a 32% gas gap settles the question several times over, and rig
-  time was better spent on the optimizations. The mechanism is unchanged from
-  the model — (d) burns 3 extra `add256` + 1 `mul256_by_u64` per reduction
-  against one `redc256`.
+Both figures below are from the **post-contract** configuration, so they are
+directly comparable to each other:
+
+- **Wall: the generic route is +64%** — 93.6 µs against 57.2 µs, in-container.
+  Never re-measured on the rig, deliberately: a gap that size settles the
+  question several times over, and rig time was better spent on optimizations.
+  (The container's *percentages* have since been shown to transfer well; see
+  the fused-folds methodology note.)
+- **Instructions: the generic route is +60%** — 175,684 against 109,685.
+  Mechanism: it burns 3 extra `add256` plus 1 `mul256_by_u64` per reduction
+  where the redc route uses one `redc256`.
+- Earlier, pre-contract, the same instruction gap was +31% (117,161 vs 89,743);
+  it widened as the surrounding glue shrank. The generic route remains fully
+  generic — no number-theoretic opcode — and even at 117,161 was 7.1× better
+  than the branch point, so this is a question of degree, not of viability.
 - **Verdict: `redc256` earns its opcode.** Michał's original objection (quirky,
   non-generic, "no ISA has this") is on the record and unrebutted as a *design*
   point; the measurement is simply lopsided enough to override it. Worth
@@ -792,7 +958,7 @@ kernel retires in **53.8 cycles/op measured** (~3 IPC — the mulx +
 adcx/adox dual carry chain pipelines well; note `llvm-mca`'s znver3 model
 mis-prices it at 96 cycles by charging every `adc*` as occupying all four
 ALU pipes — do not use it to pre-screen these kernels). Per verify, the
-~6,200 wide ops expand to roughly 500–600k x86 instructions — the density
+~5,200 wide ops expand to roughly 500–600k x86 instructions — the density
 is why every per-op overhead instruction shows up multiplied by thousands
 on the wall clock, and why the optimization history is dominated by
 overhead trimming.
@@ -806,8 +972,8 @@ semantics (each is definitionally the composition of generic ops) but pay
 the fixed per-op overhead once instead of twice or three times:
 
 - `redc256` is the one *number-theoretic* opcode and was contested from the
-  start; the measured defense: the generic route without it costs **+32%
-  gas and +64% wall** (the (d)-vs-(e) experiment). It serves any modulus of
+  start; the measured defense: the generic route without it costs **+64% wall
+  and +60% instructions** on the same build. It serves any modulus of
   the form 2^256−k with k < 2^64 (25519's 38, secp256k1's 2^32+977).
 - The fused ops exist because the destroyed-register contract makes
   registers not survive across wide ops — so multi-op idioms *cannot* be
@@ -818,7 +984,7 @@ the fixed per-op overhead once instead of twice or three times:
   scratch-buffer zeroing stores and fold-table indexing — see the
   instruction-mix table above).
 
-## SIMD/vector kernels for mul256 — measured and analyzed, rejected for single ops
+## SIMD/vector kernels for mul256 — REJECTED for single ops (batching still open)
 
 The register-pressure story invites "just use the vector units"; it was
 explored in three distinct forms. Epistemic status is marked per item —
@@ -869,7 +1035,9 @@ one is measured, one is analysis, one is the surviving open path.
    are hundreds of bytes (mul256 ≈ 470B), far over polkavm's 69-byte
    per-instruction worst-case budget. Sequences are emitted once per
    (opcode, operand-registers) as shared trampolines; each site is a ~25-byte
-   stub (store continuation → new vmctx field, jump). This also bounds
+   stub (store the continuation address into a new vmctx field, then `call` the
+   trampoline; `ret` returns, which keeps the branch predicted by the return
+   stack buffer). This also bounds
    adversarial code bloat: worst case is the operand-encoding space
    (~90k variants), not code size. Any JAM implementation faces the same
    sizing question.
@@ -898,7 +1066,7 @@ one is measured, one is analysis, one is the surviving open path.
    operand exists only because the fused pair architecturally writes the
    512-bit product, which the guest never reads, so dropping that write frees
    the slot and makes `k` the fourth register operand everywhere (backlog item
-   1 in the probe-removal hand-off, worth ~24k stores/verify on its own). A GP
+   1 under "Open items", worth ~24k x86 stores per verify on its own). A GP
    should either land that first or carry the operand-count rationale
    explicitly; it should not present the two conventions as unexplained.
    Guest encodings: `.insn r4 0xb,6,{0,1}` = add/sub fold, `rd` = `k`,
@@ -907,14 +1075,19 @@ one is measured, one is analysis, one is the surviving open path.
    were already taken — worth knowing before anyone adds a sixth wide shape.
    The zero register is rejected for `k`, so a guest wanting `k = 0` (legal;
    it degenerates to `mod 2^256`) must materialize the zero itself.
-5. **These sequences are heavier than a limb-loop count suggests**: mul256 ≈ 112
-   executed x86 instructions, redc256 ≈ 70, add256 ≈ 40 — roughly 1.3–2.9× the
-   arithmetic alone. The overhead is operand probes (~6–9) and scratch
-   save/restores (~14–24; read-all-then-write needs the full 512-bit product in
-   registers, and 13 of 16 host registers hold guest state). Both were then
-   attacked directly: the destroyed-register contract removed most of the
-   save/restores, and fusion removed whole probe sets. Anyone pricing a wide
-   instruction from its arithmetic alone will underestimate it by this much.
+5. **These sequences are heavier than a limb-loop count suggests.**
+   Pre-contract, mul256 executed ≈112 x86 instructions, redc256 ≈70, add256 ≈40
+   — roughly 1.3–2.9× the arithmetic alone; the overhead was operand probes
+   (~6–9) and scratch save/restores (~14–24, because read-all-then-write needs
+   the full 512-bit product in registers while 13 of 16 host registers hold
+   guest state). Both were then attacked directly — the destroyed-register
+   contract removed most of the save/restores and fusion removed whole probe
+   sets. Do not try to reconcile these with the anatomy table's ~120 / ~60 / ~43:
+   those count the whole trampoline including the site stub and the zeroing tail,
+   so the two sets measure different things, and neither was re-measured after
+   the contract landed. The transferable point is the ratio, not the absolutes:
+   anyone pricing a wide instruction from its arithmetic alone will underestimate
+   it by roughly this much.
 
 ## Artifacts
 
@@ -978,19 +1151,40 @@ number. What is genuinely outstanding:
   *different code* there, and a Linux-sandbox-specific restart bug has already
   been found once in this project. Everything else is green in-container
   (interpreter + generic + the exemption-free tracing crosscheck).
-- **The experiment queue** lives in
-  [wide-arith-probe-removal-handoff.md](wide-arith-probe-removal-handoff.md)
-  ("Backlog", four items in value order) — not duplicated here. All four are
-  rig-only, as is the static trampoline size table (native disassembly needs
-  the Linux sandbox).
+- **The experiment queue**, in rough value order. All four need the rig, since
+  each is either a store-traffic trade or a wall-clock question:
+  1. **`mul256_redc256` v2** — four operands, explicit `k`, and *no
+     product-buffer write*. The fused multiply-reduce currently writes the full
+     512-bit product to memory because that is what the two instructions it
+     replaces did, but the guest never reads it. Dropping that write removes
+     ~24k x86 stores per verify (8 limbs × 2,976 ops) and frees the codec slot
+     that forces `k` into `A4`, making the fold family's operand convention
+     uniform. Needs a spec decision: the product stops being observable.
+  2. **Destroyed-set variant for the fused folds** — using the larger
+     `MUL_FAMILY` set instead of `ADD_SUB` would make their kernels push-free
+     (5 scratch needed, 5 available save-free) at the cost of destroying
+     `A4`/`A5` for the guest, i.e. possible spill traffic. ~8,400 stack ops per
+     verify traded against unknown guest spills: a pure store-traffic trade,
+     the one class the container is known to get wrong.
+  3. **Source-probe removal, re-measured on the current instruction mix** — the
+     earlier verdict (adopt for `add256`/`sub256`) was measured on instructions
+     that no longer execute. See that section for why the remaining prize is
+     smaller and sits in the least favourable family.
+  4. **Shorter probes** — replace each source probe's three instructions with
+     one discarded 32-byte vector load: same bytes touched, same fault pages,
+     no spec change. Needs a vector load in polkavm-assembler and fault-order
+     re-verification.
+  Also rig-only: the **static trampoline size table**, because dumping native
+  code (`polkatool disassemble -f native`) requires the Linux sandbox.
 - **Optional:** a machine A run for cross-microarchitecture confirmation. Worth
   something in this project specifically — the store-forwarding stall fix
   helped measurably more on Zen 4 than Zen 3 — but nothing is blocked on it.
 
-## Open design questions (updated)
+## Open design questions
 
-1. **Gas pricing** — still open. The calibrated arithmetic above says naive
-   pricing undercharges by ~1.6×; surface it for Jan with the measured counts.
+1. **Gas pricing** — still open, and the only place gas is decision-relevant.
+   The calibration above says naive pricing undercharges this workload ~1.9×;
+   surface it for Jan with the measured counts.
 2. **Carry-out ergonomics for EVM/resolc** — unchanged (rc always written;
    written last, so it may alias any operand — now specified and tested). Note
    the fused folds have *no* carry-out at all, which is the cleaner shape if a
