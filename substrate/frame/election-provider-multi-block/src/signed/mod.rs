@@ -373,7 +373,7 @@ pub mod pallet {
 	/// permissionless claim via [`Pallet::claim_unpaid_reward`].
 	///
 	/// Expected to stay empty in normal operation; only grows when the pot is depleted. If full,
-	/// [`Config::AdminOrigin`] can free a slot via [`Pallet::force_settle_unpaid_reward`].
+	/// [`Config::AdminOrigin`] can free a slot via [`Pallet::discard_unpaid_reward`].
 	#[pallet::storage]
 	pub type UnpaidRewards<T: Config> =
 		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<16>>, ValueQuery>;
@@ -846,6 +846,9 @@ pub mod pallet {
 		/// A payout (reward or fee refund) failed with no recovery: either an invulnerable's fee
 		/// refund, which isn't deferred, or a reward that failed while [`UnpaidRewards`] was full.
 		RewardPaymentFailed(u32, T::AccountId, BalanceOf<T>),
+		/// [`Config::AdminOrigin`] wrote off an [`UnpaidRewards`] entry via
+		/// [`Pallet::discard_unpaid_reward`]; no funds moved.
+		UnpaidRewardDiscarded(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
 		/// The given solution, for the given round, was ejected.
@@ -1055,11 +1058,12 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Escape hatch for a full [`UnpaidRewards`]: mints an entry's amount directly and frees
-		/// its slot. Dispatch origin must be [`crate::Config::AdminOrigin`].
+		/// Escape hatch for a full [`UnpaidRewards`]: governance write-off of an entry, freeing
+		/// its slot without minting. Prefer [`Pallet::claim_unpaid_reward`] if the pot can be
+		/// refilled instead. Dispatch origin must be [`crate::Config::AdminOrigin`].
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-		pub fn force_settle_unpaid_reward(origin: OriginFor<T>, round: u32) -> DispatchResult {
+		pub fn discard_unpaid_reward(origin: OriginFor<T>, round: u32) -> DispatchResult {
 			<T as crate::Config>::AdminOrigin::ensure_origin(origin)?;
 			let mut unpaid = UnpaidRewards::<T>::get();
 			let idx = unpaid
@@ -1069,9 +1073,11 @@ pub mod pallet {
 			let entry = unpaid.remove(idx);
 			UnpaidRewards::<T>::put(unpaid);
 
-			let _r = T::Currency::mint_into(&entry.who, entry.amount);
-			debug_assert!(_r.is_ok());
-			Self::deposit_event(Event::<T>::Rewarded(entry.round, entry.who, entry.amount));
+			Self::deposit_event(Event::<T>::UnpaidRewardDiscarded(
+				entry.round,
+				entry.who,
+				entry.amount,
+			));
 
 			Ok(())
 		}

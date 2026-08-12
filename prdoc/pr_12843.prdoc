@@ -12,7 +12,8 @@ doc:
     If a `RewardSource` pot is depleted, a round-winner's reward is no longer just logged as
     failed: it is queued and can be claimed by anyone via the new permissionless
     `claim_unpaid_reward(round)` call, free of charge on success, paying out to the original
-    winner. Governance can also force-settle a stuck entry via `force_settle_unpaid_reward`.
+    winner. If the queue is full, governance can write off a stuck entry (no minting involved)
+    via `discard_unpaid_reward`, freeing its slot.
 crates:
 - name: pallet-election-provider-multi-block
   bump: major

@@ -1773,43 +1773,45 @@ mod issuance {
 	}
 
 	#[test]
-	fn force_settle_unpaid_reward_works() {
-		// Mints directly, bypassing RewardSource entirely, so it works even with an empty pot.
+	fn discard_unpaid_reward_works() {
+		// Writes off the entry without moving any funds; no minting involved.
 		ExtBuilder::signed().build_and_execute(|| {
 			SignedRewardSource::set(Some(POT));
 			submit_and_verify_winning(999);
 			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
+			let ti_before = Balances::total_issuance();
 			let balance_before = Balances::free_balance(999);
 			let _ = signed_events_since_last_call();
 
-			assert_ok!(SignedPallet::force_settle_unpaid_reward(RuntimeOrigin::root(), 0));
+			assert_ok!(SignedPallet::discard_unpaid_reward(RuntimeOrigin::root(), 0));
 
-			assert!(Balances::free_balance(999) > balance_before);
+			assert_eq!(Balances::free_balance(999), balance_before, "no funds must move");
+			assert_eq!(Balances::total_issuance(), ti_before, "nothing must be minted");
 			assert!(UnpaidRewards::<T>::get().is_empty());
 			assert!(signed_events_since_last_call()
 				.iter()
-				.any(|e| matches!(e, SignedEvent::Rewarded(0, 999, _))));
+				.any(|e| matches!(e, SignedEvent::UnpaidRewardDiscarded(0, 999, _))));
 		});
 	}
 
 	#[test]
-	fn force_settle_unpaid_reward_requires_admin_origin() {
+	fn discard_unpaid_reward_requires_admin_origin() {
 		ExtBuilder::signed().build_and_execute(|| {
 			SignedRewardSource::set(Some(POT));
 			submit_and_verify_winning(999);
 
 			assert_noop!(
-				SignedPallet::force_settle_unpaid_reward(RuntimeOrigin::signed(1), 0),
+				SignedPallet::discard_unpaid_reward(RuntimeOrigin::signed(1), 0),
 				sp_runtime::DispatchError::BadOrigin
 			);
 		});
 	}
 
 	#[test]
-	fn force_settle_unpaid_reward_fails_when_no_entry() {
+	fn discard_unpaid_reward_fails_when_no_entry() {
 		ExtBuilder::signed().build_and_execute(|| {
 			assert_noop!(
-				SignedPallet::force_settle_unpaid_reward(RuntimeOrigin::root(), 0),
+				SignedPallet::discard_unpaid_reward(RuntimeOrigin::root(), 0),
 				Error::<T>::NoUnpaidReward
 			);
 		});

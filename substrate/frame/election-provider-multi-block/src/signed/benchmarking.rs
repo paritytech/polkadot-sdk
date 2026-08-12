@@ -200,23 +200,28 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn claim_unpaid_reward() -> Result<(), BenchmarkError> {
-		let alice = crate::Pallet::<T>::funded_account("alice", 0);
-		let entry = crate::signed::UnpaidReward::<T> {
-			round: 0,
-			who: alice,
-			amount: <T as Config>::RewardBase::get(),
-		};
-		crate::signed::UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry))
-			.map_err(|_| BenchmarkError::Stop("UnpaidRewards is full"))?;
+		// Worst case: UnpaidRewards (bounded to 16) is full, and the claimed entry is the last
+		// one scanned.
+		for i in 0..16u32 {
+			let who = crate::Pallet::<T>::funded_account("filler", i);
+			let entry = crate::signed::UnpaidReward::<T> {
+				round: i,
+				who,
+				amount: <T as Config>::RewardBase::get(),
+			};
+			crate::signed::UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry))
+				.map_err(|_| BenchmarkError::Stop("UnpaidRewards is full"))?;
+		}
+		let target_round = 15u32;
 
 		let caller = crate::Pallet::<T>::funded_account("caller", 0);
 
 		#[block]
 		{
-			Pallet::<T>::claim_unpaid_reward(RawOrigin::Signed(caller).into(), 0)?;
+			Pallet::<T>::claim_unpaid_reward(RawOrigin::Signed(caller).into(), target_round)?;
 		}
 
-		assert!(crate::signed::UnpaidRewards::<T>::get().is_empty());
+		assert_eq!(crate::signed::UnpaidRewards::<T>::get().len(), 15);
 		Ok(())
 	}
 
