@@ -77,9 +77,17 @@ pub struct NetworkParams {
 	/// Do not listen on WebRTC addresses by default.
 	///
 	/// Only affects the default listen addresses; WebRTC addresses passed
-	/// via `--listen-addr` are still used.
-	#[arg(long)]
+	/// via `--listen-addr` are still used. Implied on the relay chain side
+	/// of a collator.
+	#[arg(long, conflicts_with = "enable_webrtc")]
 	pub disable_webrtc: bool,
+
+	/// Listen on WebRTC addresses even on a validator or the relay chain side
+	/// of a collator.
+	///
+	/// Only works on the litep2p network backend.
+	#[arg(long)]
+	pub enable_webrtc: bool,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -207,6 +215,17 @@ pub struct NetworkParams {
 }
 
 impl NetworkParams {
+	/// Explicit WebRTC choice from `--enable-webrtc`/`--disable-webrtc`,
+	/// or `None` to use the role-based default.
+	pub fn webrtc(&self) -> Option<bool> {
+		match (self.enable_webrtc, self.disable_webrtc) {
+			(true, true) => unreachable!("`*_webrtc` flags are mutually exclusive; qed"),
+			(true, false) => Some(true),
+			(false, true) => Some(false),
+			(false, false) => None,
+		}
+	}
+
 	/// Fill the given `NetworkConfiguration` by looking at the cli parameters.
 	pub fn network_config(
 		&self,
@@ -246,10 +265,10 @@ impl NetworkParams {
 				]
 			};
 
-			// WebRTC is only supported by the litep2p backend and not enabled on validators.
-			if !self.disable_webrtc &&
-				!is_validator &&
-				matches!(self.network_backend, NetworkBackendType::Litep2p)
+			// WebRTC is only supported by the litep2p backend and defaults to enabled
+			// on non-validators.
+			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
+				self.webrtc().unwrap_or(!is_validator)
 			{
 				listen_addresses.extend([
 					Multiaddr::empty()
@@ -377,5 +396,10 @@ mod tests {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);
+	}
+
+	#[test]
+	fn webrtc_flags_conflict() {
+		assert!(Cli::try_parse_from(["", "--disable-webrtc", "--enable-webrtc"]).is_err());
 	}
 }

@@ -120,11 +120,14 @@ impl RelayChainCli {
 		relay_chain_args: impl Iterator<Item = &'a String>,
 	) -> Self {
 		let base_path = para_config.base_path.path().join("polkadot");
-		Self {
-			base_path: Some(base_path),
-			chain_id: None,
-			base: clap::Parser::parse_from(relay_chain_args),
+		let mut base: polkadot_cli::RunCmd = clap::Parser::parse_from(relay_chain_args);
+
+		// The relay chain side of a collator doesn't listen on WebRTC by default.
+		if para_config.role.is_authority() && base.base.network_params.webrtc().is_none() {
+			base.base.network_params.disable_webrtc = true;
 		}
+
+		Self { base_path: Some(base_path), chain_id: None, base }
 	}
 }
 
