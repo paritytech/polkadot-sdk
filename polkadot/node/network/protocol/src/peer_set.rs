@@ -317,6 +317,8 @@ impl PeerSetProtocolNames {
 
 	/// Same as [`Self::new`], but pins the main collation protocol version.
 	///
+	/// With `None`, tracks the newest supported version — same as [`Self::new`].
+	///
 	/// Only intended for the legacy collator protocol, which is capped at
 	/// [`CollationVersion::V3`] and will never support newer versions.
 	pub fn new_with_main_collation_version(
@@ -491,7 +493,7 @@ impl PeerSetProtocolNames {
 	/// protocol name reported by `get_main_name()`.
 	pub fn get_main_version(&self, protocol: PeerSet) -> ProtocolVersion {
 		match protocol {
-			PeerSet::Validation => ValidationVersion::V3.into(),
+			PeerSet::Validation => Self::newest_validation_version().into(),
 			PeerSet::Collation => self
 				.main_collation_version
 				.unwrap_or_else(Self::newest_collation_version)
@@ -503,6 +505,12 @@ impl PeerSetProtocolNames {
 		CollationVersion::iter()
 			.max_by_key(|v| *v as u32)
 			.expect("`CollationVersion` has at least one variant; qed")
+	}
+
+	fn newest_validation_version() -> ValidationVersion {
+		ValidationVersion::iter()
+			.max_by_key(|v| *v as u32)
+			.expect("ValidationVersion` has at least one variant; qed")
 	}
 }
 
@@ -690,7 +698,7 @@ mod tests {
 	fn all_collation_versions_are_negotiable() {
 		assert_all_versions_negotiable(
 			PeerSet::Collation,
-			Some(CollationVersion::V4),
+			None,
 			CollationVersion::iter().map(Into::into),
 		);
 	}
@@ -699,7 +707,7 @@ mod tests {
 	fn all_validation_versions_are_negotiable() {
 		assert_all_versions_negotiable(
 			PeerSet::Validation,
-			Some(CollationVersion::V4),
+			None,
 			ValidationVersion::iter().map(Into::into),
 		);
 	}
