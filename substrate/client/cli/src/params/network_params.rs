@@ -222,17 +222,35 @@ impl NetworkParams {
 		let port = self.port.unwrap_or(default_listen_port);
 
 		let listen_addresses = if self.listen_addr.is_empty() {
-			if is_validator || is_dev {
-				vec![
+			match (is_validator, is_dev) {
+				// Validator: TCP only
+				(true, _) => vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port)),
 					Multiaddr::empty()
 						.with(Protocol::Ip4([0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port)),
-				]
-			} else {
-				vec![
+				],
+				// Dev: TCP + WebRTC
+				(false, true) => vec![
+					Multiaddr::empty()
+						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
+						.with(Protocol::Tcp(port)),
+					Multiaddr::empty()
+						.with(Protocol::Ip4([0, 0, 0, 0].into()))
+						.with(Protocol::Tcp(port)),
+					Multiaddr::empty()
+						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
+						.with(Protocol::Udp(port))
+						.with(Protocol::WebRTCDirect),
+					Multiaddr::empty()
+						.with(Protocol::Ip4([0, 0, 0, 0].into()))
+						.with(Protocol::Udp(port))
+						.with(Protocol::WebRTCDirect),
+				],
+				// Full node: WS + WebRTC
+				(false, false) => vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port))
@@ -241,7 +259,15 @@ impl NetworkParams {
 						.with(Protocol::Ip4([0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port))
 						.with(Protocol::Ws(Cow::Borrowed("/"))),
-				]
+					Multiaddr::empty()
+						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
+						.with(Protocol::Udp(port))
+						.with(Protocol::WebRTCDirect),
+					Multiaddr::empty()
+						.with(Protocol::Ip4([0, 0, 0, 0].into()))
+						.with(Protocol::Udp(port))
+						.with(Protocol::WebRTCDirect),
+				],
 			}
 		} else {
 			self.listen_addr.clone()
