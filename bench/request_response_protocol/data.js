@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786457251495,
+  "lastUpdate": 1786494686830,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -112535,6 +112535,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2799692516,
             "range": "± 96116073",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b298b3d8d848bb6328cc957a08b02e5da451ccaf",
+          "message": "[pallet-xcm] fix dry-run storage side-effects leaking into xcm-emulator (#12807)\n\nWraps dry_run_call and dry_run_xcm in a rolled-back storage transaction\nso simulated XCM execution never mutates caller state, fixing the\nxcm-emulator bug where dry-run outbound messages were silently delivered\nvia process_messages().\nfixes #11486\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-11T23:00:59Z",
+          "tree_id": "de0f80c3803b5bc2f575cf17bb408e675f7343ca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b298b3d8d848bb6328cc957a08b02e5da451ccaf"
+        },
+        "date": 1786494653234,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19664784,
+            "range": "± 119601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19739459,
+            "range": "± 176255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21289652,
+            "range": "± 180109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26053828,
+            "range": "± 334819",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59039535,
+            "range": "± 1282535",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353635878,
+            "range": "± 6424637",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2764407419,
+            "range": "± 187244643",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17476385,
+            "range": "± 460452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17290749,
+            "range": "± 278872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17719747,
+            "range": "± 340722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22646915,
+            "range": "± 217906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62196260,
+            "range": "± 625757",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 370963412,
+            "range": "± 6266086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2740701988,
+            "range": "± 24399573",
             "unit": "ns/iter"
           }
         ]
