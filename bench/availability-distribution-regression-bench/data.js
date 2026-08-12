@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786458218774,
+  "lastUpdate": 1786495496810,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1547c302a243e0c5ded61d297704460865895f99",
-          "message": "Do not send both `assign_cores` calls in parallel (#10539)\n\nThe internal logic fetches the `nonce` of the sender and this will lead\nto both transaction using the same `nonce`. Ultimately this leads to the\nnode rejecting one of the transactions because both transactions look\nlike the same transaction to the node.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10536",
-          "timestamp": "2025-12-04T11:06:44Z",
-          "tree_id": "083af5c9139aa9e83ca8d1e372d97d334ec354ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1547c302a243e0c5ded61d297704460865895f99"
-        },
-        "date": 1764852248235,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013100801426666659,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007588703213333308,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15854474563333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02254220519333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14411077893333346,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b298b3d8d848bb6328cc957a08b02e5da451ccaf",
+          "message": "[pallet-xcm] fix dry-run storage side-effects leaking into xcm-emulator (#12807)\n\nWraps dry_run_call and dry_run_xcm in a rolled-back storage transaction\nso simulated XCM execution never mutates caller state, fixing the\nxcm-emulator bug where dry-run outbound messages were silently delivered\nvia process_messages().\nfixes #11486\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-11T23:00:59Z",
+          "tree_id": "de0f80c3803b5bc2f575cf17bb408e675f7343ca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b298b3d8d848bb6328cc957a08b02e5da451ccaf"
+        },
+        "date": 1786495463110,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009935360833333351,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14428327786000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007427055826666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0228867628,
             "unit": "seconds"
           }
         ]
