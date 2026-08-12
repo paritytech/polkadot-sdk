@@ -286,7 +286,10 @@ where
 				let anchor_params = scheduling_params_at(&*para_client, anchor_hash);
 
 				let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-					.wait_for_scheduling_parent(&mut relay_chain_data_cache, anchor_params.v3_enabled)
+					.wait_for_scheduling_parent(
+						&mut relay_chain_data_cache,
+						anchor_params.v3_enabled,
+					)
 					.await
 				else {
 					tracing::warn!(
