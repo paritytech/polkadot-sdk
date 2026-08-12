@@ -65,21 +65,21 @@ pub struct NetworkParams {
 	///
 	/// By default:
 	/// If `--validator` is passed: `/ip4/0.0.0.0/tcp/<port>` and `/ip6/[::]/tcp/<port>`.
-	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`.
+	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`, plus, on the
+	/// litep2p network backend, `/ip4/0.0.0.0/udp/<port>/webrtc-direct` and
+	/// `/ip6/[::]/udp/<port>/webrtc-direct` unless `--disable-webrtc` is passed.
 	///
-	/// Experimental: `/ip4/<ip>/udp/<port>/webrtc-direct` and
-	/// `/ip6/<ip>/udp/<port>/webrtc-direct`. Unspecified addresses
-	/// (`0.0.0.0` / `[::]`) are not supported, bind to a specific IP is required.
-	/// Only works on the litep2p network backend.
+	/// WebRTC addresses (`/ip4/<ip>/udp/<port>/webrtc-direct` and
+	/// `/ip6/<ip>/udp/<port>/webrtc-direct`) only work on the litep2p network backend.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
 
-	/// Allow WebRTC addresses. This is an experimental feature.
+	/// Do not listen on WebRTC addresses by default.
 	///
-	/// Without this enabled, WebRTC addresses specified in `listen_addr`
-	/// will be skipped. Only works on litep2p network backend.
+	/// Only affects the default listen addresses; WebRTC addresses passed
+	/// via `--listen-addr` are still used.
 	#[arg(long)]
-	pub experimental_webrtc: bool,
+	pub disable_webrtc: bool,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -222,35 +222,19 @@ impl NetworkParams {
 		let port = self.port.unwrap_or(default_listen_port);
 
 		let listen_addresses = if self.listen_addr.is_empty() {
-			match (is_validator, is_dev) {
-				// Validator: TCP only
-				(true, _) => vec![
+			let mut listen_addresses = if is_validator || is_dev {
+				// Validator/dev: TCP
+				vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port)),
 					Multiaddr::empty()
 						.with(Protocol::Ip4([0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port)),
-				],
-				// Dev: TCP + WebRTC
-				(false, true) => vec![
-					Multiaddr::empty()
-						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
-						.with(Protocol::Tcp(port)),
-					Multiaddr::empty()
-						.with(Protocol::Ip4([0, 0, 0, 0].into()))
-						.with(Protocol::Tcp(port)),
-					Multiaddr::empty()
-						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
-						.with(Protocol::Udp(port))
-						.with(Protocol::WebRTCDirect),
-					Multiaddr::empty()
-						.with(Protocol::Ip4([0, 0, 0, 0].into()))
-						.with(Protocol::Udp(port))
-						.with(Protocol::WebRTCDirect),
-				],
-				// Full node: WS + WebRTC
-				(false, false) => vec![
+				]
+			} else {
+				// Full node: WS
+				vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port))
@@ -259,6 +243,15 @@ impl NetworkParams {
 						.with(Protocol::Ip4([0, 0, 0, 0].into()))
 						.with(Protocol::Tcp(port))
 						.with(Protocol::Ws(Cow::Borrowed("/"))),
+				]
+			};
+
+			// WebRTC is only supported by the litep2p backend and not enabled on validators.
+			if !self.disable_webrtc &&
+				!is_validator &&
+				matches!(self.network_backend, NetworkBackendType::Litep2p)
+			{
+				listen_addresses.extend([
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
 						.with(Protocol::Udp(port))
@@ -267,8 +260,10 @@ impl NetworkParams {
 						.with(Protocol::Ip4([0, 0, 0, 0].into()))
 						.with(Protocol::Udp(port))
 						.with(Protocol::WebRTCDirect),
-				],
+				]);
 			}
+
+			listen_addresses
 		} else {
 			self.listen_addr.clone()
 		};
@@ -309,7 +304,6 @@ impl NetworkParams {
 			},
 			default_peers_set_num_full: self.in_peers + self.out_peers,
 			listen_addresses,
-			experimental_webrtc: self.experimental_webrtc,
 			public_addresses,
 			node_key,
 			node_name: node_name.to_string(),

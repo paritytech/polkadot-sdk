@@ -309,16 +309,8 @@ impl Litep2pNetworkBackend {
 				(Some(Protocol::Tcp(_)), Some(Protocol::Ws(_) | Protocol::Wss(_))) => {
 					websocket_addresses.push(addr.clone());
 				},
-				// WebRTCDirecet address.
+				// WebRTC-Direct address.
 				(Some(Protocol::Udp(_)), Some(Protocol::WebRTCDirect)) => {
-					// Ignore WebRTC addresses unless the experimental feature is enabled.
-					if !config.network_config.experimental_webrtc {
-						log::warn!(
-							target: LOG_TARGET,
-							"WebRTC address provided but --experimental-webrtc flag not enabled, ignoring {addr:?}"
-						);
-						continue;
-					}
 					webrtc_addresses.push(addr.clone());
 				},
 				_ => {
@@ -353,11 +345,6 @@ impl Litep2pNetworkBackend {
 				certificate: Some(certificate),
 				..Default::default()
 			});
-		} else if config.network_config.experimental_webrtc {
-			log::warn!(
-				target: LOG_TARGET,
-				"WebRTC enabled but no listen address specified"
-			);
 		}
 
 		Ok(config_builder.with_keypair(keypair))
