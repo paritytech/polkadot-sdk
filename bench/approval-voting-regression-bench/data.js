@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786458261786,
+  "lastUpdate": 1786495539311,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "34034a943bf67268f9e59a991f00eef1ff1fb9c8",
-          "message": "Revert \"xcm: Do not require `Asset` to be sorted on `decode`\" (#10459)\n\nReverts paritytech/polkadot-sdk#9842\n\nFollowing on the discussion at\nhttps://github.com/paritytech/polkadot-sdk/issues/10391, we don't want\nto sort at decode level but rather to not require sorting at all among\nthe codebase",
-          "timestamp": "2025-12-04T07:45:10Z",
-          "tree_id": "d3cbd9093c14af5a2afd1dc11541c765de645202",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/34034a943bf67268f9e59a991f00eef1ff1fb9c8"
-        },
-        "date": 1764840404957,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.990000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4283029486600016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9878822702199899,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.41263951160000206,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.37709240434,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001626008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3811262133500035,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6993987571207905,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.988368440199999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001626008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000017071209999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000017071209999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00592758008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3953975119500006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7843066831199836,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b298b3d8d848bb6328cc957a08b02e5da451ccaf",
+          "message": "[pallet-xcm] fix dry-run storage side-effects leaking into xcm-emulator (#12807)\n\nWraps dry_run_call and dry_run_xcm in a rolled-back storage transaction\nso simulated XCM execution never mutates caller state, fixing the\nxcm-emulator bug where dry-run outbound messages were silently delivered\nvia process_messages().\nfixes #11486\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-11T23:00:59Z",
+          "tree_id": "de0f80c3803b5bc2f575cf17bb408e675f7343ca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b298b3d8d848bb6328cc957a08b02e5da451ccaf"
+        },
+        "date": 1786495505637,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.240000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.725825722470001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6781907853700004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3865510276799964,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6741124801800016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7140719579299986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.421568522922803,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020230000000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002075433,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002075433,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005125401489999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8043720184999719,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020230000000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.98824939361997,
             "unit": "seconds"
           }
         ]
