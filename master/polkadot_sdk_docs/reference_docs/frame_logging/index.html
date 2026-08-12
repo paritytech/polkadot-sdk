@@ -164,7 +164,7 @@ out if executed with <code>--nocapture</code>, or if the test panics.</p>
 	<span class="macro">println!</span>(<span class="string">"Hello, world!"</span>);
 }</code></pre></div>
 <p>within the pallet, if you want to use the standard <code>println!</code>, it needs to be wrapped in
-[<code>sp_std::if_std</code>]. Of course, this means that this print code is only available to you in the
+<a href="../../../sp_std/macro.if_std.html" title="macro sp_std::if_std"><code>sp_std::if_std</code></a>. Of course, this means that this print code is only available to you in the
 <code>std</code> compiler flag, and never present in a wasm build.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// somewhere in your pallet. This is not a real pallet code.
