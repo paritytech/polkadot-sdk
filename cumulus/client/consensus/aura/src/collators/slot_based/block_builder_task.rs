@@ -299,7 +299,10 @@ where
 					false => ParentSearchParams::V2 {
 						scheduling_parent: relay_parent_data.relay_parent().hash(),
 					},
-					true => ParentSearchParams::V3 { scheduling_parent: scheduling_parent_hash },
+					true => ParentSearchParams::V3 {
+						scheduling_parent: scheduling_parent_hash,
+						relay_parent_offset: anchor_params.1,
+					},
 				};
 				let Some(parent_search_result) = crate::collators::find_parent(
 					&relay_client,
