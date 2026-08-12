@@ -74,7 +74,7 @@ const MERKLE_PROOF_MAX_DEPTH: usize = 8;
 /// The bound is enforced by SCALE decoding via `BoundedVec`,
 /// so oversized advertisements are rejected at parse time
 /// without allocation.
-pub const MAX_SEGMENT_LEN: u32 = 100;
+pub const MAX_SEGMENT_LEN: u32 = 32;
 
 /// The bomb limit for decompressing code blobs.
 #[deprecated(
