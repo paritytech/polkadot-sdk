@@ -1786,6 +1786,13 @@ where
 			return;
 		};
 		let hashes: Vec<_> = statements.into_iter().map(|(hash, _)| hash).collect();
+		// Match propagation's optimistic suppression semantics: once this chunk is queued,
+		// prevent propagation from concurrently sending the same statements to this peer.
+		if let Some(peer_data) = self.peers.get_mut(&peer_id) {
+			for hash in &hashes {
+				peer_data.known_statements.insert(*hash);
+			}
+		}
 		let sent_latency =
 			self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 		let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
@@ -2369,6 +2376,27 @@ mod tests {
 		assert_eq!(handler.pending_sends.len(), 1);
 	}
 
+	#[tokio::test]
+	async fn propagation_does_not_duplicate_a_pending_initial_sync_send() {
+		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
+		let peer_id = peer_ids[0];
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"overlapping statement".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		notification_service.block_sends();
+		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.process_initial_sync_burst();
+		assert_eq!(handler.pending_sends.len(), 1);
+		assert!(handler.pending_sends.next().now_or_never().is_none());
+
+		handler.propagate_statements().await;
+
+		assert_eq!(handler.pending_sends.len(), 1);
+	}
+
 	/// Simulate the network closing the substream for every disconnected
 	/// peer, so the handler runs its per-peer cleanup.
 	async fn dispatch_disconnects(
@@ -2729,7 +2757,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn initial_sync_network_error_does_not_count_as_sent() {
+	async fn initial_sync_network_error_keeps_optimistic_known_markers() {
 		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
 		let peer_id = peer_ids[0];
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
@@ -2757,7 +2785,7 @@ mod tests {
 
 		assert!(notification_service.get_sent_notifications().is_empty());
 		for hash in &hashes {
-			assert!(!handler.peers.get(&peer_id).unwrap().known_statements.contains(hash));
+			assert!(handler.peers.get(&peer_id).unwrap().known_statements.contains(hash));
 		}
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 
