@@ -658,6 +658,11 @@ pub mod v4_collation {
 		/// Advertise an ordered list of unincluded candidates. The list
 		/// is ordered by age. A length 1 segment is the V3 single-candidate
 		/// equivalent.
+		///
+		/// V4 has no `Declare` message. Although every `AdvertiseSegment`
+		/// carries a `para_id`, the peer is bound to a single para by its
+		/// first advertisement. Sending a different `para_id` in a
+		/// subsequent message results in disconnection.
 		#[codec(index = 5)]
 		AdvertiseSegment {
 			/// Hash of the scheduling parent
