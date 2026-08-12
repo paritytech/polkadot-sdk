@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786550026896,
+  "lastUpdate": 1786552646108,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "613e00ed694cb846dae7796997d4224832d6aa67",
-          "message": "Revert \"pallet-xcm: API changes to use `VersionedAssetId` instead of `u32` to specify asset for fees\" (#10458)\n\nReverts paritytech/polkadot-sdk#10243\n\nFollowing on the discussion at\nhttps://github.com/paritytech/polkadot-sdk/issues/10391, this change may\nfind its place in future releases so reverting to not affect current\nmaster and to be reverted from stable2512 as well",
-          "timestamp": "2025-12-04T20:27:10Z",
-          "tree_id": "184ab06b76d7fa6a36bcadd982af77f46db679d4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/613e00ed694cb846dae7796997d4224832d6aa67"
-        },
-        "date": 1764886008996,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012989703239999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022514754960000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007417824133333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15726098030000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010153032526666677,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4341b842a21a735b227f1da39af5b8f0eec795f2",
+          "message": "Statement store index optimization, state 2b (#12774)\n\nThis PR aims to conclude the statement store index optimizations\ndescribed in #10910. It introduces an on-disk submit index backed by\nwrite-through LRU caches.\n\nBeyond the changes proposed by the mentioned issue, the following\nimprovements have been implemented:\n* Persistent counters are written into the DB, so the statement bodies\nare not even decoded on startup;\n* Instead of the account snapshot, the limit enforcer uses a much more\nmemory-efficient DB cursor;\n* Some possible race conditions have been fixed along the way.\n\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12624\nhttps://github.com/paritytech/polkadot-sdk/issues/10910",
+          "timestamp": "2026-08-12T14:04:41Z",
+          "tree_id": "ac25650f1ea7cea49280cb96240eda53db32621a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4341b842a21a735b227f1da39af5b8f0eec795f2"
+        },
+        "date": 1786552612411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00979471441333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14399609342000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02287210211333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007625211926666668,
             "unit": "seconds"
           }
         ]
