@@ -1645,10 +1645,9 @@ mod issuance {
 	}
 
 	#[test]
-	fn reward_failed_when_source_pot_is_empty() {
-		// When RewardSource is Some(empty_pot), the transfer fails: the winner is not paid, no
-		// panic occurs, RewardPaymentFailed is emitted instead of Rewarded, and TotalIssuance
-		// remains unchanged.
+	fn reward_deferred_when_source_pot_is_empty() {
+		// Empty pot: transfer fails, RewardPaymentDeferred fires instead of Rewarded, and the
+		// amount is queued in UnpaidRewards rather than paid.
 		ExtBuilder::signed().build_and_execute(|| {
 			// Do NOT fund the pot.
 			SignedRewardSource::set(Some(POT));
@@ -1662,12 +1661,99 @@ mod issuance {
 				!events.iter().any(|e| matches!(e, SignedEvent::Rewarded(..))),
 				"Rewarded must not be emitted when the pot transfer fails"
 			);
-			let failed_events: Vec<_> = events
+			let deferred_events: Vec<_> = events
 				.into_iter()
-				.filter(|e| matches!(e, SignedEvent::RewardPaymentFailed(..)))
+				.filter(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..)))
 				.collect();
-			assert_eq!(failed_events.len(), 1, "expected exactly one RewardPaymentFailed event");
+			assert_eq!(
+				deferred_events.len(),
+				1,
+				"expected exactly one RewardPaymentDeferred event"
+			);
 			assert_eq!(ti_before, ti_after, "total issuance must not change when pot is empty");
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1, "the reward must be queued");
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_works_once_pot_refilled() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+
+			submit_and_verify_winning(999);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
+			let _ = signed_events_since_last_call();
+
+			// Refill the pot, then claim.
+			Balances::mint_into(&POT, 1_000).unwrap();
+			let balance_before = Balances::free_balance(999);
+
+			assert_ok!(SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(999), 0));
+
+			assert!(
+				Balances::free_balance(999) > balance_before,
+				"winner must receive the deferred reward"
+			);
+			assert!(UnpaidRewards::<T>::get().is_empty(), "claimed entry must be removed");
+			assert!(signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Rewarded(0, 999, _))));
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_fails_when_no_entry() {
+		ExtBuilder::signed().build_and_execute(|| {
+			assert_noop!(
+				SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(999), 0),
+				Error::<T>::NoUnpaidReward
+			);
+		});
+	}
+
+	#[test]
+	fn claim_unpaid_reward_fails_when_pot_still_depleted() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+			submit_and_verify_winning(999);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
+
+			// Pot is still empty.
+			assert_noop!(
+				SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(999), 0),
+				Error::<T>::PotStillDepleted
+			);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1, "entry must remain queued");
+		});
+	}
+
+	#[test]
+	fn reward_payment_fails_when_unpaid_queue_is_full() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+
+			// Fill the unpaid-rewards queue to capacity.
+			UnpaidRewards::<T>::mutate(|unpaid| {
+				for i in 0..16u64 {
+					unpaid
+						.try_push(UnpaidReward {
+							round: 999,
+							who: i,
+							amount: 1,
+							kind: UnpaidRewardKind::Reward,
+						})
+						.unwrap();
+				}
+			});
+
+			submit_and_verify_winning(999);
+
+			let events = signed_events_since_last_call();
+			assert!(
+				events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentFailed(..))),
+				"expected RewardPaymentFailed once the unpaid queue is full"
+			);
+			assert!(!events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..))));
 		});
 	}
 

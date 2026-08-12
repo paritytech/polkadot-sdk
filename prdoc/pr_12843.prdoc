@@ -7,6 +7,11 @@ doc:
     `pallet-election-provider-multi-block::signed::Config`. Asset Hub and the staking-async
     parachain runtime now wire both through the DAP buffer, keeping `TotalIssuance` reconcilable
     with the DAP emission curve.
+- audience: Runtime User
+  description: |-
+    If a `RewardSource` pot is depleted, a signed-phase reward or fee refund is no longer just
+    logged as failed: it is queued and can be claimed later via the new
+    `claim_unpaid_reward(round)` call, free of charge on success.
 crates:
 - name: pallet-election-provider-multi-block
   bump: major

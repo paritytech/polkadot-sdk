@@ -116,6 +116,35 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, T::Pages>,
 }
 
+/// Whether an [`UnpaidReward`] originated from a round win or an invulnerable's fee refund.
+///
+/// Kept so [`Pallet::claim_unpaid_reward`] can reproduce the same event that would have been
+/// emitted had the original payment succeeded: [`Event::Rewarded`] only fires for [`Self::Reward`].
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum UnpaidRewardKind {
+	/// A round-winner's reward.
+	Reward,
+	/// An invulnerable's transaction fee refund.
+	FeeRefund,
+}
+
+/// A reward or fee refund that failed to pay out of [`Config::RewardSource`] and is pending a
+/// permissionless claim via [`Pallet::claim_unpaid_reward`].
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, DebugNoBound)]
+#[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
+pub struct UnpaidReward<T: Config> {
+	/// The round the payment was owed for.
+	round: u32,
+	/// The account the payment is owed to.
+	who: T::AccountId,
+	/// The amount owed.
+	amount: BalanceOf<T>,
+	/// Whether this was a reward or a fee refund.
+	kind: UnpaidRewardKind,
+}
+
 impl<T: Config> crate::types::SignedInterface for Pallet<T> {
 	fn has_leader(round: u32) -> bool {
 		Submissions::<T>::has_leader(round)
@@ -353,6 +382,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, ConstU32<16>>, ValueQuery>;
+
+	/// Rewards and fee refunds that failed to pay out of [`Config::RewardSource`], pending a
+	/// permissionless claim via [`Pallet::claim_unpaid_reward`].
+	///
+	/// Expected to stay empty in normal operation; only grows when the pot is depleted.
+	#[pallet::storage]
+	pub type UnpaidRewards<T: Config> =
+		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<16>>, ValueQuery>;
 
 	/// Wrapper type for signed submissions.
 	///
@@ -816,7 +853,11 @@ pub mod pallet {
 		Stored(u32, T::AccountId, PageIndex),
 		/// The given account has been rewarded with the given amount.
 		Rewarded(u32, T::AccountId, BalanceOf<T>),
-		/// A [`Config::RewardSource`] payout failed; no funds moved, no automatic retry.
+		/// A [`Config::RewardSource`] payout failed and has been queued in [`UnpaidRewards`];
+		/// claimable via [`Pallet::claim_unpaid_reward`] once the pot is refilled.
+		RewardPaymentDeferred(u32, T::AccountId, BalanceOf<T>),
+		/// A [`Config::RewardSource`] payout failed and [`UnpaidRewards`] is full; no funds
+		/// moved, no way to recover this specific payment.
 		RewardPaymentFailed(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
@@ -848,6 +889,10 @@ pub mod pallet {
 		BadWitnessData,
 		/// Too many invulnerable accounts are provided,
 		TooManyInvulnerables,
+		/// No [`UnpaidRewards`] entry exists for the caller in the given round.
+		NoUnpaidReward,
+		/// The [`Config::RewardSource`] pot is still insufficient to pay the unpaid reward.
+		PotStillDepleted,
 	}
 
 	#[pallet::call]
@@ -999,6 +1044,32 @@ pub mod pallet {
 			Invulnerables::<T>::set(bounded);
 			Ok(())
 		}
+
+		/// Claim the caller's own deferred [`UnpaidRewards`] entry. Free on success, normal fee
+		/// on failure to discourage spam.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		pub fn claim_unpaid_reward(origin: OriginFor<T>, round: u32) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let mut unpaid = UnpaidRewards::<T>::get();
+			let idx = unpaid
+				.iter()
+				.position(|entry| entry.round == round && entry.who == who)
+				.ok_or(Error::<T>::NoUnpaidReward)?;
+			let entry = unpaid[idx].clone();
+
+			Self::transfer_or_mint(&entry.who, entry.amount)
+				.map_err(|_| Error::<T>::PotStillDepleted)?;
+
+			unpaid.remove(idx);
+			UnpaidRewards::<T>::put(unpaid);
+
+			if let UnpaidRewardKind::Reward = entry.kind {
+				Self::deposit_event(Event::<T>::Rewarded(entry.round, entry.who, entry.amount));
+			}
+
+			Ok(Pays::No.into())
+		}
 	}
 
 	#[pallet::view_functions]
@@ -1048,35 +1119,49 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Pay the round's winner. Emits `Rewarded` on success, `RewardPaymentFailed` otherwise.
-	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
-		match Self::transfer_or_mint(to, amount) {
-			Ok(()) => Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount)),
-			Err(()) => {
-				sublog!(
-					warn,
-					"signed",
-					"reward pot insufficient; {:?} to {:?} not paid",
-					amount,
-					to
-				);
-				Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
+	/// Pay `amount` to `to`, calling `on_success` on success; on failure, defers into
+	/// [`UnpaidRewards`] or, if full, emits [`Event::RewardPaymentFailed`].
+	fn pay_or_defer(
+		round: u32,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+		kind: UnpaidRewardKind,
+		on_success: impl FnOnce(),
+	) {
+		if Self::transfer_or_mint(to, amount).is_ok() {
+			on_success();
+			return;
+		}
+
+		sublog!(
+			warn,
+			"signed",
+			"reward pot insufficient; deferring {:?} to {:?} for round {}",
+			amount,
+			to,
+			round
+		);
+		let entry = UnpaidReward { round, who: to.clone(), amount, kind };
+		match UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry)) {
+			Ok(()) => {
+				Self::deposit_event(Event::<T>::RewardPaymentDeferred(round, to.clone(), amount))
+			},
+			Err(_) => {
+				Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount))
 			},
 		}
 	}
 
+	/// Pay the round's winner. Emits `Rewarded` on success.
+	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
+		Self::pay_or_defer(round, to, amount, UnpaidRewardKind::Reward, || {
+			Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount));
+		});
+	}
+
 	/// Refund an invulnerable's tx fee on discard. Unlike `pay_reward`, never emits `Rewarded`.
 	fn refund_fee(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
-		if Self::transfer_or_mint(to, amount).is_err() {
-			sublog!(
-				warn,
-				"signed",
-				"reward pot insufficient; fee refund of {:?} to {:?} not paid",
-				amount,
-				to
-			);
-			Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
-		}
+		Self::pay_or_defer(round, to, amount, UnpaidRewardKind::FeeRefund, || {});
 	}
 
 	fn settle_deposit(round: u32, who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
