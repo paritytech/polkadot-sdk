@@ -18,6 +18,7 @@ pub const INTEGRATION_IMAGE_ENV: &str = "ZOMBIENET_INTEGRATION_TEST_IMAGE";
 pub const CUMULUS_IMAGE_ENV: &str = "CUMULUS_IMAGE";
 pub const COL_IMAGE_ENV: &str = "COL_IMAGE";
 pub const MALUS_IMAGE_ENV: &str = "MALUS_IMAGE";
+pub const EXPERIMENTAL_COLLATOR_PROTOCOL_ENV: &str = "EXPERIMENTAL_COLLATOR_PROTOCOL";
 pub const BLOCK_HEIGHT_FINALIZED_METRIC: &str = "substrate_block_height{status=\"finalized\"}";
 pub const APPROVAL_CHECKING_FINALITY_LAG_METRIC: &str =
 	"polkadot_parachain_approval_checking_finality_lag";
@@ -51,13 +52,11 @@ pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
-/// Appends `--experimental-collator-protocol` to the command line arguments list if
-/// `with_experimental_collator_protocol` is set to `true`.
-pub fn maybe_enable_experimental_collator_protocol(
-	mut args: Vec<Arg>,
-	with_experimental_collator_protocol: bool,
-) -> Vec<Arg> {
-	if with_experimental_collator_protocol {
+/// Appends `--experimental-collator-protocol` to the command line arguments list if the
+/// `EXPERIMENTAL_COLLATOR_PROTOCOL` env variable is set.
+pub fn maybe_enable_experimental_collator_protocol(mut args: Vec<Arg>) -> Vec<Arg> {
+	if std::env::var(EXPERIMENTAL_COLLATOR_PROTOCOL_ENV).is_ok() {
+		log::info!("Enabling the experimental collator protocol");
 		args.push("--experimental-collator-protocol".into());
 	}
 

@@ -11,7 +11,6 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
 use futures::future::try_join_all;
-use rstest::rstest;
 use std::collections::HashMap;
 use zombienet_sdk::{
 	subxt::{
@@ -22,18 +21,13 @@ use zombienet_sdk::{
 	NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
 
-#[rstest]
-#[case::legacy(false)]
-#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn beefy_and_mmr_test(
-	#[case] with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
+async fn beefy_and_mmr_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let config = build_network_config(with_experimental_collator_protocol)?;
+	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
 
 	let validator_nodes = network.relaychain().nodes();
@@ -230,9 +224,7 @@ async fn beefy_finalized_heads(nodes: &[&NetworkNode], target: u64) -> Result<()
 	Ok(())
 }
 
-fn build_network_config(
-	with_experimental_collator_protocol: bool,
-) -> Result<NetworkConfig, anyhow::Error> {
+fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
 
@@ -240,10 +232,10 @@ fn build_network_config(
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(maybe_enable_experimental_collator_protocol(
-				vec!["--log=beefy=debug".into(), "--enable-offchain-indexing=true".into()],
-				with_experimental_collator_protocol,
-			))
+			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				"--log=beefy=debug".into(),
+				"--enable-offchain-indexing=true".into(),
+			]))
 			.with_default_resources(|r| {
 				r.with_limit_memory("4G")
 					.with_limit_cpu("2")

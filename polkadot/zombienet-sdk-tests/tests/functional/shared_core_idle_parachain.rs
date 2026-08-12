@@ -9,7 +9,6 @@ use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
-use rstest::rstest;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{self, ext::scale_value::value, OnlineClient, PolkadotConfig},
@@ -17,13 +16,8 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
-#[rstest]
-#[case::legacy(false)]
-#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn shared_core_idle_parachain_test(
-	#[case] with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
+async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -36,10 +30,9 @@ async fn shared_core_idle_parachain_test(
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(
-					vec![("-lparachain=debug").into()],
-					with_experimental_collator_protocol,
-				))
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					("-lparachain=debug").into(),
+				]))
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {

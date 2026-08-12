@@ -14,7 +14,6 @@ use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
 };
 use polkadot_primitives::Id as ParaId;
-use rstest::rstest;
 use serde_json::json;
 use std::{collections::HashMap, ops::Range};
 use zombienet_sdk::{
@@ -23,35 +22,22 @@ use zombienet_sdk::{
 	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
 };
 
-#[rstest]
-#[case::legacy(false)]
-#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn coretime_shared_core_test_3_paras(
-	#[case] with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
-	coretime_shared_core_inner(3u32, with_experimental_collator_protocol).await
+async fn coretime_shared_core_test_3_paras() -> Result<(), anyhow::Error> {
+	coretime_shared_core_inner(3u32).await
 }
 
-#[rstest]
-#[case::legacy(false)]
-#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn coretime_shared_core_test_4_paras(
-	#[case] with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
-	coretime_shared_core_inner(4u32, with_experimental_collator_protocol).await
+async fn coretime_shared_core_test_4_paras() -> Result<(), anyhow::Error> {
+	coretime_shared_core_inner(4u32).await
 }
 
-async fn coretime_shared_core_inner(
-	number_of_paras: u32,
-	with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
+async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let config = build_network_config(number_of_paras, with_experimental_collator_protocol)?;
+	let config = build_network_config(number_of_paras)?;
 	let network = initialize_network(config).await?;
 
 	let alice_account = Value::from_bytes(dev::alice().public_key().0);
@@ -144,10 +130,7 @@ async fn coretime_shared_core_inner(
 	Ok(())
 }
 
-fn build_network_config(
-	number_of_paras: u32,
-	with_experimental_collator_protocol: bool,
-) -> Result<NetworkConfig, anyhow::Error> {
+fn build_network_config(number_of_paras: u32) -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let polkadot_image = env_or_default(INTEGRATION_IMAGE_ENV, images.polkadot.as_str());
 	let col_image = env_or_default(COL_IMAGE_ENV, images.cumulus.as_str());
@@ -159,7 +142,6 @@ fn build_network_config(
         .with_default_image(polkadot_image.as_str())
         .with_default_args(maybe_enable_experimental_collator_protocol(
             vec!["-lparachain=debug,runtime=debug".into()],
-            with_experimental_collator_protocol,
         ))
         .with_genesis_overrides(json!({
             "patch": {

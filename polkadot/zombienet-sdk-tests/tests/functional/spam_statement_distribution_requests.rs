@@ -5,7 +5,6 @@
 
 use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
-use rstest::rstest;
 use tokio::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -17,13 +16,8 @@ use zombienet_sdk::{
 	NetworkConfigBuilder,
 };
 
-#[rstest]
-#[case::legacy(false)]
-#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn spam_statement_distribution_requests_test(
-	#[case] with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
+async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -35,14 +29,11 @@ async fn spam_statement_distribution_requests_test(
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(
-					vec![
-						// parachain::statement-distribution=trace to find
-						// "Peer already being served, dropping request"
-						("-lparachain=debug,parachain::statement-distribution=trace").into(),
-					],
-					with_experimental_collator_protocol,
-				))
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					// parachain::statement-distribution=trace to find
+					// "Peer already being served, dropping request"
+					("-lparachain=debug,parachain::statement-distribution=trace").into(),
+				]))
 				.with_default_resources(|r| {
 					r.with_limit_cpu("2")
 						.with_limit_memory("4G")

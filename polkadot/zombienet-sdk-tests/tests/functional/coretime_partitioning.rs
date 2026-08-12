@@ -23,7 +23,6 @@ use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
 use codec::Decode;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
-use rstest::rstest;
 use serde_json::json;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use subxt::{ext::scale_value::value, OnlineClient, PolkadotConfig};
@@ -38,19 +37,14 @@ const LOOKAHEAD: u32 = 5;
 /// invariant.
 const BOUNDARY_MARGIN: u32 = 15;
 
-#[rstest]
-#[case::legacy(false)]
-#[case::experimental(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn coretime_assignment_boundary_test(
-	#[case] with_experimental_collator_protocol: bool,
-) -> Result<(), anyhow::Error> {
+async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
 	log::info!("Building network configuration");
-	let config = build_network_config(with_experimental_collator_protocol).await?;
+	let config = build_network_config().await?;
 
 	log::info!("Spawning network");
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
@@ -229,9 +223,7 @@ async fn coretime_assignment_boundary_test(
 	Ok(())
 }
 
-async fn build_network_config(
-	with_experimental_collator_protocol: bool,
-) -> Result<NetworkConfig, anyhow::Error> {
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -251,14 +243,11 @@ async fn build_network_config(
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(maybe_enable_experimental_collator_protocol(
-					vec![
-						("-lruntime=debug").into(),
-						("-lparachain=debug").into(),
-						("-lruntime::parachains::scheduler=trace").into(),
-					],
-					with_experimental_collator_protocol,
-				))
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					("-lruntime=debug").into(),
+					("-lparachain=debug").into(),
+					("-lruntime::parachains::scheduler=trace").into(),
+				]))
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
