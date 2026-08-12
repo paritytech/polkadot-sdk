@@ -9,9 +9,10 @@ doc:
     with the DAP emission curve.
 - audience: Runtime User
   description: |-
-    If a `RewardSource` pot is depleted, a signed-phase reward or fee refund is no longer just
-    logged as failed: it is queued and can be claimed later via the new
-    `claim_unpaid_reward(round)` call, free of charge on success.
+    If a `RewardSource` pot is depleted, a round-winner's reward is no longer just logged as
+    failed: it is queued and can be claimed by anyone via the new permissionless
+    `claim_unpaid_reward(round)` call, free of charge on success, paying out to the original
+    winner. Governance can also force-settle a stuck entry via `force_settle_unpaid_reward`.
 crates:
 - name: pallet-election-provider-multi-block
   bump: major

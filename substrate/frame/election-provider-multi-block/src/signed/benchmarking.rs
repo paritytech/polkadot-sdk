@@ -198,6 +198,28 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn claim_unpaid_reward() -> Result<(), BenchmarkError> {
+		let alice = crate::Pallet::<T>::funded_account("alice", 0);
+		let entry = crate::signed::UnpaidReward::<T> {
+			round: 0,
+			who: alice,
+			amount: <T as Config>::RewardBase::get(),
+		};
+		crate::signed::UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry))
+			.map_err(|_| BenchmarkError::Stop("UnpaidRewards is full"))?;
+
+		let caller = crate::Pallet::<T>::funded_account("caller", 0);
+
+		#[block]
+		{
+			Pallet::<T>::claim_unpaid_reward(RawOrigin::Signed(caller).into(), 0)?;
+		}
+
+		assert!(crate::signed::UnpaidRewards::<T>::get().is_empty());
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::ExtBuilder::signed().build_unchecked(),

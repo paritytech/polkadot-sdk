@@ -1702,6 +1702,26 @@ mod issuance {
 	}
 
 	#[test]
+	fn claim_unpaid_reward_is_permissionless() {
+		// Anyone can trigger the claim; the payout still goes to the original winner, not the
+		// caller.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+
+			submit_and_verify_winning(999);
+			Balances::mint_into(&POT, 1_000).unwrap();
+			let winner_balance_before = Balances::free_balance(999);
+			let caller_balance_before = Balances::free_balance(1);
+
+			// 1 claims on behalf of 999.
+			assert_ok!(SignedPallet::claim_unpaid_reward(RuntimeOrigin::signed(1), 0));
+
+			assert!(Balances::free_balance(999) > winner_balance_before, "winner gets paid");
+			assert_eq!(Balances::free_balance(1), caller_balance_before, "caller gets nothing");
+		});
+	}
+
+	#[test]
 	fn claim_unpaid_reward_fails_when_no_entry() {
 		ExtBuilder::signed().build_and_execute(|| {
 			assert_noop!(
@@ -1736,12 +1756,7 @@ mod issuance {
 			UnpaidRewards::<T>::mutate(|unpaid| {
 				for i in 0..16u64 {
 					unpaid
-						.try_push(UnpaidReward {
-							round: 999,
-							who: i,
-							amount: 1,
-							kind: UnpaidRewardKind::Reward,
-						})
+						.try_push(UnpaidReward { round: 999 + i as u32, who: i, amount: 1 })
 						.unwrap();
 				}
 			});
@@ -1754,6 +1769,49 @@ mod issuance {
 				"expected RewardPaymentFailed once the unpaid queue is full"
 			);
 			assert!(!events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..))));
+		});
+	}
+
+	#[test]
+	fn force_settle_unpaid_reward_works() {
+		// Mints directly, bypassing RewardSource entirely, so it works even with an empty pot.
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+			submit_and_verify_winning(999);
+			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
+			let balance_before = Balances::free_balance(999);
+			let _ = signed_events_since_last_call();
+
+			assert_ok!(SignedPallet::force_settle_unpaid_reward(RuntimeOrigin::root(), 0));
+
+			assert!(Balances::free_balance(999) > balance_before);
+			assert!(UnpaidRewards::<T>::get().is_empty());
+			assert!(signed_events_since_last_call()
+				.iter()
+				.any(|e| matches!(e, SignedEvent::Rewarded(0, 999, _))));
+		});
+	}
+
+	#[test]
+	fn force_settle_unpaid_reward_requires_admin_origin() {
+		ExtBuilder::signed().build_and_execute(|| {
+			SignedRewardSource::set(Some(POT));
+			submit_and_verify_winning(999);
+
+			assert_noop!(
+				SignedPallet::force_settle_unpaid_reward(RuntimeOrigin::signed(1), 0),
+				sp_runtime::DispatchError::BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn force_settle_unpaid_reward_fails_when_no_entry() {
+		ExtBuilder::signed().build_and_execute(|| {
+			assert_noop!(
+				SignedPallet::force_settle_unpaid_reward(RuntimeOrigin::root(), 0),
+				Error::<T>::NoUnpaidReward
+			);
 		});
 	}
 
