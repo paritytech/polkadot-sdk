@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786458304763,
+  "lastUpdate": 1786495584247,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9ef2680e213a2d316d00667a7a40afb7e812554d",
-          "message": "cumulus-zombienet-tests: Some optimizations and cleanups (#10462)\n\nThis removes some unneeded code in the tests. It also makes the tests\nwork locally with native provider.\n\n---------\n\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-03T15:42:25Z",
-          "tree_id": "63bb0868bf0b8be617482b9c531de8feb2d98171",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9ef2680e213a2d316d00667a7a40afb7e812554d"
-        },
-        "date": 1764782541205,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03424598440400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044686574889999935,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.04002860145799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b298b3d8d848bb6328cc957a08b02e5da451ccaf",
+          "message": "[pallet-xcm] fix dry-run storage side-effects leaking into xcm-emulator (#12807)\n\nWraps dry_run_call and dry_run_xcm in a rolled-back storage transaction\nso simulated XCM execution never mutates caller state, fixing the\nxcm-emulator bug where dry-run outbound messages were silently delivered\nvia process_messages().\nfixes #11486\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-11T23:00:59Z",
+          "tree_id": "de0f80c3803b5bc2f575cf17bb408e675f7343ca",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b298b3d8d848bb6328cc957a08b02e5da451ccaf"
+        },
+        "date": 1786495548510,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.062,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09117573896399998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039815477956,
             "unit": "seconds"
           }
         ]
