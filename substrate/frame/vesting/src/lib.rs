@@ -847,6 +847,11 @@ impl<T: Config> Pallet<T> {
 
 		Ok((schedules, locked_now))
 	}
+
+	fn has_capacity_for_kind(who: &T::AccountId, kind: VestingKind) -> bool {
+		let schedules = Vesting::<T>::get(who).unwrap_or_default();
+		schedules.iter().filter(|(_, k)| *k == kind).count() < T::slot_cap(kind) as usize
+	}
 }
 
 impl<T: Config> VestedPayout<T::AccountId, BalanceOf<T>> for Pallet<T>
@@ -925,9 +930,8 @@ where
 		}
 	}
 
-	fn has_capacity_for_kind(who: &T::AccountId, kind: VestingKind) -> bool {
-		let schedules = Vesting::<T>::get(who).unwrap_or_default();
-		schedules.iter().filter(|(_, k)| *k == kind).count() < T::slot_cap(kind) as usize
+	fn is_no_capacity_error(e: &sp_runtime::DispatchError) -> bool {
+		*e == Error::<T>::AtMaxVestingSchedules.into()
 	}
 
 	fn merge_amount_into_closest_schedule(

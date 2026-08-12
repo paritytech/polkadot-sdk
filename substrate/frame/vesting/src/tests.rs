@@ -1700,6 +1700,54 @@ fn add_to_vesting_system_at_cap_returns_error() {
 	});
 }
 
+/// When the per-kind cap is reached but a same-era schedule exists, `add_to_vesting` must merge
+/// (return Ok) rather than fail. This guards the ordering invariant in `add_to_vesting`:
+/// same-era merge is checked *before* the capacity guard.
+#[test]
+fn add_to_vesting_at_cap_merges_same_era_schedule() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let amount = ED * 4;
+		let start_at = 10u64;
+
+		// System cap = 1: fill it with a schedule starting at `start_at`.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			amount,
+			20,
+			start_at,
+			VestingKind::System,
+		));
+		assert!(!Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::System));
+
+		// Adding another System schedule with the SAME start_at must succeed (same-era merge),
+		// even though the cap is full.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			amount,
+			20,
+			start_at,
+			VestingKind::System,
+		));
+
+		// Slot count must remain at 1 (merged, not a second slot).
+		let schedules = VestingStorage::<Test>::get(&dest).unwrap();
+		let system_count = schedules.iter().filter(|(_, k)| *k == VestingKind::System).count();
+		assert_eq!(system_count, 1, "merge must reuse the existing slot, not create a new one");
+
+		// Locked amount must reflect both payments.
+		let locked = Balances::locks(&dest)
+			.iter()
+			.find(|l| l.id == *b"vesting ")
+			.map(|l| l.amount)
+			.unwrap_or(0);
+		assert_eq!(locked, amount * 2);
+	});
+}
+
 /// `has_capacity_for_kind` returns true when a per-kind slot is available and false when the
 /// cap is reached. Kinds are independent: filling System does not affect Public capacity.
 #[test]
@@ -1712,8 +1760,8 @@ fn has_capacity_for_kind_reflects_per_kind_cap() {
 		let public_cap = <Test as Config>::slot_cap(VestingKind::Public); // = 3
 
 		// Before any schedules: both kinds have capacity.
-		assert!(<Vesting as VestedPayout<_, _>>::has_capacity_for_kind(&dest, VestingKind::System));
-		assert!(<Vesting as VestedPayout<_, _>>::has_capacity_for_kind(&dest, VestingKind::Public));
+		assert!(Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::System));
+		assert!(Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::Public));
 
 		// Fill the System quota.
 		for i in 0..system_cap {
@@ -1728,11 +1776,8 @@ fn has_capacity_for_kind_reflects_per_kind_cap() {
 		}
 
 		// System is now full; Public is unaffected.
-		assert!(!<Vesting as VestedPayout<_, _>>::has_capacity_for_kind(
-			&dest,
-			VestingKind::System
-		));
-		assert!(<Vesting as VestedPayout<_, _>>::has_capacity_for_kind(&dest, VestingKind::Public));
+		assert!(!Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::System));
+		assert!(Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::Public));
 
 		// Fill the Public quota.
 		for i in 0..public_cap {
@@ -1747,15 +1792,22 @@ fn has_capacity_for_kind_reflects_per_kind_cap() {
 		}
 
 		// Both kinds are now full.
-		assert!(!<Vesting as VestedPayout<_, _>>::has_capacity_for_kind(
-			&dest,
-			VestingKind::System
-		));
-		assert!(!<Vesting as VestedPayout<_, _>>::has_capacity_for_kind(
-			&dest,
-			VestingKind::Public
-		));
+		assert!(!Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::System));
+		assert!(!Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::Public));
 	});
+}
+
+/// `is_no_capacity_error` identifies `AtMaxVestingSchedules` and no other error.
+#[test]
+fn is_no_capacity_error_matches_only_at_max_schedules() {
+	let at_max: sp_runtime::DispatchError = Error::<Test>::AtMaxVestingSchedules.into();
+	assert!(<Vesting as VestedPayout<_, _>>::is_no_capacity_error(&at_max));
+
+	let other: sp_runtime::DispatchError = Error::<Test>::InvalidScheduleParams.into();
+	assert!(!<Vesting as VestedPayout<_, _>>::is_no_capacity_error(&other));
+
+	let generic = sp_runtime::DispatchError::Other("unexpected");
+	assert!(!<Vesting as VestedPayout<_, _>>::is_no_capacity_error(&generic));
 }
 
 /// The partition's central property: filling one kind's quota does not block another kind.

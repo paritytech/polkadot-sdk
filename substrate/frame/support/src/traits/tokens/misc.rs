@@ -508,8 +508,10 @@ pub trait VestedPayout<AccountId, Balance> {
 		kind: VestingKind,
 	) -> sp_runtime::DispatchResult;
 
-	/// Returns `true` if `who` has room for at least one more schedule of `kind`.
-	fn has_capacity_for_kind(who: &AccountId, kind: VestingKind) -> bool;
+	/// Returns `true` if `e` is the error produced when the per-kind slot cap is reached.
+	/// Use this to distinguish a capacity-full failure from other errors returned by
+	/// [`add_to_vesting`](Self::add_to_vesting).
+	fn is_no_capacity_error(e: &sp_runtime::DispatchError) -> bool;
 
 	/// Transfer `amount` from `source` to `dest` and merge it into the existing schedule of
 	/// `kind` whose ending block is closest to the incoming one.
