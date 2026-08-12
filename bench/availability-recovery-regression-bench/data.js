@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786495453889,
+  "lastUpdate": 1786527270507,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4b29e160c6e96234512cfe29fc568297514f831",
-          "message": "Minor `pallet-scheduler` documentation/unit test additions (#10511)\n\n# Description\n\nThis adds some comments to scheduler pallet calls, a couple of checks to\n`Lookup<T>` in some unit tests, and a test that verifies rescheduling of\na task to a full block.\n\n## Integration\n\nN/A\n\n## Review Notes\n\nN/A\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
-          "timestamp": "2025-12-04T17:55:01Z",
-          "tree_id": "31d9597395d32868f79e1608fae7d719dddb7624",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a4b29e160c6e96234512cfe29fc568297514f831"
-        },
-        "date": 1764876726496,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1978022320333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.6350905369,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.15000881350000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "31b5410caceb724f2ff93f038c8f99deb06b876b",
+          "message": "remote-ext: fix silent state corruption from lagging RPC providers (#12268)\n\nFixes #12264 by treating per-item RPC errors as batch failures instead\nof empty values, verifying the computed storage root against the block\nheader before caching a snapshot, and excluding RPC providers that lack\nthe target block up front.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-12T07:49:13Z",
+          "tree_id": "ce0b3336a72da3b169234efb98a204ae031ed238",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/31b5410caceb724f2ff93f038c8f99deb06b876b"
+        },
+        "date": 1786527236718,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14412678673333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.98882385383333,
             "unit": "seconds"
           }
         ]
