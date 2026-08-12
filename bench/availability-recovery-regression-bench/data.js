@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786549984907,
+  "lastUpdate": 1786552603083,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "olivarra1@gmail.com",
-            "name": "Victor Oliva",
-            "username": "voliva"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d",
-          "message": "fix(rpc-spec-v2): best block not announced immediately after initialised (#10525)\n\n# Description\n\nFixes https://github.com/polkadot-api/polkadot-api/issues/1244\n\nThe current chainHead_v1 implementation is [not\nspec-compliant](https://paritytech.github.io/json-rpc-interface-spec/api/chainHead_v1_follow.html),\nas it states:\n\n> - Generates an `initialized` notification\n> - Generates one `newBlock` notification for each non-finalized block\n> - Then a `bestBlockChanged` notification\n> - When a new block arrives, generates a `newBlock` notification\n> - When the node finalizes a block, generates a `finalized`\nnotification\n\nAnd the current implemention only emits the `bestBlockChanged`\nnotification after initialized iif the best block is different from the\nfinalized block.\n\nPAPI recently is using this part of the spec as an assumption. Most\nchains are unaffected, but those that produce blocks on-demand (e.g.\nmanual-seal) then have polkadot-api hanging until there's a higher block\ndifferent than the finalized one.\n\n## Integration\n\nThis PR doesn't change any of the APIs of the node. Upgrade should be\nautomatic.\n\n## Review Notes\n\nThis PR removes that condition so that the `bestBlockChanged`\nnotification is always emited. All tests are updated to this new\nbehaviour\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2025-12-05T10:58:57Z",
-          "tree_id": "46dd38ebc2d967c13397cfd99ee324aeccd51bbf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d"
-        },
-        "date": 1764938149813,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.602286965466664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19731492676666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1422491060666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4341b842a21a735b227f1da39af5b8f0eec795f2",
+          "message": "Statement store index optimization, state 2b (#12774)\n\nThis PR aims to conclude the statement store index optimizations\ndescribed in #10910. It introduces an on-disk submit index backed by\nwrite-through LRU caches.\n\nBeyond the changes proposed by the mentioned issue, the following\nimprovements have been implemented:\n* Persistent counters are written into the DB, so the statement bodies\nare not even decoded on startup;\n* Instead of the account snapshot, the limit enforcer uses a much more\nmemory-efficient DB cursor;\n* Some possible race conditions have been fixed along the way.\n\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12624\nhttps://github.com/paritytech/polkadot-sdk/issues/10910",
+          "timestamp": "2026-08-12T14:04:41Z",
+          "tree_id": "ac25650f1ea7cea49280cb96240eda53db32621a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4341b842a21a735b227f1da39af5b8f0eec795f2"
+        },
+        "date": 1786552569407,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.263341434033332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1393766182,
             "unit": "seconds"
           }
         ]
