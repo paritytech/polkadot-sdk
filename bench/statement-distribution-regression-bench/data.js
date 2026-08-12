@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786550109862,
+  "lastUpdate": 1786552732607,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1547c302a243e0c5ded61d297704460865895f99",
-          "message": "Do not send both `assign_cores` calls in parallel (#10539)\n\nThe internal logic fetches the `nonce` of the sender and this will lead\nto both transaction using the same `nonce`. Ultimately this leads to the\nnode rejecting one of the transactions because both transactions look\nlike the same transaction to the node.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10536",
-          "timestamp": "2025-12-04T11:06:44Z",
-          "tree_id": "083af5c9139aa9e83ca8d1e372d97d334ec354ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1547c302a243e0c5ded61d297704460865895f99"
-        },
-        "date": 1764852316529,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035570141064,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04447475567199995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08377975839399991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4341b842a21a735b227f1da39af5b8f0eec795f2",
+          "message": "Statement store index optimization, state 2b (#12774)\n\nThis PR aims to conclude the statement store index optimizations\ndescribed in #10910. It introduces an on-disk submit index backed by\nwrite-through LRU caches.\n\nBeyond the changes proposed by the mentioned issue, the following\nimprovements have been implemented:\n* Persistent counters are written into the DB, so the statement bodies\nare not even decoded on startup;\n* Instead of the account snapshot, the limit enforcer uses a much more\nmemory-efficient DB cursor;\n* Some possible race conditions have been fixed along the way.\n\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12624\nhttps://github.com/paritytech/polkadot-sdk/issues/10910",
+          "timestamp": "2026-08-12T14:04:41Z",
+          "tree_id": "ac25650f1ea7cea49280cb96240eda53db32621a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4341b842a21a735b227f1da39af5b8f0eec795f2"
+        },
+        "date": 1786552698663,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08011453514799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039715782430000006,
             "unit": "seconds"
           }
         ]
