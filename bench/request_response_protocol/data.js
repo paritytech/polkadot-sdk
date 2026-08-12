@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786547553366,
+  "lastUpdate": 1786549010634,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -112859,6 +112859,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2601013501,
             "range": "± 9152017",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+Thiago316316@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "Thiago316316"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f209831c0e48bf1a3462199e65f17ff6aa68ec13",
+          "message": "[sc-rpc-server] Fix panic while dropping the RPC runtime on start_ser… (#12847)\n\n# Description\n\n`start_server` panicked instead of returning its error on both of its\nfailure\npaths, masking the underlying cause. An operator who pins\n`--rpc-endpoint` to a\nport that is already in use saw a tokio runtime panic rather than\n\"Address already in use\".\n\nThe dedicated RPC `tokio::runtime::Runtime` is now held in a guard for\nthe\nduration of `start_server`, so every exit path shuts it down with\n`shutdown_background()` and the original error reaches the caller.\n\nCloses #12785\n\n## Integration\n\nNo public API change — `RuntimeGuard` is private and `start_server`'s\nsignature\nis unchanged, so downstream code needs no modification. `sc-rpc-server`\ntakes a\n`patch` bump.\n\nThere is one behavioural change worth knowing about. Previously, a\nnon-optional\nendpoint that failed to bind (or all endpoints failing) aborted the\nprocess with\na tokio panic. Now the error propagates normally, so\n`sc_service::start_rpc_servers` returns `Err` and the node fails to\nstart with a\nreadable message instead of a panic. Anything that was (accidentally)\nrelying on\nthe process dying at that point will now see a `Result` it must handle —\nin\npractice this only affects the error message operators see.\n\nA `[dev-dependencies]` entry on `tokio` (`macros`, `net`,\n`rt-multi-thread`) was\nadded so the new tests can use `#[tokio::test]`. Build-time only.\n\n## Review Notes\n\n`start_server` destructures `Config`, which moves the runtime into a\nplain local\nbinding. The two exits then diverge:\n\n- **Success**: the runtime is moved into `Server`, whose `Drop` already\ntears it\n  down with `shutdown_background()`, with a comment explaining why.\n- **Errors** (`Err(e) => return Err(e)` for a non-optional bind failure,\nand\n`return Err(Box::new(ListenAddrError))` when nothing bound): the runtime\nis\nmoved nowhere, so drop glue runs at scope exit. `Runtime::drop` blocks\nuntil\n  the blocking pool joins, and `start_server` is awaited inside\n  `Handle::block_on`, where tokio forbids blocking.\n\nThe backtrace confirms this — it points at the closing brace of\n`start_server`,\nnot at any statement, because the drop is compiler-generated.\n\nBoth error paths are correct Rust in isolation. The bug is the\nasymmetry: the\nsuccess path routes the runtime through a type that knows about the\nhazard, and\nnothing forces the error paths to do the same. Hence a guard rather than\ntwo\npatched `return`s:\n\n```diff\n-     let rpc_handle = rpc_runtime.handle().clone();\n+     let rpc_runtime = RuntimeGuard::new(rpc_runtime);\n+     let rpc_handle = rpc_runtime.handle();\n\n      // ... both early returns now drop the guard -> shutdown_background()\n\n-     Ok(Server::new(server_handle, local_addrs, rpc_runtime))\n+     Ok(Server::new(server_handle, local_addrs, rpc_runtime.into_inner()))\n```\nOn success into_inner() takes the runtime out, leaving the guard holding\nNone so its Drop is a no-op and Server owns it as before.\n\nAlternative considered. Calling rpc_runtime.shutdown_background() before\neach of the two returns is ~4 lines instead of ~30, and compiles fine\n(the\nmove sits on a diverging path). I chose the guard because nothing\nenforces that\na future early return remembers those lines, and this bug exists\nprecisely\nbecause a return was added without considering the runtime. Happy to\nswitch to\nthe smaller diff if reviewers prefer it.\n\n<details>\n<summary>Why <code>shutdown_background()</code> does not leak the\nserver</summary>\n\nshutdown_background() is shutdown_timeout(Duration::from_nanos(0)):\n```\npub fn shutdown_timeout(mut self, duration: Duration) {\n    self.handle.inner.shutdown();                 // shuts the scheduler down\n    self.blocking_pool.shutdown(Some(duration));  // this is the \"don't wait\" part\n}\n```\nThe scheduler is still shut down; only the wait on the blocking pool is\nskipped.\nTwo tokio details make this safe where a plain drop is not:\nReceiver::wait\nearly-returns on a zero timeout before reaching the panic check, and\nBlockingPool::shutdown is idempotent via its shared.shutdown flag, so\nthe\nsubsequent real Drop returns immediately instead of blocking.\n\nIndependently, server_handle is dropped on the error path, and\nStopHandle:: shutdown() resolves when all watch senders drop, so every\nalready-spawned accept loop breaks out and releases its listener.\n\n\n</details>\n\nTesting\n\nAdds the first #[cfg(test)] module in lib.rs covering both error paths.\nBoth panic before the fix\nand pass after it:\n\nSKIP_WASM_BUILD=1 cargo test -p sc-rpc-server --lib\n\nChecklist\n\n- [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two\n- [x] My PR follows the labeling requirements\n(https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for T required)\n  - External contributors: Use /cmd label <label-name> to add labels\n  - Maintainers can also add labels manually\n- [x] I have made corresponding changes to the documentation (if\napplicable)\n- [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>",
+          "timestamp": "2026-08-12T13:56:24Z",
+          "tree_id": "7e93b7d33ddccba3030c8ceee6d009282be5559b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f209831c0e48bf1a3462199e65f17ff6aa68ec13"
+        },
+        "date": 1786548977219,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19512048,
+            "range": "± 153498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20048368,
+            "range": "± 123569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21434050,
+            "range": "± 122221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25655028,
+            "range": "± 70439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57881311,
+            "range": "± 619789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 346119320,
+            "range": "± 3805767",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2678760269,
+            "range": "± 106217385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17228445,
+            "range": "± 285747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16962766,
+            "range": "± 169332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17495904,
+            "range": "± 189181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21792324,
+            "range": "± 67093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59532079,
+            "range": "± 302845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351913439,
+            "range": "± 4862141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2644362938,
+            "range": "± 38344084",
             "unit": "ns/iter"
           }
         ]
