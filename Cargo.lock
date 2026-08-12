@@ -22290,6 +22290,7 @@ dependencies = [
  "criterion",
  "futures",
  "itertools 0.11.0",
+ "linked_hash_set",
  "log",
  "parity-db",
  "parking_lot 0.12.3",

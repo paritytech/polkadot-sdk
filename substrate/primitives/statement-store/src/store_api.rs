@@ -386,11 +386,11 @@ pub trait StatementStore: Send + Sync {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>>;
 
-	/// Return recent statements and clear the internal index.
+	/// Return up to `max` recent statements and remove them from the internal index.
 	///
-	/// This consumes and clears the recently received statements,
-	/// allowing new statements to be collected from this point forward.
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;
+	/// Statements exceeding `max` remain indexed for the next call. Older statements are returned
+	/// first.
+	fn take_recent_statements(&self, max: usize) -> Result<Vec<(Hash, Statement)>>;
 
 	/// Get statement by hash.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>>;

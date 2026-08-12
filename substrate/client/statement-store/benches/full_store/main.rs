@@ -234,14 +234,14 @@ fn write_benches(c: &mut Criterion, store: &Arc<Store>) {
 		b.iter_batched(
 			|| {
 				// Drain whatever previous benches left in `recent`, then stage exactly 1000.
-				let _ = store.take_recent_statements();
+				let _ = store.take_recent_statements(usize::MAX);
 				for statement in sacrificial_batch(1000, 0) {
 					let result = store.submit(statement, StatementSource::Local);
 					assert!(matches!(result, SubmitResult::New));
 				}
 			},
 			|_| {
-				let recent = store.take_recent_statements().unwrap();
+				let recent = store.take_recent_statements(usize::MAX).unwrap();
 				assert_eq!(recent.len(), 1000);
 			},
 			BatchSize::LargeInput,
@@ -407,7 +407,10 @@ fn main() {
 	println!("FULL4M_META db_size_bytes={}", db_size_bytes(&dir));
 
 	// Drain `recent` so no benchmark pays for a backlog of up to 4M hashes.
-	let drained = store.take_recent_statements().expect("take_recent_statements works").len();
+	let drained = store
+		.take_recent_statements(usize::MAX)
+		.expect("take_recent_statements works")
+		.len();
 	println!("FULL4M_META drained_recent={}", drained);
 
 	// Result-set sizes; asserted only on a fresh build (eviction-bench reruns can erode a few

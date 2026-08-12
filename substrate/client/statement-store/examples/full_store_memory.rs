@@ -123,7 +123,10 @@ fn main() {
 	let heap_populated = settled_heap("population");
 	let rss_populated = rss_bytes();
 
-	let drained = store.take_recent_statements().expect("take_recent_statements works").len();
+	let drained = store
+		.take_recent_statements(usize::MAX)
+		.expect("take_recent_statements works")
+		.len();
 	let heap_drained = settled_heap("draining `recent`");
 	let peak = PEAK.load(Ordering::Relaxed);
 

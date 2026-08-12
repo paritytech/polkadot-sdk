@@ -845,7 +845,7 @@ fn bench_propagate(c: &mut Criterion) {
 				(store, temp)
 			},
 			|(store, _temp)| {
-				let recent = store.take_recent_statements().unwrap();
+				let recent = store.take_recent_statements(usize::MAX).unwrap();
 				assert_eq!(recent.len(), PROPAGATE_BATCH);
 			},
 			criterion::BatchSize::LargeInput,

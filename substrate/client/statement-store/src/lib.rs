@@ -58,6 +58,7 @@ pub mod test_utils;
 
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use futures::FutureExt;
+use linked_hash_set::LinkedHashSet;
 use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::{lock_api::RwLockUpgradableReadGuard, RwLock};
 use prometheus_endpoint::Registry as PrometheusRegistry;
@@ -389,7 +390,8 @@ struct QueryIndex {
 	// TODO: Remove counters; replace them with a merge-join/leapfrog1
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
-	recent: HashSet<Hash>,
+	/// Hashes awaiting propagation, ordered from oldest to newest.
+	recent: LinkedHashSet<Hash>,
 }
 
 impl QueryIndex {
@@ -397,7 +399,7 @@ impl QueryIndex {
 		QueryIndex {
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
-			recent: HashSet::new(),
+			recent: LinkedHashSet::new(),
 		}
 	}
 
@@ -420,7 +422,7 @@ impl QueryIndex {
 		}
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
-		self.recent.insert(hash);
+		self.recent.insert_if_absent(hash);
 	}
 
 	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
@@ -445,9 +447,14 @@ impl QueryIndex {
 		self.recent.remove(hash);
 	}
 
-	/// Takes and clears the set of recently added hashes.
-	fn take_recent(&mut self) -> HashSet<Hash> {
-		std::mem::take(&mut self.recent)
+	/// Takes up to `max` of the oldest recently added hashes, preserving insertion order.
+	fn take_recent(&mut self, max: usize) -> Vec<Hash> {
+		let mut taken = Vec::with_capacity(max.min(self.recent.len()));
+		while taken.len() < max {
+			let Some(hash) = self.recent.pop_front() else { break };
+			taken.push(hash);
+		}
+		taken
 	}
 }
 
@@ -1720,8 +1727,8 @@ impl StatementStore for Store {
 		Ok(result)
 	}
 
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let recent = self.query_index.write().take_recent();
+	fn take_recent_statements(&self, max: usize) -> Result<Vec<(Hash, Statement)>> {
+		let recent = self.query_index.write().take_recent(max);
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
 			let Some(encoded) =
@@ -2462,7 +2469,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, Store};
+	use crate::{col, QueryIndex, Store};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
@@ -3028,19 +3035,19 @@ mod tests {
 		let _ = store.submit(statement1.clone(), StatementSource::Local);
 		let _ = store.submit(statement2.clone(), StatementSource::Local);
 
-		let recent1 = store.take_recent_statements().unwrap();
+		let recent1 = store.take_recent_statements(usize::MAX).unwrap();
 		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
 		let expected1 = vec![statement0, statement1, statement2];
 		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
 		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
 
 		// Recent statements are cleared.
-		let recent2 = store.take_recent_statements().unwrap();
+		let recent2 = store.take_recent_statements(usize::MAX).unwrap();
 		assert_eq!(recent2.len(), 0);
 
 		store.submit(statement3.clone(), StatementSource::Network);
 
-		let recent3 = store.take_recent_statements().unwrap();
+		let recent3 = store.take_recent_statements(usize::MAX).unwrap();
 		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
 		let expected3 = vec![statement3];
 		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
@@ -3048,6 +3055,44 @@ mod tests {
 
 		// Recent statements are cleared, but statements remain in the store.
 		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
+	fn take_recent_statements_retains_overflow() {
+		let (store, _temp) = test_store();
+		let statements = [signed_statement(0), signed_statement(1), signed_statement(2)];
+		for statement in &statements {
+			let _ = store.submit(statement.clone(), StatementSource::Local);
+		}
+
+		assert!(store.take_recent_statements(0).unwrap().is_empty());
+		let first = store.take_recent_statements(2).unwrap();
+		let second = store.take_recent_statements(2).unwrap();
+
+		let expected: Vec<_> = statements.iter().map(Statement::hash).collect();
+		assert_eq!(first.into_iter().map(|(hash, _)| hash).collect::<Vec<_>>(), expected[..2]);
+		assert_eq!(second.into_iter().map(|(hash, _)| hash).collect::<Vec<_>>(), expected[2..]);
+	}
+
+	#[test]
+	fn recent_statements_are_taken_in_insertion_order() {
+		let mut index = QueryIndex::new();
+		let statements = [signed_statement(0), signed_statement(1), signed_statement(2)];
+		let hashes: Vec<_> = statements.iter().map(Statement::hash).collect();
+		index.note_insert(hashes[0], &statements[0]);
+		index.note_insert(hashes[1], &statements[1]);
+		// Re-inserting an already-pending hash keeps its original position.
+		index.note_insert(hashes[0], &statements[0]);
+
+		assert_eq!(index.take_recent(1), vec![hashes[0]]);
+		index.note_insert(hashes[2], &statements[2]);
+		assert_eq!(index.take_recent(1), vec![hashes[1]]);
+		assert_eq!(index.take_recent(1), vec![hashes[2]]);
+
+		index.note_insert(hashes[0], &statements[0]);
+		index.note_insert(hashes[1], &statements[1]);
+		index.note_remove(&hashes[0], &statements[0]);
+		assert_eq!(index.take_recent(1), vec![hashes[1]]);
 	}
 
 	#[test]

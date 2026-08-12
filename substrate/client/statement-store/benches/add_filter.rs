@@ -83,7 +83,10 @@ fn main() {
 	if let Some(secs) = built {
 		println!("ADDFILTER_META build_secs={:.1}", secs);
 	}
-	let drained = store.take_recent_statements().expect("take_recent_statements works").len();
+	let drained = store
+		.take_recent_statements(usize::MAX)
+		.expect("take_recent_statements works")
+		.len();
 	println!("ADDFILTER_META drained_recent={}", drained);
 	let store = Arc::new(store);
 

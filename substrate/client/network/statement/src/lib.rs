@@ -182,6 +182,8 @@ const LOG_TARGET: &str = "statement-gossip";
 const STATEMENT_PROTOCOL_V2: &str = "statement/2";
 /// V1 statement protocol suffix, current stable protocol, no breaking changes will be made to it.
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
+/// Maximum number of recent statements propagated per cycle.
+const MAX_STATEMENTS_PER_PROPAGATION: usize = 256;
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
@@ -1582,7 +1584,11 @@ where
 			return;
 		}
 
-		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
+		let Ok(statements) =
+			self.statement_store.take_recent_statements(MAX_STATEMENTS_PER_PROPAGATION)
+		else {
+			return;
+		};
 		if !statements.is_empty() {
 			self.do_propagate_statements(&statements);
 		}
@@ -2092,10 +2098,21 @@ mod tests {
 
 		fn take_recent_statements(
 			&self,
+			max: usize,
 		) -> sp_statement_store::Result<
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
-			Ok(self.recent_statements.lock().unwrap().drain().collect())
+			let mut recent = self.recent_statements.lock().unwrap();
+			let mut taken = Vec::with_capacity(max.min(recent.len()));
+			recent.retain(|hash, statement| {
+				if taken.len() < max {
+					taken.push((*hash, statement.clone()));
+					false
+				} else {
+					true
+				}
+			});
+			Ok(taken)
 		}
 
 		fn statement(
@@ -2428,6 +2445,37 @@ mod tests {
 			"Expected all {} statements to be sent, but only {} were sent",
 			num_statements, total_statements_sent
 		);
+	}
+
+	#[tokio::test]
+	async fn propagation_retains_statements_above_cycle_limit() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver, peers) =
+			build_handler(1);
+		for i in 0u32..300 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(i.to_le_bytes().to_vec());
+			statement_store
+				.recent_statements
+				.lock()
+				.unwrap()
+				.insert(statement.hash(), statement);
+		}
+
+		handler.propagate_statements().await;
+
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peers[0]).len(),
+			256
+		);
+		assert_eq!(statement_store.recent_statements.lock().unwrap().len(), 44);
+
+		handler.propagate_statements().await;
+
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peers[0]).len(),
+			300
+		);
+		assert!(statement_store.recent_statements.lock().unwrap().is_empty());
 	}
 
 	#[tokio::test]
