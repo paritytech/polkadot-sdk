@@ -18,7 +18,7 @@
 //! In essence this is a simple wrapper around `paras`.
 //!
 //! Registration is either local, with the deposit reserved here, or driven by a remote control
-//! plane that holds the deposit itself — see the [`pallet_registrar_relay::ParachainRegistrar`]
+//! plane that holds the deposit itself — see the [`registrar_primitives::ParachainRegistrar`]
 //! impl.
 
 pub mod migration;
@@ -580,7 +580,7 @@ impl<T: Config> Registrar for Pallet<T> {
 /// The trait is stated in plain `u32`/`Vec<u8>` so its definition carries no dependency on
 /// Polkadot's parachain primitives; conversion to [`ParaId`], [`HeadData`] and [`ValidationCode`]
 /// happens here.
-impl<T: Config> pallet_registrar_relay::ParachainRegistrar for Pallet<T> {
+impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
@@ -709,7 +709,7 @@ impl<T: Config> Pallet<T> {
 	/// Register a para whose deposit is held elsewhere.
 	///
 	/// No deposit is taken here. Used when a remote control plane owns the manager relationship and
-	/// the deposit (see the [`ParachainRegistrar`](pallet_registrar_relay::ParachainRegistrar)
+	/// the deposit (see the [`ParachainRegistrar`](registrar_primitives::ParachainRegistrar)
 	/// impl), so this pallet has no funds of the manager's to reserve — the manager account need
 	/// not even exist here.
 	///

@@ -24,8 +24,9 @@
 //!
 //! For the same reason the types here are plain: a para id is a `u32` (byte-compatible with the
 //! relay chain's `Id` newtype), head data and validation code are `Vec<u8>`, and a validation
-//! code hash is an [`H256`] (what `ValidationCodeHash` wraps). Conversion to the relay chain's
-//! own types happens in the adapter that bridges `pallet-registrar-relay` to `paras_registrar`.
+//! code hash is an [`H256`] (what `ValidationCodeHash` wraps). The same holds for
+//! [`ParachainRegistrar`], the interface the relay pallet drives the registry through: conversion
+//! to the relay chain's own types happens in the pallet implementing it.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -157,4 +158,34 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+}
+
+/// The parachain registry, as `pallet-registrar-relay` needs to see it.
+///
+/// Implemented by whichever pallet owns parachain registration, typically `paras_registrar` on the
+/// relay chain. Lives here so neither side of the protocol has to depend on the other.
+pub trait ParachainRegistrar {
+	/// The account id used to identify a registration's manager.
+	type AccountId;
+
+	/// Whether head data and code of these sizes could be onboarded right now.
+	///
+	/// Checked against the relay chain's live configuration so a doomed request can be rejected
+	/// before the user goes and uploads megabytes of code.
+	#[allow(clippy::result_unit_err)]
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
+
+	/// Whether the relay chain already knows this para id.
+	fn is_registered(para_id: ParaId) -> bool;
+
+	/// Onboard `para_id` under `manager`.
+	///
+	/// No deposit is taken: the manager's funds are held on the chain running
+	/// `pallet-registrar-para`.
+	fn register(
+		manager: Self::AccountId,
+		para_id: ParaId,
+		genesis_head: Vec<u8>,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult;
 }

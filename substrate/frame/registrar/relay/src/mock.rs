@@ -23,9 +23,9 @@
 //! crate is what lets it stay free of any Polkadot dependency; the two halves meeting for real is
 //! the job of the `pallet-registrar-test` crate.
 
-use crate::{self as pallet_registrar_relay, ParachainRegistrar, SendToPara};
+use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{MessageToPara, ParaId};
+use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;

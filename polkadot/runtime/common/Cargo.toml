@@ -41,7 +41,6 @@ pallet-broker = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
 pallet-identity = { workspace = true }
-pallet-registrar-relay = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-reward-fn = { workspace = true }
@@ -56,6 +55,7 @@ pallet-babe = { optional = true, workspace = true }
 libsecp256k1 = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
+registrar-primitives = { workspace = true }
 
 slot-range-helper = { workspace = true }
 xcm = { workspace = true }
@@ -92,7 +92,6 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
-	"pallet-registrar-relay/std",
 	"pallet-session/std",
 	"pallet-staking-reward-fn/std",
 	"pallet-staking/std",
@@ -102,6 +101,7 @@ std = [
 	"pallet-vesting/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
+	"registrar-primitives/std",
 	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
@@ -133,7 +133,6 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
-	"pallet-registrar-relay/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -161,7 +160,6 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",
-	"pallet-registrar-relay/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",

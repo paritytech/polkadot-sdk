@@ -55,7 +55,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::Get;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId,
+	ParaId, ParachainRegistrar,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -90,36 +90,6 @@ impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
 		Ok(())
 	}
-}
-
-/// The actual parachain registry, as this pallet needs to see it.
-///
-/// Implemented by whichever pallet owns parachain registration. Kept abstract so this crate stays
-/// free of relay-chain dependencies.
-pub trait ParachainRegistrar {
-	/// The account id used to identify a registration's manager.
-	type AccountId;
-
-	/// Whether head data and code of these sizes could be onboarded right now.
-	///
-	/// Checked against the relay chain's live configuration so a doomed request can be rejected
-	/// before the user goes and uploads megabytes of code.
-	#[allow(clippy::result_unit_err)]
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
-
-	/// Whether the relay chain already knows this para id.
-	fn is_registered(para_id: ParaId) -> bool;
-
-	/// Onboard `para_id` under `manager`.
-	///
-	/// No deposit is taken: the manager's funds are held on the chain running
-	/// `pallet-registrar-para`.
-	fn register(
-		manager: Self::AccountId,
-		para_id: ParaId,
-		genesis_head: Vec<u8>,
-		validation_code: Vec<u8>,
-	) -> sp_runtime::DispatchResult;
 }
 
 /// A registration the parachain has asked for, waiting on its validation code.
