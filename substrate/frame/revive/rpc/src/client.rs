@@ -618,12 +618,10 @@ impl Client {
 				},
 			};
 
-			// Resolution can fail for a block that got pruned or retracted in the
-			// meantime, or on a transient RPC error; failing the subscription here
-			// would take down the whole server (essential task). Skip the block
-			// instead: a skipped finalized block does not advance
-			// `last_finalized_seen`, so the next iteration queues it as a gap and
-			// the gap filler backfills it.
+			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
+			// erroring out here would kill the essential subscription task and with it the
+			// whole server. Skip instead: a skipped finalized block doesn't advance
+			// `last_finalized_seen`, so the gap filler backfills it.
 			let block = match block.at().await {
 				Ok(block) => block,
 				Err(err) => {

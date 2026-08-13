@@ -6,11 +6,9 @@ title: "eth-rpc: skip unresolvable streamed blocks instead of dying"
 doc:
   - audience: Node Operator
     description: |
-      Since the subxt 0.50 bump, a failure to resolve a streamed block
-      (pruned or retracted block, transient RPC error) killed the essential
-      block-subscription task and with it the whole eth-rpc server. Such
-      blocks are now skipped; skipped finalized blocks are backfilled by the
-      gap filler.
+      A failed streamed-block resolution (pruned or retracted block,
+      transient RPC error) killed the whole eth-rpc server. Such blocks are
+      now skipped; finalized ones are backfilled by the gap filler.
 
 crates:
   - name: pallet-revive-eth-rpc
