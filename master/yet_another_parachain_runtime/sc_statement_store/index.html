@@ -185,8 +185,8 @@ applications should use fail-safe mechanisms that confirm a message was delivere
 <ul>
 <li><strong><code>sp-statement-store</code></strong> — the <a href="../sp_statement_store/struct.Statement.html" title="struct yet_another_parachain_runtime::sp_statement_store::Statement"><code>Statement</code></a> structure, core types, the <a href="trait.StatementStore.html" title="trait yet_another_parachain_runtime::sc_statement_store::StatementStore"><code>StatementStore</code></a> runtime
 and client interfaces, and cryptographic primitives.</li>
-<li><strong><code>sc-statement-store</code></strong> — the disk-backed (ParityDB) store: constraint management, the in-memory
-index, and subscription handling.</li>
+<li><strong><code>sc-statement-store</code></strong> — the disk-backed (ParityDB) store: constraint management, the on-disk
+indexes with their bounded in-memory caches, and subscription handling.</li>
 <li><strong><code>sc-network-statement</code></strong> — gossip-based propagation, per-peer state, and topic affinity.</li>
 <li><strong><code>pallet-statement</code></strong> — the runtime pallet: it turns on-chain statement events into statements
 (via an offchain worker) and defines the bounds used to compute account allowances.</li>
