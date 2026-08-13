@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786552646108,
+  "lastUpdate": 1786611347635,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "olivarra1@gmail.com",
-            "name": "Victor Oliva",
-            "username": "voliva"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d",
-          "message": "fix(rpc-spec-v2): best block not announced immediately after initialised (#10525)\n\n# Description\n\nFixes https://github.com/polkadot-api/polkadot-api/issues/1244\n\nThe current chainHead_v1 implementation is [not\nspec-compliant](https://paritytech.github.io/json-rpc-interface-spec/api/chainHead_v1_follow.html),\nas it states:\n\n> - Generates an `initialized` notification\n> - Generates one `newBlock` notification for each non-finalized block\n> - Then a `bestBlockChanged` notification\n> - When a new block arrives, generates a `newBlock` notification\n> - When the node finalizes a block, generates a `finalized`\nnotification\n\nAnd the current implemention only emits the `bestBlockChanged`\nnotification after initialized iif the best block is different from the\nfinalized block.\n\nPAPI recently is using this part of the spec as an assumption. Most\nchains are unaffected, but those that produce blocks on-demand (e.g.\nmanual-seal) then have polkadot-api hanging until there's a higher block\ndifferent than the finalized one.\n\n## Integration\n\nThis PR doesn't change any of the APIs of the node. Upgrade should be\nautomatic.\n\n## Review Notes\n\nThis PR removes that condition so that the `bestBlockChanged`\nnotification is always emited. All tests are updated to this new\nbehaviour\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2025-12-05T10:58:57Z",
-          "tree_id": "46dd38ebc2d967c13397cfd99ee324aeccd51bbf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d"
-        },
-        "date": 1764938183020,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0072332699066666485,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15789086646000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022495359039999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01312519636,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007625211926666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e05316b1656277c2003e5a9a8778dc28ed0a10c",
+          "message": "paras: skip undersized parachain heads in sorted_para_heads (#12844)\n\n`Paras::sorted_para_heads()` now skips parachain heads shorter than\n`MIN_PARA_HEAD_LEN` (64 bytes) when building the parachain-heads list.\nEncoded parachain headers are well above this bound, so no real\nparachain is affected.\n\nRelay-only, no downstream change needed. Adds a test.",
+          "timestamp": "2026-08-13T07:06:53Z",
+          "tree_id": "27223f7f45cdeecb2b630c5bb8d401af521fcf6e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e05316b1656277c2003e5a9a8778dc28ed0a10c"
+        },
+        "date": 1786611317643,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14371544370000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022841468126666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007691026286666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009887853466666674,
             "unit": "seconds"
           }
         ]
