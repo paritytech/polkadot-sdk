@@ -451,8 +451,8 @@ members = [
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
 	"substrate/frame/sassafras",
+	"substrate/frame/scarcity",
 	"substrate/frame/scheduler",
-	"substrate/frame/scored-pool",
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
@@ -971,6 +971,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
+p256 = { version = "0.13.2", default-features = false }
 pallet-accumulate-and-forward = { path = "substrate/frame/accumulate-and-forward", default-features = false }
 pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
@@ -1073,6 +1074,7 @@ pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = 
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
+pallet-scarcity = { path = "substrate/frame/scarcity", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }
@@ -1501,6 +1503,7 @@ westend-runtime = { path = "polkadot/runtime/westend", default-features = false 
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
 x25519-dalek = { version = "2.0" }
+x509-cert = { version = "0.2.5", default-features = false }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm" }
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder" }
 xcm-docs = { path = "polkadot/xcm/docs" }
