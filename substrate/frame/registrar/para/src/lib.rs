@@ -307,6 +307,19 @@ pub mod pallet {
 		NoFreeParaId,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			// Otherwise no validation code could ever pass `register`.
+			assert!(
+				T::MinCodeSize::get() <= T::MaxCodeSize::get(),
+				"MinCodeSize ({}) must not exceed MaxCodeSize ({})",
+				T::MinCodeSize::get(),
+				T::MaxCodeSize::get(),
+			);
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Reserve the next free para id for the caller.
