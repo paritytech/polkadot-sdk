@@ -18,7 +18,7 @@
 use alloc::vec::Vec;
 use pallet_revive_types::runtime_api::*;
 
-use crate::evm::{Trace, TraceEntry, TracerType};
+use crate::evm::{TraceEntry, TracerType};
 
 pub struct TraceBlockInputPayload<Block> {
 	pub block: Block,
@@ -30,7 +30,6 @@ impl<Block> From<TraceBlockVersionedInputPayload<Block>> for TraceBlockInputPayl
 		match value {
 			TraceBlockVersionedInputPayload::V1(payload) => payload.into(),
 			TraceBlockVersionedInputPayload::V2(payload) => payload.into(),
-			TraceBlockVersionedInputPayload::V3(payload) => payload.into(),
 		}
 	}
 }
@@ -47,42 +46,27 @@ impl<Block> From<TraceBlockInputPayloadV2<Block>> for TraceBlockInputPayload<Blo
 	}
 }
 
-impl<Block> From<TraceBlockInputPayloadV3<Block>> for TraceBlockInputPayload<Block> {
-	fn from(value: TraceBlockInputPayloadV3<Block>) -> Self {
-		Self { block: value.block, config: value.config.into() }
-	}
-}
-
 #[derive(Default)]
 pub struct TraceBlockOutputPayload {
 	pub entries: Vec<(u32, TraceEntry)>,
 }
 
-impl TraceBlockOutputPayload {
-	fn into_traced<T: From<Trace>>(self) -> Vec<(u32, T)> {
-		self.entries
-			.into_iter()
-			.filter_map(|(index, entry)| match entry {
-				TraceEntry::Traced(trace) => Some((index, trace.into())),
-				TraceEntry::NotTraced => None,
-			})
-			.collect()
-	}
-}
-
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV1 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
-		Self { traces: value.into_traced() }
+		Self {
+			traces: value
+				.entries
+				.into_iter()
+				.filter_map(|(index, entry)| match entry {
+					TraceEntry::Traced(trace) => Some((index, trace.into())),
+					TraceEntry::NotTraced => None,
+				})
+				.collect(),
+		}
 	}
 }
 
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV2 {
-	fn from(value: TraceBlockOutputPayload) -> Self {
-		Self { traces: value.into_traced() }
-	}
-}
-
-impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV3 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
 		Self {
 			entries: value

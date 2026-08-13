@@ -87,7 +87,7 @@ impl<T> CallRecordedOutput<T> {
 }
 
 /// A transaction's trace in the `TraceV1` shape eth-rpc serves, or the runtime's report that it
-/// could not produce one. Only V3 runtimes report `NotTraced`.
+/// could not produce one. Only V2 runtimes report `NotTraced`.
 pub enum TraceEntry {
 	Traced(TraceV1),
 	NotTraced,
@@ -478,7 +478,7 @@ impl VersionAwareRuntimeApi {
 				});
 				Some(future)
 			},
-			Available(Versioned(0..3)) => {
+			Available(Versioned(0..2)) => {
 				let future = Box::pin(async move {
 					let input = TraceTxInputPayloadV1 {
 						block: block.into(),
@@ -498,9 +498,9 @@ impl VersionAwareRuntimeApi {
 				});
 				Some(future)
 			},
-			Available(Versioned(3..)) => {
+			Available(Versioned(2..)) => {
 				let future = Box::pin(async move {
-					let input = TraceTxInputPayloadV3 {
+					let input = TraceTxInputPayloadV2 {
 						block: block.into(),
 						tx_index: transaction_index,
 						config: tracer_type,
@@ -509,8 +509,8 @@ impl VersionAwareRuntimeApi {
 						.revive_api()
 						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					let entry = TraceTxOutputPayloadV3::try_from(output.value.0)
-						.expect("v3 input must produce v3 output; qed")
+					let entry = TraceTxOutputPayloadV2::try_from(output.value.0)
+						.expect("v2 input must produce v2 output; qed")
 						.entry
 						.map(TraceEntry::from);
 					Ok(CallRecordedOutput { value: entry, degraded: false })
@@ -548,7 +548,7 @@ impl VersionAwareRuntimeApi {
 				});
 				Some(future)
 			},
-			Available(Versioned(0..3)) => {
+			Available(Versioned(0..2)) => {
 				let future = Box::pin(async move {
 					let input =
 						TraceBlockInputPayloadV1 { block: block.into(), config: tracer_type };
@@ -567,16 +567,16 @@ impl VersionAwareRuntimeApi {
 				});
 				Some(future)
 			},
-			Available(Versioned(3..)) => {
+			Available(Versioned(2..)) => {
 				let future = Box::pin(async move {
 					let input =
-						TraceBlockInputPayloadV3 { block: block.into(), config: tracer_type };
+						TraceBlockInputPayloadV2 { block: block.into(), config: tracer_type };
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
 					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
-					let entries = TraceBlockOutputPayloadV3::try_from(output.value.0)
-						.expect("v3 input must produce v3 output; qed")
+					let entries = TraceBlockOutputPayloadV2::try_from(output.value.0)
+						.expect("v2 input must produce v2 output; qed")
 						.entries
 						.into_iter()
 						.map(|(idx, entry)| (idx, entry.into()))

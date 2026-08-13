@@ -34,17 +34,10 @@ pub struct TraceBlockInputPayloadV2<Block> {
 	pub config: TracerTypeV1,
 }
 
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockInputPayloadV3<Block> {
-	pub block: Block,
-	pub config: TracerTypeV1,
-}
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum TraceBlockVersionedInputPayload<Block> {
 	V1(TraceBlockInputPayloadV1<Block>),
 	V2(TraceBlockInputPayloadV2<Block>),
-	V3(TraceBlockInputPayloadV3<Block>),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
@@ -54,11 +47,6 @@ pub struct TraceBlockOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct TraceBlockOutputPayloadV3 {
 	pub entries: Vec<(u32, TraceEntryV1)>,
 }
 
@@ -66,5 +54,4 @@ pub struct TraceBlockOutputPayloadV3 {
 pub enum TraceBlockVersionedOutputPayload {
 	V1(TraceBlockOutputPayloadV1),
 	V2(TraceBlockOutputPayloadV2),
-	V3(TraceBlockOutputPayloadV3),
 }

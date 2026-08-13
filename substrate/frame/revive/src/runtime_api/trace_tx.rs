@@ -30,7 +30,6 @@ impl<Block> From<TraceTxVersionedInputPayload<Block>> for TraceTxInputPayload<Bl
 		match value {
 			TraceTxVersionedInputPayload::V1(payload) => payload.into(),
 			TraceTxVersionedInputPayload::V2(payload) => payload.into(),
-			TraceTxVersionedInputPayload::V3(payload) => payload.into(),
 		}
 	}
 }
@@ -47,41 +46,22 @@ impl<Block> From<TraceTxInputPayloadV2<Block>> for TraceTxInputPayload<Block> {
 	}
 }
 
-impl<Block> From<TraceTxInputPayloadV3<Block>> for TraceTxInputPayload<Block> {
-	fn from(value: TraceTxInputPayloadV3<Block>) -> Self {
-		Self { block: value.block, tx_index: value.tx_index, config: value.config.into() }
-	}
-}
-
 pub struct TraceTxOutputPayload {
 	pub entry: Option<TraceEntry>,
 }
 
-impl TraceTxOutputPayload {
-	fn into_trace<T>(self) -> Option<T>
-	where
-		crate::evm::Trace: Into<T>,
-	{
-		match self.entry {
-			Some(TraceEntry::Traced(trace)) => Some(trace.into()),
-			Some(TraceEntry::NotTraced) | None => None,
-		}
-	}
-}
-
 impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV1 {
 	fn from(value: TraceTxOutputPayload) -> Self {
-		Self { trace: value.into_trace() }
+		// V1 has no way to report an untraced extrinsic, so it keeps omitting it.
+		let trace = match value.entry {
+			Some(TraceEntry::Traced(trace)) => Some(trace.into()),
+			Some(TraceEntry::NotTraced) | None => None,
+		};
+		Self { trace }
 	}
 }
 
 impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV2 {
-	fn from(value: TraceTxOutputPayload) -> Self {
-		Self { trace: value.into_trace() }
-	}
-}
-
-impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV3 {
 	fn from(value: TraceTxOutputPayload) -> Self {
 		Self { entry: value.entry.map(Into::into) }
 	}
