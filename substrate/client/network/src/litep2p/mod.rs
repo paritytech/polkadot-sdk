@@ -340,6 +340,7 @@ impl Litep2pNetworkBackend {
 			// WebRTC cert/key are unambiguously defined by the node key.
 			let certificate =
 				webrtc::derive_certificate(keypair.secret()).map_err(Error::Litep2p)?;
+			log::info!(target: LOG_TARGET, "WebRTC certhash: {}", certificate.certhash_b64());
 			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
 				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 				certificate: Some(certificate),
