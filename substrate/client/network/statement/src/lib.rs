@@ -240,6 +240,8 @@ mod send_failure {
 	pub const TIMEOUT: &str = "timeout";
 	/// The chunk was never handed to the network because the peer had no message sink.
 	pub const NO_SINK: &str = "no_sink";
+	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
+	pub const OUTBOX_FULL: &str = "outbox_full";
 }
 
 mod sync_outcome {
@@ -1523,7 +1525,16 @@ where
 			return;
 		}
 
-		self.propagation_outboxes.entry(*who).or_default().extend(to_send);
+		let outbox = self.propagation_outboxes.entry(*who).or_default();
+		outbox.extend(to_send);
+		// The freshest statements are the ones still worth delivering, so an
+		// overflowing outbox drops from the front. These statements never reach
+		// the peer, which is what `undelivered_statements` exists to make visible.
+		let overflow = outbox.len().saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
+		if overflow > 0 {
+			outbox.drain(..overflow);
+			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
+		}
 		self.try_send_next_chunk(*who);
 	}
 
@@ -2829,6 +2840,56 @@ mod tests {
 
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
 		assert!(!handler.in_flight_propagations.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn overflowing_outbox_drops_the_oldest_hashes() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+		let peer_id = peer_ids[0];
+
+		let mut old = Statement::new();
+		old.set_plain_data(b"oldest".to_vec());
+		let old_hash = old.hash();
+
+		// Three fresh statements arrive by tick while the outbox is full and the
+		// peer's slot is busy.
+		let fresh_hashes: HashSet<_> = (0..3u8)
+			.map(|i| {
+				let mut fresh = Statement::new();
+				fresh.set_plain_data(vec![i; 8]);
+				let hash = fresh.hash();
+				statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
+				hash
+			})
+			.collect();
+		handler.in_flight_propagations.insert(peer_id, 0);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+
+		handler.propagate_statements().await;
+
+		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
+		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
+		let tail: HashSet<_> = outbox[MAX_PROPAGATION_OUTBOX_LEN - 3..].iter().copied().collect();
+		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::OUTBOX_FULL])
+				.get(),
+			3,
+			"each dropped hash counts as undelivered"
+		);
+		assert_eq!(
+			metrics.send_failures.with_label_values(&[send_failure::OUTBOX_FULL]).get(),
+			1,
+			"one overflow event"
+		);
 	}
 
 	#[tokio::test]
