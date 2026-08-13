@@ -519,6 +519,7 @@ impl StatementHandlerPrototype {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network,
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
@@ -562,6 +563,11 @@ pub struct StatementHandler<
 	/// imported. This prevents that we import the same statement
 	/// multiple times concurrently.
 	pending_statements_peers: HashMap<Hash, HashSet<PeerId>>,
+	/// Statements received from peers and imported since the last propagation
+	/// pass, each with the peers that sent it. Propagation skips those peers,
+	/// so a statement never returns to a peer it came from. Cleared after each
+	/// pass.
+	recently_received_statements: HashMap<Hash, HashSet<PeerId>>,
 	/// Network service to use to send messages and manage peers.
 	network: N,
 	/// Syncing service.
@@ -780,6 +786,19 @@ where
 	}
 }
 
+/// Whether the peer sent us the statement, directly or while it was queued for
+/// validation. `pending_statements_peers` covers the race where a statement is
+/// drained for propagation while its senders still sit there.
+fn has_received_from(
+	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
+	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
+	hash: &Hash,
+	who: &PeerId,
+) -> bool {
+	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who)) ||
+		pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
+}
+
 impl Peer {
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
@@ -841,6 +860,7 @@ where
 			propagate_timeout,
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network,
 			sync,
 			sync_event_stream,
@@ -887,13 +907,7 @@ where
 					});
 				},
 				(hash, result) = self.pending_statements.select_next_some() => {
-					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
-						if let Some(result) = result {
-							peers.into_iter().for_each(|p| self.on_handle_statement_import(p, &result));
-						}
-					} else {
-						log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
-					}
+					self.on_statement_submit_result(hash, result);
 				},
 				sync_event = self.sync_event_stream.next() => {
 					if let Some(sync_event) = sync_event {
@@ -1307,6 +1321,15 @@ where
 						metrics.known_statements_received.inc();
 					});
 
+					// If the statement still awaits its propagation pass, record the
+					// peer so the pass does not echo it back. Only join an existing
+					// entry, or replays would grow the map without bound. Senders of
+					// not yet imported statements are tracked in
+					// `pending_statements_peers` and move here on import.
+					if let Some(peers) = self.recently_received_statements.get_mut(&hash) {
+						peers.insert(who);
+					}
+
 					if let Some(peers) = self.pending_statements_peers.get(&hash) {
 						if peers.contains(&who) {
 							log::trace!(
@@ -1387,6 +1410,26 @@ where
 		}
 	}
 
+	/// Handle a completed validation task. Adjusts the reputation of every peer
+	/// that sent us the statement and, if the statement awaits propagation,
+	/// records those peers so it is not sent back to them.
+	fn on_statement_submit_result(&mut self, hash: Hash, result: Option<SubmitResult>) {
+		if let Some(peers) = self.pending_statements_peers.remove(&hash) {
+			if let Some(result) = result {
+				for peer in &peers {
+					self.on_handle_statement_import(*peer, &result);
+				}
+				// `New` and `Known` mean the statement awaits the next propagation
+				// pass. Remember who sent it so the pass does not echo it back.
+				if matches!(result, SubmitResult::New | SubmitResult::Known) {
+					self.recently_received_statements.entry(hash).or_default().extend(peers);
+				}
+			}
+		} else {
+			log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
+		}
+	}
+
 	/// Propagate one statement.
 	pub async fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
@@ -1419,6 +1462,15 @@ where
 			.iter()
 			.filter_map(|(hash, stmt)| {
 				if peer.known_statements.contains(hash) {
+					return None;
+				}
+				// The peer supplied this statement, do not echo it back.
+				if has_received_from(
+					&self.recently_received_statements,
+					&self.pending_statements_peers,
+					hash,
+					who,
+				) {
 					return None;
 				}
 				// For v2 peers with topic affinity, filter by topic match.
@@ -1595,6 +1647,10 @@ where
 		if !statements.is_empty() {
 			self.do_propagate_statements(&statements);
 		}
+		// Every entry here belongs to an already drained statement, so it is done
+		// propagating. Statements imported after the drain get their entries only
+		// after this clear, when the event loop processes their submit results.
+		self.recently_received_statements.clear();
 	}
 
 	/// Schedule an initial sync for a peer, sending all known statements.
@@ -2320,6 +2376,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -2354,6 +2411,153 @@ mod tests {
 			})
 			.map(|s| s.hash())
 			.collect()
+	}
+
+	/// Import one queued statement into the store and feed `result` back into the
+	/// handler as the main loop would.
+	async fn import_queued_statement(
+		handler: &mut StatementHandler<TestNetwork, TestSync>,
+		statement_store: &TestStatementStore,
+		queue_receiver: &async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		result: SubmitResult,
+	) {
+		let (statement, completion) = queue_receiver.try_recv().unwrap();
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		completion.send(result).unwrap();
+		let (hash, result) = handler.pending_statements.next().await.unwrap();
+		handler.on_statement_submit_result(hash, result);
+	}
+
+	#[tokio::test]
+	async fn statement_is_not_echoed_to_any_of_its_senders() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(3);
+		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"multi-sender echo".to_vec());
+		let hash = statement.hash();
+
+		// Both peers supply the statement while it is queued for validation.
+		handler.on_statements(sender_a, vec![statement.clone()]);
+		handler.on_statements(sender_b, vec![statement.clone()]);
+		import_queued_statement(&mut handler, &statement_store, &queue_receiver, SubmitResult::New)
+			.await;
+
+		// Bypass the per-peer known-statement marking so only sender tracking can
+		// suppress the echo.
+		for peer in handler.peers.values_mut() {
+			peer.known_statements.clear();
+		}
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(get_peer_hashes(&sent, sender_a).is_empty(), "statement returned to sender_a");
+		assert!(get_peer_hashes(&sent, sender_b).is_empty(), "statement returned to sender_b");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+		assert!(
+			handler.recently_received_statements.is_empty(),
+			"sender entries must be cleared after the propagation pass"
+		);
+
+		// Replaying a propagated statement finds no entry to join, so a peer cannot
+		// grow the map by resending.
+		handler.on_statements(sender_a, vec![statement]);
+		assert!(handler.recently_received_statements.is_empty());
+	}
+
+	#[tokio::test]
+	async fn statement_forwarded_before_the_tick_is_not_echoed_to_the_forwarder() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(3);
+		let (sender, forwarder, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"late forwarder".to_vec());
+		let hash = statement.hash();
+
+		handler.on_statements(sender, vec![statement.clone()]);
+		// Another path imported the statement while it was queued, so validation
+		// completes with `Known`. The sender must be recorded all the same.
+		import_queued_statement(
+			&mut handler,
+			&statement_store,
+			&queue_receiver,
+			SubmitResult::Known,
+		)
+		.await;
+		// The statement is imported but not yet propagated when another peer forwards it.
+		handler.on_statements(forwarder, vec![statement]);
+
+		for peer in handler.peers.values_mut() {
+			peer.known_statements.clear();
+		}
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(get_peer_hashes(&sent, sender).is_empty(), "statement returned to its sender");
+		assert!(get_peer_hashes(&sent, forwarder).is_empty(), "statement returned to forwarder");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+	}
+
+	#[tokio::test]
+	async fn sender_entries_survive_a_major_sync_early_return() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(2);
+		let (sender, receiver) = (peer_ids[0], peer_ids[1]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"during major sync".to_vec());
+		let hash = statement.hash();
+
+		handler.on_statements(sender, vec![statement]);
+		import_queued_statement(&mut handler, &statement_store, &queue_receiver, SubmitResult::New)
+			.await;
+
+		// The early return skips the drain, so the statement stays recent and its
+		// sender entry must stay with it.
+		handler.sync.major_syncing.store(true, Ordering::Relaxed);
+		handler.propagate_statements().await;
+		assert!(
+			handler.recently_received_statements.contains_key(&hash),
+			"sender entries must survive the major-sync early return"
+		);
+
+		handler.sync.major_syncing.store(false, Ordering::Relaxed);
+		for peer in handler.peers.values_mut() {
+			peer.known_statements.clear();
+		}
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(get_peer_hashes(&sent, sender).is_empty(), "statement returned to its sender");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+		assert!(handler.recently_received_statements.is_empty());
 	}
 
 	#[tokio::test]
@@ -2601,6 +2805,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -2647,6 +2852,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4381,6 +4587,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: sync.clone(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4745,6 +4952,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4822,6 +5030,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4902,6 +5111,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -5005,6 +5215,7 @@ mod tests {
 						.fuse(),
 					pending_statements: FuturesUnordered::new(),
 					pending_statements_peers: HashMap::new(),
+					recently_received_statements: HashMap::new(),
 					network,
 					sync,
 					sync_event_stream: (Box::pin(futures::stream::pending())
