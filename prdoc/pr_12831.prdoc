@@ -25,18 +25,18 @@ crates:
   - name: staging-xcm-builder
     bump: patch
   - name: asset-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: asset-hub-rococo-runtime
-    bump: patch
+    bump: minor
   - name: bridge-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: bridge-hub-rococo-runtime
-    bump: patch
+    bump: minor
   - name: coretime-westend-runtime
-    bump: patch
+    bump: minor
   - name: people-westend-runtime
-    bump: patch
+    bump: minor
   - name: collectives-westend-runtime
-    bump: patch
+    bump: minor
   - name: penpal-runtime
-    bump: patch
+    bump: minor
