@@ -91,7 +91,7 @@ module refine {
     | ParachainCleanUp(_) => 4
     // paraId 4 + newTotal Compact<u128>.
     | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
-    // codeHash 32 + Compact<u32> len + minItemGas 8 + minMemoGas 8.
+    // codeHash 32 + Compact<u32> len + minAccGas 8 + minMemoGas 8.
     | UpgradeService(p) => 48 + compactLen(p.len)
   }
 

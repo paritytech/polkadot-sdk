@@ -164,9 +164,9 @@ module messages {
   | ParachainCleanUp(ParaId)
   // parachain_set_state_balance(para_id, new_total) — Coretime only.
   | ParachainSetStateBalance({ paraId: ParaId, newTotal: Balance })
-  // parachain_service_upgrade(code_hash, len, min_item_gas, min_memo_gas) —
+  // parachain_service_upgrade(code_hash, len, min_acc_gas, min_memo_gas) —
   // Asset Hub only (design §5.4).
-  | UpgradeService({ codeHash: Hash, len: int, minItemGas: int, minMemoGas: int })
+  | UpgradeService({ codeHash: Hash, len: int, minAccGas: int, minMemoGas: int })
 
   // --- Refine output per work item ---------------------------------------
 

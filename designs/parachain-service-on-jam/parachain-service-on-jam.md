@@ -297,8 +297,7 @@ enum AccumulateLog {
     /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
     /// and the buffer left unchanged. See §5.3.
     StagedValidatorKeysOverflow,
-    /// `parachain_service_upgrade(code_hash, ...)` was rejected because JAM
-    /// does not report `code_hash`'s preimage as available for lookup. See §5.4.
+    /// The new code's preimage is not available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
     /// The JAM `transfer` call replaying a `TransferOut`. Only the memo
     /// hash is recorded, so the full 128-byte memo is not preserved. See §5.1 step 7.
@@ -501,7 +500,7 @@ enum UpwardMessage {
     /// up to and including this slot. See §5.1.
     ConsumeTransfersUpTo(Timeslot),
     /// From `parachain_service_upgrade`. See §5.4.
-    UpgradeService { code_hash: Hash, len: Compact<u32>, min_item_gas: u64, min_memo_gas: u64 },
+    UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
     /// From `parachain_set_head`: upsert a parachain's head data.
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// From `parachain_set_validation_code`: upsert a parachain's
@@ -636,7 +635,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). See §5.1. |
-| `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` unless JAM reports the new code's preimage as **available for lookup**; having merely solicited it is not enough. See §5.4. |
+| `parachain_service_upgrade(code_hash: Hash, len: u32, min_acc_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_acc_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call unless the new code's preimage is available for lookup. See §5.4. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`; any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
