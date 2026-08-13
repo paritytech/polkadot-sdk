@@ -17,8 +17,13 @@ crates:
     bump: patch
     validate: false
     note: |
-      `Pallet::burn_fees` was changed from public to private and gained a `who` parameter. The
-      semver check flags this as a major change, but the function is an internal helper with no
-      external callers, so the crate is only bumped by a patch and semver validation is skipped.
+      Two changes are flagged as major by the semver check but are internal in practice, so the
+      crate is only bumped by a patch and semver validation is skipped:
+      - `Pallet::burn_fees` was changed from public to private (and renamed to `burn_for_teleport`
+        with a new `who` parameter); it is an internal helper with no external callers.
+      - The `Config` trait gained a `frame_system::Config<AccountId: Into<[u8; 32]>>` supertrait
+        bound, which every runtime instantiating this pallet already satisfies.
+  - name: snowbridge-beacon-primitives
+    bump: none
   - name: bridge-hub-westend-runtime
     bump: patch
