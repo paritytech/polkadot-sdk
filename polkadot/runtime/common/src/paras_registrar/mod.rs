@@ -16,6 +16,10 @@
 
 //! Pallet to handle parachain registration and related fund management.
 //! In essence this is a simple wrapper around `paras`.
+//!
+//! Registration is either local, with the deposit reserved here, or driven by a remote control
+//! plane that holds the deposit itself — see the [`pallet_registrar_relay::ParachainRegistrar`]
+//! impl.
 
 pub mod migration;
 
@@ -566,11 +570,16 @@ impl<T: Config> Registrar for Pallet<T> {
 	}
 }
 
-/// Bridges `pallet-registrar-relay` to this pallet.
+/// Exposes this pallet's registry to a remote registration control plane.
 ///
-/// Lets a system parachain drive relay-chain registrations while the deposits stay on that
-/// parachain. The trait deals in plain `u32`/`Vec<u8>` so the relay pallet can live in
-/// `substrate/` without depending on any Polkadot crate; the conversions happen here.
+/// Registration can be driven by another pallet — typically on another trusted chain — that
+/// owns the manager relationship and holds the deposit. This impl is the seam: it does the
+/// registry work and nothing else, so where the deposit lives and how the request arrived
+/// are outside this pallet's concern.
+///
+/// The trait is stated in plain `u32`/`Vec<u8>` so its definition carries no dependency on
+/// Polkadot's parachain primitives; conversion to [`ParaId`], [`HeadData`] and [`ValidationCode`]
+/// happens here.
 impl<T: Config> pallet_registrar_relay::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
@@ -697,15 +706,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Register a para on behalf of a remote control plane that already holds the deposit.
+	/// Register a para whose deposit is held elsewhere.
 	///
-	/// No deposit is taken here. This is the entry point used by `pallet-registrar-relay` for
-	/// registrations driven from a system parachain, where the manager's funds are held by
-	/// `pallet-registrar-para` on that chain instead of on the relay chain.
+	/// No deposit is taken here. Used when a remote control plane owns the manager relationship and
+	/// the deposit (see the [`ParachainRegistrar`](pallet_registrar_relay::ParachainRegistrar)
+	/// impl), so this pallet has no funds of the manager's to reserve — the manager account need not
+	/// even exist here.
 	///
-	/// The head data and code are still validated against the live
-	/// [`configuration`](configuration::ActiveConfig) exactly as they are for a local
-	/// registration, and the para still goes through the usual onboarding and PVF pre-check.
+	/// Everything else is a normal registration: head data and code are still validated against the
+	/// live [`configuration`](configuration::ActiveConfig), and the para still goes through the
+	/// usual onboarding and PVF pre-check.
 	pub fn do_register_without_deposit(
 		manager: T::AccountId,
 		id: ParaId,
