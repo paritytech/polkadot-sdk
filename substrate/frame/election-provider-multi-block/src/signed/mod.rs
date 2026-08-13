@@ -336,8 +336,7 @@ pub mod pallet {
 		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
-		/// Handler for slashed deposits. Use `()` to burn them. On DAP chains use `type Slash =
-		/// Dap` to redirect slashed funds back to the DAP buffer instead.
+		/// Handler for slashed deposits. Use `()` to burn them, or redirect them elsewhere.
 		type Slash: OnUnbalanced<FungibleCredit<Self::AccountId, Self::Currency>>;
 
 		/// Source account for reward payments. `Some(pot)` transfers from that account; `None`
@@ -372,8 +371,9 @@ pub mod pallet {
 	/// Round-winner rewards that failed to pay out of [`Config::RewardSource`], pending a
 	/// permissionless claim via [`Pallet::claim_unpaid_reward`].
 	///
-	/// Expected to stay empty in normal operation; only grows when the pot is depleted. If full,
-	/// [`crate::Config::AdminOrigin`] can free a slot via [`Pallet::discard_unpaid_reward`].
+	/// Expected to stay empty in normal operation; only grows when the pot is depleted. Entries
+	/// are pushed in round order, so if full, the oldest one is evicted (see
+	/// [`Pallet::pay_reward`]).
 	#[pallet::storage]
 	pub type UnpaidRewards<T: Config> =
 		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<16>>, ValueQuery>;
@@ -843,12 +843,11 @@ pub mod pallet {
 		/// A reward payout failed and has been queued in [`UnpaidRewards`]; claimable via
 		/// [`Pallet::claim_unpaid_reward`] once the pot is refilled.
 		RewardPaymentDeferred(u32, T::AccountId, BalanceOf<T>),
-		/// A payout (reward or fee refund) failed with no recovery: either an invulnerable's fee
-		/// refund, which isn't deferred, or a reward that failed while [`UnpaidRewards`] was full.
-		RewardPaymentFailed(u32, T::AccountId, BalanceOf<T>),
-		/// [`crate::Config::AdminOrigin`] wrote off an [`UnpaidRewards`] entry via
-		/// [`Pallet::discard_unpaid_reward`]; no funds moved.
-		UnpaidRewardDiscarded(u32, T::AccountId, BalanceOf<T>),
+		/// [`UnpaidRewards`] was full, so this (the oldest) entry was evicted to make room for a
+		/// new deferral; no funds moved, the reward is now unrecoverable.
+		UnpaidRewardEvicted(u32, T::AccountId, BalanceOf<T>),
+		/// An invulnerable's transaction fee refund failed; no funds moved, no recovery.
+		FeeRefundFailed(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
 		/// The given solution, for the given round, was ejected.
@@ -1057,30 +1056,6 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
-
-		/// Escape hatch for a full [`UnpaidRewards`]: governance write-off of an entry, freeing
-		/// its slot without minting. Prefer [`Pallet::claim_unpaid_reward`] if the pot can be
-		/// refilled instead. Dispatch origin must be [`crate::Config::AdminOrigin`].
-		#[pallet::call_index(6)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-		pub fn discard_unpaid_reward(origin: OriginFor<T>, round: u32) -> DispatchResult {
-			<T as crate::Config>::AdminOrigin::ensure_origin(origin)?;
-			let mut unpaid = UnpaidRewards::<T>::get();
-			let idx = unpaid
-				.iter()
-				.position(|entry| entry.round == round)
-				.ok_or(Error::<T>::NoUnpaidReward)?;
-			let entry = unpaid.remove(idx);
-			UnpaidRewards::<T>::put(unpaid);
-
-			Self::deposit_event(Event::<T>::UnpaidRewardDiscarded(
-				entry.round,
-				entry.who,
-				entry.amount,
-			));
-
-			Ok(())
-		}
 	}
 
 	#[pallet::view_functions]
@@ -1130,9 +1105,9 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Pay the round's winner. On success emits `Rewarded`. On failure, defers into
-	/// [`UnpaidRewards`] (`RewardPaymentDeferred`) or, if that's full, gives up
-	/// (`RewardPaymentFailed`).
+	/// Pay the round's winner. On success emits `Rewarded`. On failure, always defers into
+	/// [`UnpaidRewards`] (`RewardPaymentDeferred`), evicting the oldest entry first
+	/// (`UnpaidRewardEvicted`) if it's already full.
 	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
 		if Self::transfer_or_mint(to, amount).is_ok() {
 			Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount));
@@ -1148,19 +1123,24 @@ impl<T: Config> Pallet<T> {
 			round
 		);
 		let entry = UnpaidReward { round, who: to.clone(), amount };
-		match UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry)) {
-			Ok(()) => {
-				Self::deposit_event(Event::<T>::RewardPaymentDeferred(round, to.clone(), amount))
-			},
-			Err(_) => {
-				Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount))
-			},
-		}
+		UnpaidRewards::<T>::mutate(|unpaid| {
+			if unpaid.is_full() {
+				// Entries are pushed in round order, so index 0 is the oldest.
+				let evicted = unpaid.remove(0);
+				Self::deposit_event(Event::<T>::UnpaidRewardEvicted(
+					evicted.round,
+					evicted.who,
+					evicted.amount,
+				));
+			}
+			let _ = unpaid.try_push(entry).defensive_proof("an element was just evicted; qed");
+		});
+		Self::deposit_event(Event::<T>::RewardPaymentDeferred(round, to.clone(), amount));
 	}
 
 	/// Refund an invulnerable's tx fee on discard. Unlike `pay_reward`, a failure is not
 	/// deferred: it is out of scope for [`UnpaidRewards`] (see its doc for why) and simply emits
-	/// `RewardPaymentFailed`, never `Rewarded`.
+	/// `FeeRefundFailed`, never `Rewarded`.
 	fn refund_fee(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
 		if Self::transfer_or_mint(to, amount).is_err() {
 			sublog!(
@@ -1170,7 +1150,7 @@ impl<T: Config> Pallet<T> {
 				amount,
 				to
 			);
-			Self::deposit_event(Event::<T>::RewardPaymentFailed(round, to.clone(), amount));
+			Self::deposit_event(Event::<T>::FeeRefundFailed(round, to.clone(), amount));
 		}
 	}
 

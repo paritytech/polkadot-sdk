@@ -1748,11 +1748,11 @@ mod issuance {
 	}
 
 	#[test]
-	fn reward_payment_fails_when_unpaid_queue_is_full() {
+	fn reward_deferral_evicts_oldest_when_unpaid_queue_is_full() {
 		ExtBuilder::signed().build_and_execute(|| {
 			SignedRewardSource::set(Some(POT));
 
-			// Fill the unpaid-rewards queue to capacity.
+			// Fill the unpaid-rewards queue to capacity, oldest (round 999) first.
 			UnpaidRewards::<T>::mutate(|unpaid| {
 				for i in 0..16u64 {
 					unpaid
@@ -1765,55 +1765,61 @@ mod issuance {
 
 			let events = signed_events_since_last_call();
 			assert!(
-				events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentFailed(..))),
-				"expected RewardPaymentFailed once the unpaid queue is full"
+				events.iter().any(|e| matches!(e, SignedEvent::UnpaidRewardEvicted(999, 0, 1))),
+				"expected the oldest entry (round 999) to be evicted"
 			);
-			assert!(!events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..))));
+			assert!(
+				events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..))),
+				"the new reward must still be deferred, never dropped"
+			);
+			let unpaid = UnpaidRewards::<T>::get();
+			assert_eq!(unpaid.len(), 16, "queue stays at capacity, oldest swapped for newest");
+			assert!(!unpaid.iter().any(|e| e.round == 999), "evicted entry must be gone");
 		});
 	}
 
 	#[test]
-	fn discard_unpaid_reward_works() {
-		// Writes off the entry without moving any funds; no minting involved.
+	fn fee_refund_failed_when_source_pot_is_empty() {
+		// An invulnerable's fee refund is not deferred like a reward: on failure it just emits
+		// FeeRefundFailed, and Discarded still fires normally.
 		ExtBuilder::signed().build_and_execute(|| {
 			SignedRewardSource::set(Some(POT));
-			submit_and_verify_winning(999);
-			assert_eq!(UnpaidRewards::<T>::get().len(), 1);
-			let ti_before = Balances::total_issuance();
-			let balance_before = Balances::free_balance(999);
+			// Do NOT fund POT.
+			SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![99]).unwrap();
+
+			roll_to_signed_open();
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+
+			let paged = mine_full_solution().unwrap();
+			load_signed_for_verification(98, paged.clone());
 			let _ = signed_events_since_last_call();
 
-			assert_ok!(SignedPallet::discard_unpaid_reward(RuntimeOrigin::root(), 0));
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+			let _ = signed_events_since_last_call();
+			let _ = verifier_events_since_last_call();
 
-			assert_eq!(Balances::free_balance(999), balance_before, "no funds must move");
-			assert_eq!(Balances::total_issuance(), ti_before, "nothing must be minted");
-			assert!(UnpaidRewards::<T>::get().is_empty());
-			assert!(signed_events_since_last_call()
-				.iter()
-				.any(|e| matches!(e, SignedEvent::UnpaidRewardDiscarded(0, 999, _))));
-		});
-	}
+			roll_next_and_phase_verifier(Phase::SignedValidation(2), Status::Nothing);
+			let _ = verifier_events_since_last_call();
 
-	#[test]
-	fn discard_unpaid_reward_requires_admin_origin() {
-		ExtBuilder::signed().build_and_execute(|| {
-			SignedRewardSource::set(Some(POT));
-			submit_and_verify_winning(999);
+			roll_to_done();
+			MultiBlock::rotate_round();
 
-			assert_noop!(
-				SignedPallet::discard_unpaid_reward(RuntimeOrigin::signed(1), 0),
-				sp_runtime::DispatchError::BadOrigin
+			assert_ok!(SignedPallet::clear_old_round_data(
+				RuntimeOrigin::signed(99),
+				0,
+				Pages::get()
+			));
+
+			let events = signed_events_since_last_call();
+			assert!(
+				events.iter().any(|e| matches!(e, SignedEvent::FeeRefundFailed(0, 99, _))),
+				"expected FeeRefundFailed when the pot can't pay the fee refund"
 			);
-		});
-	}
-
-	#[test]
-	fn discard_unpaid_reward_fails_when_no_entry() {
-		ExtBuilder::signed().build_and_execute(|| {
-			assert_noop!(
-				SignedPallet::discard_unpaid_reward(RuntimeOrigin::root(), 0),
-				Error::<T>::NoUnpaidReward
-			);
+			assert!(events.iter().any(|e| matches!(e, SignedEvent::Discarded(0, 99))));
+			assert!(!events.iter().any(|e| matches!(e, SignedEvent::Rewarded(..))));
+			// Full deposit (7) is still returned; the 1-unit fee refund is the part that failed.
+			assert_eq!(balances(99), (100, 0));
 		});
 	}
 
