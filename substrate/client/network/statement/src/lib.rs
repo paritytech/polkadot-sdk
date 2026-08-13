@@ -50,10 +50,11 @@
 //! peer that resends the statement before its tick is added there too. The propagation pass
 //! skips the recorded peers and clears `recently_received_statements` when done.
 //!
-//! Initial sync sends a snapshot of the whole store with no per-peer filtering, so a peer can
-//! occasionally receive a statement twice and may charge a small reputation penalty for the
-//! duplicate. TODO: dedupe the initial-sync and propagation paths once sends flow through a
-//! per-peer outbox (issue #12838).
+//! All sends to a peer flow through its single send slot, so initial sync and propagation never
+//! have two chunks in flight to one peer. A statement can still reach a peer twice when it sits
+//! both in the peer's initial-sync snapshot and in a propagation tick after it, and the peer may
+//! charge a small reputation penalty for the duplicate. TODO: dedupe the sync snapshot against
+//! later propagation ticks by content.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -566,8 +567,8 @@ impl StatementHandlerPrototype {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -636,14 +637,17 @@ pub struct StatementHandler<
 	/// chunks are sent. An entry is created on first append and removed when it empties
 	/// or the peer disconnects.
 	propagation_outboxes: HashMap<PeerId, Vec<Hash>>,
-	/// Propagation id of the chunk in flight, per peer. At most one propagation
-	/// chunk per peer is in flight at a time, and each chunk gets a fresh id. The
-	/// id tells a stale result apart from the live one, so a peer that disconnects
-	/// and reconnects inside `SEND_TIMEOUT` does not get its fresh send slot freed
-	/// by the previous connection's send result.
-	in_flight_propagations: HashMap<PeerId, u64>,
-	/// Next value to hand out as the propagation id in [`SendKind::Propagation`].
-	next_propagation_id: u64,
+	/// Id of the chunk in flight, per peer — the peer's single send slot, shared
+	/// by propagation and initial sync, so at most one chunk per peer is in
+	/// flight at a time. Propagation refills a freed slot at once while initial
+	/// sync waits for its burst tick, so fresh gossip is never queued behind
+	/// snapshot bulk. Each chunk gets a fresh id, and the id tells a stale result
+	/// apart from the live one, so a peer that disconnects and reconnects inside
+	/// `SEND_TIMEOUT` does not get its fresh send slot freed by the previous
+	/// connection's send result.
+	in_flight_chunks: HashMap<PeerId, u64>,
+	/// Next value to hand out as a chunk id in [`SendKind`].
+	next_chunk_id: u64,
 	/// Encoded bytes of propagation chunks in `pending_sends`. Together with
 	/// `initial_sync_in_flight_bytes` it is throttled at the soft limit
 	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
@@ -732,8 +736,8 @@ enum SendOutcome {
 }
 
 enum SendKind {
-	Propagation { propagation_id: u64 },
-	InitialSync { sync_id: u64 },
+	Propagation { chunk_id: u64 },
+	InitialSync { sync_id: u64, chunk_id: u64 },
 }
 
 impl SendKind {
@@ -741,6 +745,13 @@ impl SendKind {
 		match self {
 			Self::Propagation { .. } => "propagation",
 			Self::InitialSync { .. } => "initial_sync",
+		}
+	}
+
+	fn chunk_id(&self) -> u64 {
+		match self {
+			Self::Propagation { chunk_id } => *chunk_id,
+			Self::InitialSync { chunk_id, .. } => *chunk_id,
 		}
 	}
 }
@@ -915,8 +926,8 @@ where
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -1223,7 +1234,7 @@ where
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 				self.propagation_outboxes.remove(&peer);
-				self.in_flight_propagations.remove(&peer);
+				self.in_flight_chunks.remove(&peer);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;
@@ -1546,7 +1557,7 @@ where
 	/// its whole backlog. Hashes whose statements left the store since they were
 	/// queued are dropped.
 	fn try_send_next_chunk(&mut self, who: PeerId) {
-		if self.in_flight_propagations.contains_key(&who) {
+		if self.in_flight_chunks.contains_key(&who) {
 			return;
 		}
 
@@ -1629,9 +1640,9 @@ where
 				self.propagation_outboxes.remove(&who);
 				return;
 			};
-			let propagation_id = self.next_propagation_id;
-			self.next_propagation_id = self.next_propagation_id.saturating_add(1);
-			self.in_flight_propagations.insert(who, propagation_id);
+			let chunk_id = self.next_chunk_id;
+			self.next_chunk_id = self.next_chunk_id.saturating_add(1);
+			self.in_flight_chunks.insert(who, chunk_id);
 			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 			self.set_propagation_in_flight_bytes(in_flight);
 			let sent_latency =
@@ -1645,7 +1656,7 @@ where
 					statement_count,
 					bytes_sent,
 					result,
-					kind: SendKind::Propagation { propagation_id },
+					kind: SendKind::Propagation { chunk_id },
 				}
 			}));
 			return;
@@ -1706,22 +1717,19 @@ where
 			},
 		};
 
-		// A completed propagation chunk frees the peer's send slot and the next
-		// chunk goes out at once. That holds even for a failed send — the failed
-		// chunk is not retried, but the rest of the backlog keeps draining.
-		if let SendKind::Propagation { propagation_id } = kind {
-			// A chunk's send future is not cancelled on disconnect, so its result
-			// can arrive after the peer disconnected (the slot entry is gone) or
-			// reconnected and put a new chunk in flight (the slot holds a newer
-			// id). Only the result of the chunk that occupies the slot frees it.
-			if self.in_flight_propagations.get(&peer) == Some(&propagation_id) {
-				self.in_flight_propagations.remove(&peer);
-				self.try_send_next_chunk(peer);
-			}
-			return;
+		// A completed chunk of either kind frees the peer's send slot and the next
+		// propagation chunk goes out at once. That holds even for a failed send —
+		// the failed chunk is not retried, but the rest of the backlog keeps
+		// draining. A chunk's send future is not cancelled on disconnect, so its
+		// result can arrive after the peer disconnected (the slot entry is gone)
+		// or reconnected and put a new chunk in flight (the slot holds a newer
+		// id). Only the result of the chunk that occupies the slot frees it.
+		if self.in_flight_chunks.get(&peer) == Some(&kind.chunk_id()) {
+			self.in_flight_chunks.remove(&peer);
+			self.try_send_next_chunk(peer);
 		}
 
-		let SendKind::InitialSync { sync_id } = kind else { return };
+		let SendKind::InitialSync { sync_id, .. } = kind else { return };
 
 		// A peer that reconnects inside the send timeout loses its sync on disconnect and gets a
 		// fresh one under the same `PeerId`; a stale result would advance or abort the wrong sync.
@@ -1889,8 +1897,24 @@ where
 			return;
 		}
 
-		let Some(peer_id) = self.initial_sync_peer_queue.pop_front() else {
-			return;
+		// A peer whose send slot is busy keeps its turn for a later burst while
+		// the current one serves the next queued peer, so one slow peer does not
+		// stall every other pending sync. One pass over the queue's starting
+		// length visits each queued peer at most once.
+		let mut remaining = self.initial_sync_peer_queue.len();
+		let peer_id = loop {
+			if remaining == 0 {
+				return;
+			}
+			remaining -= 1;
+			let Some(peer_id) = self.initial_sync_peer_queue.pop_front() else {
+				return;
+			};
+			if self.in_flight_chunks.contains_key(&peer_id) {
+				self.initial_sync_peer_queue.push_back(peer_id);
+				continue;
+			}
+			break peer_id;
 		};
 
 		let Entry::Occupied(mut entry) = self.pending_initial_syncs.entry(peer_id) else {
@@ -1980,6 +2004,9 @@ where
 			self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 		let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
 		self.set_initial_sync_in_flight_bytes(in_flight);
+		let chunk_id = self.next_chunk_id;
+		self.next_chunk_id = self.next_chunk_id.saturating_add(1);
+		self.in_flight_chunks.insert(peer_id, chunk_id);
 		self.pending_sends.push(Box::pin(async move {
 			let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
 			let result = send_with_timeout(message_sink.send_async_notification(encoded)).await;
@@ -1989,7 +2016,7 @@ where
 				statement_count,
 				bytes_sent: bytes_to_send,
 				result,
-				kind: SendKind::InitialSync { sync_id },
+				kind: SendKind::InitialSync { sync_id, chunk_id },
 			}
 		}));
 	}
@@ -2529,8 +2556,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -2830,7 +2857,7 @@ mod tests {
 		notification_service.block_sends();
 		handler.propagate_statements().await;
 		assert!(handler.propagation_outboxes.contains_key(&peer_id));
-		assert!(handler.in_flight_propagations.contains_key(&peer_id));
+		assert!(handler.in_flight_chunks.contains_key(&peer_id));
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
@@ -2839,7 +2866,7 @@ mod tests {
 			.await;
 
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
-		assert!(!handler.in_flight_propagations.contains_key(&peer_id));
+		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
 	}
 
 	#[tokio::test]
@@ -2864,7 +2891,7 @@ mod tests {
 				hash
 			})
 			.collect();
-		handler.in_flight_propagations.insert(peer_id, 0);
+		handler.in_flight_chunks.insert(peer_id, 0);
 		handler
 			.propagation_outboxes
 			.insert(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
@@ -3141,8 +3168,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -3193,8 +3220,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -3606,7 +3633,7 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0, chunk_id: 0 },
 		});
 		handler.flush_pending_sends().await;
 
@@ -3638,7 +3665,7 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: 100,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0, chunk_id: 0 },
 		});
 		assert_eq!(handler.pending_sends.len(), 1);
 		assert_eq!(handler.parked_propagations, VecDeque::from([second]));
@@ -3653,6 +3680,70 @@ mod tests {
 		);
 		assert!(handler.parked_propagations.is_empty());
 		assert_eq!(handler.propagation_in_flight_bytes, 0);
+	}
+
+	#[tokio::test]
+	async fn burst_skips_a_peer_with_a_busy_send_slot() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(2);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"burst behind a busy slot".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		handler.schedule_initial_sync_for_peer(peer_ids[0]);
+		handler.schedule_initial_sync_for_peer(peer_ids[1]);
+		// The first queued peer's send slot is taken by a propagation chunk.
+		handler.in_flight_chunks.insert(peer_ids[0], 42);
+
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		// The same burst serves the next queued peer instead of returning.
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 1);
+		assert_eq!(sent[0].0, peer_ids[1]);
+		// The busy peer keeps its sync and its turn.
+		assert!(handler.pending_initial_syncs.contains_key(&peer_ids[0]));
+		assert!(handler.initial_sync_peer_queue.contains(&peer_ids[0]));
+	}
+
+	#[tokio::test]
+	async fn peer_with_both_kinds_pending_sends_propagation_first() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		// An initial-sync chunk takes the slot, then a fresh statement arrives by
+		// tick while the slot is busy.
+		let mut synced = Statement::new();
+		synced.set_plain_data(b"snapshot statement".to_vec());
+		let synced_hash = synced.hash();
+		statement_store.statements.lock().unwrap().insert(synced_hash, synced);
+		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.process_initial_sync_burst();
+		assert!(handler.in_flight_chunks.contains_key(&peer_id));
+
+		let mut fresh = Statement::new();
+		fresh.set_plain_data(b"fresh gossip".to_vec());
+		let fresh_hash = fresh.hash();
+		statement_store.recent_statements.lock().unwrap().insert(fresh_hash, fresh);
+		handler.propagate_statements().await;
+		assert_eq!(handler.pending_sends.len(), 1, "the propagation chunk must wait in the outbox");
+
+		// The initial-sync completion frees the slot and propagation claims it
+		// before the next burst tick gets a chance.
+		let result = handler.pending_sends.next().await.unwrap();
+		handler.handle_send_result(result);
+		assert_eq!(handler.pending_sends.len(), 1);
+		assert!(handler.in_flight_chunks.contains_key(&peer_id));
+		handler.process_initial_sync_burst();
+		assert_eq!(handler.pending_sends.len(), 1, "a burst must not bypass the busy slot");
+
+		handler.flush_pending_sends().await;
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![synced_hash, fresh_hash]);
 	}
 
 	#[tokio::test]
@@ -5039,8 +5130,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -5377,8 +5468,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -5460,8 +5551,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -5545,8 +5636,8 @@ mod tests {
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
 			propagation_outboxes: HashMap::new(),
-			in_flight_propagations: HashMap::new(),
-			next_propagation_id: 0,
+			in_flight_chunks: HashMap::new(),
+			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -5653,8 +5744,8 @@ mod tests {
 					next_initial_sync_id: 0,
 					initial_sync_in_flight_bytes: 0,
 					propagation_outboxes: HashMap::new(),
-					in_flight_propagations: HashMap::new(),
-					next_propagation_id: 0,
+					in_flight_chunks: HashMap::new(),
+					next_chunk_id: 0,
 					propagation_in_flight_bytes: 0,
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
