@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786552603083,
+  "lastUpdate": 1786611305926,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a",
-          "message": "pin solc version to 0.8.30 in tests-misc.yml (#10558)\n\npin solc version to 0.8.30 in tests-misc.yml\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-05T21:02:46Z",
-          "tree_id": "e8cf4dc10010e74205898bd03f90c509adde81ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a"
-        },
-        "date": 1764977802353,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2000247104333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.614725641,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1393766182,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e05316b1656277c2003e5a9a8778dc28ed0a10c",
+          "message": "paras: skip undersized parachain heads in sorted_para_heads (#12844)\n\n`Paras::sorted_para_heads()` now skips parachain heads shorter than\n`MIN_PARA_HEAD_LEN` (64 bytes) when building the parachain-heads list.\nEncoded parachain headers are well above this bound, so no real\nparachain is affected.\n\nRelay-only, no downstream change needed. Adds a test.",
+          "timestamp": "2026-08-13T07:06:53Z",
+          "tree_id": "27223f7f45cdeecb2b630c5bb8d401af521fcf6e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e05316b1656277c2003e5a9a8778dc28ed0a10c"
+        },
+        "date": 1786611273990,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14559277120000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.097793980433337,
             "unit": "seconds"
           }
         ]
