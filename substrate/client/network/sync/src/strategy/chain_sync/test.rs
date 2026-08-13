@@ -1464,6 +1464,55 @@ fn gap_sync_body_request_depends_on_body_retention() {
 }
 
 #[test]
+fn gap_sync_truncated_straddling_response_is_retried_header_only() {
+	sp_tracing::try_init_simple();
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	client.finalize_block(blocks[9].hash(), None).unwrap();
+
+	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9, so with
+	// `Recent(3)` the body cutoff is #7.
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		4,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		BlockBodyRetention::Recent(3),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id = PeerId::random();
+
+	sync.gap_sync = Some(GapSync {
+		best_queued_number: 4,
+		target: 9,
+		blocks: BlockCollection::new(),
+		stats: GapSyncStats::new(),
+	});
+
+	sync.add_peer(peer_id, blocks[9].hash(), 10);
+
+	// Range #5..=#8 straddles the cutoff, so bodies are requested for all of it.
+	let request = get_block_request(&mut sync, FromBlock::Number(8), 4, &peer_id);
+	assert!(request.fields.contains(BlockAttributes::BODY));
+
+	// The peer only has the body of #8 and truncates the descending response at the
+	// first missing body. A partial response is valid as long as `from` is present.
+	let response = create_block_response(vec![blocks[7].clone()]);
+	sync.on_block_data(&peer_id, Some(request), response).unwrap();
+
+	// The remaining range #5..=#7 is entirely at or below the cutoff, so the retry
+	// no longer requests bodies.
+	let retry = get_block_request(&mut sync, FromBlock::Number(7), 3, &peer_id);
+	assert!(!retry.fields.contains(BlockAttributes::BODY));
+}
+
+#[test]
 fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 	sp_tracing::try_init_simple();
 
