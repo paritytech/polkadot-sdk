@@ -51,10 +51,9 @@
 //! skips the recorded peers and clears `recently_received_statements` when done.
 //!
 //! All sends to a peer flow through its single send slot, so initial sync and propagation never
-//! have two chunks in flight to one peer. A statement can still reach a peer twice when it sits
-//! both in the peer's initial-sync snapshot and in a propagation tick after it, and the peer may
-//! charge a small reputation penalty for the duplicate. TODO: dedupe the sync snapshot against
-//! later propagation ticks by content.
+//! have two chunks in flight to one peer. While a peer's initial sync is pending, propagation
+//! skips statements in the sync's snapshot — the sync delivers each of them exactly once, so a
+//! peer never receives a statement through both paths.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -719,11 +718,23 @@ pub struct Peer {
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
 struct PendingInitialSync {
+	/// The store's hash list at scheduling time, sorted so the propagation path
+	/// can binary-search it and skip statements this sync delivers.
 	hashes: Vec<Hash>,
+	/// Hashes before this index were consumed by bursts. The list is kept whole
+	/// instead of drained so membership stays testable over the full snapshot.
+	cursor: usize,
 	started_at: Instant,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
 	/// apart once its result arrives.
 	sync_id: u64,
+}
+
+impl PendingInitialSync {
+	/// The snapshot hashes no burst has consumed yet.
+	fn remaining_hashes(&self) -> &[Hash] {
+		&self.hashes[self.cursor..]
+	}
 }
 
 enum SendOutcome {
@@ -1522,6 +1533,16 @@ where
 				) {
 					return None;
 				}
+				// The peer's pending initial sync delivers every snapshot hash
+				// exactly once, whether its cursor has passed the hash or not, so
+				// propagating a snapshot member would duplicate it.
+				if self
+					.pending_initial_syncs
+					.get(who)
+					.is_some_and(|sync| sync.hashes.binary_search(hash).is_ok())
+				{
+					return None;
+				}
 				// For v2 peers with topic affinity, filter by topic match.
 				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 					return None;
@@ -1799,10 +1820,15 @@ where
 			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
-		let hashes = self.statement_store.statement_hashes();
+		let mut hashes = self.statement_store.statement_hashes();
+		// Sorted so the propagation path can binary-search the snapshot and skip
+		// statements this sync delivers (see `queue_statements_for_peer`).
+		hashes.sort_unstable();
 		if !hashes.is_empty() {
-			self.pending_initial_syncs
-				.insert(peer, PendingInitialSync { hashes, started_at: Instant::now(), sync_id });
+			self.pending_initial_syncs.insert(
+				peer,
+				PendingInitialSync { hashes, cursor: 0, started_at: Instant::now(), sync_id },
+			);
 			self.initial_sync_peer_queue.push_back(peer);
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
@@ -1926,7 +1952,7 @@ where
 			metrics.initial_sync_bursts_total.inc();
 		});
 
-		if entry.get().hashes.is_empty() {
+		if entry.get().remaining_hashes().is_empty() {
 			let started_at = entry.get().started_at;
 			entry.remove();
 			self.record_initial_sync_completion(sync_outcome::COMPLETED, started_at);
@@ -1950,7 +1976,7 @@ where
 			&self.pending_statements_peers,
 			&peer_id,
 			peer_data,
-			&entry.get().hashes,
+			entry.get().remaining_hashes(),
 			max_size,
 		) {
 			Ok(r) => r,
@@ -1962,8 +1988,8 @@ where
 			},
 		};
 
-		// Drain the processed hashes; a failed send abandons them.
-		entry.get_mut().hashes.drain(..processed);
+		// Advance past the processed hashes. A failed send abandons them.
+		entry.get_mut().cursor += processed;
 		drop(entry);
 
 		if accumulated_size > max_size {
@@ -3683,6 +3709,65 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn propagation_skips_statements_in_a_pending_sync_snapshot() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(2);
+		let (syncing_peer, settled_peer) = (peer_ids[0], peer_ids[1]);
+
+		// The statement is already in the store when the sync is scheduled and
+		// still in the recent set, so the next tick would duplicate it.
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"in snapshot and recent".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		handler.schedule_initial_sync_for_peer(syncing_peer);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		// The settled peer gets it via propagation, the syncing peer must not.
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(get_peer_hashes(&sent, settled_peer), vec![hash]);
+		assert!(get_peer_hashes(&sent, syncing_peer).is_empty());
+
+		// The sync delivers it exactly once.
+		while handler.pending_initial_syncs.contains_key(&syncing_peer) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(get_peer_hashes(&sent, syncing_peer), vec![hash]);
+	}
+
+	#[tokio::test]
+	async fn snapshot_dedupe_covers_already_synced_statements() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"synced then ticked".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+
+		// The sync consumes its whole snapshot before the statement's tick fires.
+		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert!(pending.remaining_hashes().is_empty(), "the cursor must have passed the snapshot");
+
+		// The tick arrives after the hash was already synced.
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash], "the peer must receive the statement exactly once");
+	}
+
+	#[tokio::test]
 	async fn burst_skips_a_peer_with_a_busy_send_slot() {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(2);
@@ -4017,7 +4102,10 @@ mod tests {
 
 		// Verify initial sync was queued with both hashes
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
-		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 2);
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().remaining_hashes().len(),
+			2
+		);
 
 		// Process first burst - should send only one statement (the other doesn't fit)
 		handler.process_initial_sync_burst();
@@ -4040,7 +4128,10 @@ mod tests {
 
 		// Second statement should still be pending
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
-		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 1);
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().remaining_hashes().len(),
+			1
+		);
 
 		// Process second burst - should send the remaining statement
 		handler.process_initial_sync_burst();
