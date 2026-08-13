@@ -710,8 +710,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// No deposit is taken here. Used when a remote control plane owns the manager relationship and
 	/// the deposit (see the [`ParachainRegistrar`](pallet_registrar_relay::ParachainRegistrar)
-	/// impl), so this pallet has no funds of the manager's to reserve — the manager account need not
-	/// even exist here.
+	/// impl), so this pallet has no funds of the manager's to reserve — the manager account need
+	/// not even exist here.
 	///
 	/// Everything else is a normal registration: head data and code are still validated against the
 	/// live [`configuration`](configuration::ActiveConfig), and the para still goes through the
