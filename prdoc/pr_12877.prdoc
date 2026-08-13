@@ -14,10 +14,10 @@ doc:
     `FullSubmissionFee` needs the fee of a call it cannot afford to build, so `frame_support` gains `EstimateFee`, a sibling of `EstimateCallFee` that takes an encoded length and a `DispatchInfo` instead of a call, implemented by `pallet-transaction-payment`.
 crates:
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: pallet-election-provider-multi-block
-  bump: patch
+  bump: major
 - name: frame-support
-  bump: patch
+  bump: minor
 - name: pallet-transaction-payment
-  bump: patch
+  bump: minor
