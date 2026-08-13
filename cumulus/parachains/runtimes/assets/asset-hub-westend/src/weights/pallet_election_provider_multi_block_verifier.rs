@@ -18,7 +18,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2026-08-13, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `d8b16348448b`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `a4b1697efbca`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -76,8 +76,8 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 		// Proof Size summary in bytes:
 		//  Measured:  `373679`
 		//  Estimated: `377144`
-		// Minimum execution time: 699_287_000 picoseconds.
-		Weight::from_parts(741_664_000, 0)
+		// Minimum execution time: 668_428_000 picoseconds.
+		Weight::from_parts(719_278_000, 0)
 			.saturating_add(Weight::from_parts(0, 377144))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -106,10 +106,8 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
 	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
 	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:0)
+	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// Storage: `MultiBlockElectionSigned::UnpaidRewards` (r:1 w:1)
-	/// Proof: `MultiBlockElectionSigned::UnpaidRewards` (`max_values`: Some(1), `max_size`: Some(833), added: 1328, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:0 w:1)
@@ -118,10 +116,10 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 		// Proof Size summary in bytes:
 		//  Measured:  `410194`
 		//  Estimated: `492859`
-		// Minimum execution time: 1_205_954_000 picoseconds.
-		Weight::from_parts(1_276_689_000, 0)
+		// Minimum execution time: 1_145_571_000 picoseconds.
+		Weight::from_parts(1_210_800_000, 0)
 			.saturating_add(Weight::from_parts(0, 492859))
-			.saturating_add(T::DbWeight::get().reads(78))
+			.saturating_add(T::DbWeight::get().reads(77))
 			.saturating_add(T::DbWeight::get().writes(73))
 	}
 	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
@@ -156,8 +154,8 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 		// Proof Size summary in bytes:
 		//  Measured:  `410364`
 		//  Estimated: `493029`
-		// Minimum execution time: 1_257_254_000 picoseconds.
-		Weight::from_parts(1_332_560_000, 0)
+		// Minimum execution time: 1_116_412_000 picoseconds.
+		Weight::from_parts(1_189_170_000, 0)
 			.saturating_add(Weight::from_parts(0, 493029))
 			.saturating_add(T::DbWeight::get().reads(107))
 			.saturating_add(T::DbWeight::get().writes(102))
@@ -194,12 +192,12 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 	fn verification_invalid_non_terminal(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `418837 + v * (37 ±0)`
-		//  Estimated: `488833 + v * (2560 ±234)`
-		// Minimum execution time: 855_789_000 picoseconds.
-		Weight::from_parts(993_018_705, 0)
+		//  Estimated: `488833 + v * (2560 ±226)`
+		// Minimum execution time: 789_626_000 picoseconds.
+		Weight::from_parts(897_632_039, 0)
 			.saturating_add(Weight::from_parts(0, 488833))
-			// Standard Error: 137_406
-			.saturating_add(Weight::from_parts(3_578_772, 0).saturating_mul(v.into()))
+			// Standard Error: 172_885
+			.saturating_add(Weight::from_parts(5_546_641, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(43))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().writes(38))
