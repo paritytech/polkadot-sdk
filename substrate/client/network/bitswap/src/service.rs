@@ -563,12 +563,16 @@ pub(crate) struct BitswapService<B: BlockT> {
 	cmd_rx: mpsc::Receiver<BitswapCommand>,
 	cmd_channel_closed: bool,
 	sync_event_stream: Pin<Box<dyn Stream<Item = SyncEvent> + Send>>,
+	/// Runs blocking local transaction lookups with bounded concurrency.
 	inbound_lookup_pool: InboundLookupPool<B>,
 	inbound_lookup_rx: mpsc::Receiver<InboundLookupResult>,
+	/// Buffers inbound wantlist entries fairly per peer until a lookup worker is available.
 	inbound_queue: InboundQueue,
 
 	connected_peers: HashSet<litep2p::PeerId>,
+	/// Coordinates each requested CID across user requests, peers, retries, and dispatch slots.
 	scheduler: RequestScheduler,
+	/// Active user-facing requests that receive blocks resolved by the scheduler.
 	user_requests: SlotMap<UserRequestId, UserRequest>,
 	metrics: BitswapMetrics,
 }
