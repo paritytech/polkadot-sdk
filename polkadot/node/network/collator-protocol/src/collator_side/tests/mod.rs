@@ -329,7 +329,6 @@ fn built_entry_from_receipt(
 		output_head_data_hash: receipt.descriptor.para_head(),
 		pov: pov.clone(),
 		parent_head_data,
-		result_sender: None,
 	}
 }
 

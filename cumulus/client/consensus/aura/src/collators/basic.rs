@@ -273,9 +273,11 @@ where
 				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
 					continue;
 				};
-				let result_sender =
-					Some(collator.collator_service().announce_with_barrier(block_hash));
-				request.complete(Some(CollationResult { collation, result_sender }));
+
+				// Here we are assuming that the import logic protects against equivocations
+				// and provides sybil-resistance, as it should.
+				collator.collator_service().announce_block(block_hash, None);
+				request.complete(Some(CollationResult { collation }));
 			} else {
 				request.complete(None);
 				tracing::debug!(target: crate::LOG_TARGET, "No block proposal");

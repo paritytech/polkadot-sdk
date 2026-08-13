@@ -50,6 +50,7 @@ use sp_version::RuntimeVersion;
 use std::{
 	borrow::Cow,
 	collections::{BTreeMap, VecDeque},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -407,7 +408,7 @@ fn default_header() -> Header {
 async fn make_gossip_message_and_header_using_genesis(
 	api: Arc<DummyRelayChainInterface>,
 	validator_index: u32,
-) -> (CollationSecondedSignal, Header) {
+) -> (BlockAnnounceData, Header) {
 	let relay_parent = api.relay_client.hash(0).ok().flatten().expect("Genesis hash exists");
 
 	make_gossip_message_and_header(api, relay_parent, validator_index).await
@@ -417,7 +418,7 @@ async fn make_gossip_message_and_header(
 	relay_chain_interface: Arc<DummyRelayChainInterface>,
 	relay_parent: H256,
 	validator_index: u32,
-) -> (CollationSecondedSignal, Header) {
+) -> (BlockAnnounceData, Header) {
 	let keystore: KeystorePtr = Arc::new(MemoryKeystore::new());
 	let alice_public = Keystore::sr25519_generate_new(
 		&*keystore,
@@ -458,7 +459,14 @@ async fn make_gossip_message_and_header(
 	.flatten()
 	.expect("Signing statement");
 
-	(CollationSecondedSignal { statement: signed, scheduling_parent: relay_parent }, header)
+	let receipt = match signed.payload() {
+		Statement::Seconded(receipt) => receipt.to_plain(),
+		_ => unreachable!("was built as Seconded; qed"),
+	};
+	let data =
+		BlockAnnounceData { receipt, statement: signed.convert_payload().into(), relay_parent };
+
+	(data, header)
 }
 
 #[test]
@@ -518,8 +526,8 @@ fn check_statement_is_encoded_correctly() {
 fn block_announce_data_decoding_should_reject_extra_data() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signal, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let mut data = BlockAnnounceData::try_from(&signal).unwrap().encode();
+	let (announce_data, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
+	let mut data = announce_data.encode();
 	data.push(0x42);
 
 	let res = block_on(validator.validate(&header, &data)).expect_err("Should return an error ");
@@ -542,24 +550,18 @@ struct LegacyBlockAnnounceData {
 fn legacy_block_announce_data_handling() {
 	let (_, api) = make_validator_and_api();
 
-	let (signal, _) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-
-	let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
-		receipt.to_plain()
-	} else {
-		panic!("Invalid")
-	};
+	let (announce_data, _) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
 
 	let legacy = LegacyBlockAnnounceData {
-		receipt: receipt.clone(),
-		statement: signal.statement.convert_payload().into(),
+		receipt: announce_data.receipt.clone(),
+		statement: announce_data.statement,
 	};
 
 	let data = legacy.encode();
 
 	let block_data =
 		BlockAnnounceData::decode(&mut &data[..]).expect("Decoding works from legacy works");
-	assert_eq!(receipt.descriptor.relay_parent(), block_data.relay_parent);
+	assert_eq!(announce_data.receipt.descriptor.relay_parent(), block_data.relay_parent);
 
 	let data = block_data.encode();
 	LegacyBlockAnnounceData::decode(&mut &data[..]).expect("Decoding works");
@@ -569,8 +571,8 @@ fn legacy_block_announce_data_handling() {
 fn check_signer_is_legit_validator() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signal, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
-	let data = BlockAnnounceData::try_from(&signal).unwrap().encode();
+	let (announce_data, header) = block_on(make_gossip_message_and_header_using_genesis(api, 1));
+	let data = announce_data.encode();
 
 	let res = block_on(validator.validate(&header, &data));
 	assert_eq!(Validation::Failure { disconnect: true }, res.unwrap());
@@ -580,9 +582,8 @@ fn check_signer_is_legit_validator() {
 fn check_statement_is_correctly_signed() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signal, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
-
-	let mut data = BlockAnnounceData::try_from(&signal).unwrap().encode();
+	let (announce_data, header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
+	let mut data = announce_data.encode();
 
 	// The signature comes at the end of the type, so change a bit to make the signature invalid.
 	let last = data.len() - 1;
@@ -650,8 +651,9 @@ async fn check_statement_seconded() {
 fn check_header_match_candidate_receipt_header() {
 	let (mut validator, api) = make_validator_and_api();
 
-	let (signal, mut header) = block_on(make_gossip_message_and_header_using_genesis(api, 0));
-	let data = BlockAnnounceData::try_from(&signal).unwrap().encode();
+	let (announce_data, mut header) =
+		block_on(make_gossip_message_and_header_using_genesis(api, 0));
+	let data = announce_data.encode();
 	header.number = 300;
 
 	let res = block_on(validator.validate(&header, &data));
@@ -670,9 +672,8 @@ fn relay_parent_not_imported_when_block_announce_is_processed() {
 		let client = api.relay_client.clone();
 		let block = client.init_polkadot_block_builder().build().expect("Build new block").block;
 
-		let (signal, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
-
-		let data = BlockAnnounceData::try_from(&signal).unwrap().encode();
+		let (announce_data, header) = make_gossip_message_and_header(api, block.hash(), 0).await;
+		let data = announce_data.encode();
 
 		let mut validation = validator.validate(&header, &data);
 

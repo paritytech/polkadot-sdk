@@ -1,0 +1,69 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Collation protocol v4 with bounded segment advertisements
+
+doc:
+  - audience: Node Dev
+    description: |
+      Introduces collation protocol v4. Collators advertise bounded segments of
+      chained candidates with a single `AdvertiseSegment` message per scheduling
+      parent and core; v4 has no `Declare` and no `CollationSeconded` message. An
+      experimental validator side implements segment handling, fetching candidates
+      referenced by segment advertisements. The collator side stores immutable
+      segments per scheduling parent and core and serves fetches from them. The
+      collation generation subsystem accepts multi-candidate segments via
+      `SubmitSegment` and distributes them with
+      `CollatorProtocolMessage::DistributeSegment`.
+
+      Collation peer-set connections upgrade to the newest common protocol version;
+      peers running older nodes keep being served over v3.
+
+      The collation seconded signal is removed end to end: `CollationResult` and
+      `SegmentCollation` lose their `result_sender` field, `CollationSecondedSignal`
+      is deleted, `WaitToAnnounce` and `ServiceInterface::announce_with_barrier` are
+      removed and `CollatorService::new` no longer takes a spawner. The `basic` aura
+      collator announces blocks immediately after building, like the lookahead
+      collator, instead of waiting for a validator to second the collation. The
+      v2/v3 `CollationSeconded` receive path is kept as a signature check plus log
+      because validators running older versions send it unsolicited.
+      `RequireSecondedInBlockAnnounce` and `BlockAnnounceData` decoding stay so
+      block announcements from nodes running older versions still validate.
+
+      Chains configured with `CollatorSybilResistance::Unresistant` no longer get
+      pre-backing tip announcements from updated collators: empty announcements are
+      accepted once the block is backed or included, with `pov-recovery` as the
+      propagation backstop. Chains that need pre-backing tip gossip should migrate
+      to a sybil-resistant collation mechanism.
+
+crates:
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-collator-protocol
+    bump: major
+  - name: polkadot-node-collation-generation
+    bump: major
+  - name: polkadot-node-primitives
+    bump: major
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: cumulus-client-network
+    bump: major
+  - name: cumulus-client-collator
+    bump: major
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-network-bridge
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
+  - name: cumulus-client-consensus-aura
+    bump: patch
+  - name: cumulus-relay-chain-minimal-node
+    bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-node-core-pvf-execute-worker
+    bump: patch

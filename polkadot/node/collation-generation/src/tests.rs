@@ -134,7 +134,7 @@ impl TestCollator {
 				core_selector_data.index += core_selector_data.increment_index_by;
 			}
 
-			async move { Some(CollationResult { collation, result_sender: None }) }.boxed()
+			async move { Some(CollationResult { collation }) }.boxed()
 		})
 	}
 }
@@ -182,7 +182,6 @@ fn submit_segment_is_no_op_before_initialization() {
 						relay_parent: Hash::repeat_byte(0),
 						collation: test_collation(),
 						validation_code_hash: Hash::repeat_byte(1).into(),
-						result_sender: None,
 						session_index: 1,
 						validation_data: PersistedValidationData {
 							parent_head: vec![1, 2, 3].into(),
@@ -237,7 +236,6 @@ fn submit_segment_leads_to_distribution() {
 						relay_parent,
 						collation,
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])
@@ -304,7 +302,6 @@ fn submit_segment_v3_runtime_calls_use_scheduling_parent() {
 						relay_parent,
 						collation,
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])
@@ -554,7 +551,6 @@ fn v2_receipts_failed_core_index_check() {
 						relay_parent,
 						collation: test_collation(),
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])
@@ -630,7 +626,6 @@ fn submit_v2_segment_with_multiple_collations_is_rejected() {
 				relay_parent,
 				collation: test_collation(),
 				validation_code_hash,
-				result_sender: None,
 				session_index: 1,
 				validation_data: pvd.clone(),
 			})
@@ -689,7 +684,6 @@ fn submit_segment_with_unsupported_descriptor_version_is_rejected(
 						relay_parent,
 						collation: test_collation(),
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: pvd,
 					}])
@@ -750,7 +744,6 @@ fn approved_peer_signal() {
 						relay_parent,
 						collation,
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])

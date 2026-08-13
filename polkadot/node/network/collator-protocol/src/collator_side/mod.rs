@@ -37,7 +37,7 @@ use polkadot_node_network_protocol::{
 	v4_collation::{self as protocol_v4, CandidateFingerprint},
 	CollationProtocols, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
-use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement, MAX_SEGMENT_LEN};
+use polkadot_node_primitives::{PoV, Statement, MAX_SEGMENT_LEN};
 use polkadot_node_subsystem::{
 	messages::{
 		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
@@ -374,9 +374,6 @@ struct State {
 	/// our view, including both leaves and implicit ancestry.
 	per_scheduling_parent: HashMap<Hash, PerSchedulingParent>,
 
-	/// The result senders per collation.
-	collation_result_senders: HashMap<CandidateHash, oneshot::Sender<CollationSecondedSignal>>,
-
 	/// The mapping from [`PeerId`] to [`HashSet<AuthorityDiscoveryId>`]. This is filled over time
 	/// as we learn the [`PeerId`]'s by `PeerConnected` events.
 	peer_ids: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
@@ -428,7 +425,6 @@ impl State {
 			peer_data: Default::default(),
 			implicit_view: None,
 			per_scheduling_parent: Default::default(),
-			collation_result_senders: Default::default(),
 			peer_ids: Default::default(),
 			reconnect_timeout: Fuse::terminated(),
 			waiting_collation_fetches: Default::default(),
@@ -586,10 +582,6 @@ async fn distribute_segment<Context>(
 				gum::warn!(target: LOG_TARGET, ?scheduling_parent, ?candidate_hash, output_head = ?para_head, "Received a candidate with the same output head at this scheduling parent.");
 			}
 			continue;
-		}
-		// Store the result sender
-		if let Some(result_sender) = entry.result_sender {
-			state.collation_result_senders.insert(candidate_hash, result_sender);
 		}
 		// Store collation data
 		let pov_hash = entry.pov.hash();
@@ -1316,50 +1308,37 @@ async fn handle_incoming_peer_message<Context>(
 					.await?
 					.map_err(Error::InvalidStatementSignature)?;
 
-				let removed =
-					state.collation_result_senders.remove(&statement.payload().candidate_hash());
-
-				if let Some(sender) = removed {
-					gum::trace!(
-						target: LOG_TARGET,
-						?statement,
-						?origin,
-						"received a valid `CollationSeconded`, forwarding result to collator",
-					);
-					let _ = sender.send(CollationSecondedSignal { statement, scheduling_parent });
-				} else {
-					// Checking whether the `CollationSeconded` statement is unexpected
-					let relay_parent = match state.per_scheduling_parent.get(&scheduling_parent) {
-						Some(per_relay_parent) => per_relay_parent,
-						None => {
-							gum::debug!(
-								target: LOG_TARGET,
-								scheduling_parent = %scheduling_parent,
-								candidate_hash = ?&statement.payload().candidate_hash(),
-								"Seconded statement scheduling parent is out of our view",
-							);
-							return Ok(());
-						},
-					};
-					match relay_parent.collation_by_hash(&statement.payload().candidate_hash()) {
-						Some(_) => {
-							// We've seen this collation before, so a seconded statement is expected
-							gum::trace!(
-								target: LOG_TARGET,
-								?statement,
-								?origin,
-								"received a valid `CollationSeconded`",
-							);
-						},
-						None => {
-							gum::debug!(
-								target: LOG_TARGET,
-								candidate_hash = ?&statement.payload().candidate_hash(),
-								?origin,
-								"received an unexpected `CollationSeconded`: unknown statement",
-							);
-						},
-					}
+				// Checking whether the `CollationSeconded` statement is unexpected
+				let relay_parent = match state.per_scheduling_parent.get(&scheduling_parent) {
+					Some(per_relay_parent) => per_relay_parent,
+					None => {
+						gum::debug!(
+							target: LOG_TARGET,
+							scheduling_parent = %scheduling_parent,
+							candidate_hash = ?&statement.payload().candidate_hash(),
+							"Seconded statement scheduling parent is out of our view",
+						);
+						return Ok(());
+					},
+				};
+				match relay_parent.collation_by_hash(&statement.payload().candidate_hash()) {
+					Some(_) => {
+						// We've seen this collation before, so a seconded statement is expected
+						gum::trace!(
+							target: LOG_TARGET,
+							?statement,
+							?origin,
+							"received a valid `CollationSeconded`",
+						);
+					},
+					None => {
+						gum::debug!(
+							target: LOG_TARGET,
+							candidate_hash = ?&statement.payload().candidate_hash(),
+							?origin,
+							"received an unexpected `CollationSeconded`: unknown statement",
+						);
+					},
 				}
 			}
 		},
@@ -1917,11 +1896,6 @@ async fn handle_our_view_change<Context>(
 				.unwrap_or_default();
 
 			for collation_with_core in collations.into_values() {
-				let collation = collation_with_core.collation();
-				let candidate_hash = collation.receipt.hash();
-
-				state.collation_result_senders.remove(&candidate_hash);
-
 				process_out_of_view_collation(
 					&mut state.collation_tracker,
 					collation_with_core,

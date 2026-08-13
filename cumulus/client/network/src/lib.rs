@@ -19,17 +19,15 @@
 //!
 //! Provides a custom block announcement implementation for parachains
 //! that use the relay chain provided consensus. See [`RequireSecondedInBlockAnnounce`]
-//! and [`WaitToAnnounce`] for more information about this implementation.
+//! for more information about this implementation.
 
 use sp_api::RuntimeApiInfo;
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator as BlockAnnounceValidatorT, Validation,
 };
-use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_node_primitives::{CollationSecondedSignal, Statement};
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
@@ -38,8 +36,8 @@ use polkadot_primitives::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{channel::oneshot, future::FutureExt, Future};
-use std::{fmt, marker::PhantomData, pin::Pin, sync::Arc};
+use futures::{future::FutureExt, Future};
+use std::{fmt, marker::PhantomData, pin::Pin};
 
 #[cfg(test)]
 mod tests;
@@ -171,24 +169,6 @@ impl BlockAnnounceData {
 	}
 }
 
-impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
-	type Error = ();
-
-	fn try_from(signal: &CollationSecondedSignal) -> Result<BlockAnnounceData, ()> {
-		let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
-			receipt.to_plain()
-		} else {
-			return Err(());
-		};
-
-		Ok(BlockAnnounceData {
-			receipt,
-			statement: signal.statement.convert_payload().into(),
-			relay_parent: signal.scheduling_parent,
-		})
-	}
-}
-
 /// Parachain specific block announce validator.
 ///
 /// This is not required when the collation mechanism itself is sybil-resistant, as it is a spam
@@ -202,12 +182,13 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 /// this special block announce validator a node would need to import *millions*
 /// of blocks per round, which is clearly not doable.
 ///
-/// To solve this problem, each block announcement is delayed until a collator
-/// has received a [`Statement::Seconded`] for its `PoV`. This message tells the
-/// collator that its `PoV` was validated successfully by a parachain validator and
-/// that it is very likely that this `PoV` will be included in the relay chain. Every
-/// collator that doesn't receive the message for its `PoV` will not announce its block.
-/// For more information on the block announcement, see [`WaitToAnnounce`].
+/// To limit this problem, announcements for blocks at the tip of the parachain are only
+/// accepted when they carry a proof that a relay chain validator seconded the block. Nodes
+/// running older node versions produce this proof: their collators delay every block
+/// announcement until the `PoV` was seconded and attach the seconded statement to the
+/// announcement. This validator still verifies these proofs. Nodes running current versions
+/// announce their blocks without any attached data. Such announcements are accepted once
+/// the announced block is backed or included on the relay chain.
 ///
 /// For each block announcement that is received, the generic block announcement validation
 /// will call this validator and provides the extra data that was attached to the announcement.
@@ -409,84 +390,6 @@ where
 				.map_err(|e| Box::new(e) as Box<_>)
 		}
 		.boxed()
-	}
-}
-
-/// Wait before announcing a block that a candidate message has been received for this block, then
-/// add this message as justification for the block announcement.
-///
-/// This object will spawn a new task every time the method `wait_to_announce` is called and cancel
-/// the previous task running.
-pub struct WaitToAnnounce<Block: BlockT> {
-	spawner: Arc<dyn SpawnNamed + Send + Sync>,
-	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-}
-
-impl<Block: BlockT> WaitToAnnounce<Block> {
-	/// Create the `WaitToAnnounce` object
-	pub fn new(
-		spawner: Arc<dyn SpawnNamed + Send + Sync>,
-		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	) -> WaitToAnnounce<Block> {
-		WaitToAnnounce { spawner, announce_block }
-	}
-
-	/// Wait for a candidate message for the block, then announce the block. The candidate
-	/// message will be added as justification to the block announcement.
-	pub fn wait_to_announce(
-		&mut self,
-		block_hash: <Block as BlockT>::Hash,
-		signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
-	) {
-		let announce_block = self.announce_block.clone();
-
-		self.spawner.spawn(
-			"cumulus-wait-to-announce",
-			None,
-			async move {
-				tracing::debug!(
-					target: "cumulus-network",
-					"waiting for announce block in a background task...",
-				);
-
-				wait_to_announce::<Block>(block_hash, announce_block, signed_stmt_recv).await;
-
-				tracing::debug!(
-					target: "cumulus-network",
-					"block announcement finished",
-				);
-			}
-			.boxed(),
-		);
-	}
-}
-
-async fn wait_to_announce<Block: BlockT>(
-	block_hash: <Block as BlockT>::Hash,
-	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
-) {
-	let signal = match signed_stmt_recv.await {
-		Ok(s) => s,
-		Err(_) => {
-			tracing::debug!(
-				target: "cumulus-network",
-				block = ?block_hash,
-				"Wait to announce stopped, because sender was dropped.",
-			);
-			return;
-		},
-	};
-
-	if let Ok(data) = BlockAnnounceData::try_from(&signal) {
-		announce_block(block_hash, Some(data.encode()));
-	} else {
-		tracing::debug!(
-			target: "cumulus-network",
-			?signal,
-			block = ?block_hash,
-			"Received invalid statement while waiting to announce block.",
-		);
 	}
 }
 

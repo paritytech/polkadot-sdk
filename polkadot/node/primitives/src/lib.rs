@@ -465,41 +465,11 @@ pub struct Collation<BlockNumber = polkadot_primitives::BlockNumber> {
 	pub hrmp_watermark: BlockNumber,
 }
 
-/// Signal that is being returned when a collation was seconded by a validator.
-#[derive(Debug)]
-#[cfg(not(target_os = "unknown"))]
-pub struct CollationSecondedSignal {
-	/// The hash of the relay chain block used as context for scheduling/validator assignment
-	/// to sign [`Self::statement`]. For V3 this is the scheduling parent (may differ from
-	/// the candidate's relay_parent). For V1/V2 this equals the relay_parent.
-	pub scheduling_parent: Hash,
-	/// The statement about seconding the collation.
-	///
-	/// Anything else than [`Statement::Seconded`] is forbidden here.
-	pub statement: SignedFullStatement,
-}
-
 /// Result of the [`CollatorFn`] invocation.
 #[cfg(not(target_os = "unknown"))]
 pub struct CollationResult {
 	/// The collation that was build.
 	pub collation: Collation,
-	/// An optional result sender that should be informed about a successfully seconded collation.
-	///
-	/// There is no guarantee that this sender is informed ever about any result, it is completely
-	/// okay to just drop it. However, if it is called, it should be called with the signed
-	/// statement of a parachain validator seconding the collation.
-	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
-}
-
-#[cfg(not(target_os = "unknown"))]
-impl CollationResult {
-	/// Convert into the inner values.
-	pub fn into_inner(
-		self,
-	) -> (Collation, Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>) {
-		(self.collation, self.result_sender)
-	}
 }
 
 /// Collation function.
@@ -552,12 +522,6 @@ pub struct SegmentCollation {
 	pub validation_data: PersistedValidationData,
 	/// The hash of the validation code the collation was created against.
 	pub validation_code_hash: ValidationCodeHash,
-	/// An optional result sender that should be informed about a successfully seconded collation.
-	///
-	/// There is no guarantee that this sender is informed ever about any result, it is completely
-	/// okay to just drop it. However, if it is called, it should be called with the signed
-	/// statement of a parachain validator seconding the collation.
-	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
 	/// The session index of the relay parent. Goes into the candidate descriptor.
 	/// Must be provided by the caller because the relay parent's state may be pruned.
 	pub session_index: SessionIndex,
