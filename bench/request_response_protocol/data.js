@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786631680349,
+  "lastUpdate": 1786636653622,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -113291,6 +113291,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2830385061,
             "range": "± 18007894",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "817dd6b42c777d152436e936a1e9b626d30481dd",
+          "message": "[pallet-revive] fix wrong values in truncated and failed execution traces (#12855)\n\nThis PR fixes wrong values in truncated traces.\nThe execution tracer reported wrong values in four ways. The first three\nneed `ExecutionTracerConfig::limit`; the fourth affects every failing\ntransaction.\n\n1. `gasCost` / `weightCost`. Past the limit the tracer stopped opening a\npending entry per step, but the interpreter still reported every step's\nexit, so those exits finalized an enclosing CALL against the counters\nseen at truncation. At call depth 2 or more the captured steps could sum\nto more than the transaction consumed.\n\n2. `storage`. Snapshots taken by dropped steps were grafted onto the\nlast captured step, which could show slots it never touched.\n\n3. `error`. A revert or trap after the limit annotated the last captured\nstep, reporting a step that succeeded as reverted.\n\n4. `failed` / `returnValue`. `failed` was guarded on the outermost frame\nexiting at depth 0, which never happens, so every reverting transaction\ntraced as `failed: false`, and the revert path never assigned\n`returnValue`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-13T14:14:45Z",
+          "tree_id": "ea86287842986a4960b7c31ffdf94416bd79f2e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/817dd6b42c777d152436e936a1e9b626d30481dd"
+        },
+        "date": 1786636620267,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20617431,
+            "range": "± 306540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21073064,
+            "range": "± 164809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22539815,
+            "range": "± 216970",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27192112,
+            "range": "± 468308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65257009,
+            "range": "± 632584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 405106678,
+            "range": "± 8791296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2695690496,
+            "range": "± 137213935",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18159156,
+            "range": "± 272262",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18574031,
+            "range": "± 196561",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18450300,
+            "range": "± 145892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23202205,
+            "range": "± 320516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66864773,
+            "range": "± 759880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 398302711,
+            "range": "± 7672275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2792542604,
+            "range": "± 11198130",
             "unit": "ns/iter"
           }
         ]
