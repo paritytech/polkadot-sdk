@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786610245569,
+  "lastUpdate": 1786631680349,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -113183,6 +113183,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2707683326,
             "range": "± 96060065",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bccc8959101de39cfacec813443facf0e0732580",
+          "message": "Statement-store: remove unused public method `StatementHandler::propagate_statement` (#12874)\n\nRemoves the unused public method `StatementHandler::propagate_statement`\nfrom\n`sc-network-statement`. It never had a caller since its introduction: it\nwas copied\nfrom the transactions protocol, whose controller plumbing was never\nbrought over.\nStatements continue to be propagated by the periodic propagation loop.\n  \n Closes https://github.com/paritytech/polkadot-sdk/issues/12170",
+          "timestamp": "2026-08-13T12:53:15Z",
+          "tree_id": "652614be4246d518fdc96acf5446672a691a38f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bccc8959101de39cfacec813443facf0e0732580"
+        },
+        "date": 1786631646984,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21935761,
+            "range": "± 343903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22484765,
+            "range": "± 247407",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24193450,
+            "range": "± 242093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 29220715,
+            "range": "± 463733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 68076828,
+            "range": "± 1076057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 425566652,
+            "range": "± 6613756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2939886387,
+            "range": "± 183028922",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18915142,
+            "range": "± 248577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19218241,
+            "range": "± 172149",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19597627,
+            "range": "± 160881",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24224933,
+            "range": "± 286737",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67236813,
+            "range": "± 683973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 402356562,
+            "range": "± 4496361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2830385061,
+            "range": "± 18007894",
             "unit": "ns/iter"
           }
         ]
