@@ -373,7 +373,7 @@ pub mod pallet {
 	/// permissionless claim via [`Pallet::claim_unpaid_reward`].
 	///
 	/// Expected to stay empty in normal operation; only grows when the pot is depleted. If full,
-	/// [`Config::AdminOrigin`] can free a slot via [`Pallet::discard_unpaid_reward`].
+	/// [`crate::Config::AdminOrigin`] can free a slot via [`Pallet::discard_unpaid_reward`].
 	#[pallet::storage]
 	pub type UnpaidRewards<T: Config> =
 		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<16>>, ValueQuery>;
@@ -846,7 +846,7 @@ pub mod pallet {
 		/// A payout (reward or fee refund) failed with no recovery: either an invulnerable's fee
 		/// refund, which isn't deferred, or a reward that failed while [`UnpaidRewards`] was full.
 		RewardPaymentFailed(u32, T::AccountId, BalanceOf<T>),
-		/// [`Config::AdminOrigin`] wrote off an [`UnpaidRewards`] entry via
+		/// [`crate::Config::AdminOrigin`] wrote off an [`UnpaidRewards`] entry via
 		/// [`Pallet::discard_unpaid_reward`]; no funds moved.
 		UnpaidRewardDiscarded(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
