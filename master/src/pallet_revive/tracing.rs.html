@@ -218,118 +218,124 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#68 id=68 data-nosnippet>68</a>}
 <a href=#69 id=69 data-nosnippet>69</a>
 <a href=#70 id=70 data-nosnippet>70</a><span class="doccomment">/// Defines methods to trace contract interactions.
-<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">pub trait </span>Tracing {
-<a href=#72 id=72 data-nosnippet>72</a>	<span class="doccomment">/// Register an address that should be traced.
-<a href=#73 id=73 data-nosnippet>73</a>	</span><span class="kw">fn </span>watch_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _addr: <span class="kw-2">&amp;</span>H160) {}
-<a href=#74 id=74 data-nosnippet>74</a>
-<a href=#75 id=75 data-nosnippet>75</a>	<span class="doccomment">/// Called before a contract call is executed.
-<a href=#76 id=76 data-nosnippet>76</a>	///
-<a href=#77 id=77 data-nosnippet>77</a>	/// For CALL/DELEGATECALL opcodes:
-<a href=#78 id=78 data-nosnippet>78</a>	/// - `gas_limit`: gas forwarded to the child call
-<a href=#79 id=79 data-nosnippet>79</a>	</span><span class="kw">fn </span>enter_child_span(
-<a href=#80 id=80 data-nosnippet>80</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#81 id=81 data-nosnippet>81</a>		_from: H160,
-<a href=#82 id=82 data-nosnippet>82</a>		_to: H160,
-<a href=#83 id=83 data-nosnippet>83</a>		_delegate_call: <span class="prelude-ty">Option</span>&lt;H160&gt;,
-<a href=#84 id=84 data-nosnippet>84</a>		_is_read_only: bool,
-<a href=#85 id=85 data-nosnippet>85</a>		_value: U256,
-<a href=#86 id=86 data-nosnippet>86</a>		_input: <span class="kw-2">&amp;</span>[u8],
-<a href=#87 id=87 data-nosnippet>87</a>		_gas_limit: u64,
-<a href=#88 id=88 data-nosnippet>88</a>	) {
-<a href=#89 id=89 data-nosnippet>89</a>	}
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>	<span class="doccomment">/// Called when a contract calls terminates (selfdestructs)
-<a href=#92 id=92 data-nosnippet>92</a>	</span><span class="kw">fn </span>terminate(
-<a href=#93 id=93 data-nosnippet>93</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#94 id=94 data-nosnippet>94</a>		_contract_address: H160,
-<a href=#95 id=95 data-nosnippet>95</a>		_beneficiary_address: H160,
-<a href=#96 id=96 data-nosnippet>96</a>		_gas_left: u64,
-<a href=#97 id=97 data-nosnippet>97</a>		_value: U256,
-<a href=#98 id=98 data-nosnippet>98</a>	) {
-<a href=#99 id=99 data-nosnippet>99</a>	}
-<a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>	<span class="doccomment">/// Record the next code and salt to be instantiated.
-<a href=#102 id=102 data-nosnippet>102</a>	</span><span class="kw">fn </span>instantiate_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code: <span class="kw-2">&amp;</span>Code, _salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;) {}
-<a href=#103 id=103 data-nosnippet>103</a>
-<a href=#104 id=104 data-nosnippet>104</a>	<span class="doccomment">/// Called when a balance is read
-<a href=#105 id=105 data-nosnippet>105</a>	</span><span class="kw">fn </span>balance_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _addr: <span class="kw-2">&amp;</span>H160, _value: U256) {}
+<a href=#71 id=71 data-nosnippet>71</a>///
+<a href=#72 id=72 data-nosnippet>72</a>/// # Contract
+<a href=#73 id=73 data-nosnippet>73</a>///
+<a href=#74 id=74 data-nosnippet>74</a>/// Every [`Tracing::enter_opcode`] and [`Tracing::enter_ecall`] must be followed by exactly one
+<a href=#75 id=75 data-nosnippet>75</a>/// [`Tracing::exit_step`], on every path including reverts and traps. Tracers pair the two to
+<a href=#76 id=76 data-nosnippet>76</a>/// attribute a step's cost, so an unmatched call charges that step to an enclosing one.
+<a href=#77 id=77 data-nosnippet>77</a></span><span class="kw">pub trait </span>Tracing {
+<a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// Register an address that should be traced.
+<a href=#79 id=79 data-nosnippet>79</a>	</span><span class="kw">fn </span>watch_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _addr: <span class="kw-2">&amp;</span>H160) {}
+<a href=#80 id=80 data-nosnippet>80</a>
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="doccomment">/// Called before a contract call is executed.
+<a href=#82 id=82 data-nosnippet>82</a>	///
+<a href=#83 id=83 data-nosnippet>83</a>	/// For CALL/DELEGATECALL opcodes:
+<a href=#84 id=84 data-nosnippet>84</a>	/// - `gas_limit`: gas forwarded to the child call
+<a href=#85 id=85 data-nosnippet>85</a>	</span><span class="kw">fn </span>enter_child_span(
+<a href=#86 id=86 data-nosnippet>86</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#87 id=87 data-nosnippet>87</a>		_from: H160,
+<a href=#88 id=88 data-nosnippet>88</a>		_to: H160,
+<a href=#89 id=89 data-nosnippet>89</a>		_delegate_call: <span class="prelude-ty">Option</span>&lt;H160&gt;,
+<a href=#90 id=90 data-nosnippet>90</a>		_is_read_only: bool,
+<a href=#91 id=91 data-nosnippet>91</a>		_value: U256,
+<a href=#92 id=92 data-nosnippet>92</a>		_input: <span class="kw-2">&amp;</span>[u8],
+<a href=#93 id=93 data-nosnippet>93</a>		_gas_limit: u64,
+<a href=#94 id=94 data-nosnippet>94</a>	) {
+<a href=#95 id=95 data-nosnippet>95</a>	}
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>	<span class="doccomment">/// Called when a contract calls terminates (selfdestructs)
+<a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">fn </span>terminate(
+<a href=#99 id=99 data-nosnippet>99</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#100 id=100 data-nosnippet>100</a>		_contract_address: H160,
+<a href=#101 id=101 data-nosnippet>101</a>		_beneficiary_address: H160,
+<a href=#102 id=102 data-nosnippet>102</a>		_gas_left: u64,
+<a href=#103 id=103 data-nosnippet>103</a>		_value: U256,
+<a href=#104 id=104 data-nosnippet>104</a>	) {
+<a href=#105 id=105 data-nosnippet>105</a>	}
 <a href=#106 id=106 data-nosnippet>106</a>
-<a href=#107 id=107 data-nosnippet>107</a>	<span class="doccomment">/// Called when storage read is called
-<a href=#108 id=108 data-nosnippet>108</a>	</span><span class="kw">fn </span>storage_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>Key, _value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) {}
+<a href=#107 id=107 data-nosnippet>107</a>	<span class="doccomment">/// Record the next code and salt to be instantiated.
+<a href=#108 id=108 data-nosnippet>108</a>	</span><span class="kw">fn </span>instantiate_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code: <span class="kw-2">&amp;</span>Code, _salt: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]&gt;) {}
 <a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>	<span class="doccomment">/// Called when storage write is called
-<a href=#111 id=111 data-nosnippet>111</a>	</span><span class="kw">fn </span>storage_write(
-<a href=#112 id=112 data-nosnippet>112</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#113 id=113 data-nosnippet>113</a>		_key: <span class="kw-2">&amp;</span>Key,
-<a href=#114 id=114 data-nosnippet>114</a>		_old_value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
-<a href=#115 id=115 data-nosnippet>115</a>		_new_value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
-<a href=#116 id=116 data-nosnippet>116</a>	) {
-<a href=#117 id=117 data-nosnippet>117</a>	}
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>	<span class="doccomment">/// Record a log event
-<a href=#120 id=120 data-nosnippet>120</a>	</span><span class="kw">fn </span>log_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event: H160, _topics: <span class="kw-2">&amp;</span>[H256], _data: <span class="kw-2">&amp;</span>[u8], _log_index: u32) {}
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>	<span class="doccomment">/// Called after a contract call is executed
-<a href=#123 id=123 data-nosnippet>123</a>	</span><span class="kw">fn </span>exit_child_span(
-<a href=#124 id=124 data-nosnippet>124</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#125 id=125 data-nosnippet>125</a>		_output: <span class="kw-2">&amp;</span>ExecReturnValue,
-<a href=#126 id=126 data-nosnippet>126</a>		_gas_used: u64,
-<a href=#127 id=127 data-nosnippet>127</a>		_weight_consumed: Weight,
-<a href=#128 id=128 data-nosnippet>128</a>	) {
-<a href=#129 id=129 data-nosnippet>129</a>	}
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a>	<span class="doccomment">/// Called when a contract call terminates with an error
-<a href=#132 id=132 data-nosnippet>132</a>	</span><span class="kw">fn </span>exit_child_span_with_error(
-<a href=#133 id=133 data-nosnippet>133</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#134 id=134 data-nosnippet>134</a>		_error: DispatchError,
-<a href=#135 id=135 data-nosnippet>135</a>		_gas_used: u64,
-<a href=#136 id=136 data-nosnippet>136</a>		_weight_consumed: Weight,
-<a href=#137 id=137 data-nosnippet>137</a>	) {
-<a href=#138 id=138 data-nosnippet>138</a>	}
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a>	<span class="doccomment">/// Check if the tracer is an execution tracer.
-<a href=#141 id=141 data-nosnippet>141</a>	</span><span class="kw">fn </span>is_execution_tracer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#142 id=142 data-nosnippet>142</a>		<span class="bool-val">false
-<a href=#143 id=143 data-nosnippet>143</a>	</span>}
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>	<span class="doccomment">/// Called before an EVM opcode is executed.
-<a href=#146 id=146 data-nosnippet>146</a>	///
-<a href=#147 id=147 data-nosnippet>147</a>	/// # Parameters
-<a href=#148 id=148 data-nosnippet>148</a>	/// - `pc`: The current program counter.
-<a href=#149 id=149 data-nosnippet>149</a>	/// - `opcode`: The opcode being executed.
-<a href=#150 id=150 data-nosnippet>150</a>	/// - `trace_info`: Information about the current execution frame.
-<a href=#151 id=151 data-nosnippet>151</a>	</span><span class="kw">fn </span>enter_opcode(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _pc: u64, _opcode: u8, _trace_info: <span class="kw-2">&amp;</span><span class="kw">dyn </span>EVMFrameTraceInfo) {}
-<a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>	<span class="doccomment">/// Called before a PVM syscall is executed.
-<a href=#154 id=154 data-nosnippet>154</a>	///
-<a href=#155 id=155 data-nosnippet>155</a>	/// # Parameters
-<a href=#156 id=156 data-nosnippet>156</a>	/// - `ecall`: The name of the syscall being executed.
-<a href=#157 id=157 data-nosnippet>157</a>	/// - `args`: The syscall arguments (register values).
-<a href=#158 id=158 data-nosnippet>158</a>	/// - `trace_info`: Information about the current execution frame.
-<a href=#159 id=159 data-nosnippet>159</a>	</span><span class="kw">fn </span>enter_ecall(
-<a href=#160 id=160 data-nosnippet>160</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#161 id=161 data-nosnippet>161</a>		_ecall: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#162 id=162 data-nosnippet>162</a>		_args: <span class="kw-2">&amp;</span>[u64],
-<a href=#163 id=163 data-nosnippet>163</a>		_trace_info: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FrameTraceInfo,
-<a href=#164 id=164 data-nosnippet>164</a>	) {
-<a href=#165 id=165 data-nosnippet>165</a>	}
-<a href=#166 id=166 data-nosnippet>166</a>
-<a href=#167 id=167 data-nosnippet>167</a>	<span class="doccomment">/// Called after an EVM opcode or PVM syscall is executed to record the gas cost.
-<a href=#168 id=168 data-nosnippet>168</a>	///
-<a href=#169 id=169 data-nosnippet>169</a>	/// # Parameters
-<a href=#170 id=170 data-nosnippet>170</a>	/// - `trace_info`: Information about the current execution frame.
-<a href=#171 id=171 data-nosnippet>171</a>	/// - `returned`: The syscall return value (PVM only, `None` for EVM opcodes).
-<a href=#172 id=172 data-nosnippet>172</a>	</span><span class="kw">fn </span>exit_step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _trace_info: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FrameTraceInfo, _returned: <span class="prelude-ty">Option</span>&lt;u64&gt;) {}
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>	<span class="doccomment">/// Called once the transaction completes to report the gas consumed by the meter.
-<a href=#175 id=175 data-nosnippet>175</a>	///
-<a href=#176 id=176 data-nosnippet>176</a>	/// # Parameters
-<a href=#177 id=177 data-nosnippet>177</a>	/// - `base_call_weight`: Extrinsic base weight that is added on top of `weight_consumed` when
-<a href=#178 id=178 data-nosnippet>178</a>	///   charging.
-<a href=#179 id=179 data-nosnippet>179</a>	/// - `weight_consumed`: Weight used by the transaction logic, excluding the extrinsic base
-<a href=#180 id=180 data-nosnippet>180</a>	///   weight.
-<a href=#181 id=181 data-nosnippet>181</a>	</span><span class="kw">fn </span>dispatch_result(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _base_call_weight: Weight, _weight_consumed: Weight) {}
-<a href=#182 id=182 data-nosnippet>182</a>}
+<a href=#110 id=110 data-nosnippet>110</a>	<span class="doccomment">/// Called when a balance is read
+<a href=#111 id=111 data-nosnippet>111</a>	</span><span class="kw">fn </span>balance_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _addr: <span class="kw-2">&amp;</span>H160, _value: U256) {}
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a>	<span class="doccomment">/// Called when storage read is called
+<a href=#114 id=114 data-nosnippet>114</a>	</span><span class="kw">fn </span>storage_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>Key, _value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) {}
+<a href=#115 id=115 data-nosnippet>115</a>
+<a href=#116 id=116 data-nosnippet>116</a>	<span class="doccomment">/// Called when storage write is called
+<a href=#117 id=117 data-nosnippet>117</a>	</span><span class="kw">fn </span>storage_write(
+<a href=#118 id=118 data-nosnippet>118</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#119 id=119 data-nosnippet>119</a>		_key: <span class="kw-2">&amp;</span>Key,
+<a href=#120 id=120 data-nosnippet>120</a>		_old_value: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+<a href=#121 id=121 data-nosnippet>121</a>		_new_value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
+<a href=#122 id=122 data-nosnippet>122</a>	) {
+<a href=#123 id=123 data-nosnippet>123</a>	}
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// Record a log event
+<a href=#126 id=126 data-nosnippet>126</a>	</span><span class="kw">fn </span>log_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event: H160, _topics: <span class="kw-2">&amp;</span>[H256], _data: <span class="kw-2">&amp;</span>[u8], _log_index: u32) {}
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="doccomment">/// Called after a contract call is executed
+<a href=#129 id=129 data-nosnippet>129</a>	</span><span class="kw">fn </span>exit_child_span(
+<a href=#130 id=130 data-nosnippet>130</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#131 id=131 data-nosnippet>131</a>		_output: <span class="kw-2">&amp;</span>ExecReturnValue,
+<a href=#132 id=132 data-nosnippet>132</a>		_gas_used: u64,
+<a href=#133 id=133 data-nosnippet>133</a>		_weight_consumed: Weight,
+<a href=#134 id=134 data-nosnippet>134</a>	) {
+<a href=#135 id=135 data-nosnippet>135</a>	}
+<a href=#136 id=136 data-nosnippet>136</a>
+<a href=#137 id=137 data-nosnippet>137</a>	<span class="doccomment">/// Called when a contract call terminates with an error
+<a href=#138 id=138 data-nosnippet>138</a>	</span><span class="kw">fn </span>exit_child_span_with_error(
+<a href=#139 id=139 data-nosnippet>139</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#140 id=140 data-nosnippet>140</a>		_error: DispatchError,
+<a href=#141 id=141 data-nosnippet>141</a>		_gas_used: u64,
+<a href=#142 id=142 data-nosnippet>142</a>		_weight_consumed: Weight,
+<a href=#143 id=143 data-nosnippet>143</a>	) {
+<a href=#144 id=144 data-nosnippet>144</a>	}
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="doccomment">/// Check if the tracer is an execution tracer.
+<a href=#147 id=147 data-nosnippet>147</a>	</span><span class="kw">fn </span>is_execution_tracer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#148 id=148 data-nosnippet>148</a>		<span class="bool-val">false
+<a href=#149 id=149 data-nosnippet>149</a>	</span>}
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>	<span class="doccomment">/// Called before an EVM opcode is executed.
+<a href=#152 id=152 data-nosnippet>152</a>	///
+<a href=#153 id=153 data-nosnippet>153</a>	/// # Parameters
+<a href=#154 id=154 data-nosnippet>154</a>	/// - `pc`: The current program counter.
+<a href=#155 id=155 data-nosnippet>155</a>	/// - `opcode`: The opcode being executed.
+<a href=#156 id=156 data-nosnippet>156</a>	/// - `trace_info`: Information about the current execution frame.
+<a href=#157 id=157 data-nosnippet>157</a>	</span><span class="kw">fn </span>enter_opcode(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _pc: u64, _opcode: u8, _trace_info: <span class="kw-2">&amp;</span><span class="kw">dyn </span>EVMFrameTraceInfo) {}
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>	<span class="doccomment">/// Called before a PVM syscall is executed.
+<a href=#160 id=160 data-nosnippet>160</a>	///
+<a href=#161 id=161 data-nosnippet>161</a>	/// # Parameters
+<a href=#162 id=162 data-nosnippet>162</a>	/// - `ecall`: The name of the syscall being executed.
+<a href=#163 id=163 data-nosnippet>163</a>	/// - `args`: The syscall arguments (register values).
+<a href=#164 id=164 data-nosnippet>164</a>	/// - `trace_info`: Information about the current execution frame.
+<a href=#165 id=165 data-nosnippet>165</a>	</span><span class="kw">fn </span>enter_ecall(
+<a href=#166 id=166 data-nosnippet>166</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#167 id=167 data-nosnippet>167</a>		_ecall: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#168 id=168 data-nosnippet>168</a>		_args: <span class="kw-2">&amp;</span>[u64],
+<a href=#169 id=169 data-nosnippet>169</a>		_trace_info: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FrameTraceInfo,
+<a href=#170 id=170 data-nosnippet>170</a>	) {
+<a href=#171 id=171 data-nosnippet>171</a>	}
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a>	<span class="doccomment">/// Called after an EVM opcode or PVM syscall is executed to record the gas cost.
+<a href=#174 id=174 data-nosnippet>174</a>	///
+<a href=#175 id=175 data-nosnippet>175</a>	/// # Parameters
+<a href=#176 id=176 data-nosnippet>176</a>	/// - `trace_info`: Information about the current execution frame.
+<a href=#177 id=177 data-nosnippet>177</a>	/// - `returned`: The syscall return value (PVM only, `None` for EVM opcodes).
+<a href=#178 id=178 data-nosnippet>178</a>	</span><span class="kw">fn </span>exit_step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _trace_info: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FrameTraceInfo, _returned: <span class="prelude-ty">Option</span>&lt;u64&gt;) {}
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>	<span class="doccomment">/// Called once the transaction completes to report the gas consumed by the meter.
+<a href=#181 id=181 data-nosnippet>181</a>	///
+<a href=#182 id=182 data-nosnippet>182</a>	/// # Parameters
+<a href=#183 id=183 data-nosnippet>183</a>	/// - `base_call_weight`: Extrinsic base weight that is added on top of `weight_consumed` when
+<a href=#184 id=184 data-nosnippet>184</a>	///   charging.
+<a href=#185 id=185 data-nosnippet>185</a>	/// - `weight_consumed`: Weight used by the transaction logic, excluding the extrinsic base
+<a href=#186 id=186 data-nosnippet>186</a>	///   weight.
+<a href=#187 id=187 data-nosnippet>187</a>	</span><span class="kw">fn </span>dispatch_result(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _base_call_weight: Weight, _weight_consumed: Weight) {}
+<a href=#188 id=188 data-nosnippet>188</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
