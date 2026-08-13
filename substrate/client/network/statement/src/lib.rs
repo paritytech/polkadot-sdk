@@ -27,14 +27,31 @@
 //! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
 //!   blocks; it resumes automatically once the node is fully synced (peers are reconnected to
 //!   recover statements missed while syncing).
-//! - Each peer keeps an LRU cache of statement hashes sent to or received from it, so duplicates
-//!   are not re-sent.
+//! - A statement is never sent back to a peer it was received from (see Tracking received
+//!   statements).
 //! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
 //!   added since the previous round, batches them up to the maximum notification size
 //!   (`config::MAX_STATEMENT_NOTIFICATION_SIZE`, ~1 MiB), and sends the batches to connected peers.
 //! - Incoming statements are pushed onto a bounded validation queue
 //!   (`config::MAX_PENDING_STATEMENTS`); if the queue is full, incoming statements are dropped.
 //! - Peer reputation is adjusted based on statement quality (good, duplicate, invalid, flooding).
+//!
+//! ## Tracking received statements
+//!
+//! There is no per-peer record of delivered statements. A statement is propagated once, on the
+//! tick after its import: the propagation pass drains the store's recent set, so no later pass
+//! can pick it up again. The only duplicates worth preventing are statements sent back to the
+//! peers they came from.
+//!
+//! While a statement waits for validation, the peers it came from are recorded in
+//! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
+//! peer that resends the statement before its tick is added there too. The propagation pass
+//! skips the recorded peers and clears `recently_received_statements` when done.
+//!
+//! Initial sync sends a snapshot of the whole store with no per-peer filtering, so a peer can
+//! occasionally receive a statement twice and may charge a small reputation penalty for the
+//! duplicate. TODO: dedupe the initial-sync and propagation paths once sends flow through a
+//! per-peer outbox (issue #12838).
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -781,7 +798,7 @@ where
 
 /// Whether the peer sent us the statement, directly or while it was queued for
 /// validation. `pending_statements_peers` covers the race where a statement is
-/// drained for propagation while its senders still sit there.
+/// drained for propagation while the peers that sent it still sit there.
 fn has_received_from(
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
@@ -1305,9 +1322,9 @@ where
 					});
 
 					// If the statement still awaits its propagation pass, record the
-					// peer so the pass does not echo it back. Only join an existing
-					// entry, or replays would grow the map without bound. Senders of
-					// not yet imported statements are tracked in
+					// peer so the pass does not send it back. Only join an existing
+					// entry, or replays would grow the map without bound. Peers that
+					// sent a not yet imported statement are tracked in
 					// `pending_statements_peers` and move here on import.
 					if let Some(peers) = self.recently_received_statements.get_mut(&hash) {
 						peers.insert(who);
@@ -1403,7 +1420,7 @@ where
 					self.on_handle_statement_import(*peer, &result);
 				}
 				// `New` and `Known` mean the statement awaits the next propagation
-				// pass. Remember who sent it so the pass does not echo it back.
+				// pass. Remember who sent it so the pass does not send it back.
 				if matches!(result, SubmitResult::New | SubmitResult::Known) {
 					self.recently_received_statements.entry(hash).or_default().extend(peers);
 				}
@@ -1444,7 +1461,7 @@ where
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| {
-				// The peer supplied this statement, do not echo it back.
+				// The peer supplied this statement, do not send it back.
 				if has_received_from(
 					&self.recently_received_statements,
 					&self.pending_statements_peers,
@@ -1743,7 +1760,7 @@ where
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
 			// TODO: drop the unused hash from the `statements_by_hashes` callback
-			// if sender-based filtering at encode time does not end up needing it.
+			// if the planned encode-time filtering does not end up needing it.
 			&mut |_hash, encoded, stmt| {
 				// Skip statements that don't match the peer's topic affinity. This
 				// avoids materializing non-matching statements and lets each batch
@@ -2386,7 +2403,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn statement_is_not_echoed_to_any_of_its_senders() {
+	async fn statement_is_not_sent_back_to_the_peers_it_came_from() {
 		let (
 			mut handler,
 			statement_store,
@@ -2398,7 +2415,7 @@ mod tests {
 		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
 		let mut statement = Statement::new();
-		statement.set_plain_data(b"multi-sender echo".to_vec());
+		statement.set_plain_data(b"statement from two peers".to_vec());
 		let hash = statement.hash();
 
 		// Both peers supply the statement while it is queued for validation.
@@ -2416,7 +2433,7 @@ mod tests {
 		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
 		assert!(
 			handler.recently_received_statements.is_empty(),
-			"sender entries must be cleared after the propagation pass"
+			"recently received statements must be cleared after the propagation pass"
 		);
 
 		// Replaying a propagated statement finds no entry to join, so a peer cannot
@@ -2426,7 +2443,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn statement_forwarded_before_the_tick_is_not_echoed_to_the_forwarder() {
+	async fn statement_forwarded_before_the_tick_is_not_sent_back_to_the_forwarder() {
 		let (
 			mut handler,
 			statement_store,
@@ -2443,7 +2460,7 @@ mod tests {
 
 		handler.on_statements(sender, vec![statement.clone()]);
 		// Another path imported the statement while it was queued, so validation
-		// completes with `Known`. The sender must be recorded all the same.
+		// completes with `Known`. The peer that sent it must be recorded all the same.
 		import_queued_statement(
 			&mut handler,
 			&statement_store,
@@ -2458,13 +2475,16 @@ mod tests {
 		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
-		assert!(get_peer_hashes(&sent, sender).is_empty(), "statement returned to its sender");
+		assert!(
+			get_peer_hashes(&sent, sender).is_empty(),
+			"statement returned to the peer that sent it"
+		);
 		assert!(get_peer_hashes(&sent, forwarder).is_empty(), "statement returned to forwarder");
 		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
 	}
 
 	#[tokio::test]
-	async fn sender_entries_survive_a_major_sync_early_return() {
+	async fn recently_received_statements_survive_a_major_sync_early_return() {
 		let (
 			mut handler,
 			statement_store,
@@ -2484,12 +2504,12 @@ mod tests {
 			.await;
 
 		// The early return skips the drain, so the statement stays recent and its
-		// sender entry must stay with it.
+		// entry must stay with it.
 		handler.sync.major_syncing.store(true, Ordering::Relaxed);
 		handler.propagate_statements().await;
 		assert!(
 			handler.recently_received_statements.contains_key(&hash),
-			"sender entries must survive the major-sync early return"
+			"entries must survive the major-sync early return"
 		);
 
 		handler.sync.major_syncing.store(false, Ordering::Relaxed);
@@ -2497,7 +2517,10 @@ mod tests {
 		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
-		assert!(get_peer_hashes(&sent, sender).is_empty(), "statement returned to its sender");
+		assert!(
+			get_peer_hashes(&sent, sender).is_empty(),
+			"statement returned to the peer that sent it"
+		);
 		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
 		assert!(handler.recently_received_statements.is_empty());
 	}
@@ -4791,7 +4814,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_sender_filtering_per_peer() {
+	async fn test_received_statement_filtering_per_peer() {
 		let (
 			mut handler,
 			statement_store,
@@ -4815,7 +4838,7 @@ mod tests {
 			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
 		}
 
-		// Senders: peer_a sent s1,s2; peer_b sent s3; peer_c sent none.
+		// peer_a sent s1 and s2, peer_b sent s3, peer_c sent none.
 		handler
 			.recently_received_statements
 			.insert(hashes[0], HashSet::from_iter([peer_a]));
