@@ -1387,19 +1387,6 @@ where
 		}
 	}
 
-	/// Propagate one statement.
-	pub async fn propagate_statement(&mut self, hash: &Hash) {
-		// Accept statements only when node is not major syncing
-		if self.sync.is_major_syncing() {
-			return;
-		}
-
-		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
-		if let Ok(Some(statement)) = self.statement_store.statement(hash) {
-			self.do_propagate_statements(&[(*hash, statement)]);
-		}
-	}
-
 	/// Propagate the given `statements` to the given `peer`.
 	///
 	/// Internally filters `statements` to only send unknown statements to the peer.
