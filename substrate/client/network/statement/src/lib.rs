@@ -1330,8 +1330,15 @@ where
 						peers.insert(who);
 					}
 
-					if let Some(peers) = self.pending_statements_peers.get(&hash) {
-						if peers.contains(&who) {
+					// The store can already hold the statement while its validation
+					// completion still awaits processing by the event loop. Join the
+					// pending entry so the peer moves to `recently_received_statements`
+					// on import, exactly as if the message had arrived before the
+					// store insert.
+					if let Some(peers) = self.pending_statements_peers.get_mut(&hash) {
+						if peers.insert(who) {
+							self.network.report_peer(who, rep::ANY_STATEMENT);
+						} else {
 							log::trace!(
 								target: LOG_TARGET,
 								"Already received the statement from the same peer {who}.",
@@ -2440,6 +2447,50 @@ mod tests {
 		// grow the map by resending.
 		handler.on_statements(sender_a, vec![statement]);
 		assert!(handler.recently_received_statements.is_empty());
+	}
+
+	#[tokio::test]
+	async fn statement_received_mid_import_is_not_sent_back_to_the_sender() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(3);
+		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement received mid-import".to_vec());
+		let hash = statement.hash();
+
+		handler.on_statements(sender_a, vec![statement.clone()]);
+
+		// The worker has inserted the statement into the store, but the event loop
+		// has not processed the validation completion yet.
+		let (queued, completion) = queue_receiver.try_recv().unwrap();
+		statement_store.statements.lock().unwrap().insert(hash, queued.clone());
+		statement_store.recent_statements.lock().unwrap().insert(hash, queued);
+
+		// The second peer sends the same statement inside that window.
+		handler.on_statements(sender_b, vec![statement]);
+		assert!(handler
+			.pending_statements_peers
+			.get(&hash)
+			.is_some_and(|peers| peers.contains(&sender_b)));
+
+		completion.send(SubmitResult::New).unwrap();
+		let (hash, result) = handler.pending_statements.next().await.unwrap();
+		handler.on_statement_submit_result(hash, result);
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(get_peer_hashes(&sent, sender_a).is_empty(), "statement returned to sender_a");
+		assert!(get_peer_hashes(&sent, sender_b).is_empty(), "statement returned to sender_b");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
 	}
 
 	#[tokio::test]
