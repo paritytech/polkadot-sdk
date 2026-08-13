@@ -93,7 +93,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Asking the registry chain to drop an authorization. The deposit stays held, so this is the
+	/// Asking the relay chain to drop an authorization. The deposit stays held, so this is the
 	/// state write plus the message.
 	#[benchmark]
 	fn cancel_registration() -> Result<(), BenchmarkError> {

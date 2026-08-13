@@ -29,25 +29,24 @@
 //!
 //! Registration takes two transactions on two chains. Sending a multi-megabyte validation code
 //! through the messaging layer would be wasteful, so this chain only commits to its hash and
-//! length and the blob is uploaded to the registry chain directly:
+//! length and the blob is uploaded to the relay chain directly:
 //!
 //! 1. [`Pallet::reserve`] allocates a para id here and holds [`Config::ParaDeposit`].
 //! 2. [`Pallet::register`] holds a deposit covering the head data and the *declared* code length,
-//!    then asks the registry chain to accept the registration. Only the code hash and length are
-//!    sent.
-//! 3. The manager uploads the validation code to the registry chain, which accepts it only if it
+//!    then asks the relay chain to accept the registration. Only the code hash and length are sent.
+//! 3. The manager uploads the validation code to the relay chain, which accepts it only if it
 //!    matches the hash and length committed to in step 2.
 //! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
 //!    releases the registration deposit.
 //!
 //! ## Giving up
 //!
-//! Nothing on the registry chain times a registration out, so a request whose code never turns up
-//! waits until the manager ends it with [`Pallet::cancel_registration`]. That asks the registry
-//! chain to drop the authorization and only releases the deposit once it confirms, which is what
+//! Nothing on the relay chain times a registration out, so a request whose code never turns up
+//! waits until the manager ends it with [`Pallet::cancel_registration`]. That asks the relay chain
+//! to drop the authorization and only releases the deposit once it confirms, which is what
 //! keeps a cancellation from freeing the deposit on a para that did register after all.
 //!
-//! Deposits only ever live on this chain; the registry chain takes nothing.
+//! Deposits only ever live on this chain; the relay chain takes nothing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -221,7 +220,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxHeadDataSize: Get<u32>;
 
-		/// How long a manager waits for the registry chain before giving up on a registration.
+		/// How long a manager waits for the relay chain before giving up on a registration.
 		///
 		/// Measured in [`Config::BlockNumberProvider`] blocks. Should comfortably cover a round
 		/// trip, so that a verdict that is merely slow lands before anybody tries to cancel.
@@ -277,10 +276,10 @@ pub mod pallet {
 		Registered { para_id: ParaId, manager: T::AccountId },
 		/// The relay chain rejected a registration. The registration deposit was released.
 		RegistrationFailed { para_id: ParaId, manager: T::AccountId, reason: FailureReason },
-		/// A manager gave up on a pending registration, and the registry chain has been asked to
+		/// A manager gave up on a pending registration, and the relay chain has been asked to
 		/// drop the authorization. The deposit stays held until it answers.
 		CancelRequested { para_id: ParaId, manager: T::AccountId },
-		/// The registry chain confirmed a cancellation. The registration deposit was released.
+		/// The relay chain confirmed a cancellation. The registration deposit was released.
 		RegistrationCancelled { para_id: ParaId, manager: T::AccountId },
 	}
 
@@ -393,17 +392,17 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Give up on a registration the registry chain never reported on.
+		/// Give up on a registration the relay chain never reported on.
 		///
 		/// Callable from [`Config::PendingDeadline`] blocks after the request. Nothing on the
-		/// registry chain abandons a registration on its own, so this is what ends one whose code
+		/// relay chain abandons a registration on its own, so this is what ends one whose code
 		/// never turned up, and the manager pays for the round trip rather than every relay-chain
 		/// block paying for a sweep.
 		///
-		/// The deposit is not released here: the registry chain is asked to drop the authorization
+		/// The deposit is not released here: the relay chain is asked to drop the authorization
 		/// first, and [`Pallet::receive`] releases the deposit when it confirms. Waiting for that
 		/// answer is the point. A registration that did go through, with a verdict that got lost on
-		/// the way here, must not have its deposit refunded, and only the registry chain knows
+		/// the way here, must not have its deposit refunded, and only the relay chain knows
 		/// which of the two happened.
 		///
 		/// The para id itself stays reserved either way, so the manager can simply try again.
@@ -467,7 +466,7 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte.saturating_mul(code_len.into()))
 	}
 
-	/// Apply the registry chain's verdict on a registration.
+	/// Apply the relay chain's verdict on a registration.
 	///
 	/// A response about a para id we are not expecting one for is dropped rather than treated as a
 	/// dispatch error: erroring here would unwind the whole incoming message for something we can
@@ -500,7 +499,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Apply the registry chain's answer to a cancellation.
+	/// Apply the relay chain's answer to a cancellation.
 	///
 	/// `Ok(())` means the authorization is gone, so the deposit goes back. The one refusal is
 	/// [`FailureReason::AlreadyRegistered`]: the code landed after all and the earlier verdict was
@@ -534,7 +533,7 @@ impl<T: Config> Pallet<T> {
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, manager });
 			},
-			// Nothing else is a cancellation the registry chain refuses, so leave the registration
+			// Nothing else is a cancellation the relay chain refuses, so leave the registration
 			// pending: the manager can ask again once the deadline comes round.
 			Err(reason) => {
 				defensive!("unexpected cancel refusal, leaving pending", (para_id, &reason));

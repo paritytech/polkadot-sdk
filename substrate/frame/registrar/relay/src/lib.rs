@@ -171,7 +171,7 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// An origin that is sure to be the parachain running `pallet-registrar-para`.
+		/// A trusted parachain parachain authorized to drive registrations.
 		type ParaOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Sends messages to the parachain.
