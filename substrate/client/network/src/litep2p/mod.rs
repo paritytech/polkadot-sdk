@@ -1320,3 +1320,99 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
+		service::traits::NetworkStateInfo,
+	};
+	use sc_network_types::{
+		multiaddr::{Multiaddr as NetworkMultiaddr, Protocol as NetworkProtocol},
+		multihash::Multihash as NetworkMultihash,
+	};
+	use sp_core::H256;
+	use substrate_test_runtime_client::runtime::Block;
+
+	/// `--listen-addr` of a node behind a NAT.
+	const WEBRTC_LISTEN_ADDRESS: &str = "/ip4/127.0.0.1/udp/30333/webrtc-direct";
+
+	/// `--public-addr` of that node: the routable coordinate peers are told to dial.
+	/// This is the shape an operator supplies when the node sits behind a proxy.
+	const WEBRTC_PUBLIC_ADDRESS: &str = "/ip4/203.0.113.9/udp/31234/webrtc-direct";
+
+	/// The `/certhash` component of `address`.
+	fn certhash(address: &NetworkMultiaddr) -> Option<NetworkMultihash> {
+		address.iter().find_map(|protocol| match protocol {
+			NetworkProtocol::Certhash(hash) => Some(hash),
+			_ => None,
+		})
+	}
+
+	/// Bring up the backend from `network_config` through its real entry point.
+	fn start_backend(network_config: &NetworkConfiguration) -> Litep2pNetworkBackend {
+		let config = FullNetworkConfiguration::<Block, H256, Litep2pNetworkBackend>::new(
+			network_config,
+			None,
+		);
+
+		let (block_announce_config, _notification_service) =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::notification_config(
+				"/block-announces/1".into(),
+				vec![],
+				1024,
+				None,
+				SetConfig::default(),
+				NotificationMetrics::new(None),
+				config.peer_store_handle(),
+			);
+
+		<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::new(Params {
+			role: Role::Full,
+			executor: Box::new(|future| {
+				tokio::spawn(future);
+			}),
+			network_config: config,
+			protocol_id: ProtocolId::from("test"),
+			genesis_hash: H256::zero(),
+			fork_id: None,
+			metrics_registry: None,
+			block_announce_config,
+			ipfs_config: None,
+			notification_metrics: NotificationMetrics::new(None),
+		})
+		.unwrap()
+	}
+
+	/// Both the address the node binds and the one it tells peers to dial must carry the node's
+	/// `/certhash`: a `webrtc-direct` dialer has no other way to verify the DTLS handshake.
+	#[tokio::test]
+	async fn webrtc_addresses_advertised_with_certhash() {
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+		// Fixed, so the certificate the node will present can be derived here as well.
+		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
+			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
+		));
+
+		let (keypair, _peer_id) =
+			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
+		let node_certhash: NetworkMultihash =
+			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config);
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+
+		let advertised = network_service.listen_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+
+		let advertised = network_service.external_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+	}
+}
