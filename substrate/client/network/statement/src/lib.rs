@@ -52,8 +52,10 @@
 //!
 //! All sends to a peer flow through its single send slot, so initial sync and propagation never
 //! have two chunks in flight to one peer. While a peer's initial sync is pending, propagation
-//! skips statements in the sync's snapshot — the sync delivers each of them exactly once, so a
-//! peer never receives a statement through both paths.
+//! skips statements in the sync's snapshot, and scheduling a sync drops the peer's outbox, so
+//! the sync is the only path that offers a snapshot statement. It offers each at most once: a
+//! chunk whose send fails is not retried, and its statements are lost for that peer until its
+//! next sync.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -633,14 +635,16 @@ pub struct StatementHandler<
 	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
 	initial_sync_in_flight_bytes: u64,
 	/// Statement hashes queued for propagation to each peer, drained from the front as
-	/// chunks are sent. An entry is created on first append and removed when it empties
-	/// or the peer disconnects.
+	/// chunks are fetched, whether the fetch yields a send or not. An entry is created on
+	/// first append and removed once it drains, the peer becomes unreachable, or a fresh
+	/// initial-sync snapshot supersedes it.
 	propagation_outboxes: HashMap<PeerId, Vec<Hash>>,
 	/// Id of the chunk in flight, per peer — the peer's single send slot, shared
-	/// by propagation and initial sync, so at most one chunk per peer is in
+	/// by propagation and initial sync, so at most one chunk per connection is in
 	/// flight at a time. Propagation refills a freed slot at once while initial
-	/// sync waits for its burst tick, so fresh gossip is never queued behind
-	/// snapshot bulk. Each chunk gets a fresh id, and the id tells a stale result
+	/// sync waits for its burst tick, so fresh gossip waits behind at most the one
+	/// snapshot chunk on the wire, never behind the whole snapshot. Each chunk gets
+	/// a fresh id, and the id tells a stale result
 	/// apart from the live one, so a peer that disconnects and reconnects inside
 	/// `SEND_TIMEOUT` does not get its fresh send slot freed by the previous
 	/// connection's send result.
@@ -652,8 +656,10 @@ pub struct StatementHandler<
 	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
 	propagation_in_flight_bytes: u64,
 	/// Peers whose propagation chunk was deferred because the shared byte budget
-	/// was exhausted, refilled in parking order as bytes free up. Duplicate and
-	/// stale entries are benign: slot, outbox and budget are re-checked on pop.
+	/// was exhausted, refilled in parking order as bytes free up. A peer already
+	/// here is not parked again, so a budget that stays full does not grow the
+	/// deque. An entry left by a disconnected peer is benign: slot, outbox and
+	/// budget are re-checked on pop.
 	parked_propagations: VecDeque<PeerId>,
 	/// Pending propagation sends, polled by the main event loop.
 	pending_sends: PendingSends,
@@ -721,8 +727,8 @@ struct PendingInitialSync {
 	/// The store's hash list at scheduling time, sorted so the propagation path
 	/// can binary-search it and skip statements this sync delivers.
 	hashes: Vec<Hash>,
-	/// Hashes before this index were consumed by bursts. The list is kept whole
-	/// instead of drained so membership stays testable over the full snapshot.
+	/// Hashes before this index were consumed by bursts. The list is kept whole so the
+	/// propagation path can search the full snapshot, including the part already sent.
 	cursor: usize,
 	started_at: Instant,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
@@ -1512,6 +1518,7 @@ where
 	/// Queue the given `statements` for propagation to the given `peer`.
 	///
 	/// Internally filters out statements the peer sent to us.
+	/// Statements in a pending initial sync's snapshot are left to that sync.
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox, from which
 	/// `try_send_next_chunk` fetches and encodes at most one chunk at a time.
@@ -1537,9 +1544,9 @@ where
 				) {
 					return None;
 				}
-				// The peer's pending initial sync delivers every snapshot hash
-				// exactly once, whether its cursor has passed the hash or not, so
-				// propagating a snapshot member would duplicate it.
+				// The peer's pending initial sync offers every snapshot hash at most
+				// once, whether its cursor has passed the hash or not, so propagating
+				// a snapshot member risks duplicating it.
 				if pending_sync.is_some_and(|sync| sync.hashes.binary_search(hash).is_ok()) {
 					return None;
 				}
@@ -1598,7 +1605,11 @@ where
 			// saturated budget leaves the outbox untouched. The peer is parked and
 			// refilled once a completed send frees bytes.
 			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
-				self.parked_propagations.push_back(who);
+				// A peer parks once per saturation, not once per tick, so a budget that
+				// stays full does not grow the deque without bound.
+				if !self.parked_propagations.contains(&who) {
+					self.parked_propagations.push_back(who);
+				}
 				return;
 			}
 			let peer_version = peer_data.protocol_version;
@@ -1614,11 +1625,13 @@ where
 			) {
 				Ok(result) => result,
 				Err(e) => {
+					// A store read error says nothing about the queued hashes, so the
+					// outbox is kept and the next send attempt for this peer retries it.
 					log::debug!(
 						target: LOG_TARGET,
-						"Failed to fetch statements for propagation: {e:?}"
+						"Failed to fetch statements for propagation to {who}, retaining {} queued hashes: {e:?}",
+						outbox.len(),
 					);
-					self.propagation_outboxes.remove(&who);
 					return;
 				},
 			};
@@ -1813,6 +1826,9 @@ where
 	/// This is called both when a new peer connects and when a peer's topic
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
+	///
+	/// A chunk already in flight is the one overlap the snapshot cannot supersede, so a
+	/// resync started while a propagation chunk is on the wire can duplicate that chunk.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
 		let sync_id = self.next_initial_sync_id;
 		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
@@ -1824,6 +1840,11 @@ where
 		// Sorted so the propagation path can binary-search the snapshot and skip
 		// statements this sync delivers (see `queue_statements_for_peer`).
 		hashes.sort_unstable();
+		// The snapshot holds every statement the store has, so a hash still queued for
+		// propagation is either in it or already pruned. Dropping the outbox leaves the
+		// sync as the only path that delivers them, which is what keeps the peer from
+		// receiving one statement twice and penalizing us for it.
+		self.propagation_outboxes.remove(&peer);
 		if !hashes.is_empty() {
 			self.pending_initial_syncs.insert(
 				peer,
@@ -3814,6 +3835,48 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn outbox_queued_before_a_new_sync_is_not_duplicated() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut hashes = Vec::new();
+		for i in 0..2u8 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![i]);
+			let hash = statement.hash();
+			hashes.push(hash);
+			statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		}
+		hashes.sort();
+
+		// The slot is busy, so the tick leaves both hashes queued in the outbox.
+		handler.in_flight_chunks.insert(peer_id, 42);
+		handler.propagate_statements().await;
+		assert_eq!(handler.propagation_outboxes.get(&peer_id).unwrap().len(), 2);
+
+		// An affinity change reschedules the sync, whose snapshot covers both queued
+		// hashes. Keeping the outbox would send each of them twice.
+		handler.schedule_initial_sync_for_peer(peer_id);
+		assert!(
+			!handler.propagation_outboxes.contains_key(&peer_id),
+			"the snapshot supersedes the outbox"
+		);
+
+		handler.in_flight_chunks.remove(&peer_id);
+		handler.try_send_next_chunk(peer_id);
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+
+		let mut sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		sent.sort();
+		assert_eq!(sent, hashes, "each statement must reach the peer exactly once");
+	}
+
+	#[tokio::test]
 	async fn burst_skips_a_peer_with_a_busy_send_slot() {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(2);
@@ -4004,7 +4067,7 @@ mod tests {
 		// Calculate the data sizes so that 100 statements together exactly fill max_size.
 		// This tests that all 100 statements fit in a single notification.
 		//
-		// The limit check in find_sendable_chunk is:
+		// The limit check in `fetch_statement_chunk` is:
 		//   max_size = MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
 		//
 		// Statement encoding (encodes as Vec<Field>):
@@ -4089,16 +4152,10 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_size_limit_consistency() {
-		// This test verifies that process_initial_sync_burst and find_sendable_chunk
-		// use the same size limit (max_statement_payload_size).
-		//
-		// Previously there was a bug where the filter in process_initial_sync_burst used
-		// MAX_STATEMENT_NOTIFICATION_SIZE, but find_sendable_chunk reserved extra space
-		// for Compact::<u32>::max_encoded_len(). This caused a debug_assert failure when
-		// statements fit the filter but not find_sendable_chunk.
-		//
-		// With the fix, both use max_statement_payload_size(), so the filter will reject
-		// statements that wouldn't fit in find_sendable_chunk.
+		// A chunk is bounded by `max_statement_payload_size`, which reserves
+		// `Compact::<u32>::max_encoded_len()` on top of the payload. A filter measuring
+		// against the raw `MAX_STATEMENT_NOTIFICATION_SIZE` would admit statements the
+		// encoder cannot fit, so both must use the same limit.
 		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		// This peer connects as V1 (see negotiated_fallback below).
@@ -4157,8 +4214,8 @@ mod tests {
 		handler.process_initial_sync_burst();
 		handler.flush_pending_sends().await;
 
-		// With the fix, the filter and find_sendable_chunk use the same limit,
-		// so no assertion failure occurs. Only one statement is fetched and sent.
+		// The filter and the chunk bound agree, so only the statement that fits is
+		// fetched and sent.
 		let sent = notification_service.get_sent_notifications();
 		assert_eq!(sent.len(), 1, "First burst should send one notification");
 

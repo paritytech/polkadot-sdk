@@ -31,10 +31,11 @@ pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 /// may be exceeded by less than one maximum-sized notification.
 pub const MAX_SEND_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
 
-/// Maximum number of statement hashes queued for propagation to one peer, sized to cost at most
-/// 2 MiB per peer at 32 bytes per hash. That depth also exceeds one second of gossip at
-/// [`DEFAULT_STATEMENTS_PER_SECOND`] while the peer's send slot is stuck — a peer further behind
-/// is pathological. On overflow the oldest hashes are dropped first.
+/// Maximum number of statement hashes queued for propagation to one peer, sized so its
+/// steady-state length costs 2 MiB per peer at 32 bytes per hash. That depth absorbs the backlog
+/// of a peer whose send slot stays stuck for many ticks at realistic import rates — a peer further
+/// behind is pathological. A single tick may append beyond the limit before the trim, and the
+/// allocation is not returned afterwards. On overflow the oldest hashes are dropped first.
 pub const MAX_PROPAGATION_OUTBOX_LEN: usize = 64 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
