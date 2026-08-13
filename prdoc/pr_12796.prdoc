@@ -29,4 +29,4 @@ crates:
 - name: pallet-revive
   bump: minor
 - name: pallet-revive-types
-  bump: minor
+  bump: major
