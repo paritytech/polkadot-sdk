@@ -6,14 +6,14 @@ doc:
     When a vested payment to a validator cannot be added as a new System vesting schedule
     (because the per-kind slot cap is already full), the amount is merged into the existing
     System schedule whose ending block is closest to the incoming schedule's ending block.
-    The target schedule's start and end blocks are preserved - only its locked amount and
-    per-block rate are updated. This guarantees incentive payments are never lost.
-
-    The `ValidatorIncentiveDropped` event is now reserved exclusively for non-recoverable
-    failures (e.g. bonding duration of zero).
+    The target schedule's start block is preserved. Its locked amount and per-block rate are
+    updated. The end block is also extended to the later of the two.
+    This is done to ensure incentive payments are never lost, irrespective of value.
 
 crates:
 - name: pallet-staking-async
-  bump: minor
+  bump: major
 - name: pallet-vesting
+  bump: minor
+- name: frame-support
   bump: minor
