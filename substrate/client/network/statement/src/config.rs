@@ -26,10 +26,10 @@ pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis
 /// Maximum allowed size for a statement notification.
 pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 
-/// Soft limit on encoded initial-sync chunks held in flight across all peers. Since admission is
-/// checked before adding the next whole notification, it may be exceeded by less than one
-/// maximum-sized notification.
-pub const MAX_INITIAL_SYNC_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
+/// Soft limit on encoded statement chunks held in flight across all peers, shared by initial-sync
+/// and propagation sends. Since admission is checked before adding the next whole notification, it
+/// may be exceeded by less than one maximum-sized notification.
+pub const MAX_SEND_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
 
 /// Maximum number of statement validation request we keep at any moment.
 pub const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;

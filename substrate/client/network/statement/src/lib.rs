@@ -225,6 +225,7 @@ struct Metrics {
 	initial_sync_statements_sent: Counter<U64>,
 	initial_sync_bursts_total: Counter<U64>,
 	initial_sync_in_flight_bytes: Gauge<U64>,
+	propagation_in_flight_bytes: Gauge<U64>,
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
@@ -362,6 +363,13 @@ impl Metrics {
 				Gauge::new(
 					"substrate_sync_initial_sync_in_flight_bytes",
 					"Encoded bytes of initial-sync chunks currently queued for sending",
+				)?,
+				r,
+			)?,
+			propagation_in_flight_bytes: register(
+				Gauge::new(
+					"substrate_sync_propagation_in_flight_bytes",
+					"Encoded bytes of propagation chunks currently queued for sending",
 				)?,
 				r,
 			)?,
@@ -558,6 +566,8 @@ impl StatementHandlerPrototype {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -616,8 +626,9 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Next value to hand out as [`PendingInitialSync::sync_id`].
 	next_initial_sync_id: u64,
-	/// Encoded bytes of initial-sync chunks in `pending_sends`, throttled at the soft limit
-	/// [`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES`].
+	/// Encoded bytes of initial-sync chunks in `pending_sends`. Together with
+	/// `propagation_in_flight_bytes` it is throttled at the soft limit
+	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
 	initial_sync_in_flight_bytes: u64,
 	/// Statement hashes queued for propagation to each peer, drained from the front as
 	/// chunks are sent. An entry is created on first append and removed when it empties
@@ -631,6 +642,14 @@ pub struct StatementHandler<
 	in_flight_propagations: HashMap<PeerId, u64>,
 	/// Next value to hand out as the propagation id in [`SendKind::Propagation`].
 	next_propagation_id: u64,
+	/// Encoded bytes of propagation chunks in `pending_sends`. Together with
+	/// `initial_sync_in_flight_bytes` it is throttled at the soft limit
+	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
+	propagation_in_flight_bytes: u64,
+	/// Peers whose propagation chunk was deferred because the shared byte budget
+	/// was exhausted, refilled in parking order as bytes free up. Duplicate and
+	/// stale entries are benign: slot, outbox and budget are re-checked on pop.
+	parked_propagations: VecDeque<PeerId>,
 	/// Pending propagation sends, polled by the main event loop.
 	pending_sends: PendingSends,
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
@@ -896,6 +915,8 @@ where
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -1530,6 +1551,13 @@ where
 				self.propagation_outboxes.remove(&who);
 				return;
 			};
+			// Admission against the shared budget happens before fetching, so a
+			// saturated budget leaves the outbox untouched. The peer is parked and
+			// refilled once a completed send frees bytes.
+			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
+				self.parked_propagations.push_back(who);
+				return;
+			}
 			let peer_version = peer_data.protocol_version;
 			let max_size = max_statement_payload_size(peer_version.envelope_overhead());
 			let (statements, processed, accumulated_size) = match fetch_statement_chunk(
@@ -1593,6 +1621,8 @@ where
 			let propagation_id = self.next_propagation_id;
 			self.next_propagation_id = self.next_propagation_id.saturating_add(1);
 			self.in_flight_propagations.insert(who, propagation_id);
+			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
+			self.set_propagation_in_flight_bytes(in_flight);
 			let sent_latency =
 				self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 			self.pending_sends.push(Box::pin(async move {
@@ -1612,12 +1642,26 @@ where
 	}
 
 	fn handle_send_result(&mut self, send_result: PendingSendResult) {
+		self.process_send_result(send_result);
+		// Every result frees its chunk's bytes, so parked peers may fit into the
+		// budget now. The completing peer got the first claim on the freed bytes
+		// inside `process_send_result`.
+		self.fill_parked_propagations();
+	}
+
+	fn process_send_result(&mut self, send_result: PendingSendResult) {
 		let PendingSendResult { peer, statement_count, bytes_sent, result, kind } = send_result;
 
 		let kind_label = kind.label();
-		if matches!(kind, SendKind::InitialSync { .. }) {
-			let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
-			self.set_initial_sync_in_flight_bytes(in_flight);
+		match kind {
+			SendKind::Propagation { .. } => {
+				let in_flight = self.propagation_in_flight_bytes.saturating_sub(bytes_sent);
+				self.set_propagation_in_flight_bytes(in_flight);
+			},
+			SendKind::InitialSync { .. } => {
+				let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
+				self.set_initial_sync_in_flight_bytes(in_flight);
+			},
 		}
 
 		let failure = match result {
@@ -1779,6 +1823,35 @@ where
 			.map(|metrics| metrics.initial_sync_in_flight_bytes.set(bytes));
 	}
 
+	/// Set the in-flight propagation byte counter.
+	fn set_propagation_in_flight_bytes(&mut self, bytes: u64) {
+		self.propagation_in_flight_bytes = bytes;
+		self.metrics
+			.as_ref()
+			.map(|metrics| metrics.propagation_in_flight_bytes.set(bytes));
+	}
+
+	/// Total encoded bytes in flight across initial-sync and propagation chunks,
+	/// held against the shared [`MAX_SEND_IN_FLIGHT_BYTES`] budget.
+	fn send_in_flight_bytes(&self) -> u64 {
+		self.initial_sync_in_flight_bytes
+			.saturating_add(self.propagation_in_flight_bytes)
+	}
+
+	/// Refill parked peers' send slots while the in-flight byte budget allows.
+	///
+	/// Peers are served in parking order. When the budget saturates the loop
+	/// stops and the remaining peers keep their position for the next completed
+	/// send.
+	fn fill_parked_propagations(&mut self) {
+		while !self.parked_propagations.is_empty() &&
+			self.send_in_flight_bytes() < MAX_SEND_IN_FLIGHT_BYTES
+		{
+			let Some(peer) = self.parked_propagations.pop_front() else { break };
+			self.try_send_next_chunk(peer);
+		}
+	}
+
 	/// Record initial sync completion metrics for a peer being removed.
 	fn record_initial_sync_completion(&self, outcome: &str, started_at: Instant) {
 		self.metrics.as_ref().map(|metrics| {
@@ -1796,11 +1869,11 @@ where
 			return;
 		}
 
-		if self.initial_sync_in_flight_bytes >= MAX_INITIAL_SYNC_IN_FLIGHT_BYTES {
+		if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
 			log::debug!(
 				target: LOG_TARGET,
 				"Skipping initial sync burst, {} bytes still in flight",
-				self.initial_sync_in_flight_bytes,
+				self.send_in_flight_bytes(),
 			);
 			return;
 		}
@@ -2447,6 +2520,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -3007,6 +3082,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -3057,6 +3134,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -3421,16 +3500,16 @@ mod tests {
 		}
 
 		let mut bursts = 0;
-		while handler.initial_sync_in_flight_bytes < MAX_INITIAL_SYNC_IN_FLIGHT_BYTES {
+		while handler.initial_sync_in_flight_bytes < MAX_SEND_IN_FLIGHT_BYTES {
 			handler.process_initial_sync_burst();
 			bursts += 1;
 			assert!(bursts <= 100, "the budget was never reached after {bursts} bursts");
 		}
 
 		let in_flight = handler.initial_sync_in_flight_bytes;
-		assert!(in_flight >= MAX_INITIAL_SYNC_IN_FLIGHT_BYTES);
+		assert!(in_flight >= MAX_SEND_IN_FLIGHT_BYTES);
 		assert!(
-			in_flight < MAX_INITIAL_SYNC_IN_FLIGHT_BYTES + MAX_STATEMENT_NOTIFICATION_SIZE,
+			in_flight < MAX_SEND_IN_FLIGHT_BYTES + MAX_STATEMENT_NOTIFICATION_SIZE,
 			"the budget may only be overshot by the single chunk that crossed it, got {in_flight}"
 		);
 
@@ -3439,6 +3518,103 @@ mod tests {
 		handler.process_initial_sync_burst();
 		assert_eq!(handler.initial_sync_peer_queue, queued);
 		assert_eq!(handler.initial_sync_in_flight_bytes, in_flight);
+	}
+
+	#[tokio::test]
+	async fn saturated_send_budget_defers_propagation() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"deferred by budget".to_vec());
+		let hash = statement.hash();
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		// The whole budget is taken by initial-sync bytes.
+		handler.initial_sync_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+		handler.propagate_statements().await;
+
+		assert!(handler.pending_sends.is_empty(), "no chunk may be queued over the budget");
+		assert_eq!(handler.propagation_outboxes.get(&peer_id).unwrap(), &vec![hash]);
+		assert_eq!(handler.parked_propagations, VecDeque::from([peer_id]));
+
+		// A completed initial-sync send frees the budget and refills the parked peer.
+		handler.handle_send_result(PendingSendResult {
+			peer: peer_id,
+			statement_count: 1,
+			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
+			result: SendOutcome::Sent,
+			kind: SendKind::InitialSync { sync_id: 0 },
+		});
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+		assert!(handler.parked_propagations.is_empty());
+	}
+
+	#[tokio::test]
+	async fn parked_peers_are_refilled_in_parking_order() {
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(2);
+
+		// One chunk is ~900 KB, so freeing a few bytes admits exactly one of the
+		// two parked peers into the 16 MiB budget.
+		let mut statement = Statement::new();
+		statement.set_plain_data(vec![7u8; 900 * 1024]);
+		let hash = statement.hash();
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		handler.initial_sync_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+		handler.propagate_statements().await;
+		assert_eq!(handler.parked_propagations.len(), 2);
+		let first = handler.parked_propagations[0];
+		let second = handler.parked_propagations[1];
+
+		// Freeing a sliver of budget admits only the first parked peer.
+		handler.handle_send_result(PendingSendResult {
+			peer: first,
+			statement_count: 1,
+			bytes_sent: 100,
+			result: SendOutcome::Sent,
+			kind: SendKind::InitialSync { sync_id: 0 },
+		});
+		assert_eq!(handler.pending_sends.len(), 1);
+		assert_eq!(handler.parked_propagations, VecDeque::from([second]));
+
+		// The first chunk's completion frees enough for the second peer.
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(
+			sent.iter().map(|(peer, _)| *peer).collect::<Vec<_>>(),
+			vec![first, second],
+			"peers must be served in parking order"
+		);
+		assert!(handler.parked_propagations.is_empty());
+		assert_eq!(handler.propagation_in_flight_bytes, 0);
+	}
+
+	#[tokio::test]
+	async fn initial_sync_and_propagation_share_the_budget() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"shared budget".to_vec());
+		statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		// Propagation bytes alone exhaust the shared budget, so the burst must wait.
+		handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+		let queued = handler.initial_sync_peer_queue.clone();
+		handler.process_initial_sync_burst();
+
+		assert!(handler.pending_sends.is_empty());
+		assert_eq!(
+			handler.initial_sync_peer_queue, queued,
+			"a throttled burst must not burn the peer's turn"
+		);
 	}
 
 	#[tokio::test]
@@ -4804,6 +4980,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -5140,6 +5318,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
@@ -5221,6 +5401,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
 			dropped_statements_during_sync: false,
@@ -5304,6 +5486,8 @@ mod tests {
 			propagation_outboxes: HashMap::new(),
 			in_flight_propagations: HashMap::new(),
 			next_propagation_id: 0,
+			propagation_in_flight_bytes: 0,
+			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: true,
@@ -5410,6 +5594,8 @@ mod tests {
 					propagation_outboxes: HashMap::new(),
 					in_flight_propagations: HashMap::new(),
 					next_propagation_id: 0,
+					propagation_in_flight_bytes: 0,
+					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
 					dropped_statements_during_sync: dropped,
