@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786632123569,
+  "lastUpdate": 1786636634958,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23cac32cb789a6a6e3a071a3f5cd293737098b71",
-          "message": "[CI] `All * passed` jobs check if cancelled (#10566)\n\nFail `All * passed` jobs if needs were cancelled, not just failed\ncc https://github.com/paritytech/devops/issues/4640",
-          "timestamp": "2025-12-08T12:56:53+01:00",
-          "tree_id": "ec56ccaf7a8dec1667f381931c952e30bcfdde93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/23cac32cb789a6a6e3a071a3f5cd293737098b71"
-        },
-        "date": 1765196951135,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.660560600933332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20224198359999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14190954749999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "817dd6b42c777d152436e936a1e9b626d30481dd",
+          "message": "[pallet-revive] fix wrong values in truncated and failed execution traces (#12855)\n\nThis PR fixes wrong values in truncated traces.\nThe execution tracer reported wrong values in four ways. The first three\nneed `ExecutionTracerConfig::limit`; the fourth affects every failing\ntransaction.\n\n1. `gasCost` / `weightCost`. Past the limit the tracer stopped opening a\npending entry per step, but the interpreter still reported every step's\nexit, so those exits finalized an enclosing CALL against the counters\nseen at truncation. At call depth 2 or more the captured steps could sum\nto more than the transaction consumed.\n\n2. `storage`. Snapshots taken by dropped steps were grafted onto the\nlast captured step, which could show slots it never touched.\n\n3. `error`. A revert or trap after the limit annotated the last captured\nstep, reporting a step that succeeded as reverted.\n\n4. `failed` / `returnValue`. `failed` was guarded on the outermost frame\nexiting at depth 0, which never happens, so every reverting transaction\ntraced as `failed: false`, and the revert path never assigned\n`returnValue`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-13T14:14:45Z",
+          "tree_id": "ea86287842986a4960b7c31ffdf94416bd79f2e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/817dd6b42c777d152436e936a1e9b626d30481dd"
+        },
+        "date": 1786636600283,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.860543810200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1430716817,
             "unit": "seconds"
           }
         ]
