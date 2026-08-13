@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786636634958,
+  "lastUpdate": 1786657313550,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "19307dd5f8a5853266a4841c457d312933f96436",
-          "message": "Fix runtime migrations check (#10570)\n\n- On the scheduled run only download the snapshot and not try to run the\nmigration checks\n- The job should fail when one of the migration checks was cancelled\n(because of timeout for example)\n- Increase the timeout to 120 min, because sometimes it is slower to\ndownload the snapshot\n\nShould be merged after:\nhttps://github.com/paritytech/polkadot-sdk/pull/10566\n\n---------\n\nCo-authored-by: Evgeny Snitko <evgeny@parity.io>",
-          "timestamp": "2025-12-09T21:49:38Z",
-          "tree_id": "12661e52e738b8ccf552b780eb960b562f7f6ee1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/19307dd5f8a5853266a4841c457d312933f96436"
-        },
-        "date": 1765323749297,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.61552785386667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19739870866666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1430716817,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd",
+          "message": "snowbridge: pin removed SSZ merkle-proofs spec link (#12879)\n\nethereum/consensus-specs removed its ssz/ directory (specs moved to\nethereum/ssz-specs), so the master-branch link in merkle_proof.rs 404s\nand the link-checker job now fails on every PR. Pin the link to the\ncommit the file's other spec links already use.",
+          "timestamp": "2026-08-13T20:00:32Z",
+          "tree_id": "c86e9f3c209d24f81483e2c9bb94cfa99de4c80d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd"
+        },
+        "date": 1786657280191,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14120416533333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.836529652500001,
             "unit": "seconds"
           }
         ]
