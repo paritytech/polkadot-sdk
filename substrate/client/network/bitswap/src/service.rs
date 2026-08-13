@@ -330,8 +330,11 @@ impl RequestScheduler {
 		}
 
 		let is_untried = |peer: &litep2p::PeerId| !cid_state.tried_peers.contains(peer);
-		let Some(peer) =
-			connected_peers.iter().filter(|peer| is_untried(peer)).choose(&mut *rng).copied()
+		let Some(peer) = connected_peers
+			.iter()
+			.filter(|peer| is_untried(peer))
+			.choose(&mut *rng)
+			.copied()
 		else {
 			if !connected_peers.is_empty() {
 				// Retry later once every connected peer has been tried.
@@ -916,8 +919,9 @@ fn serve_inbound<B: BlockT>(
 				// answers it via `Database::contains` without loading the transaction body.
 				WantType::Have => match client.has_indexed_transaction(hash) {
 					Ok(true) => ResponseType::Presence { cid, presence: BlockPresenceType::Have },
-					Ok(false) =>
-						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
+					Ok(false) => {
+						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }
+					},
 					Err(e) => {
 						metrics.record_error(metric_errors::CLIENT);
 						log::error!(
@@ -929,8 +933,9 @@ fn serve_inbound<B: BlockT>(
 				},
 				WantType::Block => match client.indexed_transaction(hash) {
 					Ok(Some(transaction)) => ResponseType::Block { cid, block: transaction },
-					Ok(None) =>
-						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
+					Ok(None) => {
+						ResponseType::Presence { cid, presence: BlockPresenceType::DontHave }
+					},
 					Err(e) => {
 						metrics.record_error(metric_errors::CLIENT);
 						log::error!(target: LOG_TARGET, "indexed_transaction({hash}) failed: {e}");

@@ -1043,7 +1043,9 @@ mod proptests {
 					self.scheduler.add_user_request(cid, id);
 				},
 				Op::RemoveWaiter(seed) => {
-					let Some(id) = self.user_requests.keys().nth(seed % self.user_requests.len().max(1)) else {
+					let Some(id) =
+						self.user_requests.keys().nth(seed % self.user_requests.len().max(1))
+					else {
 						return;
 					};
 					let cid = self.user_requests.remove(id).expect("listed waiter exists");
@@ -1078,13 +1080,21 @@ mod proptests {
 
 		fn top_up(&mut self) {
 			for cid in self.scheduler.all_cids() {
-				let _ =
-					self.scheduler.next_peer_to_request(cid, &self.connected, self.now, &mut self.rng);
+				let _ = self.scheduler.next_peer_to_request(
+					cid,
+					&self.connected,
+					self.now,
+					&mut self.rng,
+				);
 			}
 			while self.scheduler.has_window_capacity() {
 				let Some(cid) = self.scheduler.pop_pending() else { break };
-				let _ =
-					self.scheduler.next_peer_to_request(cid, &self.connected, self.now, &mut self.rng);
+				let _ = self.scheduler.next_peer_to_request(
+					cid,
+					&self.connected,
+					self.now,
+					&mut self.rng,
+				);
 			}
 		}
 
@@ -1096,8 +1106,12 @@ mod proptests {
 				.filter(|state| matches!(state.phase, CidRequestPhase::InFlight { .. }))
 				.count();
 			assert_eq!(self.scheduler.live_cids, live, "live counter drifted");
-			assert!(self.scheduler.live_cids <= self.scheduler.max_live_cids, "dispatch window overrun");
-			let queued = self.scheduler.cid_states.values().filter(|state| state.is_queued()).count();
+			assert!(
+				self.scheduler.live_cids <= self.scheduler.max_live_cids,
+				"dispatch window overrun"
+			);
+			let queued =
+				self.scheduler.cid_states.values().filter(|state| state.is_queued()).count();
 			assert_eq!(self.scheduler.queued_cids, queued, "queued counter drifted");
 
 			for (cid, state) in &self.scheduler.cid_states {
