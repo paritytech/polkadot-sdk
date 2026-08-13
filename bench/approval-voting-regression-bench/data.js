@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786632256410,
+  "lastUpdate": 1786636721971,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a",
-          "message": "pin solc version to 0.8.30 in tests-misc.yml (#10558)\n\npin solc version to 0.8.30 in tests-misc.yml\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-05T21:02:46Z",
-          "tree_id": "e8cf4dc10010e74205898bd03f90c509adde81ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a"
-        },
-        "date": 1764977868440,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63635.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52946.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3980686683700023,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4344907327599996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000211359,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019361280000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000211359,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006042045159999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019361280000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.054475592450007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9672229651100062,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.40467559918,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42508092149000093,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.41889466038,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.7221083006409414,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005302921159999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "817dd6b42c777d152436e936a1e9b626d30481dd",
+          "message": "[pallet-revive] fix wrong values in truncated and failed execution traces (#12855)\n\nThis PR fixes wrong values in truncated traces.\nThe execution tracer reported wrong values in four ways. The first three\nneed `ExecutionTracerConfig::limit`; the fourth affects every failing\ntransaction.\n\n1. `gasCost` / `weightCost`. Past the limit the tracer stopped opening a\npending entry per step, but the interpreter still reported every step's\nexit, so those exits finalized an enclosing CALL against the counters\nseen at truncation. At call depth 2 or more the captured steps could sum\nto more than the transaction consumed.\n\n2. `storage`. Snapshots taken by dropped steps were grafted onto the\nlast captured step, which could show slots it never touched.\n\n3. `error`. A revert or trap after the limit annotated the last captured\nstep, reporting a step that succeeded as reverted.\n\n4. `failed` / `returnValue`. `failed` was guarded on the outermost frame\nexiting at depth 0, which never happens, so every reverting transaction\ntraced as `failed: false`, and the revert path never assigned\n`returnValue`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-13T14:14:45Z",
+          "tree_id": "ea86287842986a4960b7c31ffdf94416bd79f2e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/817dd6b42c777d152436e936a1e9b626d30481dd"
+        },
+        "date": 1786636687829,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.990000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6937369467300005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6693930228399996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6424522406700017,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.47221368733271,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005536456270000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3870891697299963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001799147,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8510169506899615,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.93637862131996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.68715383439,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001799147,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001800001,
             "unit": "seconds"
           }
         ]
