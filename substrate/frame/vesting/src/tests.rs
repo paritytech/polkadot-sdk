@@ -2071,8 +2071,8 @@ fn merge_into_closest_preserves_starting_and_ending_block() {
 
 		// Compute incoming_end the same way VestingInfo::ending_block_as_balance does:
 		// start + ceil(locked / per_block). Both divisions use ceiling.
-		let incoming_per_block = (amount2 + duration2 - 1) / duration2;
-		let incoming_end = start2 + (amount2 + incoming_per_block - 1) / incoming_per_block;
+		let incoming_per_block = amount2.div_ceil(duration2);
+		let incoming_end = start2 + amount2.div_ceil(incoming_per_block);
 		assert_eq!(
 			merged_end,
 			original_end.max(incoming_end),
@@ -2324,9 +2324,8 @@ fn merge_into_closest_retains_window_when_target_ends_later() {
 			VestingKind::System,
 		));
 
-		let incoming_per_block = (short_amount + short_duration - 1) / short_duration;
-		let incoming_end =
-			short_start + (short_amount + incoming_per_block - 1) / incoming_per_block;
+		let incoming_per_block = short_amount.div_ceil(short_duration);
+		let incoming_end = short_start + short_amount.div_ceil(incoming_per_block);
 		assert!(incoming_end < target_end, "pre-condition: incoming ends before target");
 
 		// Window must not shrink.
