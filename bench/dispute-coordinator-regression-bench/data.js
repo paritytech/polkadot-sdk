@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786552775538,
+  "lastUpdate": 1786611472285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15174476+TorstenStueber@users.noreply.github.com",
-            "name": "Torsten Stüber",
-            "username": "TorstenStueber"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ea81e0b58d7cc91e8c8e84dddbb9db74727cbd4d",
-          "message": "Tighten length estimation during dry running (#10540)\n\nThe length of the RLP-encoded Ethereum transaction will have an effect\non the transaction cost (as pallet-transaction-payment charges a length\nfee) and therefore the required Ethereum gas.\n\nDuring dry running we need to estimate the length of the actual\nRLP-encoded Ethereum transaction that will submitted later. Some of the\nparameters that determine the length will usually not be provided at the\ndry running stage yet: `gas`, `gas_price` and\n`max_priority_fee_per_gas`.\n\nIf we underestimate the actual lengths of these parameters, then the gas\nestimate might be too low and transaction execution will run out of gas.\nIf we over estimate, then the pre-dispatch weight will be unreasonably\nlarge and we risk that a transaction that might still fit into a block,\nwon't be put into the block anymore, which leads to lower block\nutilization.\n\n## Current Approach\nThe current approach is to just assume that maximal possible length for\nthese fields, which results when they have the maximum possible value,\n`U256::MAX`, due to how RLP encoding works. This is a gross over\nestimation.\n\n## New Approach\nIn practice there won't be gas requirements and gas estimates that are\nmore than `u64::MAX` and therefore we assume this as the maximal value\nfor `gas`.\n\nFor `gas_price` and `max_priority_fee_per_gas` we assume that the caller\nwill use the current base fee and will scale it be some small amount so\nthat the RLP encoding is at most one byte longer than the RLP encoding\nof the base fee. We achieve that by determining the RLP encoding of the\nbase fee multiplied by 256.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-04T14:54:30Z",
-          "tree_id": "e31c79272f7667b728cf8cf5f4242e206d1245d1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ea81e0b58d7cc91e8c8e84dddbb9db74727cbd4d"
-        },
-        "date": 1764867018080,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005157975099999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008727683759999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026500623800000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00257469325,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yrong1997@gmail.com",
+            "name": "Ron",
+            "username": "yrong"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e05316b1656277c2003e5a9a8778dc28ed0a10c",
+          "message": "paras: skip undersized parachain heads in sorted_para_heads (#12844)\n\n`Paras::sorted_para_heads()` now skips parachain heads shorter than\n`MIN_PARA_HEAD_LEN` (64 bytes) when building the parachain-heads list.\nEncoded parachain headers are well above this bound, so no real\nparachain is affected.\n\nRelay-only, no downstream change needed. Adds a test.",
+          "timestamp": "2026-08-13T07:06:53Z",
+          "tree_id": "27223f7f45cdeecb2b630c5bb8d401af521fcf6e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e05316b1656277c2003e5a9a8778dc28ed0a10c"
+        },
+        "date": 1786611439604,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010370594279999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025674319899999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009653255919999989,
             "unit": "seconds"
           }
         ]
