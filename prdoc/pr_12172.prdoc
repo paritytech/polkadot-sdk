@@ -42,7 +42,7 @@ crates:
   - name: polkadot-collator-protocol
     bump: major
   - name: polkadot-node-collation-generation
-    bump: major
+    bump: minor
   - name: polkadot-node-primitives
     bump: major
   - name: polkadot-node-subsystem-types
@@ -52,10 +52,12 @@ crates:
   - name: cumulus-client-collator
     bump: major
   - name: polkadot-primitives
-    bump: minor
+    bump: major
   - name: polkadot-network-bridge
     bump: patch
   - name: polkadot-service
+    bump: major
+  - name: polkadot-omni-node-lib
     bump: patch
   - name: polkadot-runtime-parachains
     bump: patch
