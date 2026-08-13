@@ -18,7 +18,10 @@
 use codec::EncodeLike;
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
-	traits::{tokens::VestedPayout, VestingSchedule},
+	traits::{
+		tokens::{VestedPayout, VestedPayoutError},
+		VestingSchedule,
+	},
 };
 use frame_system::RawOrigin;
 use sp_runtime::{
@@ -29,7 +32,9 @@ use sp_runtime::{
 use strum::IntoEnumIterator;
 
 use super::{Vesting as VestingStorage, *};
-use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, Test, Vesting};
+use crate::mock::{
+	vesting_events_since_last_call, Balances, ExtBuilder, MinVestedTransfer, System, Test, Vesting,
+};
 
 /// A default existential deposit.
 const ED: u64 = 256;
@@ -587,20 +592,10 @@ fn force_vested_transfer_correctly_fails() {
 		);
 		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![pub_vi(user2_vesting_schedule)]);
 
-		// Too low transfer amount.
-		let new_vesting_schedule_too_low =
-			VestingInfo::new(<Test as Config>::MinVestedTransfer::get() - 1, 64, 10);
-		assert_noop!(
-			Vesting::force_vested_transfer(
-				RawOrigin::Root.into(),
-				3,
-				4,
-				new_vesting_schedule_too_low
-			),
-			Error::<Test>::AmountLow,
-		);
+		// `force_vested_transfer` is a System/Root call, so `MinVestedTransfer` is not enforced.
+		// Sub-minimum amounts are allowed and only structurally invalid schedules are rejected.
 
-		// `per_block` is 0.
+		// `per_block` is 0, which would result in a schedule with infinite duration.
 		let schedule_per_block_0 =
 			VestingInfo::new(<Test as Config>::MinVestedTransfer::get(), 0, 10);
 		assert_noop!(
@@ -612,7 +607,7 @@ fn force_vested_transfer_correctly_fails() {
 		let schedule_locked_0 = VestingInfo::new(0, 1, 10);
 		assert_noop!(
 			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 4, schedule_locked_0),
-			Error::<Test>::AmountLow,
+			Error::<Test>::InvalidScheduleParams,
 		);
 
 		// Verify no currency transfer happened.
@@ -620,6 +615,30 @@ fn force_vested_transfer_correctly_fails() {
 		assert_eq!(user4_free_balance, Balances::free_balance(&4));
 		// Account 4 has no schedules.
 		vest_and_assert_no_vesting::<Test>(4);
+	});
+}
+
+#[test]
+fn force_vested_transfer_allows_sub_minimum_amount() {
+	// `force_vested_transfer` (System/Root) bypasses `MinVestedTransfer`.
+	// A sub-minimum schedule must be accepted and the funds actually transferred.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user3_free_balance = Balances::free_balance(&3);
+		let user4_free_balance = Balances::free_balance(&4);
+
+		let sub_min = <Test as Config>::MinVestedTransfer::get() - 1;
+		let schedule = VestingInfo::new(sub_min, 1, 10);
+
+		assert_ok!(Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 4, schedule));
+
+		// Funds were transferred.
+		assert_eq!(Balances::free_balance(&3), user3_free_balance - sub_min);
+		assert_eq!(Balances::free_balance(&4), user4_free_balance + sub_min);
+		// A System-tagged schedule exists on account 4.
+		assert!(VestingStorage::<Test>::get(&4)
+			.unwrap()
+			.iter()
+			.any(|(_, k)| *k == VestingKind::System));
 	});
 }
 
@@ -1526,16 +1545,16 @@ fn add_to_vesting_create_rejects_sub_min() {
 		let amount = 100u64;
 		assert!(amount < <Test as Config>::MinVestedTransfer::get());
 
-		assert_noop!(
+		assert_eq!(
 			<Vesting as VestedPayout<_, _>>::add_to_vesting(
 				&source,
 				&dest,
 				amount,
 				20,
 				1,
-				VestingKind::Public
+				VestingKind::Public,
 			),
-			Error::<Test>::AmountLow
+			Err(VestedPayoutError::Other(Error::<Test>::AmountLow.into())),
 		);
 	});
 }
@@ -1650,23 +1669,23 @@ fn add_to_vesting_public_at_cap_returns_error() {
 			));
 		}
 
-		assert_noop!(
+		assert_eq!(
 			<Vesting as VestedPayout<_, _>>::add_to_vesting(
 				&source,
 				&dest,
 				amount,
 				20,
 				(cap + 1) as u64,
-				VestingKind::Public
+				VestingKind::Public,
 			),
-			Error::<Test>::AtMaxVestingSchedules,
+			Err(VestedPayoutError::NoCapacity),
 		);
 	});
 }
 
 #[test]
 fn add_to_vesting_system_at_cap_returns_error() {
-	// System schedules fail with AtMaxVestingSchedules when the per-kind cap is reached
+	// System schedules fail with NoCapacity when the per-kind cap is reached
 	// and no same-start schedule exists to merge into.
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let source = 3u64;
@@ -1686,7 +1705,7 @@ fn add_to_vesting_system_at_cap_returns_error() {
 		}
 
 		// One more System schedule at cap with a different starting block must fail.
-		assert_noop!(
+		assert_eq!(
 			<Vesting as VestedPayout<_, _>>::add_to_vesting(
 				&source,
 				&dest,
@@ -1695,7 +1714,43 @@ fn add_to_vesting_system_at_cap_returns_error() {
 				(cap + 1) as u64,
 				VestingKind::System,
 			),
-			Error::<Test>::AtMaxVestingSchedules,
+			Err(VestedPayoutError::NoCapacity),
+		);
+	});
+}
+
+/// When slots are full and the incoming amount is below `MinVestedTransfer`, the capacity check
+/// must fire before the amount check so the `AtMaxVestingSchedules` error surfaces and the
+/// `merge_amount_into_closest_schedule` fallback can rescue the payment.
+#[test]
+fn add_to_vesting_at_cap_sub_minimum_returns_capacity_error() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
+		let sub_min = MinVestedTransfer::get() - 1;
+
+		// Fill the System quota (cap = 1) with a normal-sized schedule.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			ED * 4,
+			20,
+			10u64,
+			VestingKind::System,
+		));
+		assert!(!Pallet::<Test>::has_capacity_for_kind(&dest, VestingKind::System));
+
+		// A sub-minimum amount at a different start_at must return NoCapacity.
+		assert_eq!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source,
+				&dest,
+				sub_min,
+				20,
+				99u64,
+				VestingKind::System,
+			),
+			Err(VestedPayoutError::NoCapacity),
 		);
 	});
 }
@@ -1797,17 +1852,50 @@ fn has_capacity_for_kind_reflects_per_kind_cap() {
 	});
 }
 
-/// `is_no_capacity_error` identifies `AtMaxVestingSchedules` and no other error.
+/// `add_to_vesting` returns `NoCapacity` when the per-kind cap is full, and `Other` for
+/// non-capacity failures such as invalid schedule params.
 #[test]
-fn is_no_capacity_error_matches_only_at_max_schedules() {
-	let at_max: sp_runtime::DispatchError = Error::<Test>::AtMaxVestingSchedules.into();
-	assert!(<Vesting as VestedPayout<_, _>>::is_no_capacity_error(&at_max));
+fn add_to_vesting_error_variants_are_distinct() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 3u64;
+		let dest = 4u64;
 
-	let other: sp_runtime::DispatchError = Error::<Test>::InvalidScheduleParams.into();
-	assert!(!<Vesting as VestedPayout<_, _>>::is_no_capacity_error(&other));
+		// Fill the System quota (cap = 1).
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			ED * 4,
+			20,
+			1u64,
+			VestingKind::System,
+		));
 
-	let generic = sp_runtime::DispatchError::Other("unexpected");
-	assert!(!<Vesting as VestedPayout<_, _>>::is_no_capacity_error(&generic));
+		// At-cap with a different start_at → NoCapacity.
+		assert_eq!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&source,
+				&dest,
+				ED * 4,
+				20,
+				2u64,
+				VestingKind::System,
+			),
+			Err(VestedPayoutError::NoCapacity),
+		);
+
+		// Currency transfer failure (source has no balance) → Other.
+		assert!(matches!(
+			<Vesting as VestedPayout<_, _>>::add_to_vesting(
+				&99u64,
+				&dest,
+				ED * 4,
+				20,
+				3u64,
+				VestingKind::Public,
+			),
+			Err(VestedPayoutError::Other(_)),
+		));
+	});
 }
 
 /// The partition's central property: filling one kind's quota does not block another kind.
@@ -2339,6 +2427,67 @@ fn merge_into_closest_retains_window_when_target_ends_later() {
 			.saturating_add(short_amount);
 		let actual_locked_now = merged.locked_at::<sp_runtime::traits::Identity>(now);
 		assert_eq!(actual_locked_now, expected_locked_now, "locked_at(now) must equal the sum");
+	});
+}
+
+/// When the target schedule ends before the incoming one, the incoming amount must not be
+/// released at the target's original end date — it must remain locked until the merged
+/// schedule's end, which in this case must match `incoming_end`.
+#[test]
+fn merge_into_closest_incoming_locked_past_target_end() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let source = 13u64;
+		let dest = 4u64;
+
+		// Short target: amount=ED*4, duration=20, start=0 → per_block=52, target_end≈20.
+		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
+			&source,
+			&dest,
+			ED * 4,
+			20,
+			0u64,
+			VestingKind::System,
+		));
+
+		// Advance to mid-schedule (block 10, target half-vested).
+		System::set_block_number(10u64);
+
+		let target_vi = single_system_schedule(dest);
+		let target_end = target_vi.ending_block_as_balance::<sp_runtime::traits::Identity>();
+
+		// Incoming: ends much later (incoming_end ≈ 84 >> target_end ≈ 20).
+		assert_ok!(<Vesting as VestedPayout<_, _>>::merge_amount_into_closest_schedule(
+			&source,
+			&dest,
+			ED * 8,
+			80,
+			5u64,
+			VestingKind::System,
+		));
+
+		let merged = single_system_schedule(dest);
+		let merged_end = merged.ending_block_as_balance::<sp_runtime::traits::Identity>();
+		assert!(merged_end > target_end, "pre-condition: merged window extends past target_end");
+
+		// At the target's original end the incoming must still be locked.
+		assert!(
+			merged.locked_at::<sp_runtime::traits::Identity>(target_end) > 0,
+			"incoming amount must still be locked at target's original end"
+		);
+
+		// At a block halfway between target_end and merged_end, tokens must still be locked.
+		let mid = (target_end + merged_end) / 2;
+		assert!(
+			merged.locked_at::<sp_runtime::traits::Identity>(mid) > 0,
+			"tokens must remain locked between target_end and merged_end"
+		);
+
+		// At the merged end the schedule must be fully vested.
+		assert_eq!(
+			merged.locked_at::<sp_runtime::traits::Identity>(merged_end),
+			0,
+			"schedule must be fully vested at merged_end"
+		);
 	});
 }
 

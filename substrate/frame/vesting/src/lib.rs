@@ -61,7 +61,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-pub use frame_support::traits::tokens::VestingKind;
+pub use frame_support::traits::tokens::{VestedPayoutError, VestingKind};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -208,10 +208,9 @@ pub mod pallet {
 
 		/// Maximum number of vesting schedules an account may have at a given moment.
 		///
-		/// This is the total storage cap. Trusted programmatic callers (via the
-		/// [`VestedPayout`](frame_support::traits::tokens::VestedPayout) and
-		/// [`VestedTransfer`] traits, and the root-only `force_vested_transfer` extrinsic) may
-		/// fill schedules up to this limit.
+		/// This is the total storage cap. Trusted programmatic callers (via the [`VestedPayout`]
+		/// and [`VestedTransfer`] traits, and the root-only `force_vested_transfer` extrinsic)
+		/// may fill schedules up to this limit.
 		const MAX_VESTING_SCHEDULES: u32;
 
 		/// Maximum number of vesting schedules an account may hold from the permissionless
@@ -641,6 +640,20 @@ impl<T: Config> Pallet<T> {
 		VestingInfo::new(locked, per_block, starting_block)
 	}
 
+	// Validates a schedule before creating it via a transfer.
+	// `MinVestedTransfer` is enforced for all kinds except `System`, which is trusted.
+	// Any future kind must explicitly be added to the exception list to bypass this guard.
+	fn validate_new_transfer_schedule(
+		schedule: &VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
+		kind: VestingKind,
+	) -> DispatchResult {
+		if !matches!(kind, VestingKind::System) {
+			ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
+		}
+		ensure!(schedule.is_valid(), Error::<T>::InvalidScheduleParams);
+		Ok(())
+	}
+
 	// Execute a vested transfer from `source` to `target` with the given `schedule`.
 	fn do_vested_transfer(
 		source: &T::AccountId,
@@ -648,11 +661,7 @@ impl<T: Config> Pallet<T> {
 		schedule: VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		kind: VestingKind,
 	) -> DispatchResult {
-		// Validate user inputs.
-		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
-		if !schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
-		};
+		Self::validate_new_transfer_schedule(&schedule, kind)?;
 
 		// The currency transfer and vesting schedule setup must run atomically.
 		with_storage_layer(|| {
@@ -848,9 +857,16 @@ impl<T: Config> Pallet<T> {
 		Ok((schedules, locked_now))
 	}
 
+	fn has_capacity_for_kind_inner(
+		schedules: &[(VestingInfo<BalanceOf<T>, BlockNumberFor<T>>, VestingKind)],
+		kind: VestingKind,
+	) -> bool {
+		schedules.iter().filter(|(_, k)| *k == kind).count() < T::slot_cap(kind) as usize
+	}
+
 	fn has_capacity_for_kind(who: &T::AccountId, kind: VestingKind) -> bool {
 		let schedules = Vesting::<T>::get(who).unwrap_or_default();
-		schedules.iter().filter(|(_, k)| *k == kind).count() < T::slot_cap(kind) as usize
+		Self::has_capacity_for_kind_inner(&schedules, kind)
 	}
 }
 
@@ -896,7 +912,7 @@ where
 		duration: BlockNumberFor<T>,
 		start_at: BlockNumberFor<T>,
 		kind: VestingKind,
-	) -> DispatchResult {
+	) -> Result<(), VestedPayoutError> {
 		if amount.is_zero() || duration.is_zero() {
 			return Ok(());
 		}
@@ -925,13 +941,19 @@ where
 				Self::write_lock(dest, locked_now);
 				Ok(())
 			})
+			.map_err(VestedPayoutError::Other)
 		} else {
-			Self::do_vested_transfer(source, dest, incoming, kind)
+			if !Self::has_capacity_for_kind_inner(&schedules, kind) {
+				return Err(VestedPayoutError::NoCapacity);
+			}
+			Self::do_vested_transfer(source, dest, incoming, kind).map_err(|e| {
+				if e == Error::<T>::AtMaxVestingSchedules.into() {
+					VestedPayoutError::NoCapacity
+				} else {
+					VestedPayoutError::Other(e)
+				}
+			})
 		}
-	}
-
-	fn is_no_capacity_error(e: &sp_runtime::DispatchError) -> bool {
-		*e == Error::<T>::AtMaxVestingSchedules.into()
 	}
 
 	fn merge_amount_into_closest_schedule(

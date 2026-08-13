@@ -226,7 +226,7 @@ use frame_support::{
 	traits::{
 		tokens::{
 			fungible::{Credit, Debt, Mutate as FunMutate},
-			Preservation, VestedPayout, VestingKind,
+			Preservation, VestedPayout, VestedPayoutError, VestingKind,
 		},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
@@ -783,19 +783,16 @@ where
 		}
 
 		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System).or_else(
-			|e| {
-				if V::is_no_capacity_error(&e) {
-					V::merge_amount_into_closest_schedule(
-						source,
-						dest,
-						amount,
-						duration,
-						start_at,
-						VestingKind::System,
-					)
-				} else {
-					Err(e)
-				}
+			|e| match e {
+				VestedPayoutError::NoCapacity => V::merge_amount_into_closest_schedule(
+					source,
+					dest,
+					amount,
+					duration,
+					start_at,
+					VestingKind::System,
+				),
+				VestedPayoutError::Other(e) => Err(e),
 			},
 		)
 	}
