@@ -1,0 +1,15 @@
+title: 'network: Enable WebRTC by default on full nodes'
+doc:
+- audience: ['Node Dev', 'Node Operator']
+  description: |-
+    Accept WebRTC connections on the same UDP `--port` as used for TCP/WS connections.
+    Enabled by default on full nodes, can be disabled with `--disable-webrtc` or forced
+    on on validators & collators with `--enable-webrtc`.
+    Only supported with litep2p network backend.
+crates:
+- name: sc-cli
+  bump: major
+- name: sc-network
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: minor
