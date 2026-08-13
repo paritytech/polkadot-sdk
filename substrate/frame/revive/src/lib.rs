@@ -4270,6 +4270,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						return output_wrapper(Default::default())
 					}
 
+					// Faithful proof-size accounting needs a PoV recorder registered for this call
+					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+					// `ExhaustsResources` and drop a trace.
 					let mut traces = vec![];
 					let (header, extrinsics) = input.block.deconstruct();
 					<$Executive>::initialize_block(&header);
@@ -4315,6 +4318,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						return output_wrapper(TraceTxOutputPayload { trace: None })
 					}
 
+					// Faithful proof-size accounting needs a PoV recorder registered for this call
+					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+					// `ExhaustsResources` and drop a trace.
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config);
 					let (header, extrinsics) = input.block.deconstruct();
 
