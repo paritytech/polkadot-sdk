@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786636679037,
+  "lastUpdate": 1786657356618,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23cac32cb789a6a6e3a071a3f5cd293737098b71",
-          "message": "[CI] `All * passed` jobs check if cancelled (#10566)\n\nFail `All * passed` jobs if needs were cancelled, not just failed\ncc https://github.com/paritytech/devops/issues/4640",
-          "timestamp": "2025-12-08T12:56:53+01:00",
-          "tree_id": "ec56ccaf7a8dec1667f381931c952e30bcfdde93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/23cac32cb789a6a6e3a071a3f5cd293737098b71"
-        },
-        "date": 1765196983537,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15888713232666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022580882033333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007435868433333315,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013193507960000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1431503654,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd",
+          "message": "snowbridge: pin removed SSZ merkle-proofs spec link (#12879)\n\nethereum/consensus-specs removed its ssz/ directory (specs moved to\nethereum/ssz-specs), so the master-branch link in merkle_proof.rs 404s\nand the link-checker job now fails on every PR. Pin the link to the\ncommit the file's other spec links already use.",
+          "timestamp": "2026-08-13T20:00:32Z",
+          "tree_id": "c86e9f3c209d24f81483e2c9bb94cfa99de4c80d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd"
+        },
+        "date": 1786657322992,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022923605533333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009800887966666658,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007610734559999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14413759116000008,
             "unit": "seconds"
           }
         ]
