@@ -618,9 +618,24 @@ impl Client {
 				},
 			};
 
-			let block = block.at().await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to resolve streamed block: {err:?}");
-			})?;
+			// Resolution can fail for a block that got pruned or retracted in the
+			// meantime, or on a transient RPC error; failing the subscription here
+			// would take down the whole server (essential task). Skip the block
+			// instead: a skipped finalized block does not advance
+			// `last_finalized_seen`, so the next iteration queues it as a gap and
+			// the gap filler backfills it.
+			let block = match block.at().await {
+				Ok(block) => block,
+				Err(err) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+						block.number(),
+						block.hash(),
+					);
+					continue;
+				},
+			};
 
 			// Acquire lock to ensure only one subscription can perform write operations at a time
 			let _guard = self.subscription_lock.lock().await;
