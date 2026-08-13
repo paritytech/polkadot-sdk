@@ -40,6 +40,7 @@ use frame_support::{
 		DispatchErrorWithPostInfo, GetDispatchInfo, PostDispatchInfo, WithPostDispatchInfo,
 	},
 	pallet_prelude::*,
+	storage::with_transaction,
 	traits::{
 		Consideration, Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Footprint, Get,
 		LockableCurrency, OriginTrait, WithdrawReasons,
@@ -55,7 +56,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	Debug, Either, SaturatedConversion,
+	Debug, Either, SaturatedConversion, TransactionOutcome,
 };
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
@@ -3080,45 +3081,53 @@ impl<T: Config> Pallet<T> {
 		RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo>,
 		<RuntimeCall as Dispatchable>::RuntimeOrigin: From<OriginCaller>,
 	{
-		crate::Pallet::<Runtime>::set_record_xcm(true);
-		// Clear other messages in queues...
-		Router::clear_messages();
-		// ...and reset events to make sure we only record events from current call.
-		frame_system::Pallet::<Runtime>::reset_events();
-		let result = call.dispatch(origin.into());
-		crate::Pallet::<Runtime>::set_record_xcm(false);
-		let local_xcm = crate::Pallet::<Runtime>::recorded_xcm()
-			.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(result_xcms_version))
-			.transpose()
-			.map_err(|()| {
-				tracing::debug!(
-					target: "xcm::DryRunApi::dry_run_call",
-					"Local xcm version conversion failed"
-				);
-
-				XcmDryRunApiError::VersionedConversionFailed
-			})?;
-
-		// Should only get messages from this call since we cleared previous ones.
-		let forwarded_xcms =
-			Self::convert_forwarded_xcms(result_xcms_version, Router::get_messages()).inspect_err(
-				|error| {
+		// Run inside a transaction that is always rolled back so that storage mutations from the
+		// simulated dispatch never leak into the caller's state.
+		with_transaction(|| {
+			crate::Pallet::<Runtime>::set_record_xcm(true);
+			// Clear other messages in queues...
+			Router::clear_messages();
+			// ...and reset events to make sure we only record events from current call.
+			frame_system::Pallet::<Runtime>::reset_events();
+			let result = call.dispatch(origin.into());
+			crate::Pallet::<Runtime>::set_record_xcm(false);
+			let local_xcm = crate::Pallet::<Runtime>::recorded_xcm()
+				.map(|xcm| VersionedXcm::<()>::from(xcm).into_version(result_xcms_version))
+				.transpose()
+				.map_err(|()| {
 					tracing::debug!(
 						target: "xcm::DryRunApi::dry_run_call",
-						?error, "Forwarded xcms version conversion failed with error"
+						"Local xcm version conversion failed"
 					);
-				},
-			)?;
-		let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
-			frame_system::Pallet::<Runtime>::read_events_no_consensus()
-				.map(|record| record.event.clone())
-				.collect();
-		Ok(CallDryRunEffects {
-			local_xcm: local_xcm.map(VersionedXcm::<()>::from),
-			forwarded_xcms,
-			emitted_events: events,
-			execution_result: result,
+
+					XcmDryRunApiError::VersionedConversionFailed
+				});
+
+			// Should only get messages from this call since we cleared previous ones.
+			let forwarded_xcms =
+				Self::convert_forwarded_xcms(result_xcms_version, Router::get_messages())
+					.inspect_err(|error| {
+						tracing::debug!(
+							target: "xcm::DryRunApi::dry_run_call",
+							?error, "Forwarded xcms version conversion failed with error"
+						);
+					});
+			let events: Vec<<Runtime as frame_system::Config>::RuntimeEvent> =
+				frame_system::Pallet::<Runtime>::read_events_no_consensus()
+					.map(|record| record.event.clone())
+					.collect();
+
+			let outcome = local_xcm.and_then(|local_xcm| {
+				forwarded_xcms.map(|forwarded_xcms| CallDryRunEffects {
+					local_xcm: local_xcm.map(VersionedXcm::<()>::from),
+					forwarded_xcms,
+					emitted_events: events,
+					execution_result: result,
+				})
+			});
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(outcome))
 		})
+		.expect("always Ok; qed")
 	}
 
 	/// Dry-runs `xcm` with the given `origin_location`.
@@ -3132,6 +3141,7 @@ impl<T: Config> Pallet<T> {
 	where
 		Router: InspectMessageQueues,
 	{
+		// Version conversions don't touch storage, so do them before the transaction.
 		let origin_location: Location = origin_location.try_into().map_err(|error| {
 			tracing::debug!(
 				target: "xcm::DryRunApi::dry_run_xcm",
@@ -3149,29 +3159,40 @@ impl<T: Config> Pallet<T> {
 		})?;
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
-		// To make sure we only record events from current call.
-		Router::clear_messages();
-		frame_system::Pallet::<T>::reset_events();
+		// Run inside a transaction that is always rolled back so that storage mutations from the
+		// simulated execution never leak into the caller's state.
+		with_transaction(|| {
+			// To make sure we only record events from current call.
+			Router::clear_messages();
+			frame_system::Pallet::<T>::reset_events();
 
-		let result = <T as Config>::XcmExecutor::prepare_and_execute(
-			origin_location,
-			xcm,
-			&mut hash,
-			Weight::MAX, // Max limit available for execution.
-			Weight::zero(),
-		);
-		let forwarded_xcms = Self::convert_forwarded_xcms(xcm_version, Router::get_messages())
-			.inspect_err(|error| {
-				tracing::debug!(
-					target: "xcm::DryRunApi::dry_run_xcm",
-					?error, "Forwarded xcms version conversion failed with error"
-				);
-			})?;
-		let events: Vec<<T as frame_system::Config>::RuntimeEvent> =
-			frame_system::Pallet::<T>::read_events_no_consensus()
-				.map(|record| record.event.clone())
-				.collect();
-		Ok(XcmDryRunEffects { forwarded_xcms, emitted_events: events, execution_result: result })
+			let result = <T as Config>::XcmExecutor::prepare_and_execute(
+				origin_location,
+				xcm,
+				&mut hash,
+				Weight::MAX, // Max limit available for execution.
+				Weight::zero(),
+			);
+			let forwarded_xcms = Self::convert_forwarded_xcms(xcm_version, Router::get_messages())
+				.inspect_err(|error| {
+					tracing::debug!(
+						target: "xcm::DryRunApi::dry_run_xcm",
+						?error, "Forwarded xcms version conversion failed with error"
+					);
+				});
+			let events: Vec<<T as frame_system::Config>::RuntimeEvent> =
+				frame_system::Pallet::<T>::read_events_no_consensus()
+					.map(|record| record.event.clone())
+					.collect();
+
+			let outcome = forwarded_xcms.map(|forwarded_xcms| XcmDryRunEffects {
+				forwarded_xcms,
+				emitted_events: events,
+				execution_result: result,
+			});
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(outcome))
+		})
+		.expect("always Ok; qed")
 	}
 
 	fn convert_xcms(
