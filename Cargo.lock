@@ -19884,7 +19884,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.38.0"
+version = "0.38.1"
 dependencies = [
  "ahash",
  "array-bytes 6.2.2",
