@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	signed::{Config, Pallet, RewardSource, Submissions},
+	signed::{Config, Pallet, RewardSource, Submissions, MAX_UNPAID_REWARDS},
 	types::PagedRawSolution,
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,
@@ -203,9 +203,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn claim_unpaid_reward() -> Result<(), BenchmarkError> {
-		// Worst case: UnpaidRewards (bounded to 16) is full, and the claimed entry is the last
-		// one scanned.
-		for i in 0..16u32 {
+		// Worst case: UnpaidRewards is full, and the claimed entry is the last one scanned.
+		for i in 0..MAX_UNPAID_REWARDS {
 			let who = crate::Pallet::<T>::funded_account("filler", i);
 			let entry = crate::signed::UnpaidReward::<T> {
 				round: i,
@@ -215,7 +214,7 @@ mod benchmarks {
 			crate::signed::UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry))
 				.map_err(|_| BenchmarkError::Stop("UnpaidRewards is full"))?;
 		}
-		let target_round = 15u32;
+		let target_round = MAX_UNPAID_REWARDS - 1;
 
 		// The claim pays out of `RewardSource`, so it must be able to cover one entry and still
 		// hold ED afterwards, as the payout uses `Preservation::Preserve`. A `None` source mints
@@ -236,7 +235,7 @@ mod benchmarks {
 			Pallet::<T>::claim_unpaid_reward(RawOrigin::Signed(caller).into(), target_round)?;
 		}
 
-		assert_eq!(crate::signed::UnpaidRewards::<T>::get().len(), 15);
+		assert_eq!(crate::signed::UnpaidRewards::<T>::get().len(), MAX_UNPAID_REWARDS as usize - 1);
 		// Guard against silently measuring the mint fallback instead of the real transfer: if a
 		// pot is configured, its balance must have dropped by the claimed amount.
 		if let Some((source, balance_before)) = source_and_balance_before {

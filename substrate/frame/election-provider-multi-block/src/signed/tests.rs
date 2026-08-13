@@ -1754,7 +1754,7 @@ mod issuance {
 
 			// Fill the unpaid-rewards queue to capacity, oldest (round 999) first.
 			UnpaidRewards::<T>::mutate(|unpaid| {
-				for i in 0..16u64 {
+				for i in 0..MAX_UNPAID_REWARDS as u64 {
 					unpaid
 						.try_push(UnpaidReward { round: 999 + i as u32, who: i, amount: 1 })
 						.unwrap();
@@ -1773,7 +1773,11 @@ mod issuance {
 				"the new reward must still be deferred, never dropped"
 			);
 			let unpaid = UnpaidRewards::<T>::get();
-			assert_eq!(unpaid.len(), 16, "queue stays at capacity, oldest swapped for newest");
+			assert_eq!(
+				unpaid.len(),
+				MAX_UNPAID_REWARDS as usize,
+				"queue stays at capacity, oldest swapped for newest"
+			);
 			assert!(!unpaid.iter().any(|e| e.round == 999), "evicted entry must be gone");
 		});
 	}

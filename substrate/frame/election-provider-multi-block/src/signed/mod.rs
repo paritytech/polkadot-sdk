@@ -116,6 +116,12 @@ pub struct SubmissionMetadata<T: Config> {
 	pages: BoundedVec<bool, T::Pages>,
 }
 
+/// Maximum number of entries in [`UnpaidRewards`].
+///
+/// Deferrals require a depleted pot and at most one entry is created per round, so a small fixed
+/// bound suffices for every runtime. When full, the oldest entry is evicted.
+pub const MAX_UNPAID_REWARDS: u32 = 16;
+
 /// A round-winner reward that failed to pay, pending a permissionless claim via
 /// [`Pallet::claim_unpaid_reward`]. Rewards only, not fee refunds, so `round` is a unique key.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, DebugNoBound)]
@@ -371,12 +377,12 @@ pub mod pallet {
 	/// Round-winner rewards that failed to pay out of [`Config::RewardSource`], pending a
 	/// permissionless claim via [`Pallet::claim_unpaid_reward`].
 	///
-	/// Expected to stay empty in normal operation; only grows when the pot is depleted. Entries
-	/// are pushed in round order, so if full, the oldest one is evicted (see
-	/// [`Pallet::pay_reward`]).
+	/// Expected to stay empty in normal operation; only grows when the pot is depleted. Bounded
+	/// to [`MAX_UNPAID_REWARDS`] entries, pushed in round order, so if full, the oldest one is
+	/// evicted (see [`Pallet::pay_reward`]).
 	#[pallet::storage]
 	pub type UnpaidRewards<T: Config> =
-		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<16>>, ValueQuery>;
+		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<MAX_UNPAID_REWARDS>>, ValueQuery>;
 
 	/// Wrapper type for signed submissions.
 	///
