@@ -1,210 +1,339 @@
 # Nested host-call overhead — results
 
 Companion to [nested-call-overhead-handoff.md](nested-call-overhead-handoff.md),
-which owns the scope and the decisions. This document is the lab notebook.
+which owns the scope and the decisions. This is the lab notebook: the full
+story, the diagrams, and the reasoning. The one-paragraph version lives in
+[crypto-benchamarking.md](crypto-benchamarking.md) under *Host-call overhead*.
 
-**Status, 2026-08-12: the harness is built, validated, and pre-screened in the
-container. No numbers of record yet — those need machine B with `--linux`, and
-the pre-screen cannot substitute for them (see "Why the container cannot answer
-this").** The commands to produce them are at the bottom.
+**Status: complete. Numbers of record, machine B, 2026-08-13.**
 
-## What is being decided
+## Executive summary
 
-- A hypothetical `ed25519_verify` host call invoked from *parachain code* must
-  cross the service↔node boundary several times, because the inner PVM cannot
-  reach the node — the parachain service is a mandatory mediator.
-- Machine B numbers of record from the wide-arith work: native host verify
-  **23.4 µs**; the in-guest wide-arith route, **zero crossings**, **38.58 µs**
-  ([wide-arith-results.md](wide-arith-results.md)).
-- Therefore the host-call route wins on wall clock **iff the two-jump overhead
-  at a 96–128 B payload is below ~15 µs**. This harness measures exactly that
-  left-hand side, with no crypto in it.
+**What one host call costs, and who pays it:**
 
-## Measured, machine-independent: the protocol costs 4 + 1 crossings per call
+| caller | service↔node crossings | guest-memory accesses | µs/call |
+|---|---:|---:|---:|
+| **parachain code** (nested, packed args) | 4 | 8 | **6.0** |
+| parachain code, one `peek` per argument | 6 | 12 | 11.4 |
+| **the service's own refine code** | 1 | 2 | **1.9** |
 
-Counted by the harness (`--phases` reports crossings per mediated call; at
-K = 32 it reads 4.06, i.e. `(4·32 + 2)/32`):
+**The verdict it was built to settle — the host-call route wins for 25519:**
 
-| crossing | what crosses |
-|---|---|
-| `peek` | inner→service copy of the N-byte argument (two memcpys node-side) |
-| stub | the node does the work; N bytes in, R bytes out |
-| `poke` | service→inner copy of the R-byte result (two memcpys node-side) |
-| `invoke` | resumes the inner VM; 112-byte register/gas block each way |
+| route (one ed25519 verification) | wall |
+|---|---:|
+| in-guest, after the wide-arithmetic work, zero crossings | 38.58 µs |
+| **host call from parachain code** (23.4 native host + 6.0) | **29.4 µs** |
+| host call from the service's own code (23.4 + 1.9) | 25.3 µs |
 
-That is **4 service↔node crossings per logical call**, plus the inner VM's own
-`ecalli` exit and resume, plus one extra `invoke` per inner run to collect the
-halt. It confirms the hand-off's "≈ 5–6 crossings" estimate as a count, and it
-is a property of the protocol, not of the machine.
+The budget was **< 15 µs of overhead**; the measurement came in at **6.0 µs**,
+less than half of it. The result survives every pessimisation available: even
+with un-packed arguments *and* the wrong paging configuration (11.4 µs), the
+total is 34.8 µs, still under the in-guest route.
 
-Two copies per `peek` and per `poke` is what the node actually does
-(`polkajam/crates/node/src/chain/exec/vm/host.rs:1588`, `:1631`: read into a
-fresh `Vec`, then write); the harness mirrors it rather than optimising it.
+**The surprise, and the reason the old model was wrong:** the cost is not the
+VM boundary crossings. A crossing is ~0.11 µs. The cost is **reaching guest
+memory** — 0.87 µs per access, because the guests run in separate processes and
+the host reaches them with a `process_vm_readv`/`writev` syscall. A mediated
+call needs eight such accesses. Six of them hit *service* memory, which the
+node never runs with dynamic paging, so they cannot be optimised away by
+configuration alone.
 
-## Why the container cannot answer this
+**Secondary results:**
 
-- The **Linux sandbox does not run in the dev container** (`clone`, errno 38) —
-  confirmed again here.
-- The fallback, the **generic sandbox, runs the guest in-process**: a host call
-  is a longjmp-style exit, not an IPC handshake
-  (`polkavm/crates/polkavm/src/sandbox/generic.rs`). It has no crossing cost
-  worth the name.
-- On Linux the crossing is the futex/spin machinery: after an `ecalli` the host
-  enters a low-latency mode where resuming is a store plus a spin, but the
-  worker still spins `20× sched_yield` before sleeping
-  (`polkavm/crates/polkavm-zygote/src/main.rs:803`), and any path that touches
-  the program counter pays a longjmp handshake plus `futex_wake`
-  (`sandbox/linux.rs:2640`, `:2957`).
-- So the container numbers below are **shape, not size**: they validate the
-  harness, the linearity, the copy slope and the relative cost of the peek
-  discipline. Every crossing figure will change by an order of magnitude on the
-  rig. This is the same class of error as the store-traffic finding in
-  wide-arith-results.md — the container is not a proxy for save/sync traffic.
+- **Hashing must stay in guest code**, at every size and from either caller —
+  blake2b's entire PVM-vs-host gap is smaller than the copies a host call
+  would need to pay for. Worked through below.
+- **`instantiate_nested` is worth nothing** (7738 vs 7754 ns, inside the noise
+  floor) — a clean negative result that closes an open question about
+  polkajam's `NestedEngine`.
+- **Nesting is free per instruction, not free per entry**: 234 µs of pure
+  compute costs the same flat or nested, but each `invoke` sequence costs
+  ~2.7 µs to enter.
 
-## Container pre-screen (machine A container, generic sandbox, `taskset -c 2-4`)
+## What is being decided, and why this number decides it
 
-Medians of 3 interleaved rounds, order reversed on even rounds; each figure is
-best-of-30-batches of 200 runs.
+In JAM, parachain code runs in an **inner PVM** that a parachain service
+(itself a PVM guest) creates and runs. The inner PVM **cannot reach the node**:
+every host call it makes returns control from `invoke` to the service, which is
+a mandatory mediator. So a hypothetical `ed25519_verify` available to parachain
+code is not one host call — it is a protocol.
+
+The competing route is doing the crypto in guest code, which the
+wide-arithmetic PoC brought to 38.58 µs per verification
+([wide-arith-results.md](wide-arith-results.md)) against a 23.4 µs native host
+verify. Hence the criterion:
+
+> the host-call route wins on wall clock iff the mediation overhead at a
+> 96–128 B payload is below ~15 µs.
+
+## The protocol, and where the time goes
+
+One mediated call. Three processes: the host (the node), and one forked worker
+per VM. The two guests never touch each other — every arrow crosses the host.
+
+```
+HOST (node)                      SERVICE VM (outer)        PARACHAIN CODE (inner)
+                                 ── worker B ──            ── worker C ──
+                                 run(): loop {
+   ◄─── ecalli invoke ─────────── invoke(handle,&args) (1)
+ rd 112 B  ← service   [syscall]
+ set inner regs + gas
+ inner.run() ──────────────────────────────────────────►  ...executes...
+   ◄────────────── ecalli stub ──────────────────────────  ed25519_verify(…) (2)
+ wr 112 B  → service   [syscall]     ↑ the host only REPORTS this;
+ A0 = HOST(3), A1 = index              it never serves an inner VM's host call
+ resume ───────────────────────► branches on the HOST fault
+   ◄─── ecalli peek ───────────── peek(h,buf,ptr,len)  (3)
+ rd N B    ← inner     [syscall, or memcpy if the inner VM has dynamic paging]
+ wr N B    → service   [syscall]
+ resume ───────────────────────►
+   ◄─── ecalli stub ───────────── ed25519_verify(…)    (4)
+ rd N B    ← service   [syscall]
+ the crypto happens here, natively
+ wr R B    → service   [syscall]
+ resume ───────────────────────►
+   ◄─── ecalli poke ───────────── poke(h,res,dst,R)    (5)
+ rd R B    ← service   [syscall]
+ wr R B    → inner     [syscall, or memcpy if the inner VM has dynamic paging]
+ resume ───────────────────────► }  loops back to invoke
+ inner.run() ──────────────────────────────────────────►  resumes after its ecalli,
+                                                          reads the result from dst
+```
+
+Two things in that picture are easy to get wrong:
+
+- **The inner VM's `ecalli` is reported, not dispatched.** The host is running
+  `inner.run()` from inside its implementation of the service's `invoke`, so
+  the trap necessarily lands on the host — but the host turns it into
+  `invoke`'s *return value* (outcome `HOST` + the index) and hands it to the
+  service, which decides what to do. The node never executes an inner VM's host
+  call (`polkajam/crates/node/src/chain/exec/vm/host.rs:1791`; the service side
+  of the same contract in a real service:
+  `crates/corevm-engine/src/co_engine.rs:213`).
+- **`invoke` resumes, it does not spawn.** `machine` creates the instance once;
+  every `invoke` sets gas and the 13 registers, runs the existing instance, and
+  reads them back. K crypto calls need **K+1 invokes** — the first starts the
+  inner VM, the last collects its `HALT`. The extra one is startup, and the
+  calls-per-run regression removes it (it *is* the 2.79 µs intercept).
+
+### Why guest-memory access costs 0.87 µs
+
+Each VM runs in a separate process (a worker running the zygote), so "read the
+service's memory" is not a memcpy unless the host happens to have that memory
+mapped. In `polkavm/crates/polkavm/src/sandbox/linux.rs`:
+
+| path | mechanism | cost |
+|---|---|---:|
+| no dynamic paging (the default, and what services use) | `process_vm_readv` / `process_vm_writev` — `:2304`, `:2370` | **~0.87 µs** |
+| dynamic paging enabled | memcpy into the shared mmap — `:2320`, `:2385` | ~0.01 µs |
+| write into the aux-data region | memcpy fast path — `:2344` | ~0.01 µs |
+
+The syscall cost is **independent of length** at these sizes, which is why
+`peek` (128 B), `poke` (8 B) and the stub (128 B in, 8 B out) all measured
+within 10 ns of each other.
+
+### Phase decomposition, and a cost model that predicts every row
+
+Per mediated call, 128 B, K = 32 (`--phases`; instrumented, so the total is
+~5% above the clean run):
+
+| phase | count/call | ns | what it is |
+|---|---:|---:|---|
+| outer run (crossing + guest) | 4.06 | 445 | the 4 crossings, ~110 ns each |
+| invoke | 1.03 | 2075 | 2 accesses + 13 register stores |
+| — of which inner execution | 1.03 | 139 | the parachain code itself |
+| peek | 1.00 | 1736 | 2 accesses |
+| stub | 1.00 | 1727 | 2 accesses |
+| poke | 1.00 | 1729 | 2 accesses |
+| **sum** | | **7711** | vs 7754 measured unperturbed — 99.4% accounted |
+
+That gives **~0.865 µs per guest-memory access** and **~0.11 µs per crossing**.
+The model then predicts the rest of the matrix without further fitting:
+
+| configuration | predicted | measured | error |
+|---|---:|---:|---:|
+| one-jump = 1 crossing + 2 accesses | 1.84 µs | 1.90 | +3% |
+| per-arg = +2 peeks (+4 accesses, +2 crossings) | 11.43 µs | 11.44 | +0.1% |
+| inner dynamic paging = −2 syscalls | 6.02 µs | 6.08 | +1% |
+
+Three independent predictions inside 3%. The mechanism is not in doubt.
+
+## Numbers of record
+
+Machine B (Threadripper PRO 7995WX, Zen 4), bare metal, Linux sandbox,
+recompiler, sync gas on both VMs, `taskset -c 2-4`. Medians of 3 interleaved
+rounds with the configuration order reversed on even rounds. **Noise floor:
+the unchanged 128 B packed configuration re-measured across rounds gave
+7748 / 7806 / 7754 ns → ±0.75%**, matching machine B's established floor.
 
 **Per mediated call, 128 B payload, 8 B result, K = 32:**
 
-| configuration | ns/call |
+| configuration | µs/call |
 |---|---:|
-| one-jump (single VM, node serves it directly) | 64.5 |
-| two-jump, packed peek | 321.4 |
-| two-jump, per-arg peeks (3 instead of 1) | 476.5 |
-| two-jump, `instantiate()` instead of `instantiate_nested()` | 323.6 |
-| two-jump, inner VM with dynamic paging | 353.0 |
+| **two-jump, node-faithful (inner VM with dynamic paging)** | **6.085** |
+| two-jump, packed peek | 7.754 |
+| two-jump, per-arg peeks | 11.443 |
+| two-jump, `instantiate()` instead of `instantiate_nested()` | 7.738 |
+| one-jump (the service calling the node itself) | 1.900 |
 
-**Decomposition by regression** (the method that cancels every per-run fixed
-cost):
+**Calls-per-run sweep** (two-jump, 128 B) — the decomposition that cancels
+per-run entry cost:
 
-| quantity | value |
-|---|---:|
-| per mediated call, from the K-sweep slope | **328.1 ns** |
-| fixed per inner run, from the K-sweep intercept | 194 ns |
-| per byte, two-jump, whole payload sweep | 0.0995 ns/B |
-| per byte, one-jump, whole payload sweep | 0.0703 ns/B |
-| fixed per call, one-jump (32–128 B fit) | 54.0 ns |
+| K | 1 | 2 | 4 | 8 | 16 | 32 | 64 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ns/call | 10553 | 9096 | 8398 | 8043 | 7851 | 7764 | 7707 |
 
-**Payload sweep, two-jump, ns per mediated call:** 32 B → 329.8, 96 B → 333.0,
-128 B → 332.9, 1 KiB → 406.5, 4 KiB → 753.7, 64 KiB → 7002.5.
+> fit: **7660 ns per mediated call + 2792 ns fixed per run**
 
-**Noise floor:** the unchanged 128 B packed configuration re-measured across the
-three rounds gave 334.2 / 318.8 / 321.4 ns → **±2.4%**. Any container delta
-smaller than that is not a result.
+The intercept is itself a check: one extra `invoke` (2075 ns) plus the inner
+program-counter reset and the outer entry ≈ 2.8 µs. The regression and the
+phase decomposition agree without being told to.
 
-### What the pre-screen already establishes
+**Payload sweep, ns per call:**
 
-- **Everything is linear and the two decomposition methods agree.** The K-sweep
-  slope (328.1 ns) matches the directly measured per-call cost at large K
-  (331.7 ns at K = 64), well inside the noise floor.
-- **Packing arguments is worth ~48%** of the mediated call at 128 B (321 → 477
-  ns, i.e. ~78 ns per extra `peek`). A service that peeks once instead of three
-  times is not micro-optimising. This ratio is expected to transfer to the rig
-  in relative terms; the absolute delta will grow with the crossing cost.
-- **`instantiate_nested` shows nothing in the container** (323.6 vs 321.4 ns,
-  inside the noise floor) — as expected, because its whole effect is worker
-  core/CCX co-placement (`polkavm/crates/polkavm/src/api.rs:735`,
-  `sandbox/linux.rs:1718–1755`), and the generic sandbox has no workers. **This
-  is a rig-only question**, and it matters beyond this harness: the node spawns
-  inner VMs with plain `instantiate()`
-  (`polkajam/crates/node/src/chain/exec/vm/mod.rs:66`), so if the rig shows a
-  gap, that is a free win for polkajam.
-- **Dynamic paging on the inner VM costs ~10%** in the container (353.0 vs
-  321.4 ns). The node enables it for the machines a service spawns, so this is a
-  fidelity knob, not a measured mode — and on Linux it is userfaultfd, a
-  different mechanism from the generic sandbox's, so the rig number is the only
-  one that means anything.
-- **The nesting tax is ~0.26% on a 262 µs pure-compute run** (671 ns absolute),
-  and that absolute figure is one `invoke` round trip, not a per-instruction
-  tax: the flat and nested runs execute identical code and produce identical
-  results. **Nesting is free for compute** — the structural premise the in-guest
-  crypto route rests on. Worth restating because other documents depend on it.
-- **The copy cost is ~0.1 ns/B mediated, ~0.07 ns/B direct** — the mediated
-  route moves each byte roughly one extra time, which is what the protocol says
-  it should. At 64 KiB the mediated call is 7 µs and copy-dominated; that curve
-  is the input to the "host call for *hashing*" question, which is a different
-  decision from the signature one.
+| payload | 32 B | 96 B | 128 B | 1 KiB | 4 KiB | 64 KiB | slope |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| two-jump | 7739 | 7745 | 7767 | 7836 | 8729 | 21825 | **0.2152 ns/B** |
+| one-jump | 1895 | 1902 | 1901 | 1939 | 2357 | 8725 | **0.1040 ns/B** |
 
-## The arithmetic that produces the verdict
+Flat to ~1 KiB — at signature sizes the length is free, only the access count
+matters. Beyond that it is copy-bound, and the mediated slope is exactly 2× the
+direct one because the protocol moves every byte one extra time.
 
-Once the rig gives `C` = per-mediated-call cost at 128 B, two-jump, `--linux`:
+**Nesting tax** (a fixed 234 µs pure-compute loop, flat vs as an inner VM):
++2675 ns, **+1.14%**, identical results both ways. That absolute figure is one
+`invoke` round trip — a constant per entry, nothing per instruction.
 
-- **`C` < 15 µs** ⇒ the host-call route beats the in-guest route (38.58 µs)
-  on wall clock, since the native verify itself is 23.4 µs.
-- **`C` > 15 µs** ⇒ the in-guest wide-arith route wins, and the follow-up that
-  could overturn it is batch amortisation (N signatures per crossing), which
-  this experiment deliberately does not build.
+## The configuration that is 1:1 with polkajam
 
-The container gives no guidance on which side of 15 µs `C` lands: 4 crossings
-at anywhere from 0.5 to 3 µs each spans 2–12 µs, all of it below the budget,
-while a pessimistic crossing cost puts it above. **The rig run decides it.**
+The node does not configure both VMs the same way:
+
+| | polkajam | the harness |
+|---|---|---|
+| service VM | no dynamic paging (`vm/mod.rs:302-306`) | same |
+| inner machines | **dynamic paging on** (`vm/mod.rs:83`, `NestedEngine::spawn`) | `--inner-dynamic-paging` |
+| gas metering | sync, both | same |
+| backend | recompiler | same |
+
+So **6.085 µs is the number of record** and 7.754 µs is the harness being
+unfaithful on one axis. The difference is exactly the two inner-side accesses
+turning from syscall into memcpy.
+
+Two consequences worth noting for anyone designing a service:
+
+- Six of the eight accesses hit *service* memory, and services do not get
+  dynamic paging — so the floor for a mediated call is ~5.2 µs of syscalls no
+  matter how the service is written.
+- **Packing arguments is worth 3.7 µs per call** (7.75 → 11.44 when peeked
+  per-argument). One `peek` of a contiguous argument block, not three.
+- Writes into the **aux-data region** take the memcpy fast path even without
+  dynamic paging (`linux.rs:2344`), and the node gives services a 16 MiB aux
+  region. Untested here; a plausible way to shave the service-side write costs.
+
+## Applying it: which primitives should be host calls
+
+The rule that falls out: **a host call pays iff `PVM_time − host_time` exceeds
+6.0 µs + 0.215 ns/B (from parachain code), or 1.9 µs + 0.104 ns/B (from the
+service's own code).**
+
+- **25519 signatures — host call, clearly.** In-guest 38.58 µs against a host
+  verify of 23.4 µs native / 24.7 µs portable (the 1.66×/1.56× ratios in
+  wide-arith-results): a 14–15 µs delta against 6.0 µs of overhead. **29.4 µs
+  (30.7 portable) vs 38.58 µs — 20–24% better even from parachain code**; on
+  IFMA hardware the host side is ~16 µs, widening it to 22 µs.
+- **Hashing — guest code, at every size.** blake2b's whole PVM-vs-host gap is
+  1.19–1.45×: at 64 KiB that is 7.8 µs, against 21.8 µs for a mediated call at
+  that length (and 8.7 µs for the service's own). At 32 B the gap is 28 ns
+  against 1.9 µs. **A hashing host call cannot pay for its own copies** — the
+  thing that makes hashing cheap to do natively also makes it cheap to do in
+  the guest, while the copies scale with the same input the hash does.
+
+## Corrections to earlier claims in this workstream
+
+- **"≈ 5–6 crossings per call"** (hand-off): the count is right — 4
+  service↔node crossings plus the inner VM's exit and resume — but the
+  inference was wrong. Crossings are 6% of the cost. The hand-off's
+  `n × crossing + copy(len)` model omits the term that dominates.
+- **"Nesting tax ≈ 0"**: true per instruction, false per entry. The container
+  pre-screen said 671 ns; the rig says 2675 ns, which is one `invoke`. State it
+  as "constant per entry, zero per instruction".
+- **`instantiate_nested` as a free win for polkajam**: withdrawn. It moves
+  nothing on the rig (7738 vs 7754 ns, inside ±0.75%). Its effect is worker
+  core/CCX co-placement, which evidently does not matter when the cost is
+  syscall-bound rather than latency-bound.
+
+## Container pre-screen vs the rig — how badly the container lied
+
+The dev container cannot run the Linux sandbox (`clone`, errno 38); its
+fallback, the generic sandbox, runs the guest **in-process**, so it has neither
+crossings nor `process_vm_*` syscalls.
+
+| quantity | container (pre-screen) | machine B (record) | ratio |
+|---|---:|---:|---:|
+| two-jump, 128 B | 0.321 µs | 7.754 µs | 24× |
+| one-jump, 128 B | 0.064 µs | 1.900 µs | 30× |
+| per-arg vs packed | +48% | +48% | 1.0× |
+| mediated byte slope | 0.0995 ns/B | 0.2152 ns/B | 2.2× |
+| nesting tax | 671 ns | 2675 ns | 4× |
+
+Absolute costs were wrong by 24–30×, and the *shape* survived: the per-arg
+penalty transferred to the percent, and the crossings-are-cheap conclusion was
+invisible in the container precisely because everything was cheap there. Treat
+container runs as a correctness and linearity check only — the same lesson as
+the store-traffic finding in [wide-arith-results.md](wide-arith-results.md).
 
 ## Reproducing
 
 ```bash
-# in polkavm/, on branch mku-nested-call
+# polkavm, branch mku-nested-call
 cargo build -p nested-call --release
-guest-programs/build-nested-call.sh
+./guest-programs/build-nested-call.sh          # 64-bit blobs
 
-# checksums first — this is also the stale-blob tell
-./target/release/nested-call --selftest --linux \
-    guest-programs/target/riscv64emac-unknown-none-polkavm/release/bench-nested-caller.polkavm \
-    guest-programs/target/riscv64emac-unknown-none-polkavm/release/bench-nested-mediator.polkavm
-
-# the matrix: 3 interleaved rounds, order reversed on even rounds
-./tools/nested-call/run-matrix.sh          # --linux, the rig configuration
-./tools/nested-call/run-matrix.sh --generic 3   # the container pre-screen
+./tools/nested-call/run-matrix.sh              # --linux; 3 interleaved rounds
+./tools/nested-call/run-matrix.sh --generic 3  # container pre-screen
 ```
 
-Rig requirements: bare metal, quiet, **at least three free cores**
-(`NESTED_CALL_CPUS`, default `2-4`) — the host thread and both VMs' worker
-threads all spin during a crossing. Take medians across rounds; re-run one
-unchanged configuration to measure the noise floor rather than assuming it.
+Rig requirements: bare metal, quiet, **≥3 free cores** (`NESTED_CALL_CPUS`,
+default `2-4`) — the host thread and both workers spin during a crossing.
 
-## What the harness is
+Raw output of the run of record: `polkavm/all-results/host-call-benchmarks-00.txt`.
 
-- `polkavm/tools/nested-call` — the host side: implements `machine`, `peek`,
-  `poke`, `invoke` and the node stub for the outer guest, with the node's copy
-  semantics (two copies per peek/poke, 112-byte invoke argument block) and its
-  configuration (recompiler, sync gas on both VMs). Modes `one-jump`,
-  `two-jump`, `nesting-tax`; sweeps over payload and calls-per-run with a
-  least-squares fit; `--phases` for the direct decomposition.
-- `polkavm/guest-programs/bench-nested-caller` — the parachain-code role: K stub
-  calls per `run()`, plus a pure-compute export for the nesting-tax mode.
-- `polkavm/guest-programs/bench-nested-mediator` — the parachain-service role:
-  `invoke` → peek → node call → poke → resume, until the inner VM halts.
-- Nothing in the VM changed. No new instructions, no semantics, no polkajam
-  code imported — only the protocol shape.
+**What the harness is.** `polkavm/tools/nested-call` implements `machine`,
+`peek`, `poke`, `invoke` and the node stub for the outer guest with the node's
+copy semantics (two copies per peek and per poke, 112-byte invoke argument
+block), mirroring `polkajam/.../host.rs` without importing it.
+`guest-programs/bench-nested-caller` is the parachain-code role (K stub calls
+per run, plus a pure-compute export for the nesting-tax mode);
+`bench-nested-mediator` is the service role (`invoke` → `peek` → node call →
+`poke` → resume). Nothing in the VM changed — no new instructions, no
+semantics.
 
-**Correctness**: every mediated byte is verified. The guest folds each returned
-result into a running value; the host recomputes the identical fold
-independently and asserts equality, at every payload size, both peek
-strategies, both result sizes, both modes — 96 configurations in `--selftest`,
-all passing. Packed and per-arg peeks must produce the same checksum, which is
-what proves the three-peek path reassembles the argument correctly.
+**Correctness.** Every mediated byte is verified: the guest folds each returned
+result into a running value and the host recomputes the identical fold
+independently, at every payload size, both peek strategies, both result sizes
+and both modes — 96 configurations in `--selftest`, all passing. Packed and
+per-arg peeks must produce the same checksum, which is what proves the
+three-peek path reassembles the argument correctly.
 
-## Deliberate deviations from the node, and why they are free
-
-- **`machine` ignores the code pointer** and instantiates the blob the tool was
-  given. Spawning happens once, in `initialize`, outside every measured loop.
-- **The inner VM's program counter is reset once per outer run**, which is the
-  one place per iteration that pays the sandbox's expensive re-entry path
-  instead of the low-latency resume. It is constant in K, so the K-sweep slope —
-  the figure of record — cancels it exactly. The mediation loop itself never
-  touches a program counter.
-- **Page faults under `--inner-dynamic-paging` are handled host-side** rather
-  than by the service through the `pages` host call, so that mode measures
-  dynamic paging's cost, not the cost of a page-fault protocol.
+**Deliberate deviations, and why they are free.** `machine` ignores the code
+pointer and instantiates the blob given on the command line (spawning happens
+once, in `initialize`, outside every measured loop). The inner VM's program
+counter is reset once per outer run — the one place per iteration that pays the
+sandbox's expensive re-entry path — which is constant in K and therefore
+cancels out of the slope. The mediator does not switch on the reported host-call
+index, it assumes the stub; a real service switches (corevm's handler table),
+which is a compare and a branch inside the guest.
 
 ## Open items
 
-1. **The rig run.** Everything above is scaffolding until machine B produces
-   `C`; that is the deliverable.
-2. **`instantiate_nested` vs `instantiate` on the rig.** If it moves, polkajam's
-   `NestedEngine` should adopt it — a one-line change with no downside.
-3. **Batch amortisation** (out of scope by decision): the follow-up that could
-   overturn a "host calls lose" verdict.
-4. **A one-point end-to-end validation on the real node stack** with actual
+1. **Batch amortisation** — out of scope by decision, and the only lever that
+   would move the hashing verdict: N operations behind one crossing amortise
+   the eight accesses, but not the copies, which is exactly what hashing is
+   bound by. Signatures would benefit more (fixed 96–128 B payloads).
+2. **Aux-data-region buffers** as a way to dodge the service-side write
+   syscalls (`linux.rs:2344`). Untested.
+3. **A one-point end-to-end validation on the real node stack** with actual
    crypto, to confirm the prediction composes. Its own small task.
+4. **Spawn cost** (`machine` + `expunge`) is unmeasured by construction. A real
+   refine call pays it once per parachain block, amortised over every host call
+   in that block; worth a number if that amortisation ever looks thin.

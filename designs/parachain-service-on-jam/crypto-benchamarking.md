@@ -217,30 +217,71 @@ tables above:
 - The asm code is **not production ready**: benchmark-grade only — no
   fuzzing, no review. 
 
-## Host-call overhead (not yet measured)
+## Host-call overhead — measured
 
-A PVF runs in a **nested PVM** (`machine`/`invoke`); its host calls are not
-handled natively but bounce through the service's refine wrapper (guest
-code) — at minimum **three host-boundary round trips** plus copying the
-arguments out of inner memory:
+A PVF runs in a **nested PVM** (`machine`/`invoke`); its host calls cannot
+reach the node. Each one returns control from `invoke` to the service, which
+serves it with host calls of its own:
 
 ```
-1. PVF: ecalli N          inner VM exits, control returns to the outer PVM
-2. service wrapper dispatches on N
-3.   peek(handle, …)      copy arguments out of inner memory
-4.   invoke(handle, …)    resume inner VM
+1. PVF: ecalli N          inner VM exits; invoke() returns HOST + N to the service
+2.   peek(handle, …)      copy the arguments out of inner memory
+3.   ecalli N (node)      the service performs the call natively
+4.   poke(handle, …)      copy the result back into inner memory
+5.   invoke(handle, …)    resume the inner VM
 ```
 
-A host call pays off when `PVM_time − host_time > n × crossing + copy(len)`.
-Crossing and copy costs are not measured yet (benchtool `bench-ecalli`,
-polkajam's host-call benchmarks) — no winners can be declared. Calls made by
-the service's own refine code pay a single crossing.
+Measured on machine B with a dedicated harness — `polkavm/tools/nested-call`,
+branch `mku-nested-call`; **full write-up, decomposition and diagrams in
+[nested-call-overhead-results.md](nested-call-overhead-results.md)**.
 
-For `host_time`, note that a host-call implementation is free to choose its
-toolchain and implementation: for 25519 signatures the *achievable* host
-cost on IFMA-capable CPUs is ~16 µs (nightly-built `curve25519-dalek`, see
-*Toolchain impact on host baselines*) vs ~64–68 µs in PVM — ~48 µs per
-verification, the largest per-operation delta of any primitive here.
+**Method.** No crypto in the loop: the node-side stub reads an `N`-byte
+argument out of guest memory, folds it to a `u64` and writes the result back,
+so what is measured is the mediation and nothing else. Two guest programs play
+the parachain-code and parachain-service roles, in the node's own
+configuration (recompiler, Linux sandbox, sync gas both VMs, inner VM with
+dynamic paging as `NestedEngine::spawn` creates it). Per-call figures are the
+slope of a calls-per-run sweep, which cancels per-run entry cost; medians of 3
+interleaved rounds, measured noise floor ±0.75%. End-to-end checksums verify
+every mediated byte.
+
+| who makes the call | service↔node crossings | µs of overhead |
+|---|---:|---:|
+| **parachain code** (nested, arguments packed) | 4 | **6.0** |
+| parachain code, one `peek` per argument | 6 | 11.4 |
+| **the service's own refine code** | 1 | **1.9** |
+
+- **Crossings are cheap; reaching guest memory is not.** A crossing costs
+  ~0.11 µs (spin resume, no syscall). The cost is the **8 guest-memory
+  accesses** a mediated call needs — on a VM without dynamic paging each is a
+  `process_vm_readv`/`writev` syscall into the worker process, **~0.87 µs
+  regardless of length**. Six of the eight hit *service* memory, which the node
+  never runs with dynamic paging. The old "n × crossing" model had the
+  dominant term wrong.
+- Length is nearly free to ~1 KiB, then copy-bound: **+0.215 ns/B** mediated,
+  +0.104 ns/B for the service's own call (the mediated route moves each byte
+  twice). At 64 KiB: 21.8 µs and 8.7 µs.
+- Entering a nested VM costs ~2.7 µs once per `invoke` sequence and **nothing
+  per instruction** — 234 µs of pure compute costs the same flat or nested.
+
+**A host call therefore pays off iff `PVM_time − host_time` exceeds ~6.0 µs +
+0.215 ns/B (from parachain code) or ~1.9 µs + 0.104 ns/B (from the service).**
+Applying that to the tables above:
+
+- **25519 signatures: host call wins.** In-guest is 38.58 µs after the
+  wide-arithmetic work ([wide-arith-results.md](wide-arith-results.md)) against
+  a host verify of 23.4 µs native / 24.7 µs portable — a 14–15 µs delta against
+  6.0 µs of overhead, so 29.4 µs (30.7 portable) vs 38.58 µs, **20–24% better
+  even from parachain code**. On IFMA hardware the host side is ~16 µs (nightly
+  `curve25519-dalek`, see *Toolchain impact on host baselines*), widening it to
+  22 µs vs 38.58 µs.
+- **Hashing: guest code wins at every size.** blake2b's whole PVM-vs-host gap
+  is 1.19–1.45×, which at 64 KiB is 7.8 µs — less than the 21.8 µs a mediated
+  call costs at that length, and less than the 8.7 µs the service's own call
+  costs. At 32 B the gap is 28 ns against 1.9 µs. A hashing host call cannot
+  pay for its own copies.
+- Not measured, and the obvious escape hatch if a case ever falls the wrong
+  way: **batching** N operations behind one crossing.
 
 ## Build tweaks
 

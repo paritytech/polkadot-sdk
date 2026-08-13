@@ -3,7 +3,8 @@
 **The metric that matters is wall clock.** Gas is reported where it is
 informative, but it was never the goal here and it is not the score: this PoC
 saw gas improve ~9× while wall clock got *worse*, and then saw wall clock
-improve 33% while gas moved both directions. Sections that dwell on gas are
+improve 33% (39% counting the `mul_wide` predecessor) while gas moved both
+directions. Sections that dwell on gas are
 kept for the cost-model decision, not as results.
 
 ## Executive summary
@@ -15,8 +16,8 @@ This section is the standalone read.
 
 | configuration | wall | vs host portable |
 |---|---:|---:|
-| stock PVM — no wide instructions at all | 63.21 µs | 2.60× |
-| branch point — after PoC #1 `mul_wide`, before any 256-bit instruction | 57.24 µs | 2.34× |
+| stock PVM — no wide instructions at all | 63.21 µs | 2.57× |
+| branch point — after the predecessor's `mul_wide`, before any 256-bit instruction | 57.24 µs | 2.34× |
 | first working implementation | 62.62 µs | *worse than the branch point* |
 | after the stall fix and the first optimizations | 49.83 µs | 2.03× |
 | after the destroyed-register contract | 47.11 µs | 1.94× |
@@ -40,12 +41,13 @@ Two things to be careful about with that top line:
   instructions at all) is 871,817 gas on zebra against the branch point's
   836,825, and **63.21 µs wall** (63.89 µs on the native-build host run) —
   machine B, pre-PoC benchmarking campaign (`crypto-benchamarking.md`,
-  `results/output_new_00_toaster/crypto-03.txt`). So the full-arc wall story
-  is 63.21 → 38.58 µs (**−39%**, ~2.60× → 1.56× host-portable), of which −33%
-  is this PoC. Provenance caveat: PoC #1's own post-fusion bare-metal run was
-  never written into a doc — it survives as an oral ~57.5–57.6 µs
-  (63.21 → ~57.6 ≈ the −9%), and the 57.24 in the table is the PoC #2-era
-  re-measurement of that same configuration.
+  `results/output_new_00_toaster/crypto-03.txt`; that campaign's host
+  portable was 24.57 µs, hence 2.57×). So the full-arc wall story is
+  63.21 → 38.58 µs (**−39%**, 2.57× → 1.56× host-portable), of which −33%
+  is this PoC. Provenance caveat: the predecessor's own post-fusion
+  bare-metal run was never written into a doc — it survives as an oral
+  ~57.5–57.6 µs (63.21 → ~57.6 ≈ the −9%), and the 57.24 in the table is a
+  re-measurement of that same configuration made at the start of this work.
 - **The −33% chains deltas across rig runs on different days** (the table above,
   plus intermediate measurements). Host columns drift between runs by up to
   ~2.6% (2.56% on zebra host-native, 1.89% on host-portable), and the
@@ -53,9 +55,10 @@ Two things to be careful about with that top line:
   Each individual step's controls were flat, so the direction is not in doubt,
   but the exact total carries that chaining.
 
-Gas, for completeness: 836,825 → 92,106 on the same axis (9.1×), having gone
-*up* to 109,685 in between when the destroyed-register contract shifted work
-from the host into the guest.
+Gas, for completeness: 836,825 → 92,106 against the branch point (9.1×), or
+871,817 → 92,106 against stock (**9.5×** — the anchor matching the wall arc's
+−39%), having gone *up* to 109,685 in between when the destroyed-register
+contract shifted work from the host into the guest.
 
 **What was built** (each item spans interpreter + recompiler + linker + gas +
 simulator + gastool + tests; the commit that added the contract and the first
@@ -173,10 +176,13 @@ work is measured against (host baselines, per-machine tables, methodology).
   this matters, because on the nightly channel `curve25519-dalek` enables
   AVX-512-IFMA backends that cut host 25519 times 1.5–1.9× and would move every
   ratio here. Stable is the production configuration.
+- **stock PVM** — a PVM with no wide instructions at all, i.e. before the
+  `mul_wide` predecessor: zebra 871,817 gas, 63.21 µs on machine B. The
+  executive summary's full-arc figures (−39%, 9.5×) are against it.
 - **branch point** — the commit this work started from, which already contained
   the predecessor's widening-multiply instruction but none of the 256-bit ones.
-  Every "vs branch point" figure is against it, *not* against a PVM with no wide
-  instructions at all.
+  Every "vs branch point" figure (−33%, 9.1×) is against it, *not* against
+  stock PVM.
 - **redc route / generic route**, also called **redc** and **noredc** in table
   rows and blob-set names — the two reduction strategies described above.
 - **Latest64** — the newest 64-bit PVM instruction set. All eight instructions
@@ -221,7 +227,8 @@ nothing about the route choice.
 > **Later movements, same axis (zebra):** 89,743 → **109,685** when the
 > destroyed-register contract shifted work into the guest (it must now
 > re-materialize pointers the instructions destroy) → **92,106** with the fused
-> folds. Current end-to-end reduction against the branch point: **9.1×**.
+> folds. Current end-to-end reduction against the branch point: **9.1×**
+> (against stock PVM, 871,817 → 92,106: **9.5×**).
 
 Every bench verifies green under the interpreter — the guest `unwrap()`s the
 signature check, so a wrong field result traps rather than silently passing.
@@ -990,13 +997,30 @@ The register-pressure story invites "just use the vector units"; it was
 explored in three distinct forms. Epistemic status is marked per item —
 one is measured, one is analysis, one is the surviving open path.
 
-1. **xmm as save space (measured, dead).** Replacing the kernels' stack
-   push/pops with `movq` to/from xmm registers — zero memory traffic, and
-   the vector file is dead space under PVM. Regressed **7–10 µs/verify**:
-   a GPR↔vector domain crossing costs ~3–6 cycles per `movq`, ×~24 per
-   operation, with the restore chain on the critical path. This killed the
-   whole class of "stash GPR state in vector registers" ideas
-   (`POLKAVM_WIDE_ARITH_XMM_SAVES` knob, commit `d905edf`).
+1. **xmm as save space (measured, dead — rig-confirmed 2026-08-13).**
+   Replacing the kernels' stack push/pops with `movq` to/from xmm
+   registers — zero memory traffic, and the vector file is dead space
+   under PVM. Container: regressed 7–10 µs/verify. **Machine B (bare
+   metal, pre-contract vintage `d905edf` + offset fix `0709303`, branch
+   `mku-wide-arith-xmm-fix`, blobs at 89,743 gas): +3.6/+5.3/+3.5 µs on
+   zebra/ed25519/sr25519 (+7–10% of whole-verify wall), controls flat to
+   0.3%** — the container had the right sign at ~1.5–2× the magnitude.
+   Mechanism: a GPR↔vector domain crossing costs ~3–6 cycles per `movq`,
+   ×~24 per operation, with the restore chain on the critical path —
+   while the stack saves it replaces hide almost entirely in the kernels'
+   dependency stalls. That second half is now also measured: the same rig
+   session ran `POLKAVM_WIDE_ARITH_EXTRA_SAVES=1` (every push/pop pair
+   doubled; knob was broken-as-shipped, fixed in `0709303`), costing
+   **+5.9…+6.9 µs/verify** — i.e. the pre-contract kernels' entire
+   save/restore burden was itself worth ~6 µs (~12% of wall), ~2
+   cycles/op for ~20 stack instructions. Cross-check: saves ~6 µs × ¾
+   removed by the destroyed-register contract − ~2 µs of guest glue it
+   added ≈ the contract's measured −2.7 µs. Three independent experiments,
+   one consistent cost model. This kills the whole class of "stash GPR
+   state in vector registers" ideas on this hardware.
+   (Rig-session caveat: the host-*portable* column of those runs is
+   contaminated by the nightly-toolchain build gotcha — 15.5–16.4 µs —
+   ignore its ratios; the PVM column and the A/B/C deltas are unaffected.)
 2. **A single-op AVX-512/IFMA mul256 kernel (analyzed, not measured —
    the dev container is Zen 3, no AVX-512).** Three independent blockers:
    - *Radix conversion is architecturally mandatory, both directions.*
