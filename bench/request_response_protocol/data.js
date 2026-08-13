@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786636653622,
+  "lastUpdate": 1786654682596,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -113399,6 +113399,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2792542604,
             "range": "± 11198130",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e27785feaba28eafd45fe7e5fe3486e61f84ce1f",
+          "message": "[pallet-revive] eth-rpc: decide reorgs by block canonicality, not by finalized height (#12824)\n\n### Summary\nAdjust `update_latest` to distinguish a reconnect replay from a reorg by\nchecking whether the cached best block is still canonical: a block with\na lower number is accepted only when the cached block is no longer\ncanonical. The check calls `chain_getBlockHash` and runs only for a\nlower-numbered block. The best block is also kept at or above the\nfinalized block.\n\n- Keep the cached block when the lookup fails, so a failed request\nduring a reconnect cannot move the head back.\n- Reject a best block below the finalized block.\n- Set the best block to the finalized block whenever the finalized\nnumber is at or above it.\n- Add unit tests for `SubxtBlockInfoProvider` using subxt's\n`MockRpcClient` (new `subxt-rpcs` dev-dependency).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-13T19:29:48Z",
+          "tree_id": "0dc9ea808fc2224db0eff6668cc0d50c49f68fa6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e27785feaba28eafd45fe7e5fe3486e61f84ce1f"
+        },
+        "date": 1786654649692,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22910141,
+            "range": "± 534018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 25057213,
+            "range": "± 321990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 25860068,
+            "range": "± 584626",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 29252657,
+            "range": "± 257060",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 81296728,
+            "range": "± 4839245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 482191013,
+            "range": "± 9017232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3252132174,
+            "range": "± 262969175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 20660829,
+            "range": "± 489732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 20900732,
+            "range": "± 536376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20736176,
+            "range": "± 407136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25709841,
+            "range": "± 663489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 75719117,
+            "range": "± 1770988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 453193480,
+            "range": "± 7429205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3113085361,
+            "range": "± 54615272",
             "unit": "ns/iter"
           }
         ]
