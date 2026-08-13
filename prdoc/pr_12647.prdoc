@@ -6,7 +6,7 @@ doc:
 
     Each one was verified against live chain state before removal: storage versions are at their post-migration values and the unversioned one-shots left their expected effects. A verification script is in [this gist](https://gist.github.com/runcomet/1fac906cf1197519a92a3c60aefed23e). The two bridge data fixes (`FixMessagesV1Migration`, `MigrationForXcmV5`) have no on-chain marker but shipped in #5649 / #4826, long before the deployed runtime.
 
-    Kept `ClaimTrappedBalance` (PAH reference, no-op on WAH), the staking-async migrations (`Staking` is still at v17 on-chain) and `PsmInitialConfig` (used by `remote-ext-tests-psm`).
+    Kept `ClaimTrappedBalance` (PAH reference, no-op on WAH), the staking-async migrations (`Staking` is still at v17 on-chain) and the PSM reset from #12245 (not yet executed).
 
     Part of #11771.
 crates:
