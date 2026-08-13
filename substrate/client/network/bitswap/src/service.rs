@@ -853,7 +853,7 @@ impl<B: BlockT> BitswapService<B> {
 	fn on_inbound_request(&mut self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
 		let dropped = self.inbound_queue.enqueue(peer, cids);
 		if dropped > 0 {
-			self.metrics.record_entries(metric_outcomes::DROPPED_OVERFLOW, dropped);
+			self.metrics.record_inbound_queue_overflow(dropped);
 			log::debug!(
 				target: LOG_TARGET,
 				"inbound queue for {peer:?} full; dropped {dropped} wantlist entries",
@@ -898,12 +898,14 @@ fn serve_inbound<B: BlockT>(
 	metrics: &BitswapMetrics,
 ) -> Vec<ResponseType> {
 	let started = std::time::Instant::now();
-	let responses = cids
-		.into_iter()
-		.map(|(cid, want_type)| {
+	let mut responses = Vec::with_capacity(cids.len());
+	for (cid, want_type) in cids {
+		let response = {
 			if !is_cid_supported(&cid) {
 				metrics.record_entry(metric_outcomes::UNSUPPORTED_CID);
-				return ResponseType::Presence { cid, presence: BlockPresenceType::DontHave };
+				responses
+					.push(ResponseType::Presence { cid, presence: BlockPresenceType::DontHave });
+				continue;
 			}
 			// Supported CIDs always carry a 32-byte digest.
 			let hash = H256::from_slice(&cid.hash().digest()[0..32]);
@@ -936,9 +938,11 @@ fn serve_inbound<B: BlockT>(
 					},
 				},
 			}
-		})
-		.collect::<Vec<_>>();
-	metrics.record_responses(&responses);
+		};
+		metrics.record_response(&response);
+		responses.push(response);
+	}
+	metrics.record_response_bytes(&responses);
 	metrics.record_duration(started.elapsed());
 	responses
 }

@@ -28,7 +28,6 @@ pub(crate) mod outcomes {
 	pub(crate) const HAVE: &str = "have";
 	pub(crate) const DONT_HAVE: &str = "dont_have";
 	pub(crate) const UNSUPPORTED_CID: &str = "unsupported_cid";
-	pub(crate) const DROPPED_OVERFLOW: &str = "dropped_overflow";
 }
 
 pub(crate) mod errors {
@@ -46,6 +45,7 @@ pub(crate) mod outbound_events {
 struct Inner {
 	entries_total: CounterVec<U64>,
 	request_errors_total: CounterVec<U64>,
+	inbound_queue_overflow_total: Counter<U64>,
 	inbound_request_duration_seconds: Histogram,
 	response_bytes_total: Counter<U64>,
 	outbound_events_total: CounterVec<U64>,
@@ -74,6 +74,13 @@ impl Inner {
 						"Total number of bitswap inbound requests rejected, by reason",
 					),
 					&["reason"],
+				)?,
+				registry,
+			)?,
+			inbound_queue_overflow_total: register(
+				Counter::new(
+					"substrate_sub_libp2p_bitswap_inbound_queue_overflow_total",
+					"Total number of inbound bitswap wantlist entries dropped because a peer queue was full",
 				)?,
 				registry,
 			)?,
@@ -167,17 +174,16 @@ impl BitswapMetrics {
 		}
 	}
 
+	pub(crate) fn record_inbound_queue_overflow(&self, count: usize) {
+		if let Some(inner) = &self.inner {
+			inner.inbound_queue_overflow_total.inc_by(count as u64);
+		}
+	}
+
 	pub(crate) fn record_duration(&self, duration: Duration) {
 		if let Some(inner) = &self.inner {
 			inner.inbound_request_duration_seconds.observe(duration.as_secs_f64());
 		}
-	}
-
-	pub(crate) fn record_responses(&self, responses: &[ResponseType]) {
-		for response in responses {
-			self.record_response(response);
-		}
-		self.record_response_bytes(responses);
 	}
 
 	pub(crate) fn record_response_bytes(&self, responses: &[ResponseType]) {
@@ -230,6 +236,7 @@ mod tests {
 		let metrics = BitswapMetrics::default();
 		metrics.record_entry(outcomes::BLOCK_SERVED);
 		metrics.record_error(errors::CLIENT);
+		metrics.record_inbound_queue_overflow(1);
 		metrics.record_duration(Duration::from_millis(1));
 		metrics.record_outbound(outbound_events::REQUESTED, 1);
 		metrics.set_state(1, 2, 3);
@@ -245,17 +252,22 @@ mod tests {
 			ResponseType::Presence { cid, presence: BlockPresenceType::DontHave },
 		];
 
-		metrics.record_responses(&responses);
+		for response in &responses {
+			metrics.record_response(response);
+		}
+		metrics.record_response_bytes(&responses);
 		metrics.record_error(errors::CLIENT);
-		metrics.record_entries(outcomes::DROPPED_OVERFLOW, 7);
+		metrics.record_inbound_queue_overflow(7);
 		metrics.record_duration(Duration::from_millis(5));
 		metrics.record_outbound(outbound_events::REQUESTED, 2);
 		metrics.set_state(1, 2, 3);
 
 		let inner = metrics.inner.as_ref().unwrap();
 		assert_eq!(inner.entries_total.with_label_values(&[outcomes::BLOCK_SERVED]).get(), 1);
+		assert_eq!(inner.entries_total.with_label_values(&[outcomes::HAVE]).get(), 0);
 		assert_eq!(inner.entries_total.with_label_values(&[outcomes::DONT_HAVE]).get(), 1);
-		assert_eq!(inner.entries_total.with_label_values(&[outcomes::DROPPED_OVERFLOW]).get(), 7);
+		assert_eq!(inner.entries_total.with_label_values(&[outcomes::UNSUPPORTED_CID]).get(), 0);
+		assert_eq!(inner.inbound_queue_overflow_total.get(), 7);
 		assert_eq!(inner.request_errors_total.with_label_values(&[errors::CLIENT]).get(), 1);
 		assert_eq!(
 			inner
