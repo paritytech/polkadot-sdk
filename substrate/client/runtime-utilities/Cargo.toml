@@ -17,24 +17,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-sc-executor.default-features = true
 sc-executor.workspace = true
-sc-executor-common.default-features = true
+sc-executor.default-features = true
 sc-executor-common.workspace = true
-sp-core.default-features = true
+sc-executor-common.default-features = true
 sp-core.workspace = true
-sp-crypto-hashing.default-features = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-state-machine.default-features = true
+sp-crypto-hashing.default-features = true
 sp-state-machine.workspace = true
-sp-wasm-interface.default-features = true
+sp-state-machine.default-features = true
 sp-wasm-interface.workspace = true
+sp-wasm-interface.default-features = true
 
 thiserror = { workspace = true }
 
 [dev-dependencies]
-cumulus-primitives-proof-size-hostfunction = { default-features = true, workspace = true }
-cumulus-test-runtime = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-version = { default-features = true, workspace = true }
+cumulus-primitives-proof-size-hostfunction = { default-features = true, path = "../../../cumulus/primitives/proof-size-hostfunction" }
+cumulus-test-runtime = { default-features = true, path = "../../../cumulus/test/runtime" }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-version = { default-features = true, path = "../../primitives/version" }
 subxt = { workspace = true, features = ["native"] }

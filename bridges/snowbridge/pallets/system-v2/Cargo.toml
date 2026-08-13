@@ -38,9 +38,9 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
-pallet-balances = { default-features = true, workspace = true }
-snowbridge-test-utils = { workspace = true }
-sp-keyring = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../../../../substrate/frame/balances" }
+snowbridge-test-utils = { path = "../../test-utils" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
 
 [features]
 default = ["std"]
@@ -66,10 +66,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
-	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
@@ -77,7 +75,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]

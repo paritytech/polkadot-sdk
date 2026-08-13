@@ -24,31 +24,31 @@ futures = { workspace = true, features = ["thread-pool"] }
 hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
 log = { workspace = true }
-pallet-revive.default-features = true
 pallet-revive.workspace = true
-prometheus-endpoint.default-features = true
+pallet-revive.default-features = true
 prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
 rlp = { workspace = true }
-sc-cli.default-features = true
 sc-cli.workspace = true
-sc-rpc.default-features = true
+sc-cli.default-features = true
 sc-rpc.workspace = true
-sc-rpc-api.default-features = true
+sc-rpc.default-features = true
 sc-rpc-api.workspace = true
-sc-service.default-features = true
+sc-rpc-api.default-features = true
 sc-service.workspace = true
+sc-service.default-features = true
 serde_json = { workspace = true }
-sp-arithmetic.default-features = true
 sp-arithmetic.workspace = true
-sp-core.default-features = true
+sp-arithmetic.default-features = true
 sp-core.workspace = true
+sp-core.default-features = true
 sp-crypto-hashing.workspace = true
-sp-rpc.default-features = true
 sp-rpc.workspace = true
-sp-runtime.default-features = true
+sp-rpc.default-features = true
 sp-runtime.workspace = true
-sp-weights.default-features = true
+sp-runtime.default-features = true
 sp-weights.workspace = true
+sp-weights.default-features = true
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
@@ -57,10 +57,10 @@ tokio = { workspace = true, features = ["full"] }
 
 [dev-dependencies]
 env_logger = { workspace = true }
-pallet-revive-fixtures = { default-features = true, workspace = true }
+pallet-revive-fixtures = { default-features = true, path = "../fixtures" }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
-substrate-cli-test-utils = { workspace = true }
+substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 
 [build-dependencies]
 git2 = { workspace = true }

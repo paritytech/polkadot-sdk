@@ -13,8 +13,8 @@ codec = { workspace = true, features = ["derive"] }
 cumulus-zombienet-sdk-helpers.workspace = true
 env_logger = { workspace = true }
 log = { workspace = true }
-polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 subxt = { version = "0.38.1", default-features = false }
@@ -28,10 +28,10 @@ zombie-metadata = []
 zombie-ci = []
 
 [build-dependencies]
-sc-executor.default-features = true
 sc-executor.workspace = true
-sc-runtime-utilities.default-features = true
+sc-executor.default-features = true
 sc-runtime-utilities.workspace = true
+sc-runtime-utilities.default-features = true
 sp-io.workspace = true
-substrate-build-script-utils.default-features = true
 substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true

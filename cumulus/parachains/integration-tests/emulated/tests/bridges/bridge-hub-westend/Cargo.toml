@@ -26,11 +26,11 @@ pallet-assets.workspace = true
 pallet-balances.workspace = true
 pallet-bridge-messages.workspace = true
 pallet-bridge-relayers.workspace = true
-pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
+pallet-message-queue.default-features = true
 pallet-xcm.workspace = true
-parachains-common.default-features = true
 parachains-common.workspace = true
+parachains-common.default-features = true
 rococo-westend-system-emulated-network.workspace = true
 scale-info = { workspace = true }
 snowbridge-core.workspace = true
