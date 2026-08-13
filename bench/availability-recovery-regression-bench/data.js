@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786611305926,
+  "lastUpdate": 1786632123569,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a1128b94bbd6bcab40654c9468542a1f21f5eab",
-          "message": "[pallet-revive] add EVM gas call syscalls (#10554)\n\nThis PR adds two new syscalls for calls accepting EVM gas instead of\nWeight and Deposit.\n\nThis is an important change for the initial release as it will align PVM\ncontracts closer to EVM (the problem can't be solved in the Solidity\ncompiler).\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-05T23:19:59Z",
-          "tree_id": "9d7f2c2855c48cdc28f122f5279d10a8eb08cc6c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a1128b94bbd6bcab40654c9468542a1f21f5eab"
-        },
-        "date": 1764982697445,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.817756418266667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20349215633333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.097793980433337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bccc8959101de39cfacec813443facf0e0732580",
+          "message": "Statement-store: remove unused public method `StatementHandler::propagate_statement` (#12874)\n\nRemoves the unused public method `StatementHandler::propagate_statement`\nfrom\n`sc-network-statement`. It never had a caller since its introduction: it\nwas copied\nfrom the transactions protocol, whose controller plumbing was never\nbrought over.\nStatements continue to be propagated by the periodic propagation loop.\n  \n Closes https://github.com/paritytech/polkadot-sdk/issues/12170",
+          "timestamp": "2026-08-13T12:53:15Z",
+          "tree_id": "652614be4246d518fdc96acf5446672a691a38f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bccc8959101de39cfacec813443facf0e0732580"
+        },
+        "date": 1786632089501,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.996225764033332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14190954749999998,
             "unit": "seconds"
           }
         ]
