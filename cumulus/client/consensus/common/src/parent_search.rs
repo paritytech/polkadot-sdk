@@ -154,6 +154,11 @@ async fn build_relay_parent_ancestry(
 	let mut current_rp = anchor;
 	while ancestry.len() <= ancestry_lookback {
 		let Some(header) = relay_client.header(RelayBlockId::hash(current_rp)).await? else {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?current_rp,
+				"Relay chain header missing while walking the allowed ancestry.",
+			);
 			break;
 		};
 
@@ -371,11 +376,11 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 			// The ancestry bounds how deep a parent's *scheduling* parent may sit; its relay parent
 			// is a further `relay_parent_offset` below that.
-			let max_depth = build_relay_parent_ancestry(relay_client, scheduling_parent)
+			let max_depth = (build_relay_parent_ancestry(relay_client, scheduling_parent)
 				.await?
 				.len()
-				.saturating_sub(1) as u32 +
-				relay_parent_offset;
+				.saturating_sub(1) as u32)
+				.saturating_add(relay_parent_offset);
 
 			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
 				let header = header.clone();

@@ -1415,8 +1415,8 @@ fn find_best_parent_v3_respects_scheduling_scope_depth() {
 	assert_eq!(result.best_parent_header.hash(), child_block.hash());
 
 	// A session boundary between the child's relay parent and the scheduling parent truncates the
-	// window: the relay chain cannot back candidates anchored in the previous session, so the child
-	// is dropped even though it is only 3 blocks below.
+	// window: the ancestry walk stops at the epoch-change digest, so the child sits past the
+	// shortened `max_depth` even though it is only 3 blocks below.
 	relay_chain.session_start = Some(13);
 	let result = block_on(find_parent_for_building(
 		&relay_chain,

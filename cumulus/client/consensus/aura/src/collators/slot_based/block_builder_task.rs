@@ -300,13 +300,15 @@ where
 				};
 				let scheduling_parent_hash = scheduling_parent_header.hash();
 
-				let mut max_relay_parent_session_age = 0;
-				if v3_enabled {
-					max_relay_parent_session_age = relay_client
+				let max_relay_parent_session_age = if v3_enabled {
+					relay_client
 						.max_relay_parent_session_age(scheduling_parent_hash)
 						.await
-						.unwrap_or(0);
-				}
+						.unwrap_or(0)
+				} else {
+					0
+				};
+
 				let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
 					&mut relay_chain_data_cache,
 					scheduling_parent_header.clone(),
@@ -318,14 +320,15 @@ where
 					continue 'slots;
 				};
 
-				let parent_search_params = match v3_enabled {
-					false => ParentSearchParams::V2 {
-						scheduling_parent: relay_parent_data.relay_parent().hash(),
-					},
-					true => ParentSearchParams::V3 {
+				let parent_search_params = if v3_enabled {
+					ParentSearchParams::V3 {
 						scheduling_parent: scheduling_parent_hash,
 						relay_parent_offset: anchor_params.relay_parent_offset,
-					},
+					}
+				} else {
+					ParentSearchParams::V2 {
+						scheduling_parent: relay_parent_data.relay_parent().hash(),
+					}
 				};
 				let Some(parent_search_result) = crate::collators::find_parent(
 					&relay_client,
@@ -392,37 +395,36 @@ where
 			// it will be used for checking the unincluded segment len.
 			// Corresponding checks related to the unincluded segment len are also done by the
 			// runtime in the `set_validation_data` inherent, using the relay parent context.
-			let included_header_at_execution = match v3_enabled {
-				false => parent_search_result.included_at_scheduling,
-				true => {
-					match fetch_included_from_relay_chain(
-						&relay_client,
-						&*para_backend,
-						relay_parent_hash,
-						para_id,
-					)
-					.await
-					{
-						Ok(Some((header, _))) => header,
-						Ok(None) => {
-							tracing::error!(
-								target: LOG_TARGET,
-								"Failed to fetch the included header at execution \
-								from the relay chain."
-							);
-							continue;
-						},
-						Err(error) => {
-							tracing::error!(
-								target: LOG_TARGET,
-								?error,
-								"Failed to fetch the included header at execution \
-								from the relay chain."
-							);
-							continue;
-						},
-					}
-				},
+			let included_header_at_execution = if v3_enabled {
+				match fetch_included_from_relay_chain(
+					&relay_client,
+					&*para_backend,
+					relay_parent_hash,
+					para_id,
+				)
+				.await
+				{
+					Ok(Some((header, _))) => header,
+					Ok(None) => {
+						tracing::error!(
+							target: LOG_TARGET,
+							"Failed to fetch the included header at execution \
+							from the relay chain."
+						);
+						continue;
+					},
+					Err(error) => {
+						tracing::error!(
+							target: LOG_TARGET,
+							?error,
+							"Failed to fetch the included header at execution \
+							from the relay chain."
+						);
+						continue;
+					},
+				}
+			} else {
+				parent_search_result.included_at_scheduling
 			};
 			let initial_parent_hash = parent_search_result.best_parent_header.hash();
 			let initial_parent_header = parent_search_result.best_parent_header;
