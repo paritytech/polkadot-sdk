@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786654682596,
+  "lastUpdate": 1786656405823,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -113507,6 +113507,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3113085361,
             "range": "± 54615272",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd",
+          "message": "snowbridge: pin removed SSZ merkle-proofs spec link (#12879)\n\nethereum/consensus-specs removed its ssz/ directory (specs moved to\nethereum/ssz-specs), so the master-branch link in merkle_proof.rs 404s\nand the link-checker job now fails on every PR. Pin the link to the\ncommit the file's other spec links already use.",
+          "timestamp": "2026-08-13T20:00:32Z",
+          "tree_id": "c86e9f3c209d24f81483e2c9bb94cfa99de4c80d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd"
+        },
+        "date": 1786656375750,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19676839,
+            "range": "± 206196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19941230,
+            "range": "± 202448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21889160,
+            "range": "± 180215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26667936,
+            "range": "± 173112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60613272,
+            "range": "± 844914",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 368520639,
+            "range": "± 4923778",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2490004283,
+            "range": "± 144597296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17203641,
+            "range": "± 262146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17289924,
+            "range": "± 126924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17835635,
+            "range": "± 145870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22160667,
+            "range": "± 144814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61664863,
+            "range": "± 488554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 364400655,
+            "range": "± 3600313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2720363352,
+            "range": "± 35273533",
             "unit": "ns/iter"
           }
         ]
