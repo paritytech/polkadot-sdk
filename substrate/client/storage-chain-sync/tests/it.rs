@@ -544,7 +544,7 @@ mod mock {
 	use sp_state_machine::{InMemoryBackend, IndexOperation, OverlayedChanges, StorageChanges};
 	use sp_transaction_storage_proof::{ContentHash, IndexedTransactionInfo};
 	use std::{
-		collections::HashMap,
+		collections::{HashMap, HashSet},
 		sync::{Arc, Mutex, OnceLock},
 	};
 	use tokio::sync::mpsc;
@@ -828,7 +828,7 @@ mod mock {
 	impl BitswapRequest for MockBitswap {
 		fn request_stream(
 			&self,
-			cids: Vec<BitswapCid>,
+			cids: HashSet<BitswapCid>,
 		) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
 			*self.call_count.lock().unwrap() += 1;
 			let (tx, rx) = mpsc::channel(cids.len().max(1));

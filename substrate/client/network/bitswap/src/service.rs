@@ -15,7 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
-//! Bitswap service.
+//! Bitswap service for indexed transactions.
+//!
+//! Inbound requests are resolved against local storage and returned to the requesting peer.
+//! Outbound requests are scheduled across connected peers and delivered through the user-facing
+//! response stream.
+//!
+//! Both paths share one actor, which coordinates network events, request limits, retries, and
+//! backpressure.
 
 use super::{
 	is_cid_supported, BitswapCommand, BitswapHandle, Cid, FetchItem, LOG_TARGET, MAX_WANTED_BLOCKS,
@@ -113,7 +120,6 @@ impl BitswapTransport for Litep2pBitswapHandle {
 }
 
 const MAX_LIVE_CIDS: usize = 1024;
-const MAX_USER_REQUESTS_PER_CID: usize = 64;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const MAX_QUEUED_INBOUND_ENTRIES_PER_PEER: usize = MAX_LIVE_CIDS;
 const CMD_CHANNEL_CAPACITY: usize = 256;
@@ -245,10 +251,6 @@ impl RequestScheduler {
 
 	fn contains(&self, cid: &Cid) -> bool {
 		self.cid_states.contains_key(cid)
-	}
-
-	fn user_request_count(&self, cid: &Cid) -> usize {
-		self.cid_states.get(cid).map_or(0, |cid_state| cid_state.user_requests.len())
 	}
 
 	fn add_user_request(&mut self, cid: Cid, user_request: UserRequestId) {
@@ -673,18 +675,9 @@ impl<B: BlockT> BitswapService<B> {
 	}
 
 	/// Admits a user wantlist and attaches one user request to all requested CIDs.
-	/// Requests exceeding the per-CID user-request limit are rejected as overloaded.
-	async fn on_request_stream(&mut self, cids: Vec<Cid>, sink: mpsc::Sender<FetchItem>) {
-		for cid in &cids {
-			if self.scheduler.user_request_count(cid) >= MAX_USER_REQUESTS_PER_CID {
-				self.metrics.record_outbound(outbound_events::OVERLOADED, 1);
-				let _ = sink.try_send(Err(BitswapError::Overloaded));
-				return;
-			}
-		}
-
-		let cids_remaining: HashSet<Cid> = cids.iter().copied().collect();
-		let user_request_id = self.user_requests.insert(UserRequest { cids_remaining, sink });
+	async fn on_request_stream(&mut self, cids: HashSet<Cid>, sink: mpsc::Sender<FetchItem>) {
+		let user_request_id =
+			self.user_requests.insert(UserRequest { cids_remaining: cids.clone(), sink });
 
 		for cid in &cids {
 			self.scheduler.add_user_request(*cid, user_request_id);

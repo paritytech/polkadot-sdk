@@ -23,7 +23,7 @@ use cid::Cid;
 use sc_network_bitswap::{BitswapError, BitswapHandle, FetchItem};
 use sp_transaction_storage_proof::ContentHash;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	sync::{Arc, OnceLock},
 	time::Duration,
 };
@@ -36,11 +36,15 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 /// Source of Bitswap response streams.
 pub trait BitswapRequest: Send + Sync {
 	/// Requests blocks by CID. Successful stream items contain only requested CIDs.
-	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError>;
+	fn request_stream(&self, cids: HashSet<Cid>)
+		-> Result<mpsc::Receiver<FetchItem>, BitswapError>;
 }
 
 impl BitswapRequest for BitswapHandle {
-	fn request_stream(&self, cids: Vec<Cid>) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
+	fn request_stream(
+		&self,
+		cids: HashSet<Cid>,
+	) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
 		BitswapHandle::request_stream(self, cids)
 	}
 }
@@ -81,7 +85,7 @@ impl IndexedTransactionFetcher {
 		}
 		let handle = self.bitswap.get().ok_or(FetchError::BitswapUnavailable)?;
 
-		let cids: Vec<Cid> = wants.iter().copied().map(Cid::from).collect();
+		let cids: HashSet<Cid> = wants.iter().copied().map(Cid::from).collect();
 
 		let mut rx = match handle.request_stream(cids) {
 			Ok(rx) => rx,

@@ -347,7 +347,7 @@ async fn single_cid_single_peer_block_response() {
 	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
 	rig.connect(peer).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 
 	let (out_peer, out_cids) = drain_next(&mut rig.outbound_req_rx).await.expect("outbound WANT");
 	assert_eq!(out_peer, peer);
@@ -368,7 +368,7 @@ async fn exhausted_round_reasks_peer_after_delay(#[case] answer_dont_have: bool)
 	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
 	rig.connect(peer).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 	let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
 	if answer_dont_have {
@@ -399,7 +399,7 @@ async fn new_peer_is_asked_immediately_while_round_is_parked() {
 	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
 	rig.connect(peer_a).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 	let _ = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
 	rig.send_presence(peer_a, cid, BlockPresenceType::DontHave).await;
@@ -423,7 +423,7 @@ async fn light_client_peers_are_not_tracked() {
 	let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [9u8; 32]);
 
 	rig.sync_event_tx.send(sync_connected_light(light_peer)).await.unwrap();
-	let _rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let _rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 
 	assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
 
@@ -440,7 +440,7 @@ async fn dont_have_from_only_peer_leaves_stream_open() {
 	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, b"the-real-payload");
 
 	rig.connect(peer).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 
 	let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound WANT");
 
@@ -473,7 +473,7 @@ async fn first_peer_failure_triggers_failover(#[case] trigger: FailoverTrigger) 
 
 	rig.connect(peer_a).await;
 	rig.connect(peer_b).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 	let (first_peer, _) = drain_next(&mut rig.outbound_req_rx).await.expect("first WANT");
 
 	match trigger {
@@ -501,7 +501,7 @@ async fn receiver_drop_cancels_wants() {
 	let peer = litep2p::PeerId::random();
 	let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [1u8; 32]);
 
-	let rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 
 	// No peers connected: nothing is dispatched, the want just sits there.
 	assert!(drain_next(&mut rig.outbound_req_rx).await.is_none());
@@ -524,8 +524,8 @@ async fn two_waiters_overlapping_cid_both_get_block() {
 
 	rig.connect(peer).await;
 
-	let mut rx_a = rig.user_handle.request_stream(vec![cid]).unwrap();
-	let mut rx_b = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx_a = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
+	let mut rx_b = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 
 	let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
@@ -543,8 +543,8 @@ async fn waiter_drop_does_not_break_other_waiter() {
 
 	rig.connect(peer).await;
 
-	let rx_a = rig.user_handle.request_stream(vec![cid]).unwrap();
-	let mut rx_b = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let rx_a = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
+	let mut rx_b = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 
 	drop(rx_a);
 	sleep(Duration::from_millis(1)).await;
@@ -565,7 +565,7 @@ async fn dispatch_window_queues_excess_cids_and_promotes_on_delivery() {
 	let cids: Vec<Cid> =
 		payloads.iter().map(|p| cid_for_data(BLAKE2B_256_MULTIHASH_CODE, p)).collect();
 
-	let mut rx = rig.user_handle.request_stream(cids.clone()).unwrap();
+	let mut rx = rig.user_handle.request_stream(cids.iter().copied().collect()).unwrap();
 
 	// Only the window (4 CIDs) is dispatched; the fifth is queued.
 	let (_, entries) = drain_next(&mut rig.outbound_req_rx).await.expect("first bundle");
@@ -875,7 +875,7 @@ async fn outbound_wants_bundled_and_split_at_message_cap() {
 		})
 		.collect();
 
-	let _rx = rig.user_handle.request_stream(cids.clone()).unwrap();
+	let _rx = rig.user_handle.request_stream(cids.iter().copied().collect()).unwrap();
 
 	let (peer_a, first) = drain_next(&mut rig.outbound_req_rx).await.expect("first bundle");
 	let (peer_b, second) = drain_next(&mut rig.outbound_req_rx).await.expect("second bundle");
@@ -898,14 +898,14 @@ async fn admission_invalid_cid_rejected() {
 		CidMultihash::<64>::wrap(0x99 /* unsupported */, &[0u8; 32]).unwrap(),
 	);
 
-	let err = rig.user_handle.request_stream(vec![bad]).err().expect("err");
+	let err = rig.user_handle.request_stream(HashSet::from([bad])).err().expect("err");
 	assert!(matches!(err, BitswapError::InvalidCid { .. }));
 }
 
 #[tokio::test]
 async fn admission_empty_returns_closed_receiver() {
 	let rig = empty_rig();
-	let mut rx = rig.user_handle.request_stream(vec![]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::new()).unwrap();
 	assert!(rx.recv().await.is_none());
 }
 
@@ -916,7 +916,7 @@ async fn service_shutdown_emits_service_closed() {
 	let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0xee; 32]);
 
 	rig.connect(peer).await;
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 	let _ = drain_next(&mut rig.outbound_req_rx).await;
 
 	drop(rig.inbound_tx);
@@ -933,7 +933,7 @@ async fn late_response_after_receiver_drop_is_ignored_and_cid_refetchable() {
 	let cid = cid_for_data(BLAKE2B_256_MULTIHASH_CODE, &data);
 
 	rig.connect(peer).await;
-	let rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 	let _ = drain_next(&mut rig.outbound_req_rx).await.expect("outbound");
 
 	// Caller gives up; the sweep drops the waiter while the peer request is still
@@ -948,27 +948,10 @@ async fn late_response_after_receiver_drop_is_ignored_and_cid_refetchable() {
 
 	// A fresh request for the same CID starts from a clean slate: the peer is asked
 	// again and the block is delivered.
-	let mut rx = rig.user_handle.request_stream(vec![cid]).unwrap();
+	let mut rx = rig.user_handle.request_stream(HashSet::from([cid])).unwrap();
 	let _ = drain_next(&mut rig.outbound_req_rx).await.expect("fresh WANT");
 	rig.send_block(peer, cid, &data).await;
 	expect_block(&mut rx, cid, &data).await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn too_many_waiters_per_cid_yields_overloaded() {
-	let rig = empty_rig();
-	let cid = cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x77; 32]);
-
-	let mut receivers = Vec::new();
-	for _ in 0..MAX_USER_REQUESTS_PER_CID {
-		receivers.push(rig.user_handle.request_stream(vec![cid]).unwrap());
-	}
-	// Give the actor a chance to admit all waiters before the one-too-many request.
-	sleep(Duration::from_millis(10)).await;
-
-	let mut rejected = rig.user_handle.request_stream(vec![cid]).unwrap();
-	let item = drain_next(&mut rejected).await.expect("item");
-	assert!(matches!(item, Err(BitswapError::Overloaded)));
 }
 
 mod proptests {

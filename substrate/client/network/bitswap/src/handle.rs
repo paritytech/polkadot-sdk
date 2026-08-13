@@ -19,6 +19,7 @@
 
 use super::{is_cid_supported, Cid};
 
+use std::collections::HashSet;
 use tokio::sync::mpsc;
 
 /// Bitswap request errors.
@@ -59,11 +60,10 @@ impl BitswapHandle {
 	/// until the receiver is dropped.
 	///
 	/// `Err(BitswapError::ServiceClosed)` is yielded once, as the final item, if the
-	/// service shuts down mid-request. `Err(BitswapError::Overloaded)` is yielded once as
-	/// the only item if too many concurrent requests want one of the CIDs.
+	/// service shuts down mid-request.
 	pub fn request_stream(
 		&self,
-		cids: Vec<Cid>,
+		cids: HashSet<Cid>,
 	) -> Result<mpsc::Receiver<FetchItem>, BitswapError> {
 		if cids.is_empty() {
 			let (_tx, rx) = mpsc::channel(1);
@@ -91,5 +91,5 @@ impl BitswapHandle {
 
 #[derive(Debug)]
 pub(crate) enum BitswapCommand {
-	RequestStream { cids: Vec<Cid>, sink: mpsc::Sender<FetchItem> },
+	RequestStream { cids: HashSet<Cid>, sink: mpsc::Sender<FetchItem> },
 }

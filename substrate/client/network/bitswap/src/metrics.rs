@@ -41,7 +41,6 @@ pub(crate) mod outbound_events {
 	pub(crate) const TIMED_OUT: &str = "timed_out";
 	pub(crate) const ROUND_RESTARTED: &str = "round_restarted";
 	pub(crate) const ABANDONED: &str = "abandoned";
-	pub(crate) const OVERLOADED: &str = "overloaded";
 }
 
 struct Inner {
