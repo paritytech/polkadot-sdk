@@ -304,10 +304,9 @@ pub mod pallet {
 
 		/// Ceiling on the transaction fee that is refunded to a submitter.
 		///
-		/// [`SubmissionMetadata::fee`] tracks what a submission has cost its submitter in
-		/// transaction fees, and is paid on top of [`Config::RewardBase`]. This bounds that
-		/// payment by config, rather than by how the submitter chose to spread their submission
-		/// over calls.
+		/// Each call that stores part of a submission accrues its transaction fee. That total is
+		/// refunded to the winner on top of [`Config::RewardBase`], and to an invulnerable whose
+		/// submission is discarded. This ceiling keeps that refund bounded by config.
 		///
 		/// Should cover one [`Pallet::register`] plus [`crate::Config::Pages`]
 		/// [`Pallet::submit_page`] calls at the maximum encoded page size. A smaller value

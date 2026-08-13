@@ -2,11 +2,11 @@ title: '[EPMB] bound the tx-fee refund of a signed submission'
 doc:
 - audience: Runtime Dev
   description: |-
-    The winner of the signed phase is paid `RewardBase` plus the transaction fees their submission cost them, tracked in `SubmissionMetadata::fee`. That accumulator grew with every fee-paying call against a submission, while the number of such calls is not tied to the number of pages, so the payment it drives was not bounded by config.
+    The winner of the signed phase is paid `RewardBase` plus the transaction fees their submission cost them, tracked in `SubmissionMetadata::fee`.
 
     Two changes:
 
-    - A new `signed::Config::MaxFeeRefund` caps the refundable portion, both for the winner and for an invulnerable clearing a discarded submission. The payout is now bounded by config rather than by how a submitter chose to spread their submission over calls.
+    - A new `signed::Config::MaxFeeRefund` caps the refundable portion, both for the winner and for an invulnerable clearing a discarded submission.
     - Storing a page that is already stored no longer accrues a fee, matching what the refund is meant to cover.
 
     Runtimes should set `MaxFeeRefund` to `signed::FullSubmissionFee<Runtime, TransactionPayment>`, which prices one `register` plus `Pages` `submit_page` calls at the maximum encoded page size.
