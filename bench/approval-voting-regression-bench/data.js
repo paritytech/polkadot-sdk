@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786611387417,
+  "lastUpdate": 1786632256410,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "olivarra1@gmail.com",
-            "name": "Victor Oliva",
-            "username": "voliva"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d",
-          "message": "fix(rpc-spec-v2): best block not announced immediately after initialised (#10525)\n\n# Description\n\nFixes https://github.com/polkadot-api/polkadot-api/issues/1244\n\nThe current chainHead_v1 implementation is [not\nspec-compliant](https://paritytech.github.io/json-rpc-interface-spec/api/chainHead_v1_follow.html),\nas it states:\n\n> - Generates an `initialized` notification\n> - Generates one `newBlock` notification for each non-finalized block\n> - Then a `bestBlockChanged` notification\n> - When a new block arrives, generates a `newBlock` notification\n> - When the node finalizes a block, generates a `finalized`\nnotification\n\nAnd the current implemention only emits the `bestBlockChanged`\nnotification after initialized iif the best block is different from the\nfinalized block.\n\nPAPI recently is using this part of the spec as an assumption. Most\nchains are unaffected, but those that produce blocks on-demand (e.g.\nmanual-seal) then have polkadot-api hanging until there's a higher block\ndifferent than the finalized one.\n\n## Integration\n\nThis PR doesn't change any of the APIs of the node. Upgrade should be\nautomatic.\n\n## Review Notes\n\nThis PR removes that condition so that the `bestBlockChanged`\nnotification is always emited. All tests are updated to this new\nbehaviour\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2025-12-05T10:58:57Z",
-          "tree_id": "46dd38ebc2d967c13397cfd99ee324aeccd51bbf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d"
-        },
-        "date": 1764938215930,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63644.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3841179409999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.654507140280955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9364185735299937,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001782464,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.419707193700004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001782464,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006292714149999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4067379633899995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43526843798999815,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.393379678090002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001792012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001792012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.981922501849997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.6683782399399987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bccc8959101de39cfacec813443facf0e0732580",
+          "message": "Statement-store: remove unused public method `StatementHandler::propagate_statement` (#12874)\n\nRemoves the unused public method `StatementHandler::propagate_statement`\nfrom\n`sc-network-statement`. It never had a caller since its introduction: it\nwas copied\nfrom the transactions protocol, whose controller plumbing was never\nbrought over.\nStatements continue to be propagated by the periodic propagation loop.\n  \n Closes https://github.com/paritytech/polkadot-sdk/issues/12170",
+          "timestamp": "2026-08-13T12:53:15Z",
+          "tree_id": "652614be4246d518fdc96acf5446672a691a38f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bccc8959101de39cfacec813443facf0e0732580"
+        },
+        "date": 1786632222361,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63568.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022911370000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.477782207852763,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7958018548899506,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022911370000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6810381955299993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.353140105939999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.639434135360001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002218212,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002218212,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.782826147619954,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6841206701000018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6239882646400003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005302921159999996,
             "unit": "seconds"
           }
         ]
