@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786632304442,
+  "lastUpdate": 1786636765445,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol@parity.io",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "613e00ed694cb846dae7796997d4224832d6aa67",
-          "message": "Revert \"pallet-xcm: API changes to use `VersionedAssetId` instead of `u32` to specify asset for fees\" (#10458)\n\nReverts paritytech/polkadot-sdk#10243\n\nFollowing on the discussion at\nhttps://github.com/paritytech/polkadot-sdk/issues/10391, this change may\nfind its place in future releases so reverting to not affect current\nmaster and to be reverted from stable2512 as well",
-          "timestamp": "2025-12-04T20:27:10Z",
-          "tree_id": "184ab06b76d7fa6a36bcadd982af77f46db679d4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/613e00ed694cb846dae7796997d4224832d6aa67"
-        },
-        "date": 1764886075365,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.93999999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035744315774000016,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04476689876399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.040237989866,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "817dd6b42c777d152436e936a1e9b626d30481dd",
+          "message": "[pallet-revive] fix wrong values in truncated and failed execution traces (#12855)\n\nThis PR fixes wrong values in truncated traces.\nThe execution tracer reported wrong values in four ways. The first three\nneed `ExecutionTracerConfig::limit`; the fourth affects every failing\ntransaction.\n\n1. `gasCost` / `weightCost`. Past the limit the tracer stopped opening a\npending entry per step, but the interpreter still reported every step's\nexit, so those exits finalized an enclosing CALL against the counters\nseen at truncation. At call depth 2 or more the captured steps could sum\nto more than the transaction consumed.\n\n2. `storage`. Snapshots taken by dropped steps were grafted onto the\nlast captured step, which could show slots it never touched.\n\n3. `error`. A revert or trap after the limit annotated the last captured\nstep, reporting a step that succeeded as reverted.\n\n4. `failed` / `returnValue`. `failed` was guarded on the outermost frame\nexiting at depth 0, which never happens, so every reverting transaction\ntraced as `failed: false`, and the revert path never assigned\n`returnValue`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-13T14:14:45Z",
+          "tree_id": "ea86287842986a4960b7c31ffdf94416bd79f2e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/817dd6b42c777d152436e936a1e9b626d30481dd"
+        },
+        "date": 1786636731061,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.0402211937,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08723278249799991,
             "unit": "seconds"
           }
         ]
