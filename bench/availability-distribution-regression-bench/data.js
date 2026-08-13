@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786611347635,
+  "lastUpdate": 1786632188203,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a",
-          "message": "pin solc version to 0.8.30 in tests-misc.yml (#10558)\n\npin solc version to 0.8.30 in tests-misc.yml\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-05T21:02:46Z",
-          "tree_id": "e8cf4dc10010e74205898bd03f90c509adde81ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a"
-        },
-        "date": 1764977835386,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013105752226666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0073529204866666555,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02296787938,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15968727128000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009887853466666674,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pisarevkir@gmail.com",
+            "name": "Kirill",
+            "username": "P1sar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bccc8959101de39cfacec813443facf0e0732580",
+          "message": "Statement-store: remove unused public method `StatementHandler::propagate_statement` (#12874)\n\nRemoves the unused public method `StatementHandler::propagate_statement`\nfrom\n`sc-network-statement`. It never had a caller since its introduction: it\nwas copied\nfrom the transactions protocol, whose controller plumbing was never\nbrought over.\nStatements continue to be propagated by the periodic propagation loop.\n  \n Closes https://github.com/paritytech/polkadot-sdk/issues/12170",
+          "timestamp": "2026-08-13T12:53:15Z",
+          "tree_id": "652614be4246d518fdc96acf5446672a691a38f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bccc8959101de39cfacec813443facf0e0732580"
+        },
+        "date": 1786632134546,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14416060578666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00790461129333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022983228433333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009989727240000013,
             "unit": "seconds"
           }
         ]
