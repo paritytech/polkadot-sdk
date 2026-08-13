@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786636810106,
+  "lastUpdate": 1786657483547,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "olivarra1@gmail.com",
-            "name": "Victor Oliva",
-            "username": "voliva"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d",
-          "message": "fix(rpc-spec-v2): best block not announced immediately after initialised (#10525)\n\n# Description\n\nFixes https://github.com/polkadot-api/polkadot-api/issues/1244\n\nThe current chainHead_v1 implementation is [not\nspec-compliant](https://paritytech.github.io/json-rpc-interface-spec/api/chainHead_v1_follow.html),\nas it states:\n\n> - Generates an `initialized` notification\n> - Generates one `newBlock` notification for each non-finalized block\n> - Then a `bestBlockChanged` notification\n> - When a new block arrives, generates a `newBlock` notification\n> - When the node finalizes a block, generates a `finalized`\nnotification\n\nAnd the current implemention only emits the `bestBlockChanged`\nnotification after initialized iif the best block is different from the\nfinalized block.\n\nPAPI recently is using this part of the spec as an assumption. Most\nchains are unaffected, but those that produce blocks on-demand (e.g.\nmanual-seal) then have polkadot-api hanging until there's a higher block\ndifferent than the finalized one.\n\n## Integration\n\nThis PR doesn't change any of the APIs of the node. Upgrade should be\nautomatic.\n\n## Review Notes\n\nThis PR removes that condition so that the `bestBlockChanged`\nnotification is always emited. All tests are updated to this new\nbehaviour\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2025-12-05T10:58:57Z",
-          "tree_id": "46dd38ebc2d967c13397cfd99ee324aeccd51bbf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68c1250bbc3b28cfdec1e6effbaa91d9a8999b3d"
-        },
-        "date": 1764938281588,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026459460900000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008630651499999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.004962499319999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009604385209999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd",
+          "message": "snowbridge: pin removed SSZ merkle-proofs spec link (#12879)\n\nethereum/consensus-specs removed its ssz/ directory (specs moved to\nethereum/ssz-specs), so the master-branch link in merkle_proof.rs 404s\nand the link-checker job now fails on every PR. Pin the link to the\ncommit the file's other spec links already use.",
+          "timestamp": "2026-08-13T20:00:32Z",
+          "tree_id": "c86e9f3c209d24f81483e2c9bb94cfa99de4c80d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1bc441ef97bd214b47ac2d4197a43db2c7d0ecbd"
+        },
+        "date": 1786657450189,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00248755809,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009732389419999979,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010292158610000001,
             "unit": "seconds"
           }
         ]
