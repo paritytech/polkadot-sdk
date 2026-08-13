@@ -65,6 +65,7 @@ use litep2p::{
 	},
 	types::{
 		multiaddr::{Multiaddr, Protocol},
+		multihash::Multihash,
 		ConnectionId,
 	},
 	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
@@ -270,7 +271,7 @@ impl Litep2pNetworkBackend {
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
 		keypair: Keypair,
-	) -> Result<ConfigBuilder, Error> {
+	) -> Result<(ConfigBuilder, Option<Multihash<64>>), Error> {
 		let _ = match config.network_config.transport {
 			TransportConfig::MemoryOnly => panic!("memory transport not supported"),
 			TransportConfig::Normal { .. } => false,
@@ -336,11 +337,13 @@ impl Litep2pNetworkBackend {
 				..Default::default()
 			});
 
+		let mut webrtc_certhash = None;
 		if !webrtc_addresses.is_empty() {
 			// WebRTC cert/key are unambiguously defined by the node key.
 			let certificate =
 				webrtc::derive_certificate(keypair.secret()).map_err(Error::Litep2p)?;
 			log::info!(target: LOG_TARGET, "WebRTC certhash: {}", certificate.certhash_b64());
+			webrtc_certhash = Some(certificate.certhash());
 			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
 				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 				certificate: Some(certificate),
@@ -348,7 +351,7 @@ impl Litep2pNetworkBackend {
 			});
 		}
 
-		Ok(config_builder.with_keypair(keypair))
+		Ok((config_builder.with_keypair(keypair), webrtc_certhash))
 	}
 }
 
@@ -412,7 +415,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		params.network_config.sanity_check_addresses()?;
 		params.network_config.sanity_check_bootnodes()?;
 
-		let mut config_builder =
+		let (mut config_builder, webrtc_certhash) =
 			Self::configure_transport(&params.network_config, keypair.clone())?;
 		let known_addresses = params.network_config.known_addresses();
 		let peer_store_handle = params.network_config.peer_store_handle();
@@ -585,7 +588,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		let public_addresses = litep2p.public_addresses();
 		for address in network_config.public_addresses.iter() {
-			if let Err(err) = public_addresses.add_address(address.clone().into()) {
+			let address = match webrtc_certhash {
+				Some(certhash) => add_webrtc_certhash(address.clone().into(), certhash),
+				None => address.clone().into(),
+			};
+
+			if let Err(err) = public_addresses.add_address(address.clone()) {
 				log::warn!(
 					target: LOG_TARGET,
 					"failed to add public address {address:?}: {err:?}",
@@ -1321,6 +1329,32 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	}
 }
 
+/// Append node's WebRTC `/certhash` onto a `webrtc-direct` address that lacks one.
+///
+/// The hash is inserted directly after `/webrtc-direct` so that a trailing `/p2p/<peer>` — which
+/// litep2p's `ensure_local_peer` appends — stays last and the result is canonical.
+fn add_webrtc_certhash(address: Multiaddr, certhash: Multihash<64>) -> Multiaddr {
+	let (is_webrtc, has_certhash) =
+		address
+			.iter()
+			.fold((false, false), |(is_webrtc, has_certhash), protocol| match protocol {
+				Protocol::WebRTCDirect => (true, has_certhash),
+				Protocol::Certhash(_) => (is_webrtc, true),
+				_ => (is_webrtc, has_certhash),
+			});
+
+	if !is_webrtc || has_certhash {
+		return address;
+	}
+
+	address.iter().fold(Multiaddr::empty(), |acc, protocol| match protocol {
+		Protocol::WebRTCDirect => {
+			acc.with(Protocol::WebRTCDirect).with(Protocol::Certhash(certhash))
+		},
+		protocol => acc.with(protocol),
+	})
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1328,6 +1362,7 @@ mod tests {
 		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
 		service::traits::NetworkStateInfo,
 	};
+	use litep2p::types::multihash::{Code, MultihashDigest};
 	use sc_network_types::{
 		multiaddr::{Multiaddr as NetworkMultiaddr, Protocol as NetworkProtocol},
 		multihash::Multihash as NetworkMultihash,
@@ -1414,5 +1449,56 @@ mod tests {
 		let advertised = network_service.external_addresses();
 		assert_eq!(advertised.len(), 1);
 		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+	}
+
+	/// A certhash standing in for the node's own, for the unit tests below.
+	fn a_certhash() -> Multihash<64> {
+		Code::Sha2_256.digest(b"certificate")
+	}
+
+	/// `/ip4/1.2.3.4/udp/30334/webrtc-direct`, without a certhash.
+	fn webrtc_address() -> Multiaddr {
+		Multiaddr::empty()
+			.with(Protocol::Ip4([1, 2, 3, 4].into()))
+			.with(Protocol::Udp(30334))
+			.with(Protocol::WebRTCDirect)
+	}
+
+	#[test]
+	fn certhash_appended_to_bare_webrtc_address() {
+		assert_eq!(
+			add_webrtc_certhash(webrtc_address(), a_certhash()),
+			webrtc_address().with(Protocol::Certhash(a_certhash())),
+		);
+	}
+
+	#[test]
+	fn certhash_inserted_before_p2p() {
+		// Ordering matters: a hash appended after `/p2p` is not a canonical address.
+		let peer = litep2p::PeerId::random();
+
+		assert_eq!(
+			add_webrtc_certhash(webrtc_address().with(Protocol::P2p(peer.into())), a_certhash()),
+			webrtc_address()
+				.with(Protocol::Certhash(a_certhash()))
+				.with(Protocol::P2p(peer.into())),
+		);
+	}
+
+	#[test]
+	fn operator_supplied_certhash_kept() {
+		let their_certhash = Code::Sha2_256.digest(b"theirs");
+		let address = webrtc_address().with(Protocol::Certhash(their_certhash));
+
+		assert_eq!(add_webrtc_certhash(address.clone(), a_certhash()), address);
+	}
+
+	#[test]
+	fn non_webrtc_address_untouched() {
+		let address = Multiaddr::empty()
+			.with(Protocol::Ip4([1, 2, 3, 4].into()))
+			.with(Protocol::Tcp(30333));
+
+		assert_eq!(add_webrtc_certhash(address.clone(), a_certhash()), address);
 	}
 }
