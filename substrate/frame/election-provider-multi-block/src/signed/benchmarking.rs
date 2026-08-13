@@ -220,11 +220,14 @@ mod benchmarks {
 		// The claim pays out of `RewardSource`, so it must be able to cover one entry and still
 		// hold ED afterwards, as the payout uses `Preservation::Preserve`. A `None` source mints
 		// and needs no funding.
-		if let Some(source) = T::RewardSource::account() {
+		let source_and_balance_before = if let Some(source) = T::RewardSource::account() {
 			let funds =
 				<T as Config>::RewardBase::get().saturating_add(T::Currency::minimum_balance());
 			T::Currency::mint_into(&source, funds)?;
-		}
+			Some((source.clone(), T::Currency::balance(&source)))
+		} else {
+			None
+		};
 
 		let caller = crate::Pallet::<T>::funded_account("caller", 0);
 
@@ -234,6 +237,14 @@ mod benchmarks {
 		}
 
 		assert_eq!(crate::signed::UnpaidRewards::<T>::get().len(), 15);
+		// Guard against silently measuring the mint fallback instead of the real transfer: if a
+		// pot is configured, its balance must have dropped by the claimed amount.
+		if let Some((source, balance_before)) = source_and_balance_before {
+			assert!(
+				T::Currency::balance(&source) < balance_before,
+				"claim must have transferred out of the configured RewardSource pot"
+			);
+		}
 		Ok(())
 	}
 
