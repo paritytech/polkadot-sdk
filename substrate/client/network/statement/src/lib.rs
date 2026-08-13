@@ -1263,7 +1263,6 @@ where
 	/// For the batch:
 	/// - Enforces the per-peer rate limit — on abuse, disconnects the peer and reports
 	///   `rep::STATEMENT_FLOODING`.
-	/// - Marks each statement as known for the peer.
 	/// - Skips statements already in the store, reporting `rep::DUPLICATE_STATEMENT` if the same
 	///   peer sent it twice.
 	/// - Enqueues unknown statements onto the bounded validation queue.
@@ -1314,7 +1313,6 @@ where
 				}
 
 				let hash = s.hash();
-				peer.known_statements.insert(hash);
 
 				if self.statement_store.has_statement(&hash) {
 					self.metrics.as_ref().map(|metrics| {
