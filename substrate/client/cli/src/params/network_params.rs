@@ -59,8 +59,9 @@ pub struct NetworkParams {
 	///
 	/// This can be used if there's a proxy in front of this node.
 	///
-	/// A `webrtc-direct` address given without a `/certhash/...` component gets this node's
-	/// certificate hash appended automatically.
+	/// A `webrtc-direct` address must be given as
+	/// `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`: the node appends its own
+	/// `/certhash/...` and `/p2p/...`, and doesn't start if either is supplied.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 

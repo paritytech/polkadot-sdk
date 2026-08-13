@@ -62,6 +62,15 @@ pub enum Error {
 		/// The invalid addresses.
 		addresses: Vec<Multiaddr>,
 	},
+	/// A invalid public `webrtc-direct` address.
+	#[error(
+		"Invalid WebRTC public address `{address}`: expected \
+		 `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`."
+	)]
+	InvalidWebRtcAddress {
+		/// The invalid address.
+		address: Multiaddr,
+	},
 	/// The same request-response protocol has been registered multiple times.
 	#[error("Request-response protocol registered multiple times: {protocol}")]
 	DuplicateRequestResponseProtocol {

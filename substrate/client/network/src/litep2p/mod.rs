@@ -75,7 +75,9 @@ use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};
-use sc_network_types::PeerId;
+use sc_network_types::{
+	multiaddr::Multiaddr as NetworkMultiaddr, multihash::Multihash as NetworkMultihash, PeerId,
+};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 use sp_runtime::traits::Block as BlockT;
 
@@ -424,9 +426,19 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let FullNetworkConfiguration {
 			notification_protocols,
 			request_response_protocols,
-			network_config,
+			mut network_config,
 			..
 		} = params.network_config;
+
+		// Complete the public addresses.
+		if let Some(certhash) = webrtc_certhash {
+			for address in network_config.public_addresses.iter_mut() {
+				*address = complete_webrtc_public_address(
+					address.clone(),
+					certhash.into(),
+				)?;
+			}
+		}
 
 		// initialize notification protocols
 		//
@@ -588,12 +600,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 		let public_addresses = litep2p.public_addresses();
 		for address in network_config.public_addresses.iter() {
-			let address = match webrtc_certhash {
-				Some(certhash) => add_webrtc_certhash(address.clone().into(), certhash),
-				None => address.clone().into(),
-			};
-
-			if let Err(err) = public_addresses.add_address(address.clone()) {
+			if let Err(err) = public_addresses.add_address(address.clone().into()) {
 				log::warn!(
 					target: LOG_TARGET,
 					"failed to add public address {address:?}: {err:?}",
@@ -1329,30 +1336,46 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	}
 }
 
-/// Append node's WebRTC `/certhash` onto a `webrtc-direct` address that lacks one.
+/// Complete a public `webrtc-direct` address with the node's `/certhash` and `/p2p`.
 ///
-/// The hash is inserted directly after `/webrtc-direct` so that a trailing `/p2p/<peer>` — which
-/// litep2p's `ensure_local_peer` appends — stays last and the result is canonical.
-fn add_webrtc_certhash(address: Multiaddr, certhash: Multihash<64>) -> Multiaddr {
-	let (is_webrtc, has_certhash) =
-		address
-			.iter()
-			.fold((false, false), |(is_webrtc, has_certhash), protocol| match protocol {
-				Protocol::WebRTCDirect => (true, has_certhash),
-				Protocol::Certhash(_) => (is_webrtc, true),
-				_ => (is_webrtc, has_certhash),
-			});
+/// Addresses of other transports are returned unchanged.
+fn complete_webrtc_public_address(
+	address: NetworkMultiaddr,
+	certhash: NetworkMultihash,
+) -> Result<NetworkMultiaddr, Error> {
+	use sc_network_types::multiaddr::Protocol;
 
-	if !is_webrtc || has_certhash {
-		return address;
+	if !address.iter().any(|protocol| matches!(protocol, Protocol::WebRTCDirect)) {
+		return Ok(address);
 	}
 
-	address.iter().fold(Multiaddr::empty(), |acc, protocol| match protocol {
-		Protocol::WebRTCDirect => {
-			acc.with(Protocol::WebRTCDirect).with(Protocol::Certhash(certhash))
-		},
-		protocol => acc.with(protocol),
-	})
+	let mut iter = address.iter();
+
+	// A `dns` host is resolved by the dialer, so it is as good as an IP in a public address.
+	let has_host = matches!(
+		iter.next(),
+		Some(
+			Protocol::Ip4(_) |
+				Protocol::Ip6(_) |
+				Protocol::Dns(_) |
+				Protocol::Dns4(_) |
+				Protocol::Dns6(_)
+		)
+	);
+
+	// `/udp/<port>/webrtc-direct` and nothing after it: the `/certhash` and `/p2p` below are the
+	// node's own to add.
+	let is_completable = has_host &&
+		matches!(
+			(iter.next(), iter.next(), iter.next()),
+			(Some(Protocol::Udp(_)), Some(Protocol::WebRTCDirect), None)
+		);
+
+	if !is_completable {
+		return Err(Error::InvalidWebRtcAddress { address });
+	}
+
+	Ok(address.with(Protocol::Certhash(certhash)))
 }
 
 #[cfg(test)]
@@ -1362,11 +1385,7 @@ mod tests {
 		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
 		service::traits::NetworkStateInfo,
 	};
-	use litep2p::types::multihash::{Code, MultihashDigest};
-	use sc_network_types::{
-		multiaddr::{Multiaddr as NetworkMultiaddr, Protocol as NetworkProtocol},
-		multihash::Multihash as NetworkMultihash,
-	};
+	use sc_network_types::multiaddr::Protocol as NetworkProtocol;
 	use sp_core::H256;
 	use substrate_test_runtime_client::runtime::Block;
 
@@ -1386,7 +1405,9 @@ mod tests {
 	}
 
 	/// Bring up the backend from `network_config` through its real entry point.
-	fn start_backend(network_config: &NetworkConfiguration) -> Litep2pNetworkBackend {
+	fn start_backend(
+		network_config: &NetworkConfiguration,
+	) -> Result<Litep2pNetworkBackend, Error> {
 		let config = FullNetworkConfiguration::<Block, H256, Litep2pNetworkBackend>::new(
 			network_config,
 			None,
@@ -1417,7 +1438,6 @@ mod tests {
 			ipfs_config: None,
 			notification_metrics: NotificationMetrics::new(None),
 		})
-		.unwrap()
 	}
 
 	/// Both the address the node binds and the one it tells peers to dial must carry the node's
@@ -1438,7 +1458,7 @@ mod tests {
 			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
 
 		// Held for the duration of the test: dropping it closes the node's sockets.
-		let backend = start_backend(&network_config);
+		let backend = start_backend(&network_config).unwrap();
 		let network_service =
 			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
 
@@ -1451,54 +1471,111 @@ mod tests {
 		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
 	}
 
+	#[tokio::test]
+	async fn webrtc_public_address_with_certhash_refuses_to_start() {
+		let public_address: NetworkMultiaddr = WEBRTC_PUBLIC_ADDRESS.parse().unwrap();
+
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+		network_config.public_addresses =
+			vec![public_address.with(NetworkProtocol::Certhash(a_certhash()))];
+
+		assert!(matches!(start_backend(&network_config), Err(Error::InvalidWebRtcAddress { .. }),));
+	}
+
 	/// A certhash standing in for the node's own, for the unit tests below.
-	fn a_certhash() -> Multihash<64> {
-		Code::Sha2_256.digest(b"certificate")
+	fn a_certhash() -> NetworkMultihash {
+		sc_network_types::multihash::Code::Sha2_256.digest(b"certificate")
 	}
 
-	/// `/ip4/1.2.3.4/udp/30334/webrtc-direct`, without a certhash.
-	fn webrtc_address() -> Multiaddr {
-		Multiaddr::empty()
-			.with(Protocol::Ip4([1, 2, 3, 4].into()))
-			.with(Protocol::Udp(30334))
-			.with(Protocol::WebRTCDirect)
+	/// `/ip4/1.2.3.4/udp/30334/webrtc-direct`: the shape an operator is expected to supply.
+	fn webrtc_address() -> NetworkMultiaddr {
+		NetworkMultiaddr::empty()
+			.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
+			.with(NetworkProtocol::Udp(30334))
+			.with(NetworkProtocol::WebRTCDirect)
 	}
 
-	#[test]
-	fn certhash_appended_to_bare_webrtc_address() {
-		assert_eq!(
-			add_webrtc_certhash(webrtc_address(), a_certhash()),
-			webrtc_address().with(Protocol::Certhash(a_certhash())),
-		);
+	/// Complete `address` as the node does, with a stand-in for the certhash it contributes.
+	fn complete(address: NetworkMultiaddr, peer: PeerId) -> Result<NetworkMultiaddr, Error> {
+		complete_webrtc_public_address(address, a_certhash(), peer)
 	}
 
 	#[test]
-	fn certhash_inserted_before_p2p() {
-		// Ordering matters: a hash appended after `/p2p` is not a canonical address.
-		let peer = litep2p::PeerId::random();
+	fn certhash_and_peer_id_appended_to_webrtc_address() {
+		let peer = PeerId::random();
 
 		assert_eq!(
-			add_webrtc_certhash(webrtc_address().with(Protocol::P2p(peer.into())), a_certhash()),
+			complete(webrtc_address(), peer).unwrap(),
 			webrtc_address()
-				.with(Protocol::Certhash(a_certhash()))
-				.with(Protocol::P2p(peer.into())),
+				.with(NetworkProtocol::Certhash(a_certhash()))
+				.with(NetworkProtocol::P2p(peer.into())),
 		);
 	}
 
 	#[test]
-	fn operator_supplied_certhash_kept() {
-		let their_certhash = Code::Sha2_256.digest(b"theirs");
-		let address = webrtc_address().with(Protocol::Certhash(their_certhash));
+	fn dns_host_accepted() {
+		// A public address is dialed, not bound, so the dialer can resolve the name.
+		let peer = PeerId::random();
+		let address = NetworkMultiaddr::empty()
+			.with(NetworkProtocol::Dns("example.com".into()))
+			.with(NetworkProtocol::Udp(30334))
+			.with(NetworkProtocol::WebRTCDirect);
 
-		assert_eq!(add_webrtc_certhash(address.clone(), a_certhash()), address);
+		assert_eq!(
+			complete(address.clone(), peer).unwrap(),
+			address
+				.with(NetworkProtocol::Certhash(a_certhash()))
+				.with(NetworkProtocol::P2p(peer.into())),
+		);
 	}
 
 	#[test]
-	fn non_webrtc_address_untouched() {
-		let address = Multiaddr::empty()
-			.with(Protocol::Ip4([1, 2, 3, 4].into()))
-			.with(Protocol::Tcp(30333));
+	fn operator_supplied_certhash_rejected() {
+		// The node presents a certificate of its own; no hash the operator writes can match it.
+		let their_certhash = sc_network_types::multihash::Code::Sha2_256.digest(b"theirs");
+		let address = webrtc_address().with(NetworkProtocol::Certhash(their_certhash));
 
-		assert_eq!(add_webrtc_certhash(address.clone(), a_certhash()), address);
+		assert!(matches!(
+			complete(address, PeerId::random()),
+			Err(Error::InvalidWebRtcAddress { .. }),
+		));
+	}
+
+	#[test]
+	fn operator_supplied_peer_id_rejected() {
+		let peer = PeerId::random();
+		let address = webrtc_address().with(NetworkProtocol::P2p(peer.into()));
+
+		assert!(matches!(complete(address, peer), Err(Error::InvalidWebRtcAddress { .. })));
+	}
+
+	#[test]
+	fn webrtc_over_tcp_rejected() {
+		let address = NetworkMultiaddr::empty()
+			.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
+			.with(NetworkProtocol::Tcp(30334))
+			.with(NetworkProtocol::WebRTCDirect);
+
+		assert!(matches!(
+			complete(address, PeerId::random()),
+			Err(Error::InvalidWebRtcAddress { .. }),
+		));
+	}
+
+	#[test]
+	fn non_webrtc_addresses_untouched() {
+		let addresses = [
+			NetworkMultiaddr::empty()
+				.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
+				.with(NetworkProtocol::Tcp(30333)),
+			NetworkMultiaddr::empty()
+				.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
+				.with(NetworkProtocol::Udp(30333)),
+		];
+
+		for address in addresses {
+			assert_eq!(complete(address.clone(), PeerId::random()).unwrap(), address);
+		}
 	}
 }
