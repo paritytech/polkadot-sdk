@@ -1613,7 +1613,9 @@ where
 				Ok(result) => result,
 				Err(e) => {
 					// A store read error says nothing about the queued hashes, so the
-					// outbox is kept and the next send attempt for this peer retries it.
+					// outbox is kept. It retries when a tick next queues statements for
+					// this peer — a quiet store error may strand the backlog, which is
+					// acceptable for so rare a failure.
 					log::debug!(
 						target: LOG_TARGET,
 						"Failed to fetch statements for propagation to {who}, retaining {} queued hashes: {e:?}",
