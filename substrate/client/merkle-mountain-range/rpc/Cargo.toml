@@ -18,16 +18,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, default-features = true }
 jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-api.workspace = true
 sp-api.default-features = true
-sp-blockchain.workspace = true
+sp-api.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-mmr-primitives.workspace = true
+sp-core.workspace = true
 sp-mmr-primitives.default-features = true
-sp-runtime.workspace = true
+sp-mmr-primitives.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }

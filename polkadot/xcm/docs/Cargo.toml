@@ -9,31 +9,31 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-pallet-xcm.workspace = true
 pallet-xcm.default-features = true
-xcm.workspace = true
+pallet-xcm.workspace = true
 xcm.default-features = true
-xcm-builder.workspace = true
+xcm.workspace = true
 xcm-builder.default-features = true
-xcm-executor.workspace = true
+xcm-builder.workspace = true
 xcm-executor.default-features = true
-xcm-simulator.workspace = true
+xcm-executor.workspace = true
 xcm-simulator.default-features = true
+xcm-simulator.workspace = true
 
 # For building FRAME runtimes
 codec = { workspace = true, default-features = true }
 frame = { features = ["runtime"], workspace = true, default-features = true }
-pallet-balances.workspace = true
 pallet-balances.default-features = true
-pallet-message-queue.workspace = true
+pallet-balances.workspace = true
 pallet-message-queue.default-features = true
-polkadot-runtime-parachains.workspace = true
+pallet-message-queue.workspace = true
 polkadot-runtime-parachains.default-features = true
+polkadot-runtime-parachains.workspace = true
 scale-info = { workspace = true }
-sp-io.workspace = true
 sp-io.default-features = true
-sp-runtime.workspace = true
+sp-io.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 
 # For building docs
 docify = { workspace = true }

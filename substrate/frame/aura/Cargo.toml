@@ -27,8 +27,8 @@ sp-consensus-aura.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { default-features = false, path = "../../primitives/core" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -41,6 +41,7 @@ std = [
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
+	"sp-core/std",
 	"sp-runtime/std",
 ]
 try-runtime = [

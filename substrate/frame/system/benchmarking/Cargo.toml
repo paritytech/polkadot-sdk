@@ -25,9 +25,9 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-externalities = { default-features = true, path = "../../../primitives/externalities" }
-sp-io = { default-features = true, path = "../../../primitives/io" }
-sp-version = { default-features = true, path = "../../../primitives/version" }
+sp-externalities = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-version = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

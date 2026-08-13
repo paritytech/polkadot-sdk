@@ -15,16 +15,16 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.workspace = true
 gum.default-features = true
-polkadot-node-subsystem.workspace = true
+gum.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-sp-blockchain.workspace = true
+polkadot-primitives.workspace = true
 sp-blockchain.default-features = true
-sp-inherents.workspace = true
+sp-blockchain.workspace = true
 sp-inherents.default-features = true
+sp-inherents.workspace = true
 thiserror = { workspace = true }
