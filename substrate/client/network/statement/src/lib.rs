@@ -645,7 +645,7 @@ pub struct StatementHandler<
 	/// `SEND_TIMEOUT` does not get its fresh send slot freed by the previous
 	/// connection's send result.
 	in_flight_chunks: HashMap<PeerId, u64>,
-	/// Next value to hand out as a chunk id in [`SendKind`].
+	/// Next value to hand out as [`PendingSendResult::chunk_id`].
 	next_chunk_id: u64,
 	/// Encoded bytes of propagation chunks in `pending_sends`. Together with
 	/// `initial_sync_in_flight_bytes` it is throttled at the soft limit
@@ -747,22 +747,15 @@ enum SendOutcome {
 }
 
 enum SendKind {
-	Propagation { chunk_id: u64 },
-	InitialSync { sync_id: u64, chunk_id: u64 },
+	Propagation,
+	InitialSync { sync_id: u64 },
 }
 
 impl SendKind {
 	fn label(&self) -> &'static str {
 		match self {
-			Self::Propagation { .. } => "propagation",
+			Self::Propagation => "propagation",
 			Self::InitialSync { .. } => "initial_sync",
-		}
-	}
-
-	fn chunk_id(&self) -> u64 {
-		match self {
-			Self::Propagation { chunk_id } => *chunk_id,
-			Self::InitialSync { chunk_id, .. } => *chunk_id,
 		}
 	}
 }
@@ -774,6 +767,9 @@ struct PendingSendResult {
 	bytes_sent: u64,
 	result: SendOutcome,
 	kind: SendKind,
+	/// Id of the chunk this result belongs to, matched against the peer's send
+	/// slot in `in_flight_chunks` to tell a stale result apart from the live one.
+	chunk_id: u64,
 }
 
 /// Type alias for the pending sends future collection, this is a list of in-flight sends to peers.
@@ -1528,6 +1524,7 @@ where
 			return;
 		}
 
+		let pending_sync = self.pending_initial_syncs.get(who);
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| {
@@ -1543,11 +1540,7 @@ where
 				// The peer's pending initial sync delivers every snapshot hash
 				// exactly once, whether its cursor has passed the hash or not, so
 				// propagating a snapshot member would duplicate it.
-				if self
-					.pending_initial_syncs
-					.get(who)
-					.is_some_and(|sync| sync.hashes.binary_search(hash).is_ok())
-				{
+				if pending_sync.is_some_and(|sync| sync.hashes.binary_search(hash).is_ok()) {
 					return None;
 				}
 				// For v2 peers with topic affinity, filter by topic match.
@@ -1668,9 +1661,7 @@ where
 				self.propagation_outboxes.remove(&who);
 				return;
 			};
-			let chunk_id = self.next_chunk_id;
-			self.next_chunk_id = self.next_chunk_id.saturating_add(1);
-			self.in_flight_chunks.insert(who, chunk_id);
+			let chunk_id = self.occupy_send_slot(who);
 			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 			self.set_propagation_in_flight_bytes(in_flight);
 			let sent_latency =
@@ -1684,7 +1675,8 @@ where
 					statement_count,
 					bytes_sent,
 					result,
-					kind: SendKind::Propagation { chunk_id },
+					kind: SendKind::Propagation,
+					chunk_id,
 				}
 			}));
 			return;
@@ -1700,11 +1692,12 @@ where
 	}
 
 	fn process_send_result(&mut self, send_result: PendingSendResult) {
-		let PendingSendResult { peer, statement_count, bytes_sent, result, kind } = send_result;
+		let PendingSendResult { peer, statement_count, bytes_sent, result, kind, chunk_id } =
+			send_result;
 
 		let kind_label = kind.label();
 		match kind {
-			SendKind::Propagation { .. } => {
+			SendKind::Propagation => {
 				let in_flight = self.propagation_in_flight_bytes.saturating_sub(bytes_sent);
 				self.set_propagation_in_flight_bytes(in_flight);
 			},
@@ -1752,12 +1745,12 @@ where
 		// result can arrive after the peer disconnected (the slot entry is gone)
 		// or reconnected and put a new chunk in flight (the slot holds a newer
 		// id). Only the result of the chunk that occupies the slot frees it.
-		if self.in_flight_chunks.get(&peer) == Some(&kind.chunk_id()) {
+		if self.in_flight_chunks.get(&peer) == Some(&chunk_id) {
 			self.in_flight_chunks.remove(&peer);
 			self.try_send_next_chunk(peer);
 		}
 
-		let SendKind::InitialSync { sync_id, .. } = kind else { return };
+		let SendKind::InitialSync { sync_id } = kind else { return };
 
 		// A peer that reconnects inside the send timeout loses its sync on disconnect and gets a
 		// fresh one under the same `PeerId`; a stale result would advance or abort the wrong sync.
@@ -1896,12 +1889,18 @@ where
 	/// stops and the remaining peers keep their position for the next completed
 	/// send.
 	fn fill_parked_propagations(&mut self) {
-		while !self.parked_propagations.is_empty() &&
-			self.send_in_flight_bytes() < MAX_SEND_IN_FLIGHT_BYTES
-		{
-			let Some(peer) = self.parked_propagations.pop_front() else { break };
+		while self.send_in_flight_bytes() < MAX_SEND_IN_FLIGHT_BYTES {
+			let Some(peer) = self.parked_propagations.pop_front() else { return };
 			self.try_send_next_chunk(peer);
 		}
+	}
+
+	/// Occupy the peer's send slot with a fresh chunk id and return the id.
+	fn occupy_send_slot(&mut self, peer: PeerId) -> u64 {
+		let chunk_id = self.next_chunk_id;
+		self.next_chunk_id = self.next_chunk_id.saturating_add(1);
+		self.in_flight_chunks.insert(peer, chunk_id);
+		chunk_id
 	}
 
 	/// Record initial sync completion metrics for a peer being removed.
@@ -1932,22 +1931,17 @@ where
 
 		// A peer whose send slot is busy keeps its turn for a later burst while
 		// the current one serves the next queued peer, so one slow peer does not
-		// stall every other pending sync. One pass over the queue's starting
-		// length visits each queued peer at most once.
-		let mut remaining = self.initial_sync_peer_queue.len();
-		let peer_id = loop {
-			if remaining == 0 {
-				return;
-			}
-			remaining -= 1;
-			let Some(peer_id) = self.initial_sync_peer_queue.pop_front() else {
-				return;
-			};
-			if self.in_flight_chunks.contains_key(&peer_id) {
-				self.initial_sync_peer_queue.push_back(peer_id);
-				continue;
-			}
-			break peer_id;
+		// stall every other pending sync.
+		let Some(pos) = self
+			.initial_sync_peer_queue
+			.iter()
+			.position(|peer| !self.in_flight_chunks.contains_key(peer))
+		else {
+			return;
+		};
+		self.initial_sync_peer_queue.rotate_left(pos);
+		let Some(peer_id) = self.initial_sync_peer_queue.pop_front() else {
+			return;
 		};
 
 		let Entry::Occupied(mut entry) = self.pending_initial_syncs.entry(peer_id) else {
@@ -2037,9 +2031,7 @@ where
 			self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 		let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
 		self.set_initial_sync_in_flight_bytes(in_flight);
-		let chunk_id = self.next_chunk_id;
-		self.next_chunk_id = self.next_chunk_id.saturating_add(1);
-		self.in_flight_chunks.insert(peer_id, chunk_id);
+		let chunk_id = self.occupy_send_slot(peer_id);
 		self.pending_sends.push(Box::pin(async move {
 			let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
 			let result = send_with_timeout(message_sink.send_async_notification(encoded)).await;
@@ -2049,7 +2041,8 @@ where
 				statement_count,
 				bytes_sent: bytes_to_send,
 				result,
-				kind: SendKind::InitialSync { sync_id, chunk_id },
+				kind: SendKind::InitialSync { sync_id },
+				chunk_id,
 			}
 		}));
 	}
@@ -3710,7 +3703,8 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0, chunk_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0 },
+			chunk_id: 0,
 		});
 		handler.flush_pending_sends().await;
 
@@ -3742,7 +3736,8 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: 100,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0, chunk_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0 },
+			chunk_id: 0,
 		});
 		assert_eq!(handler.pending_sends.len(), 1);
 		assert_eq!(handler.parked_propagations, VecDeque::from([second]));
