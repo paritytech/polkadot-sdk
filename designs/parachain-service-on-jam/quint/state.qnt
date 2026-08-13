@@ -179,6 +179,20 @@ module state {
   s.preimageRegistry.keys().contains((h, len)) and
   s.preimageRegistry.get((h, len)).referencers.contains(para_id)
 
+  /// Whether JAM's `query(hash, len)` reports the preimage as AVAILABLE for
+  /// lookup. Strictly stronger than being solicited: `Unprovided` means the
+  /// service asked for the blob but nobody ever supplied it, and `Unrequested`
+  /// is the two-step-forget limbo where JAM still holds the blob but the request
+  /// no longer serves lookups (§6.1).
+  pure def preimageAvailable(s: ParachainServiceState, h: Hash, len: int): bool =
+  s.preimageStatus.keys().contains((h, len)) and
+  (match s.preimageStatus.get((h, len)) {
+    | Provided => true
+    | Rerequested(_) => true
+    | Unprovided => false
+    | Unrequested(_) => false
+  })
+
   // --- Log-append helpers (design §3.1, §3.3, §5.1) ----------------------
 
   pure def paraLog(s: ParachainServiceState, para_id: ParaId): ParachainLog =

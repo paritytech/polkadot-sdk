@@ -292,9 +292,11 @@ module accumulate {
       // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
       // the new code's preimage is in the service's preimage store before
       // forwarding to JAM `upgrade`; otherwise rejects with a log entry.
+      // §5.4: the new code must be AVAILABLE for lookup, not merely solicited.
+      // JAM's `upgrade` performs no such check, so switching to a hash whose blob
+      // was never supplied would leave the service with no code to run.
       val preimagePresent =
-        acc.state.preimageRegistry.keys().contains((payload.codeHash, payload.len)) and
-        acc.state.preimageRegistry.get((payload.codeHash, payload.len)).referencers != Set()
+        acc.state.preimageAvailable(payload.codeHash, payload.len)
       if (preimagePresent)
         { ...acc, state: { ...acc.state, serviceCodeHash: payload.codeHash } }
       else

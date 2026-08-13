@@ -1631,6 +1631,35 @@ module tests {
     }
   }
 
+  /// §5.4: a service upgrade requires the new code to be AVAILABLE for lookup,
+  /// not merely solicited. Soliciting reserves the slot but nobody may ever have
+  /// supplied the blob, and JAM's `upgrade` does not check, so accepting an
+  /// `Unprovided` hash would leave the service with no code to run.
+  run serviceUpgradeRequiresAvailableCodeTest = {
+    val ah = AssetHubParaId
+    val newCode: Hash = { hashBytes: 31337 }
+    val len = FixedCodeLen
+    val msg = UpgradeService({ codeHash: newCode, len: len, minItemGas: 0, minMemoGas: 0 })
+    // Solicited only: the request exists but the blob was never supplied.
+    val solicited = initialState.addReferencer(ah, newCode, len).state
+    val onlySolicited = replay(solicited, ah, 0, msg)
+    // Once provided, the same call goes through.
+    val provided = markProvided(solicited, newCode, len)
+    val whenProvided = replay(provided, ah, 0, msg)
+    all {
+      assert(solicited.hasReferencer(newCode, len, ah)),
+      assert(not(solicited.preimageAvailable(newCode, len))),
+      // Rejected while unprovided: code hash untouched, rejection logged.
+      assert(onlySolicited.state.serviceCodeHash == initialState.serviceCodeHash),
+      assert(onlySolicited.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      // Accepted once available.
+      assert(provided.preimageAvailable(newCode, len)),
+      assert(whenProvided.state.serviceCodeHash == newCode),
+      assert(whenProvided.logs == List()),
+      init
+    }
+  }
+
   /// True iff a work result carries a successful digest.
   pure def isOkDigest(r: WorkExecResult): bool =
     match r { | WorkOk(d) => match d { | Ok(_) => true | Err(_) => false } | WorkErr => false }
