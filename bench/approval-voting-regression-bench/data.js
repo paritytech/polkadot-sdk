@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786706697460,
+  "lastUpdate": 1786708934230,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "manuel.mauro@protonmail.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b934d0a252f86568d92ac3baa56584bbd14e782",
-          "message": "Improve `charge_transaction_payment benchmark` ergonomics (#10444)\n\n# Description\n\nRuntimes that distribute transaction fees to block authors (like\nMoonbeam) fail on the `charge_transaction_payment` benchmark because no\nauthor is set when the benchmark runs. The fee distribution logic panics\nwhen trying to credit a non-existent author.\n\nThis PR introduces a `benchmarking::Config` trait with a\n`setup_benchmark_environment()` hook that runtimes can implement to set\nup required state before the benchmark executes.\n\nAdditionally, `amount_to_endow` is now calculated using `compute_fee()`\nto determine the actual fee (with a 10x buffer), ensuring it is at least\nthe existential deposit.\n\n## Integration\n\nRuntimes that need to set up state before running the\n`charge_transaction_payment` benchmark should implement\n`pallet_transaction_payment::benchmarking::Config`:\n\n```diff\n+ impl pallet_transaction_payment::benchmarking::Config for Runtime {\n+     fn setup_benchmark_environment() {\n+         // Set up any required state, e.g., block author for fee distribution\n+         let author: AccountId = frame_benchmarking::whitelisted_caller();\n+         pallet_author_inherent::Author::<Runtime>::put(author);\n+     }\n+ }\n```\n\nAnd update the benchmark list to use the wrapper type:\n\n```diff\n- [pallet_transaction_payment, TransactionPayment]\n+ [pallet_transaction_payment, TransactionPaymentBenchmark::<Runtime>]\n```\n\nRuntimes that don't need custom setup can use the default implementation\n(no-op).\n\n## Review Notes\n\n- A new `benchmarking::Config` trait extends `crate::Config` with a\n`setup_benchmark_environment()` method (default no-op)\n- A wrapper `Pallet<T>` struct is introduced in the benchmarking module\nto use this extended trait\n- The benchmark calls `T::setup_benchmark_environment()` at the start\n- `amount_to_endow` is calculated as\n`compute_fee(...).saturating_mul(10).max(existential_deposit)` to ensure\nthe account can exist and has sufficient funds\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-01-09T22:46:27Z",
-          "tree_id": "4b721d0fd834fac05e2082cd3a28dd6aab66f568",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b934d0a252f86568d92ac3baa56584bbd14e782"
-        },
-        "date": 1768003328661,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.9,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.845067228603073,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000026662570000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005321293880000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6567946854399986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.360757420690011,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025088710000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000026662570000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6866531835600003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.621813616089999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.834209900210032,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025088710000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7082108588400002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7946588417100242,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.6313322142500004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74ac5fbd5779a2fd21bf4eecc936ef5096d0cc3d",
+          "message": "eth-rpc: skip unresolvable streamed blocks instead of dying (#12882)\n\nThe subxt 0.50 bump (#12096) silently switched eth-rpc from subxt's\nLegacyBackend to the chainHead-based CombinedBackend (the new\n`from_rpc_client` default). Under differential-test load, chainHead\nfollow restarts and pinning limits stall receipt indexing and make\nstreamed blocks unresolvable; a failed `block.at()` resolution then\nkilled the essential subscription task and with it the whole server.\nThis is why the EVM test suite is red since July 15 (receipt polls time\nout until the 2h job limit).\n\nTwo changes:\n- pin the legacy backend in `connect()`, restoring the pre-bump wire\nbehavior\n- skip unresolvable streamed blocks instead of dying; skipped finalized\nblocks do not advance `last_finalized_seen`, so the gap filler backfills\nthem\n\nNote for reviewers: the backend pin was added after the first three\napprovals; please re-check.\n\nNo dedicated test: it would need a mocked chainHead session and a test\nconstructor for `Client`, neither of which exists today. The\ndifferential-tests jobs on this PR are the regression test.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-14T10:36:36Z",
+          "tree_id": "a8c4785b714d4f7b3c74d4d5e50b9f3b9ab2e5ee",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74ac5fbd5779a2fd21bf4eecc936ef5096d0cc3d"
+        },
+        "date": 1786708901373,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63560.05,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022488569999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022488569999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.664971464270001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3232416713199946,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6394431614300005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8214254989999856,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.653794356290002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.342717998763068,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.627755259679998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.736183152739983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005551740750000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002172477,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002172477,
             "unit": "seconds"
           }
         ]
