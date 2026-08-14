@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786657356618,
+  "lastUpdate": 1786666443056,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "19307dd5f8a5853266a4841c457d312933f96436",
-          "message": "Fix runtime migrations check (#10570)\n\n- On the scheduled run only download the snapshot and not try to run the\nmigration checks\n- The job should fail when one of the migration checks was cancelled\n(because of timeout for example)\n- Increase the timeout to 120 min, because sometimes it is slower to\ndownload the snapshot\n\nShould be merged after:\nhttps://github.com/paritytech/polkadot-sdk/pull/10566\n\n---------\n\nCo-authored-by: Evgeny Snitko <evgeny@parity.io>",
-          "timestamp": "2025-12-09T21:49:38Z",
-          "tree_id": "12661e52e738b8ccf552b780eb960b562f7f6ee1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/19307dd5f8a5853266a4841c457d312933f96436"
-        },
-        "date": 1765323782457,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022509532393333323,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15720214443333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007383721520000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013287684180000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14413759116000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f66cbc490fe785ac13c025db2b27fe41433e66f7",
+          "message": "[zombienet] make zombienet cumulus/polkadot workflows not required (#12872)\n\nWe started to saw a spike in failures that are causing friction in CI,\nlet's make `cumulus`/`polkadot` workflows not required for now.\nFollowing issue https://github.com/paritytech/polkadot-sdk/issues/12871\n\ncc: @bkchr / @sandreim",
+          "timestamp": "2026-08-13T22:47:38Z",
+          "tree_id": "7801f0acad2b107c79ff8453df4c75d5973edfa1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66cbc490fe785ac13c025db2b27fe41433e66f7"
+        },
+        "date": 1786666411168,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0079728787,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023085745673333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14519209113333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00998994468,
             "unit": "seconds"
           }
         ]
