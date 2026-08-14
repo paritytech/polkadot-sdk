@@ -232,13 +232,13 @@
 
 - job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-relay-rollback"
   test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_1_relay_rollback"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-para-rollback"
   test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_2_para_rollback"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
