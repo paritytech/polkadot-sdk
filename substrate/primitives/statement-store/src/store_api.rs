@@ -381,16 +381,29 @@ pub enum FilterDecision {
 	Abort,
 }
 
+/// A batch of statements read from the admission journal by
+/// [`StatementStore::admitted_statements`].
+#[derive(Debug)]
+pub struct AdmittedBatch {
+	/// The taken statements, oldest admission first.
+	pub statements: Vec<(Hash, Statement)>,
+	/// Admission sequence number to resume the walk from.
+	pub cursor: u64,
+	/// Whether the walk reached the watermark.
+	pub done: bool,
+}
+
 /// Statement store API.
 pub trait StatementStore: Send + Sync {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>>;
 
-	/// Return recent statements and clear the internal index.
+	/// Return recent statements with their admission sequence numbers, oldest admission
+	/// first, and clear the internal index.
 	///
 	/// This consumes and clears the recently received statements,
 	/// allowing new statements to be collected from this point forward.
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;
+	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;
 
 	/// Get statement by hash.
 	fn statement(&self, hash: &Hash) -> Result<Option<Statement>>;
@@ -416,6 +429,30 @@ pub trait StatementStore: Send + Sync {
 		hashes: &[Hash],
 		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
 	) -> Result<(Vec<(Hash, Statement)>, usize)>;
+
+	/// One past the newest assigned admission sequence number.
+	///
+	/// Every statement currently in the store was admitted below this boundary, so it
+	/// serves as the watermark for a subsequent [`Self::admitted_statements`] walk.
+	fn admission_watermark(&self) -> Result<u64>;
+
+	/// Walk the admission journal from `cursor` (inclusive) towards `watermark`
+	/// (exclusive), collecting statements through a filter callback.
+	///
+	/// The callback receives (hash, encoded_bytes, decoded_statement) and returns:
+	/// - `Skip`: leave this statement out of the batch, continue to next
+	/// - `Take`: include this statement in the batch, continue to next
+	/// - `Abort`: stop the walk before this statement
+	///
+	/// Sequence numbers whose statement has left the store are passed over. The returned
+	/// cursor sits after every visited statement except an `Abort`ed one, which the next
+	/// walk revisits first.
+	fn admitted_statements(
+		&self,
+		cursor: u64,
+		watermark: u64,
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<AdmittedBatch>;
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
