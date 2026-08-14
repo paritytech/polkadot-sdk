@@ -30,6 +30,7 @@ use crate::{
 		},
 		error::{Error, JfyiError, Result},
 	},
+	validator_side_metrics::{Metrics, ScoreBand},
 	LOG_TARGET,
 };
 pub use backend::Backend;
@@ -81,6 +82,12 @@ pub struct PeerManager<B> {
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
+<<<<<<< HEAD
+=======
+	/// Clock used for reputation timestamps (passed to `Backend::process_bumps`).
+	clock: std::sync::Arc<dyn polkadot_node_clock::Clock>,
+	metrics: Metrics,
+>>>>>>> 83433f49 (collator-protocol-revamp: additional metrics (#12582))
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -90,6 +97,11 @@ impl<B: Backend> PeerManager<B> {
 		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
+<<<<<<< HEAD
+=======
+		clock: std::sync::Arc<dyn polkadot_node_clock::Clock>,
+		metrics: Metrics,
+>>>>>>> 83433f49 (collator-protocol-revamp: additional metrics (#12582))
 	) -> Result<Self> {
 		let mut instance = Self {
 			db: backend,
@@ -99,6 +111,11 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
 			latest_finalized_session: None,
+<<<<<<< HEAD
+=======
+			clock,
+			metrics,
+>>>>>>> 83433f49 (collator-protocol-revamp: additional metrics (#12582))
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -120,6 +137,7 @@ impl<B: Backend> PeerManager<B> {
 			sender,
 			processed_finalized_block_number,
 			(latest_finalized_block_number, latest_finalized_block_hash),
+			&instance.metrics,
 		)
 		.await?;
 
@@ -152,6 +170,7 @@ impl<B: Backend> PeerManager<B> {
 			sender,
 			processed_finalized_block_number,
 			(finalized_block_number, finalized_block_hash),
+			&self.metrics,
 		)
 		.await?;
 
@@ -377,6 +396,12 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_score(peer_id, para_id)
 	}
 
+	/// The number of declared collators per para, grouped by score band. See
+	/// [`ConnectedPeers::score_distribution`].
+	pub fn score_distribution(&self) -> BTreeMap<ParaId, BTreeMap<ScoreBand, u64>> {
+		self.connected.score_distribution()
+	}
+
 	/// Retrieve the peer info associated to this PeerId, if any.
 	pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
 		self.connected.peer_info(peer_id)
@@ -475,6 +500,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	sender: &mut Sender,
 	processed_finalized_block_number: BlockNumber,
 	(latest_finalized_block_number, latest_finalized_block_hash): (BlockNumber, Hash),
+	metrics: &Metrics,
 ) -> Result<BTreeMap<ParaId, HashMap<PeerId, Score>>> {
 	if latest_finalized_block_number < processed_finalized_block_number {
 		// Shouldn't be possible, but in this case there is no other initialisation needed.
@@ -592,15 +618,19 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 						Ok(ump_signals) => {
 							if let Some(approved_peer) = ump_signals.approved_peer() {
 								match PeerId::from_bytes(approved_peer) {
-									Ok(peer_id) => updates
-										.entry(para_id)
-										.or_default()
-										.entry(peer_id)
-										.or_default()
-										.saturating_add(VALID_INCLUDED_CANDIDATE_BUMP),
+									Ok(peer_id) => {
+										metrics.on_approved_peer_present(&para_id);
+										updates
+											.entry(para_id)
+											.or_default()
+											.entry(peer_id)
+											.or_default()
+											.saturating_add(VALID_INCLUDED_CANDIDATE_BUMP);
+									},
 									Err(err) => {
 										// Collator sent an invalid peerid. It's only harming
 										// itself.
+										metrics.on_approved_peer_invalid(&para_id);
 										gum::debug!(
 											target: LOG_TARGET,
 											?candidate_hash,
@@ -609,11 +639,16 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 										);
 									},
 								}
+							} else {
+								// v2+ candidate with no `ApprovedPeer` signal — the parachain has
+								// likely not upgraded to emit it.
+								metrics.on_approved_peer_absent(&para_id);
 							}
 						},
 						Err(err) => {
 							// This should never happen, as the ump signals are checked during
 							// on-chain backing.
+							metrics.on_approved_peer_parse_error(&para_id);
 							gum::warn!(
 								target: LOG_TARGET,
 								?candidate_hash,

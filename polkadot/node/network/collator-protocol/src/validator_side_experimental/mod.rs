@@ -115,6 +115,17 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
+<<<<<<< HEAD
+=======
+		gum::debug!(
+			target: LOG_TARGET,
+			?scheduled_paras,
+			"Collator protocol initial assignments",
+		);
+
+		metrics.note_assigned_paras(scheduled_paras.len());
+
+>>>>>>> 83433f49 (collator-protocol-revamp: additional metrics (#12582))
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
@@ -140,8 +151,19 @@ async fn initialize<Context>(
 
 		gum::trace!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
+<<<<<<< HEAD
 		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
 			.await
+=======
+		match PeerManager::startup(
+			backend,
+			ctx.sender(),
+			scheduled_paras.into_iter().collect(),
+			clock.clone(),
+			metrics.clone(),
+		)
+		.await
+>>>>>>> 83433f49 (collator-protocol-revamp: additional metrics (#12582))
 		{
 			Ok(peer_manager) => {
 				return Ok(Some(State::new(peer_manager, collation_manager, metrics)))
@@ -277,6 +299,11 @@ async fn run_inner<Context>(
 				persistence_timer = create_persistence_timer(persist_interval);
 			},
 		}
+
+		// Refresh the in-memory connected peers. Done once per loop iteration, so that
+		// it covers every event source above and cannot be missed by a handler that forgets to
+		// update it.
+		state.note_in_memory_connected_peers();
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
