@@ -12,9 +12,7 @@ doc:
     send slot is free. Initial-sync and propagation chunks together are capped
     at 16 MiB in flight, observable via the new
     `substrate_sync_propagation_in_flight_bytes` gauge next to the existing
-    initial-sync one. A pending initial sync and propagation no longer offer a
-    peer the same statement, so duplicate-statement penalties around syncs are
-    gone.
+    initial-sync one.
 - audience: Node Dev
   description: |-
     `MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` in `sc_network_statement::config` is
