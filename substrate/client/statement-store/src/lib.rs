@@ -3286,8 +3286,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, OptimizedTopicFilter, Proof,
-		RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
+		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -3812,6 +3812,80 @@ mod tests {
 		assert_eq!(replay.statements, vec![matching.encode()]);
 		assert_eq!(replay.cursor, 3);
 		assert!(replay.done);
+	}
+
+	#[test]
+	fn admission_watermark_is_one_past_the_newest_admission() {
+		let (store, _temp) = test_store();
+		assert_eq!(store.admission_watermark().unwrap(), 0);
+
+		let first = signed_statement(1);
+		let second = signed_statement(2);
+		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(second, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.admission_watermark().unwrap(), 2);
+
+		// Sequence numbers are never reused, so a removal leaves the boundary in place.
+		store.remove(&first.hash()).unwrap();
+		assert_eq!(store.admission_watermark().unwrap(), 2);
+	}
+
+	#[test]
+	fn admitted_statements_walk_applies_filter_decisions_and_resumes() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=4).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		// Seq 1 goes dead, the walk must pass over it.
+		store.remove(&statements[1].hash()).unwrap();
+
+		let batch = store
+			.admitted_statements(0, 4, &mut |hash, _encoded, _statement| {
+				if *hash == statements[0].hash() {
+					FilterDecision::Skip
+				} else if *hash == statements[3].hash() {
+					FilterDecision::Abort
+				} else {
+					FilterDecision::Take
+				}
+			})
+			.unwrap();
+		assert_eq!(batch.statements, vec![(statements[2].hash(), statements[2].clone())]);
+		// The aborted statement sits at seq 3; the cursor points back at it.
+		assert_eq!(batch.cursor, 3);
+		assert!(!batch.done);
+
+		// Resuming from the cursor visits the aborted statement first.
+		let batch = store
+			.admitted_statements(batch.cursor, 4, &mut |_, _, _| FilterDecision::Take)
+			.unwrap();
+		assert_eq!(batch.statements, vec![(statements[3].hash(), statements[3].clone())]);
+		assert_eq!(batch.cursor, 4);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn take_recent_statements_are_ordered_by_admission() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=3).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+
+		let recent = store.take_recent_statements().unwrap();
+		let expected: Vec<_> = statements
+			.into_iter()
+			.enumerate()
+			.map(|(seq, statement)| (seq as u64, statement.hash(), statement))
+			.collect();
+		assert_eq!(recent, expected);
 	}
 
 	#[test]
