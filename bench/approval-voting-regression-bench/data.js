@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786715104621,
+  "lastUpdate": 1786723019999,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
-          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-12T14:46:18Z",
-          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
-        },
-        "date": 1768233155646,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63634.079999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021193580000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.628775552000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.308984513920002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6316755065500015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.516759157463335,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.68065790941005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002146851,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7876409738900453,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002146851,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6664359582499992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005050267400000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6520951374,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021193580000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005084709549999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40cae7d7f8db4bdcd64b6180311385c528028663",
+          "message": "Probe cargo for -Z json-target-spec support instead of guessing from the version (#12726)\n\nBoth PolkaVM build paths compile against a `.json` target spec produced\nby `polkavm-linker`,\nso both have to decide whether to pass cargo `-Z json-target-spec`:\nnewer cargo requires the\nflag for a JSON target, older cargo rejects it as unknown.\n\nBoth decided by comparing a version against 1.95.\n**`pallet-revive-fixtures` compared the\n`rustc` version to gate a `cargo` flag** — the wrong binary entirely.\n`wasm-builder` compared\nthe cargo version, which looks right but is not sufficient either: the\nflag landed partway\nthrough the 1.95 cycle, so a nightly from early in that cycle reports\n1.95 from *both*\nbinaries while its cargo does not know the flag yet:\n\n```\nrustc 1.95.0-nightly (474276961 2026-01-26)\ncargo 1.95.0-nightly (efcd9f586 2026-01-23)   <- no json-target-spec\n```\n\nThat is exactly the toolchain in our CI image\n(`ci-unified:bullseye-1.93.0-2026-01-27`), so\nany job that builds the fixtures on nightly fails:\n\n```\nerror: failed to run custom build command for `pallet-revive-fixtures`\n  error: unknown `-Z` flag specified: json-target-spec\n```\n\nThis is what breaks `check-semver` on PRs that touch\n`pallet-revive-fixtures` (it is one of\nthe few jobs running nightly rather than the pinned stable, because\nrustdoc JSON is\nnightly-only). It was not hit before because no other PR makes\n`parity-publish` rebuild that\ncrate, and `wasm-builder` never hit it because its JSON-target path only\nruns for\n`SUBSTRATE_RUNTIME_TARGET=riscv`.\n\nSince no version comparison can express \"does this cargo accept this\nflag\", ask cargo:\n\n```rust\nfn supports_json_target_spec(&self) -> bool {\n    self.command()\n        .env(\"RUSTC_BOOTSTRAP\", \"1\")\n        .args([\"-Z\", \"help\"])\n        .output()\n        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(\"json-target-spec\"))\n}\n```\n\nWhile here, the fixture builder had one more flag on the wrong oracle: a\nsingle rustc-version\nbool drove both `-Cpanic=immediate-abort` (a rustc flag) and the\n`-Zbuild-std-features=panic_immediate_abort` fallback (a cargo flag).\nThose are now separate,\neach gated on the version of the binary that parses it. `wasm-builder`\nneeded no such change:\nits `CargoCommand::version` already comes from `cargo --version`, and\nthe rustc version is\nonly used for the \"Using rustc version:\" printout.\n\n## Testing\n\n- Fixtures build clean on stable, contracts actually produced (not a\ncached skip).\n- Under `nightly-2026-01-27` — the CI toolchain — the `unknown -Z flag`\nerror is gone.\n- `cargo test -p pallet-revive --lib tests::pvm`: 137 passed, 0 failed.",
+          "timestamp": "2026-08-14T14:25:38Z",
+          "tree_id": "f042ecdd2b2f34c2df4c7d7ef380f3c9f8f62aaf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40cae7d7f8db4bdcd64b6180311385c528028663"
+        },
+        "date": 1786722986390,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63564.35,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8544622529099785,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.514028664013002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6542374041600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018866759999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6775103024500013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018866759999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000194573,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.68316874985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6513038850200017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000194573,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005285648250000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.874806055699969,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3488378130599883,
             "unit": "seconds"
           }
         ]
