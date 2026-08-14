@@ -21688,7 +21688,12 @@ dependencies = [
  "sp-runtime 48.0.0",
  "sp-state-machine 0.53.0",
  "sp-test-primitives",
+<<<<<<< HEAD
  "sp-version 46.0.0",
+=======
+ "sp-version 29.0.0",
+ "substrate-prometheus-endpoint 0.17.0",
+>>>>>>> c65761d (sc-hop: add Prometheus metrics (#12662))
  "tempfile",
  "thiserror 1.0.65",
  "tokio",
