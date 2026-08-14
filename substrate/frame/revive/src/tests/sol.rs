@@ -1122,3 +1122,135 @@ fn execution_tracing_works() {
 		}
 	}
 }
+
+/// Storage opcodes charge a worst-case amount upfront and refund the remainder via
+/// `adjust_weight`, so `weight_consumed` is not monotonic within a step. A step's cost is
+/// `(exit - entry) - child`, which is only exact if every refund lands inside the window that
+/// charged it; one escaping would show up as a gap between consecutive steps.
+#[test]
+fn storage_refunds_stay_inside_the_step_that_charged_them() {
+	use crate::evm::{ExecutionStepKind, ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::Counter;
+
+	let (code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// `increment` is SLOAD then SSTORE, so both refunding paths run.
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Counter::incrementCall {}.abi_encode())
+				.build_and_unwrap_result()
+		});
+		let trace = tracer.collect_trace();
+
+		assert!(
+			trace.struct_logs.iter().any(|step| matches!(
+				&step.kind,
+				ExecutionStepKind::EVMOpcode { op, .. } if *op == SSTORE || *op == SLOAD
+			)),
+			"the fixture must actually touch storage for this to test anything",
+		);
+
+		// Consecutive EVM steps at the same depth must leave the meter continuous.
+		let breaks = trace
+			.struct_logs
+			.iter()
+			.zip(trace.struct_logs.iter().skip(1))
+			.filter(|(step, next)| step.depth == next.depth)
+			.filter(|(step, next)| step.gas.saturating_sub(step.gas_cost) != next.gas)
+			.map(|(step, next)| (step.gas, step.gas_cost, next.gas))
+			.collect::<Vec<_>>();
+		assert!(breaks.is_empty(), "gas discontinuity (gas, gas_cost, next.gas): {breaks:?}");
+
+		let summed: u64 = trace.struct_logs.iter().map(|step| step.gas_cost).sum();
+		assert!(
+			summed <= trace.gas,
+			"steps account for {summed} gas but the transaction used {}",
+			trace.gas,
+		);
+	});
+}
+
+/// Truncation drops steps; it must not change the ones it keeps, and what it keeps must never
+/// sum past what the transaction spent.
+///
+/// Runs the real interpreter: the unit tests drive `Tracing` directly and so assert the
+/// enter/exit pairing rather than exercise it. Truncation must land inside the nested call,
+/// so several limits are swept.
+#[test]
+fn truncation_does_not_alter_the_steps_it_keeps() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::{Callee, Caller};
+
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let trace_with_limit = |limit: Option<u64>| {
+			ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
+
+				let mut tracer =
+					ExecutionTracer::new(ExecutionTracerConfig { limit, ..Default::default() });
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			})
+		};
+
+		// Sweep limits relative to the untruncated length rather than hard-coding step counts.
+		let full = trace_with_limit(None);
+		let steps = full.struct_logs.len() as u64;
+		assert!(steps > 8, "{fixture_type:?}: expected a multi-step trace, got {steps}");
+		assert!(
+			full.struct_logs.iter().any(|step| step.depth > 0),
+			"{fixture_type:?}: the fixture must make a nested call for this to be a real test",
+		);
+
+		for limit in [steps / 4, steps / 2, steps * 3 / 4] {
+			let trace = trace_with_limit(Some(limit));
+			assert_eq!(trace.struct_logs.len() as u64, limit, "{fixture_type:?}: truncated");
+
+			for (index, (truncated, full)) in
+				trace.struct_logs.iter().zip(full.struct_logs.iter()).enumerate()
+			{
+				assert_eq!(
+					(truncated.gas_cost, truncated.weight_cost),
+					(full.gas_cost, full.weight_cost),
+					"{fixture_type:?} limit {limit}: step {index} changed under truncation",
+				);
+			}
+
+			let summed: u64 = trace.struct_logs.iter().map(|step| step.gas_cost).sum();
+			assert!(
+				summed <= trace.gas,
+				"{fixture_type:?} limit {limit}: steps account for {summed} gas \
+				 but the transaction used {}",
+				trace.gas,
+			);
+		}
+	}
+}
