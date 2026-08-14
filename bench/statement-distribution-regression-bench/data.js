@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786698391210,
+  "lastUpdate": 1786708976141,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "19307dd5f8a5853266a4841c457d312933f96436",
-          "message": "Fix runtime migrations check (#10570)\n\n- On the scheduled run only download the snapshot and not try to run the\nmigration checks\n- The job should fail when one of the migration checks was cancelled\n(because of timeout for example)\n- Increase the timeout to 120 min, because sometimes it is slower to\ndownload the snapshot\n\nShould be merged after:\nhttps://github.com/paritytech/polkadot-sdk/pull/10566\n\n---------\n\nCo-authored-by: Evgeny Snitko <evgeny@parity.io>",
-          "timestamp": "2025-12-09T21:49:38Z",
-          "tree_id": "12661e52e738b8ccf552b780eb960b562f7f6ee1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/19307dd5f8a5853266a4841c457d312933f96436"
-        },
-        "date": 1765323848032,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94199999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035254403261999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04405084810399992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08628676520999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74ac5fbd5779a2fd21bf4eecc936ef5096d0cc3d",
+          "message": "eth-rpc: skip unresolvable streamed blocks instead of dying (#12882)\n\nThe subxt 0.50 bump (#12096) silently switched eth-rpc from subxt's\nLegacyBackend to the chainHead-based CombinedBackend (the new\n`from_rpc_client` default). Under differential-test load, chainHead\nfollow restarts and pinning limits stall receipt indexing and make\nstreamed blocks unresolvable; a failed `block.at()` resolution then\nkilled the essential subscription task and with it the whole server.\nThis is why the EVM test suite is red since July 15 (receipt polls time\nout until the 2h job limit).\n\nTwo changes:\n- pin the legacy backend in `connect()`, restoring the pre-bump wire\nbehavior\n- skip unresolvable streamed blocks instead of dying; skipped finalized\nblocks do not advance `last_finalized_seen`, so the gap filler backfills\nthem\n\nNote for reviewers: the backend pin was added after the first three\napprovals; please re-check.\n\nNo dedicated test: it would need a mocked chainHead session and a test\nconstructor for `Client`, neither of which exists today. The\ndifferential-tests jobs on this PR are the regression test.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-14T10:36:36Z",
+          "tree_id": "a8c4785b714d4f7b3c74d4d5e50b9f3b9ab2e5ee",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74ac5fbd5779a2fd21bf4eecc936ef5096d0cc3d"
+        },
+        "date": 1786708943554,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.078,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03958620306199998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07900166003199995,
             "unit": "seconds"
           }
         ]
