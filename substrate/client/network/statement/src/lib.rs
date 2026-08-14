@@ -64,8 +64,9 @@
 //! `undelivered_statements`.
 //!
 //! In-flight bytes of both kinds are held against the shared
-//! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full is parked once and
-//! refilled in parking order as completed sends free bytes.
+//! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
+//! fetch fails, is parked once and refilled in parking order as completed sends free bytes and on
+//! propagation ticks.
 //!
 //! A statement can still reach a peer twice when it sits both in the peer's initial-sync snapshot
 //! and in a propagation tick around it, and the peer may charge a small reputation penalty for the
@@ -660,7 +661,8 @@ pub struct StatementHandler<
 	/// [`MAX_SEND_IN_FLIGHT_BYTES`] budget.
 	propagation_in_flight_bytes: u64,
 	/// Peers whose propagation chunk was deferred because the shared byte budget was
-	/// exhausted, refilled in parking order as bytes free up. A peer parks at most once.
+	/// exhausted or the store fetch failed, refilled in parking order as bytes free up
+	/// and on propagation ticks. A peer parks at most once.
 	parked_propagations: VecDeque<PeerId>,
 	/// Pending propagation sends, polled by the main event loop.
 	pending_sends: PendingSends,
@@ -1582,12 +1584,16 @@ where
 				Ok(result) => result,
 				Err(e) => {
 					// A store read error says nothing about the queued hashes, so the outbox
-					// is kept and retried when a tick next queues statements for this peer.
-					log::debug!(
+					// is kept and the peer parked: the fetch is retried when a completed send
+					// or a propagation tick next refills parked peers.
+					log::warn!(
 						target: LOG_TARGET,
 						"Failed to fetch statements for propagation to {who}, retaining {} queued hashes: {e:?}",
 						outbox.len(),
 					);
+					if !self.parked_propagations.contains(&who) {
+						self.parked_propagations.push_back(who);
+					}
 					return;
 				},
 			};
@@ -1779,6 +1785,10 @@ where
 			return;
 		}
 
+		// A peer parked by a failed store fetch has no completed send to unpark it, so
+		// parked peers are also refilled on the tick.
+		self.fill_parked_propagations();
+
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			self.do_propagate_statements(&statements);
@@ -1862,9 +1872,14 @@ where
 	/// Refill parked peers' send slots while the in-flight byte budget allows.
 	///
 	/// Peers are served in parking order. When the budget saturates the loop stops and the
-	/// remaining peers keep their position for the next completed send.
+	/// remaining peers keep their position for the next completed send. Each peer gets one
+	/// attempt per pass: a peer whose store fetch fails parks itself again, and an unbounded
+	/// loop would spin on it.
 	fn fill_parked_propagations(&mut self) {
-		while self.send_in_flight_bytes() < MAX_SEND_IN_FLIGHT_BYTES {
+		for _ in 0..self.parked_propagations.len() {
+			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
+				return;
+			}
 			let Some(peer) = self.parked_propagations.pop_front() else { return };
 			self.try_send_next_chunk(peer);
 		}
@@ -2348,11 +2363,16 @@ mod tests {
 		statements: Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		recent_statements:
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
+		fail_fetches: Arc<AtomicBool>,
 	}
 
 	impl TestStatementStore {
 		fn new() -> Self {
-			Self { statements: Default::default(), recent_statements: Default::default() }
+			Self {
+				statements: Default::default(),
+				recent_statements: Default::default(),
+				fail_fetches: Arc::new(AtomicBool::new(false)),
+			}
 		}
 	}
 
@@ -2408,6 +2428,9 @@ mod tests {
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 			usize,
 		)> {
+			if self.fail_fetches.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Db("fetch failed".into()));
+			}
 			let statements = self.statements.lock().unwrap();
 			let mut result = Vec::new();
 			let mut processed = 0;
@@ -2856,6 +2879,40 @@ mod tests {
 			!handler.propagation_outboxes.contains_key(&peer_id),
 			"the drained outbox must be removed"
 		);
+	}
+
+	#[tokio::test]
+	async fn failed_store_fetch_parks_the_peer_and_the_tick_retries() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+
+		statement_store.fail_fetches.store(true, Ordering::Relaxed);
+		handler.try_send_next_chunk(peer_id);
+
+		assert!(handler.pending_sends.is_empty(), "a failed fetch must not queue a send");
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap().len(),
+			1,
+			"the outbox must be retained"
+		);
+		assert_eq!(handler.parked_propagations, VecDeque::from([peer_id]));
+
+		// No new statements arrive for the peer: the tick alone must retry the parked fetch.
+		statement_store.fail_fetches.store(false, Ordering::Relaxed);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(handler.parked_propagations.is_empty());
 	}
 
 	#[tokio::test]
