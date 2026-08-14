@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786722979955,
+  "lastUpdate": 1786728309640,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fb8ca008c2db780dbd690096d148368b75755cb3",
-          "message": "Statement-store: Follow-up improvements from PR #10718 review (#10770)\n\n# Description\n\nThis follow-up PR addresses review comments from PR #10718:\n- Removed unnecessary Result wrapper from statement_hashes() - method is\ninfallible\n- Added debug assertion to validate sent count matches prepared count\n\n## Integration\n\nShould not affect downstream projects.",
-          "timestamp": "2026-01-13T08:45:40Z",
-          "tree_id": "c57e294aee46328e45f991b740733a05b0b92896",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8ca008c2db780dbd690096d148368b75755cb3"
-        },
-        "date": 1768299228592,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02318328341999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071137363399999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01000028702666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1453267070933334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1440005951066667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a286382c4811b3409d258226d6878cf46bea1d0",
+          "message": "[pallet-revive] EXTCODECOPY zero-fills for an out-of-range code offset (#12650)\n\nFixes #12643 by switching `EXTCODECOPY`'s `code_offset conversion` from\n`as_usize_or_halt` to `as_usize_saturated`, so an out-of-range code\noffset zero-fills the destination (matching the EVM spec, revm, and the\nsibling copy opcodes) instead of trapping and diverging the state root.",
+          "timestamp": "2026-08-14T15:52:36Z",
+          "tree_id": "c491ffcb3d138033d1eef6fd6ef00fd986f71195",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a286382c4811b3409d258226d6878cf46bea1d0"
+        },
+        "date": 1786728272407,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009770114046666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022854343046666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14279674790666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007623250900000001,
             "unit": "seconds"
           }
         ]
