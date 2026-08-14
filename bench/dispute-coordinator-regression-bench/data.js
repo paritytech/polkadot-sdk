@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786657483547,
+  "lastUpdate": 1786666566182,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a",
-          "message": "pin solc version to 0.8.30 in tests-misc.yml (#10558)\n\npin solc version to 0.8.30 in tests-misc.yml\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-05T21:02:46Z",
-          "tree_id": "e8cf4dc10010e74205898bd03f90c509adde81ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d6a8d0ad6721c648a5631591ace1b01dd8b7fc6a"
-        },
-        "date": 1764977935826,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008770393339999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.005325321059999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026615326600000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010292158610000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f66cbc490fe785ac13c025db2b27fe41433e66f7",
+          "message": "[zombienet] make zombienet cumulus/polkadot workflows not required (#12872)\n\nWe started to saw a spike in failures that are causing friction in CI,\nlet's make `cumulus`/`polkadot` workflows not required for now.\nFollowing issue https://github.com/paritytech/polkadot-sdk/issues/12871\n\ncc: @bkchr / @sandreim",
+          "timestamp": "2026-08-13T22:47:38Z",
+          "tree_id": "7801f0acad2b107c79ff8453df4c75d5973edfa1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66cbc490fe785ac13c025db2b27fe41433e66f7"
+        },
+        "date": 1786666534234,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01033109141999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00256759348,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009687738329999987,
             "unit": "seconds"
           }
         ]
