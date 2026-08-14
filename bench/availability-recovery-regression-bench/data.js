@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786728265066,
+  "lastUpdate": 1786740118779,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80a438ea4defc8e4b93f4ab1c2492b82e9b954e0",
-          "message": "Fix pallet-revive-fixtures (#10780)\n\nFixing two issues:\n\n1. Build on rustc >= 1.92 was broken despite\nhttps://github.com/paritytech/polkadot-sdk/pull/10749. That PR was\nbroken.\n2. The nested cargo didn't properly inherit the parent toolchain (an\nolder error). Leading to the situation where a `1.88` was only applied\nto the parent toolchain\n\nReplacement for https://github.com/paritytech/polkadot-sdk/pull/10778.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-13T14:08:34Z",
-          "tree_id": "e2fd8ae9df0be03497c08378224d879458a594ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80a438ea4defc8e4b93f4ab1c2492b82e9b954e0"
-        },
-        "date": 1768318539116,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.316608380566665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13632560403333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1419119009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f81731cceec0977a85fca3f8e857b441c0e0cb6a",
+          "message": "asset-hub-westend: fix `NonTransfer` proxy falsely claiming `Governance` containment (#12769)\n\n# Description\n\n`ProxyType::NonTransfer` on Asset Hub Westend declared itself a superset\nof `ProxyType::Governance`, while its call filter denies the `Treasury`,\n`ConvictionVoting`, `Referenda` and `Whitelist` calls that `Governance`\nadmits.\n\n`pallet_proxy` gates `add_proxy`/`remove_proxy` on `is_superset`\n*before* it consults `filter`\n([proxy/src/lib.rs](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/proxy/src/lib.rs#L1005-L1023)),\nso a `NonTransfer` proxy could add a `Governance` proxy for its\ndelegator and thereby reach calls its own filter denies.\n\nFixes #12724 (found by the Runtime Whitebox Fuzzer).\n\n## Integration\n\nNo API change. The only behavioural difference is that a `NonTransfer`\nproxy can no longer add or remove a `Governance` proxy. Existing\n`Governance` proxies are unaffected, and the `Collator`, `Staking`,\n`NominationPools` and `StakingOperator` subsets of `NonTransfer` are\nunchanged.\n\n## Review Notes\n\n**Why the relation is the wrong side, not the filter.**\n\nThese proxy variants were introduced by the Asset Hub Migration from the\nrelay chain. On the Westend relay, `ProxyType::Governance => false` —\ngovernance moved to Asset Hub, so its filter admits *nothing*, which\nmakes the relay's blanket `(ProxyType::NonTransfer, _) => true` arm\n**vacuously correct** (the empty set is a subset of everything). The\nport carried that superset claim across, but on Asset Hub `Governance`\nis a real, non-empty filter, so the claim no longer holds.\n\nThe alternative fix — widening `NonTransfer.filter` to admit the\ngovernance families — would be wrong: `Treasury` is denied deliberately,\nsince treasury spends move funds, and that would contradict the\ndocumented \"can execute any call that does not transfer funds or\nassets\".\n\nSo the fix removes `Governance` from the superset arm:\n\n```diff\n \t\t\t(ProxyType::Staking, ProxyType::StakingOperator) => true,\n \t\t\t(\n \t\t\t\tProxyType::NonTransfer,\n \t\t\t\tProxyType::Collator |\n-\t\t\t\tProxyType::Governance |\n \t\t\t\tProxyType::Staking |\n \t\t\t\tProxyType::NominationPools |\n \t\t\t\tProxyType::StakingOperator,\n \t\t\t) => true,\n```\n\n**Tests.** Two were added to `tests/tests.rs`:\n\n- `non_transfer_proxy_is_not_a_superset_of_governance` — the reported\ncase, plus assertions that the four remaining `NonTransfer` subsets\nstill hold.\n- `proxy_type_superset_relation_matches_call_filters` — a generic\nproperty test: for every declared `is_superset` edge, the superset's\nfilter must admit every call its subset admits. It runs across all 15\n`ProxyType` variants against a call corpus covering each pallet family\nthe filters reference, so this class of bug cannot silently reappear on\na different edge. It includes an exhaustiveness guard (a `match` over\nevery variant) so adding a new `ProxyType` fails to compile until the\ncorpus list is updated.\n\nI verified the rest of the lattice by hand and the generic test agrees:\n`Assets ⊇ AssetOwner/AssetManager`, `Staking ⊇ StakingOperator` and the\nfour remaining `NonTransfer` edges are all sound. `Governance` was the\nonly broken one.\n\nBoth new tests were confirmed to **fail** with the fix reverted and pass\nwith it applied. Full `asset-hub-westend-runtime` suite: 54 passed, 0\nfailed.\n\nNote this is scoped to asset-hub-westend; asset-hub-rococo does not\ndefine these AHM proxy types.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-14T19:16:07Z",
+          "tree_id": "9fe6b29ea1923f563d206120db105401a65f272c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f81731cceec0977a85fca3f8e857b441c0e0cb6a"
+        },
+        "date": 1786740084873,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.863535651033335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13663522380000004,
             "unit": "seconds"
           }
         ]
