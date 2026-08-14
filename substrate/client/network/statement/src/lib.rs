@@ -48,12 +48,28 @@
 //! peer that resends the statement before its tick is added there too. The propagation pass
 //! skips the recorded peers and clears `recently_received_statements` when done.
 //!
-//! All sends to a peer flow through its single send slot, so initial sync and propagation never
-//! have two chunks in flight to one peer. While a peer's initial sync is pending, propagation
-//! skips statements in the sync's snapshot, and scheduling a sync drops the peer's outbox, so
-//! the sync is the only path that offers a snapshot statement. It offers each at most once: a
-//! chunk whose send fails is not retried, and its statements are lost for that peer until its
-//! next sync.
+//! ## Send scheduling
+//!
+//! Every peer has one send slot, shared by propagation and initial sync, so at most one chunk per
+//! connection is in flight. Each chunk carries a fresh id, so the result of a send left over from
+//! a previous connection cannot free the current one's slot. A completed chunk frees the slot at
+//! once and the next propagation chunk follows, a failed send included: the failed chunk is not
+//! retried, but the rest of the backlog keeps draining.
+//!
+//! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
+//! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
+//! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest hashes, since the freshest
+//! statements are the ones still worth delivering. Dropped hashes are counted in
+//! `undelivered_statements`.
+//!
+//! In-flight bytes of both kinds are held against the shared
+//! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full is parked once and
+//! refilled in parking order as completed sends free bytes.
+//!
+//! While a peer's initial sync is pending, propagation skips statements in the sync's snapshot,
+//! and scheduling a sync drops the peer's outbox, so the sync is the only path that offers a
+//! snapshot statement, and it offers each at most once. A chunk already in flight is the one
+//! overlap a fresh snapshot cannot supersede.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -628,36 +644,22 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Next value to hand out as [`PendingInitialSync::sync_id`].
 	next_initial_sync_id: u64,
-	/// Encoded bytes of initial-sync chunks in `pending_sends`. Together with
-	/// `propagation_in_flight_bytes` it is throttled at the soft limit
-	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
+	/// Encoded bytes of initial-sync chunks in `pending_sends`, held against the shared
+	/// [`MAX_SEND_IN_FLIGHT_BYTES`] budget.
 	initial_sync_in_flight_bytes: u64,
-	/// Statement hashes queued for propagation to each peer, drained from the front as
-	/// chunks are fetched, whether the fetch yields a send or not. An entry is created on
-	/// first append and removed once it drains, the peer becomes unreachable, or a fresh
-	/// initial-sync snapshot supersedes it.
+	/// Statement hashes queued for propagation to each peer, drained from the front as chunks
+	/// are fetched, whether the fetch yields a send or not.
 	propagation_outboxes: HashMap<PeerId, Vec<Hash>>,
-	/// Id of the chunk in flight, per peer — the peer's single send slot, shared
-	/// by propagation and initial sync, so at most one chunk per connection is in
-	/// flight at a time. Propagation refills a freed slot at once while initial
-	/// sync waits for its burst tick, so fresh gossip waits behind at most the one
-	/// snapshot chunk on the wire, never behind the whole snapshot. Each chunk gets
-	/// a fresh id, and the id tells a stale result
-	/// apart from the live one, so a peer that disconnects and reconnects inside
-	/// `SEND_TIMEOUT` does not get its fresh send slot freed by the previous
-	/// connection's send result.
+	/// Id of the chunk in flight, per peer — the peer's single send slot, shared by
+	/// propagation and initial sync.
 	in_flight_chunks: HashMap<PeerId, u64>,
 	/// Next value to hand out as [`PendingSendResult::chunk_id`].
 	next_chunk_id: u64,
-	/// Encoded bytes of propagation chunks in `pending_sends`. Together with
-	/// `initial_sync_in_flight_bytes` it is throttled at the soft limit
-	/// [`MAX_SEND_IN_FLIGHT_BYTES`].
+	/// Encoded bytes of propagation chunks in `pending_sends`, held against the shared
+	/// [`MAX_SEND_IN_FLIGHT_BYTES`] budget.
 	propagation_in_flight_bytes: u64,
-	/// Peers whose propagation chunk was deferred because the shared byte budget
-	/// was exhausted, refilled in parking order as bytes free up. A peer already
-	/// here is not parked again, so a budget that stays full does not grow the
-	/// deque. An entry left by a disconnected peer is benign: slot, outbox and
-	/// budget are re-checked on pop.
+	/// Peers whose propagation chunk was deferred because the shared byte budget was
+	/// exhausted, refilled in parking order as bytes free up. A peer parks at most once.
 	parked_propagations: VecDeque<PeerId>,
 	/// Pending propagation sends, polled by the main event loop.
 	pending_sends: PendingSends,
@@ -722,11 +724,11 @@ pub struct Peer {
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
 struct PendingInitialSync {
-	/// The store's hash list at scheduling time, sorted so the propagation path
-	/// can binary-search it and skip statements this sync delivers.
+	/// The store's hash list at scheduling time, sorted so the propagation path can
+	/// binary-search it.
 	hashes: Vec<Hash>,
 	/// Hashes before this index were consumed by bursts. The list is kept whole so the
-	/// propagation path can search the full snapshot, including the part already sent.
+	/// propagation path can search the full snapshot.
 	cursor: usize,
 	started_at: Instant,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
@@ -771,8 +773,8 @@ struct PendingSendResult {
 	bytes_sent: u64,
 	result: SendOutcome,
 	kind: SendKind,
-	/// Id of the chunk this result belongs to, matched against the peer's send
-	/// slot in `in_flight_chunks` to tell a stale result apart from the live one.
+	/// Id of the chunk this result belongs to, matched against the peer's send slot in
+	/// `in_flight_chunks` to tell a stale result apart from the live one.
 	chunk_id: u64,
 }
 
@@ -798,17 +800,7 @@ fn max_statement_payload_size(envelope_overhead: usize) -> usize {
 }
 
 /// Fetch the next chunk of statements for a peer from `hashes`, filtering in the
-/// `statements_by_hashes` callback. Statements that don't match the peer's topic
-/// affinity and statements the peer itself supplied are skipped without being
-/// materialized, so each chunk carries more useful data. The senders check is
-/// best-effort — the sender records clear every propagation pass — so callers
-/// filter at append time as well.
-///
-/// Statements accumulate up to `max_size` — an accumulated size above it means the
-/// first statement alone was oversized and must be skipped by the caller.
-///
-/// Returns the fetched statements, the number of hashes consumed and the
-/// accumulated encoded size.
+/// `statements_by_hashes` callback so non-matching statements are never materialized.
 fn fetch_statement_chunk(
 	store: &dyn StatementStore,
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
@@ -821,9 +813,6 @@ fn fetch_statement_chunk(
 	let mut accumulated_size = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
-			// Skip statements that don't match the peer's topic affinity. This
-			// avoids materializing non-matching statements and lets each batch
-			// carry more useful data.
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 				return FilterDecision::Skip;
 			}
@@ -1505,8 +1494,7 @@ where
 	/// Internally filters out statements the peer sent to us.
 	/// Statements in a pending initial sync's snapshot are left to that sync.
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
-	/// Surviving hashes are appended to the peer's outbox, from which
-	/// `try_send_next_chunk` fetches and encodes at most one chunk at a time.
+	/// Surviving hashes are appended to the peer's outbox.
 	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
 		let Some(peer) = self.peers.get(who) else {
 			return;
@@ -1529,9 +1517,8 @@ where
 				) {
 					return None;
 				}
-				// The peer's pending initial sync offers every snapshot hash at most
-				// once, whether its cursor has passed the hash or not, so propagating
-				// a snapshot member risks duplicating it.
+				// The pending initial sync offers every snapshot hash, cursor passed or
+				// not, so propagating a snapshot member risks duplicating it.
 				if pending_sync.is_some_and(|sync| sync.hashes.binary_search(hash).is_ok()) {
 					return None;
 				}
@@ -1551,9 +1538,8 @@ where
 
 		let outbox = self.propagation_outboxes.entry(*who).or_default();
 		outbox.extend(to_send);
-		// The freshest statements are the ones still worth delivering, so an
-		// overflowing outbox drops from the front. These statements never reach
-		// the peer, which is what `undelivered_statements` exists to make visible.
+		// The freshest statements are the ones still worth delivering, so an overflowing
+		// outbox drops from the front.
 		let overflow = outbox.len().saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
 		if overflow > 0 {
 			outbox.drain(..overflow);
@@ -1564,11 +1550,9 @@ where
 
 	/// Send the next propagation chunk to `who` if its send slot is free.
 	///
-	/// At most one propagation chunk per peer is in flight at a time. Statements
-	/// are fetched from the store, filtered and encoded only when a chunk is
-	/// actually sent, so a slow peer holds the encoded bytes of one chunk, not of
-	/// its whole backlog. Hashes whose statements left the store since they were
-	/// queued are dropped.
+	/// Statements are fetched, filtered and encoded only when a chunk actually goes out, so a
+	/// slow peer holds one encoded chunk, not its whole backlog. Hashes whose statements left
+	/// the store since they were queued are dropped.
 	fn try_send_next_chunk(&mut self, who: PeerId) {
 		if self.in_flight_chunks.contains_key(&who) {
 			return;
@@ -1586,9 +1570,8 @@ where
 				self.propagation_outboxes.remove(&who);
 				return;
 			};
-			// Admission against the shared budget happens before fetching, so a
-			// saturated budget leaves the outbox untouched. The peer is parked and
-			// refilled once a completed send frees bytes.
+			// Admission is checked before fetching, so a saturated budget leaves the
+			// outbox untouched.
 			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
 				// A peer parks once per saturation, not once per tick, so a budget that
 				// stays full does not grow the deque without bound.
@@ -1610,10 +1593,8 @@ where
 			) {
 				Ok(result) => result,
 				Err(e) => {
-					// A store read error says nothing about the queued hashes, so the
-					// outbox is kept. It retries when a tick next queues statements for
-					// this peer — a quiet store error may strand the backlog, which is
-					// acceptable for so rare a failure.
+					// A store read error says nothing about the queued hashes, so the outbox
+					// is kept and retried when a tick next queues statements for this peer.
 					log::debug!(
 						target: LOG_TARGET,
 						"Failed to fetch statements for propagation to {who}, retaining {} queued hashes: {e:?}",
@@ -1623,8 +1604,8 @@ where
 				},
 			};
 
-			// Consume the fetched hashes before the oversized check, otherwise the
-			// oversized statement would be fetched again on the next iteration.
+			// Consume the fetched hashes before the oversized check, otherwise the oversized
+			// statement would be fetched again on the next iteration.
 			if let Some(outbox) = self.propagation_outboxes.get_mut(&who) {
 				outbox.drain(..processed);
 			}
@@ -1638,8 +1619,8 @@ where
 			}
 
 			if statements.is_empty() {
-				// Everything fetched was filtered out or pruned from the store, but
-				// the remaining hashes may still yield a chunk.
+				// Everything fetched was filtered out or pruned, but the remaining hashes
+				// may still yield a chunk.
 				continue;
 			}
 
@@ -1685,9 +1666,8 @@ where
 
 	fn handle_send_result(&mut self, send_result: PendingSendResult) {
 		self.process_send_result(send_result);
-		// Every result frees its chunk's bytes, so parked peers may fit into the
-		// budget now. The completing peer got the first claim on the freed bytes
-		// inside `process_send_result`.
+		// Every result frees its chunk's bytes, so parked peers may fit into the budget
+		// now. The completing peer already claimed its share in `process_send_result`.
 		self.fill_parked_propagations();
 	}
 
@@ -1738,13 +1718,8 @@ where
 			},
 		};
 
-		// A completed chunk of either kind frees the peer's send slot and the next
-		// propagation chunk goes out at once. That holds even for a failed send —
-		// the failed chunk is not retried, but the rest of the backlog keeps
-		// draining. A chunk's send future is not cancelled on disconnect, so its
-		// result can arrive after the peer disconnected (the slot entry is gone)
-		// or reconnected and put a new chunk in flight (the slot holds a newer
-		// id). Only the result of the chunk that occupies the slot frees it.
+		// A send future is not cancelled on disconnect, so its result can outlive the
+		// connection. Only the result of the chunk still occupying the slot frees it.
 		if self.in_flight_chunks.get(&peer) == Some(&chunk_id) {
 			self.in_flight_chunks.remove(&peer);
 			self.try_send_next_chunk(peer);
@@ -1814,8 +1789,8 @@ where
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
 	///
-	/// A chunk already in flight is the one overlap the snapshot cannot supersede, so a
-	/// resync started while a propagation chunk is on the wire can duplicate that chunk.
+	/// A chunk already in flight is the one overlap the snapshot cannot supersede, so a resync
+	/// started while a propagation chunk is on the wire can duplicate that chunk.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
 		let sync_id = self.next_initial_sync_id;
 		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
@@ -1824,13 +1799,11 @@ where
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		let mut hashes = self.statement_store.statement_hashes();
-		// Sorted so the propagation path can binary-search the snapshot and skip
-		// statements this sync delivers (see `queue_statements_for_peer`).
+		// Sorted so the propagation path can binary-search the snapshot and skip statements
+		// this sync delivers (see `queue_statements_for_peer`).
 		hashes.sort_unstable();
-		// The snapshot holds every statement the store has, so a hash still queued for
-		// propagation is either in it or already pruned. Dropping the outbox leaves the
-		// sync as the only path that delivers them, which is what keeps the peer from
-		// receiving one statement twice and penalizing us for it.
+		// The snapshot holds every statement the store has, so a queued hash is either in it
+		// or already pruned. Dropping the outbox leaves the sync as their only path.
 		self.propagation_outboxes.remove(&peer);
 		if !hashes.is_empty() {
 			self.pending_initial_syncs.insert(
@@ -1893,9 +1866,8 @@ where
 
 	/// Refill parked peers' send slots while the in-flight byte budget allows.
 	///
-	/// Peers are served in parking order. When the budget saturates the loop
-	/// stops and the remaining peers keep their position for the next completed
-	/// send.
+	/// Peers are served in parking order. When the budget saturates the loop stops and the
+	/// remaining peers keep their position for the next completed send.
 	fn fill_parked_propagations(&mut self) {
 		while self.send_in_flight_bytes() < MAX_SEND_IN_FLIGHT_BYTES {
 			let Some(peer) = self.parked_propagations.pop_front() else { return };
@@ -1937,9 +1909,8 @@ where
 			return;
 		}
 
-		// A peer whose send slot is busy keeps its turn for a later burst while
-		// the current one serves the next queued peer, so one slow peer does not
-		// stall every other pending sync.
+		// A peer whose send slot is busy keeps its turn for a later burst, so one slow peer
+		// does not stall every other pending sync.
 		let Some(pos) = self
 			.initial_sync_peer_queue
 			.iter()
@@ -4139,10 +4110,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_size_limit_consistency() {
-		// A chunk is bounded by `max_statement_payload_size`, which reserves
-		// `Compact::<u32>::max_encoded_len()` on top of the payload. A filter measuring
-		// against the raw `MAX_STATEMENT_NOTIFICATION_SIZE` would admit statements the
-		// encoder cannot fit, so both must use the same limit.
+		// A filter measuring against the raw `MAX_STATEMENT_NOTIFICATION_SIZE` would admit
+		// statements the encoder cannot fit, so both must use `max_statement_payload_size`.
 		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		// This peer connects as V1 (see negotiated_fallback below).
