@@ -18,6 +18,7 @@ module accumulate {
   import code_upgrades.* from "./code_upgrades"
   import validator_keys.* from "./validator_keys"
   import management.* from "./management"
+  import head_commitment.* from "./head_commitment"
 
   /// Per-work-package accumulate outcome.
   type AccumulateOutcome = {
@@ -71,7 +72,10 @@ module accumulate {
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record.
     logPruned: List[(ParaId, Timeslot)],
     // The block's work results, in order (for `lastStepWorkResults`).
-    results: List[WorkResult]
+    results: List[WorkResult],
+    // The 32-byte value `accumulate` returns: the head commitment (§5.5).
+    // `None` when no head changed and the service returns no hash.
+    headRoot: Option[Hash]
   }
 
   // ---- Replay a single upward message -----------------------------------
@@ -615,7 +619,8 @@ module accumulate {
       solicited: acc.solicited,
       assigns: flushed.assigns.concat(acc.jamAssigns),
       logPruned: acc.logPruned,
-      results: packages
+      results: packages,
+      headRoot: headCommitment(state, acc.state)
     }
   }
 }

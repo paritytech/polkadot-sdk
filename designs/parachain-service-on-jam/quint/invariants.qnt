@@ -8,6 +8,15 @@ module invariants {
   import state.* from "./state"
   import state_balance.* from "./state_balance"
   import state_vars.* from "./state_vars"
+  import head_commitment.* from "./head_commitment"
+
+  /// The hash `accumulate` returned is exactly the commitment over the heads
+  /// that changed in the step (§5.5): `None` when none changed, the single
+  /// leaf's hash when one did, the Merkle root otherwise. Also pins the steps
+  /// that return no hash — if one ever started moving a head without
+  /// committing to it, this fails.
+  val head_commitment_matches_changed_heads: bool =
+  lastHeadRoot == headCommitment(prevSvc, svc)
 
   /// For every live para, `0 ≤ used_state_balance ≤ total_state_balance`.
   val balance_invariant: bool =
@@ -462,6 +471,7 @@ module invariants {
     parachain_log_only_for_live,
     code_activation_releases_old,
     head_state_matches_outcomes,
+    head_commitment_matches_changed_heads,
     parent_head_continuity,
     refine_error_logged,
     acc_error_logged,

@@ -62,6 +62,7 @@ module main {
     prevSvc' = initialState,
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
+    lastHeadRoot' = None,
     logPrunedBelow' = Map()
   }
 
@@ -260,6 +261,7 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
+      lastHeadRoot' = blockOut.headRoot,
       logPrunedBelow' = newLogPrunedBelow
     }
   }
@@ -278,6 +280,8 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = List(),
       lastStepAssigns' = List(),
+      // Touches no head, so the commitment is empty (checked by the invariant).
+      lastHeadRoot' = None,
       logPrunedBelow' = logPrunedBelow
     }
   }
@@ -297,6 +301,8 @@ module main {
       prevSvc' = svc,
       lastStepWorkResults' = List(),
       lastStepAssigns' = List(),
+      // Touches no head, so the commitment is empty (checked by the invariant).
+      lastHeadRoot' = None,
       logPrunedBelow' = logPrunedBelow
     }
   }

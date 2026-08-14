@@ -58,6 +58,14 @@ module types {
 
   pure def vchAsHash(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
 
+  /// The wrapped integer, for the places the spec orders by `para_id` — the
+  /// head-commitment leaves (§5.5). The sentinel is never constructed.
+  pure def paraIdInt(p: ParaId): int =
+  match p {
+    | MkParaId(n) => n
+    | _ParaIdSentinel => 0
+  }
+
   // --- Protocol constants (gray paper / design doc) -----------------------
 
   /// Each validator key blob is 336 bytes.
