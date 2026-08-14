@@ -37,7 +37,7 @@ use polkadot_node_network_protocol::{
 	v4_collation::{self as protocol_v4, CandidateFingerprint},
 	CollationProtocols, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
-use polkadot_node_primitives::{PoV, Statement, MAX_SEGMENT_LEN};
+use polkadot_node_primitives::{PoV, MAX_SEGMENT_LEN};
 use polkadot_node_subsystem::{
 	messages::{
 		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
@@ -501,7 +501,7 @@ async fn distribute_segment<Context>(
 		return Ok(());
 	}
 
-	let Some(_collations_limit) = per_scheduling_parent.assignments.get(&core_index) else {
+	let Some(_) = per_scheduling_parent.assignments.get(&core_index) else {
 		gum::warn!(
 			target: LOG_TARGET,
 			para_id = %id,
@@ -584,7 +584,6 @@ async fn distribute_segment<Context>(
 			continue;
 		}
 		// Store collation data
-		let pov_hash = entry.pov.hash();
 		per_scheduling_parent.by_candidate_hash.insert(candidate_hash, para_head);
 		per_scheduling_parent.collations.insert(
 			para_head,
@@ -1137,7 +1136,7 @@ async fn process_msg<Context>(
 					);
 				},
 				Some(id) => {
-					gum::info!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
+					gum::trace!(target: LOG_TARGET, "DistributeSegment for para_id: {}", id);
 					let _ = state.metrics.time_collation_distribution("distribute");
 					distribute_segment(ctx, state, id, core_index, segment).await?;
 				},
@@ -1215,7 +1214,6 @@ async fn send_collation(
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn handle_incoming_peer_message<Context>(
 	ctx: &mut Context,
-	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	origin: PeerId,
 	msg: CollationProtocols<
@@ -1283,64 +1281,16 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V1(V1::CollationSeconded(relay_parent, statement)) => {
-			// Impossible, we no longer accept connections on v1.
-			gum::warn!(
-				target: LOG_TARGET,
-				?statement,
-				?origin,
-				?relay_parent,
-				"Collation seconded message received on unsupported protocol version 1",
-			);
-		},
-		CollationProtocols::V2(V2::CollationSeconded(scheduling_parent, statement)) |
-		CollationProtocols::V3(V3::CollationSeconded(scheduling_parent, statement)) => {
-			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
-				gum::warn!(
+		CollationProtocols::V1(V1::CollationSeconded(..)) |
+		CollationProtocols::V2(V2::CollationSeconded(..)) |
+		CollationProtocols::V3(V3::CollationSeconded(..)) => {
+			// Validators running older versions still send this. We no longer
+			// track seconding, so the message carries no information for us.
+			gum::trace!(
 					target: LOG_TARGET,
-					?statement,
 					?origin,
-					"Collation seconded message received with none-seconded statement.",
-				);
-			} else {
-				let statement = runtime
-					.check_signature(ctx.sender(), scheduling_parent, statement)
-					.await?
-					.map_err(Error::InvalidStatementSignature)?;
-
-				// Checking whether the `CollationSeconded` statement is unexpected
-				let relay_parent = match state.per_scheduling_parent.get(&scheduling_parent) {
-					Some(per_relay_parent) => per_relay_parent,
-					None => {
-						gum::debug!(
-							target: LOG_TARGET,
-							scheduling_parent = %scheduling_parent,
-							candidate_hash = ?&statement.payload().candidate_hash(),
-							"Seconded statement scheduling parent is out of our view",
-						);
-						return Ok(());
-					},
-				};
-				match relay_parent.collation_by_hash(&statement.payload().candidate_hash()) {
-					Some(_) => {
-						// We've seen this collation before, so a seconded statement is expected
-						gum::trace!(
-							target: LOG_TARGET,
-							?statement,
-							?origin,
-							"received a valid `CollationSeconded`",
-						);
-					},
-					None => {
-						gum::debug!(
-							target: LOG_TARGET,
-							candidate_hash = ?&statement.payload().candidate_hash(),
-							?origin,
-							"received an unexpected `CollationSeconded`: unknown statement",
-						);
-					},
-				}
-			}
+					"Ignoring `CollationSeconded` message",
+			);
 		},
 	}
 
@@ -1646,18 +1596,17 @@ async fn handle_network_msg<Context>(
 			}
 		},
 		PeerMessage(remote, msg) => {
-			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
+			handle_incoming_peer_message(ctx, state, remote, msg).await?;
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
-			if state.peer_data.contains_key(&peer_id) {
+			if let Some(version) = state.peer_data.get(&peer_id).map(|data| data.version) {
 				let is_new_peer = state.peer_ids.insert(peer_id, authority_ids).is_none();
 
 				if is_new_peer {
-					// Assume collation version v2 if the peer_id entry doesn't exist when
-					// the message arrives. Usually `PeerConnected` should happen before,
-					// which comes with the versioning information.
-					declare(ctx, state, &peer_id, CollationVersion::V2).await;
+					// The peer connected before its authority ids were known; declare
+					// now, using its negotiated protocol version.
+					declare(ctx, state, &peer_id, version).await;
 				} else {
 					// Authority IDs changed for an existing peer. Re-advertise collations
 					// for scheduling parents already in their view, as the previous

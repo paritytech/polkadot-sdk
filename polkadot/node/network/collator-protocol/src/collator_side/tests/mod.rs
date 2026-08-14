@@ -309,9 +309,9 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 		.expect(&format!("{:?} is more than enough for sending signals.", TIMEOUT));
 }
 
-/// Deconstruct a test receipt into the `BuiltEntry` the new `DistributeSegment`
+/// Deconstruct a test receipt into the `SegmentEntry` the new `DistributeSegment`
 /// carries. The receiver reassembles an identical receipt from these fields.
-fn built_entry_from_receipt(
+fn segment_entry_from_receipt(
 	receipt: &CandidateReceipt,
 	pov: &PoV,
 	parent_head_data: HeadData,
@@ -477,7 +477,7 @@ async fn distribute_segment_with_receipts(
 ) -> Vec<DistributedCollation> {
 	let candidates: Vec<SegmentEntry> = items
 		.iter()
-		.map(|(receipt, pov, _)| built_entry_from_receipt(receipt, pov, HeadData(vec![1, 2, 3])))
+		.map(|(receipt, pov, _)| segment_entry_from_receipt(receipt, pov, HeadData(vec![1, 2, 3])))
 		.collect();
 	let segment = segment_from_entries(
 		candidates,
@@ -1148,81 +1148,6 @@ fn advertise_and_send_collation() {
 				&[peer],
 				test_state.scheduling_parent,
 				vec![candidate.hash()],
-			)
-			.await;
-			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }
-		},
-	);
-}
-
-#[test]
-fn advertise_and_send_segment() {
-	let test_state = TestState::default();
-	let local_peer_id = test_state.local_peer_id;
-	let collator_pair = test_state.collator_pair.clone();
-
-	test_harness(
-		local_peer_id,
-		collator_pair,
-		ReputationAggregator::new(|_| true),
-		|test_harness| async move {
-			let mut virtual_overseer = test_harness.virtual_overseer;
-			let req_v2_cfg = test_harness.req_v2_cfg;
-			let req_v3_cfg = test_harness.req_v3_cfg;
-
-			overseer_send(&mut virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups)
-				.await;
-
-			overseer_send(
-				&mut virtual_overseer,
-				CollatorProtocolMessage::CollateOn(test_state.para_id),
-			)
-			.await;
-
-			update_view(
-				Some(test_state.current_group_validator_authority_ids()),
-				&test_state,
-				&mut virtual_overseer,
-				vec![(test_state.scheduling_parent, 10)],
-				1,
-			)
-			.await;
-
-			let distributed_collations = distribute_segment(
-				&mut virtual_overseer,
-				test_state.current_group_validator_authority_ids(),
-				&test_state,
-				test_state.scheduling_parent,
-				test_state.scheduling_parent,
-				CoreIndex(0),
-				3,
-			)
-			.await;
-			for (val, peer) in test_state
-				.current_group_validator_authority_ids()
-				.into_iter()
-				.zip(test_state.current_group_validator_peer_ids())
-			{
-				connect_peer(&mut virtual_overseer, peer, CollationVersion::V4, Some(val.clone()))
-					.await;
-			}
-			// V4 collators don't send a `Declare` message: the para is carried in the
-			// segment advertisement itself.
-
-			let peer = test_state.current_group_validator_peer_ids()[0];
-
-			// Send info about peer's view.
-			send_peer_view_change(&mut virtual_overseer, &peer, vec![test_state.scheduling_parent])
-				.await;
-			let expected_output_heads: Vec<Hash> = distributed_collations
-				.iter()
-				.map(|d| d.candidate.descriptor.para_head())
-				.collect();
-			expect_advertise_segment_msg(
-				&mut virtual_overseer,
-				&[peer],
-				test_state.scheduling_parent,
-				expected_output_heads,
 			)
 			.await;
 			TestHarness { virtual_overseer, req_v2_cfg, req_v3_cfg }

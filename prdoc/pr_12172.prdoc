@@ -11,7 +11,11 @@ doc:
       parent and core; v4 has no `Declare` and no `CollationSeconded` message. An
       experimental validator side implements segment handling, fetching candidates
       referenced by segment advertisements. The collator side stores immutable
-      segments per scheduling parent and core and serves fetches from them. The
+      segments per scheduling parent and core and serves fetches from them. These
+      fetches use a new `/req_collation/3` request-response protocol: requests
+      identify a candidate by scheduling parent, para id and output head data hash
+      instead of relay parent and candidate hash, and responses always include the
+      candidate's parent head data. The
       collation generation subsystem accepts multi-candidate segments via
       `SubmitSegment` and distributes them with
       `CollatorProtocolMessage::DistributeSegment`.
@@ -24,9 +28,10 @@ doc:
       is deleted, `WaitToAnnounce` and `ServiceInterface::announce_with_barrier` are
       removed and `CollatorService::new` no longer takes a spawner. The `basic` aura
       collator announces blocks immediately after building, like the lookahead
-      collator, instead of waiting for a validator to second the collation. The
-      v2/v3 `CollationSeconded` receive path is kept as a signature check plus log
-      because validators running older versions send it unsolicited.
+      collator, instead of waiting for a validator to second the collation.
+      Incoming v2/v3 `CollationSeconded` messages are ignored: validators running
+      older versions send them unsolicited and the collator no longer tracks
+      seconding.
       `RequireSecondedInBlockAnnounce` and `BlockAnnounceData` decoding stay so
       block announcements from nodes running older versions still validate.
 
@@ -64,8 +69,6 @@ crates:
   - name: cumulus-client-consensus-aura
     bump: patch
   - name: cumulus-relay-chain-minimal-node
-    bump: patch
-  - name: polkadot-omni-node-lib
     bump: patch
   - name: polkadot-node-core-pvf-execute-worker
     bump: patch

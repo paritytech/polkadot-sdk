@@ -16827,7 +16827,6 @@ dependencies = [
  "polkadot-primitives",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "rstest",
  "sc-authority-discovery",
  "sc-network 0.34.0",
  "sc-network-types 0.10.0",

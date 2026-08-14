@@ -538,9 +538,6 @@ pub struct SubmitSegmentParams {
 	///
 	/// For V2 segments this is the collations' relay parent. For V3 segments it
 	/// is the explicit scheduling parent written into every candidate descriptor.
-	///
-	/// WARNING: A scheduling parent distinct from the relay parent (i.e. a V3 segment)
-	/// requires the `CandidateReceiptV3` node feature to be set.
 	pub scheduling_parent: Hash,
 	/// The core index on which the resulting candidates should be backed.
 	pub core_index: CoreIndex,

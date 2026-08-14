@@ -311,7 +311,7 @@ pub enum Segment {
 		/// Ordered candidates; the list may have gaps. Every entry is fully
 		/// built. When on-demand candidate building lands, entries become
 		/// fingerprint advertisements materialized at fetch time, and
-		/// `BuiltEntry` leaves this message entirely.
+		/// `SegmentEntry` leaves this message entirely.
 		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 	},
 }

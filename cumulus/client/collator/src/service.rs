@@ -26,7 +26,6 @@ use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
-use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
 
 use cumulus_client_consensus_common::ParachainCandidate;
@@ -115,7 +114,6 @@ where
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
-		_spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 		runtime_api: Arc<RA>,
 	) -> Self {

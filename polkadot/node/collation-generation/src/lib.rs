@@ -672,14 +672,14 @@ async fn construct_and_distribute_v2_receipt(
 ) -> Result<()> {
 	let para_id = collation.para_id;
 	let core_index = collation.core_index;
-	let built_entry = construct_segment_entry(
+	let segment_entry = construct_segment_entry(
 		collation,
 		metrics,
 		transposed_claim_queue,
 		CandidateDescriptorVersion::V2,
 	)?;
 
-	let segment = Segment::V2(built_entry);
+	let segment = Segment::V2(segment_entry);
 	sender
 		.send_message(CollatorProtocolMessage::DistributeSegment { core_index, para_id, segment })
 		.await;
