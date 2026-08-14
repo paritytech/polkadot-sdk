@@ -2554,11 +2554,15 @@ impl StatementStore for Store {
 		// does not make it into the finalized chain, but this is an acceptable tradeoff for
 		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {
-			Ok(Some(allowance)) => allowance,
-			Ok(None) => {
+			// A depleted allowance stores nothing, so it is rejected here rather than left to the
+			// constraint check: `plan_insert` only evaluates `max_count` while walking the
+			// account's existing statements, so a `max_count` of zero would not stop the first
+			// statement of an account that has none.
+			Ok(Some(allowance)) if !allowance.is_depleted() => allowance,
+			Ok(Some(_)) | Ok(None) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Account {} has no statement allowance set",
+					"Account {} has no usable statement allowance",
 					HexDisplay::from(&account_id),
 				);
 				let reason = RejectionReason::NoAllowance;
@@ -3315,6 +3319,11 @@ mod tests {
 				Some(3) => StatementAllowance::new(3, 1000),
 				Some(4) => StatementAllowance::new(4, 1000),
 				Some(42) => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				// Accounts 50 and 51 hold allowances that are depleted on one axis but still
+				// present in state, which is what `StatementAllowance::is_depleted` describes.
+				// Neither may store any statement.
+				Some(50) => StatementAllowance::new(0, 1000),
+				Some(51) => StatementAllowance::new(5, 0),
 				Some(_) | None => StatementAllowance::new(100, 1000),
 			};
 			Ok(Some(sc_client_api::StorageData(allowance.encode())))
@@ -3556,6 +3565,31 @@ mod tests {
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		let statement1 = statement(1, 1, None, 0);
 		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
+	}
+
+	#[test]
+	fn depleted_count_allowance_admits_nothing() {
+		let (store, _temp) = test_store();
+		// Account 50's allowance is `{max_count: 0, max_size: 1000}`. The count axis is
+		// depleted, so no statement may be stored, including the account's first one: with an
+		// empty record there is nothing to evict, and the per-account constraint loop that
+		// checks `max_count` never runs.
+		let result = store.submit(statement(50, 1, None, 100), StatementSource::Network);
+		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
+	}
+
+	#[test]
+	fn depleted_size_allowance_admits_nothing() {
+		let (store, _temp) = test_store();
+		// Account 51's allowance is `{max_count: 5, max_size: 0}`. A zero-length statement
+		// passes the `statement_len > max_size` gate (`0 > 0` is false), so the size axis
+		// being depleted has to be what rejects it.
+		let result = store.submit(statement(51, 1, None, 0), StatementSource::Network);
+		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
 	}
 
 	#[test]
