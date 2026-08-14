@@ -46,7 +46,7 @@ use std::{
 use storage_api::StorageApi;
 use subxt::{
 	OnlineClient,
-	backend::{StreamOf, StreamOfResults},
+	backend::{LegacyBackend, StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
 	rpcs::{
@@ -453,7 +453,12 @@ pub async fn connect(
 	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
-	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
+	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
+	// to the CombinedBackend, which routes block streams and header fetches through
+	// the chainHead protocol; its follow restarts and pinning limits stall receipt
+	// indexing under load (blocks become unresolvable once unpinned).
+	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
+	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
