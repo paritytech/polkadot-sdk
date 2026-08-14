@@ -18,7 +18,7 @@
 
 use crate::{
 	arg_enums::{NetworkBackendType, SyncMode},
-	params::{node_key_params::NodeKeyParams, webrtc_params::WebRtcParams},
+	params::node_key_params::NodeKeyParams,
 };
 use clap::Args;
 use sc_network::{
@@ -71,16 +71,20 @@ pub struct NetworkParams {
 	/// If `--validator` is passed: `/ip4/0.0.0.0/tcp/<port>` and `/ip6/[::]/tcp/<port>`.
 	/// Otherwise: `/ip4/0.0.0.0/tcp/<port>/ws` and `/ip6/[::]/tcp/<port>/ws`, plus, on the
 	/// litep2p network backend, `/ip4/0.0.0.0/udp/<port>/webrtc-direct` and
-	/// `/ip6/[::]/udp/<port>/webrtc-direct` unless `--disable-webrtc` is passed.
+	/// `/ip6/[::]/udp/<port>/webrtc-direct`.
 	///
 	/// WebRTC addresses (`/ip4/<ip>/udp/<port>/webrtc-direct` and
 	/// `/ip6/<ip>/udp/<port>/webrtc-direct`) only work on the litep2p network backend.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
 
-	#[allow(missing_docs)]
-	#[clap(flatten)]
-	pub webrtc_params: WebRtcParams,
+	/// Listen on WebRTC addresses even on a validator or collator (on para- &
+	/// relaychain side of the node depending on the position of the flag).
+	///
+	/// Only applies if no explicit `--listen-addr` is passed. Only works on the
+	/// litep2p network backend.
+	#[arg(long)]
+	pub force_enable_webrtc: bool,
 
 	/// Specify p2p protocol TCP port.
 	#[arg(long, value_name = "PORT", conflicts_with_all = &[ "listen_addr" ])]
@@ -214,6 +218,7 @@ impl NetworkParams {
 		chain_spec: &Box<dyn ChainSpec>,
 		is_dev: bool,
 		is_validator: bool,
+		is_relay_side_of_collator: bool,
 		net_config_path: Option<PathBuf>,
 		client_id: &str,
 		node_name: &str,
@@ -222,14 +227,12 @@ impl NetworkParams {
 	) -> NetworkConfiguration {
 		let port = self.port.unwrap_or(default_listen_port);
 
-		if let Some(enable) = self.webrtc_params.enable {
-			if !matches!(self.network_backend, NetworkBackendType::Litep2p) {
-				let flag = if enable { "--enable-webrtc" } else { "--disable-webrtc" };
-				log::warn!(
-					"`{flag}` has no effect: WebRTC is only supported by the litep2p \
-					 network backend",
-				);
-			}
+		if self.force_enable_webrtc && !matches!(self.network_backend, NetworkBackendType::Litep2p)
+		{
+			log::warn!(
+				"`--force-enable-webrtc` has no effect: WebRTC is only supported by the litep2p \
+				 network backend",
+			);
 		}
 
 		let listen_addresses = if self.listen_addr.is_empty() {
@@ -256,7 +259,7 @@ impl NetworkParams {
 			};
 
 			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
-				self.webrtc_params.enable.unwrap_or(!is_validator)
+				(self.force_enable_webrtc || !(is_validator || is_relay_side_of_collator))
 			{
 				listen_addresses.extend([
 					Multiaddr::empty()
@@ -384,19 +387,5 @@ mod tests {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);
-	}
-
-	#[test]
-	fn webrtc_flags() {
-		let params = Cli::try_parse_from([""]).expect("Parses network params");
-		assert_eq!(params.network_params.webrtc_params.enable, None);
-
-		let params = Cli::try_parse_from(["", "--enable-webrtc"]).expect("Parses network params");
-		assert_eq!(params.network_params.webrtc_params.enable, Some(true));
-
-		let params = Cli::try_parse_from(["", "--disable-webrtc"]).expect("Parses network params");
-		assert_eq!(params.network_params.webrtc_params.enable, Some(false));
-
-		assert!(Cli::try_parse_from(["", "--disable-webrtc", "--enable-webrtc"]).is_err());
 	}
 }

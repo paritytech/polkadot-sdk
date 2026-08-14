@@ -284,6 +284,10 @@ impl CliConfiguration<Self> for RelayChainCli {
 		self.base.base.shared_params()
 	}
 
+	fn is_relay_side_of_collator(&self) -> Result<bool> {
+		Ok(self.is_relay_side_of_collator)
+	}
+
 	fn import_params(&self) -> Option<&ImportParams> {
 		self.base.base.import_params()
 	}

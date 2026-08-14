@@ -3,8 +3,9 @@ doc:
 - audience: ['Node Dev', 'Node Operator']
   description: |-
     Accept WebRTC connections on the same UDP `--port` as used for TCP/WS connections.
-    Enabled by default on full nodes, can be disabled with `--disable-webrtc` or forced
-    on on validators & collators with `--enable-webrtc`.
+    Enabled by default on full nodes, can be force-enabled on validators & collators
+    with `--force-enable-webrtc`, or disabled by passing an explicit `--listen-addr`
+    without WebRTC addresses.
     Only supported with litep2p network backend.
 crates:
 - name: sc-cli

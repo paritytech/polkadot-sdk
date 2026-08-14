@@ -30,7 +30,6 @@ mod runtime_params;
 mod shared_params;
 mod telemetry_params;
 mod transaction_pool_params;
-mod webrtc_params;
 
 use crate::arg_enums::{CryptoScheme, OutputType};
 use clap::Args;
@@ -46,7 +45,7 @@ pub use crate::params::{
 	database_params::*, import_params::*, keystore_params::*, message_params::*, mixnet_params::*,
 	network_params::*, node_key_params::*, offchain_worker_params::*, prometheus_params::*,
 	pruning_params::*, rpc_params::*, runtime_params::*, shared_params::*, telemetry_params::*,
-	transaction_pool_params::*, webrtc_params::*,
+	transaction_pool_params::*,
 };
 
 /// Parse Ss58AddressFormat

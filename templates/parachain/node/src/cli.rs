@@ -100,6 +100,9 @@ pub struct RelayChainCli {
 
 	/// The base path that should be used by the relay chain.
 	pub base_path: Option<PathBuf>,
+
+	/// Whether this node is the relay chain side of a collator.
+	pub is_relay_side_of_collator: bool,
 }
 
 impl RelayChainCli {
@@ -111,13 +114,11 @@ impl RelayChainCli {
 		let extension = crate::chain_spec::Extensions::try_get(&*para_config.chain_spec);
 		let chain_id = extension.map(|e| e.relay_chain.clone());
 		let base_path = para_config.base_path.path().join("polkadot");
-		let mut base: polkadot_cli::RunCmd = clap::Parser::parse_from(relay_chain_args);
-
-		// The relay chain side of a collator doesn't listen on WebRTC by default.
-		if para_config.role.is_authority() {
-			base.base.network_params.webrtc_params.enable.get_or_insert(false);
+		Self {
+			base_path: Some(base_path),
+			chain_id,
+			base: clap::Parser::parse_from(relay_chain_args),
+			is_relay_side_of_collator: para_config.role.is_authority(),
 		}
-
-		Self { base_path: Some(base_path), chain_id, base }
 	}
 }
