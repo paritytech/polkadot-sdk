@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786698264938,
+  "lastUpdate": 1786706611906,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "62fa27df30d985600963fd5bcec1080e4c63fd4b",
-          "message": "remote-externalities: Use `WsClient` (#10258)\n\nI was removing the rewrite of the uri from `ws(s)` to `http(s)`, but I\nforgot to change `HttpClient` to `WsClient`. This is now done by this\npr.\n\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
-          "timestamp": "2026-01-12T13:57:33Z",
-          "tree_id": "faa765d22b95a5e7584fed7cd7c3d06b4662ba41",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/62fa27df30d985600963fd5bcec1080e4c63fd4b"
-        },
-        "date": 1768230244026,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.277520975466668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12613107493333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.985659182866666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c65761dfaba022247a8f55e37dbece435adfd946",
+          "message": "sc-hop: add Prometheus metrics (#12662)\n\nAdds Prometheus metrics to sc-hop, slimmed to the essential set of 9\nfamilies: `substrate_hop_pool_entries` / `_pool_bytes` /\n`_pool_max_bytes` (gauges, published together under the pool's index\nlock), `_pool_inserted_bytes_total`, `_pool_removed_total{reason}` (all\n5 reason series pre-created at registration so the first loss event is\nvisible to `rate()`; `expired_unpromoted` is an upper bound on loss),\n`_rpc_errors_total{method,reason}` (errors only; call counts and\ndurations come from the RPC server's `substrate_rpc_calls_*`, joined via\nwire method names), `_promotions_confirmed_total`, `_promotion_backlog`,\nand `_maintenance_ticks_total` (liveness). `HopParams::build_pool` gains\nan `Option<&Registry>` parameter and `HopDataPool::new` a `HopMetrics`\none; registration failure only disables metrics. See the crate README's\nMetrics table.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Karol Kokoszka <karol@parity.io>",
+          "timestamp": "2026-08-14T09:59:31Z",
+          "tree_id": "ec9c2ce6852e97fc87f5898167df038edfd6411d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c65761dfaba022247a8f55e37dbece435adfd946"
+        },
+        "date": 1786706577858,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14086164470000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.068401703933336,
             "unit": "seconds"
           }
         ]
