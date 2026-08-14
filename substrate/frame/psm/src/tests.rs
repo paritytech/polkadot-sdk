@@ -1353,20 +1353,132 @@ mod governance {
 	}
 
 	#[test]
+	fn circuit_breaker_level_ordering() {
+		// The one-way rule for Emergency admins relies on this ordering.
+		assert!(CircuitBreakerLevel::AllEnabled < CircuitBreakerLevel::MintingDisabled);
+		assert!(CircuitBreakerLevel::MintingDisabled < CircuitBreakerLevel::AllDisabled);
+	}
+
+	#[test]
 	fn emergency_origin_can_set_asset_status() {
 		new_test_ext().execute_with(|| {
-			let new_status = CircuitBreakerLevel::MintingDisabled;
+			assert_eq!(
+				ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+				Some(CircuitBreakerLevel::AllEnabled),
+			);
 
+			// Raising the level step by step is allowed, as is re-setting the current level.
+			for new_status in [
+				CircuitBreakerLevel::MintingDisabled,
+				CircuitBreakerLevel::MintingDisabled,
+				CircuitBreakerLevel::AllDisabled,
+			] {
+				assert_ok!(Psm::set_asset_status(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					new_status
+				));
+
+				assert_eq!(
+					ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+					Some(new_status),
+				);
+				System::assert_has_event(
+					Event::<Test>::AssetStatusUpdated {
+						internal_asset: INTERNAL_ASSET_ID,
+						external_asset: USDC_ASSET_ID,
+						status: new_status,
+					}
+					.into(),
+				);
+			}
+
+			// Jumping straight from AllEnabled to AllDisabled is allowed too.
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllEnabled);
 			assert_ok!(Psm::set_asset_status(
 				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
 				INTERNAL_ASSET_ID,
 				USDC_ASSET_ID,
-				new_status
+				CircuitBreakerLevel::AllDisabled
 			));
-
 			assert_eq!(
 				ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
-				Some(new_status),
+				Some(CircuitBreakerLevel::AllDisabled),
+			);
+		});
+	}
+
+	#[test]
+	fn emergency_origin_cannot_lower_asset_status() {
+		new_test_ext().execute_with(|| {
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllDisabled);
+
+			for new_status in
+				[CircuitBreakerLevel::MintingDisabled, CircuitBreakerLevel::AllEnabled]
+			{
+				assert_noop!(
+					Psm::set_asset_status(
+						RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+						INTERNAL_ASSET_ID,
+						USDC_ASSET_ID,
+						new_status
+					),
+					Error::<Test>::InsufficientPrivilege
+				);
+			}
+
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
+
+			assert_noop!(
+				Psm::set_asset_status(
+					RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					CircuitBreakerLevel::AllEnabled
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+			assert_eq!(
+				ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+				Some(CircuitBreakerLevel::MintingDisabled),
+			);
+		});
+	}
+
+	#[test]
+	fn full_admin_can_lower_asset_status() {
+		new_test_ext().execute_with(|| {
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllDisabled);
+
+			// Lowering the level step by step is allowed for the full admin.
+			for new_status in
+				[CircuitBreakerLevel::MintingDisabled, CircuitBreakerLevel::AllEnabled]
+			{
+				assert_ok!(Psm::set_asset_status(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					new_status
+				));
+
+				assert_eq!(
+					ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+					Some(new_status),
+				);
+			}
+
+			// Jumping straight from AllDisabled to AllEnabled is allowed too.
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::AllDisabled);
+			assert_ok!(Psm::set_asset_status(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				CircuitBreakerLevel::AllEnabled
+			));
+			assert_eq!(
+				ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID).map(|e| e.status),
+				Some(CircuitBreakerLevel::AllEnabled),
 			);
 		});
 	}
