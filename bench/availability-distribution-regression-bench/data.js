@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786698307290,
+  "lastUpdate": 1786706655022,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "manuel.mauro@protonmail.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b934d0a252f86568d92ac3baa56584bbd14e782",
-          "message": "Improve `charge_transaction_payment benchmark` ergonomics (#10444)\n\n# Description\n\nRuntimes that distribute transaction fees to block authors (like\nMoonbeam) fail on the `charge_transaction_payment` benchmark because no\nauthor is set when the benchmark runs. The fee distribution logic panics\nwhen trying to credit a non-existent author.\n\nThis PR introduces a `benchmarking::Config` trait with a\n`setup_benchmark_environment()` hook that runtimes can implement to set\nup required state before the benchmark executes.\n\nAdditionally, `amount_to_endow` is now calculated using `compute_fee()`\nto determine the actual fee (with a 10x buffer), ensuring it is at least\nthe existential deposit.\n\n## Integration\n\nRuntimes that need to set up state before running the\n`charge_transaction_payment` benchmark should implement\n`pallet_transaction_payment::benchmarking::Config`:\n\n```diff\n+ impl pallet_transaction_payment::benchmarking::Config for Runtime {\n+     fn setup_benchmark_environment() {\n+         // Set up any required state, e.g., block author for fee distribution\n+         let author: AccountId = frame_benchmarking::whitelisted_caller();\n+         pallet_author_inherent::Author::<Runtime>::put(author);\n+     }\n+ }\n```\n\nAnd update the benchmark list to use the wrapper type:\n\n```diff\n- [pallet_transaction_payment, TransactionPayment]\n+ [pallet_transaction_payment, TransactionPaymentBenchmark::<Runtime>]\n```\n\nRuntimes that don't need custom setup can use the default implementation\n(no-op).\n\n## Review Notes\n\n- A new `benchmarking::Config` trait extends `crate::Config` with a\n`setup_benchmark_environment()` method (default no-op)\n- A wrapper `Pallet<T>` struct is introduced in the benchmarking module\nto use this extended trait\n- The benchmark calls `T::setup_benchmark_environment()` at the start\n- `amount_to_endow` is calculated as\n`compute_fee(...).saturating_mul(10).max(existential_deposit)` to ensure\nthe account can exist and has sufficient funds\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-01-09T22:46:27Z",
-          "tree_id": "4b721d0fd834fac05e2082cd3a28dd6aab66f568",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b934d0a252f86568d92ac3baa56584bbd14e782"
-        },
-        "date": 1768003301017,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010621686613333322,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023132477586666658,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1434950304133333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007086751586666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009844532573333323,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c65761dfaba022247a8f55e37dbece435adfd946",
+          "message": "sc-hop: add Prometheus metrics (#12662)\n\nAdds Prometheus metrics to sc-hop, slimmed to the essential set of 9\nfamilies: `substrate_hop_pool_entries` / `_pool_bytes` /\n`_pool_max_bytes` (gauges, published together under the pool's index\nlock), `_pool_inserted_bytes_total`, `_pool_removed_total{reason}` (all\n5 reason series pre-created at registration so the first loss event is\nvisible to `rate()`; `expired_unpromoted` is an upper bound on loss),\n`_rpc_errors_total{method,reason}` (errors only; call counts and\ndurations come from the RPC server's `substrate_rpc_calls_*`, joined via\nwire method names), `_promotions_confirmed_total`, `_promotion_backlog`,\nand `_maintenance_ticks_total` (liveness). `HopParams::build_pool` gains\nan `Option<&Registry>` parameter and `HopDataPool::new` a `HopMetrics`\none; registration failure only disables metrics. See the crate README's\nMetrics table.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Karol Kokoszka <karol@parity.io>",
+          "timestamp": "2026-08-14T09:59:31Z",
+          "tree_id": "ec9c2ce6852e97fc87f5898167df038edfd6411d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c65761dfaba022247a8f55e37dbece435adfd946"
+        },
+        "date": 1786706621462,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009820009873333323,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007833423946666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14219973403333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022900097853333336,
             "unit": "seconds"
           }
         ]
