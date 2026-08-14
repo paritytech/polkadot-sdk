@@ -234,7 +234,6 @@ impl NetworkParams {
 
 		let listen_addresses = if self.listen_addr.is_empty() {
 			let mut listen_addresses = if is_validator || is_dev {
-				// Validator/dev: TCP
 				vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
@@ -244,7 +243,6 @@ impl NetworkParams {
 						.with(Protocol::Tcp(port)),
 				]
 			} else {
-				// Full node: WS
 				vec![
 					Multiaddr::empty()
 						.with(Protocol::Ip6([0, 0, 0, 0, 0, 0, 0, 0].into()))
@@ -257,8 +255,6 @@ impl NetworkParams {
 				]
 			};
 
-			// WebRTC is only supported by the litep2p backend and defaults to enabled
-			// on non-validators.
 			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
 				self.webrtc_params.enable.unwrap_or(!is_validator)
 			{

@@ -433,10 +433,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// Complete the public addresses.
 		if let Some(certhash) = webrtc_certhash {
 			for address in network_config.public_addresses.iter_mut() {
-				*address = complete_webrtc_public_address(
-					address.clone(),
-					certhash.into(),
-				)?;
+				*address = complete_webrtc_public_address(address.clone(), certhash.into())?;
 			}
 		}
 
