@@ -27,8 +27,6 @@
 //! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
 //!   blocks; it resumes automatically once the node is fully synced (peers are reconnected to
 //!   recover statements missed while syncing).
-//! - A statement is never sent back to a peer it was received from (see Tracking received
-//!   statements).
 //! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
 //!   added since the previous round and queues their hashes to a per-peer outbox. Each peer has at
 //!   most one propagation chunk in flight at a time. When its send slot is free, statements are

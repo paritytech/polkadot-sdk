@@ -6,8 +6,7 @@ doc:
     (~320 MiB) per connected peer, which a peer could fill just by sending statements.
     Propagation now remembers, for one tick, the peers each statement was received
     from and skips them when sending, using no per-peer memory. A peer may receive a
-    duplicate statement around an initial sync, which is harmless on receipt. A follow-up
-    that routes all sends through a per-peer outbox will remove these duplicates.
+    duplicate statement around an initial sync, a follow-up will remove these duplicates.
 - audience: Node Dev
   description: |-
     `MAX_KNOWN_STATEMENTS` is removed from `sc_network_statement::config`, and
