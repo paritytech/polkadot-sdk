@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786688783628,
+  "lastUpdate": 1786698307290,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "91a9b31424a6ab58aef9376e01503dc35bb3023a",
-          "message": "ci: handle error in subsystem-benchmark (#10761)\n\nAdd error handling to the benchmark run command.\n\ncc @AndreiEres",
-          "timestamp": "2026-01-09T16:32:49Z",
-          "tree_id": "c92c00d3bd97a97db7d7f2b14b05918a0335dac2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/91a9b31424a6ab58aef9376e01503dc35bb3023a"
-        },
-        "date": 1767980311870,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02315309007999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14435596546666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009749920546666655,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006801199153333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009806108853333327,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83433f49506387e564d606d5f7fda779e58ac61c",
+          "message": "collator-protocol-revamp: additional metrics (#12582)\n\nImproves the observability of the collator protocol revamp by\nadding/improving some metrics:\n\n- advertisements_total (labels: outcome) — counts triaged collation\nadvertisements, distinguishing accepted from each rejection reason:\nunconnected_peer, undeclared_peer, duplicate, out_of_view,\npeer_limit_reached, blocked_by_backing, v1_for_implicit_parent,\nscheduling_parent_invalid.\n- collations_seconded_total (labels: para_id) — collations sent to the\nbacking subsystem to be seconded, per para.\n- slashes_total (labels: para_id, reason) — collator reputation slashes,\nby para and reason (invalid_collation, failed_fetch).\n- approved_peer_signals_total (labels: para_id, outcome) — outcome of\nthe ApprovedPeer UMP signal on included v2+ candidates: present, absent,\ninvalid_peer_id, parse_error.\n- assigned_paras (gauge) — number of paras this validator is currently\nassigned to back (0 = idle).\n- connected_collators (labels: para_id, score_range) — number of\nconnected declared collators per para, bucketed by reputation score\nband. Bands are 0 (below the instant-fetch threshold), 1-99, 100-999,\nand 1000+.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T07:22:08Z",
+          "tree_id": "a94d79bc7abba6bd3ee85afefc3753d773ec2bb9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83433f49506387e564d606d5f7fda779e58ac61c"
+        },
+        "date": 1786698273893,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02279280252,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14345822145333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007385054100000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009844532573333323,
             "unit": "seconds"
           }
         ]
