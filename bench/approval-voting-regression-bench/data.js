@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786666484289,
+  "lastUpdate": 1786688819945,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "19307dd5f8a5853266a4841c457d312933f96436",
-          "message": "Fix runtime migrations check (#10570)\n\n- On the scheduled run only download the snapshot and not try to run the\nmigration checks\n- The job should fail when one of the migration checks was cancelled\n(because of timeout for example)\n- Increase the timeout to 120 min, because sometimes it is slower to\ndownload the snapshot\n\nShould be merged after:\nhttps://github.com/paritytech/polkadot-sdk/pull/10566\n\n---------\n\nCo-authored-by: Evgeny Snitko <evgeny@parity.io>",
-          "timestamp": "2025-12-09T21:49:38Z",
-          "tree_id": "12661e52e738b8ccf552b780eb960b562f7f6ee1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/19307dd5f8a5853266a4841c457d312933f96436"
-        },
-        "date": 1765323815458,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63636.81,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.043425833740015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001975271,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3884290681500024,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.434506189100001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019793080000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001975271,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.42956585557000093,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019793080000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6500606768608597,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005800651780000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.421189133809997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.39743678087,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.966498154460012,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.705862050679992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "492f979b7c527336d5245e768e886e36ac007335",
+          "message": "Add Doc Comments for Pallet Revive's Versioned Types (#12860)\n\n# Description\n\n## Why\n\nI think this PR's objective is better understood by the why rather than\nthe how. After versioning was introduced we didn't have a good way to\ncommunicate to users, clients, and consumers of the runtime API \"we\nupdated this function to v2 to add this specific capability\". We agreed\nthat this would be something that we would document but it's not very\nclear to me where such documentation would go.\n\nA user would find themselves needing to dig through the code adding vN\nto understand the diff and therefore understand what new capabilities or\nchanges come with a specific version of a runtime api and then make a\ndecision on whether they want to use it or not.\n\n## How\n\nThis PR adds documentation comments to:\n\n1. The enums used for the inputs and outputs of the runtime API\nfunctions.\n2. The variants used for the inputs and outputs of the runtime API\nfunctions including versions higher than V1 telling the user what\nchanges were made.\n\nFor example, in the tracing v2 output we have a doc comment which says\nthat this version adds the `index` field to `CallLog`. Therefore, it's\nvery clear to a user that \"I should use v2 when I care about this\nspecific field\"\n\n## Usage\n\nThe way I envision for this to be used is that eventually when this\ncrate is published we'd have a doc.rs link for the crate which we could\nlink anybody to for them to read the documentation of a specific runtime\nAPI function which would then help them decide which version they should\nuse or if v1 meets all of their needs\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T04:58:24Z",
+          "tree_id": "ee543391caa0a62c5664a16a62b4f3c050b1f918",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/492f979b7c527336d5245e768e886e36ac007335"
+        },
+        "date": 1786688791529,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63571.08,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004977790020000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001744336,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6184940934000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6751871143200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001744336,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.67873294995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.640591994940002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.332855902549996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7541137979199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6525122568,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.431176706632785,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022699800000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022699800000000002,
             "unit": "seconds"
           }
         ]
