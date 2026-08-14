@@ -19,6 +19,7 @@
    - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
    - 5.3 [Validator-Key Updates](#53-validator-key-updates)
    - 5.4 [Service Self-Upgrade](#54-service-self-upgrade)
+   - 5.5 [Parachain Head Commitment](#55-parachain-head-commitment)
 6. [Parachain Management](#6-parachain-management)
    - 6.1 [State-Balance Accounting](#61-state-balance-accounting)
    - 6.2 [Registration](#62-registration)
@@ -986,6 +987,39 @@ Phase 5: Forget
     Asset Hub observes the new codehash in Parachain Service state
     and calls forget(asset_hub_para_id, old_code_hash, len) (§6.1).
 ```
+
+---
+
+### 5.5 Parachain Head Commitment
+
+`accumulate` returns a 32-byte hash. The Parachain Service returns a commitment to
+**parachain heads**: each block it builds a binary Merkle tree over the heads that
+changed in that block, and returns its root.
+
+```rust
+enum MerkleTree {
+    Node(Hash, Hash),
+    Leaf { para_id: ParaId, head_hash: Hash },
+}
+```
+
+- Every element's hash is `keccak_256` (as specified by Ethereum) of its SCALE encoding.
+  The variant discriminant is therefore covered by the hash, so a leaf hash can never
+  collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet
+  `para_id`, 32-octet `head_hash`) and a `Node` to 65 (discriminant, two hashes).
+- One leaf per parachain whose `head_data` changed during the block, carrying the value
+  it ended the block with. A parachain written more than once, by a candidate and then a
+  forced `parachain_set_head`, or across successive accumulate invocations, still
+  contributes exactly one leaf.
+- Leaves are ordered by ascending `para_id`, so every verifier builds the same tree and
+  can locate a parachain's leaf without extra data.
+- With exactly one changed head the root is that leaf's hash. With none, no hash is
+  returned and the service contributes no entry for that block.
+
+**A root proves only what changed.** The absence of a leaf means a parachain's head did
+not change in that block, not that it holds any particular value. Proving a parachain's
+current head therefore means locating the most recent block whose tree carries a leaf
+for it, and proving against that block's root.
 
 ---
 
