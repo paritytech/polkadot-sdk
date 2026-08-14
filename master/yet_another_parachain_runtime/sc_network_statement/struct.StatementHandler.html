@@ -175,7 +175,6 @@ interrupted.</p>
 <ul>
 <li>Enforces the per-peer rate limit — on abuse, disconnects the peer and reports
 <code>rep::STATEMENT_FLOODING</code>.</li>
-<li>Marks each statement as known for the peer.</li>
 <li>Skips statements already in the store, reporting <code>rep::DUPLICATE_STATEMENT</code> if the same
 peer sent it twice.</li>
 <li>Enqueues unknown statements onto the bounded validation queue.</li>
