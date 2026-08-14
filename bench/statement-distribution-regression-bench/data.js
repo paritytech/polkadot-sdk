@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786708976141,
+  "lastUpdate": 1786715141883,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0f28d8104be04cb13ac39ccfd17240f703953c33",
-          "message": "test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541)\n\nThis PR ensures that the parachains test-utils crate has 2 relay parent\ndescendants for testing purposes.\n\nEffectively fixes a panic because we missed this mock data for chains\nthat started with `RP_offset > 0`:\n\n```\n Unable to verify provided relay parent descendants. expected_rp_descendants_num: 1 error: InvalidNumberOfDescendants { expected: 2, received: 0 }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n```\n\nDetected in:\n-\nhttps://github.com/polkadot-fellows/runtimes/actions/runs/19857064730/job/56897622908?pr=1018\n\nUnblocks:\n- https://github.com/polkadot-fellows/runtimes/pull/1018\n\nInspired by a similar fix I've introduced in:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-12-10T11:51:44Z",
-          "tree_id": "0c244995ac7aa98401ec78b89e53b7cac27cb8fd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f28d8104be04cb13ac39ccfd17240f703953c33"
-        },
-        "date": 1765372260843,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96399999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044078089861999924,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.035176590849999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.07900166003199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ae9ed3703bebabfa219282be4704b46b60e5f9a0",
+          "message": "Increase default light client slots (#12887)\n\nThis increases the default light-client slots to a conservative 500 as\nper investigation in #12846.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T11:50:28Z",
+          "tree_id": "9b7f9351f192ef3e642692c0dcba3d2021c51826",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ae9ed3703bebabfa219282be4704b46b60e5f9a0"
+        },
+        "date": 1786715113508,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.06199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040179883922,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08269452588399993,
             "unit": "seconds"
           }
         ]
