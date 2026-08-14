@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786688819945,
+  "lastUpdate": 1786698349463,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0f28d8104be04cb13ac39ccfd17240f703953c33",
-          "message": "test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541)\n\nThis PR ensures that the parachains test-utils crate has 2 relay parent\ndescendants for testing purposes.\n\nEffectively fixes a panic because we missed this mock data for chains\nthat started with `RP_offset > 0`:\n\n```\n Unable to verify provided relay parent descendants. expected_rp_descendants_num: 1 error: InvalidNumberOfDescendants { expected: 2, received: 0 }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n```\n\nDetected in:\n-\nhttps://github.com/polkadot-fellows/runtimes/actions/runs/19857064730/job/56897622908?pr=1018\n\nUnblocks:\n- https://github.com/polkadot-fellows/runtimes/pull/1018\n\nInspired by a similar fix I've introduced in:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-12-10T11:51:44Z",
-          "tree_id": "0c244995ac7aa98401ec78b89e53b7cac27cb8fd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f28d8104be04cb13ac39ccfd17240f703953c33"
-        },
-        "date": 1765372226900,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63617.94,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000016528479999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 2.6778416019708953,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.423855594589998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.377166721829999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.398771788039999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3870785971499995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9374075011699936,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000016932089999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000016932089999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0058676788300000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.954898306859983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4247504252499931,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000016528479999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000022699800000000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83433f49506387e564d606d5f7fda779e58ac61c",
+          "message": "collator-protocol-revamp: additional metrics (#12582)\n\nImproves the observability of the collator protocol revamp by\nadding/improving some metrics:\n\n- advertisements_total (labels: outcome) — counts triaged collation\nadvertisements, distinguishing accepted from each rejection reason:\nunconnected_peer, undeclared_peer, duplicate, out_of_view,\npeer_limit_reached, blocked_by_backing, v1_for_implicit_parent,\nscheduling_parent_invalid.\n- collations_seconded_total (labels: para_id) — collations sent to the\nbacking subsystem to be seconded, per para.\n- slashes_total (labels: para_id, reason) — collator reputation slashes,\nby para and reason (invalid_collation, failed_fetch).\n- approved_peer_signals_total (labels: para_id, outcome) — outcome of\nthe ApprovedPeer UMP signal on included v2+ candidates: present, absent,\ninvalid_peer_id, parse_error.\n- assigned_paras (gauge) — number of paras this validator is currently\nassigned to back (0 = idle).\n- connected_collators (labels: para_id, score_range) — number of\nconnected declared collators per para, bucketed by reputation score\nband. Bands are 0 (below the instant-fetch threshold), 1-99, 100-999,\nand 1000+.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T07:22:08Z",
+          "tree_id": "a94d79bc7abba6bd3ee85afefc3753d773ec2bb9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83433f49506387e564d606d5f7fda779e58ac61c"
+        },
+        "date": 1786698316522,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63572.75,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7875088787299551,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.378168295023011,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001828363,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019764839999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.61670801115,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6604086550299995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.632415261660001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019764839999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001828363,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.680494724119958,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005225881329999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.652038788830001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.326189247390002,
             "unit": "seconds"
           }
         ]
