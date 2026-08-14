@@ -16,4 +16,4 @@ crates:
 - name: pallet-vesting
   bump: minor
 - name: frame-support
-  bump: minor
+  bump: major

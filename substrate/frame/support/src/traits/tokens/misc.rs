@@ -528,9 +528,9 @@ pub trait VestedPayout<AccountId, Balance> {
 	/// Transfer `amount` from `source` to `dest` and merge it into the existing schedule of
 	/// `kind` whose ending block is closest to the incoming one.
 	///
-	/// Unlike [`add_to_vesting`], this method does not check capacity. It does require that
-	/// at least one schedule of the given `kind` already exists on `dest`, otherwise it
-	/// returns an error.
+	/// Unlike [`add_to_vesting`](Self::add_to_vesting), this method does not check capacity.
+	/// It does require that at least one schedule of the given `kind` already exists on
+	/// `dest`, otherwise it returns an error.
 	fn merge_amount_into_closest_schedule(
 		source: &AccountId,
 		dest: &AccountId,
