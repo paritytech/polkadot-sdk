@@ -64,14 +64,15 @@ fn get_invulnerable_ah_collators(
 		"12D3KooWAeLjabo2foz6gAQvLRfwF2d3WnpUGDjhg8V5AQUnv5AZ",
 	];
 
-	const POLKADOT: [&str; 7] = [
-		"12D3KooWEyGg3oUwYfaLWM5AJ2pvXCUxBuXNapX1tQXLsbDmMV6z",
-		"12D3KooWD9dTKLW65NFFLVjqgaXNzb3zKXBfwRS5iovxV6XaoVX6",
-		"12D3KooWPJfGGisRMkiD5yhySZggEhyMSwELb34P2bEuAmUh9RYy",
-		"12D3KooWQB9RBoJEByMtXtD8aC1WR1DJQb3QMXRcsQmNxrghsQLv",
-		"12D3KooWFhBYG98e53DQB7W2JKBL9xWrP83ANkAjzvp4enEJAt3k",
-		"12D3KooWG3GrM6XKMM4gp3cvemdwUvu96ziYoJmqmetLZBXE8bSa",
-		"12D3KooWMRyTLrCEPcAQD6c4EnudL3vVzg9zji3whvsMYPUYevpq",
+	const POLKADOT: [&str; 8] = [
+		"12D3KooWSrq7vRZcu6ADkeFVTtBaTgfZ1r74bbnyumXrsrGUux5i",
+		"12D3KooWNd2qr3FQUxggCaff5hzTWJxG9dQxzpKbeT5QKTC3ChFR",
+		"12D3KooWSEJ4xgQYFFcM6j9yVqdeVqaQAVkeEp6yv37HuF2W2Low",
+		"12D3KooWDKCVBr59zEK8vG6PomxDdbMMvULYEAWmtqwWmngMf8Qq",
+		"12D3KooWT3XMzDWrmv7ah85aBRpWc3e8sUaeg2oJwzSpS53V61DY",
+		"12D3KooWLo5prRCchbZR6cGayQmks3stuC7ccgSJVh3ZdGkbcLFR",
+		"12D3KooWJQGQ4kQ3MxDJr8CZpmVkW6k1CHiAo8ZEZ681C3XQTtBG",
+		"12D3KooWNvw7LjmzRhUeGJy9mPEZ1uE8ADpjik1DPEuNmmfEeYco",
 	];
 
 	let invulnerables = if chain_spec.is_kusama() {

@@ -483,13 +483,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |new_bytes: u32, old_bytes: u32| {
-			if transient {
-				RuntimeCosts::SetTransientStorage { new_bytes, old_bytes }
-			} else {
-				RuntimeCosts::SetStorage { new_bytes, old_bytes }
-			}
-		};
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -497,13 +490,25 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let max_size = limits::STORAGE_BYTES;
-		let charged = self.charge_gas(costs(value_len, max_size))?;
+		let key = self.decode_key(memory, key_ptr, key_len)?;
+
 		if value_len > max_size {
+			// Don't warm the slot on a failed validation as the storage was not accessed.
+			let access_kind = self.ext.peek_storage_access(transient, &key);
+			self.charge_gas(RuntimeCosts::SetStorage {
+				new_bytes: value_len,
+				old_bytes: max_size,
+				kind: access_kind,
+			})?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let key = self.decode_key(memory, key_ptr, key_len)?;
-
+		let access_kind = self.ext.touch_storage_access(transient, &key);
+		let charged = self.charge_gas(RuntimeCosts::SetStorage {
+			new_bytes: value_len,
+			old_bytes: max_size,
+			kind: access_kind,
+		})?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
@@ -515,7 +520,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			self.ext.set_storage(&key, value, false)?
 		};
 
-		self.adjust_gas(charged, costs(value_len, write_outcome.old_len()));
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::SetStorage {
+				new_bytes: value_len,
+				old_bytes: write_outcome.old_len(),
+				kind: access_kind,
+			},
+		);
 		Ok(write_outcome.old_len_with_sentinel())
 	}
 
@@ -527,21 +539,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::ClearTransientStorage(len)
-			} else {
-				RuntimeCosts::ClearStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
+		let access_kind = self.ext.touch_storage_access(transient, &key);
+		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
+			len: limits::STORAGE_BYTES,
+			kind: access_kind,
+		})?;
 		let outcome = if transient {
 			self.ext.set_transient_storage(&key, None, false)?
 		} else {
 			self.ext.set_storage(&key, None, false)?
 		};
-		self.adjust_gas(charged, costs(outcome.old_len()));
+		self.adjust_gas(
+			charged,
+			RuntimeCosts::ClearStorage { len: outcome.old_len(), kind: access_kind },
+		);
 		Ok(outcome.old_len_with_sentinel())
 	}
 
@@ -555,24 +567,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		read_mode: StorageReadMode,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		let costs = |len| {
-			if transient {
-				RuntimeCosts::GetTransientStorage(len)
-			} else {
-				RuntimeCosts::GetStorage(len)
-			}
-		};
-		let charged = self.charge_gas(costs(limits::STORAGE_BYTES))?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
+		let access_kind = self.ext.touch_storage_access(transient, &key);
+		let charged = self.charge_gas(RuntimeCosts::GetStorage {
+			len: limits::STORAGE_BYTES,
+			kind: access_kind,
+		})?;
 		let outcome = if transient {
 			self.ext.get_transient_storage(&key)
 		} else {
 			self.ext.get_storage(&key)
 		};
+		let len = outcome.as_ref().map(|v| v.len() as u32).unwrap_or(0);
+		self.adjust_gas(charged, RuntimeCosts::GetStorage { len, kind: access_kind });
 
 		if let Some(value) = outcome {
-			self.adjust_gas(charged, costs(value.len() as u32));
-
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
 					let mut fixed_output = [0u8; 32];
@@ -601,8 +610,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				},
 			}
 		} else {
-			self.adjust_gas(charged, costs(0));
-
 			match read_mode {
 				StorageReadMode::FixedOutput32 => {
 					self.write_fixed_sandbox_output(

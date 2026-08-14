@@ -1,200 +1,235 @@
 # PSM Pallet
 
-A Peg Stability Module enabling 1:1 swaps between pUSD and pre-approved
-external stablecoins on Substrate-based blockchains.
+A module hosting one or more Peg Stability Modules. Each PSM enables 1:1 swaps
+between a specific internal stablecoin and that PSM's pre-approved external
+assets on Substrate-based blockchains.
+
+## Terminology
+
+Throughout this pallet two distinct token roles are referenced:
+
+- **Internal** — the stablecoin a PSM issues and burns (e.g. runtime's own USD-pegged stablecoin).
+  Each PSM instance is keyed by its internal asset id; multiple instances can
+  coexist, each with its own reserve, debt ceiling, fee destination and
+  approved externals. Mint operations credit the user with the internal asset;
+  redeem operations burn it. Fees are collected in the internal asset and
+  forwarded to that instance's `PsmInfo::fee_destination`.
+- **External** — third-party assets (e.g. USDC, USDT) approved on a
+  specific PSM via `add_external_asset` and held in that PSM's reserve. Users
+  deposit external to mint internal, and burn internal to redeem external. A
+  PSM may approve multiple externals, each identified by `asset_id`.
 
 ## Overview
 
-The PSM pallet allows users to swap external stablecoins (e.g., USDC, USDT)
-for pUSD and vice versa at a 1:1 rate (minus fees). This creates a
-decentralized peg stabilization mechanism where:
+The PSM pallet hosts one or more PSM instances, each keyed by its internal
+asset id. Each instance:
 
-- **Reserves are held**: External stablecoins are held in a pallet-derived account (`PalletId`)
-- **pUSD is minted/burned**: Users receive pUSD when depositing external stablecoins, and burn pUSD when redeeming
-- **Fees are routed to `FeeDestination`**: Mint and redeem fees are
-  collected in pUSD and transferred to a configurable account
-- **Circuit breaker provides emergency control**: Per-asset circuit breaker can disable minting or all swaps
+- **Holds a per-instance reserve account** derived from
+  `blake2_256((PalletId::TYPE_ID, PalletId, internal_asset).encode())`.
+  External assets deposited by users are held there.
+- **Mints and burns its own internal asset**. Users receive the internal asset
+  when depositing external assets, and burn the internal asset when
+  redeeming.
+- **Routes fees to the instance's `fee_destination`**. Mint and redeem fees are
+  collected in the internal asset and transferred to the per-instance account
+  recorded in `PsmInfo`.
+- **Has independent per-external circuit breakers**. Each approved external on
+  each instance can be paused without affecting others.
 
 ## Swap Lifecycle
 
-### 1. Mint (External -> pUSD)
+### 1. Mint (External → Internal)
 
 ```rust
-mint(origin, asset_id, external_amount)
+mint(origin, internal_asset, asset_id, external_amount)
 ```
 
-- Deposits external stablecoin into the PSM account
-- Mints pUSD to the user (minus minting fee)
-- Fee is minted as pUSD and transferred to `FeeDestination`
-- Enforces three-tier debt ceiling: system-wide, aggregate PSM, and per-asset
-- Requires `external_amount >= MinSwapAmount`
+- Deposits `external_amount` of `asset_id` into `internal_asset`'s PSM reserve
+- Mints `internal_asset` to the user (minus minting fee)
+- Fee is minted as `internal_asset` and transferred to the instance's `fee_destination`
+- Enforces the per-instance aggregate `max_debt` and the per-external normalised ceiling
+- Requires the swap (in internal units) to be `>= PsmInfo::min_swap_amount`
 
-### 2. Redeem (pUSD -> External)
+### 2. Redeem (Internal → External)
 
 ```rust
-redeem(origin, asset_id, pusd_amount)
+redeem(origin, internal_asset, asset_id, amount)
 ```
 
-- Burns pUSD from the user equal to the external amount being redeemed
-- Transfers external stablecoin from PSM account to user
-- Redemption fee is transferred from the user as pUSD to `FeeDestination`
-- Limited by tracked PSM debt (not raw reserve balance)
-- Requires `pusd_amount >= MinSwapAmount`
+- Burns `amount` of `internal_asset` from the user
+- Transfers external asset from the instance's reserve to the user
+- Redemption fee is transferred from the user as `internal_asset` to `fee_destination`
+- Limited by the per-external tracked debt (`PsmDebt`), not raw reserve balance
+- Requires `amount >= PsmInfo::min_swap_amount`
 
-## Debt Ceiling Architecture
+## Debt Ceiling
 
-Before minting, the PSM checks three ceilings in order:
-
-1. **System-wide**: `total_issuance(pUSD) + amount <= MaximumIssuance`
-2. **Aggregate PSM**: `total_psm_debt + amount <= MaxPsmDebtOfTotal * MaximumIssuance`
-3. **Per-asset**: `asset_debt + amount <= normalized_asset_share_of_psm_ceiling`
-
-### PSM Reserved Capacity
-
-The PSM's allocation is guaranteed via the `PsmInterface` trait.
-The Vaults pallet queries `reserved_capacity()` and enforces an effective
-vault ceiling of `MaximumIssuance - reserved_capacity()`, preventing vaults
-from consuming PSM's share.
-
-### Per-Asset Ceiling
-
-Per-asset ceilings use a weight-based system:
+Each PSM instance has an absolute internal-asset debt ceiling stored on
+`PsmInfo::max_debt`. Within that, per-external ceilings are derived from
+ceiling weights:
 
 ```
-max_asset_debt = (AssetCeilingWeight[asset_id] / sum_of_all_weights) * max_psm_debt
+max_asset_debt(internal, external) =
+    (AssetCeilingWeight[internal, external] / sum_of_weights[internal])
+        * Psm[internal].max_debt
 ```
 
-Setting an asset's weight to 0% disables minting and redistributes its capacity to other assets.
+Setting an asset's weight to 0% disables minting for that external and
+redistributes its share to the others within the same instance.
 
 ## Fee Structure
 
-Fees are calculated using `Permill::mul_ceil` (rounds up) and transferred as pUSD to `FeeDestination`:
+Fees are stored per `(internal_asset, external_asset)` pair, calculated using
+`Permill::mul_ceil` (rounds up), and routed to the instance's `fee_destination`:
 
-- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)`
-  -- deducted from pUSD output, minted to `FeeDestination`
-- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)`
-  -- transferred from the user to `FeeDestination`
+- **Minting Fee**: `fee = MintingFee[internal, external].mul_ceil(internal_equivalent)`
+  -- deducted from internal-asset output, minted to `fee_destination`
+- **Redemption Fee**: `fee = RedemptionFee[internal, external].mul_ceil(amount)`
+  -- transferred from the user to `fee_destination`
 
-With 0.5% fees on both sides, arbitrage opportunities exist when pUSD trades outside $0.995-$1.005.
+With 0.5% fees on both sides, arbitrage opportunities exist when the internal
+asset trades outside $0.995-$1.005.
 
 ## Circuit Breaker
 
-Each approved asset has an independent circuit breaker with three levels:
+Each approved external on each instance has an independent circuit breaker
+with three levels:
 
 | Level             | Minting | Redemption | Use Case                          |
 | ----------------- | ------- | ---------- | --------------------------------- |
 | `AllEnabled`      | Allowed | Allowed    | Normal operation                  |
-| `MintingDisabled` | Blocked | Allowed    | Drain debt from problematic asset |
-| `AllDisabled`     | Blocked | Blocked    | Full emergency halt               |
+| `MintingDisabled` | Blocked | Allowed    | Drain debt from a problematic external |
+| `AllDisabled`     | Blocked | Blocked    | Full emergency halt of an external |
 
-The `set_asset_status` extrinsic can be called by both `GeneralAdmin` and `EmergencyAction` origins.
+`set_asset_status` is callable at both the `Full` (`full_admin`) and
+`Emergency` (`emergency_admin`) levels.
 
 ## Governance Operations
 
-| Extrinsic                                    | Required Level    | Description                                       |
-| -------------------------------------------- | ----------------- | ------------------------------------------------- |
-| `set_minting_fee(asset_id, fee)`             | Full              | Update minting fee for an asset                   |
-| `set_redemption_fee(asset_id, fee)`          | Full              | Update redemption fee for an asset                |
-| `set_max_psm_debt(ratio)`                    | Full              | Update global PSM ceiling as % of MaximumIssuance |
-| `set_asset_ceiling_weight(asset_id, weight)` | Full              | Update per-asset ceiling weight                   |
-| `set_asset_status(asset_id, status)`         | Full or Emergency | Set per-asset circuit breaker level               |
-| `add_external_asset(asset_id)`               | Full              | Add approved stablecoin (matching decimals)       |
-| `remove_external_asset(asset_id)`            | Full              | Remove approved stablecoin (requires zero debt)   |
+All governance extrinsics take `internal_asset` as the first parameter to
+identify the PSM instance being configured.
+
+| Extrinsic | Required Level | Description |
+| --- | --- | --- |
+| `set_minting_fee(internal_asset, asset_id, fee)` | Full | Update minting fee for the pair |
+| `set_redemption_fee(internal_asset, asset_id, fee)` | Full | Update redemption fee for the pair |
+| `set_max_debt(internal_asset, value)` | Full or Emergency | Update absolute debt ceiling for the PSM |
+| `set_asset_ceiling_weight(internal_asset, asset_id, weight)` | Full or Emergency | Update external ceiling weight |
+| `set_asset_status(internal_asset, asset_id, status)` | Full or Emergency | Set per-external circuit breaker level |
+| `add_external_asset(internal_asset, asset_id)` | Full | Approve external on a PSM |
+| `remove_external_asset(internal_asset, asset_id)` | Full | Remove external from a PSM (zero debt) |
 
 ### Privilege Levels
 
-The `ManagerOrigin` returns a privilege level:
+Each PSM instance stores two admin origins, both set to the creator on `create_psm`
+and reassignable by the `full_admin`. An incoming origin is matched against them to
+resolve a privilege level:
 
-- **Full** (via GeneralAdmin): Can modify all parameters
-- **Emergency** (via EmergencyAction): Can only modify circuit breaker status
+- **Full** (the `full_admin`): can modify all parameters, approve/remove externals,
+  reassign either admin, and remove the instance
+- **Emergency** (the `emergency_admin`): can modify circuit breaker status, ceiling
+  weights, and debt ceilings only
 
 ### Asset Offboarding Workflow
 
-1. `set_asset_ceiling_weight(asset_id, 0%)` -- blocks minting, redistributes capacity
-2. Redemptions slowly drain remaining PSM debt
-3. Once `PsmDebt[asset_id]` reaches zero, call `remove_external_asset(asset_id)`
+For an external `asset_id` on instance `internal_asset`:
+
+1. Set the external's ceiling weight to `0%` (or use `set_asset_status(.., MintingDisabled)`):
+   either pauses new minting while still allowing redemptions
+2. Redemptions slowly drain `PsmDebt[internal_asset, asset_id]`
+3. Once debt reaches zero, call `remove_external_asset(internal_asset, asset_id)`
+
+Lowering a ceiling weight (or `max_debt`) below outstanding debt is allowed: the ceiling is a
+mint-time throttle, so the external simply cannot be minted until redemptions bring its debt
+back under the new ceiling.
 
 ### Asset Onboarding Requirements
 
-Before calling `add_external_asset(asset_id)`:
+Before calling `add_external_asset(internal_asset, asset_id)`:
 
-- The asset must already exist in the `Fungibles` implementation
-- The asset's decimals must match `StableAsset::decimals()`
-- The pallet must still be below `MaxExternalAssets`
+- A PSM must already be registered for `internal_asset`
+- The external `asset_id` must already exist in the `Fungibles` implementation
+- The internal asset's live decimals must still match the snapshot in `PsmInfo`
+- `|external_decimals − internal_decimals|` must be within `MAX_DECIMALS_DIFF`
+- The PSM must still be below `MaxExternals`
+
+After `add_external_asset`, the external starts with an `AssetCeilingWeight` of `0%`, so its
+per-external ceiling is zero and **minting is disabled**. Before the first mint, call
+`set_asset_ceiling_weight(internal_asset, asset_id, weight)` with a non-zero weight (and
+optionally `set_minting_fee` / `set_redemption_fee`, which otherwise default to 0.5%).
+Skipping this step makes the first mint fail with `ExceedsMaxPsmDebt`.
 
 ## Configuration
 
 ```rust
 impl pallet_psm::Config for Runtime {
     type Fungibles = Assets;
+    type Currency = Balances;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
     type AssetId = u32;
-    type MaximumIssuance = MaximumIssuance;
-    type ManagerOrigin = EnsurePsmManager;
     type WeightInfo = weights::SubstrateWeight<Runtime>;
-    type StableAsset = frame_support::traits::fungible::ItemOf<
-        Assets,
-        StablecoinAssetId,
-        AccountId,
-    >;
-    type FeeDestination = InsuranceFundAccount;
     type PalletId = PsmPalletId;
-    type MinSwapAmount = MinSwapAmount;
-    type MaxExternalAssets = ConstU32<10>;
+    type MaxExternals = ConstU32<10>;
+    type CreationDeposit = PsmCreationDeposit;
 }
 ```
 
-`Fungibles` must expose metadata for approved assets, and `StableAsset`
-must expose metadata for the pUSD asset because `add_external_asset`
-validates that decimals match before approval. `MaximumIssuance` provides
-the system-wide pUSD cap (typically from the Vaults pallet or a constant).
+`Fungibles` must expose metadata for both internal and external assets, because
+`add_external_asset` snapshots the external's decimals and the pallet validates
+on every swap that live decimals still match.
 
-### Parameters (Set via Governance)
+### Per-Instance Parameters (Set via Governance)
 
-| Parameter            | Description                          | Suggested Value       |
-| -------------------- | ------------------------------------ | --------------------- |
-| `MaxPsmDebtOfTotal`  | PSM ceiling as % of MaximumIssuance  | 10%                   |
-| `MintingFee`         | Fee for external -> pUSD (per asset) | 0.5%                  |
-| `RedemptionFee`      | Fee for pUSD -> external (per asset) | 0.5%                  |
-| `AssetCeilingWeight` | Per-asset share of PSM ceiling       | 50% each (USDC, USDT) |
+| Parameter            | Description                                  | Suggested Value         |
+| -------------------- | -------------------------------------------- | ----------------------- |
+| `PsmInfo::max_debt`  | Absolute internal-asset debt ceiling         | Per-instance, governance-set |
+| `PsmInfo::min_swap_amount` | Minimum swap amount in internal-asset units | Per-instance, set on `create_psm` |
+| `MintingFee`         | Fee for external → internal (per pair)       | 0.5%                    |
+| `RedemptionFee`      | Fee for internal → external (per pair)       | 0.5%                    |
+| `AssetCeilingWeight` | Per-external share of the PSM's `max_debt`   | e.g. 50%/50% (USDC/USDT) |
 
-### Required Constants
+### Required Config Constants
 
-- `PalletId`: Unique identifier for deriving the PSM account
-- `MinSwapAmount`: Minimum amount for any swap (default: 100 pUSD)
-- `MaxExternalAssets`: Maximum number of approved external assets
+- `PalletId`: Unique identifier; sub-accounts are derived per instance.
+- `MaxExternals`: Maximum number of approved externals per PSM instance.
 
-Typical runtime helpers used in the configuration above:
-
-- `StablecoinAssetId`: Runtime constant used by `ItemOf<..., StablecoinAssetId, ...>` to bind `StableAsset` to pUSD
-- `InsuranceFundAccount`: Account that receives pUSD fees via `FeeDestination`
+The per-instance minimum swap amount is not a config constant — it is set on `create_psm`
+and stored in `PsmInfo::min_swap_amount`.
 
 ## Events
 
-- `Minted { who, asset_id, external_amount, pusd_received, fee }`: User swapped external stablecoin for pUSD
-- `Redeemed { who, asset_id, pusd_paid, external_received, fee }`: User swapped pUSD for external stablecoin
-- `MintingFeeUpdated { asset_id, old_value, new_value }`: Minting fee changed
-- `RedemptionFeeUpdated { asset_id, old_value, new_value }`: Redemption fee changed
-- `MaxPsmDebtOfTotalUpdated { old_value, new_value }`: Global PSM ceiling changed
-- `AssetCeilingWeightUpdated { asset_id, old_value, new_value }`: Per-asset ceiling weight changed
-- `AssetStatusUpdated { asset_id, status }`: Circuit breaker level changed
-- `ExternalAssetAdded { asset_id }`: New external stablecoin approved
-- `ExternalAssetRemoved { asset_id }`: External stablecoin removed
+All events carry `internal_asset` so consumers can attribute them to the correct PSM.
+
+- `Minted { internal_asset, who, asset_id, external_amount, received, fee }`
+- `Redeemed { internal_asset, who, asset_id, paid, external_received, fee }`
+- `MintingFeeUpdated { internal_asset, asset_id, old_value, new_value }`
+- `RedemptionFeeUpdated { internal_asset, asset_id, old_value, new_value }`
+- `MaxDebtUpdated { internal_asset, old_value, new_value }`
+- `AssetCeilingWeightUpdated { internal_asset, asset_id, old_value, new_value }`
+- `AssetStatusUpdated { internal_asset, asset_id, status }`
+- `ExternalAssetAdded { internal_asset, asset_id }`
+- `ExternalAssetRemoved { internal_asset, asset_id }`
 
 ## Errors
 
-- `UnsupportedAsset`: Asset is not in the approved list
-- `InsufficientReserve`: PSM doesn't have enough external stablecoin for redemption
-- `ExceedsMaxIssuance`: Mint would exceed system-wide pUSD cap
-- `ExceedsMaxPsmDebt`: Mint would exceed aggregate PSM ceiling or per-asset ceiling
-- `BelowMinimumSwap`: Swap amount below MinSwapAmount
-- `MintingStopped`: Minting disabled by circuit breaker
-- `AllSwapsStopped`: All swaps disabled by circuit breaker
-- `AssetAlreadyApproved`: Asset already in approved list
-- `AssetNotApproved`: Asset not in approved list
-- `AssetHasDebt`: Cannot remove asset with outstanding debt
-- `InsufficientPrivilege`: Emergency origin tried a Full-only operation
-- `TooManyAssets`: Maximum number of approved external assets reached
-- `DecimalsMismatch`: External asset decimals do not match the stable asset decimals
+- `InsufficientReserve`: PSM doesn't have enough external asset for redemption
+- `ExceedsMaxPsmDebt`: Mint would exceed the instance's aggregate or per-external ceiling
+- `BelowMinimumSwap`: Swap amount below the instance's `min_swap_amount`
+- `MintingStopped`: Minting disabled by the per-external circuit breaker
+- `AllSwapsStopped`: All swaps disabled by the per-external circuit breaker
+- `UnsupportedAsset`: External not approved on this PSM
+- `PsmNotFound`: No PSM registered for `internal_asset`
+- `AssetAlreadyApproved`: External already approved on this PSM
+- `AssetDoesNotExist`: External does not exist in the fungibles backend
+- `AssetNotApproved`: External not approved (governance path)
+- `AssetHasDebt`: Cannot remove an external with outstanding debt
+- `InsufficientPrivilege`: Emergency origin attempted a Full-only operation
+- `TooManyAssets`: PSM at `MaxExternals`
+- `DecimalsMismatch`: Live decimals diverged from the registration snapshot
+- `DecimalsRangeExceeded`: `|external_decimals − internal_decimals|` exceeds `MAX_DECIMALS_DIFF`
+- `ConversionOverflow`: Decimal scaling overflowed
+- `AmountTooSmallAfterConversion`: Counter-asset conversion rounds to zero
 - `Unexpected`: An unexpected invariant violation occurred (defensive check)
 
 ## Testing

@@ -1294,8 +1294,6 @@ fn send_weth_from_ethereum_to_ahw_to_ahr_back_to_ahw_and_ethereum() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				// pay for bridge fees
-				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { .. }) => {},
 				// message exported
 				RuntimeEvent::BridgeWestendMessages(
 					pallet_bridge_messages::Event::MessageAccepted { .. }

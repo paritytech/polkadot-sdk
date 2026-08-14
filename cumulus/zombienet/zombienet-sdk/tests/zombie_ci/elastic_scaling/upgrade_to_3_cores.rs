@@ -1,20 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use anyhow::anyhow;
-use serde_json::json;
-
 use crate::utils::initialize_network;
-
+use anyhow::anyhow;
 use cumulus_test_runtime::{
 	elastic_scaling::WASM_BINARY as WASM_ELASTIC_SCALING,
 	elastic_scaling_12s_slot::WASM_BINARY as WASM_ELASTIC_SCALING_12S_SLOT,
 };
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_runtime_upgrade,
+	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_pvf_prepare,
+	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
+use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -47,12 +46,15 @@ async fn elastic_scaling_upgrade_to_3_cores(
 
 	assign_cores(&alice_client, PARA_ID, vec![0]).await?;
 
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
+
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
-		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 15..21)]).await?;
+		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 19..21)], []).await?;
 	} else {
 		log::info!("Ensuring parachain makes progress making 12s blocks");
-		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 7..12)]).await?;
+		assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 9..12)], []).await?;
 	}
 
 	assign_cores(&alice_client, PARA_ID, vec![1, 2]).await?;
@@ -87,7 +89,9 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
-	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)]).await?;
+	// Wait for post-upgrade PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 2).await?;
+	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)], []).await?;
 
 	Ok(())
 }

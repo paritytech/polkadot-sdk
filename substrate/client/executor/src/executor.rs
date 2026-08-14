@@ -433,8 +433,9 @@ where
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 
-		let instance =
-			module.new_instance().map_err(|e| format!("Failed to create instance: {}", e))?;
+		let instance = module
+			.new_instance(self.default_onchain_heap_alloc_strategy)
+			.map_err(|e| format!("Failed to create instance: {}", e))?;
 
 		let mut instance = AssertUnwindSafe(instance);
 		let mut ext = AssertUnwindSafe(ext);
@@ -519,7 +520,8 @@ where
 
 		let heap_alloc_strategy = match context {
 			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
 		};
 
 		let result = self.with_instance(
@@ -688,7 +690,8 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 
 		let heap_alloc_strategy = match context {
 			CallContext::Offchain => self.wasm.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
 		};
 
 		let mut used_native = false;

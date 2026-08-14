@@ -34,7 +34,9 @@
 
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_common::{
+	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
 	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
@@ -137,8 +139,10 @@ where
 
 	tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
 
-	let (relay_slot, timestamp) =
-		consensus_common::relay_slot_and_timestamp(relay_parent_header, relay_chain_slot_duration)?;
+	let (relay_slot, timestamp) = consensus_common::get_relay_slot_and_timestamp(
+		relay_parent_header,
+		relay_chain_slot_duration,
+	)?;
 
 	let slot_now = Slot::from_timestamp(timestamp, slot_duration);
 
@@ -332,10 +336,11 @@ where
 				};
 
 			let parent_search_result = match crate::collators::find_parent(
-				relay_parent,
-				params.para_id,
-				&*params.para_backend,
 				&params.relay_client,
+				&*params.para_backend,
+				params.para_id,
+				ParentSearchParams::V2 { scheduling_parent: relay_parent },
+				|_| true,
 			)
 			.await
 			{
@@ -343,27 +348,10 @@ where
 				None => continue,
 			};
 
-			let included_header = &parent_search_result.included_header;
+			let included_header = &parent_search_result.included_at_scheduling;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
-			let can_build_upon = |block_hash| {
-				let (slot_now, relay_slot, timestamp) = get_parachain_slot::<_, _, P::Public>(
-					para_client,
-					block_hash,
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				)?;
-
-				Some(super::can_build_upon::<_, _, P>(
-					slot_now,
-					relay_slot,
-					timestamp,
-					block_hash,
-					included_header.hash(),
-					para_client,
-					&keystore,
-				))
-			};
+			let included_block_hash = included_header.hash();
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
@@ -387,7 +375,8 @@ where
 				params.relay_chain_slot_duration,
 			) {
 				let mut runtime_api = para_client.runtime_api();
-				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				runtime_api
+					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
 					connection_helper.update::<P>(slot_now, &authorities).await;
 				}
@@ -396,13 +385,38 @@ where
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2u32 {
-				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
-						Some(c) => c,
-					},
-					None => break,
+				let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				) else {
+					break;
 				};
+
+				let Some(slot_claim) = super::claim_slot::<_, _, P>(
+					slot_now,
+					timestamp,
+					parent_hash,
+					para_client,
+					&keystore,
+				)
+				.await
+				else {
+					break;
+				};
+
+				if !super::can_build_upon::<_, _>(
+					parent_hash,
+					included_block_hash,
+					relay_slot,
+					slot_now,
+					para_client,
+				)
+				.await
+				{
+					break;
+				}
 
 				tracing::debug!(
 					target: crate::LOG_TARGET,
@@ -466,7 +480,7 @@ where
 					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
-				match collator
+				let collation_result = collator
 					.collate(
 						&parent_header,
 						&slot_claim,
@@ -474,9 +488,11 @@ where
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
 						allowed_pov_size,
+						None,
 					)
-					.await
-				{
+					.await;
+
+				match collation_result {
 					Ok(Some((collation, block_data))) => {
 						let Some(new_block_header) =
 							block_data.blocks().first().map(|b| b.header().clone())

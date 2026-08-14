@@ -133,7 +133,13 @@ where
 			.and_then(|claimer_bytes| Location::decode(&mut claimer_bytes.as_ref()).ok())
 			// or use the Snowbridge sovereign on AH as the fallback claimer.
 			.unwrap_or_else(|| {
-				Location::new(0, [AccountId32 { network: None, id: bridge_owner.clone().into() }])
+				Location::new(
+					0,
+					[AccountId32 {
+						network: Some(LocalNetwork::get()),
+						id: bridge_owner.clone().into(),
+					}],
+				)
 			});
 
 		let mut remote_xcm: Xcm<()> = match &message.payload {
@@ -779,6 +785,8 @@ mod tests {
 			}
 
 			// actual claimer should default to Snowbridge sovereign account
+			// pinned to the local network, so the location remains unambiguous if
+			// it is reanchored or forwarded across consensus systems.
 			let bridge_owner = ExternalConsensusLocationsConverterFor::<
 				AssetHubUniversal<LocalNetwork, AssetHubParaId>,
 				[u8; 32],
@@ -789,8 +797,73 @@ mod tests {
 			.unwrap();
 			assert_eq!(
 				actual_claimer,
-				Some(Location::new(0, [AccountId32 { network: None, id: bridge_owner }]))
+				Some(Location::new(
+					0,
+					[AccountId32 { network: Some(LocalNetwork::get()), id: bridge_owner }]
+				))
 			);
+		});
+	}
+
+	#[test]
+	fn test_missing_claimer_defaults_to_bridge_owner_on_local_network() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
+			let native_token_id: H160 = hex!("5615deb798bb3e4dfa0139dfa1b3d433cc23b72f").into();
+			let beneficiary =
+				hex!("908783d8cd24c9e02cee1d26ab9c46d458621ad0150b626c536a40b9df3f09c6").into();
+			let token_value = 3_000_000_000_000u128;
+			let assets = vec![EthereumAsset::NativeTokenERC20 {
+				token_id: native_token_id,
+				value: token_value,
+			}];
+			let instructions =
+				vec![DepositAsset { assets: Wild(AllCounted(1).into()), beneficiary }];
+			let xcm: Xcm<()> = instructions.into();
+			let versioned_xcm = VersionedXcm::V5(xcm);
+
+			let message = Message {
+				gateway: H160::zero(),
+				nonce: 0,
+				origin,
+				assets,
+				payload: Payload::Raw(versioned_xcm.encode()),
+				// No claimer supplied — fallback path should be used.
+				claimer: None,
+				value: 6_000_000_000_000u128,
+				execution_fee: 1_000_000_000_000u128,
+				relayer_fee: 5_000_000_000_000u128,
+			};
+
+			let xcm = Converter::convert(message).expect("conversion succeeds");
+
+			let bridge_owner = ExternalConsensusLocationsConverterFor::<
+				AssetHubUniversal<LocalNetwork, AssetHubParaId>,
+				[u8; 32],
+			>::convert_location(&Location::new(
+				2,
+				[GlobalConsensus(EthereumNetwork::get())],
+			))
+			.unwrap();
+			let expected_claimer = Location::new(
+				0,
+				[AccountId32 { network: Some(LocalNetwork::get()), id: bridge_owner }],
+			);
+
+			let claimer = xcm
+				.into_iter()
+				.find_map(|instruction| match instruction {
+					SetHints { hints } => hints
+						.into_iter()
+						.map(|hint| match hint {
+							AssetClaimer { location } => location,
+						})
+						.next(),
+					_ => None,
+				})
+				.expect("AssetClaimer hint should be present");
+
+			assert_eq!(claimer, expected_claimer);
 		});
 	}
 

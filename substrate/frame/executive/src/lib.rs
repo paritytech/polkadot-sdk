@@ -865,8 +865,10 @@ where
 		sp_io::init_tracing();
 		let encoded = uxt.encode();
 		let encoded_len = encoded.len();
-		sp_tracing::enter_span!(sp_tracing::info_span!("apply_extrinsic",
-			ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
+		sp_tracing::enter_span!(sp_tracing::info_span!(
+			"apply_extrinsic",
+			ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)
+		));
 
 		let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
 			MAX_EXTRINSIC_DEPTH,

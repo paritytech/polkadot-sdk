@@ -19,8 +19,8 @@
 use super::{budget_map, key};
 use crate::{
 	mock::{
-		assert_try_state_invalid, build_and_execute, set_default_budget_allocation, Dap,
-		RuntimeOrigin, System, Test,
+		account_id, assert_try_state_invalid, build_and_execute, set_default_budget_allocation,
+		Dap, RuntimeOrigin, System, Test,
 	},
 	BudgetAllocation, Error, Event,
 };
@@ -100,7 +100,7 @@ fn set_budget_allocation_requires_budget_origin() {
 		let allocs = budget_map(&[(b"staker_rewards", 80)]);
 
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::signed(1), allocs),
+			Dap::set_budget_allocation(RuntimeOrigin::signed(account_id(1)), allocs),
 			sp_runtime::DispatchError::BadOrigin
 		);
 	});

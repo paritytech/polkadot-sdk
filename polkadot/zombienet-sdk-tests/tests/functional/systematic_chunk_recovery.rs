@@ -47,7 +47,7 @@ async fn systematic_chunk_recovery_test() -> Result<(), anyhow::Error> {
 	// Check that all parachains produce at least 5 blocks within 1 session and 5 blocks (RC)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
 	let para_throughput: [(ParaId, Range<u32>); 2] = PARAS.map(|id| (ParaId::from(id), 2..6));
-	assert_para_throughput(&alice_client, 5, para_throughput).await?;
+	assert_para_throughput(&alice_client, 5, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
 	// remove alice  and use the others validators for the rest of the checks.
@@ -193,7 +193,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				}))
 				.with_default_image(col_image.as_str())
 				.with_default_command("polkadot-parachain")
-				.with_default_args(vec!["-lparachain=debug".into()])
+				.with_default_args(vec![
+					"-lparachain=debug".into(),
+					"--authoring=slot-based".into(),
+				])
 				.with_collator(|n| n.with_name(&format!("collator-{para_id}")))
 		})
 	});

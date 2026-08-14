@@ -16,10 +16,13 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
+	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect},
+	client::{
+		Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -30,8 +33,45 @@ use sc_service::{
 	config::{BasePath, PrometheusConfig, RpcConfiguration},
 	create_rpc_runtime, start_rpc_servers,
 };
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::{
+	SqlitePool,
+	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+};
 use std::path::PathBuf;
+
+/// Query the maximum number of bound parameters SQLite allows per query
+async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
+	let limit = async {
+		let mut conn = pool
+			.acquire()
+			.await
+			.inspect_err(|e| log::warn!(target: LOG_TARGET, "💾 Failed to acquire connection: {e}"))
+			.ok()?;
+		let mut handle = conn
+			.lock_handle()
+			.await
+			.inspect_err(|e| log::warn!(target: LOG_TARGET, "💾 Failed to lock handle: {e}"))
+			.ok()?;
+		// SAFETY: `lock_handle` guarantees the raw pointer is valid for
+		// the lifetime of the guard, and passing -1 only queries the limit.
+		let raw = unsafe {
+			libsqlite3_sys::sqlite3_limit(
+				handle.as_raw_handle().as_ptr(),
+				libsqlite3_sys::SQLITE_LIMIT_VARIABLE_NUMBER,
+				-1,
+			)
+		};
+		raw.try_into().ok()
+	}
+	.await;
+
+	let default = DbContext::DEFAULT_MAX_VARIABLE_NUMBER;
+	limit.inspect(|n| log::info!(target: LOG_TARGET, "💾 SQLite db_query_max_variable_number: {n}"))
+		.unwrap_or_else(|| {
+			log::warn!(target: LOG_TARGET, "💾 Failed to query SQLite variable limit, falling back to {default}");
+			default
+		})
+}
 
 /// Specifies the eth-rpc pruning mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -236,7 +276,7 @@ fn build_client(
 			EthPruningMode::KeepLatest(max_blocks) => {
 				log::info!(target: LOG_TARGET,
 					"💾 Using in-memory database, keeping only {max_blocks} blocks");
-				// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+				// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
 				let pool = SqlitePoolOptions::new()
 					.max_connections(1)
 					.idle_timeout(None)
@@ -247,10 +287,14 @@ fn build_client(
 			},
 		};
 
-		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+		let runtime_api_provider =
+			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+		let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
+		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
+		let db_ctx = DbContext::new(pool, max_variable_number);
 
 		let receipt_provider = ReceiptProvider::new(
-			pool,
+			db_ctx,
 			block_provider.clone(),
 			receipt_extractor.clone(),
 			keep_latest_n_blocks,
@@ -265,6 +309,7 @@ fn build_client(
 			receipt_provider,
 			eth_pruning.is_archive(),
 			subscription_gap_queue,
+			runtime_api_provider,
 		)
 		.await?;
 

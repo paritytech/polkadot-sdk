@@ -44,7 +44,7 @@ async fn parachains_disputes_test() -> Result<(), anyhow::Error> {
 	// Check that all parachains produce at least 5 blocks within 1 session and 5 blocks (RC)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
 	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 2..6));
-	assert_para_throughput(&relay_client, 5, para_throughput).await?;
+	assert_para_throughput(&relay_client, 5, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
 	// Check if disputes are initiated and concluded.

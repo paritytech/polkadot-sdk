@@ -38,8 +38,8 @@ use sc_client_api::{
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
 use sc_executor::{
-	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
-	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
+	sp_wasm_interface::HostFunctions, HeapAllocStrategy, RuntimeVersionOf, WasmExecutor,
+	DEFAULT_HEAP_ALLOC_STRATEGY,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
@@ -367,17 +367,6 @@ fn warm_up_trie_cache<TBl: BlockT>(
 	Ok(())
 }
 
-/// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
-/// [`Configuration`].
-#[deprecated(note = "Please switch to `new_wasm_executor`. Will be removed at end of 2024.")]
-#[allow(deprecated)]
-pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
-	config: &Configuration,
-) -> sc_executor::NativeElseWasmExecutor<D> {
-	#[allow(deprecated)]
-	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(&config.executor))
-}
-
 /// Creates a [`WasmExecutor`] according to [`ExecutorConfiguration`].
 pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> WasmExecutor<H> {
 	let strategy = config
@@ -569,7 +558,11 @@ where
 	spawn_handle.spawn(
 		"txpool-notifications",
 		Some("transaction-pool"),
-		sc_transaction_pool::notification_future(client.clone(), transaction_pool.clone()),
+		sc_transaction_pool::notification_future(
+			client.clone(),
+			transaction_pool.clone(),
+			config.transaction_pool.use_all_block_notifications(),
+		),
 	);
 
 	spawn_handle.spawn(
@@ -1243,7 +1236,8 @@ where
 
 	// Initialize IPFS server.
 	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
-		let (handler, bitswap_config) = Net::bitswap_server(client.clone());
+		let (handler, bitswap_config) =
+			Net::bitswap_server(client.clone(), metrics_registry.cloned());
 		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
 
 		let ipfs_num_blocks = match blocks_pruning {

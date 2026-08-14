@@ -18,13 +18,19 @@
 //! Test mock for the DAP pallet.
 
 use crate::{self as pallet_dap, Config};
-use frame_support::{
-	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion, PalletId,
-};
+use frame_support::{derive_impl, parameter_types, PalletId};
+use sp_core::crypto::AccountId32;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type AccountId = u64;
+pub type AccountId = AccountId32;
+
+/// Derive a 32-byte test account from a small integer.
+pub fn account_id(n: u64) -> AccountId {
+	let mut bytes = [0u8; 32];
+	bytes[..8].copy_from_slice(&n.to_le_bytes());
+	AccountId::from(bytes)
+}
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -49,7 +55,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const DapPalletId: PalletId = crate::DAP_PALLET_ID;
 	pub const ExistentialDeposit: u64 = 10;
 	pub const IssuanceCadence: u64 = 60_000; // 60 seconds
 	pub const MaxElapsedPerDrip: u64 = 600_000; // 10 minutes
@@ -75,25 +81,25 @@ impl frame_support::traits::Time for MockTime {
 	}
 }
 
-/// Test budget recipient: staker rewards pot (account 500).
+/// Test budget recipient: staker rewards pot.
 pub struct TestStakerRecipient;
 impl sp_staking::budget::BudgetRecipient<AccountId> for TestStakerRecipient {
 	fn budget_key() -> sp_staking::budget::BudgetKey {
 		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
 	}
 	fn pot_account() -> AccountId {
-		500
+		account_id(500)
 	}
 }
 
-/// Test budget recipient: validator incentive pot (account 501).
+/// Test budget recipient: validator incentive pot.
 pub struct TestValidatorIncentiveRecipient;
 impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRecipient {
 	fn budget_key() -> sp_staking::budget::BudgetKey {
 		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
 	}
 	fn pot_account() -> AccountId {
-		501
+		account_id(501)
 	}
 }
 
@@ -124,11 +130,15 @@ pub fn set_default_budget_allocation() {
 }
 
 fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {
-	let mut balances = vec![(1, 100), (2, 200), (3, 300)];
+	let mut balances =
+		vec![(account_id(1), 100u64), (account_id(2), 200u64), (account_id(3), 300u64)];
 
 	if fund_buffer {
-		let buffer: AccountId = DapPalletId::get().into_account_truncating();
+		let buffer: AccountId = Dap::buffer_account();
 		balances.push((buffer, ExistentialDeposit::get()));
+		// Also pre-fund staging account so tests can deposit without hitting the ED requirement.
+		let staging: AccountId = Dap::staging_account();
+		balances.push((staging, ExistentialDeposit::get()));
 	}
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

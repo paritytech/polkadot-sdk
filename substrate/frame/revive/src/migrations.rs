@@ -26,5 +26,8 @@ pub mod v2;
 /// Auto-map all existing accounts
 pub mod v3;
 
+/// Switch storage deposits from native currency to PGAS.
+pub mod v4;
+
 /// A unique identifier across all pallets.
 const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";

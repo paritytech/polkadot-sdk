@@ -57,7 +57,7 @@ async fn dispute_freshly_finalized_test() -> Result<(), anyhow::Error> {
 
 	// Ensure parachain made progress
 	log::info!("Waiting for parachain {} to produce blocks", PARA_ID);
-	assert_para_throughput(&relay_client, 5, [(ParaId::from(PARA_ID), 2..6)]).await?;
+	assert_para_throughput(&relay_client, 5, [(ParaId::from(PARA_ID), 2..6)], []).await?;
 	log::info!("Parachain {} is producing blocks", PARA_ID);
 
 	// Ensure that malus is already attempting to dispute

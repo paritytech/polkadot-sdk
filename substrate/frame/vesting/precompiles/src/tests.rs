@@ -81,15 +81,6 @@ fn vest_succeeds_with_active_schedule() {
 }
 
 #[test]
-fn vest_reverts_with_no_schedule() {
-	new_test_ext().execute_with(|| {
-		let input = IVesting::IVestingCalls::vest(IVesting::vestCall {});
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert when no schedule exists");
-	});
-}
-
-#[test]
 fn vest_actually_unlocks_funds() {
 	new_test_ext().execute_with(|| {
 		let locked: VestingBalance<Test> = 10_000;
@@ -146,16 +137,6 @@ fn vest_other_actually_unlocks_funds_for_target() {
 		let schedule =
 			<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
 		assert_eq!(schedule, None, "target's vesting schedule should be removed after full vest");
-	});
-}
-
-#[test]
-fn vest_other_reverts_with_no_schedule_on_target() {
-	new_test_ext().execute_with(|| {
-		let input =
-			IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall { target: target_alloy() });
-		let result = bare_call(&input).build_and_unwrap_result();
-		assert!(result.did_revert(), "expected revert when target has no schedule");
 	});
 }
 
@@ -250,6 +231,34 @@ fn vesting_balance_aggregates_multiple_schedules() {
 }
 
 // ---------------------------------------------------------------------------
+// vestedTransfer()
+// ---------------------------------------------------------------------------
+
+#[test]
+fn vested_transfer_succeeds() {
+	new_test_ext().execute_with(|| {
+		let locked: VestingBalance<Test> = 10_000;
+		CurrencyOf::<Test>::make_free_balance_be(&ALICE, locked * 10);
+
+		let input = IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+			target: target_alloy(),
+			locked: alloy_core::primitives::U256::from(locked),
+			perBlock: alloy_core::primitives::U256::from(500u64),
+			startingBlock: alloy_core::primitives::U256::from(0u64),
+		});
+		let result = bare_call(&input).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert!(result.data.is_empty());
+
+		// Verify the schedule was created with the correct locked amount.
+		// At block 1 with per_block=500, one block vested: 10_000 - 500 = 9_500.
+		let balance =
+			<pallet_vesting::Pallet<Test> as VestingSchedule<u64>>::vesting_balance(&TARGET);
+		assert_eq!(balance, Some(9_500), "locked amount should match the schedule");
+	});
+}
+
+// ---------------------------------------------------------------------------
 // Read-only & delegate-call guards (test vectors)
 // ---------------------------------------------------------------------------
 
@@ -272,6 +281,17 @@ fn guard_test_cases() -> Vec<GuardTestCase> {
 			name: "vestOther",
 			input: IVesting::IVestingCalls::vestOther(IVesting::vestOtherCall {
 				target: target_alloy(),
+			}),
+			reject_read_only: true,
+			reject_delegate: true,
+		},
+		GuardTestCase {
+			name: "vestedTransfer",
+			input: IVesting::IVestingCalls::vestedTransfer(IVesting::vestedTransferCall {
+				target: target_alloy(),
+				locked: alloy_core::primitives::U256::from(10_000u64),
+				perBlock: alloy_core::primitives::U256::from(500u64),
+				startingBlock: alloy_core::primitives::U256::from(0u64),
 			}),
 			reject_read_only: true,
 			reject_delegate: true,

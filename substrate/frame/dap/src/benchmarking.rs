@@ -19,11 +19,10 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Time;
 use frame_system::RawOrigin;
 use sp_staking::budget::BudgetRecipientList;
 
-#[benchmarks]
+#[benchmarks(where T: pallet_timestamp::Config<Moment = u64>)]
 mod benchmarks {
 	use super::*;
 
@@ -62,8 +61,9 @@ mod benchmarks {
 		let allocations = build_even_allocation::<T>();
 		BudgetAllocation::<T>::put(allocations);
 
-		// Seed the timestamp so the drip fires.
-		let now: u64 = T::Time::now().saturated_into();
+		// Set a timestamp so the drip fires.
+		let now: u64 = 1_000_000;
+		pallet_timestamp::Now::<T>::put(now);
 		let past = now.saturating_sub(T::IssuanceCadence::get() + 1);
 		LastIssuanceTimestamp::<T>::put(past);
 
@@ -72,7 +72,6 @@ mod benchmarks {
 			Pallet::<T>::drip_issuance();
 		}
 
-		// Timestamp should be updated.
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
 	}
 }

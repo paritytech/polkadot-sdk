@@ -62,7 +62,7 @@ pub type HostFunctions = (
 	sp_statement_store::runtime_api::HostFunctions,
 	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
 	// These host functions are not available on Polkadot and subject to breaking changes.
-	sp_virtualization::host_fn::HostFunctions,
+	sp_virtualization::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -127,7 +127,10 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+			(
+				kitchensink_runtime::ScarcityTxExtension::new(None),
+				frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+			),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -152,7 +155,7 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			(),
+			((), ()),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -609,13 +612,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	(with_startup_data)(&block_import, &babe_link);
 
 	if let sc_service::config::Role::Authority { .. } = &role {
-		let proposer = sc_basic_authorship::ProposerFactory::new(
+		let mut proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
+		proposer.set_default_block_size_limit(15 * 1024 * 1024);
 
 		let client_clone = client.clone();
 		let slot_duration = babe_link.config().slot_duration();
@@ -1114,10 +1118,11 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
+				let as_scarcity = kitchensink_runtime::ScarcityTxExtension::new(None);
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					authorize_call,
+					(as_scarcity, authorize_call),
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1134,7 +1139,7 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						(),
+						((), ()),
 						(),
 						spec_version,
 						transaction_version,

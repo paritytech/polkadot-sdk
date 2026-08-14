@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod dap_helpers;
 pub mod impls;
 pub mod macros;
 pub mod pools;
