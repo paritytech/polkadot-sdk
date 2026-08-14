@@ -1,0 +1,8 @@
+title: Increase default light client slots
+doc:
+- audience: Node Operator
+  description: 'This increases the default light-client slots to a conservative 500
+    as per investigation in #12846.'
+crates:
+- name: sc-cli
+  bump: major
