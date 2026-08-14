@@ -156,7 +156,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     ExportState(ExportStateCmd),
     ImportBlocks(ImportBlocksCmd),
     Revert(RevertCmd),
-    ChainSpecBuilder(ChainSpecBuilder),
+    ChainSpecBuilder(<a class="struct" href="../../staging_chain_spec_builder/struct.ChainSpecBuilder.html" title="struct staging_chain_spec_builder::ChainSpecBuilder">ChainSpecBuilder</a>),
     PurgeChain(PurgeChainCmd),
     ExportGenesisHead(ExportGenesisHeadCommand),
     ExportGenesisWasm(ExportGenesisWasmCommand),
@@ -177,7 +177,7 @@ isn’t bringing significant value as it does for other node binaries (e.g. the
 </div><section id="variant.ExportState" class="variant"><a href="#variant.ExportState" class="anchor">§</a><h3 class="code-header">ExportState(ExportStateCmd)</h3></section><div class="docblock"><p>Export the state of a given block into a chain spec.</p>
 </div><section id="variant.ImportBlocks" class="variant"><a href="#variant.ImportBlocks" class="anchor">§</a><h3 class="code-header">ImportBlocks(ImportBlocksCmd)</h3></section><div class="docblock"><p>Import blocks.</p>
 </div><section id="variant.Revert" class="variant"><a href="#variant.Revert" class="anchor">§</a><h3 class="code-header">Revert(RevertCmd)</h3></section><div class="docblock"><p>Revert the chain to a previous state.</p>
-</div><section id="variant.ChainSpecBuilder" class="variant"><a href="#variant.ChainSpecBuilder" class="anchor">§</a><h3 class="code-header">ChainSpecBuilder(ChainSpecBuilder)</h3></section><div class="docblock"><p>Subcommand for generating and managing chain specifications.</p>
+</div><section id="variant.ChainSpecBuilder" class="variant"><a href="#variant.ChainSpecBuilder" class="anchor">§</a><h3 class="code-header">ChainSpecBuilder(<a class="struct" href="../../staging_chain_spec_builder/struct.ChainSpecBuilder.html" title="struct staging_chain_spec_builder::ChainSpecBuilder">ChainSpecBuilder</a>)</h3></section><div class="docblock"><p>Subcommand for generating and managing chain specifications.</p>
 <p>A <code>chain-spec-builder</code> subcommand corresponds to the existing <code>chain-spec-builder</code> tool
 (<a href="https://crates.io/crates/staging-chain-spec-builder">https://crates.io/crates/staging-chain-spec-builder</a>), which can be used already standalone.
 It provides the same functionality as the tool but bundled with <code>polkadot-omni-node</code> to
