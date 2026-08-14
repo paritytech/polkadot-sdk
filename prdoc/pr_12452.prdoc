@@ -11,6 +11,11 @@ doc:
     into `Authorized` for the dispatch body. Dispatch bodies are unchanged and no new `Config`
     item is added. `WeightInfo` gains `authorize_*` functions for the authorization weights.
 
+    Submissions are tagged `(call_hash, call_encoded_len, call_weight)`. A too-low
+    `call_weight_witness` cannot be caught at the pool without decoding the preimage, so it is
+    admitted and fails in-block for free; the tag denies it the slot of the correctly witnessed
+    submission.
+
     Adds `frame_system::EnsureAuthorized`. A runtime opts in by including it in
     `DispatchWhitelistedOrigin`, e.g. `EitherOf<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>`;
     leaving it out keeps the current behavior.

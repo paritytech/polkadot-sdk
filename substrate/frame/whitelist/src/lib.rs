@@ -334,7 +334,16 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Admits the unsigned submission only when [`Config::DispatchWhitelistedOrigin`] accepts
 	/// the `Authorized` system origin and `call_hash` is present in [`WhitelistedCall`].
-	fn authorize_whitelisted_dispatch(call_hash: T::Hash) -> TransactionValidityWithRefund {
+	///
+	/// Tagged by `(call_hash, call_encoded_len, call_weight)`. A too-low `call_weight_witness`
+	/// cannot be caught here without decoding the preimage, so it is admitted and fails in-block
+	/// for free; the tag denies it the slot of the correctly witnessed submission, which both
+	/// dispatch calls share.
+	fn authorize_whitelisted_dispatch(
+		call_hash: T::Hash,
+		call_encoded_len: u32,
+		call_weight: Weight,
+	) -> TransactionValidityWithRefund {
 		let authorized: T::RuntimeOrigin =
 			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
 		T::DispatchWhitelistedOrigin::try_origin(authorized)
@@ -345,7 +354,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok((
-			ValidTransaction { provides: vec![call_hash.encode()], ..Default::default() },
+			ValidTransaction {
+				provides: vec![(call_hash, call_encoded_len, call_weight).encode()],
+				..Default::default()
+			},
 			Weight::zero(),
 		))
 	}
@@ -355,13 +367,13 @@ impl<T: Config> Pallet<T> {
 		_source: TransactionSource,
 		call_hash: &T::Hash,
 		call_encoded_len: &u32,
-		_call_weight_witness: &Weight,
+		call_weight_witness: &Weight,
 	) -> TransactionValidityWithRefund {
 		// Missing preimage or wrong length witness would fail at dispatch with nobody charged.
 		if T::Preimages::len(call_hash) != Some(*call_encoded_len) {
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
 		}
-		Self::authorize_whitelisted_dispatch(*call_hash)
+		Self::authorize_whitelisted_dispatch(*call_hash, *call_encoded_len, *call_weight_witness)
 	}
 
 	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call_with_preimage`].
@@ -370,7 +382,12 @@ impl<T: Config> Pallet<T> {
 		call: &Box<<T as Config>::RuntimeCall>,
 	) -> TransactionValidityWithRefund {
 		let call_hash = T::Hashing::hash_of(call).into();
-		Self::authorize_whitelisted_dispatch(call_hash)
+		// Both witnesses travel with the transaction, so neither is forgeable.
+		Self::authorize_whitelisted_dispatch(
+			call_hash,
+			call.encoded_size() as u32,
+			call.get_dispatch_info().call_weight,
+		)
 	}
 
 	/// Defer the dispatch of a whitelisted call to a future block.

@@ -21,8 +21,11 @@
 
 use crate as pallet_whitelist;
 
-use frame::testing_prelude::*;
-type Block = MockBlock<Test>;
+use frame::{deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*};
+
+pub type TxExtension = (frame_system::AuthorizeCall<Test>,);
+pub type UncheckedExtrinsic = MockUncheckedExtrinsic<Test, UintAuthorityId, TxExtension>;
+type Block = MockBlock<Test, UintAuthorityId, TxExtension>;
 
 construct_runtime!(
 	pub enum Test

@@ -200,7 +200,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Includes hashing the `n`-byte call.
+	// Includes hashing the `n`-byte call and reading its dispatch info.
 	#[benchmark]
 	fn authorize_dispatch_whitelisted_call_with_preimage(
 		n: Linear<1, 10_000>,
