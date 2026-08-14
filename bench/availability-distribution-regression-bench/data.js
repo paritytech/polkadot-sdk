@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786666443056,
+  "lastUpdate": 1786688783628,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0f28d8104be04cb13ac39ccfd17240f703953c33",
-          "message": "test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541)\n\nThis PR ensures that the parachains test-utils crate has 2 relay parent\ndescendants for testing purposes.\n\nEffectively fixes a panic because we missed this mock data for chains\nthat started with `RP_offset > 0`:\n\n```\n Unable to verify provided relay parent descendants. expected_rp_descendants_num: 1 error: InvalidNumberOfDescendants { expected: 2, received: 0 }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n```\n\nDetected in:\n-\nhttps://github.com/polkadot-fellows/runtimes/actions/runs/19857064730/job/56897622908?pr=1018\n\nUnblocks:\n- https://github.com/polkadot-fellows/runtimes/pull/1018\n\nInspired by a similar fix I've introduced in:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-12-10T11:51:44Z",
-          "tree_id": "0c244995ac7aa98401ec78b89e53b7cac27cb8fd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f28d8104be04cb13ac39ccfd17240f703953c33"
-        },
-        "date": 1765372193735,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013146497013333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1587603213600001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.007210546346666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022643219853333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00998994468,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "492f979b7c527336d5245e768e886e36ac007335",
+          "message": "Add Doc Comments for Pallet Revive's Versioned Types (#12860)\n\n# Description\n\n## Why\n\nI think this PR's objective is better understood by the why rather than\nthe how. After versioning was introduced we didn't have a good way to\ncommunicate to users, clients, and consumers of the runtime API \"we\nupdated this function to v2 to add this specific capability\". We agreed\nthat this would be something that we would document but it's not very\nclear to me where such documentation would go.\n\nA user would find themselves needing to dig through the code adding vN\nto understand the diff and therefore understand what new capabilities or\nchanges come with a specific version of a runtime api and then make a\ndecision on whether they want to use it or not.\n\n## How\n\nThis PR adds documentation comments to:\n\n1. The enums used for the inputs and outputs of the runtime API\nfunctions.\n2. The variants used for the inputs and outputs of the runtime API\nfunctions including versions higher than V1 telling the user what\nchanges were made.\n\nFor example, in the tracing v2 output we have a doc comment which says\nthat this version adds the `index` field to `CallLog`. Therefore, it's\nvery clear to a user that \"I should use v2 when I care about this\nspecific field\"\n\n## Usage\n\nThe way I envision for this to be used is that eventually when this\ncrate is published we'd have a doc.rs link for the crate which we could\nlink anybody to for them to read the documentation of a specific runtime\nAPI function which would then help them decide which version they should\nuse or if v1 meets all of their needs\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T04:58:24Z",
+          "tree_id": "ee543391caa0a62c5664a16a62b4f3c050b1f918",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/492f979b7c527336d5245e768e886e36ac007335"
+        },
+        "date": 1786688755491,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02281711172666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00734034788666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1427259094733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009806108853333327,
             "unit": "seconds"
           }
         ]
