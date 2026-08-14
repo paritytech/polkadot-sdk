@@ -49,6 +49,15 @@
 //! initial-sync chunks both skip the recorded peers, and the propagation pass clears
 //! `recently_received_statements` when done.
 //!
+//! ## Initial sync
+//!
+//! A peer joining (or changing its topic affinity) is synced the store's existing statements
+//! through a cursor over the store's admission journal: scheduling captures the journal's
+//! watermark, and bursts walk the admissions below it chunk by chunk. The watermark also splits
+//! delivery between the two paths — the peer's propagation skips admissions below its highest
+//! watermark, so a statement reaches the peer either through the sync cursor or through a
+//! propagation tick, never both.
+//!
 //! ## Send scheduling
 //!
 //! Every peer has one send slot, shared by propagation and initial sync, so at most one chunk per
@@ -66,11 +75,6 @@
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full is parked once and
 //! refilled in parking order as completed sends free bytes.
-//!
-//! A statement can still reach a peer twice when it sits both in the peer's initial-sync snapshot
-//! and in a propagation tick around it, and the peer may charge a small reputation penalty for the
-//! duplicate. TODO: replace the hash snapshot with a cursor over the store's admission sequence,
-//! which splits the two paths by admission order instead of by content.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -2472,10 +2476,6 @@ mod tests {
 
 		fn has_statement(&self, hash: &sp_statement_store::Hash) -> bool {
 			self.statements.lock().unwrap().contains_key(hash)
-		}
-
-		fn statement_hashes(&self) -> Vec<sp_statement_store::Hash> {
-			self.statements.lock().unwrap().keys().cloned().collect()
 		}
 
 		fn statements_by_hashes(
@@ -5450,6 +5450,86 @@ mod tests {
 		// The whole admission journal is covered for redelivery.
 		assert_eq!(pending.cursor, 0, "The sync must start from the oldest admission");
 		assert_eq!(pending.watermark, 2, "Both admissions must sit below the watermark");
+	}
+
+	#[tokio::test]
+	async fn statement_below_the_watermark_reaches_a_syncing_peer_exactly_once() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"pre-watermark".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		// The statement is also due for a propagation tick, racing the sync.
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+
+		// A tick between scheduling and the first burst must not queue the statement:
+		// below the peer's sync watermark it is the cursor's job.
+		handler.propagate_statements().await;
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash], "the sync cursor is the only delivery path");
+	}
+
+	#[tokio::test]
+	async fn sync_watermark_keeps_filtering_propagation_after_the_sync_completes() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+
+		let mut pre = Statement::new();
+		pre.set_plain_data(b"pre-watermark".to_vec());
+		let pre_hash = pre.hash();
+		statement_store.insert(pre.clone());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+		notification_service.clear_sent_notifications();
+
+		// A late tick drains the already synced statement together with a fresh one.
+		let mut fresh = Statement::new();
+		fresh.set_plain_data(b"post-watermark".to_vec());
+		let fresh_hash = fresh.hash();
+		statement_store.recent_statements.lock().unwrap().insert(pre_hash, pre);
+		statement_store.recent_statements.lock().unwrap().insert(fresh_hash, fresh);
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(
+			sent,
+			vec![fresh_hash],
+			"only admissions at or above the watermark are propagated"
+		);
 	}
 
 	#[tokio::test]

@@ -413,9 +413,6 @@ pub trait StatementStore: Send + Sync {
 	/// Fast index check without accessing the DB.
 	fn has_statement(&self, hash: &Hash) -> bool;
 
-	/// Return all statement hashes.
-	fn statement_hashes(&self) -> Vec<Hash>;
-
 	/// Fetch statements by their hashes with a filter callback.
 	///
 	/// The callback receives (hash, encoded_bytes, decoded_statement) and returns:

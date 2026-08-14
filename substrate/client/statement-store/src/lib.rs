@@ -2382,13 +2382,6 @@ impl StatementStore for Store {
 		}
 	}
 
-	fn statement_hashes(&self) -> Vec<Hash> {
-		self.enumerate_hashes().unwrap_or_else(|e| {
-			log::warn!(target: LOG_TARGET, "Error enumerating statement hashes: {:?}", e);
-			Vec::new()
-		})
-	}
-
 	fn statements_by_hashes(
 		&self,
 		hashes: &[Hash],
