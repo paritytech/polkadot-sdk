@@ -62,15 +62,27 @@ pub enum Error {
 		/// The invalid addresses.
 		addresses: Vec<Multiaddr>,
 	},
-	/// A invalid public `webrtc-direct` address.
+	/// An invalid `webrtc-direct` address.
 	#[error(
-		"Invalid WebRTC public address `{address}`: expected \
-		 `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`."
+		"Invalid WebRTC address `{address}`: expected `/<host>/udp/<port>/webrtc-direct` and \
+		 nothing after it."
 	)]
 	InvalidWebRtcAddress {
 		/// The invalid address.
 		address: Multiaddr,
 	},
+	/// A public `webrtc-direct` address was configured without a WebRTC transport to back it.
+	#[error(
+		"A WebRTC public address has been configured, but the node does not listen on any \
+		 `webrtc-direct` address"
+	)]
+	WebRtcTransportNotConfigured,
+	/// A `webrtc-direct` address was configured on a backend that cannot serve WebRTC.
+	#[error(
+		"A WebRTC address is configured, \
+		 but WebRTC is only supported by the litep2p network backend."
+	)]
+	WebRtcNotSupportedByBackend,
 	/// The same request-response protocol has been registered multiple times.
 	#[error("Request-response protocol registered multiple times: {protocol}")]
 	DuplicateRequestResponseProtocol {

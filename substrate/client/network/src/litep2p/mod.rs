@@ -65,18 +65,17 @@ use litep2p::{
 	},
 	types::{
 		multiaddr::{Multiaddr, Protocol},
-		multihash::Multihash,
 		ConnectionId,
 	},
 	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use prometheus_endpoint::Registry;
-use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
-
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};
 use sc_network_types::{
-	multiaddr::Multiaddr as NetworkMultiaddr, multihash::Multihash as NetworkMultihash, PeerId,
+	kad::{Key as RecordKey, PeerRecord, Record as P2PRecord},
+	multiaddr::Protocol as NetworkProtocol,
+	PeerId,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 use sp_runtime::traits::Block as BlockT;
@@ -273,7 +272,7 @@ impl Litep2pNetworkBackend {
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
 		keypair: Keypair,
-	) -> Result<(ConfigBuilder, Option<Multihash<64>>), Error> {
+	) -> Result<ConfigBuilder, Error> {
 		let _ = match config.network_config.transport {
 			TransportConfig::MemoryOnly => panic!("memory transport not supported"),
 			TransportConfig::Normal { .. } => false,
@@ -286,12 +285,10 @@ impl Litep2pNetworkBackend {
 		let mut webrtc_addresses = Vec::with_capacity(listen_addr_len);
 
 		for addr in &config.network_config.listen_addresses {
-			use sc_network_types::multiaddr::Protocol;
-
 			let mut iter = addr.iter();
 
 			let ip_version = iter.next();
-			let Some(Protocol::Ip4(_) | Protocol::Ip6(_)) = ip_version else {
+			let Some(NetworkProtocol::Ip4(_) | NetworkProtocol::Ip6(_)) = ip_version else {
 				log::error!(
 					target: LOG_TARGET,
 					"unknown protocol {ip_version:?}, ignoring {addr:?}",
@@ -304,16 +301,20 @@ impl Litep2pNetworkBackend {
 
 			match (&transport_layer, &protocol_type) {
 				// Plain TCP address.
-				(Some(Protocol::Tcp(_)), Some(Protocol::P2p(_)) | None) => {
+				(Some(NetworkProtocol::Tcp(_)), Some(NetworkProtocol::P2p(_)) | None) => {
 					tcp_addresses.push(addr.clone());
 				},
-
 				// Websocket address.
-				(Some(Protocol::Tcp(_)), Some(Protocol::Ws(_) | Protocol::Wss(_))) => {
+				(
+					Some(NetworkProtocol::Tcp(_)),
+					Some(NetworkProtocol::Ws(_) | NetworkProtocol::Wss(_)),
+				) => {
 					websocket_addresses.push(addr.clone());
 				},
 				// WebRTC-Direct address.
-				(Some(Protocol::Udp(_)), Some(Protocol::WebRTCDirect)) => {
+				(Some(NetworkProtocol::Udp(_)), Some(NetworkProtocol::WebRTCDirect)) => {
+					// An address carrying anything past `webrtc-direct` is rejected.
+					webrtc::validate_listen_address(addr)?;
 					webrtc_addresses.push(addr.clone());
 				},
 				_ => {
@@ -339,13 +340,10 @@ impl Litep2pNetworkBackend {
 				..Default::default()
 			});
 
-		let mut webrtc_certhash = None;
 		if !webrtc_addresses.is_empty() {
-			// WebRTC cert/key are unambiguously defined by the node key.
 			let certificate =
 				webrtc::derive_certificate(keypair.secret()).map_err(Error::Litep2p)?;
 			log::info!(target: LOG_TARGET, "WebRTC certhash: {}", certificate.certhash_b64());
-			webrtc_certhash = Some(certificate.certhash());
 			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
 				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
 				certificate: Some(certificate),
@@ -353,7 +351,7 @@ impl Litep2pNetworkBackend {
 			});
 		}
 
-		Ok((config_builder.with_keypair(keypair), webrtc_certhash))
+		Ok(config_builder.with_keypair(keypair))
 	}
 }
 
@@ -417,7 +415,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		params.network_config.sanity_check_addresses()?;
 		params.network_config.sanity_check_bootnodes()?;
 
-		let (mut config_builder, webrtc_certhash) =
+		let mut config_builder =
 			Self::configure_transport(&params.network_config, keypair.clone())?;
 		let known_addresses = params.network_config.known_addresses();
 		let peer_store_handle = params.network_config.peer_store_handle();
@@ -426,16 +424,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let FullNetworkConfiguration {
 			notification_protocols,
 			request_response_protocols,
-			mut network_config,
+			network_config,
 			..
 		} = params.network_config;
-
-		// Complete the public addresses.
-		if let Some(certhash) = webrtc_certhash {
-			for address in network_config.public_addresses.iter_mut() {
-				*address = complete_webrtc_public_address(address.clone(), certhash.into())?;
-			}
-		}
 
 		// initialize notification protocols
 		//
@@ -515,16 +506,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// collect known addresses
 		let known_addresses: HashMap<litep2p::PeerId, Vec<Multiaddr>> =
 			known_addresses.into_iter().fold(HashMap::new(), |mut acc, (peer, address)| {
-				use sc_network_types::multiaddr::Protocol;
-
 				let address = match address.iter().last() {
-					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) => {
-						address.with(Protocol::P2p(peer.into()))
+					Some(
+						NetworkProtocol::Ws(_) | NetworkProtocol::Wss(_) | NetworkProtocol::Tcp(_),
+					) => address.with(NetworkProtocol::P2p(peer.into())),
+					Some(NetworkProtocol::WebRTCDirect | NetworkProtocol::Certhash(_)) => {
+						address.with(NetworkProtocol::P2p(peer.into()))
 					},
-					Some(Protocol::WebRTCDirect | Protocol::Certhash(_)) => {
-						address.with(Protocol::P2p(peer.into()))
-					},
-					Some(Protocol::P2p(_)) => address,
+					Some(NetworkProtocol::P2p(_)) => address,
 					_ => return acc,
 				};
 
@@ -1333,48 +1322,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 	}
 }
 
-/// Complete a public `webrtc-direct` address with the node's `/certhash` and `/p2p`.
-///
-/// Addresses of other transports are returned unchanged.
-fn complete_webrtc_public_address(
-	address: NetworkMultiaddr,
-	certhash: NetworkMultihash,
-) -> Result<NetworkMultiaddr, Error> {
-	use sc_network_types::multiaddr::Protocol;
-
-	if !address.iter().any(|protocol| matches!(protocol, Protocol::WebRTCDirect)) {
-		return Ok(address);
-	}
-
-	let mut iter = address.iter();
-
-	// A `dns` host is resolved by the dialer, so it is as good as an IP in a public address.
-	let has_host = matches!(
-		iter.next(),
-		Some(
-			Protocol::Ip4(_) |
-				Protocol::Ip6(_) |
-				Protocol::Dns(_) |
-				Protocol::Dns4(_) |
-				Protocol::Dns6(_)
-		)
-	);
-
-	// `/udp/<port>/webrtc-direct` and nothing after it: the `/certhash` and `/p2p` below are the
-	// node's own to add.
-	let is_completable = has_host &&
-		matches!(
-			(iter.next(), iter.next(), iter.next()),
-			(Some(Protocol::Udp(_)), Some(Protocol::WebRTCDirect), None)
-		);
-
-	if !is_completable {
-		return Err(Error::InvalidWebRtcAddress { address });
-	}
-
-	Ok(address.with(Protocol::Certhash(certhash)))
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -1382,12 +1329,14 @@ mod tests {
 		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
 		service::traits::NetworkStateInfo,
 	};
-	use sc_network_types::multiaddr::Protocol as NetworkProtocol;
+	use sc_network_types::{
+		multiaddr::Multiaddr as NetworkMultiaddr, multihash::Multihash as NetworkMultihash,
+	};
 	use sp_core::H256;
 	use substrate_test_runtime_client::runtime::Block;
 
-	/// `--listen-addr` of a node behind a NAT.
-	const WEBRTC_LISTEN_ADDRESS: &str = "/ip4/127.0.0.1/udp/30333/webrtc-direct";
+	/// `--listen-addr` of a node behind a NAT. Port `0` so concurrent tests don't collide.
+	const WEBRTC_LISTEN_ADDRESS: &str = "/ip4/127.0.0.1/udp/0/webrtc-direct";
 
 	/// `--public-addr` of that node: the routable coordinate peers are told to dial.
 	/// This is the shape an operator supplies when the node sits behind a proxy.
@@ -1448,6 +1397,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
+		network_config.validate_and_complete_webrtc_addresses().unwrap();
 
 		let (keypair, _peer_id) =
 			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
@@ -1469,110 +1419,63 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn webrtc_public_address_with_certhash_refuses_to_start() {
-		let public_address: NetworkMultiaddr = WEBRTC_PUBLIC_ADDRESS.parse().unwrap();
-
+	async fn webrtc_public_address_completed_at_config_creation_accepted() {
 		let mut network_config = NetworkConfiguration::new_local();
 		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
-		network_config.public_addresses =
-			vec![public_address.with(NetworkProtocol::Certhash(a_certhash()))];
+		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
+			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
+		));
+		network_config.validate_and_complete_webrtc_addresses().unwrap();
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+		let local_peer_id = network_service.local_peer_id();
+
+		assert_eq!(
+			network_service.external_addresses(),
+			vec![network_config.public_addresses[0]
+				.clone()
+				.with(NetworkProtocol::P2p(local_peer_id.into()))],
+		);
+	}
+
+	#[tokio::test]
+	async fn webrtc_listen_address_with_certhash_refuses_to_start() {
+		let listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
+
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses =
+			vec![listen_address.with(NetworkProtocol::Certhash(a_certhash()))];
 
 		assert!(matches!(start_backend(&network_config), Err(Error::InvalidWebRtcAddress { .. }),));
 	}
 
-	/// A certhash standing in for the node's own, for the unit tests below.
+	#[tokio::test]
+	async fn non_webrtc_public_address_untouched() {
+		let public_address: NetworkMultiaddr = "/ip4/203.0.113.9/tcp/31234".parse().unwrap();
+
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()];
+		network_config.public_addresses = vec![public_address.clone()];
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+		let local_peer_id = network_service.local_peer_id();
+
+		// litep2p appends the local `/p2p` to every public address; nothing else is added.
+		assert_eq!(
+			network_service.external_addresses(),
+			vec![public_address.with(NetworkProtocol::P2p(local_peer_id.into()))],
+		);
+	}
+
+	/// A certhash standing in for the node's own.
 	fn a_certhash() -> NetworkMultihash {
 		sc_network_types::multihash::Code::Sha2_256.digest(b"certificate")
-	}
-
-	/// `/ip4/1.2.3.4/udp/30334/webrtc-direct`: the shape an operator is expected to supply.
-	fn webrtc_address() -> NetworkMultiaddr {
-		NetworkMultiaddr::empty()
-			.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
-			.with(NetworkProtocol::Udp(30334))
-			.with(NetworkProtocol::WebRTCDirect)
-	}
-
-	/// Complete `address` as the node does, with a stand-in for the certhash it contributes.
-	fn complete(address: NetworkMultiaddr, peer: PeerId) -> Result<NetworkMultiaddr, Error> {
-		complete_webrtc_public_address(address, a_certhash(), peer)
-	}
-
-	#[test]
-	fn certhash_and_peer_id_appended_to_webrtc_address() {
-		let peer = PeerId::random();
-
-		assert_eq!(
-			complete(webrtc_address(), peer).unwrap(),
-			webrtc_address()
-				.with(NetworkProtocol::Certhash(a_certhash()))
-				.with(NetworkProtocol::P2p(peer.into())),
-		);
-	}
-
-	#[test]
-	fn dns_host_accepted() {
-		// A public address is dialed, not bound, so the dialer can resolve the name.
-		let peer = PeerId::random();
-		let address = NetworkMultiaddr::empty()
-			.with(NetworkProtocol::Dns("example.com".into()))
-			.with(NetworkProtocol::Udp(30334))
-			.with(NetworkProtocol::WebRTCDirect);
-
-		assert_eq!(
-			complete(address.clone(), peer).unwrap(),
-			address
-				.with(NetworkProtocol::Certhash(a_certhash()))
-				.with(NetworkProtocol::P2p(peer.into())),
-		);
-	}
-
-	#[test]
-	fn operator_supplied_certhash_rejected() {
-		// The node presents a certificate of its own; no hash the operator writes can match it.
-		let their_certhash = sc_network_types::multihash::Code::Sha2_256.digest(b"theirs");
-		let address = webrtc_address().with(NetworkProtocol::Certhash(their_certhash));
-
-		assert!(matches!(
-			complete(address, PeerId::random()),
-			Err(Error::InvalidWebRtcAddress { .. }),
-		));
-	}
-
-	#[test]
-	fn operator_supplied_peer_id_rejected() {
-		let peer = PeerId::random();
-		let address = webrtc_address().with(NetworkProtocol::P2p(peer.into()));
-
-		assert!(matches!(complete(address, peer), Err(Error::InvalidWebRtcAddress { .. })));
-	}
-
-	#[test]
-	fn webrtc_over_tcp_rejected() {
-		let address = NetworkMultiaddr::empty()
-			.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
-			.with(NetworkProtocol::Tcp(30334))
-			.with(NetworkProtocol::WebRTCDirect);
-
-		assert!(matches!(
-			complete(address, PeerId::random()),
-			Err(Error::InvalidWebRtcAddress { .. }),
-		));
-	}
-
-	#[test]
-	fn non_webrtc_addresses_untouched() {
-		let addresses = [
-			NetworkMultiaddr::empty()
-				.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
-				.with(NetworkProtocol::Tcp(30333)),
-			NetworkMultiaddr::empty()
-				.with(NetworkProtocol::Ip4([1, 2, 3, 4].into()))
-				.with(NetworkProtocol::Udp(30333)),
-		];
-
-		for address in addresses {
-			assert_eq!(complete(address.clone(), PeerId::random()).unwrap(), address);
-		}
 	}
 }

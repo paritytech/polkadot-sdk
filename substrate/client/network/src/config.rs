@@ -41,7 +41,10 @@ use sc_network_types::{
 	PeerId,
 };
 
-use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
+use crate::{
+	service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend},
+	webrtc,
+};
 use codec::Encode;
 use prometheus_endpoint::Registry;
 use zeroize::Zeroize;
@@ -758,6 +761,48 @@ impl NetworkConfiguration {
 
 		config.allow_non_globals_in_dht = true;
 		config
+	}
+
+	/// Validate this node's `webrtc-direct` addresses and append its WebRTC `/certhash` to the
+	/// public ones.
+	///
+	/// Fails on a `webrtc-direct` address configured for the [`NetworkBackendType::Libp2p`]
+	/// backend, which cannot serve WebRTC, on a public one with no listener behind it, and on any
+	/// of them that is malformed.
+	pub fn validate_and_complete_webrtc_addresses(&mut self) -> Result<(), crate::error::Error> {
+		let has_webrtc_addr = |addrs: &[Multiaddr]| addrs.iter().any(webrtc::is_webrtc_address);
+
+		let listen_webrtc = has_webrtc_addr(&self.listen_addresses);
+		let public_webrtc = has_webrtc_addr(&self.public_addresses);
+
+		// WebRTC is a litep2p-only transport.
+		if matches!(self.network_backend, NetworkBackendType::Libp2p) {
+			if listen_webrtc || public_webrtc {
+				return Err(crate::error::Error::WebRtcNotSupportedByBackend);
+			}
+			return Ok(());
+		}
+
+		match (listen_webrtc, public_webrtc) {
+			// Nothing about this configuration is WebRTC.
+			(false, false) => Ok(()),
+			// An address peers would be told to dial with no listener behind it.
+			// Defaults addresses has already been appended so we are sure there is effectively
+			// no listener behind.
+			(false, true) => Err(crate::error::Error::WebRtcTransportNotConfigured),
+			// The node listens for WebRTC, so it presents a certificate which can be
+			// appended to public addresses.
+			(true, _) => {
+				let keypair = self.node_key.clone().into_keypair()?;
+				let certificate = webrtc::derive_certificate(keypair.secret().into())
+					.map_err(crate::error::Error::Litep2p)?;
+				webrtc::validate_and_complete_addresses(
+					&self.listen_addresses,
+					&mut self.public_addresses,
+					certificate.certhash().into(),
+				)
+			},
+		}
 	}
 }
 
