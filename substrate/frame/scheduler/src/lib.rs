@@ -106,12 +106,10 @@ use sp_runtime::{
 	BoundedVec, Debug, DispatchError,
 };
 
-/// A task may claim the slots reserved by
-/// [`Config::PriorityReserve`](pallet::Config::PriorityReserve) only if its
-/// [`Priority`](schedule::Priority) is at most this value; otherwise it is rejected with
-/// [`DispatchError::Exhausted`] once the rest of the agenda is full. The scale is inverted (`0`
-/// is most urgent). It sits just below the `63` that governance uses for enactments, so ordinary
-/// scheduling keeps its existing priority without gaining access to the reserved slots.
+/// Maximum priority (inclusive) that may claim a
+/// [`Config::PriorityReserve`](pallet::Config::PriorityReserve) slot. Tasks above this
+/// threshold are rejected with [`DispatchError::Exhausted`] once the non-reserved portion
+/// of the agenda is full. Lower values are more urgent.
 pub const RESERVED_PRIORITY_THRESHOLD: schedule::Priority = 62;
 
 pub use pallet::*;

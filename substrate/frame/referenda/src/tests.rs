@@ -825,13 +825,12 @@ fn fill_non_reserved(block: u64) {
 #[test]
 fn priority_reserve_denies_privileged_submit_alarm_without_decision_deposit() {
 	ExtBuilder::default().build_and_execute(|| {
-		// The submit-time alarm always targets `now + UndecidingTimeout`.
 		let alarm_block =
 			System::block_number() + <<Test as Config>::UndecidingTimeout as Get<u64>>::get();
 		fill_non_reserved(alarm_block);
 
-		// A `Root` submission carries no decision deposit yet, so its alarm is gated to the
-		// normal band and rejected once the non-reserved slots are full.
+		// Without a decision deposit the alarm priority is ungated, so it cannot
+		// claim a reserved slot.
 		assert_noop!(
 			Referenda::submit(
 				RuntimeOrigin::signed(1),
@@ -856,17 +855,14 @@ fn priority_reserve_protects_privileged_alarm_after_decision_deposit() {
 			DispatchTime::After(0),
 		));
 
-		// Placing the deposit reschedules the alarm to the end of the `Root` prepare period.
 		let prepare_end = now + 4;
 		fill_non_reserved(prepare_end);
 		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
 
-		// The rescheduled alarm claimed a reserved slot at `prepare_end` even though the
-		// non-reserved portion was full, because a deposited `Root` referendum is reserve-band.
+		// After deposit the alarm uses the track's priority and claims a reserved slot.
 		assert_eq!(Referenda::ensure_ongoing(0).unwrap().alarm.unwrap().0, prepare_end);
 
-		// A normal-band task can no longer be scheduled into that block: the reserve is what the
-		// privileged alarm used, and the general portion is exhausted.
+		// The non-reserved portion is exhausted; a normal-priority task is rejected.
 		let filler = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
 		assert_noop!(
 			Scheduler::schedule(RuntimeOrigin::root(), prepare_end, None, 128, Box::new(filler)),

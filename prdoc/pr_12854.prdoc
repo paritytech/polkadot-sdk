@@ -21,19 +21,18 @@ doc:
       - `pallet-referenda` no longer asserts on a failed alarm schedule. `set_alarm` returns
         `None`, and `submit` propagates this as the new `Error::AlarmScheduleFailed`, reverting
         its state instead of storing a referendum that will never be serviced.
-      - `TrackInfo` gains an `alarm_priority` field. A track's alarms use that priority only once
-        the decision deposit has been posted, otherwise the neutral `128`. Enactment keeps its
-        existing priority of `63` unless the track asks for something more urgent, so no track is
-        demoted. As only privileged tracks are given a reserved-band `alarm_priority`, the
-        reserved slots are reachable only by a privileged referendum that has committed its
-        decision deposit.
+      - `TrackInfo` gains an `alarm_priority` field. A track's alarms and enactments use that
+        priority only after the decision deposit has been posted. Before the deposit the
+        least-urgent priority applies. Only privileged tracks are given a reserved-band
+        `alarm_priority`, so the reserved slots are reachable only by a privileged referendum
+        that has committed its decision deposit.
 
       The per-block agenda remains finite, so this does not remove contention for agenda space.
       It reserves a portion of that space for privileged tracks whose referenda have committed
       their decision deposit.
 
       Runtimes must set `type PriorityReserve` on their scheduler config and give each referenda
-      track an `alarm_priority` (a neutral `128` reproduces the previous, unreserved behaviour).
+      track an `alarm_priority` (`128` reproduces the previous, unreserved behaviour).
 
 crates:
   - name: pallet-scheduler

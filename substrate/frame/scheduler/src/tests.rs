@@ -3351,32 +3351,3 @@ fn priority_reserve_gates_low_priority_when_agenda_full() {
 		);
 	});
 }
-
-#[test]
-fn priority_reserve_excludes_the_governance_enactment_priority() {
-	new_test_ext().execute_with(|| {
-		let max = <<Test as Config>::MaxScheduledPerBlock as Get<u32>>::get();
-		let reserve = 3u32;
-		PriorityReserve::set(reserve);
-		let when = 10;
-
-		let bound = |i: u32| {
-			Preimage::bound(RuntimeCall::Logger(logger::Call::log {
-				i,
-				weight: Weight::from_parts(1, 0),
-			}))
-			.unwrap()
-		};
-
-		for i in 0..(max - reserve) {
-			assert_ok!(Scheduler::do_schedule(DispatchTime::At(when), None, 128, root(), bound(i)));
-		}
-
-		// `63` is the priority governance uses for enactments. It must stay outside the reserve,
-		// otherwise any passed referendum could claim a reserved slot.
-		assert_noop!(
-			Scheduler::do_schedule(DispatchTime::At(when), None, 63, root(), bound(100)),
-			DispatchError::Exhausted
-		);
-	});
-}

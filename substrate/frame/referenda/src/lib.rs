@@ -108,11 +108,6 @@ pub use self::{
 pub use alloc::vec::Vec;
 use sp_runtime::traits::BlockNumberProvider;
 
-/// Scheduler priority used for a referendum's enactment, and the least urgent priority a track's
-/// alarms may use. Tracks default to the neutral `128`, so only a track explicitly configured
-/// below this value gains access to the scheduler's reserved slots.
-const ENACTMENT_PRIORITY: frame_support::traits::schedule::Priority = 63;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -929,10 +924,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Earliest allowed block is always at minimum the next block.
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
-		// Enactment is reached only once the referendum passed, which required the decision
-		// deposit, so the track's `alarm_priority` applies. Tracks without a reserved-band
-		// priority keep the historical enactment priority rather than being demoted.
-		let priority = track.alarm_priority.min(ENACTMENT_PRIORITY);
+		let priority = track.alarm_priority;
 		let _ = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
@@ -968,15 +960,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		result.ok().map(|x| (when, x))
 	}
 
-	/// The scheduler priority for a track's lifecycle alarms, falling back to the neutral
-	/// `128` used historically when the track cannot be resolved.
 	fn track_alarm_priority(track: TrackIdOf<T, I>) -> frame_support::traits::schedule::Priority {
-		T::Tracks::info(track).map(|t| t.alarm_priority).unwrap_or(128)
+		T::Tracks::info(track).map(|t| t.alarm_priority).unwrap_or(u8::MAX)
 	}
 
-	/// The track's `alarm_priority` if the decision deposit is posted, otherwise the neutral
-	/// `128`. This keeps the scheduler's reserved band reachable only by a privileged track whose
-	/// referendum has committed its decision deposit.
+	/// Returns the track's `alarm_priority` if the decision deposit is posted, otherwise
+	/// the least-urgent priority. Only deposited, privileged referenda reach the reserved
+	/// scheduler band.
 	fn gated_alarm_priority(
 		track: TrackIdOf<T, I>,
 		has_decision_deposit: bool,
@@ -984,7 +974,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if has_decision_deposit {
 			Self::track_alarm_priority(track)
 		} else {
-			128
+			u8::MAX
 		}
 	}
 
