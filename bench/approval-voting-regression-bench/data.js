@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786728353732,
+  "lastUpdate": 1786740204273,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fb8ca008c2db780dbd690096d148368b75755cb3",
-          "message": "Statement-store: Follow-up improvements from PR #10718 review (#10770)\n\n# Description\n\nThis follow-up PR addresses review comments from PR #10718:\n- Removed unnecessary Result wrapper from statement_hashes() - method is\ninfallible\n- Added debug assertion to validate sent count matches prepared count\n\n## Integration\n\nShould not affect downstream projects.",
-          "timestamp": "2026-01-13T08:45:40Z",
-          "tree_id": "c57e294aee46328e45f991b740733a05b0b92896",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8ca008c2db780dbd690096d148368b75755cb3"
-        },
-        "date": 1768299261683,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52935.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63625.81999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.655546420032939,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001945522,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3473208526599967,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.783584883980037,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001981368,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005489782560000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6559250313100007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.664286091569999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.61648392338,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6752288032600005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8188503992400417,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001945522,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001981368,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.6591454004100012,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f81731cceec0977a85fca3f8e857b441c0e0cb6a",
+          "message": "asset-hub-westend: fix `NonTransfer` proxy falsely claiming `Governance` containment (#12769)\n\n# Description\n\n`ProxyType::NonTransfer` on Asset Hub Westend declared itself a superset\nof `ProxyType::Governance`, while its call filter denies the `Treasury`,\n`ConvictionVoting`, `Referenda` and `Whitelist` calls that `Governance`\nadmits.\n\n`pallet_proxy` gates `add_proxy`/`remove_proxy` on `is_superset`\n*before* it consults `filter`\n([proxy/src/lib.rs](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/proxy/src/lib.rs#L1005-L1023)),\nso a `NonTransfer` proxy could add a `Governance` proxy for its\ndelegator and thereby reach calls its own filter denies.\n\nFixes #12724 (found by the Runtime Whitebox Fuzzer).\n\n## Integration\n\nNo API change. The only behavioural difference is that a `NonTransfer`\nproxy can no longer add or remove a `Governance` proxy. Existing\n`Governance` proxies are unaffected, and the `Collator`, `Staking`,\n`NominationPools` and `StakingOperator` subsets of `NonTransfer` are\nunchanged.\n\n## Review Notes\n\n**Why the relation is the wrong side, not the filter.**\n\nThese proxy variants were introduced by the Asset Hub Migration from the\nrelay chain. On the Westend relay, `ProxyType::Governance => false` —\ngovernance moved to Asset Hub, so its filter admits *nothing*, which\nmakes the relay's blanket `(ProxyType::NonTransfer, _) => true` arm\n**vacuously correct** (the empty set is a subset of everything). The\nport carried that superset claim across, but on Asset Hub `Governance`\nis a real, non-empty filter, so the claim no longer holds.\n\nThe alternative fix — widening `NonTransfer.filter` to admit the\ngovernance families — would be wrong: `Treasury` is denied deliberately,\nsince treasury spends move funds, and that would contradict the\ndocumented \"can execute any call that does not transfer funds or\nassets\".\n\nSo the fix removes `Governance` from the superset arm:\n\n```diff\n \t\t\t(ProxyType::Staking, ProxyType::StakingOperator) => true,\n \t\t\t(\n \t\t\t\tProxyType::NonTransfer,\n \t\t\t\tProxyType::Collator |\n-\t\t\t\tProxyType::Governance |\n \t\t\t\tProxyType::Staking |\n \t\t\t\tProxyType::NominationPools |\n \t\t\t\tProxyType::StakingOperator,\n \t\t\t) => true,\n```\n\n**Tests.** Two were added to `tests/tests.rs`:\n\n- `non_transfer_proxy_is_not_a_superset_of_governance` — the reported\ncase, plus assertions that the four remaining `NonTransfer` subsets\nstill hold.\n- `proxy_type_superset_relation_matches_call_filters` — a generic\nproperty test: for every declared `is_superset` edge, the superset's\nfilter must admit every call its subset admits. It runs across all 15\n`ProxyType` variants against a call corpus covering each pallet family\nthe filters reference, so this class of bug cannot silently reappear on\na different edge. It includes an exhaustiveness guard (a `match` over\nevery variant) so adding a new `ProxyType` fails to compile until the\ncorpus list is updated.\n\nI verified the rest of the lattice by hand and the generic test agrees:\n`Assets ⊇ AssetOwner/AssetManager`, `Staking ⊇ StakingOperator` and the\nfour remaining `NonTransfer` edges are all sound. `Governance` was the\nonly broken one.\n\nBoth new tests were confirmed to **fail** with the fix reverted and pass\nwith it applied. Full `asset-hub-westend-runtime` suite: 54 passed, 0\nfailed.\n\nNote this is scoped to asset-hub-westend; asset-hub-rococo does not\ndefine these AHM proxy types.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-14T19:16:07Z",
+          "tree_id": "9fe6b29ea1923f563d206120db105401a65f272c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f81731cceec0977a85fca3f8e857b441c0e0cb6a"
+        },
+        "date": 1786740170524,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63559.05,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.639172838420002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6252263796399986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.362863929702703,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.783403486189968,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018872579999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.353982685949993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005040056970000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018872579999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.669958161679999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002128236,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002128236,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.831368995019974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6586543685100006,
             "unit": "seconds"
           }
         ]
