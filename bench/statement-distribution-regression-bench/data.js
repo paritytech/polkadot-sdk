@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786688856170,
+  "lastUpdate": 1786698391210,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "23cac32cb789a6a6e3a071a3f5cd293737098b71",
-          "message": "[CI] `All * passed` jobs check if cancelled (#10566)\n\nFail `All * passed` jobs if needs were cancelled, not just failed\ncc https://github.com/paritytech/devops/issues/4640",
-          "timestamp": "2025-12-08T12:56:53+01:00",
-          "tree_id": "ec56ccaf7a8dec1667f381931c952e30bcfdde93",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/23cac32cb789a6a6e3a071a3f5cd293737098b71"
-        },
-        "date": 1765197049719,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.96199999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03535026326000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04418034960199994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03948320704799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83433f49506387e564d606d5f7fda779e58ac61c",
+          "message": "collator-protocol-revamp: additional metrics (#12582)\n\nImproves the observability of the collator protocol revamp by\nadding/improving some metrics:\n\n- advertisements_total (labels: outcome) — counts triaged collation\nadvertisements, distinguishing accepted from each rejection reason:\nunconnected_peer, undeclared_peer, duplicate, out_of_view,\npeer_limit_reached, blocked_by_backing, v1_for_implicit_parent,\nscheduling_parent_invalid.\n- collations_seconded_total (labels: para_id) — collations sent to the\nbacking subsystem to be seconded, per para.\n- slashes_total (labels: para_id, reason) — collator reputation slashes,\nby para and reason (invalid_collation, failed_fetch).\n- approved_peer_signals_total (labels: para_id, outcome) — outcome of\nthe ApprovedPeer UMP signal on included v2+ candidates: present, absent,\ninvalid_peer_id, parse_error.\n- assigned_paras (gauge) — number of paras this validator is currently\nassigned to back (0 = idle).\n- connected_collators (labels: para_id, score_range) — number of\nconnected declared collators per para, bucketed by reputation score\nband. Bands are 0 (below the instant-fetch threshold), 1-99, 100-999,\nand 1000+.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T07:22:08Z",
+          "tree_id": "a94d79bc7abba6bd3ee85afefc3753d773ec2bb9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83433f49506387e564d606d5f7fda779e58ac61c"
+        },
+        "date": 1786698358084,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.10999999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04010264239800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08628676520999987,
             "unit": "seconds"
           }
         ]
