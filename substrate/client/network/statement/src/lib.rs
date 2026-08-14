@@ -650,7 +650,7 @@ pub struct StatementHandler<
 	initial_sync_in_flight_bytes: u64,
 	/// Statement hashes queued for propagation to each peer, drained from the front as chunks
 	/// are fetched, whether the fetch yields a send or not.
-	propagation_outboxes: HashMap<PeerId, Vec<Hash>>,
+	propagation_outboxes: HashMap<PeerId, VecDeque<Hash>>,
 	/// Id of the chunk in flight, per peer — the peer's single send slot, shared by
 	/// propagation and initial sync.
 	in_flight_chunks: HashMap<PeerId, u64>,
@@ -1519,13 +1519,16 @@ where
 		}
 
 		let outbox = self.propagation_outboxes.entry(*who).or_default();
-		outbox.extend(to_send);
 		// The freshest statements are the ones still worth delivering, so an overflowing
 		// outbox drops from the front.
-		let overflow = outbox.len().saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
+		let overflow = (outbox.len() + to_send.len()).saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
 		if overflow > 0 {
-			outbox.drain(..overflow);
+			let dropped_queued = overflow.min(outbox.len());
+			outbox.drain(..dropped_queued);
+			outbox.extend(to_send.into_iter().skip(overflow - dropped_queued));
 			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
+		} else {
+			outbox.extend(to_send);
 		}
 		self.try_send_next_chunk(*who);
 	}
@@ -1564,13 +1567,16 @@ where
 			}
 			let peer_version = peer_data.protocol_version;
 			let max_size = max_statement_payload_size(peer_version.envelope_overhead());
+			let Some(outbox) = self.propagation_outboxes.get_mut(&who) else {
+				return;
+			};
 			let (statements, processed, accumulated_size) = match fetch_statement_chunk(
 				&*self.statement_store,
 				&self.recently_received_statements,
 				&self.pending_statements_peers,
 				&who,
 				peer_data,
-				outbox,
+				outbox.make_contiguous(),
 				max_size,
 			) {
 				Ok(result) => result,
@@ -1596,9 +1602,7 @@ where
 
 			// Consume the fetched hashes before the oversized check, otherwise the oversized
 			// statement would be fetched again on the next iteration.
-			if let Some(outbox) = self.propagation_outboxes.get_mut(&who) {
-				outbox.drain(..processed);
-			}
+			outbox.drain(..processed);
 
 			if accumulated_size > max_size {
 				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
@@ -1671,10 +1675,18 @@ where
 		let kind_label = kind.label();
 		match kind {
 			SendKind::Propagation => {
+				debug_assert!(
+					self.propagation_in_flight_bytes >= bytes_sent,
+					"propagation in-flight byte counter underflow"
+				);
 				let in_flight = self.propagation_in_flight_bytes.saturating_sub(bytes_sent);
 				self.set_propagation_in_flight_bytes(in_flight);
 			},
 			SendKind::InitialSync { .. } => {
+				debug_assert!(
+					self.initial_sync_in_flight_bytes >= bytes_sent,
+					"initial-sync in-flight byte counter underflow"
+				);
 				let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
 				self.set_initial_sync_in_flight_bytes(in_flight);
 			},
@@ -2832,7 +2844,9 @@ mod tests {
 		let pruned_hash = pruned.hash();
 
 		// The pruned statement's hash is queued but the statement left the store.
-		handler.propagation_outboxes.insert(peer_id, vec![pruned_hash, kept_hash]);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![pruned_hash, kept_hash]));
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -2862,7 +2876,9 @@ mod tests {
 
 		// The oversized statement heads the outbox. It must be consumed, not
 		// re-fetched forever, and the statement behind it must still go out.
-		handler.propagation_outboxes.insert(peer_id, vec![oversized_hash, small_hash]);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![oversized_hash, small_hash]));
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -2920,7 +2936,9 @@ mod tests {
 		let second_hash = second.hash();
 		statement_store.statements.lock().unwrap().insert(first_hash, first);
 		statement_store.statements.lock().unwrap().insert(second_hash, second);
-		handler.propagation_outboxes.insert(peer_id, vec![first_hash, second_hash]);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![first_hash, second_hash]));
 
 		// Only the first chunk's send fails.
 		notification_service.fail_sends();
@@ -2964,13 +2982,14 @@ mod tests {
 		handler.in_flight_chunks.insert(peer_id, 0);
 		handler
 			.propagation_outboxes
-			.insert(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+			.insert(peer_id, VecDeque::from(vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]));
 
 		handler.propagate_statements().await;
 
 		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
 		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
-		let tail: HashSet<_> = outbox[MAX_PROPAGATION_OUTBOX_LEN - 3..].iter().copied().collect();
+		let tail: HashSet<_> =
+			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
 		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
 
 		let metrics = handler.metrics.as_ref().unwrap();
@@ -3003,7 +3022,7 @@ mod tests {
 		// The hash was appended while the peer's slot was busy, and the peer sent
 		// us the statement before the slot freed: the encode-time senders check
 		// must catch what the append-time check could not have seen.
-		handler.propagation_outboxes.insert(peer_id, vec![hash]);
+		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
 		handler.recently_received_statements.insert(hash, HashSet::from_iter([peer_id]));
 
 		handler.try_send_next_chunk(peer_id);
@@ -3694,7 +3713,10 @@ mod tests {
 		handler.propagate_statements().await;
 
 		assert!(handler.pending_sends.is_empty(), "no chunk may be queued over the budget");
-		assert_eq!(handler.propagation_outboxes.get(&peer_id).unwrap(), &vec![hash]);
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap(),
+			&VecDeque::from(vec![hash])
+		);
 		assert_eq!(handler.parked_propagations, VecDeque::from([peer_id]));
 
 		// A completed initial-sync send frees the budget and refills the parked peer.
