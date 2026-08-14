@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786712917408,
+  "lastUpdate": 1786722658077,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -204671,6 +204671,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2620151559,
             "range": "± 107728372",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40cae7d7f8db4bdcd64b6180311385c528028663",
+          "message": "Probe cargo for -Z json-target-spec support instead of guessing from the version (#12726)\n\nBoth PolkaVM build paths compile against a `.json` target spec produced\nby `polkavm-linker`,\nso both have to decide whether to pass cargo `-Z json-target-spec`:\nnewer cargo requires the\nflag for a JSON target, older cargo rejects it as unknown.\n\nBoth decided by comparing a version against 1.95.\n**`pallet-revive-fixtures` compared the\n`rustc` version to gate a `cargo` flag** — the wrong binary entirely.\n`wasm-builder` compared\nthe cargo version, which looks right but is not sufficient either: the\nflag landed partway\nthrough the 1.95 cycle, so a nightly from early in that cycle reports\n1.95 from *both*\nbinaries while its cargo does not know the flag yet:\n\n```\nrustc 1.95.0-nightly (474276961 2026-01-26)\ncargo 1.95.0-nightly (efcd9f586 2026-01-23)   <- no json-target-spec\n```\n\nThat is exactly the toolchain in our CI image\n(`ci-unified:bullseye-1.93.0-2026-01-27`), so\nany job that builds the fixtures on nightly fails:\n\n```\nerror: failed to run custom build command for `pallet-revive-fixtures`\n  error: unknown `-Z` flag specified: json-target-spec\n```\n\nThis is what breaks `check-semver` on PRs that touch\n`pallet-revive-fixtures` (it is one of\nthe few jobs running nightly rather than the pinned stable, because\nrustdoc JSON is\nnightly-only). It was not hit before because no other PR makes\n`parity-publish` rebuild that\ncrate, and `wasm-builder` never hit it because its JSON-target path only\nruns for\n`SUBSTRATE_RUNTIME_TARGET=riscv`.\n\nSince no version comparison can express \"does this cargo accept this\nflag\", ask cargo:\n\n```rust\nfn supports_json_target_spec(&self) -> bool {\n    self.command()\n        .env(\"RUSTC_BOOTSTRAP\", \"1\")\n        .args([\"-Z\", \"help\"])\n        .output()\n        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(\"json-target-spec\"))\n}\n```\n\nWhile here, the fixture builder had one more flag on the wrong oracle: a\nsingle rustc-version\nbool drove both `-Cpanic=immediate-abort` (a rustc flag) and the\n`-Zbuild-std-features=panic_immediate_abort` fallback (a cargo flag).\nThose are now separate,\neach gated on the version of the binary that parses it. `wasm-builder`\nneeded no such change:\nits `CargoCommand::version` already comes from `cargo --version`, and\nthe rustc version is\nonly used for the \"Using rustc version:\" printout.\n\n## Testing\n\n- Fixtures build clean on stable, contracts actually produced (not a\ncached skip).\n- Under `nightly-2026-01-27` — the CI toolchain — the `unknown -Z flag`\nerror is gone.\n- `cargo test -p pallet-revive --lib tests::pvm`: 137 passed, 0 failed.",
+          "timestamp": "2026-08-14T14:25:38Z",
+          "tree_id": "f042ecdd2b2f34c2df4c7d7ef380f3c9f8f62aaf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40cae7d7f8db4bdcd64b6180311385c528028663"
+        },
+        "date": 1786722625876,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4687143,
+            "range": "± 55103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 295345,
+            "range": "± 6297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4537121,
+            "range": "± 46959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 366498,
+            "range": "± 4857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5716142,
+            "range": "± 36210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 899953,
+            "range": "± 9215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10923063,
+            "range": "± 45446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4988674,
+            "range": "± 71293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45331139,
+            "range": "± 502023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41066523,
+            "range": "± 696194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 412244966,
+            "range": "± 5553474",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 329756707,
+            "range": "± 7775435",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 3013108629,
+            "range": "± 84103649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2645415359,
+            "range": "± 46901220",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3922431,
+            "range": "± 55714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1903959,
+            "range": "± 23298",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3829017,
+            "range": "± 86946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1950769,
+            "range": "± 11603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4137600,
+            "range": "± 47653",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2275707,
+            "range": "± 15783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8279787,
+            "range": "± 169103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5434570,
+            "range": "± 47560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39280282,
+            "range": "± 396508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37229728,
+            "range": "± 381497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 322802650,
+            "range": "± 5311691",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 282933162,
+            "range": "± 2843472",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2685792850,
+            "range": "± 40282240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2749379612,
+            "range": "± 201200731",
             "unit": "ns/iter"
           }
         ]
