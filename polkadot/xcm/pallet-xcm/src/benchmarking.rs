@@ -885,12 +885,7 @@ pub mod helpers {
 	/// suggests. Only `MAX_XCM_DECODE_DEPTH` and the caller's input limit keep it proportional
 	/// to the blob size; raising either re-opens that.
 	///
-	/// Never returns fewer than `target_bytes` bytes — see `weigh_message`'s docs for why
-	/// undershooting would under-charge.
-	///
-	/// Both building the blob and weighing it materialize every nested instruction, so heap use
-	/// is orders of magnitude above `target_bytes`. Keep `target_bytes` at or below
-	/// `MAX_WEIGHABLE_BLOB_BYTES`.
+	/// Keep `target_bytes` at or below	`MAX_WEIGHABLE_BLOB_BYTES`.
 	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
 	where
 		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,
