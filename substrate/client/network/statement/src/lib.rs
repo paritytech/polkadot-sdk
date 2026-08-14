@@ -4043,7 +4043,7 @@ mod tests {
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"backlog".to_vec());
 		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.insert(statement);
 		handler.schedule_initial_sync_for_peer(sync_peer);
 		assert!(handler.pending_initial_syncs.contains_key(&sync_peer));
 
