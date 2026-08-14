@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786688747230,
+  "lastUpdate": 1786698264938,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "manuel.mauro@protonmail.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b934d0a252f86568d92ac3baa56584bbd14e782",
-          "message": "Improve `charge_transaction_payment benchmark` ergonomics (#10444)\n\n# Description\n\nRuntimes that distribute transaction fees to block authors (like\nMoonbeam) fail on the `charge_transaction_payment` benchmark because no\nauthor is set when the benchmark runs. The fee distribution logic panics\nwhen trying to credit a non-existent author.\n\nThis PR introduces a `benchmarking::Config` trait with a\n`setup_benchmark_environment()` hook that runtimes can implement to set\nup required state before the benchmark executes.\n\nAdditionally, `amount_to_endow` is now calculated using `compute_fee()`\nto determine the actual fee (with a 10x buffer), ensuring it is at least\nthe existential deposit.\n\n## Integration\n\nRuntimes that need to set up state before running the\n`charge_transaction_payment` benchmark should implement\n`pallet_transaction_payment::benchmarking::Config`:\n\n```diff\n+ impl pallet_transaction_payment::benchmarking::Config for Runtime {\n+     fn setup_benchmark_environment() {\n+         // Set up any required state, e.g., block author for fee distribution\n+         let author: AccountId = frame_benchmarking::whitelisted_caller();\n+         pallet_author_inherent::Author::<Runtime>::put(author);\n+     }\n+ }\n```\n\nAnd update the benchmark list to use the wrapper type:\n\n```diff\n- [pallet_transaction_payment, TransactionPayment]\n+ [pallet_transaction_payment, TransactionPaymentBenchmark::<Runtime>]\n```\n\nRuntimes that don't need custom setup can use the default implementation\n(no-op).\n\n## Review Notes\n\n- A new `benchmarking::Config` trait extends `crate::Config` with a\n`setup_benchmark_environment()` method (default no-op)\n- A wrapper `Pallet<T>` struct is introduced in the benchmarking module\nto use this extended trait\n- The benchmark calls `T::setup_benchmark_environment()` at the start\n- `amount_to_endow` is calculated as\n`compute_fee(...).saturating_mul(10).max(existential_deposit)` to ensure\nthe account can exist and has sufficient funds\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-01-09T22:46:27Z",
-          "tree_id": "4b721d0fd834fac05e2082cd3a28dd6aab66f568",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b934d0a252f86568d92ac3baa56584bbd14e782"
-        },
-        "date": 1768003273190,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.4426500151,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12187987883333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.025616574666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83433f49506387e564d606d5f7fda779e58ac61c",
+          "message": "collator-protocol-revamp: additional metrics (#12582)\n\nImproves the observability of the collator protocol revamp by\nadding/improving some metrics:\n\n- advertisements_total (labels: outcome) — counts triaged collation\nadvertisements, distinguishing accepted from each rejection reason:\nunconnected_peer, undeclared_peer, duplicate, out_of_view,\npeer_limit_reached, blocked_by_backing, v1_for_implicit_parent,\nscheduling_parent_invalid.\n- collations_seconded_total (labels: para_id) — collations sent to the\nbacking subsystem to be seconded, per para.\n- slashes_total (labels: para_id, reason) — collator reputation slashes,\nby para and reason (invalid_collation, failed_fetch).\n- approved_peer_signals_total (labels: para_id, outcome) — outcome of\nthe ApprovedPeer UMP signal on included v2+ candidates: present, absent,\ninvalid_peer_id, parse_error.\n- assigned_paras (gauge) — number of paras this validator is currently\nassigned to back (0 = idle).\n- connected_collators (labels: para_id, score_range) — number of\nconnected declared collators per para, bucketed by reputation score\nband. Bands are 0 (below the instant-fetch threshold), 1-99, 100-999,\nand 1000+.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T07:22:08Z",
+          "tree_id": "a94d79bc7abba6bd3ee85afefc3753d773ec2bb9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83433f49506387e564d606d5f7fda779e58ac61c"
+        },
+        "date": 1786698231786,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1369375052333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.985659182866666,
             "unit": "seconds"
           }
         ]
