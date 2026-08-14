@@ -300,9 +300,10 @@ enum AccumulateLog {
     /// `parachain_service_upgrade(code_hash, ...)` was rejected because JAM
     /// does not report `code_hash`'s preimage as available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
-    /// The JAM `transfer` call replaying a `TransferOut`. Only the memo
-    /// hash is recorded, so the full 128-byte memo is not preserved. See §5.1 step 7.
-    TransferFailed { memo_hash: Hash },
+    /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
+    /// caller-supplied identifier from the `TransferOut`, echoed back so the
+    /// parachain can match the failure to its own record. See §5.1 step 7.
+    TransferFailed { id: Compact<u64>, error: TransferError },
     /// A `forget` removed the last referencer without expunging the preimage.
     /// See §6.1.
     ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
@@ -310,6 +311,25 @@ enum AccumulateLog {
     /// beyond its baseline and validation code(s); it must release the rest
     /// first. See §6.4.
     TooMuchStateHeld,
+}
+
+/// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 7.
+enum TransferError {
+    /// `source` is not a known service.
+    UnknownSource,
+    /// `dest` is not a known service.
+    UnknownDestination,
+    /// The service is not `source`'s effective supervisor; only its own regular
+    /// balance is exempt. Takes precedence over `DestinationNotSupervised`.
+    SourceNotSupervised,
+    /// A plain move to another service needs the service to be `dest`'s
+    /// effective supervisor. Also covers an identity write (`source == dest`
+    /// with both selectors equal).
+    DestinationNotSupervised,
+    /// The supplied gas is below `dest`'s `min_memo_gas`.
+    GasBelowDestinationMinimum,
+    /// The transfer would leave the Parachain Service below its threshold balance.
+    InsufficientServiceBalance,
 }
 
 struct PreimageEntry {
@@ -487,7 +507,21 @@ enum UpwardMessage {
     /// its footprint (see §6.1).
     RemoveKV { key: Vec<u8> },
     /// From `transfer_out`: transfer balance to another JAM service.
-    TransferOut { dest: ServiceId, amount: Compact<Amount>, memo: Memo },
+    /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
+    /// deferred transfer. JAM ignores the gas limit when no memo is supplied.
+    /// `source = None` means this service, matching JAM's self sentinel. The
+    /// two selectors choose the balance on each side: which of `source`'s is
+    /// debited, and which of `dest`'s receives the funds. True means the
+    /// supervisor balance. See §5.1 step 7.
+    TransferOut {
+        source: Option<ServiceId>,
+        dest: ServiceId,
+        amount: Compact<Amount>,
+        id: Compact<u64>,
+        source_supervisor_balance: bool,
+        dest_supervisor_balance: bool,
+        deferred: Option<(Memo, u64)>,
+    },
     /// From `assign_core`: schedule a core's `assign` (queue + assigner). See §7.1.
     AssignCore {
         core: CoreIndex,
@@ -632,7 +666,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent: no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
 | `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
 | `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent: no-op if the key is absent. |
-| `transfer_out(dest: ServiceId, amount: Balance, memo: Memo)` | `()` | Transfer balance to another JAM service (Asset Hub only). If the JAM `transfer` call fails during `accumulate`, an `AccumulateLog::TransferFailed { memo_hash }` entry is appended to the parachain's log. See §5.1 step 7. |
+| `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). See §5.1. |
@@ -817,6 +851,28 @@ coretime, so parachain logic must not depend on one being present, nor on one be
 absent. Anything a parachain needs to act on reliably belongs either in an `Opaque`
 payload its own PVF emitted, or in an accumulate event, which records a state change
 that has already happened.
+
+#### Outgoing transfers
+
+Replaying a `TransferOut` (step 7) forwards it to JAM `transfer`. `deferred`
+selects between the two modes that host-call offers (Gray Paper, `transfer`):
+
+| | `deferred = None` (plain move) | `deferred = Some((memo, gas))` |
+|---|---|---|
+| Destination code | none runs | destination's Accumulate runs with `gas` |
+| Gas charged | `C_gasT` only | `C_gasT + gas` |
+| Balance credited | immediately | when the destination accumulates |
+| Requires supervision of `dest` | **yes** | no |
+
+`gas` is charged to the **Parachain Service's own Accumulate gas**, which JAM pools
+from the gas limits the block's work items registered for the service. A transfer's
+`gas` must therefore be accounted against the limit registered by the candidate that
+requested it, so that one parachain cannot spend gas another registered. `transfer_out`
+is Asset Hub only, so keeping its demands within that allowance is Asset Hub's responsibility.
+
+`source` names the debited account, `None` meaning the Parachain Service itself.
+`source_supervisor_balance` and `dest_supervisor_balance` pick which balance is used
+on each side: the supervisor balance when true, the regular balance when false.
 
 The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
 tracking code upgrades, applying queued authorizer updates, and managing incoming

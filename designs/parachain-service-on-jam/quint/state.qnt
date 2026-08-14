@@ -226,7 +226,8 @@ module state {
     | DesignateRejected(p) => compactLen(p.len)
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32
-    | TransferFailed(_) => 32
+    // id Compact<u64> + TransferError tag 1.
+    | TransferFailed(p) => compactLen(p.id) + 1
     // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
     | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
     | TooMuchStateHeld => 0

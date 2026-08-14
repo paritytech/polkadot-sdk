@@ -64,6 +64,24 @@ module messages {
   | FromSolicit({ hash: Hash, len: int })
   | FromSetKV({ keyHash: Hash })
 
+  /// Why a JAM `transfer` replaying a `TransferOut` failed.
+  /// See §5.1 outgoing transfers.
+  type TransferError =
+  // source is not a known service.
+  | UnknownSource
+  // dest is not a known service.
+  | UnknownDestination
+  // The service is not source's effective supervisor; only its own regular
+  // balance is exempt. Takes precedence over the next one.
+  | SourceNotSupervised
+  // A plain move to another service needs the service to be dest's effective
+  // supervisor. Also covers an identity write (source == dest, selectors equal).
+  | DestinationNotSupervised
+  // The supplied gas is below dest's `min_memo_gas`.
+  | GasBelowDestinationMinimum
+  // The transfer would leave the service below its threshold balance.
+  | InsufficientServiceBalance
+
   type AccumulateLog =
   // Work-result's validation_code_hash matches neither active nor pending.
   | InvalidCodeHashAcc(ValidationCodeHash)
@@ -88,10 +106,10 @@ module messages {
   // (§5.4).
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
   // The JAM `transfer` call replaying a `TransferOut` upward message
-  // returned an error (destination service does not exist or refused the
-  // transfer). Only the memo hash is recorded — the full 128-byte memo
-  // is not preserved. See §5.1 step 7.
-  | TransferFailed({ memoHash: Hash })
+  // returned an error. `id` is the caller-supplied identifier from the
+  // `TransferOut`, echoed back so the parachain can match the failure to its
+  // own record. See §5.1 step 7.
+  | TransferFailed({ id: int, error: TransferError })
   // A `forget` removed the last referencer without expunging the preimage;
   // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
   | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
@@ -124,8 +142,19 @@ module messages {
   // kv_remove(para_id, key) — remove from key_value_storage. Same `paraId`
   // delegation rule as `Forget`.
   | RemoveKV({ paraId: ParaId, key: List[int] })
-  // transfer_out(dest, amount, memo) — Asset Hub only.
-  | TransferOut({ dest: ServiceId, amount: Balance, memo: Memo })
+  // transfer_out(source, dest, amount, id, sourceSupervisorBalance,
+  // destSupervisorBalance, deferred) — Asset Hub only.
+  // `deferred` is `None` for a plain move and `Some((memo, gas))` for a deferred
+  // transfer; the two are inseparable because JAM ignores the gas limit when no
+  // memo is supplied. `source = None` means this service, matching JAM's self
+  // sentinel. The two selectors choose the balance on each side — which of
+  // source's is debited and which of dest's receives the funds; true means the
+  // supervisor balance (§5.1 outgoing transfers).
+  | TransferOut({
+      source: Option[ServiceId], dest: ServiceId, amount: Balance, id: int,
+      sourceSupervisorBalance: bool, destSupervisorBalance: bool,
+      deferred: Option[(Memo, int)]
+    })
   // assign_core(core, queue, new_assigner, jam_slot) — Coretime only. Mirrors
   // JAM's `assign`, which writes a core's authorizer queue AND its assigner
   // atomically, so one call covers both.

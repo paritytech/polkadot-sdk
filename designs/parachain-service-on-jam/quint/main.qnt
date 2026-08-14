@@ -350,8 +350,25 @@ module main {
       // `pinned` path (§5.2).
       Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
       Forget({ paraId: para_id, hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      // AH-only — Refine rejects from non-AH callers (§4.3).
-      TransferOut({ dest: MkServiceId(0), amount: 100, memo: 0 }),
+      // AH-only — Refine rejects from non-AH callers (§4.3). Both transfer
+      // modes: a deferred transfer (memo + gas) and a plain move (neither),
+      // the self-moves between the service's own two balances, and a foreign
+      // source (§5.1).
+      TransferOut({ source: None, dest: MkServiceId(0), amount: 100, id: 1,
+        sourceSupervisorBalance: false, destSupervisorBalance: false,
+        deferred: Some((0, 1000)) }),
+      TransferOut({ source: None, dest: MkServiceId(0), amount: 100, id: 2,
+        sourceSupervisorBalance: false, destSupervisorBalance: false,
+        deferred: None }),
+      TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 3,
+        sourceSupervisorBalance: false, destSupervisorBalance: true,
+        deferred: None }),
+      TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 4,
+        sourceSupervisorBalance: true, destSupervisorBalance: false,
+        deferred: None }),
+      TransferOut({ source: Some(MkServiceId(0)), dest: MkServiceId(2),
+        amount: 100, id: 5, sourceSupervisorBalance: false,
+        destSupervisorBalance: false, deferred: None }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),

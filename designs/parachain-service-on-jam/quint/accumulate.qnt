@@ -235,14 +235,20 @@ module accumulate {
         jamAssigns: acc.jamAssigns,
         logs: acc.logs.concat(o.logs)
       }
-      | TransferOut(_) =>
-      // Asset-Hub-only outbound transfer. Modeled abstractly: the
-      // top-level `step` action routes the transfer into the destination
-      // service's incoming queue. Here we no-op. If the JAM `transfer`
-      // call fails (destination does not exist or refused the transfer),
-      // an `AccumulateLog::TransferFailed({ memoHash })` entry is appended
-      // to the parachain's log — not exercised in this abstract branch.
-      acc
+      | TransferOut(payload) =>
+      if (payload.source.optionGetOr(ParachainServiceId) != ParachainServiceId)
+        acc
+      else if (payload.sourceSupervisorBalance)
+        acc
+      else match payload.deferred {
+        | None =>
+          if (payload.dest == ParachainServiceId and payload.destSupervisorBalance)
+            acc
+          else
+            { ...acc, logs: acc.logs.append(
+              TransferFailed({ id: payload.id, error: DestinationNotSupervised })) }
+        | Some(_) => acc
+      }
       | AssignCore(payload) =>
       // §5.1 step 7 (replay). Schedules JAM `assign` for `jam_slot`: the entry
       // (queue + assigner) is cached and `applyAlwaysAccumulate` emits the

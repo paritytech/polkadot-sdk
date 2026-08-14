@@ -624,6 +624,67 @@ module tests {
       }))
   }
 
+  /// Every `TransferFailed` payload in `paraId`'s accumulate log, oldest first.
+  pure def transferFailures(s: ParachainServiceState, paraId: ParaId):
+    List[{ id: int, error: TransferError }] =
+  s.paraLog(paraId).foldl(List(), (acc, pair) => match pair._2 {
+    | AccumulateLogEntry(evs) => evs.foldl(acc, (a, e) => match e {
+      | TransferFailed(p) => a.append(p)
+      | _ => a
+    })
+    | RefineLogEntry(_) => acc
+  })
+
+  run transferOutPlainMoveNeedsSupervisionTest = {
+    val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
+    val dest = MkServiceId(5)
+    init
+      // Plain move to another service → rejected.
+      .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
+        List(TransferOut({ source: None, dest: dest, amount: 100, id: 77,
+          sourceSupervisorBalance: false, destSupervisorBalance: false,
+          deferred: None }))))))
+      // The caller-supplied id is echoed back untouched.
+      .then(expectThat(svc.transferFailures(AssetHubParaId) == List(
+        { id: 77, error: DestinationNotSupervised })))
+      // Deferred transfer → no supervision needed, so no new failure appears.
+      .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
+        List(TransferOut({ source: None, dest: dest, amount: 100, id: 78,
+          sourceSupervisorBalance: false, destSupervisorBalance: false,
+          deferred: Some((7, 1000)) }))))))
+      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
+      // Self-move into the service's own supervisor balance → permitted, so no
+      // new failure appears.
+      .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
+        List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
+          id: 79, sourceSupervisorBalance: false, destSupervisorBalance: true,
+          deferred: None }))))))
+      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
+      // The reverse self-move spends the supervisor balance, so its outcome
+      // depends on self-supervision the model abstracts away — no failure here.
+      .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
+        List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
+          id: 80, sourceSupervisorBalance: true, destSupervisorBalance: false,
+          deferred: None }))))))
+      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
+      // A foreign source always fails, but `UnknownSource` vs
+      // `SourceNotSupervised` turns on existence the model abstracts away.
+      .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
+        List(TransferOut({ source: Some(dest), dest: MkServiceId(6),
+          amount: 100, id: 81, sourceSupervisorBalance: false,
+          destSupervisorBalance: false, deferred: None }))))))
+      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
+      // Both selectors naming the regular balance on a self target is an
+      // identity write.
+      .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
+        List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
+          id: 82, sourceSupervisorBalance: false, destSupervisorBalance: false,
+          deferred: None }))))))
+      .then(expectThat(svc.transferFailures(AssetHubParaId) == List(
+        { id: 77, error: DestinationNotSupervised },
+        { id: 82, error: DestinationNotSupervised })))
+  }
+
   // --- Coretime para register / operate / cleanup ------------------------
 
   /// Full Coretime lifecycle for a new para:

@@ -74,8 +74,13 @@ module refine {
         + compactLen(p.value.length()) + p.value.length()
     // paraId 4 + Vec<u8> key (compact len prefix + bytes).
     | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
-    // dest 4 + amount Compact<u128> + memo 128.
-    | TransferOut(p) => 132 + compactLen(p.amount)
+    // dest 4 + two balance selectors 2 + amount Compact<u128> + id Compact<u64>
+    // + Option<ServiceId> source (1 tag + 4 when Some)
+    // + Option<(Memo, gas)> (1 tag + 128 memo + 8 gas when Some).
+    | TransferOut(p) =>
+      6 + compactLen(p.amount) + compactLen(p.id)
+        + (match p.source { | Some(_) => 5 | None => 1 })
+        + (match p.deferred { | Some(_) => 137 | None => 1 })
     // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
     // + Option<ServiceId> (1 tag + 4 when Some) + jamSlot 4.
     | AssignCore(p) =>
