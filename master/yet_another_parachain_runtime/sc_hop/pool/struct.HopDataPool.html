@@ -155,6 +155,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     retention_secs: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>,
     data_dir: <a class="struct" href="https://doc.rust-lang.org/1.93.0/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a>,
     rate_limit_cfg: <a class="struct" href="../struct.RateLimitConfig.html" title="struct yet_another_parachain_runtime::sc_hop::RateLimitConfig">RateLimitConfig</a>,
+    metrics: <a class="struct" href="../struct.HopMetrics.html" title="struct yet_another_parachain_runtime::sc_hop::HopMetrics">HopMetrics</a>,
 ) -&gt; <a class="enum" href="../../sc_service/enum.Result.html" title="enum yet_another_parachain_runtime::sc_service::Result">Result</a>&lt;<a class="struct" href="../struct.HopDataPool.html" title="struct yet_another_parachain_runtime::sc_hop::HopDataPool">HopDataPool</a>, <a class="enum" href="../enum.HopError.html" title="enum yet_another_parachain_runtime::sc_hop::HopError">HopError</a>&gt;</h4></section></summary><div class="docblock"><p>Create a new disk-backed data pool.</p>
 <p>Creates shard directories under <code>data_dir</code> and rebuilds the in-memory index
 from existing <code>.meta</code> files on disk (recovery after restart).</p>
@@ -185,11 +186,14 @@ to confirm receipt.</p>
 cleanup when all recipients have acked.</p>
 <p>Idempotent: acking a recipient that already acked returns <code>Ok(())</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.status" class="method"><h4 class="code-header">pub fn <a href="#method.status" class="fn">status</a>(&amp;self) -&gt; <a class="struct" href="../struct.PoolStatus.html" title="struct yet_another_parachain_runtime::sc_hop::PoolStatus">PoolStatus</a></h4></section></summary><div class="docblock"><p>Get pool status.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.cleanup_expired" class="method"><h4 class="code-header">pub fn <a href="#method.cleanup_expired" class="fn">cleanup_expired</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a></h4></section></summary><div class="docblock"><p>Remove expired entries and release their user quotas.
+</div></details><details class="toggle method-toggle" open><summary><section id="method.cleanup_expired" class="method"><h4 class="code-header">pub fn <a href="#method.cleanup_expired" class="fn">cleanup_expired</a>(&amp;self, promotion_buffer_secs: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a></h4></section></summary><div class="docblock"><p>Remove expired entries and release their user quotas.
 Returns the total bytes freed.</p>
 <p>Processes entries in bounded batches to keep the index write lock from
 being held across the full HashMap on huge pools. After all batches the
 per-sender <code>user_usage</code> map is GC’d in a single pass.</p>
+<p><code>promotion_buffer_secs</code> does not affect what is cleaned up. As in
+<a href="../struct.HopDataPool.html#method.get_promotable" title="method yet_another_parachain_runtime::sc_hop::HopDataPool::get_promotable"><code>Self::get_promotable</code></a> the caller owns the promotion window; here it
+only scopes the backlog gauge, snapshot from the phase-4 pass.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.get_promotable" class="method"><h4 class="code-header">pub fn <a href="#method.get_promotable" class="fn">get_promotable</a>(
     &amp;self,
     current_block: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
