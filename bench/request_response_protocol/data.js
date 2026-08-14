@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786708040209,
+  "lastUpdate": 1786711098228,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -114263,6 +114263,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2821970462,
             "range": "± 23081377",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e8a17308779bf0233cd3210d0f427291740f954d",
+          "message": "beefy: lower peer reputation for bad responses (#12812)\n\nBad BEEFY justifications are refused and also the sending peer\npenalized.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-14T11:26:17Z",
+          "tree_id": "7d01bdc59e5b7da68d3b48dd978786c798e57aa5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e8a17308779bf0233cd3210d0f427291740f954d"
+        },
+        "date": 1786711064584,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22675478,
+            "range": "± 844882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22011609,
+            "range": "± 586211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23562347,
+            "range": "± 483346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28770885,
+            "range": "± 1398496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66562313,
+            "range": "± 1723312",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 406605264,
+            "range": "± 13675393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2672025271,
+            "range": "± 76774407",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19245367,
+            "range": "± 626233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18613080,
+            "range": "± 264946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19276046,
+            "range": "± 254800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 26232148,
+            "range": "± 1043998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67983752,
+            "range": "± 2199438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 388381315,
+            "range": "± 4157297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2855410402,
+            "range": "± 60741170",
             "unit": "ns/iter"
           }
         ]
