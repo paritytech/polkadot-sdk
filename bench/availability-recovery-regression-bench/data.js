@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786657313550,
+  "lastUpdate": 1786666402091,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0f28d8104be04cb13ac39ccfd17240f703953c33",
-          "message": "test-utils/fix: Parachains test-utils relay parent descendants mock data (#10541)\n\nThis PR ensures that the parachains test-utils crate has 2 relay parent\ndescendants for testing purposes.\n\nEffectively fixes a panic because we missed this mock data for chains\nthat started with `RP_offset > 0`:\n\n```\n Unable to verify provided relay parent descendants. expected_rp_descendants_num: 1 error: InvalidNumberOfDescendants { expected: 2, received: 0 }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n```\n\nDetected in:\n-\nhttps://github.com/polkadot-fellows/runtimes/actions/runs/19857064730/job/56897622908?pr=1018\n\nUnblocks:\n- https://github.com/polkadot-fellows/runtimes/pull/1018\n\nInspired by a similar fix I've introduced in:\n- https://github.com/paritytech/polkadot-sdk/pull/9880\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-12-10T11:51:44Z",
-          "tree_id": "0c244995ac7aa98401ec78b89e53b7cac27cb8fd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f28d8104be04cb13ac39ccfd17240f703953c33"
-        },
-        "date": 1765372159586,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.589277094466668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19871638223333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.836529652500001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "363911+pepoviola@users.noreply.github.com",
+            "name": "Javier Viola",
+            "username": "pepoviola"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f66cbc490fe785ac13c025db2b27fe41433e66f7",
+          "message": "[zombienet] make zombienet cumulus/polkadot workflows not required (#12872)\n\nWe started to saw a spike in failures that are causing friction in CI,\nlet's make `cumulus`/`polkadot` workflows not required for now.\nFollowing issue https://github.com/paritytech/polkadot-sdk/issues/12871\n\ncc: @bkchr / @sandreim",
+          "timestamp": "2026-08-13T22:47:38Z",
+          "tree_id": "7801f0acad2b107c79ff8453df4c75d5973edfa1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f66cbc490fe785ac13c025db2b27fe41433e66f7"
+        },
+        "date": 1786666369590,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.111252468,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14378084586666667,
             "unit": "seconds"
           }
         ]
