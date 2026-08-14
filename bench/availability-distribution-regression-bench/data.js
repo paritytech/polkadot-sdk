@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786715064349,
+  "lastUpdate": 1786722979955,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0130e98195941a7ce009547b797dcd007003424a",
-          "message": "[Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530)\n\nStoring release and non-release distribution binaries into different\nbuckets (only for RPM in this PR)\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-12T18:16:26Z",
-          "tree_id": "dc9fb6e050543bdbe4487b33168190ca4b51144c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0130e98195941a7ce009547b797dcd007003424a"
-        },
-        "date": 1768245789467,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022960937,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009917854873333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14360186776000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007030749146666669,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007597295540000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40cae7d7f8db4bdcd64b6180311385c528028663",
+          "message": "Probe cargo for -Z json-target-spec support instead of guessing from the version (#12726)\n\nBoth PolkaVM build paths compile against a `.json` target spec produced\nby `polkavm-linker`,\nso both have to decide whether to pass cargo `-Z json-target-spec`:\nnewer cargo requires the\nflag for a JSON target, older cargo rejects it as unknown.\n\nBoth decided by comparing a version against 1.95.\n**`pallet-revive-fixtures` compared the\n`rustc` version to gate a `cargo` flag** — the wrong binary entirely.\n`wasm-builder` compared\nthe cargo version, which looks right but is not sufficient either: the\nflag landed partway\nthrough the 1.95 cycle, so a nightly from early in that cycle reports\n1.95 from *both*\nbinaries while its cargo does not know the flag yet:\n\n```\nrustc 1.95.0-nightly (474276961 2026-01-26)\ncargo 1.95.0-nightly (efcd9f586 2026-01-23)   <- no json-target-spec\n```\n\nThat is exactly the toolchain in our CI image\n(`ci-unified:bullseye-1.93.0-2026-01-27`), so\nany job that builds the fixtures on nightly fails:\n\n```\nerror: failed to run custom build command for `pallet-revive-fixtures`\n  error: unknown `-Z` flag specified: json-target-spec\n```\n\nThis is what breaks `check-semver` on PRs that touch\n`pallet-revive-fixtures` (it is one of\nthe few jobs running nightly rather than the pinned stable, because\nrustdoc JSON is\nnightly-only). It was not hit before because no other PR makes\n`parity-publish` rebuild that\ncrate, and `wasm-builder` never hit it because its JSON-target path only\nruns for\n`SUBSTRATE_RUNTIME_TARGET=riscv`.\n\nSince no version comparison can express \"does this cargo accept this\nflag\", ask cargo:\n\n```rust\nfn supports_json_target_spec(&self) -> bool {\n    self.command()\n        .env(\"RUSTC_BOOTSTRAP\", \"1\")\n        .args([\"-Z\", \"help\"])\n        .output()\n        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(\"json-target-spec\"))\n}\n```\n\nWhile here, the fixture builder had one more flag on the wrong oracle: a\nsingle rustc-version\nbool drove both `-Cpanic=immediate-abort` (a rustc flag) and the\n`-Zbuild-std-features=panic_immediate_abort` fallback (a cargo flag).\nThose are now separate,\neach gated on the version of the binary that parses it. `wasm-builder`\nneeded no such change:\nits `CargoCommand::version` already comes from `cargo --version`, and\nthe rustc version is\nonly used for the \"Using rustc version:\" printout.\n\n## Testing\n\n- Fixtures build clean on stable, contracts actually produced (not a\ncached skip).\n- Under `nightly-2026-01-27` — the CI toolchain — the `unknown -Z flag`\nerror is gone.\n- `cargo test -p pallet-revive --lib tests::pvm`: 137 passed, 0 failed.",
+          "timestamp": "2026-08-14T14:25:38Z",
+          "tree_id": "f042ecdd2b2f34c2df4c7d7ef380f3c9f8f62aaf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40cae7d7f8db4bdcd64b6180311385c528028663"
+        },
+        "date": 1786722945923,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022823261813333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007562986986666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01022466150666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1440005951066667,
             "unit": "seconds"
           }
         ]
