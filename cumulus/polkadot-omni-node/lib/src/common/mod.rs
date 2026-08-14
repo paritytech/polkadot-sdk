@@ -33,18 +33,20 @@ use cumulus_primitives_core::{
 	CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi, SchedulingV3EnabledApi,
 };
 use sc_client_db::DbHash;
+use sc_network_sync::strategy::chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider};
 use sc_offchain::OffchainWorkerApi;
+use sc_service::BlocksPruning;
 use serde::de::DeserializeOwned;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumber, Header as HeaderT, NumberFor},
-	OpaqueExtrinsic,
+	OpaqueExtrinsic, SaturatedConversion,
 };
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{fmt::Debug, path::PathBuf, str::FromStr};
+use std::{fmt::Debug, path::PathBuf, str::FromStr, sync::Arc};
 
 pub trait NodeBlock:
 	BlockT<Extrinsic = OpaqueExtrinsic, Header = Self::BoundedHeader, Hash = DbHash>
@@ -145,4 +147,155 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+}
+
+/// Safety margin, in blocks, subtracted from the runtime's transaction-storage retention
+/// period when deriving the gap sync body download window.
+///
+/// Bodies are only required for blocks above `finalized - (retention - margin)`. The
+/// margin covers the finality lead of serving peers over the local node plus request,
+/// retry and import-queue delays, so that every conforming peer still retains the bodies
+/// we require. It is small compared to real retention periods, which span days or weeks.
+pub(crate) const GAP_SYNC_BODY_SAFETY_MARGIN: u32 = 128;
+
+/// Returns the [`GapSyncBodyPolicyProvider`] for this node.
+///
+/// The provider is evaluated when a `ChainSync` instance is created — on a warp-syncing
+/// node right after state sync completes — so it queries the runtime at the best block
+/// (the warp target) instead of genesis. A runtime API failure or an invalid
+/// configuration fails `ChainSync` creation and thereby the node, instead of silently
+/// degrading a storage chain to header-only gap sync.
+pub(crate) fn gap_sync_body_policy_provider<Block, Client>(
+	client: Arc<Client>,
+	blocks_pruning: BlocksPruning,
+) -> GapSyncBodyPolicyProvider
+where
+	Block: BlockT,
+	Client: sp_api::ProvideRuntimeApi<Block> + sp_blockchain::HeaderBackend<Block> + 'static,
+	Client::Api: TransactionStorageApi<Block>,
+{
+	Arc::new(move || {
+		let at = client.info().best_hash;
+		let api = client.runtime_api();
+		let has_storage_api = api
+			.has_api_with::<dyn TransactionStorageApi<Block>, _>(at, |version| version >= 2)
+			.map_err(sp_blockchain::Error::RuntimeApiError)?;
+		let storage_chain_retention = has_storage_api
+			.then(|| {
+				api.retention_period(at)
+					.map(|retention| retention.saturated_into::<u32>())
+					.map_err(sp_blockchain::Error::RuntimeApiError)
+			})
+			.transpose()?;
+
+		let policy = resolve_gap_sync_body_policy(
+			storage_chain_retention,
+			blocks_pruning,
+			GAP_SYNC_BODY_SAFETY_MARGIN,
+		)
+		.map_err(|error| sp_blockchain::Error::Application(error.into()))?;
+		log::info!(
+			"Resolved gap sync body policy {policy:?} (runtime retention period: \
+			 {storage_chain_retention:?}, blocks pruning: {blocks_pruning:?}, safety margin: \
+			 {GAP_SYNC_BODY_SAFETY_MARGIN})",
+		);
+		Ok(policy)
+	})
+}
+
+/// Maps the runtime's transaction-storage retention period (`None` when the runtime does
+/// not expose `TransactionStorageApi` v2) and the local pruning configuration onto a
+/// [`GapSyncBodyPolicy`], validating that the configuration can actually serve the
+/// storage chain.
+fn resolve_gap_sync_body_policy(
+	storage_chain_retention: Option<u32>,
+	blocks_pruning: BlocksPruning,
+	safety_margin: u32,
+) -> Result<GapSyncBodyPolicy, String> {
+	let Some(retention_period) = storage_chain_retention else {
+		// Not a storage chain: archive nodes backfill the whole gap with bodies, pruned
+		// nodes backfill headers and justifications only.
+		return Ok(match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => GapSyncBodyPolicy::All,
+			BlocksPruning::Some(_) => GapSyncBodyPolicy::HeadersOnly,
+		});
+	};
+
+	match blocks_pruning {
+		// Archive nodes retain every body anyway; no safety cutoff is necessary.
+		BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => Ok(GapSyncBodyPolicy::All),
+		BlocksPruning::Some(window) => {
+			if safety_margin >= retention_period {
+				return Err(format!(
+					"the gap sync body safety margin ({safety_margin}) must be smaller than \
+					 the runtime's transaction storage retention period ({retention_period}), \
+					 otherwise no gap bodies would be downloaded",
+				));
+			}
+			if window < retention_period {
+				return Err(format!(
+					"the blocks pruning window ({window}) must be at least the runtime's \
+					 transaction storage retention period ({retention_period}) on a storage \
+					 chain; increase `--blocks-pruning`",
+				));
+			}
+			Ok(GapSyncBodyPolicy::RequiredWithin(retention_period - safety_margin))
+		},
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn no_storage_chain_maps_pruning_to_default_policy() {
+		for (blocks_pruning, expected) in [
+			(BlocksPruning::KeepAll, GapSyncBodyPolicy::All),
+			(BlocksPruning::KeepFinalized, GapSyncBodyPolicy::All),
+			(BlocksPruning::Some(256), GapSyncBodyPolicy::HeadersOnly),
+		] {
+			assert_eq!(
+				resolve_gap_sync_body_policy(None, blocks_pruning, GAP_SYNC_BODY_SAFETY_MARGIN),
+				Ok(expected),
+			);
+		}
+	}
+
+	#[test]
+	fn storage_chain_enables_required_within_with_pre_shrunk_window() {
+		assert_eq!(
+			resolve_gap_sync_body_policy(Some(100_800), BlocksPruning::Some(200_000), 128),
+			Ok(GapSyncBodyPolicy::RequiredWithin(100_800 - 128)),
+		);
+	}
+
+	#[test]
+	fn storage_chain_archive_nodes_download_all_bodies() {
+		for blocks_pruning in [BlocksPruning::KeepAll, BlocksPruning::KeepFinalized] {
+			assert_eq!(
+				resolve_gap_sync_body_policy(Some(100_800), blocks_pruning, 128),
+				Ok(GapSyncBodyPolicy::All),
+			);
+		}
+	}
+
+	#[test]
+	fn safety_margin_must_be_smaller_than_retention() {
+		for margin in [100, 101] {
+			assert!(
+				resolve_gap_sync_body_policy(Some(100), BlocksPruning::Some(1000), margin).is_err()
+			);
+		}
+		assert!(resolve_gap_sync_body_policy(Some(100), BlocksPruning::Some(1000), 99).is_ok());
+	}
+
+	#[test]
+	fn pruning_window_must_cover_retention() {
+		assert!(resolve_gap_sync_body_policy(Some(1000), BlocksPruning::Some(999), 128).is_err());
+		assert_eq!(
+			resolve_gap_sync_body_policy(Some(1000), BlocksPruning::Some(1000), 128),
+			Ok(GapSyncBodyPolicy::RequiredWithin(872)),
+		);
+	}
 }

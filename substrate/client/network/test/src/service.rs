@@ -35,7 +35,7 @@ use sc_network_sync::{
 	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
 	strategy::{
-		chain_sync::BlockBodyRetention,
+		chain_sync::GapSyncBodyPolicy,
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 	},
 };
@@ -217,7 +217,7 @@ impl TestNetworkBuilder {
 			min_peers_to_start_warp_sync: None,
 			// Keep gap sync header-only in this harness, matching the previous
 			// non-archive behavior.
-			body_retention: BlockBodyRetention::Recent(0),
+			gap_sync_body_policy: Arc::new(|| Ok(GapSyncBodyPolicy::HeadersOnly)),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

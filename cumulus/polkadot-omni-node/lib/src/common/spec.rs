@@ -463,6 +463,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
 					metrics,
+					gap_sync_body_policy: Some(crate::common::gap_sync_body_policy_provider(
+						client.clone(),
+						parachain_config.blocks_pruning,
+					)),
 				})
 				.await?;
 

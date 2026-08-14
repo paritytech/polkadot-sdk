@@ -47,7 +47,7 @@ use crate::{
 use codec::Encode;
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
-use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
+use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -138,6 +138,9 @@ mod rep {
 struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
+	gap_body_empty_responses: Counter<U64>,
+	gap_header_only_downgrades: Counter<U64>,
+	gap_oldest_required_body: Gauge<U64>,
 }
 
 impl Metrics {
@@ -150,6 +153,30 @@ impl Metrics {
 			},
 			fork_targets: {
 				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
+				register(g, r)?
+			},
+			gap_body_empty_responses: {
+				let c = Counter::new(
+					"substrate_sync_gap_body_empty_responses_total",
+					"Number of empty responses to gap sync requests that required bodies; \
+					 each drops the responding peer",
+				)?;
+				register(c, r)?
+			},
+			gap_header_only_downgrades: {
+				let c = Counter::new(
+					"substrate_sync_gap_header_only_downgrades_total",
+					"Number of gap sync requests issued header-only because the moving body \
+					 cutoff passed the range",
+				)?;
+				register(c, r)?
+			},
+			gap_oldest_required_body: {
+				let g = Gauge::new(
+					"substrate_sync_gap_oldest_required_body",
+					"Oldest block number for which gap sync still requires a body; \
+					 0 when gap sync is inactive or bodies are not required",
+				)?;
 				register(g, r)?
 			},
 		})
@@ -293,20 +320,33 @@ impl ChainSyncMode {
 	}
 }
 
-/// How many historical block bodies the local node retains, mirroring the client's
-/// block pruning configuration.
+/// Which block bodies gap sync downloads while backfilling the block history below a
+/// warp-synced block.
 ///
-/// During gap sync, bodies are requested only for blocks the pruning configuration
-/// would retain anyway: the whole gap for [`BlockBodyRetention::All`], and blocks
-/// above `finalized - n` for [`BlockBodyRetention::Recent`]. Everything below is
-/// backfilled with headers and justifications only.
+/// The anchor below is `max(finalized_number, gap_target + 1)`: the gap is created by
+/// importing a finalized block right above it, so the gap target bounds the finalized
+/// number from below even while the client's finality info still lags right after warp
+/// sync.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum BlockBodyRetention {
-	/// All (finalized) block bodies are retained.
+pub enum GapSyncBodyPolicy {
+	/// Backfill gap headers and justifications without bodies.
+	HeadersOnly,
+	/// Require bodies for the complete gap.
 	All,
-	/// Only the bodies of the most recent `n` finalized blocks are retained.
-	Recent(u32),
+	/// Require bodies for blocks above `anchor - window`. The window is expected to be
+	/// pre-shrunk by the node with a safety margin, so that peers whose finality runs
+	/// ahead of ours still retain every requested body.
+	RequiredWithin(u32),
 }
+
+/// Resolves the [`GapSyncBodyPolicy`] lazily, when a `ChainSync` instance is created.
+///
+/// On a warp-syncing node this happens right after state sync completes, so the
+/// provider can query runtime state at the warp target — which a policy computed at
+/// node startup could not (a fresh node only has genesis state then). Errors fail
+/// `ChainSync` creation instead of silently degrading the policy.
+pub type GapSyncBodyPolicyProvider =
+	Arc<dyn Fn() -> Result<GapSyncBodyPolicy, ClientError> + Send + Sync>;
 
 /// All the data we have about a Peer that we are trying to sync with
 #[derive(Debug, Clone)]
@@ -432,9 +472,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Block-body retention of the local node. Gap sync requests bodies only for blocks
-	/// the pruning configuration would retain.
-	body_retention: BlockBodyRetention,
+	/// Which block bodies gap sync downloads.
+	gap_sync_body_policy: GapSyncBodyPolicy,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -1070,10 +1109,14 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		body_retention: BlockBodyRetention,
+		gap_sync_body_policy: GapSyncBodyPolicy,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
+		info!(
+			target: LOG_TARGET,
+			"Gap sync body policy: {gap_sync_body_policy:?}",
+		);
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
@@ -1094,7 +1137,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
-			body_retention,
+			gap_sync_body_policy,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1308,6 +1351,21 @@ where
 					},
 					PeerSyncState::DownloadingGap(_) => {
 						peer.state = PeerSyncState::Available;
+						if blocks.is_empty() && request.fields.contains(BlockAttributes::BODY) {
+							// The peer cannot serve the required bodies: the safety-adjusted
+							// window keeps mandatory body requests serviceable by every
+							// conforming peer, so this peer is misconfigured, itself not
+							// backfilled yet, or malicious. `validate_blocks` below drops it,
+							// freeing the range for another peer.
+							warn!(
+								target: LOG_TARGET,
+								"Peer {peer_id} sent an empty response for gap block request \
+								 {request:?} that required bodies; disconnecting it",
+							);
+							if let Some(metrics) = &self.metrics {
+								metrics.gap_body_empty_responses.inc();
+							}
+						}
 						if let Some(gap_sync) = &mut self.gap_sync {
 							gap_sync.blocks.clear_peer_download(peer_id);
 							if let Some(start_block) =
@@ -1978,18 +2036,39 @@ where
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
 		let finalized_number = self.client.info().finalized_number;
-		// Gap sync requests bodies only for blocks the pruning configuration would
-		// retain: everything above this cutoff. The gap is created by importing a
-		// finalized block right above it, so `gap.target + 1` is a lower bound for the
-		// finalized number even while the client's finality info still lags right
-		// after warp sync.
+		// The gap is created by importing a finalized block right above it, so
+		// `gap.target + 1` is a lower bound for the finalized number even while the
+		// client's finality info still lags right after warp sync.
 		let body_anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
 			std::cmp::max(finalized_number, gap.target + One::one())
 		});
-		let gap_body_cutoff = match self.body_retention {
-			BlockBodyRetention::All => None,
-			BlockBodyRetention::Recent(n) => Some(body_anchor.saturating_sub(n.into())),
+		// The block attributes for gap requests and, for `RequiredWithin`, the moving
+		// body cutoff: bodies are required for blocks above it and stripped from ranges
+		// entirely at or below it. The cutoff is recomputed every scheduling pass so it
+		// follows finality.
+		let (gap_attrs, gap_body_cutoff) = {
+			let attrs = mode.required_block_attributes();
+			match self.gap_sync_body_policy {
+				GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
+				GapSyncBodyPolicy::All => (attrs, None),
+				GapSyncBodyPolicy::RequiredWithin(window) => {
+					(attrs, Some(body_anchor.saturating_sub(window.into())))
+				},
+			}
 		};
+		if let (Some(metrics), Some(cutoff), Some(gap)) =
+			(self.metrics.as_ref(), gap_body_cutoff, self.gap_sync.as_ref())
+		{
+			// The oldest block still requiring a body: the lowest not-yet-queued gap
+			// block, clamped from below by the cutoff (blocks at or below it are
+			// header-only).
+			let oldest_required = std::cmp::max(gap.best_queued_number, cutoff) + One::one();
+			metrics.gap_oldest_required_body.set(if oldest_required <= gap.target {
+				oldest_required.saturated_into::<u64>()
+			} else {
+				0
+			});
+		}
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
 		let last_finalized = std::cmp::min(self.best_queued_number, finalized_number);
@@ -2082,11 +2161,12 @@ where
 						&id,
 						peer,
 						&mut sync.blocks,
-						mode.required_block_attributes(),
+						gap_attrs,
 						gap_body_cutoff,
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
+						metrics,
 					)
 				}) {
 					peer.state = PeerSyncState::DownloadingGap(range.start);
@@ -2399,6 +2479,7 @@ fn peer_gap_block_request<B: BlockT>(
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
+	metrics: Option<&Metrics>,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
 	let range = blocks.needed_blocks(
 		*id,
@@ -2414,7 +2495,12 @@ fn peer_gap_block_request<B: BlockT>(
 	let from = FromBlock::Number(last);
 
 	let attrs = match body_cutoff {
-		Some(cutoff) if last <= cutoff => attrs & !BlockAttributes::BODY,
+		Some(cutoff) if last <= cutoff => {
+			if let Some(metrics) = metrics {
+				metrics.gap_header_only_downgrades.inc();
+			}
+			attrs & !BlockAttributes::BODY
+		},
 		_ => attrs,
 	};
 

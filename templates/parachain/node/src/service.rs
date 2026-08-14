@@ -301,6 +301,7 @@ pub async fn start_parachain_node(
 			metrics: sc_network::NetworkWorker::<Block, Hash>::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
+			gap_sync_body_policy: None,
 		})
 		.await?;
 	let collator_peer_id = relay_chain_network.local_peer_id();

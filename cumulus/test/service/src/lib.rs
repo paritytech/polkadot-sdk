@@ -376,6 +376,7 @@ where
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
 			sybil_resistance_level: CollatorSybilResistance::Resistant,
+			gap_sync_body_policy: None,
 		})
 		.await?;
 

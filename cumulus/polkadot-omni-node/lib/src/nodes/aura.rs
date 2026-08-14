@@ -289,6 +289,7 @@ where
 				warp_sync_config: None,
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		let statement_store = statement_handler_proto

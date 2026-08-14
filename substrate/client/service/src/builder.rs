@@ -60,7 +60,7 @@ use sc_network_sync::{
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
 	strategy::{
-		chain_sync::BlockBodyRetention,
+		chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider},
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		SyncingStrategy,
 	},
@@ -1008,6 +1008,11 @@ where
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Which block bodies gap sync downloads after warp sync. `None` derives the
+	/// default from the block pruning configuration
+	/// (see [`default_gap_sync_body_policy`]); storage-chain nodes install a provider
+	/// that queries the runtime's retention period instead.
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -1049,6 +1054,7 @@ where
 		warp_sync_config,
 		block_relay,
 		metrics,
+		gap_sync_body_policy,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -1086,10 +1092,8 @@ where
 		),
 	};
 
-	let body_retention = match config.blocks_pruning {
-		BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => BlockBodyRetention::All,
-		BlocksPruning::Some(n) => BlockBodyRetention::Recent(n),
-	};
+	let gap_sync_body_policy =
+		gap_sync_body_policy.unwrap_or_else(|| default_gap_sync_body_policy(config.blocks_pruning));
 	let syncing_strategy = build_polkadot_syncing_strategy(
 		protocol_id.clone(),
 		fork_id,
@@ -1099,7 +1103,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
-		body_retention,
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1387,9 +1391,10 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
-	/// Block-body retention of the local node. Gap sync requests bodies only for blocks
-	/// the pruning configuration would retain.
-	pub body_retention: BlockBodyRetention,
+	/// Resolves the gap sync body policy when a `ChainSync` instance is created. Use
+	/// [`default_gap_sync_body_policy`] unless the node explicitly opts into
+	/// storage-chain body recovery.
+	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1422,7 +1427,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
-		body_retention,
+		gap_sync_body_policy,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1443,7 +1448,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
-		body_retention,
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1501,6 +1506,22 @@ where
 	downloader
 }
 
+/// The default gap sync body policy provider, derived from the block pruning
+/// configuration: archive nodes backfill the whole gap with bodies, pruned nodes
+/// backfill headers and justifications only.
+///
+/// Nodes that must recover recent bodies after warp sync (storage chains) install
+/// their own provider instead, via
+/// [`BuildNetworkParams::gap_sync_body_policy`].
+pub fn default_gap_sync_body_policy(blocks_pruning: BlocksPruning) -> GapSyncBodyPolicyProvider {
+	Arc::new(move || {
+		Ok(match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => GapSyncBodyPolicy::All,
+			BlocksPruning::Some(_) => GapSyncBodyPolicy::HeadersOnly,
+		})
+	})
+}
+
 /// Build standard polkadot syncing strategy
 pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
@@ -1511,7 +1532,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
-	body_retention: BlockBodyRetention,
+	gap_sync_body_policy: GapSyncBodyPolicyProvider,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1581,7 +1602,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
-		body_retention,
+		gap_sync_body_policy,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

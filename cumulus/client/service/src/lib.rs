@@ -43,7 +43,7 @@ use sc_network::{
 	config::SyncMode, request_responses::IncomingRequest, service::traits::NetworkService,
 	NetworkBackend,
 };
-use sc_network_sync::SyncingService;
+use sc_network_sync::{strategy::chain_sync::GapSyncBodyPolicyProvider, SyncingService};
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{
 	Configuration, SpawnEssentialTaskHandle, SpawnTaskHandle, TaskManager, WarpSyncConfig,
@@ -303,6 +303,10 @@ pub struct BuildNetworkParams<
 	pub import_queue: IQ,
 	pub sybil_resistance_level: CollatorSybilResistance,
 	pub metrics: sc_network::NotificationMetrics,
+	/// Which block bodies gap sync downloads after warp sync. `None` derives the
+	/// default from the block pruning configuration; storage-chain nodes install a
+	/// provider that queries the runtime's retention period instead.
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -319,6 +323,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		import_queue,
 		sybil_resistance_level,
 		metrics,
+		gap_sync_body_policy,
 	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
 	Arc<dyn NetworkService>,
@@ -390,6 +395,7 @@ where
 		warp_sync_config,
 		block_relay: None,
 		metrics,
+		gap_sync_body_policy,
 	})
 }
 
