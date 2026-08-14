@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786702048439,
+  "lastUpdate": 1786705714454,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -114047,6 +114047,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2599728543,
             "range": "± 22760403",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c65761dfaba022247a8f55e37dbece435adfd946",
+          "message": "sc-hop: add Prometheus metrics (#12662)\n\nAdds Prometheus metrics to sc-hop, slimmed to the essential set of 9\nfamilies: `substrate_hop_pool_entries` / `_pool_bytes` /\n`_pool_max_bytes` (gauges, published together under the pool's index\nlock), `_pool_inserted_bytes_total`, `_pool_removed_total{reason}` (all\n5 reason series pre-created at registration so the first loss event is\nvisible to `rate()`; `expired_unpromoted` is an upper bound on loss),\n`_rpc_errors_total{method,reason}` (errors only; call counts and\ndurations come from the RPC server's `substrate_rpc_calls_*`, joined via\nwire method names), `_promotions_confirmed_total`, `_promotion_backlog`,\nand `_maintenance_ticks_total` (liveness). `HopParams::build_pool` gains\nan `Option<&Registry>` parameter and `HopDataPool::new` a `HopMetrics`\none; registration failure only disables metrics. See the crate README's\nMetrics table.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Karol Kokoszka <karol@parity.io>",
+          "timestamp": "2026-08-14T09:59:31Z",
+          "tree_id": "ec9c2ce6852e97fc87f5898167df038edfd6411d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c65761dfaba022247a8f55e37dbece435adfd946"
+        },
+        "date": 1786705681958,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19944376,
+            "range": "± 120908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20250878,
+            "range": "± 104899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21568249,
+            "range": "± 136842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26105363,
+            "range": "± 100903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58268739,
+            "range": "± 701603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 336863461,
+            "range": "± 7541609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2673011640,
+            "range": "± 107290012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17361892,
+            "range": "± 169766",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17456942,
+            "range": "± 255904",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18147472,
+            "range": "± 148855",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22379911,
+            "range": "± 123275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59487071,
+            "range": "± 636347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 350561518,
+            "range": "± 3615183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2674478575,
+            "range": "± 15500349",
             "unit": "ns/iter"
           }
         ]
