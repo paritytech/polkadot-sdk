@@ -45,8 +45,9 @@
 //!
 //! While a statement waits for validation, the peers it came from are recorded in
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
-//! peer that resends the statement before its tick is added there too. The propagation pass
-//! skips the recorded peers and clears `recently_received_statements` when done.
+//! peer that resends the statement before its tick is added there too. Propagation and
+//! initial-sync chunks both skip the recorded peers, and the propagation pass clears
+//! `recently_received_statements` when done.
 //!
 //! ## Send scheduling
 //!
@@ -761,8 +762,8 @@ struct PendingSendResult {
 	bytes_sent: u64,
 	result: SendOutcome,
 	kind: SendKind,
-	/// Id of the propagated chank. The result is stale if the id doesn't match the peer's send
-	/// slot in `in_flight_chunks`
+	/// Id of the sent chunk, propagation or initial-sync. The result is stale if the id
+	/// doesn't match the peer's send slot in `in_flight_chunks`.
 	chunk_id: u64,
 }
 
@@ -1585,6 +1586,14 @@ where
 				},
 			};
 
+			debug_assert!(
+				processed > 0,
+				"a fetch from a non-empty outbox consumes at least one hash"
+			);
+			if processed == 0 {
+				return;
+			}
+
 			// Consume the fetched hashes before the oversized check, otherwise the oversized
 			// statement would be fetched again on the next iteration.
 			if let Some(outbox) = self.propagation_outboxes.get_mut(&who) {
@@ -1646,13 +1655,16 @@ where
 	}
 
 	fn handle_send_result(&mut self, send_result: PendingSendResult) {
-		self.process_send_result(send_result);
-		// Every result frees its chunk's bytes, so parked peers may fit into the budget
-		// now. The completing peer already claimed its share in `process_send_result`.
+		let peer = send_result.peer;
+		let slot_freed = self.process_send_result(send_result);
 		self.fill_parked_propagations();
+		if slot_freed {
+			self.try_send_next_chunk(peer);
+		}
 	}
 
-	fn process_send_result(&mut self, send_result: PendingSendResult) {
+	/// Returns whether the result freed the peer's send slot.
+	fn process_send_result(&mut self, send_result: PendingSendResult) -> bool {
 		let PendingSendResult { peer, statement_count, bytes_sent, result, kind, chunk_id } =
 			send_result;
 
@@ -1701,24 +1713,24 @@ where
 
 		// A send future is not cancelled on disconnect, so its result can outlive the
 		// connection. Only the result of the chunk still occupying the slot frees it.
-		if self.in_flight_chunks.get(&peer) == Some(&chunk_id) {
+		let slot_freed = self.in_flight_chunks.get(&peer) == Some(&chunk_id);
+		if slot_freed {
 			self.in_flight_chunks.remove(&peer);
-			self.try_send_next_chunk(peer);
 		}
 
-		let SendKind::InitialSync { sync_id } = kind else { return };
+		let SendKind::InitialSync { sync_id } = kind else { return slot_freed };
 
 		// A peer that reconnects inside the send timeout loses its sync on disconnect and gets a
 		// fresh one under the same `PeerId`; a stale result would advance or abort the wrong sync.
 		if self.pending_initial_syncs.get(&peer).map(|pending| pending.sync_id) != Some(sync_id) {
-			return;
+			return slot_freed;
 		}
 
 		if failure.is_some() {
 			if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
 				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			}
-			return;
+			return slot_freed;
 		}
 
 		self.metrics.as_ref().map(|metrics| {
@@ -1728,6 +1740,7 @@ where
 		// in flight; a superseded sync's chunk can still be in flight under the same `PeerId`, so
 		// the bound is one chunk per sync, not per peer.
 		self.initial_sync_peer_queue.push_back(peer);
+		slot_freed
 	}
 
 	#[cfg(test)]
@@ -2217,6 +2230,10 @@ mod tests {
 
 		fn fail_sends(&self) {
 			self.fail_sends.store(true, Ordering::Relaxed);
+		}
+
+		fn allow_sends(&self) {
+			self.fail_sends.store(false, Ordering::Relaxed);
 		}
 
 		fn serve_sinks(&self, count: usize) {
@@ -2884,6 +2901,40 @@ mod tests {
 			})
 			.await;
 
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn failed_propagation_send_frees_the_slot_and_the_backlog_keeps_draining() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		// 700 KiB each, so a 1 MiB chunk carries exactly one statement.
+		let mut first = Statement::new();
+		first.set_plain_data(vec![1u8; 700 * 1024]);
+		let first_hash = first.hash();
+		let mut second = Statement::new();
+		second.set_plain_data(vec![2u8; 700 * 1024]);
+		let second_hash = second.hash();
+		statement_store.statements.lock().unwrap().insert(first_hash, first);
+		statement_store.statements.lock().unwrap().insert(second_hash, second);
+		handler.propagation_outboxes.insert(peer_id, vec![first_hash, second_hash]);
+
+		// Only the first chunk's send fails.
+		notification_service.fail_sends();
+		handler.try_send_next_chunk(peer_id);
+		assert!(handler.in_flight_chunks.contains_key(&peer_id));
+		let result = handler.pending_sends.next().await.unwrap();
+		notification_service.allow_sends();
+		handler.handle_send_result(result);
+
+		// The failure freed the slot and the backlog kept draining: the second
+		// statement went out, the failed one was not retried.
+		handler.flush_pending_sends().await;
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![second_hash]);
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
 	}

@@ -9,10 +9,11 @@ doc:
     counted by the `outbox_full` reason of
     `substrate_sync_statement_undelivered_total`), keeps at most one chunk per
     peer in flight, and encodes statements from the store only when the peer's
-    send slot is free. Initial-sync and propagation chunks together are capped
-    at 16 MiB in flight, observable via the new
-    `substrate_sync_propagation_in_flight_bytes` gauge next to the existing
-    initial-sync one.
+    send slot is free. Initial-sync chunks share the propagation fetch path and
+    now also skip statements the receiving peer itself sent us. Initial-sync
+    and propagation chunks together are capped at 16 MiB in flight, observable
+    via the new `substrate_sync_propagation_in_flight_bytes` gauge next to the
+    existing initial-sync one.
 - audience: Node Dev
   description: |-
     `MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` in `sc_network_statement::config` is
