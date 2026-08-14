@@ -1768,6 +1768,10 @@ where
 		}
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
+		let statements: Vec<_> = statements
+			.into_iter()
+			.map(|(_seq, hash, statement)| (hash, statement))
+			.collect();
 		if !statements.is_empty() {
 			self.do_propagate_statements(&statements);
 		}
@@ -2015,7 +2019,7 @@ mod tests {
 
 	use super::*;
 	use std::sync::{
-		atomic::{AtomicBool, AtomicUsize, Ordering},
+		atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
 		Mutex,
 	};
 
@@ -2336,11 +2340,16 @@ mod tests {
 		statements: Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		recent_statements:
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
+		next_seq: Arc<AtomicU64>,
 	}
 
 	impl TestStatementStore {
 		fn new() -> Self {
-			Self { statements: Default::default(), recent_statements: Default::default() }
+			Self {
+				statements: Default::default(),
+				recent_statements: Default::default(),
+				next_seq: Default::default(),
+			}
 		}
 	}
 
@@ -2356,7 +2365,7 @@ mod tests {
 		fn take_recent_statements(
 			&self,
 		) -> sp_statement_store::Result<
-			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
+			Vec<(u64, sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
 			// A recent statement is a statement the store holds, so make the drained
 			// statements visible to `statements_by_hashes` like the real store does.
@@ -2366,7 +2375,12 @@ mod tests {
 				statements.insert(*hash, statement.clone());
 			}
 			drop(statements);
-			Ok(drained)
+			Ok(drained
+				.into_iter()
+				.map(|(hash, statement)| {
+					(self.next_seq.fetch_add(1, Ordering::Relaxed), hash, statement)
+				})
+				.collect())
 		}
 
 		fn statement(
@@ -2417,6 +2431,23 @@ mod tests {
 				}
 			}
 			Ok((result, processed))
+		}
+
+		fn admission_watermark(&self) -> sp_statement_store::Result<u64> {
+			Ok(self.next_seq.load(Ordering::Relaxed))
+		}
+
+		fn admitted_statements(
+			&self,
+			_cursor: u64,
+			_watermark: u64,
+			_filter: &mut dyn FnMut(
+				&sp_statement_store::Hash,
+				&[u8],
+				&sp_statement_store::Statement,
+			) -> FilterDecision,
+		) -> sp_statement_store::Result<sp_statement_store::AdmittedBatch> {
+			unimplemented!()
 		}
 
 		fn broadcasts(
