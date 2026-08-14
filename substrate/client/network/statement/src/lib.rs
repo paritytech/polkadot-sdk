@@ -68,7 +68,9 @@
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
 //! fetch fails, is parked once and refilled in parking order as completed sends free bytes and on
-//! propagation ticks.
+//! propagation ticks. While initial syncs are pending, propagation parks
+//! `config::INITIAL_SYNC_RESERVED_BYTES` early: refills reclaim freed bytes synchronously,
+//! while the timer-driven sync bursts would otherwise always find the budget full.
 //!
 //! A statement can still reach a peer twice when it sits both in the peer's initial-sync snapshot
 //! and in a propagation tick around it, and the peer may charge a small reputation penalty for the
@@ -1572,7 +1574,7 @@ where
 			};
 			// Admission is checked before fetching, so a saturated budget leaves the
 			// outbox untouched.
-			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
+			if self.send_in_flight_bytes() >= self.propagation_send_budget() {
 				// A peer parks once per saturation, not once per tick, so a budget that
 				// stays full does not grow the deque without bound.
 				if !self.parked_propagations.contains(&who) {
@@ -1882,6 +1884,20 @@ where
 			.saturating_add(self.propagation_in_flight_bytes)
 	}
 
+	/// Byte budget available to propagation sends.
+	///
+	/// While initial syncs are pending, [`INITIAL_SYNC_RESERVED_BYTES`] are withheld:
+	/// propagation reclaims freed budget synchronously on every completed send, while sync
+	/// bursts only check on a timer, so without the reserve enough parked propagations
+	/// starve initial sync indefinitely.
+	fn propagation_send_budget(&self) -> u64 {
+		if self.pending_initial_syncs.is_empty() {
+			MAX_SEND_IN_FLIGHT_BYTES
+		} else {
+			MAX_SEND_IN_FLIGHT_BYTES - INITIAL_SYNC_RESERVED_BYTES
+		}
+	}
+
 	/// Refill parked peers' send slots while the in-flight byte budget allows.
 	///
 	/// Peers are served in parking order. When the budget saturates the loop stops and the
@@ -1890,7 +1906,7 @@ where
 	/// loop would spin on it.
 	fn fill_parked_propagations(&mut self) {
 		for _ in 0..self.parked_propagations.len() {
-			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
+			if self.send_in_flight_bytes() >= self.propagation_send_budget() {
 				return;
 			}
 			let Some(peer) = self.parked_propagations.pop_front() else { return };
@@ -3879,6 +3895,64 @@ mod tests {
 		);
 		assert!(handler.parked_propagations.is_empty());
 		assert_eq!(handler.propagation_in_flight_bytes, 0);
+	}
+
+	#[tokio::test]
+	async fn pending_initial_sync_reserves_send_budget_from_propagation() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(2);
+		let propagation_peer = peer_ids[0];
+		let sync_peer = peer_ids[1];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"backlog".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+		handler.schedule_initial_sync_for_peer(sync_peer);
+		assert!(handler.pending_initial_syncs.contains_key(&sync_peer));
+
+		// Propagation holds the whole budget and one peer waits parked.
+		handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
+		handler
+			.propagation_outboxes
+			.insert(propagation_peer, VecDeque::from(vec![hash]));
+		handler.parked_propagations.push_back(propagation_peer);
+
+		// A completed send frees exactly the reserve: the parked peer must stay parked,
+		// keeping the headroom for the sync burst.
+		handler.handle_send_result(PendingSendResult {
+			peer: propagation_peer,
+			statement_count: 1,
+			bytes_sent: INITIAL_SYNC_RESERVED_BYTES,
+			result: SendOutcome::Sent,
+			kind: SendKind::Propagation,
+			chunk_id: 0,
+		});
+		assert!(handler.pending_sends.is_empty(), "the reserve must not refill propagation");
+		assert_eq!(handler.parked_propagations, VecDeque::from([propagation_peer]));
+
+		// The sync burst finds the reserved headroom and proceeds.
+		handler.process_initial_sync_burst();
+		assert_eq!(handler.pending_sends.len(), 1, "the sync burst must use the reserve");
+		handler.flush_pending_sends().await;
+		let synced = get_peer_hashes(&notification_service.get_sent_notifications(), sync_peer);
+		assert_eq!(synced, vec![hash]);
+		assert_eq!(
+			handler.parked_propagations,
+			VecDeque::from([propagation_peer]),
+			"the reserve holds while the sync is still pending"
+		);
+
+		// The next burst observes the drained sync and completes it, releasing the
+		// reserve back to propagation.
+		handler.process_initial_sync_burst();
+		assert!(handler.pending_initial_syncs.is_empty());
+		handler.fill_parked_propagations();
+		assert!(handler.parked_propagations.is_empty());
+		handler.flush_pending_sends().await;
+		let propagated =
+			get_peer_hashes(&notification_service.get_sent_notifications(), propagation_peer);
+		assert_eq!(propagated, vec![hash]);
 	}
 
 	#[tokio::test]
