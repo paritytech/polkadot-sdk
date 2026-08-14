@@ -39,3 +39,19 @@ crates:
     bump: major
   - name: pallet-referenda
     bump: major
+  - name: pallet-democracy
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch
