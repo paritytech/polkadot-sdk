@@ -721,6 +721,10 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
+	/// One past the newest admission covered by the peer's initial syncs. Admissions below
+	/// it are delivered by the sync cursor, so propagation skips them — a statement can
+	/// reach the peer through one path only.
+	sync_watermark: u64,
 }
 
 /// Tracks pending initial sync state for a peer as a cursor over the store's admission
@@ -891,6 +895,7 @@ impl Peer {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			sync_watermark: 0,
 		}
 	}
 
@@ -1227,6 +1232,7 @@ where
 						topic_affinity: None,
 						is_light,
 						pending_topic_affinity: None,
+						sync_watermark: 0,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -1521,7 +1527,7 @@ where
 	/// Internally filters out statements the peer sent to us.
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
-	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
 		let Some(peer) = self.peers.get(who) else {
 			return;
 		};
@@ -1532,7 +1538,11 @@ where
 
 		let to_send: Vec<_> = statements
 			.iter()
-			.filter_map(|(hash, stmt)| {
+			.filter_map(|(seq, hash, stmt)| {
+				// Admissions below the sync watermark are the initial-sync cursor's job.
+				if *seq < peer.sync_watermark {
+					return None;
+				}
 				// The peer supplied this statement, do not send it back.
 				if has_received_from(
 					&self.recently_received_statements,
@@ -1788,7 +1798,7 @@ where
 		}
 	}
 
-	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+	fn do_propagate_statements(&mut self, statements: &[(u64, Hash, Statement)]) {
 		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
 		let peers: Vec<_> = self.peers.keys().copied().collect();
 		for who in peers {
@@ -1806,10 +1816,6 @@ where
 		}
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
-		let statements: Vec<_> = statements
-			.into_iter()
-			.map(|(_seq, hash, statement)| (hash, statement))
-			.collect();
 		if !statements.is_empty() {
 			self.do_propagate_statements(&statements);
 		}
@@ -1842,6 +1848,11 @@ where
 			},
 		};
 		if watermark > 0 {
+			// The watermark splits delivery between the two paths: this sync's cursor covers
+			// the admissions below it, propagation covers the ones at or above it.
+			if let Some(peer_data) = self.peers.get_mut(&peer) {
+				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
+			}
 			self.pending_initial_syncs.insert(
 				peer,
 				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
@@ -2648,6 +2659,7 @@ mod tests {
 					topic_affinity: None,
 					is_light: false,
 					pending_topic_affinity: None,
+					sync_watermark: 0,
 				},
 			);
 		}
@@ -5038,7 +5050,19 @@ mod tests {
 			"stmt_bb should NOT be sent (filtered by affinity)"
 		);
 
-		// Propagation must apply the same affinity filter.
+		// Propagation must apply the same affinity filter. The original statements sit below
+		// the sync watermark and belong to the cursor, so fresh admissions carry the check.
+		let mut stmt_aa2 = Statement::new();
+		stmt_aa2.set_plain_data(b"stmt_aa2".to_vec());
+		stmt_aa2.set_topic(0, topic_aa.into());
+		let hash_aa2 = stmt_aa2.hash();
+		let mut stmt_bb2 = Statement::new();
+		stmt_bb2.set_plain_data(b"stmt_bb2".to_vec());
+		stmt_bb2.set_topic(0, topic_bb.into());
+		let hash_bb2 = stmt_bb2.hash();
+		statement_store.recent_statements.lock().unwrap().insert(hash_aa2, stmt_aa2);
+		statement_store.recent_statements.lock().unwrap().insert(hash_bb2, stmt_bb2);
+
 		notification_service.clear_sent_notifications();
 		handler.propagate_statements().await;
 		handler.flush_pending_sends().await;
@@ -5054,10 +5078,17 @@ mod tests {
 			})
 			.map(|s| s.hash())
 			.collect();
-		assert!(sent_hashes.contains(&hash_aa), "stmt_aa should be propagated (matches affinity)");
 		assert!(
-			!sent_hashes.contains(&hash_bb),
-			"stmt_bb should NOT be propagated (filtered by affinity)"
+			sent_hashes.contains(&hash_aa2),
+			"stmt_aa2 should be propagated (matches affinity)"
+		);
+		assert!(
+			!sent_hashes.contains(&hash_bb2),
+			"stmt_bb2 should NOT be propagated (filtered by affinity)"
+		);
+		assert!(
+			!sent_hashes.contains(&hash_aa),
+			"a statement below the sync watermark is delivered by the cursor, not propagation"
 		);
 
 		// Now change affinity to include topic_bb.
@@ -5148,6 +5179,7 @@ mod tests {
 				topic_affinity,
 				is_light,
 				pending_topic_affinity: None,
+				sync_watermark: 0,
 			}
 		};
 
@@ -5408,6 +5440,7 @@ mod tests {
 				topic_affinity: None,
 				is_light: false,
 				pending_topic_affinity: None,
+				sync_watermark: 0,
 			},
 		);
 
@@ -5789,6 +5822,7 @@ mod tests {
 				topic_affinity: None,
 				is_light: false,
 				pending_topic_affinity: None,
+				sync_watermark: 0,
 			},
 		);
 
@@ -5892,6 +5926,7 @@ mod tests {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			sync_watermark: 0,
 		};
 
 		let make_handler =
