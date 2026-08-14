@@ -724,7 +724,6 @@ pub struct Peer {
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
 struct PendingInitialSync {
-	/// The store's hash list at scheduling time, drained from the front as bursts consume it.
 	hashes: Vec<Hash>,
 	started_at: Instant,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
@@ -762,8 +761,8 @@ struct PendingSendResult {
 	bytes_sent: u64,
 	result: SendOutcome,
 	kind: SendKind,
-	/// Id of the chunk this result belongs to, matched against the peer's send slot in
-	/// `in_flight_chunks` to tell a stale result apart from the live one.
+	/// Id of the propagated chank. The result is stale if the id doesn't match the peer's send
+	/// slot in `in_flight_chunks`
 	chunk_id: u64,
 }
 
