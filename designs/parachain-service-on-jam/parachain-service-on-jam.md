@@ -19,6 +19,7 @@
    - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
    - 5.3 [Validator-Key Updates](#53-validator-key-updates)
    - 5.4 [Service Self-Upgrade](#54-service-self-upgrade)
+   - 5.5 [Parachain Head Commitment](#55-parachain-head-commitment)
 6. [Parachain Management](#6-parachain-management)
    - 6.1 [State-Balance Accounting](#61-state-balance-accounting)
    - 6.2 [Registration](#62-registration)
@@ -297,8 +298,7 @@ enum AccumulateLog {
     /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
     /// and the buffer left unchanged. See §5.3.
     StagedValidatorKeysOverflow,
-    /// `parachain_service_upgrade(code_hash, ...)` was rejected because JAM
-    /// does not report `code_hash`'s preimage as available for lookup. See §5.4.
+    /// The new code's preimage is not available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
     /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
     /// caller-supplied identifier from the `TransferOut`, echoed back so the
@@ -535,7 +535,7 @@ enum UpwardMessage {
     /// up to and including this slot. See §5.1.
     ConsumeTransfersUpTo(Timeslot),
     /// From `parachain_service_upgrade`. See §5.4.
-    UpgradeService { code_hash: Hash, len: Compact<u32>, min_item_gas: u64, min_memo_gas: u64 },
+    UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
     /// From `parachain_set_head`: upsert a parachain's head data.
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// From `parachain_set_validation_code`: upsert a parachain's
@@ -670,7 +670,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). See §5.1. |
-| `parachain_service_upgrade(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_item_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call with `AccumulateLog::ServiceUpgradePreimageMissing` unless JAM reports the new code's preimage as **available for lookup**; having merely solicited it is not enough. See §5.4. |
+| `parachain_service_upgrade(code_hash: Hash, len: u32, min_acc_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_acc_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call unless the new code's preimage is available for lookup. See §5.4. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`; any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
@@ -1043,6 +1043,39 @@ Phase 5: Forget
     Asset Hub observes the new codehash in Parachain Service state
     and calls forget(asset_hub_para_id, old_code_hash, len) (§6.1).
 ```
+
+---
+
+### 5.5 Parachain Head Commitment
+
+`accumulate` returns a 32-byte hash. The Parachain Service returns a commitment to
+**parachain heads**: each block it builds a binary Merkle tree over the heads that
+changed in that block, and returns its root.
+
+```rust
+enum MerkleTree {
+    Node(Hash, Hash),
+    Leaf { para_id: ParaId, head_hash: Hash },
+}
+```
+
+- Every element's hash is `keccak_256` (as specified by Ethereum) of its SCALE encoding.
+  The variant discriminant is therefore covered by the hash, so a leaf hash can never
+  collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet
+  `para_id`, 32-octet `head_hash`) and a `Node` to 65 (discriminant, two hashes).
+- One leaf per parachain whose `head_data` changed during the block, carrying the value
+  it ended the block with. A parachain written more than once, by a candidate and then a
+  forced `parachain_set_head`, or across successive accumulate invocations, still
+  contributes exactly one leaf.
+- Leaves are ordered by ascending `para_id`, so every verifier builds the same tree and
+  can locate a parachain's leaf without extra data.
+- With exactly one changed head the root is that leaf's hash. With none, no hash is
+  returned and the service contributes no entry for that block.
+
+**A root proves only what changed.** The absence of a leaf means a parachain's head did
+not change in that block, not that it holds any particular value. Proving a parachain's
+current head therefore means locating the most recent block whose tree carries a leaf
+for it, and proving against that block's root.
 
 ---
 

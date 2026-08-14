@@ -301,9 +301,7 @@ module accumulate {
       // §5.4: the new code must be AVAILABLE for lookup, not merely solicited.
       // JAM's `upgrade` performs no such check, so switching to a hash whose blob
       // was never supplied would leave the service with no code to run.
-      val preimagePresent =
-        acc.state.preimageAvailable(payload.codeHash, payload.len)
-      if (preimagePresent)
+      if (acc.state.preimageAvailable(payload.codeHash, payload.len))
         { ...acc, state: { ...acc.state, serviceCodeHash: payload.codeHash } }
       else
         { ...acc,

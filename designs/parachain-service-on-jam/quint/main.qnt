@@ -373,8 +373,8 @@ module main {
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),
       ConsumeTransfersUpTo(0),
-      UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minItemGas: 0, minMemoGas: 0 }),
-      UpgradeService({ codeHash: unsolicitedHash, len: 4096, minItemGas: 0, minMemoGas: 0 }),
+      UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
+      UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
       // Queue rotation keeping this service as assigner: deferred, due, cancel.
       AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
       AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 10 }),
