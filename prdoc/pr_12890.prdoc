@@ -1,0 +1,26 @@
+title: 'statement gossip: drive initial sync with a cursor over the admission journal'
+doc:
+- audience: Node Operator
+  description: |-
+    The statement gossip initial sync snapshotted every statement hash per
+    connecting peer (a full store scan and up to 2 MiB per peer) and could
+    deliver a statement twice, through the snapshot and a propagation tick
+    around it, costing duplicate-statement reputation penalties. The sync now
+    walks the store's admission journal behind a per-peer cursor: scheduling
+    captures the journal watermark in constant time, and the peer's propagation
+    skips admissions below the watermark, so every statement reaches a peer
+    through exactly one path.
+- audience: Node Dev
+  description: |-
+    `sp_statement_store::StatementStore` gains `admission_watermark` and
+    `admitted_statements` (a filtered walk of the admission journal returning
+    the new `AdmittedBatch`). `take_recent_statements` now returns
+    `(u64, Hash, Statement)` triples carrying admission sequence numbers,
+    oldest first. `statement_hashes` is removed.
+crates:
+- name: sp-statement-store
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: sc-network-statement
+  bump: major
