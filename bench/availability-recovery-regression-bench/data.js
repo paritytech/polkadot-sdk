@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786706611906,
+  "lastUpdate": 1786708849308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
-          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-12T14:46:18Z",
-          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
-        },
-        "date": 1768233100210,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.203745366933331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12657721196666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.068401703933336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "x3c41a"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74ac5fbd5779a2fd21bf4eecc936ef5096d0cc3d",
+          "message": "eth-rpc: skip unresolvable streamed blocks instead of dying (#12882)\n\nThe subxt 0.50 bump (#12096) silently switched eth-rpc from subxt's\nLegacyBackend to the chainHead-based CombinedBackend (the new\n`from_rpc_client` default). Under differential-test load, chainHead\nfollow restarts and pinning limits stall receipt indexing and make\nstreamed blocks unresolvable; a failed `block.at()` resolution then\nkilled the essential subscription task and with it the whole server.\nThis is why the EVM test suite is red since July 15 (receipt polls time\nout until the 2h job limit).\n\nTwo changes:\n- pin the legacy backend in `connect()`, restoring the pre-bump wire\nbehavior\n- skip unresolvable streamed blocks instead of dying; skipped finalized\nblocks do not advance `last_finalized_seen`, so the gap filler backfills\nthem\n\nNote for reviewers: the backend pin was added after the first three\napprovals; please re-check.\n\nNo dedicated test: it would need a mocked chainHead session and a test\nconstructor for `Client`, neither of which exists today. The\ndifferential-tests jobs on this PR are the regression test.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-14T10:36:36Z",
+          "tree_id": "a8c4785b714d4f7b3c74d4d5e50b9f3b9ab2e5ee",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74ac5fbd5779a2fd21bf4eecc936ef5096d0cc3d"
+        },
+        "date": 1786708816144,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.971824298266664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1416231133,
             "unit": "seconds"
           }
         ]
