@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786723100205,
+  "lastUpdate": 1786728449461,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "manuel.mauro@protonmail.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b934d0a252f86568d92ac3baa56584bbd14e782",
-          "message": "Improve `charge_transaction_payment benchmark` ergonomics (#10444)\n\n# Description\n\nRuntimes that distribute transaction fees to block authors (like\nMoonbeam) fail on the `charge_transaction_payment` benchmark because no\nauthor is set when the benchmark runs. The fee distribution logic panics\nwhen trying to credit a non-existent author.\n\nThis PR introduces a `benchmarking::Config` trait with a\n`setup_benchmark_environment()` hook that runtimes can implement to set\nup required state before the benchmark executes.\n\nAdditionally, `amount_to_endow` is now calculated using `compute_fee()`\nto determine the actual fee (with a 10x buffer), ensuring it is at least\nthe existential deposit.\n\n## Integration\n\nRuntimes that need to set up state before running the\n`charge_transaction_payment` benchmark should implement\n`pallet_transaction_payment::benchmarking::Config`:\n\n```diff\n+ impl pallet_transaction_payment::benchmarking::Config for Runtime {\n+     fn setup_benchmark_environment() {\n+         // Set up any required state, e.g., block author for fee distribution\n+         let author: AccountId = frame_benchmarking::whitelisted_caller();\n+         pallet_author_inherent::Author::<Runtime>::put(author);\n+     }\n+ }\n```\n\nAnd update the benchmark list to use the wrapper type:\n\n```diff\n- [pallet_transaction_payment, TransactionPayment]\n+ [pallet_transaction_payment, TransactionPaymentBenchmark::<Runtime>]\n```\n\nRuntimes that don't need custom setup can use the default implementation\n(no-op).\n\n## Review Notes\n\n- A new `benchmarking::Config` trait extends `crate::Config` with a\n`setup_benchmark_environment()` method (default no-op)\n- A wrapper `Pallet<T>` struct is introduced in the benchmarking module\nto use this extended trait\n- The benchmark calls `T::setup_benchmark_environment()` at the start\n- `amount_to_endow` is calculated as\n`compute_fee(...).saturating_mul(10).max(existential_deposit)` to ensure\nthe account can exist and has sufficient funds\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-01-09T22:46:27Z",
-          "tree_id": "4b721d0fd834fac05e2082cd3a28dd6aab66f568",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b934d0a252f86568d92ac3baa56584bbd14e782"
-        },
-        "date": 1768003384528,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009087703589999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00634430666,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026911240100000013,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009938543789999983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a286382c4811b3409d258226d6878cf46bea1d0",
+          "message": "[pallet-revive] EXTCODECOPY zero-fills for an out-of-range code offset (#12650)\n\nFixes #12643 by switching `EXTCODECOPY`'s `code_offset conversion` from\n`as_usize_or_halt` to `as_usize_saturated`, so an out-of-range code\noffset zero-fills the destination (matching the EVM spec, revm, and the\nsibling copy opcodes) instead of trapping and diverging the state root.",
+          "timestamp": "2026-08-14T15:52:36Z",
+          "tree_id": "c491ffcb3d138033d1eef6fd6ef00fd986f71195",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a286382c4811b3409d258226d6878cf46bea1d0"
+        },
+        "date": 1786728412115,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009621793349999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026918553,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009851591299999986,
             "unit": "seconds"
           }
         ]
