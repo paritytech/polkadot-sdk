@@ -1,0 +1,10 @@
+title: 'pallet-psm: emergency admin can only raise the circuit breaker'
+doc:
+- audience: Runtime Dev
+  description: "Give `CircuitBreakerLevel` an ordering (`AllEnabled < MintingDisabled\
+    \ < AllDisabled`). `set_asset_status` now rejects, for Emergency callers, any\
+    \ move to a less restrictive level with `InsufficientPrivilege`. Keeping or raising\
+    \ the level stays allowed. Lowering the level requires the full admin.\r\n"
+crates:
+- name: pallet-psm
+  bump: minor
