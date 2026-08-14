@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786715024918,
+  "lastUpdate": 1786722939365,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fb8ca008c2db780dbd690096d148368b75755cb3",
-          "message": "Statement-store: Follow-up improvements from PR #10718 review (#10770)\n\n# Description\n\nThis follow-up PR addresses review comments from PR #10718:\n- Removed unnecessary Result wrapper from statement_hashes() - method is\ninfallible\n- Added debug assertion to validate sent count matches prepared count\n\n## Integration\n\nShould not affect downstream projects.",
-          "timestamp": "2026-01-13T08:45:40Z",
-          "tree_id": "c57e294aee46328e45f991b740733a05b0b92896",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8ca008c2db780dbd690096d148368b75755cb3"
-        },
-        "date": 1768299195121,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12650296500000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.360124986433334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.005145430866667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40cae7d7f8db4bdcd64b6180311385c528028663",
+          "message": "Probe cargo for -Z json-target-spec support instead of guessing from the version (#12726)\n\nBoth PolkaVM build paths compile against a `.json` target spec produced\nby `polkavm-linker`,\nso both have to decide whether to pass cargo `-Z json-target-spec`:\nnewer cargo requires the\nflag for a JSON target, older cargo rejects it as unknown.\n\nBoth decided by comparing a version against 1.95.\n**`pallet-revive-fixtures` compared the\n`rustc` version to gate a `cargo` flag** — the wrong binary entirely.\n`wasm-builder` compared\nthe cargo version, which looks right but is not sufficient either: the\nflag landed partway\nthrough the 1.95 cycle, so a nightly from early in that cycle reports\n1.95 from *both*\nbinaries while its cargo does not know the flag yet:\n\n```\nrustc 1.95.0-nightly (474276961 2026-01-26)\ncargo 1.95.0-nightly (efcd9f586 2026-01-23)   <- no json-target-spec\n```\n\nThat is exactly the toolchain in our CI image\n(`ci-unified:bullseye-1.93.0-2026-01-27`), so\nany job that builds the fixtures on nightly fails:\n\n```\nerror: failed to run custom build command for `pallet-revive-fixtures`\n  error: unknown `-Z` flag specified: json-target-spec\n```\n\nThis is what breaks `check-semver` on PRs that touch\n`pallet-revive-fixtures` (it is one of\nthe few jobs running nightly rather than the pinned stable, because\nrustdoc JSON is\nnightly-only). It was not hit before because no other PR makes\n`parity-publish` rebuild that\ncrate, and `wasm-builder` never hit it because its JSON-target path only\nruns for\n`SUBSTRATE_RUNTIME_TARGET=riscv`.\n\nSince no version comparison can express \"does this cargo accept this\nflag\", ask cargo:\n\n```rust\nfn supports_json_target_spec(&self) -> bool {\n    self.command()\n        .env(\"RUSTC_BOOTSTRAP\", \"1\")\n        .args([\"-Z\", \"help\"])\n        .output()\n        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(\"json-target-spec\"))\n}\n```\n\nWhile here, the fixture builder had one more flag on the wrong oracle: a\nsingle rustc-version\nbool drove both `-Cpanic=immediate-abort` (a rustc flag) and the\n`-Zbuild-std-features=panic_immediate_abort` fallback (a cargo flag).\nThose are now separate,\neach gated on the version of the binary that parses it. `wasm-builder`\nneeded no such change:\nits `CargoCommand::version` already comes from `cargo --version`, and\nthe rustc version is\nonly used for the \"Using rustc version:\" printout.\n\n## Testing\n\n- Fixtures build clean on stable, contracts actually produced (not a\ncached skip).\n- Under `nightly-2026-01-27` — the CI toolchain — the `unknown -Z flag`\nerror is gone.\n- `cargo test -p pallet-revive --lib tests::pvm`: 137 passed, 0 failed.",
+          "timestamp": "2026-08-14T14:25:38Z",
+          "tree_id": "f042ecdd2b2f34c2df4c7d7ef380f3c9f8f62aaf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40cae7d7f8db4bdcd64b6180311385c528028663"
+        },
+        "date": 1786722905308,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13979642333333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.923188610366669,
             "unit": "seconds"
           }
         ]
