@@ -158,7 +158,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
     fn <a href="#method.set_heap_pages" class="fn">set_heap_pages</a>(self, heap_pages: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>) -&gt; Self { ... }
 <span class="item-spacer"></span>    fn <a href="#method.add_extra_child_storage" class="fn">add_extra_child_storage</a>&lt;K: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;&gt;, V: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;&gt;&gt;(
         self,
-        child_info: &amp;ChildInfo,
+        child_info: &amp;<a class="enum" href="../sp_storage/enum.ChildInfo.html" title="enum sp_storage::ChildInfo">ChildInfo</a>,
         key: K,
         value: V,
     ) -&gt; Self { ... }
@@ -175,7 +175,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 </div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.set_heap_pages" class="method"><a class="src rightside" href="../src/substrate_test_runtime_client/lib.rs.html#128-131">Source</a><h4 class="code-header">fn <a href="#method.set_heap_pages" class="fn">set_heap_pages</a>(self, heap_pages: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Override the default value for Wasm heap pages.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.add_extra_child_storage" class="method"><a class="src rightside" href="../src/substrate_test_runtime_client/lib.rs.html#138-159">Source</a><h4 class="code-header">fn <a href="#method.add_extra_child_storage" class="fn">add_extra_child_storage</a>&lt;K: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;&gt;, V: <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;&gt;&gt;(
     self,
-    child_info: &amp;ChildInfo,
+    child_info: &amp;<a class="enum" href="../sp_storage/enum.ChildInfo.html" title="enum sp_storage::ChildInfo">ChildInfo</a>,
     key: K,
     value: V,
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Add an extra value into the genesis storage.</p>
