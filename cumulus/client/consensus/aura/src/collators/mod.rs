@@ -23,7 +23,7 @@
 
 use crate::collator::SlotClaim;
 use codec::Codec;
-use cumulus_client_consensus_common::{self as consensus_common};
+use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
@@ -240,7 +240,7 @@ async fn find_parent<Block>(
 	relay_client: &impl RelayChainInterface,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	para_id: ParaId,
-	relay_parent: RelayHash,
+	params: ParentSearchParams,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
@@ -250,7 +250,7 @@ where
 		relay_client,
 		para_backend,
 		para_id,
-		relay_parent,
+		params.clone(),
 	)
 	.await
 	{
@@ -258,7 +258,7 @@ where
 		Ok(None) => {
 			tracing::warn!(
 				target: crate::LOG_TARGET,
-				?relay_parent,
+				?params,
 				"Could not find parent to build upon.",
 			);
 			return None;
@@ -266,7 +266,7 @@ where
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
-				?relay_parent,
+				?params,
 				err = ?e,
 				"Could not find parent to build upon"
 			);
@@ -283,12 +283,12 @@ where
 		match para_backend.blockchain().header(parent_hash) {
 			Ok(Some(header)) => {
 				result.best_parent_header = header;
-				if parent_hash == result.included_header.hash() {
+				if parent_hash == result.included_at_scheduling.hash() {
 					break;
 				}
 			},
 			_ => {
-				result.best_parent_header = result.included_header.clone();
+				result.best_parent_header = result.included_at_scheduling.clone();
 				break;
 			},
 		}

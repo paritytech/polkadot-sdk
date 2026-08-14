@@ -128,9 +128,5 @@
   },
   "safeMode": {
     "enteredUntil": null
-  },
-  "psm": {
-    "maxPsmDebtOfTotal": 0,
-    "assetConfigs": {}
   }
 }

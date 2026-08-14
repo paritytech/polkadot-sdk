@@ -641,7 +641,9 @@ parameter_types! {
 	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
-impl parachains_dmp::Config for Runtime {}
+impl parachains_dmp::Config for Runtime {
+	type WeightInfo = ();
+}
 
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);

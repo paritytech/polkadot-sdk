@@ -53,8 +53,6 @@ mod weight;
 pub use event_emitter::EventEmitter;
 
 pub use record_xcm::RecordXcm;
-#[deprecated = "Use `sp_runtime::traits::` instead"]
-pub use sp_runtime::traits::{Identity, TryConvertInto as JustTry};
 pub use weight::{WeightBounds, WeightTrader};
 
 pub mod prelude {
@@ -65,6 +63,4 @@ pub mod prelude {
 		MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
 		TrapAndClaimAssets, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
 	};
-	#[allow(deprecated)]
-	pub use super::{Identity, JustTry};
 }

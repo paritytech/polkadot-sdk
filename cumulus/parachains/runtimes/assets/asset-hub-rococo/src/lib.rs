@@ -131,7 +131,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("statemine"),
 	impl_name: alloc::borrow::Cow::Borrowed("statemine"),
 	authoring_version: 1,
-	spec_version: 1_022_003,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -289,7 +289,8 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
+	type CallbackHandle = ();
+	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -306,6 +307,7 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
+	pub MaxSwapFee: Permill = Permill::from_percent(2);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -338,6 +340,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -448,6 +451,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = LpFee;
+	type AdminOrigin = AssetsForceOrigin;
+	type MaxSwapFee = MaxSwapFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -515,6 +520,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]

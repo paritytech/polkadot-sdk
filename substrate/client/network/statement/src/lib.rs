@@ -27,14 +27,29 @@
 //! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
 //!   blocks; it resumes automatically once the node is fully synced (peers are reconnected to
 //!   recover statements missed while syncing).
-//! - Each peer keeps an LRU cache of statement hashes sent to or received from it, so duplicates
-//!   are not re-sent.
 //! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
 //!   added since the previous round, batches them up to the maximum notification size
 //!   (`config::MAX_STATEMENT_NOTIFICATION_SIZE`, ~1 MiB), and sends the batches to connected peers.
 //! - Incoming statements are pushed onto a bounded validation queue
 //!   (`config::MAX_PENDING_STATEMENTS`); if the queue is full, incoming statements are dropped.
 //! - Peer reputation is adjusted based on statement quality (good, duplicate, invalid, flooding).
+//!
+//! ## Tracking received statements
+//!
+//! There is no per-peer record of delivered statements. A statement is propagated once, on the
+//! tick after its import: the propagation pass drains the store's recent set, so no later pass
+//! can pick it up again. The only duplicates worth preventing are statements sent back to the
+//! peers they came from.
+//!
+//! While a statement waits for validation, the peers it came from are recorded in
+//! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
+//! peer that resends the statement before its tick is added there too. The propagation pass
+//! skips the recorded peers and clears `recently_received_statements` when done.
+//!
+//! Initial sync sends a snapshot of the whole store with no per-peer filtering, so a peer can
+//! occasionally receive a statement twice and may charge a small reputation penalty for the
+//! duplicate. TODO: dedupe the initial-sync and propagation paths once sends flow through a
+//! per-peer outbox (issue #12838).
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -74,8 +89,8 @@ use governor::{
 	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-	exponential_buckets, register, Counter, Gauge, GaugeVec, Histogram, HistogramOpts, Opts,
-	PrometheusError, Registry, U64,
+	exponential_buckets, register, Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramOpts,
+	HistogramVec, Opts, PrometheusError, Registry, U64,
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
@@ -87,7 +102,7 @@ use sc_network::{
 		NotificationMetrics,
 	},
 	types::ProtocolName,
-	utils::{interval, LruHashSet},
+	utils::interval,
 	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -99,7 +114,7 @@ use sp_statement_store::{
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
-	num::{NonZeroU32, NonZeroUsize},
+	num::NonZeroU32,
 	pin::Pin,
 	sync::Arc,
 	time::Instant,
@@ -195,7 +210,7 @@ struct Metrics {
 	propagated_statements: Counter<U64>,
 	known_statements_received: Counter<U64>,
 	skipped_oversized_statements: Counter<U64>,
-	propagated_statements_chunks: Histogram,
+	propagated_statements_chunks: HistogramVec,
 	pending_statements: Gauge<U64>,
 	ignored_statements: Counter<U64>,
 	peers_connected: GaugeVec<U64>,
@@ -205,9 +220,28 @@ struct Metrics {
 	sent_latency_seconds: Histogram,
 	initial_sync_statements_sent: Counter<U64>,
 	initial_sync_bursts_total: Counter<U64>,
+	initial_sync_in_flight_bytes: Gauge<U64>,
 	initial_sync_peers_active: Gauge<U64>,
-	initial_sync_duration_seconds: Histogram,
+	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
+	send_failures: CounterVec<U64>,
+	undelivered_statements: CounterVec<U64>,
+}
+
+mod send_failure {
+	/// The network layer rejected the send.
+	pub const NETWORK: &str = "network";
+	/// The send did not complete within `SEND_TIMEOUT`.
+	pub const TIMEOUT: &str = "timeout";
+	/// The chunk was never handed to the network because the peer had no message sink.
+	pub const NO_SINK: &str = "no_sink";
+}
+
+mod sync_outcome {
+	/// A burst found the backlog drained, so every statement reached the peer.
+	pub const COMPLETED: &str = "completed";
+	/// The sync ended before its backlog was drained.
+	pub const ABANDONED: &str = "abandoned";
 }
 
 impl Metrics {
@@ -248,12 +282,14 @@ impl Metrics {
 				r,
 			)?,
 			propagated_statements_chunks: register(
-				Histogram::with_opts(
+				HistogramVec::new(
 					HistogramOpts::new(
 						"substrate_sync_propagated_statements_chunks",
-						"Distribution of chunk sizes when propagating statements",
+						"Distribution of chunk sizes when sending statements, by send path. Initial \
+						 sync fills every chunk to the size limit, propagation does not",
 					)
 					.buckets(exponential_buckets(1.0, 2.0, 14)?),
+					&["kind"],
 				)?,
 				r,
 			)?,
@@ -318,6 +354,13 @@ impl Metrics {
 				)?,
 				r,
 			)?,
+			initial_sync_in_flight_bytes: register(
+				Gauge::new(
+					"substrate_sync_initial_sync_in_flight_bytes",
+					"Encoded bytes of initial-sync chunks currently queued for sending",
+				)?,
+				r,
+			)?,
 			initial_sync_peers_active: register(
 				Gauge::new(
 					"substrate_sync_initial_sync_peers_active",
@@ -326,12 +369,13 @@ impl Metrics {
 				r,
 			)?,
 			initial_sync_duration_seconds: register(
-				Histogram::with_opts(
+				HistogramVec::new(
 					HistogramOpts::new(
 						"substrate_sync_initial_sync_duration_seconds",
-						"Per-peer duration of initial sync from start until completion or peer disconnect (whichever comes first)",
+						"Per-peer duration of initial sync, by outcome: completed (backlog drained) or abandoned (ended with statements still queued)",
 					)
 					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
+					&["outcome"],
 				)?,
 				r,
 			)?,
@@ -339,6 +383,26 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
 					"Number of peers disconnected for exceeding statement rate limits",
+				)?,
+				r,
+			)?,
+			send_failures: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_send_failures_total",
+						"Total statement sends that never reached the peer, by reason",
+					),
+					&["reason"],
+				)?,
+				r,
+			)?,
+			undelivered_statements: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_undelivered_total",
+						"Total statements whose send failed, so the peer never received them, by reason",
+					),
+					&["reason"],
 				)?,
 				r,
 			)?,
@@ -470,6 +534,7 @@ impl StatementHandlerPrototype {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network,
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
@@ -484,6 +549,9 @@ impl StatementHandlerPrototype {
 			),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -510,6 +578,11 @@ pub struct StatementHandler<
 	/// imported. This prevents that we import the same statement
 	/// multiple times concurrently.
 	pending_statements_peers: HashMap<Hash, HashSet<PeerId>>,
+	/// Statements received from peers and imported since the last propagation
+	/// pass, each with the peers that sent it. Propagation skips those peers,
+	/// so a statement never returns to a peer it came from. Cleared after each
+	/// pass.
+	recently_received_statements: HashMap<Hash, HashSet<PeerId>>,
 	/// Network service to use to send messages and manage peers.
 	network: N,
 	/// Syncing service.
@@ -534,6 +607,13 @@ pub struct StatementHandler<
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
+	/// Next value to hand out as [`PendingInitialSync::sync_id`].
+	next_initial_sync_id: u64,
+	/// Encoded bytes of initial-sync chunks in `pending_sends`, throttled at the soft limit
+	/// [`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES`].
+	initial_sync_in_flight_bytes: u64,
+	/// Pending propagation sends, polled by the main event loop.
+	pending_sends: PendingSends,
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
@@ -577,8 +657,6 @@ impl PeerRateLimiter {
 #[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 #[derive(Debug)]
 pub struct Peer {
-	/// Holds a set of statements known to this peer.
-	known_statements: LruHashSet<Hash>,
 	/// Rate limiter for statement flooding protection.
 	rate_limiter: PeerRateLimiter,
 	/// Protocol version negotiated with this peer.
@@ -599,6 +677,9 @@ pub struct Peer {
 struct PendingInitialSync {
 	hashes: Vec<Hash>,
 	started_at: Instant,
+	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
+	/// apart once its result arrives.
+	sync_id: u64,
 }
 
 /// Result of finding a sendable chunk of statements.
@@ -609,17 +690,41 @@ enum ChunkResult {
 	SkipOversized,
 }
 
-/// Result of sending a chunk of statements.
-enum SendChunkResult {
-	/// Successfully sent a chunk of N statements.
-	Sent(usize),
-	/// First statement was oversized and skipped.
-	Skipped,
-	/// Nothing to send.
-	Empty,
-	/// Send failed.
-	Failed,
+enum SendOutcome {
+	/// The notification was accepted by the network layer.
+	Sent,
+	/// The network layer rejected the send.
+	NetworkError(error::Error),
+	/// The send did not complete within `SEND_TIMEOUT`.
+	TimedOut,
 }
+
+enum SendKind {
+	Propagation,
+	InitialSync { sync_id: u64 },
+}
+
+impl SendKind {
+	fn label(&self) -> &'static str {
+		match self {
+			Self::Propagation => "propagation",
+			Self::InitialSync { .. } => "initial_sync",
+		}
+	}
+}
+
+/// Result of an asynchronous send.
+struct PendingSendResult {
+	peer: PeerId,
+	statement_count: usize,
+	bytes_sent: u64,
+	result: SendOutcome,
+	kind: SendKind,
+}
+
+/// Type alias for the pending sends future collection, this is a list of in-flight sends to peers.
+type PendingSends =
+	FuturesUnordered<Pin<Box<dyn Future<Output = PendingSendResult> + Send + 'static>>>;
 
 /// Encoding overhead for V1: just the `Compact<u32>` vec length prefix (max 5 bytes).
 const V1_ENVELOPE_OVERHEAD: usize = 5;
@@ -678,16 +783,35 @@ fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> C
 	}
 }
 
+async fn send_with_timeout<F>(send: F) -> SendOutcome
+where
+	F: Future<Output = Result<(), error::Error>>,
+{
+	match timeout(SEND_TIMEOUT, send).await {
+		Ok(Ok(())) => SendOutcome::Sent,
+		Ok(Err(error)) => SendOutcome::NetworkError(error),
+		Err(_elapsed) => SendOutcome::TimedOut,
+	}
+}
+
+/// Whether the peer sent us the statement, directly or while it was queued for
+/// validation. `pending_statements_peers` covers the race where a statement is
+/// drained for propagation while the peers that sent it still sit there.
+fn has_received_from(
+	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
+	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
+	hash: &Hash,
+	who: &PeerId,
+) -> bool {
+	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who)) ||
+		pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
+}
+
 impl Peer {
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn new_for_testing(
-		known_statements: LruHashSet<Hash>,
-		statements_per_second: NonZeroU32,
-		burst: NonZeroU32,
-	) -> Self {
+	pub fn new_for_testing(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
 		Self {
-			known_statements,
 			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
@@ -739,6 +863,7 @@ where
 			propagate_timeout,
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network,
 			sync,
 			sync_event_stream,
@@ -751,6 +876,9 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -772,6 +900,9 @@ where
 	pub async fn run(mut self) {
 		loop {
 			futures::select_biased! {
+				send_result = self.pending_sends.select_next_some() => {
+					self.handle_send_result(send_result);
+				},
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
 					self.metrics.as_ref().map(|metrics| {
@@ -779,13 +910,7 @@ where
 					});
 				},
 				(hash, result) = self.pending_statements.select_next_some() => {
-					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
-						if let Some(result) = result {
-							peers.into_iter().for_each(|p| self.on_handle_statement_import(p, &result));
-						}
-					} else {
-						log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
-					}
+					self.on_statement_submit_result(hash, result);
 				},
 				sync_event = self.sync_event_stream.next() => {
 					if let Some(sync_event) = sync_event {
@@ -804,7 +929,7 @@ where
 					}
 				}
 				_ = &mut self.initial_sync_timeout => {
-					self.process_initial_sync_burst().await;
+					self.process_initial_sync_burst();
 					self.initial_sync_timeout =
 						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
 				},
@@ -826,62 +951,19 @@ where
 		}
 	}
 
-	/// Send a single chunk of statements to a peer.
+	/// Record a send that never reached the peer.
 	///
-	/// Encodes the chunk according to the peer's protocol version:
-	/// - V1: raw `Vec<Statement>` encoding
-	/// - V2: `StatementMessage::Statements(...)` encoding
-	async fn send_statement_chunk(
-		&mut self,
-		peer: &PeerId,
-		statements: &[&Statement],
-	) -> SendChunkResult {
-		let Some(peer_data) = self.peers.get(peer) else {
-			log::error!(target: LOG_TARGET, "Peer {peer} not found in peers map during send_statement_chunk");
-			return SendChunkResult::Failed;
-		};
-		let peer_version = peer_data.protocol_version;
-		let envelope_overhead = peer_version.envelope_overhead();
-		match find_sendable_chunk(statements, envelope_overhead) {
-			ChunkResult::Send(0) => SendChunkResult::Empty,
-			ChunkResult::Send(chunk_end) => {
-				let chunk = &statements[..chunk_end];
-				let encoded = match peer_version {
-					PeerProtocolVersion::V1 => chunk.encode(),
-					PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
-				};
-				let bytes_to_send = encoded.len() as u64;
-
-				let sent_latency_timer =
-					self.metrics.as_ref().map(|m| m.sent_latency_seconds.start_timer());
-				let send_result = timeout(
-					SEND_TIMEOUT,
-					self.notification_service.send_async_notification(peer, encoded),
-				)
-				.await;
-				drop(sent_latency_timer);
-
-				if let Err(e) = send_result {
-					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
-					return SendChunkResult::Failed;
-				}
-
-				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
-				self.metrics.as_ref().map(|metrics| {
-					metrics.propagated_statements.inc_by(chunk.len() as u64);
-					metrics.bytes_sent_total.inc_by(bytes_to_send);
-					metrics.propagated_statements_chunks.observe(chunk.len() as f64);
-				});
-				SendChunkResult::Sent(chunk_end)
-			},
-			ChunkResult::SkipOversized => {
-				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
-				self.metrics.as_ref().map(|metrics| {
-					metrics.skipped_oversized_statements.inc();
-				});
-				SendChunkResult::Skipped
-			},
-		}
+	/// A failed send is not retried, so the statements are lost for that peer until
+	/// its next initial sync. Counting them here is the only way that loss is
+	/// visible in monitoring.
+	fn record_send_failure(&self, reason: &str, statement_count: usize) {
+		self.metrics.as_ref().map(|metrics| {
+			metrics.send_failures.with_label_values(&[reason]).inc();
+			metrics
+				.undelivered_statements
+				.with_label_values(&[reason])
+				.inc_by(statement_count as u64);
+		});
 	}
 
 	/// Add all peers that were deferred during major sync to the reserved set
@@ -973,7 +1055,7 @@ where
 	///   joined.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
-			SyncEvent::PeerConnected(remote) => {
+			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
 				if self.sync.is_major_syncing() {
 					log::trace!(
 						target: LOG_TARGET,
@@ -1054,9 +1136,6 @@ where
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
-						known_statements: LruHashSet::new(
-							NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
-						),
 						rate_limiter: PeerRateLimiter::new(
 							self.statements_per_second,
 							NonZeroU32::new(
@@ -1096,12 +1175,10 @@ where
 				}
 
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.initial_sync_peers_active.dec();
-						metrics
-							.initial_sync_duration_seconds
-							.observe(pending.started_at.elapsed().as_secs_f64());
-					});
+					self.record_initial_sync_completion(
+						sync_outcome::ABANDONED,
+						pending.started_at,
+					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 			},
@@ -1186,7 +1263,6 @@ where
 	/// For the batch:
 	/// - Enforces the per-peer rate limit — on abuse, disconnects the peer and reports
 	///   `rep::STATEMENT_FLOODING`.
-	/// - Marks each statement as known for the peer.
 	/// - Skips statements already in the store, reporting `rep::DUPLICATE_STATEMENT` if the same
 	///   peer sent it twice.
 	/// - Enqueues unknown statements onto the bounded validation queue.
@@ -1237,15 +1313,30 @@ where
 				}
 
 				let hash = s.hash();
-				peer.known_statements.insert(hash);
 
 				if self.statement_store.has_statement(&hash) {
 					self.metrics.as_ref().map(|metrics| {
 						metrics.known_statements_received.inc();
 					});
 
-					if let Some(peers) = self.pending_statements_peers.get(&hash) {
-						if peers.contains(&who) {
+					// If the statement still awaits its propagation pass, record the
+					// peer so the pass does not send it back. Only join an existing
+					// entry, or replays would grow the map without bound. Peers that
+					// sent a not yet imported statement are tracked in
+					// `pending_statements_peers` and move here on import.
+					if let Some(peers) = self.recently_received_statements.get_mut(&hash) {
+						peers.insert(who);
+					}
+
+					// The store can already hold the statement while its validation
+					// completion still awaits processing by the event loop. Join the
+					// pending entry so the peer moves to `recently_received_statements`
+					// on import, exactly as if the message had arrived before the
+					// store insert.
+					if let Some(peers) = self.pending_statements_peers.get_mut(&hash) {
+						if peers.insert(who) {
+							self.network.report_peer(who, rep::ANY_STATEMENT);
+						} else {
 							log::trace!(
 								target: LOG_TARGET,
 								"Already received the statement from the same peer {who}.",
@@ -1324,25 +1415,33 @@ where
 		}
 	}
 
-	/// Propagate one statement.
-	pub async fn propagate_statement(&mut self, hash: &Hash) {
-		// Accept statements only when node is not major syncing
-		if self.sync.is_major_syncing() {
-			return;
-		}
-
-		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
-		if let Ok(Some(statement)) = self.statement_store.statement(hash) {
-			self.do_propagate_statements(&[(*hash, statement)]).await;
+	/// Handle a completed validation task. Adjusts the reputation of every peer
+	/// that sent us the statement and, if the statement awaits propagation,
+	/// records those peers so it is not sent back to them.
+	fn on_statement_submit_result(&mut self, hash: Hash, result: Option<SubmitResult>) {
+		if let Some(peers) = self.pending_statements_peers.remove(&hash) {
+			if let Some(result) = result {
+				for peer in &peers {
+					self.on_handle_statement_import(*peer, &result);
+				}
+				// `New` and `Known` mean the statement awaits the next propagation
+				// pass. Remember who sent it so the pass does not send it back.
+				if matches!(result, SubmitResult::New | SubmitResult::Known) {
+					self.recently_received_statements.entry(hash).or_default().extend(peers);
+				}
+			}
+		} else {
+			log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
 		}
 	}
 
 	/// Propagate the given `statements` to the given `peer`.
 	///
-	/// Internally filters `statements` to only send unknown statements to the peer.
+	/// Internally filters out statements the peer sent to us.
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
-	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
-		let Some(peer) = self.peers.get_mut(who) else {
+	/// Send futures are queued to `pending_sends` and polled by the main loop.
+	fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+		let Some(peer) = self.peers.get(who) else {
 			return;
 		};
 
@@ -1350,19 +1449,23 @@ where
 			return;
 		}
 
+		let protocol_version = peer.protocol_version;
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| {
-				if peer.known_statements.contains(hash) {
+				// The peer supplied this statement, do not send it back.
+				if has_received_from(
+					&self.recently_received_statements,
+					&self.pending_statements_peers,
+					hash,
+					who,
+				) {
 					return None;
 				}
 				// For v2 peers with topic affinity, filter by topic match.
-				// Don't mark filtered statements as known so they can be retried
-				// when the peer's affinity changes.
 				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 					return None;
 				}
-				peer.known_statements.insert(*hash);
 				Some(stmt)
 			})
 			.collect();
@@ -1373,33 +1476,145 @@ where
 			return;
 		}
 
-		self.send_statements_in_chunks(who, &to_send).await;
+		self.queue_statements_in_chunks(who, &to_send, protocol_version);
 	}
 
-	/// Send statements to a peer in chunks, respecting the maximum notification size.
-	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
+	/// Queue statement chunks for asynchronous propagation from the main event loop.
+	fn queue_statements_in_chunks(
+		&mut self,
+		who: &PeerId,
+		statements: &[&Statement],
+		protocol_version: PeerProtocolVersion,
+	) {
+		let envelope_overhead = protocol_version.envelope_overhead();
 		let mut offset = 0;
 		while offset < statements.len() {
-			match self.send_statement_chunk(who, &statements[offset..]).await {
-				SendChunkResult::Sent(chunk_end) => {
+			match find_sendable_chunk(&statements[offset..], envelope_overhead) {
+				ChunkResult::Send(0) => return,
+				ChunkResult::Send(chunk_end) => {
+					let chunk = &statements[offset..offset + chunk_end];
+					let encoded = match protocol_version {
+						PeerProtocolVersion::V1 => chunk.encode(),
+						PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
+					};
+					let bytes_sent = encoded.len() as u64;
+					let Some(message_sink) = self.notification_service.message_sink(who) else {
+						let abandoned = statements.len() - offset;
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
+						);
+						self.record_send_failure(send_failure::NO_SINK, abandoned);
+						return;
+					};
+					let peer = *who;
+					let sent_latency =
+						self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
+					self.pending_sends.push(Box::pin(async move {
+						let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
+						let result =
+							send_with_timeout(message_sink.send_async_notification(encoded)).await;
+						drop(sent_latency_timer);
+						PendingSendResult {
+							peer,
+							statement_count: chunk_end,
+							bytes_sent,
+							result,
+							kind: SendKind::Propagation,
+						}
+					}));
 					offset += chunk_end;
 				},
-				SendChunkResult::Skipped => {
+				ChunkResult::SkipOversized => {
+					log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+					self.metrics.as_ref().map(|metrics| {
+						metrics.skipped_oversized_statements.inc();
+					});
 					offset += 1;
 				},
-				SendChunkResult::Empty | SendChunkResult::Failed => return,
 			}
 		}
 	}
 
-	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+	fn handle_send_result(&mut self, send_result: PendingSendResult) {
+		let PendingSendResult { peer, statement_count, bytes_sent, result, kind } = send_result;
+
+		let kind_label = kind.label();
+		if matches!(kind, SendKind::InitialSync { .. }) {
+			let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
+			self.set_initial_sync_in_flight_bytes(in_flight);
+		}
+
+		let failure = match result {
+			SendOutcome::Sent => {
+				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", statement_count, peer);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.propagated_statements.inc_by(statement_count as u64);
+					metrics.bytes_sent_total.inc_by(bytes_sent);
+					metrics
+						.propagated_statements_chunks
+						.with_label_values(&[kind_label])
+						.observe(statement_count as f64);
+				});
+				None
+			},
+			SendOutcome::NetworkError(error) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Failed to send {statement_count} statements ({bytes_sent} bytes) to {peer}: {error}",
+				);
+				self.record_send_failure(send_failure::NETWORK, statement_count);
+				Some(send_failure::NETWORK)
+			},
+			SendOutcome::TimedOut => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Send of {statement_count} statements ({bytes_sent} bytes) to {peer} timed out after {SEND_TIMEOUT:?}",
+				);
+				self.record_send_failure(send_failure::TIMEOUT, statement_count);
+				Some(send_failure::TIMEOUT)
+			},
+		};
+
+		let SendKind::InitialSync { sync_id } = kind else { return };
+
+		// A peer that reconnects inside the send timeout loses its sync on disconnect and gets a
+		// fresh one under the same `PeerId`; a stale result would advance or abort the wrong sync.
+		if self.pending_initial_syncs.get(&peer).map(|pending| pending.sync_id) != Some(sync_id) {
+			return;
+		}
+
+		if failure.is_some() {
+			if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
+			}
+			return;
+		}
+
+		self.metrics.as_ref().map(|metrics| {
+			metrics.initial_sync_statements_sent.inc_by(statement_count as u64);
+		});
+		// Reached only for the live sync, which is out of the queue for as long as its chunk is
+		// in flight; a superseded sync's chunk can still be in flight under the same `PeerId`, so
+		// the bound is one chunk per sync, not per peer.
+		self.initial_sync_peer_queue.push_back(peer);
+	}
+
+	#[cfg(test)]
+	async fn flush_pending_sends(&mut self) {
+		while let Some(result) = self.pending_sends.next().await {
+			self.handle_send_result(result);
+		}
+	}
+
+	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
 		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
 		let peers: Vec<_> = self.peers.keys().copied().collect();
 		for who in peers {
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
-			self.send_statements_to_peer(&who, statements).await;
+			self.send_statements_to_peer(&who, statements);
 		}
-		log::trace!(target: LOG_TARGET, "Statements propagated to all peers");
+		log::trace!(target: LOG_TARGET, "Statements queued for propagation to all peers");
 	}
 
 	/// Call when we must propagate ready statements to peers.
@@ -1411,8 +1626,12 @@ where
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
-			self.do_propagate_statements(&statements).await;
+			self.do_propagate_statements(&statements);
 		}
+		// Every entry here belongs to an already drained statement, so it is done
+		// propagating. Statements imported after the drain get their entries only
+		// after this clear, when the event loop processes their submit results.
+		self.recently_received_statements.clear();
 	}
 
 	/// Schedule an initial sync for a peer, sending all known statements.
@@ -1421,22 +1640,16 @@ where
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
-		// If there's already a pending sync, clean it up first.
+		let sync_id = self.next_initial_sync_id;
+		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-			self.record_initial_sync_completion(pending.started_at);
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		let hashes = self.statement_store.statement_hashes();
-		// Clear known statements so that all statements are redelivered when
-		// explicit affinity changes, this is necessary because light nodes change
-		// their affinity without disconnecting, and we want them to receive all matching
-		// statements, so they can deliver them to their active subscriptions.
-		if let Some(peer_data) = self.peers.get_mut(&peer) {
-			peer_data.known_statements.clear();
-		}
 		if !hashes.is_empty() {
 			self.pending_initial_syncs
-				.insert(peer, PendingInitialSync { hashes, started_at: Instant::now() });
+				.insert(peer, PendingInitialSync { hashes, started_at: Instant::now(), sync_id });
 			self.initial_sync_peer_queue.push_back(peer);
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
@@ -1468,19 +1681,37 @@ where
 		}
 	}
 
+	/// Set the in-flight initial-sync byte counter.
+	fn set_initial_sync_in_flight_bytes(&mut self, bytes: u64) {
+		self.initial_sync_in_flight_bytes = bytes;
+		self.metrics
+			.as_ref()
+			.map(|metrics| metrics.initial_sync_in_flight_bytes.set(bytes));
+	}
+
 	/// Record initial sync completion metrics for a peer being removed.
-	fn record_initial_sync_completion(&self, started_at: Instant) {
+	fn record_initial_sync_completion(&self, outcome: &str, started_at: Instant) {
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_peers_active.dec();
 			metrics
 				.initial_sync_duration_seconds
+				.with_label_values(&[outcome])
 				.observe(started_at.elapsed().as_secs_f64());
 		});
 	}
 
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
-	async fn process_initial_sync_burst(&mut self) {
+	fn process_initial_sync_burst(&mut self) {
 		if self.sync.is_major_syncing() {
+			return;
+		}
+
+		if self.initial_sync_in_flight_bytes >= MAX_INITIAL_SYNC_IN_FLIGHT_BYTES {
+			log::debug!(
+				target: LOG_TARGET,
+				"Skipping initial sync burst, {} bytes still in flight",
+				self.initial_sync_in_flight_bytes,
+			);
 			return;
 		}
 
@@ -1491,6 +1722,7 @@ where
 		let Entry::Occupied(mut entry) = self.pending_initial_syncs.entry(peer_id) else {
 			return;
 		};
+		let sync_id = entry.get().sync_id;
 
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_bursts_total.inc();
@@ -1499,31 +1731,32 @@ where
 		if entry.get().hashes.is_empty() {
 			let started_at = entry.get().started_at;
 			entry.remove();
-			self.record_initial_sync_completion(started_at);
+			self.record_initial_sync_completion(sync_outcome::COMPLETED, started_at);
 			return;
 		}
 
-		// Fetch statements up to max_statement_payload_size, skipping statements the peer
-		// already knows or that don't match its topic affinity directly in the callback.
+		// Fetch statements up to max_statement_payload_size, skipping statements that
+		// don't match the peer's topic affinity directly in the callback.
 		// This avoids materializing non-matching statements and lets each batch carry more
 		// useful data.
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
-			entry.remove();
+			let pending = entry.remove();
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			return;
 		};
-		let envelope_overhead = peer_data.protocol_version.envelope_overhead();
+		let peer_version = peer_data.protocol_version;
+		let envelope_overhead = peer_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
-			&mut |hash, encoded, stmt| {
-				// Skip statements the peer already knows or that don't match its topic
-				// affinity. This avoids materializing non-matching statements and lets
-				// each batch carry more useful data.
-				if peer_data.known_statements.contains(hash) {
-					return FilterDecision::Skip;
-				}
+			// TODO: drop the unused hash from the `statements_by_hashes` callback
+			// if the planned encode-time filtering does not end up needing it.
+			&mut |_hash, encoded, stmt| {
+				// Skip statements that don't match the peer's topic affinity. This
+				// avoids materializing non-matching statements and lets each batch
+				// carry more useful data.
 				if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 					return FilterDecision::Skip;
 				}
@@ -1537,49 +1770,66 @@ where
 			Ok(r) => r,
 			Err(e) => {
 				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
-				let started_at = entry.get().started_at;
-				entry.remove();
-				self.record_initial_sync_completion(started_at);
+				let pending = entry.remove();
+				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 				return;
 			},
 		};
 
-		// Drain processed hashes and check if more remain
+		// Drain the processed hashes; a failed send abandons them.
 		entry.get_mut().hashes.drain(..processed);
-		let has_more = !entry.get().hashes.is_empty();
 		drop(entry);
 
-		let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
-		match self.send_statement_chunk(&peer_id, &send_stmts).await {
-			SendChunkResult::Failed => {
-				if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-					self.record_initial_sync_completion(pending.started_at);
-				}
-				return;
-			},
-			SendChunkResult::Sent(sent) => {
-				debug_assert_eq!(send_stmts.len(), sent);
-				self.metrics.as_ref().map(|metrics| {
-					metrics.initial_sync_statements_sent.inc_by(sent as u64);
-				});
-				// Mark statements as known
-				if let Some(peer) = self.peers.get_mut(&peer_id) {
-					for (hash, _) in &statements {
-						peer.known_statements.insert(*hash);
-					}
-				}
-			},
-			SendChunkResult::Empty | SendChunkResult::Skipped => {},
+		if accumulated_size > max_size {
+			log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+			self.metrics.as_ref().map(|metrics| {
+				metrics.skipped_oversized_statements.inc();
+			});
+			self.initial_sync_peer_queue.push_back(peer_id);
+			return;
 		}
 
-		// Re-queue if more hashes remain
-		if has_more {
+		if statements.is_empty() {
+			// Nothing was queued, so no result will arrive for this peer. Put it back and let the
+			// next burst either send the remainder or observe that the sync is done.
 			self.initial_sync_peer_queue.push_back(peer_id);
-		} else {
-			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-				self.record_initial_sync_completion(pending.started_at);
-			}
+			return;
 		}
+
+		let statement_count = statements.len();
+		let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
+		let encoded = match peer_version {
+			PeerProtocolVersion::V1 => send_stmts.encode(),
+			PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(&send_stmts),
+		};
+		let bytes_to_send = encoded.len() as u64;
+		let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to get message sink for peer {peer_id}, abandoning its initial sync",
+			);
+			self.record_send_failure(send_failure::NO_SINK, statement_count);
+			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
+				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
+			}
+			return;
+		};
+		let sent_latency =
+			self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
+		let in_flight = self.initial_sync_in_flight_bytes.saturating_add(bytes_to_send);
+		self.set_initial_sync_in_flight_bytes(in_flight);
+		self.pending_sends.push(Box::pin(async move {
+			let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
+			let result = send_with_timeout(message_sink.send_async_notification(encoded)).await;
+			drop(sent_latency_timer);
+			PendingSendResult {
+				peer: peer_id,
+				statement_count,
+				bytes_sent: bytes_to_send,
+				result,
+				kind: SendKind::InitialSync { sync_id },
+			}
+		}));
 	}
 }
 
@@ -1588,7 +1838,7 @@ mod tests {
 
 	use super::*;
 	use std::sync::{
-		atomic::{AtomicBool, Ordering},
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Mutex,
 	};
 
@@ -1774,11 +2024,19 @@ mod tests {
 	#[derive(Debug, Clone)]
 	struct TestNotificationService {
 		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		block_sends: Arc<AtomicBool>,
+		fail_sends: Arc<AtomicBool>,
+		sinks_available: Arc<AtomicUsize>,
 	}
 
 	impl TestNotificationService {
 		fn new() -> Self {
-			Self { sent_notifications: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				sent_notifications: Arc::new(Mutex::new(Vec::new())),
+				block_sends: Arc::new(AtomicBool::new(false)),
+				fail_sends: Arc::new(AtomicBool::new(false)),
+				sinks_available: Arc::new(AtomicUsize::new(usize::MAX)),
+			}
 		}
 
 		fn get_sent_notifications(&self) -> Vec<(PeerId, Vec<u8>)> {
@@ -1787,6 +2045,46 @@ mod tests {
 
 		fn clear_sent_notifications(&self) {
 			self.sent_notifications.lock().unwrap().clear();
+		}
+
+		fn block_sends(&self) {
+			self.block_sends.store(true, Ordering::Relaxed);
+		}
+
+		fn fail_sends(&self) {
+			self.fail_sends.store(true, Ordering::Relaxed);
+		}
+
+		fn serve_sinks(&self, count: usize) {
+			self.sinks_available.store(count, Ordering::Relaxed);
+		}
+	}
+
+	struct TestMessageSink {
+		peer: PeerId,
+		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		block_sends: Arc<AtomicBool>,
+		fail_sends: Arc<AtomicBool>,
+	}
+
+	#[async_trait::async_trait]
+	impl sc_network::service::traits::MessageSink for TestMessageSink {
+		fn send_sync_notification(&self, notification: Vec<u8>) {
+			self.sent_notifications.lock().unwrap().push((self.peer, notification));
+		}
+
+		async fn send_async_notification(
+			&self,
+			notification: Vec<u8>,
+		) -> Result<(), sc_network::error::Error> {
+			if self.block_sends.load(Ordering::Relaxed) {
+				futures::future::pending::<()>().await;
+			}
+			if self.fail_sends.load(Ordering::Relaxed) {
+				return Err(sc_network::error::Error::ConnectionClosed);
+			}
+			self.sent_notifications.lock().unwrap().push((self.peer, notification));
+			Ok(())
 		}
 	}
 
@@ -1809,6 +2107,9 @@ mod tests {
 			peer: &PeerId,
 			notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {
+			if self.fail_sends.load(Ordering::Relaxed) {
+				return Err(sc_network::error::Error::ConnectionClosed);
+			}
 			self.sent_notifications.lock().unwrap().push((*peer, notification));
 			Ok(())
 		}
@@ -1835,9 +2136,17 @@ mod tests {
 
 		fn message_sink(
 			&self,
-			_peer: &PeerId,
+			peer: &PeerId,
 		) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
-			unimplemented!()
+			self.sinks_available
+				.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+				.ok()?;
+			Some(Box::new(TestMessageSink {
+				peer: *peer,
+				sent_notifications: self.sent_notifications.clone(),
+				block_sends: self.block_sends.clone(),
+				fail_sends: self.fail_sends.clone(),
+			}))
 		}
 	}
 
@@ -2007,7 +2316,6 @@ mod tests {
 			peers.insert(
 				peer_id,
 				Peer {
-					known_statements: LruHashSet::new(NonZeroUsize::new(1000).unwrap()),
 					rate_limiter: PeerRateLimiter::new(
 						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
@@ -2032,6 +2340,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -2047,6 +2356,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2063,6 +2375,210 @@ mod tests {
 			})
 			.map(|s| s.hash())
 			.collect()
+	}
+
+	/// Import one queued statement into the store and feed `result` back into the
+	/// handler as the main loop would.
+	async fn import_queued_statement(
+		handler: &mut StatementHandler<TestNetwork, TestSync>,
+		statement_store: &TestStatementStore,
+		queue_receiver: &async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		result: SubmitResult,
+	) {
+		let (statement, completion) = queue_receiver.try_recv().unwrap();
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		completion.send(result).unwrap();
+		let (hash, result) = handler.pending_statements.next().await.unwrap();
+		handler.on_statement_submit_result(hash, result);
+	}
+
+	#[tokio::test]
+	async fn statement_is_not_sent_back_to_the_peers_it_came_from() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(3);
+		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement from two peers".to_vec());
+		let hash = statement.hash();
+
+		// Both peers supply the statement while it is queued for validation.
+		handler.on_statements(sender_a, vec![statement.clone()]);
+		handler.on_statements(sender_b, vec![statement.clone()]);
+		import_queued_statement(&mut handler, &statement_store, &queue_receiver, SubmitResult::New)
+			.await;
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(get_peer_hashes(&sent, sender_a).is_empty(), "statement returned to sender_a");
+		assert!(get_peer_hashes(&sent, sender_b).is_empty(), "statement returned to sender_b");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+		assert!(
+			handler.recently_received_statements.is_empty(),
+			"recently received statements must be cleared after the propagation pass"
+		);
+
+		// Replaying a propagated statement finds no entry to join, so a peer cannot
+		// grow the map by resending.
+		handler.on_statements(sender_a, vec![statement]);
+		assert!(handler.recently_received_statements.is_empty());
+	}
+
+	#[tokio::test]
+	async fn statement_received_mid_import_is_not_sent_back_to_the_sender() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(3);
+		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement received mid-import".to_vec());
+		let hash = statement.hash();
+
+		handler.on_statements(sender_a, vec![statement.clone()]);
+
+		// The worker has inserted the statement into the store, but the event loop
+		// has not processed the validation completion yet.
+		let (queued, completion) = queue_receiver.try_recv().unwrap();
+		statement_store.statements.lock().unwrap().insert(hash, queued.clone());
+		statement_store.recent_statements.lock().unwrap().insert(hash, queued);
+
+		// The second peer sends the same statement inside that window.
+		handler.on_statements(sender_b, vec![statement]);
+		assert!(handler
+			.pending_statements_peers
+			.get(&hash)
+			.is_some_and(|peers| peers.contains(&sender_b)));
+
+		completion.send(SubmitResult::New).unwrap();
+		let (hash, result) = handler.pending_statements.next().await.unwrap();
+		handler.on_statement_submit_result(hash, result);
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(get_peer_hashes(&sent, sender_a).is_empty(), "statement returned to sender_a");
+		assert!(get_peer_hashes(&sent, sender_b).is_empty(), "statement returned to sender_b");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+	}
+
+	#[tokio::test]
+	async fn statement_forwarded_before_the_tick_is_not_sent_back_to_the_forwarder() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(3);
+		let (sender, forwarder, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"late forwarder".to_vec());
+		let hash = statement.hash();
+
+		handler.on_statements(sender, vec![statement.clone()]);
+		// Another path imported the statement while it was queued, so validation
+		// completes with `Known`. The peer that sent it must be recorded all the same.
+		import_queued_statement(
+			&mut handler,
+			&statement_store,
+			&queue_receiver,
+			SubmitResult::Known,
+		)
+		.await;
+		// The statement is imported but not yet propagated when another peer forwards it.
+		handler.on_statements(forwarder, vec![statement]);
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(
+			get_peer_hashes(&sent, sender).is_empty(),
+			"statement returned to the peer that sent it"
+		);
+		assert!(get_peer_hashes(&sent, forwarder).is_empty(), "statement returned to forwarder");
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+	}
+
+	#[tokio::test]
+	async fn recently_received_statements_survive_a_major_sync_early_return() {
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			queue_receiver,
+			peer_ids,
+		) = build_handler(2);
+		let (sender, receiver) = (peer_ids[0], peer_ids[1]);
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"during major sync".to_vec());
+		let hash = statement.hash();
+
+		handler.on_statements(sender, vec![statement]);
+		import_queued_statement(&mut handler, &statement_store, &queue_receiver, SubmitResult::New)
+			.await;
+
+		// The early return skips the drain, so the statement stays recent and its
+		// entry must stay with it.
+		handler.sync.major_syncing.store(true, Ordering::Relaxed);
+		handler.propagate_statements().await;
+		assert!(
+			handler.recently_received_statements.contains_key(&hash),
+			"entries must survive the major-sync early return"
+		);
+
+		handler.sync.major_syncing.store(false, Ordering::Relaxed);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert!(
+			get_peer_hashes(&sent, sender).is_empty(),
+			"statement returned to the peer that sent it"
+		);
+		assert_eq!(get_peer_hashes(&sent, receiver), vec![hash]);
+		assert!(handler.recently_received_statements.is_empty());
+	}
+
+	#[tokio::test]
+	async fn propagation_does_not_wait_for_pending_send() {
+		let (mut handler, statement_store, _, notification_service, _, _) = build_handler(1);
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement".to_vec());
+		statement_store
+			.recent_statements
+			.lock()
+			.unwrap()
+			.insert(statement.hash(), statement);
+
+		notification_service.block_sends();
+		let result =
+			tokio::time::timeout(std::time::Duration::from_secs(1), handler.propagate_statements())
+				.await;
+
+		assert!(result.is_ok(), "Propagation waited for a pending send");
+		assert_eq!(handler.pending_sends.len(), 1);
 	}
 
 	/// Simulate the network closing the substream for every disconnected
@@ -2154,6 +2670,7 @@ mod tests {
 		}
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let mut total_statements_sent = 0;
@@ -2232,6 +2749,7 @@ mod tests {
 			.insert(hash3, statement3.clone());
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -2267,6 +2785,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -2282,6 +2801,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2310,6 +2832,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -2325,6 +2848,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2374,7 +2900,8 @@ mod tests {
 		// Process bursts until all statements are sent
 		let mut burst_count = 0;
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
-			handler.process_initial_sync_burst().await;
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
 			burst_count += 1;
 			// Safety limit
 			assert!(burst_count <= 300, "Too many bursts, possible infinite loop");
@@ -2413,6 +2940,298 @@ mod tests {
 		// Verify cleanup
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn initial_sync_network_error_abandons_the_sync() {
+		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
+		let peer_id = peer_ids[0];
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		// Two statements small enough to share one chunk, so a statement count cannot be
+		// mistaken for a chunk count.
+		let hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
+			.into_iter()
+			.map(|payload| {
+				let mut statement = Statement::new();
+				statement.set_plain_data(payload);
+				let hash = statement.hash();
+				statement_store.statements.lock().unwrap().insert(hash, statement);
+				hash
+			})
+			.collect();
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+
+		// The network layer rejects the send with a real error, not a timeout.
+		notification_service.fail_sends();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		assert!(notification_service.get_sent_notifications().is_empty());
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NETWORK]).get(), 1,);
+		assert_eq!(
+			metrics.undelivered_statements.with_label_values(&[send_failure::NETWORK]).get(),
+			hashes.len() as u64,
+			"both statements in the chunk were lost, counted individually"
+		);
+		assert_eq!(
+			metrics.send_failures.with_label_values(&[send_failure::TIMEOUT]).get(),
+			0,
+			"a network error must not be attributed to a timeout"
+		);
+	}
+
+	#[tokio::test]
+	async fn missing_sink_counts_every_abandoned_statement() {
+		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
+		let peer_id = peer_ids[0];
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		// 100 KB each, so the batch spans three 1 MiB chunks. Two chunks must remain after the
+		// sink disappears, otherwise "the whole remainder" and "the current chunk" are the same
+		// number and the test proves nothing.
+		let total = 25;
+		for i in 0..total {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; 100 * 1024];
+			data[0] = i as u8;
+			statement.set_plain_data(data);
+			statement_store
+				.recent_statements
+				.lock()
+				.unwrap()
+				.insert(statement.hash(), statement);
+		}
+
+		// Serve the first chunk, then behave as if the peer went away.
+		notification_service.serve_sinks(1);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let delivered =
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id).len();
+		assert!(delivered > 0);
+		assert!(
+			total - delivered > delivered,
+			"the abandoned remainder must exceed one full chunk, delivered {delivered} of {total}"
+		);
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NO_SINK]).get(), 1,);
+		assert_eq!(
+			metrics.undelivered_statements.with_label_values(&[send_failure::NO_SINK]).get(),
+			(total - delivered) as u64,
+			"every statement after the delivered chunk counts as undelivered"
+		);
+	}
+
+	#[tokio::test]
+	async fn burst_with_nothing_to_send_returns_the_peer_to_the_queue() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"filtered by affinity".to_vec());
+		statement.set_topic(0, [0xAA; 32].into());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		// A topic affinity matching nothing in the store, so the burst finds no
+		// statement to send.
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&[0xBB; 32]);
+		{
+			let peer = handler.peers.get_mut(&peer_id).unwrap();
+			peer.protocol_version = PeerProtocolVersion::V2;
+			peer.topic_affinity = Some(filter);
+		}
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		// No chunk means no send result to advance the sync, so the burst has to requeue the peer
+		// itself or the sync stalls with its entry alive and the peer out of the queue.
+		handler.process_initial_sync_burst();
+		assert!(handler.pending_sends.is_empty());
+		assert!(notification_service.get_sent_notifications().is_empty());
+		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
+
+		handler.process_initial_sync_burst();
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn initial_sync_keeps_one_chunk_per_peer_in_flight() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		// 100 KB each, so the store spans several 1 MiB chunks and the peer has more to receive
+		// after its first one.
+		for i in 0..25u8 {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; 100 * 1024];
+			data[0] = i;
+			statement.set_plain_data(data);
+			statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+		}
+
+		// The peer never reads its substream.
+		notification_service.block_sends();
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		for _ in 0..10 {
+			handler.process_initial_sync_burst();
+		}
+
+		assert_eq!(handler.pending_sends.len(), 1);
+		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn superseded_initial_sync_result_is_discarded() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"superseded".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.process_initial_sync_burst();
+		assert_eq!(handler.pending_sends.len(), 1);
+		assert!(handler.initial_sync_in_flight_bytes > 0);
+
+		// An affinity change re-schedules the sync while the chunk is still in flight.
+		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.flush_pending_sends().await;
+
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|peer| **peer == peer_id).count(),
+			1
+		);
+		assert_eq!(handler.initial_sync_in_flight_bytes, 0);
+	}
+
+	#[tokio::test]
+	async fn failed_superseded_initial_sync_result_does_not_abort_the_new_sync() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"superseded failure".to_vec());
+		statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+
+		// Queue a chunk, then arrange for that very send to come back as a failure.
+		handler.schedule_initial_sync_for_peer(peer_id);
+		handler.process_initial_sync_burst();
+		notification_service.fail_sends();
+
+		// A reconnect replaces the sync while that chunk is still in flight.
+		handler.schedule_initial_sync_for_peer(peer_id);
+		let sync_id = handler.pending_initial_syncs.get(&peer_id).unwrap().sync_id;
+		handler.flush_pending_sends().await;
+
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).map(|pending| pending.sync_id),
+			Some(sync_id)
+		);
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|peer| **peer == peer_id).count(),
+			1
+		);
+	}
+
+	#[tokio::test]
+	async fn initial_sync_respects_the_payload_size_boundary() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+		let peer_id = peer_ids[0];
+		let overhead = handler.peers.get(&peer_id).unwrap().protocol_version.envelope_overhead();
+		let max_size = max_statement_payload_size(overhead);
+
+		let mut data_len = max_size - 32;
+		let exact = loop {
+			let mut candidate = Statement::new();
+			candidate.set_plain_data(vec![7u8; data_len]);
+			let size = candidate.encoded_size();
+			assert!(size <= max_size, "no data length encodes to exactly {max_size}");
+			if size == max_size {
+				break candidate;
+			}
+			data_len += 1;
+		};
+		let exact_hash = exact.hash();
+		let mut oversized = Statement::new();
+		oversized.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
+		let oversized_hash = oversized.hash();
+		statement_store.statements.lock().unwrap().insert(exact_hash, exact);
+		statement_store.statements.lock().unwrap().insert(oversized_hash, oversized);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		for _ in 0..10 {
+			if !handler.pending_initial_syncs.contains_key(&peer_id) {
+				break;
+			}
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.metrics.as_ref().unwrap().skipped_oversized_statements.get(), 1);
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![exact_hash], "only the exactly-fitting statement is delivered");
+	}
+
+	#[tokio::test]
+	async fn initial_sync_in_flight_budget_is_bounded() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(20);
+
+		// ~1.1 MB of statements, so each peer's first chunk sits just under the 1 MiB cap and a
+		// handful of peers is enough to exhaust the budget.
+		for i in 0..11u8 {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; 100 * 1024];
+			data[0] = i;
+			statement.set_plain_data(data);
+			statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+		}
+
+		// No peer reads, so nothing ever leaves the budget.
+		notification_service.block_sends();
+		for peer_id in &peer_ids {
+			handler.schedule_initial_sync_for_peer(*peer_id);
+		}
+
+		let mut bursts = 0;
+		while handler.initial_sync_in_flight_bytes < MAX_INITIAL_SYNC_IN_FLIGHT_BYTES {
+			handler.process_initial_sync_burst();
+			bursts += 1;
+			assert!(bursts <= 100, "the budget was never reached after {bursts} bursts");
+		}
+
+		let in_flight = handler.initial_sync_in_flight_bytes;
+		assert!(in_flight >= MAX_INITIAL_SYNC_IN_FLIGHT_BYTES);
+		assert!(
+			in_flight < MAX_INITIAL_SYNC_IN_FLIGHT_BYTES + MAX_STATEMENT_NOTIFICATION_SIZE,
+			"the budget may only be overshot by the single chunk that crossed it, got {in_flight}"
+		);
+
+		// A throttled burst must leave the round-robin untouched rather than burn a peer's turn.
+		let queued = handler.initial_sync_peer_queue.clone();
+		handler.process_initial_sync_burst();
+		assert_eq!(handler.initial_sync_peer_queue, queued);
+		assert_eq!(handler.initial_sync_in_flight_bytes, in_flight);
 	}
 
 	#[tokio::test]
@@ -2465,7 +3284,8 @@ mod tests {
 			if let Some(&next_peer) = handler.initial_sync_peer_queue.front() {
 				peer_burst_order.push(next_peer);
 			}
-			handler.process_initial_sync_burst().await;
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
 			burst_count += 1;
 			// Safety limit
 			assert!(burst_count <= 500, "Too many bursts, possible infinite loop");
@@ -2565,6 +3385,7 @@ mod tests {
 		);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -2664,7 +3485,8 @@ mod tests {
 		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 2);
 
 		// Process first burst - should send only one statement (the other doesn't fit)
-		handler.process_initial_sync_burst().await;
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
 
 		// With the fix, the filter and find_sendable_chunk use the same limit,
 		// so no assertion failure occurs. Only one statement is fetched and sent.
@@ -2686,7 +3508,8 @@ mod tests {
 		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 1);
 
 		// Process second burst - should send the remaining statement
-		handler.process_initial_sync_burst().await;
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		assert_eq!(sent.len(), 2, "Second burst should send another notification");
@@ -2704,7 +3527,9 @@ mod tests {
 		expected_hashes.sort();
 		assert_eq!(sent_hashes, expected_hashes, "Both statements should be sent");
 
-		// No more pending
+		// The sync is closed by the burst that finds nothing left to send, not by the one that sent
+		// the last chunk.
+		handler.process_initial_sync_burst();
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 	}
 
@@ -3178,6 +4003,7 @@ mod tests {
 			.insert(hash_no_topic, stmt_no_topic);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let mut sent_hashes: Vec<_> = sent
@@ -3248,6 +4074,7 @@ mod tests {
 			.insert(hash_no_topic, stmt_no_topic);
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let sent_hashes: Vec<_> = sent
@@ -3334,7 +4161,8 @@ mod tests {
 
 		// Drain initial sync — only stmt_aa and stmt_no_topic should be sent.
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
-			handler.process_initial_sync_burst().await;
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
 		}
 
 		let sent = notification_service.get_sent_notifications();
@@ -3377,7 +4205,8 @@ mod tests {
 
 		notification_service.clear_sent_notifications();
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
-			handler.process_initial_sync_burst().await;
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
 		}
 
 		let sent_after_bb = notification_service.get_sent_notifications();
@@ -3399,7 +4228,7 @@ mod tests {
 		// Known statements are redelivered on affinity change.
 		assert!(
 			sent_hashes_bb.contains(&hash_no_topic),
-			"stmt_no_topic should be re-sent (known_statements cleared on affinity change)"
+			"stmt_no_topic should be re-sent (initial sync resends everything matching)"
 		);
 	}
 
@@ -3407,7 +4236,7 @@ mod tests {
 	async fn test_affinity_change_sends_previously_filtered_statements() {
 		// This tests the scenario where:
 		// 1. Peer connects and immediately sets affinity (before initial sync).
-		// 2. Statements not matching the initial affinity are NOT marked as known.
+		// 2. Statements not matching the initial affinity are not delivered.
 		// 3. When affinity changes to include those topics, they ARE sent.
 		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers_light();
@@ -3461,7 +4290,8 @@ mod tests {
 
 		// Drain initial sync — should only send stmt_aa (matches affinity).
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
-			handler.process_initial_sync_burst().await;
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
 		}
 
 		let sent = notification_service.get_sent_notifications();
@@ -3481,17 +4311,27 @@ mod tests {
 			"stmt_bb should NOT be sent (filtered by affinity)"
 		);
 
-		// Now propagate_statements — stmt_bb should be filtered by affinity and NOT marked as
-		// known.
+		// Propagation must apply the same affinity filter.
+		notification_service.clear_sent_notifications();
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
-		// Verify stmt_bb was NOT marked as known (the bug fix).
-		let peer = handler.peers.get(&peer_id).unwrap();
+		let sent = notification_service.get_sent_notifications();
+		let sent_hashes: HashSet<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				match StatementMessage::decode(&mut notification.as_slice()).unwrap() {
+					StatementMessage::Statements(stmts) => stmts,
+					_ => panic!("Expected StatementMessage::Statements"),
+				}
+			})
+			.map(|s| s.hash())
+			.collect();
+		assert!(sent_hashes.contains(&hash_aa), "stmt_aa should be propagated (matches affinity)");
 		assert!(
-			!peer.known_statements.contains(&hash_bb),
-			"stmt_bb should NOT be in known_statements (filtered by affinity)"
+			!sent_hashes.contains(&hash_bb),
+			"stmt_bb should NOT be propagated (filtered by affinity)"
 		);
-		assert!(peer.known_statements.contains(&hash_aa), "stmt_aa should be in known_statements");
 
 		// Now change affinity to include topic_bb.
 		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
@@ -3513,7 +4353,8 @@ mod tests {
 
 		// Drain re-sync — stmt_bb should now be sent.
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
-			handler.process_initial_sync_burst().await;
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
 		}
 
 		let sent = notification_service.get_sent_notifications();
@@ -3534,7 +4375,7 @@ mod tests {
 		// stmt_aa is also redelivered on affinity change.
 		assert!(
 			sent_hashes.contains(&hash_aa),
-			"stmt_aa should be re-sent (known_statements cleared on affinity change)"
+			"stmt_aa should be re-sent (initial sync resends everything matching)"
 		);
 	}
 
@@ -3569,7 +4410,6 @@ mod tests {
 		let make_peer = |is_light: bool, version: PeerProtocolVersion, has_affinity: bool| {
 			let topic_affinity = has_affinity.then(|| AffinityFilter::new(BLOOM_SEED, 0.01, 10));
 			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(10).unwrap()),
 				rate_limiter: PeerRateLimiter::new(
 					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
 					NonZeroU32::new(
@@ -3600,7 +4440,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_send_chunk_v1_vs_v2_encoding() {
-		let (mut handler, _statement_store, _network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		let v1_peer = PeerId::random();
@@ -3628,10 +4468,15 @@ mod tests {
 
 		let mut stmt = Statement::new();
 		stmt.set_plain_data(b"encoding test".to_vec());
+		statement_store.statements.lock().unwrap().insert(stmt.hash(), stmt);
 
 		// Send to V1 peer.
 		notification_service.clear_sent_notifications();
-		handler.send_statement_chunk(&v1_peer, &[&stmt]).await;
+		handler.schedule_initial_sync_for_peer(v1_peer);
+		while handler.pending_initial_syncs.contains_key(&v1_peer) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
 		let v1_sent = notification_service.get_sent_notifications();
 		assert_eq!(v1_sent.len(), 1);
 		let v1_bytes = &v1_sent[0].1;
@@ -3642,7 +4487,11 @@ mod tests {
 
 		// Send to V2 peer.
 		notification_service.clear_sent_notifications();
-		handler.send_statement_chunk(&v2_peer, &[&stmt]).await;
+		handler.schedule_initial_sync_for_peer(v2_peer);
+		while handler.pending_initial_syncs.contains_key(&v2_peer) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
 		let v2_sent = notification_service.get_sent_notifications();
 		assert_eq!(v2_sent.len(), 1);
 		let v2_bytes = &v2_sent[0].1;
@@ -3727,6 +4576,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync: sync.clone(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -3742,6 +4592,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -3759,7 +4612,6 @@ mod tests {
 		handler.peers.insert(
 			peer_id,
 			Peer::new_for_testing(
-				LruHashSet::new(NonZeroUsize::new(100).unwrap()),
 				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).unwrap(),
 				NonZeroU32::new(
 					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
@@ -3778,7 +4630,8 @@ mod tests {
 		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
 
 		// But burst processing should be a no-op while major syncing.
-		handler.process_initial_sync_burst().await;
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
 		assert!(
 			handler.pending_initial_syncs.contains_key(&peer_id),
 			"Pending sync should remain untouched during major sync"
@@ -3786,7 +4639,10 @@ mod tests {
 
 		// Once major sync completes, burst processing should proceed.
 		sync.major_syncing.store(false, Ordering::Relaxed);
-		handler.process_initial_sync_burst().await;
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
 		assert!(
 			handler.initial_sync_peer_queue.is_empty(),
 			"Peer should have been processed after major sync ended"
@@ -3802,22 +4658,18 @@ mod tests {
 
 		// Add statements to the store.
 		let mut stmt1 = Statement::new();
-		stmt1.set_plain_data(b"known".to_vec());
+		stmt1.set_plain_data(b"delivered before".to_vec());
 		let hash1 = stmt1.hash();
 		let mut stmt2 = Statement::new();
-		stmt2.set_plain_data(b"unknown".to_vec());
+		stmt2.set_plain_data(b"never delivered".to_vec());
 		let hash2 = stmt2.hash();
 
 		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
 		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
 
-		// Add peer manually with hash1 already known.
-		let mut known = LruHashSet::new(NonZeroUsize::new(100).unwrap());
-		known.insert(hash1);
 		handler.peers.insert(
 			peer_id,
 			Peer {
-				known_statements: known,
 				rate_limiter: PeerRateLimiter::new(
 					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).unwrap(),
 					NonZeroU32::new(
@@ -3838,15 +4690,9 @@ mod tests {
 		// all hashes are included for redelivery.
 		assert!(
 			pending.hashes.contains(&hash1),
-			"Previously known hash should be included after affinity change"
+			"Previously delivered hash should be included after affinity change"
 		);
 		assert!(pending.hashes.contains(&hash2), "Unknown hash should be included in initial sync");
-		// known_statements should have been cleared.
-		let peer_data = handler.peers.get(&peer_id).unwrap();
-		assert!(
-			!peer_data.known_statements.contains(&hash1),
-			"known_statements should be cleared after schedule_initial_sync_for_peer"
-		);
 	}
 
 	#[tokio::test]
@@ -3984,6 +4830,7 @@ mod tests {
 		expected_hashes.sort();
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -4003,7 +4850,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_known_statement_filtering_per_peer() {
+	async fn test_received_statement_filtering_per_peer() {
 		let (
 			mut handler,
 			statement_store,
@@ -4027,12 +4874,19 @@ mod tests {
 			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
 		}
 
-		// Pre-populate known_statements: peer_a knows s1,s2; peer_b knows s3; peer_c knows none
-		handler.peers.get_mut(&peer_a).unwrap().known_statements.insert(hashes[0]);
-		handler.peers.get_mut(&peer_a).unwrap().known_statements.insert(hashes[1]);
-		handler.peers.get_mut(&peer_b).unwrap().known_statements.insert(hashes[2]);
+		// peer_a sent s1 and s2, peer_b sent s3, peer_c sent none.
+		handler
+			.recently_received_statements
+			.insert(hashes[0], HashSet::from_iter([peer_a]));
+		handler
+			.recently_received_statements
+			.insert(hashes[1], HashSet::from_iter([peer_a]));
+		handler
+			.recently_received_statements
+			.insert(hashes[2], HashSet::from_iter([peer_b]));
 
 		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -4040,23 +4894,23 @@ mod tests {
 		let peer_b_hashes = get_peer_hashes(&sent, peer_b);
 		let peer_c_hashes = get_peer_hashes(&sent, peer_c);
 
-		// peer_a already knows s1,s2 → should only get s3,s4,s5
+		// peer_a sent s1,s2 → should only get s3,s4,s5
 		assert_eq!(peer_a_hashes.len(), 3, "peer_a should get 3 statements");
-		assert!(!peer_a_hashes.contains(&hashes[0]), "peer_a already knows s1");
-		assert!(!peer_a_hashes.contains(&hashes[1]), "peer_a already knows s2");
+		assert!(!peer_a_hashes.contains(&hashes[0]), "peer_a sent s1");
+		assert!(!peer_a_hashes.contains(&hashes[1]), "peer_a sent s2");
 		assert!(peer_a_hashes.contains(&hashes[2]));
 		assert!(peer_a_hashes.contains(&hashes[3]));
 		assert!(peer_a_hashes.contains(&hashes[4]));
 
-		// peer_b already knows s3 → should get s1,s2,s4,s5
+		// peer_b sent s3 → should get s1,s2,s4,s5
 		assert_eq!(peer_b_hashes.len(), 4, "peer_b should get 4 statements");
-		assert!(!peer_b_hashes.contains(&hashes[2]), "peer_b already knows s3");
+		assert!(!peer_b_hashes.contains(&hashes[2]), "peer_b sent s3");
 		assert!(peer_b_hashes.contains(&hashes[0]));
 		assert!(peer_b_hashes.contains(&hashes[1]));
 		assert!(peer_b_hashes.contains(&hashes[3]));
 		assert!(peer_b_hashes.contains(&hashes[4]));
 
-		// peer_c knows nothing → should get all 5
+		// peer_c sent nothing → should get all 5
 		let mut sorted_peer_c: Vec<_> = peer_c_hashes.into_iter().collect();
 		sorted_peer_c.sort();
 		let mut all_hashes = hashes.clone();
@@ -4082,6 +4936,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4097,6 +4952,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4107,9 +4965,18 @@ mod tests {
 		let peer2 = PeerId::random();
 		let peer3 = PeerId::random();
 
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer3));
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer1,
+			roles: sc_network::Roles::FULL,
+		});
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer2,
+			roles: sc_network::Roles::FULL,
+		});
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer3,
+			roles: sc_network::Roles::FULL,
+		});
 
 		// No network calls while major sync is active
 		assert!(network.get_added_reserved().is_empty());
@@ -4147,6 +5014,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4162,6 +5030,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4200,7 +5071,6 @@ mod tests {
 		peers.insert(
 			connected_peer,
 			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(1024).unwrap()),
 				rate_limiter: PeerRateLimiter::new(
 					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
@@ -4224,6 +5094,7 @@ mod tests {
 				.fuse(),
 			pending_statements: FuturesUnordered::new(),
 			pending_statements_peers: HashMap::new(),
+			recently_received_statements: HashMap::new(),
 			network: network.clone(),
 			sync,
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4239,6 +5110,9 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			next_initial_sync_id: 0,
+			initial_sync_in_flight_bytes: 0,
+			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
@@ -4295,7 +5169,6 @@ mod tests {
 	#[tokio::test]
 	async fn sync_recovery_gated_by_dropped_statements_flag() {
 		let make_peer = || Peer {
-			known_statements: LruHashSet::new(NonZeroUsize::new(1024).unwrap()),
 			rate_limiter: PeerRateLimiter::new(
 				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
@@ -4324,6 +5197,7 @@ mod tests {
 						.fuse(),
 					pending_statements: FuturesUnordered::new(),
 					pending_statements_peers: HashMap::new(),
+					recently_received_statements: HashMap::new(),
 					network,
 					sync,
 					sync_event_stream: (Box::pin(futures::stream::pending())
@@ -4339,6 +5213,9 @@ mod tests {
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
+					next_initial_sync_id: 0,
+					initial_sync_in_flight_bytes: 0,
+					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
