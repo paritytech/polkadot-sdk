@@ -47,7 +47,9 @@
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
 //! peer that resends the statement before its tick is added there too. Propagation and
 //! initial-sync chunks both skip the recorded peers, and the propagation pass clears
-//! `recently_received_statements` when done.
+//! `recently_received_statements` when done. A statement can outlive that clear in a slow
+//! peer's outbox, so a known statement arriving from a peer also evicts its hash from that
+//! peer's outbox: the peer has proven it holds the statement.
 //!
 //! ## Initial sync
 //!
@@ -73,8 +75,9 @@
 //! `undelivered_statements`.
 //!
 //! In-flight bytes of both kinds are held against the shared
-//! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full is parked once and
-//! refilled in parking order as completed sends free bytes.
+//! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
+//! fetch fails, is parked once and refilled in parking order as completed sends free bytes and on
+//! propagation ticks.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -654,7 +657,7 @@ pub struct StatementHandler<
 	initial_sync_in_flight_bytes: u64,
 	/// Statement hashes queued for propagation to each peer, drained from the front as chunks
 	/// are fetched, whether the fetch yields a send or not.
-	propagation_outboxes: HashMap<PeerId, Vec<Hash>>,
+	propagation_outboxes: HashMap<PeerId, VecDeque<Hash>>,
 	/// Id of the chunk in flight, per peer — the peer's single send slot, shared by
 	/// propagation and initial sync.
 	in_flight_chunks: HashMap<PeerId, u64>,
@@ -664,7 +667,8 @@ pub struct StatementHandler<
 	/// [`MAX_SEND_IN_FLIGHT_BYTES`] budget.
 	propagation_in_flight_bytes: u64,
 	/// Peers whose propagation chunk was deferred because the shared byte budget was
-	/// exhausted, refilled in parking order as bytes free up. A peer parks at most once.
+	/// exhausted or the store fetch failed, refilled in parking order as bytes free up
+	/// and on propagation ticks. A peer parks at most once.
 	parked_propagations: VecDeque<PeerId>,
 	/// Pending propagation sends, polled by the main event loop.
 	pending_sends: PendingSends,
@@ -1419,6 +1423,17 @@ where
 						peers.insert(who);
 					}
 
+					// The statement can sit in the peer's outbox long after its senders
+					// entry was cleared at the propagation tick, so the record above
+					// cannot stop every echo. The peer has proven it holds the
+					// statement, so drop it from the peer's outbox. The scan is bounded
+					// by the per-peer rate limit charged above.
+					if let Some(outbox) = self.propagation_outboxes.get_mut(&who) {
+						if let Some(pos) = outbox.iter().position(|queued| queued == &hash) {
+							outbox.remove(pos);
+						}
+					}
+
 					// The store can already hold the statement while its validation
 					// completion still awaits processing by the event loop. Join the
 					// pending entry so the peer moves to `recently_received_statements`
@@ -1571,13 +1586,16 @@ where
 		}
 
 		let outbox = self.propagation_outboxes.entry(*who).or_default();
-		outbox.extend(to_send);
 		// The freshest statements are the ones still worth delivering, so an overflowing
 		// outbox drops from the front.
-		let overflow = outbox.len().saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
+		let overflow = (outbox.len() + to_send.len()).saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
 		if overflow > 0 {
-			outbox.drain(..overflow);
+			let dropped_queued = overflow.min(outbox.len());
+			outbox.drain(..dropped_queued);
+			outbox.extend(to_send.into_iter().skip(overflow - dropped_queued));
 			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
+		} else {
+			outbox.extend(to_send);
 		}
 		self.try_send_next_chunk(*who);
 	}
@@ -1616,24 +1634,31 @@ where
 			}
 			let peer_version = peer_data.protocol_version;
 			let max_size = max_statement_payload_size(peer_version.envelope_overhead());
+			let Some(outbox) = self.propagation_outboxes.get_mut(&who) else {
+				return;
+			};
 			let (statements, processed, accumulated_size) = match fetch_statement_chunk(
 				&*self.statement_store,
 				&self.recently_received_statements,
 				&self.pending_statements_peers,
 				&who,
 				peer_data,
-				outbox,
+				outbox.make_contiguous(),
 				max_size,
 			) {
 				Ok(result) => result,
 				Err(e) => {
 					// A store read error says nothing about the queued hashes, so the outbox
-					// is kept and retried when a tick next queues statements for this peer.
-					log::debug!(
+					// is kept and the peer parked: the fetch is retried when a completed send
+					// or a propagation tick next refills parked peers.
+					log::warn!(
 						target: LOG_TARGET,
 						"Failed to fetch statements for propagation to {who}, retaining {} queued hashes: {e:?}",
 						outbox.len(),
 					);
+					if !self.parked_propagations.contains(&who) {
+						self.parked_propagations.push_back(who);
+					}
 					return;
 				},
 			};
@@ -1648,9 +1673,7 @@ where
 
 			// Consume the fetched hashes before the oversized check, otherwise the oversized
 			// statement would be fetched again on the next iteration.
-			if let Some(outbox) = self.propagation_outboxes.get_mut(&who) {
-				outbox.drain(..processed);
-			}
+			outbox.drain(..processed);
 
 			if accumulated_size > max_size {
 				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
@@ -1723,10 +1746,18 @@ where
 		let kind_label = kind.label();
 		match kind {
 			SendKind::Propagation => {
+				debug_assert!(
+					self.propagation_in_flight_bytes >= bytes_sent,
+					"propagation in-flight byte counter underflow"
+				);
 				let in_flight = self.propagation_in_flight_bytes.saturating_sub(bytes_sent);
 				self.set_propagation_in_flight_bytes(in_flight);
 			},
 			SendKind::InitialSync { .. } => {
+				debug_assert!(
+					self.initial_sync_in_flight_bytes >= bytes_sent,
+					"initial-sync in-flight byte counter underflow"
+				);
 				let in_flight = self.initial_sync_in_flight_bytes.saturating_sub(bytes_sent);
 				self.set_initial_sync_in_flight_bytes(in_flight);
 			},
@@ -1818,6 +1849,10 @@ where
 		if self.sync.is_major_syncing() {
 			return;
 		}
+
+		// A peer parked by a failed store fetch has no completed send to unpark it, so
+		// parked peers are also refilled on the tick.
+		self.fill_parked_propagations();
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
@@ -1918,9 +1953,14 @@ where
 	/// Refill parked peers' send slots while the in-flight byte budget allows.
 	///
 	/// Peers are served in parking order. When the budget saturates the loop stops and the
-	/// remaining peers keep their position for the next completed send.
+	/// remaining peers keep their position for the next completed send. Each peer gets one
+	/// attempt per pass: a peer whose store fetch fails parks itself again, and an unbounded
+	/// loop would spin on it.
 	fn fill_parked_propagations(&mut self) {
-		while self.send_in_flight_bytes() < MAX_SEND_IN_FLIGHT_BYTES {
+		for _ in 0..self.parked_propagations.len() {
+			if self.send_in_flight_bytes() >= MAX_SEND_IN_FLIGHT_BYTES {
+				return;
+			}
 			let Some(peer) = self.parked_propagations.pop_front() else { return };
 			self.try_send_next_chunk(peer);
 		}
@@ -2407,6 +2447,7 @@ mod tests {
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		/// Admission journal: the vector index is the statement's admission sequence number.
 		admissions: Arc<Mutex<Vec<sp_statement_store::Hash>>>,
+		fail_fetches: Arc<AtomicBool>,
 	}
 
 	impl TestStatementStore {
@@ -2415,6 +2456,7 @@ mod tests {
 				statements: Default::default(),
 				recent_statements: Default::default(),
 				admissions: Default::default(),
+				fail_fetches: Arc::new(AtomicBool::new(false)),
 			}
 		}
 
@@ -2490,6 +2532,9 @@ mod tests {
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 			usize,
 		)> {
+			if self.fail_fetches.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Db("fetch failed".into()));
+			}
 			let statements = self.statements.lock().unwrap();
 			let mut result = Vec::new();
 			let mut processed = 0;
@@ -2975,7 +3020,9 @@ mod tests {
 		let pruned_hash = pruned.hash();
 
 		// The pruned statement's hash is queued but the statement left the store.
-		handler.propagation_outboxes.insert(peer_id, vec![pruned_hash, kept_hash]);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![pruned_hash, kept_hash]));
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -2985,6 +3032,75 @@ mod tests {
 			!handler.propagation_outboxes.contains_key(&peer_id),
 			"the drained outbox must be removed"
 		);
+	}
+
+	#[tokio::test]
+	async fn known_statement_echoed_by_a_peer_leaves_its_outbox() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut echoed = Statement::new();
+		echoed.set_plain_data(b"echoed".to_vec());
+		let echoed_hash = echoed.hash();
+		let mut other = Statement::new();
+		other.set_plain_data(b"other".to_vec());
+		let other_hash = other.hash();
+		statement_store.statements.lock().unwrap().insert(echoed_hash, echoed.clone());
+		statement_store.statements.lock().unwrap().insert(other_hash, other);
+
+		// Both statements were queued while the peer's send slot was busy, and the
+		// senders entries were cleared at the end of the propagation tick.
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![echoed_hash, other_hash]));
+
+		// The peer sends one of the queued statements to us: it must leave the outbox.
+		handler.on_statements(peer_id, vec![echoed]);
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap(),
+			&VecDeque::from(vec![other_hash])
+		);
+
+		// The rest of the outbox still goes out.
+		handler.try_send_next_chunk(peer_id);
+		handler.flush_pending_sends().await;
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![other_hash]);
+	}
+
+	#[tokio::test]
+	async fn failed_store_fetch_parks_the_peer_and_the_tick_retries() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"statement".to_vec());
+		let hash = statement.hash();
+		statement_store.statements.lock().unwrap().insert(hash, statement);
+		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+
+		statement_store.fail_fetches.store(true, Ordering::Relaxed);
+		handler.try_send_next_chunk(peer_id);
+
+		assert!(handler.pending_sends.is_empty(), "a failed fetch must not queue a send");
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap().len(),
+			1,
+			"the outbox must be retained"
+		);
+		assert_eq!(handler.parked_propagations, VecDeque::from([peer_id]));
+
+		// No new statements arrive for the peer: the tick alone must retry the parked fetch.
+		statement_store.fail_fetches.store(false, Ordering::Relaxed);
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(handler.parked_propagations.is_empty());
 	}
 
 	#[tokio::test]
@@ -3005,7 +3121,9 @@ mod tests {
 
 		// The oversized statement heads the outbox. It must be consumed, not
 		// re-fetched forever, and the statement behind it must still go out.
-		handler.propagation_outboxes.insert(peer_id, vec![oversized_hash, small_hash]);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![oversized_hash, small_hash]));
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -3063,7 +3181,9 @@ mod tests {
 		let second_hash = second.hash();
 		statement_store.insert(first);
 		statement_store.insert(second);
-		handler.propagation_outboxes.insert(peer_id, vec![first_hash, second_hash]);
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![first_hash, second_hash]));
 
 		// Only the first chunk's send fails.
 		notification_service.fail_sends();
@@ -3107,13 +3227,14 @@ mod tests {
 		handler.in_flight_chunks.insert(peer_id, 0);
 		handler
 			.propagation_outboxes
-			.insert(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
+			.insert(peer_id, VecDeque::from(vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]));
 
 		handler.propagate_statements().await;
 
 		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
 		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
-		let tail: HashSet<_> = outbox[MAX_PROPAGATION_OUTBOX_LEN - 3..].iter().copied().collect();
+		let tail: HashSet<_> =
+			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
 		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
 
 		let metrics = handler.metrics.as_ref().unwrap();
@@ -3146,7 +3267,7 @@ mod tests {
 		// The hash was appended while the peer's slot was busy, and the peer sent
 		// us the statement before the slot freed: the encode-time senders check
 		// must catch what the append-time check could not have seen.
-		handler.propagation_outboxes.insert(peer_id, vec![hash]);
+		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
 		handler.recently_received_statements.insert(hash, HashSet::from_iter([peer_id]));
 
 		handler.try_send_next_chunk(peer_id);
@@ -3833,7 +3954,10 @@ mod tests {
 		handler.propagate_statements().await;
 
 		assert!(handler.pending_sends.is_empty(), "no chunk may be queued over the budget");
-		assert_eq!(handler.propagation_outboxes.get(&peer_id).unwrap(), &vec![hash]);
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap(),
+			&VecDeque::from(vec![hash])
+		);
 		assert_eq!(handler.parked_propagations, VecDeque::from([peer_id]));
 
 		// A completed initial-sync send frees the budget and refills the parked peer.
