@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786722939365,
+  "lastUpdate": 1786728265066,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "11329616+Klapeyron@users.noreply.github.com",
-            "name": "Klapeyron",
-            "username": "Klapeyron"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "dca3da257b2d8532867e7856bafd1971aaa34edb",
-          "message": "Missing sign_with forward call (#10784)\n\nAs a follow-up of the discussion\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2682026297,\nI am extracting a missing forward call to a separate PR so we can\ndeliver it independently.\n\nContext:\nWhen keystore is used by some component (like BEEFY) via Arc, then calls\nof `sign_with` function are forwarded to default trait implementation.\nIt is not working, when custom keystore with custom `sign_with`\nimplementation is used.",
-          "timestamp": "2026-01-13T13:10:39Z",
-          "tree_id": "0b900d0cb850b34188068cf7c1bcab61e0f5091c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dca3da257b2d8532867e7856bafd1971aaa34edb"
-        },
-        "date": 1768313879527,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.302419152533336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1314649987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.923188610366669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a286382c4811b3409d258226d6878cf46bea1d0",
+          "message": "[pallet-revive] EXTCODECOPY zero-fills for an out-of-range code offset (#12650)\n\nFixes #12643 by switching `EXTCODECOPY`'s `code_offset conversion` from\n`as_usize_or_halt` to `as_usize_saturated`, so an out-of-range code\noffset zero-fills the destination (matching the EVM spec, revm, and the\nsibling copy opcodes) instead of trapping and diverging the state root.",
+          "timestamp": "2026-08-14T15:52:36Z",
+          "tree_id": "c491ffcb3d138033d1eef6fd6ef00fd986f71195",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a286382c4811b3409d258226d6878cf46bea1d0"
+        },
+        "date": 1786728227209,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.904571406166669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1419119009,
             "unit": "seconds"
           }
         ]
