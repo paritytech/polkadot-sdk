@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786665433053,
+  "lastUpdate": 1786687917230,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -113723,6 +113723,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2646657623,
             "range": "± 20889718",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "492f979b7c527336d5245e768e886e36ac007335",
+          "message": "Add Doc Comments for Pallet Revive's Versioned Types (#12860)\n\n# Description\n\n## Why\n\nI think this PR's objective is better understood by the why rather than\nthe how. After versioning was introduced we didn't have a good way to\ncommunicate to users, clients, and consumers of the runtime API \"we\nupdated this function to v2 to add this specific capability\". We agreed\nthat this would be something that we would document but it's not very\nclear to me where such documentation would go.\n\nA user would find themselves needing to dig through the code adding vN\nto understand the diff and therefore understand what new capabilities or\nchanges come with a specific version of a runtime api and then make a\ndecision on whether they want to use it or not.\n\n## How\n\nThis PR adds documentation comments to:\n\n1. The enums used for the inputs and outputs of the runtime API\nfunctions.\n2. The variants used for the inputs and outputs of the runtime API\nfunctions including versions higher than V1 telling the user what\nchanges were made.\n\nFor example, in the tracing v2 output we have a doc comment which says\nthat this version adds the `index` field to `CallLog`. Therefore, it's\nvery clear to a user that \"I should use v2 when I care about this\nspecific field\"\n\n## Usage\n\nThe way I envision for this to be used is that eventually when this\ncrate is published we'd have a doc.rs link for the crate which we could\nlink anybody to for them to read the documentation of a specific runtime\nAPI function which would then help them decide which version they should\nuse or if v1 meets all of their needs\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T04:58:24Z",
+          "tree_id": "ee543391caa0a62c5664a16a62b4f3c050b1f918",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/492f979b7c527336d5245e768e886e36ac007335"
+        },
+        "date": 1786687885046,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20928878,
+            "range": "± 390876",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20766501,
+            "range": "± 235609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22725448,
+            "range": "± 297948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27763999,
+            "range": "± 310551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 64518004,
+            "range": "± 1970063",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 392745711,
+            "range": "± 11990508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2763692211,
+            "range": "± 157353146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17619571,
+            "range": "± 231831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18054412,
+            "range": "± 319249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18494005,
+            "range": "± 316898",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23128604,
+            "range": "± 251404",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66166968,
+            "range": "± 1071872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 391666262,
+            "range": "± 5289311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2810163421,
+            "range": "± 22811371",
             "unit": "ns/iter"
           }
         ]
