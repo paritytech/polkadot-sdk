@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786666566182,
+  "lastUpdate": 1786688893162,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a1128b94bbd6bcab40654c9468542a1f21f5eab",
-          "message": "[pallet-revive] add EVM gas call syscalls (#10554)\n\nThis PR adds two new syscalls for calls accepting EVM gas instead of\nWeight and Deposit.\n\nThis is an important change for the initial release as it will align PVM\ncontracts closer to EVM (the problem can't be solved in the Solidity\ncompiler).\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-12-05T23:19:59Z",
-          "tree_id": "9d7f2c2855c48cdc28f122f5279d10a8eb08cc6c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a1128b94bbd6bcab40654c9468542a1f21f5eab"
-        },
-        "date": 1764982811007,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008720410569999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026375103999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0051061626399999975,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009687738329999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "492f979b7c527336d5245e768e886e36ac007335",
+          "message": "Add Doc Comments for Pallet Revive's Versioned Types (#12860)\n\n# Description\n\n## Why\n\nI think this PR's objective is better understood by the why rather than\nthe how. After versioning was introduced we didn't have a good way to\ncommunicate to users, clients, and consumers of the runtime API \"we\nupdated this function to v2 to add this specific capability\". We agreed\nthat this would be something that we would document but it's not very\nclear to me where such documentation would go.\n\nA user would find themselves needing to dig through the code adding vN\nto understand the diff and therefore understand what new capabilities or\nchanges come with a specific version of a runtime api and then make a\ndecision on whether they want to use it or not.\n\n## How\n\nThis PR adds documentation comments to:\n\n1. The enums used for the inputs and outputs of the runtime API\nfunctions.\n2. The variants used for the inputs and outputs of the runtime API\nfunctions including versions higher than V1 telling the user what\nchanges were made.\n\nFor example, in the tracing v2 output we have a doc comment which says\nthat this version adds the `index` field to `CallLog`. Therefore, it's\nvery clear to a user that \"I should use v2 when I care about this\nspecific field\"\n\n## Usage\n\nThe way I envision for this to be used is that eventually when this\ncrate is published we'd have a doc.rs link for the crate which we could\nlink anybody to for them to read the documentation of a specific runtime\nAPI function which would then help them decide which version they should\nuse or if v1 meets all of their needs\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-14T04:58:24Z",
+          "tree_id": "ee543391caa0a62c5664a16a62b4f3c050b1f918",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/492f979b7c527336d5245e768e886e36ac007335"
+        },
+        "date": 1786688864677,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00263489745,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010414511929999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009819337319999979,
             "unit": "seconds"
           }
         ]
