@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786715179566,
+  "lastUpdate": 1786723100205,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "41779041+alvicsam@users.noreply.github.com",
-            "name": "Alexander Samusev",
-            "username": "alvicsam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "91a9b31424a6ab58aef9376e01503dc35bb3023a",
-          "message": "ci: handle error in subsystem-benchmark (#10761)\n\nAdd error handling to the benchmark run command.\n\ncc @AndreiEres",
-          "timestamp": "2026-01-09T16:32:49Z",
-          "tree_id": "c92c00d3bd97a97db7d7f2b14b05918a0335dac2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/91a9b31424a6ab58aef9376e01503dc35bb3023a"
-        },
-        "date": 1767980412329,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027012118,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009243346409999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006626363549999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026656261700000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40cae7d7f8db4bdcd64b6180311385c528028663",
+          "message": "Probe cargo for -Z json-target-spec support instead of guessing from the version (#12726)\n\nBoth PolkaVM build paths compile against a `.json` target spec produced\nby `polkavm-linker`,\nso both have to decide whether to pass cargo `-Z json-target-spec`:\nnewer cargo requires the\nflag for a JSON target, older cargo rejects it as unknown.\n\nBoth decided by comparing a version against 1.95.\n**`pallet-revive-fixtures` compared the\n`rustc` version to gate a `cargo` flag** — the wrong binary entirely.\n`wasm-builder` compared\nthe cargo version, which looks right but is not sufficient either: the\nflag landed partway\nthrough the 1.95 cycle, so a nightly from early in that cycle reports\n1.95 from *both*\nbinaries while its cargo does not know the flag yet:\n\n```\nrustc 1.95.0-nightly (474276961 2026-01-26)\ncargo 1.95.0-nightly (efcd9f586 2026-01-23)   <- no json-target-spec\n```\n\nThat is exactly the toolchain in our CI image\n(`ci-unified:bullseye-1.93.0-2026-01-27`), so\nany job that builds the fixtures on nightly fails:\n\n```\nerror: failed to run custom build command for `pallet-revive-fixtures`\n  error: unknown `-Z` flag specified: json-target-spec\n```\n\nThis is what breaks `check-semver` on PRs that touch\n`pallet-revive-fixtures` (it is one of\nthe few jobs running nightly rather than the pinned stable, because\nrustdoc JSON is\nnightly-only). It was not hit before because no other PR makes\n`parity-publish` rebuild that\ncrate, and `wasm-builder` never hit it because its JSON-target path only\nruns for\n`SUBSTRATE_RUNTIME_TARGET=riscv`.\n\nSince no version comparison can express \"does this cargo accept this\nflag\", ask cargo:\n\n```rust\nfn supports_json_target_spec(&self) -> bool {\n    self.command()\n        .env(\"RUSTC_BOOTSTRAP\", \"1\")\n        .args([\"-Z\", \"help\"])\n        .output()\n        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(\"json-target-spec\"))\n}\n```\n\nWhile here, the fixture builder had one more flag on the wrong oracle: a\nsingle rustc-version\nbool drove both `-Cpanic=immediate-abort` (a rustc flag) and the\n`-Zbuild-std-features=panic_immediate_abort` fallback (a cargo flag).\nThose are now separate,\neach gated on the version of the binary that parses it. `wasm-builder`\nneeded no such change:\nits `CargoCommand::version` already comes from `cargo --version`, and\nthe rustc version is\nonly used for the \"Using rustc version:\" printout.\n\n## Testing\n\n- Fixtures build clean on stable, contracts actually produced (not a\ncached skip).\n- Under `nightly-2026-01-27` — the CI toolchain — the `unknown -Z flag`\nerror is gone.\n- `cargo test -p pallet-revive --lib tests::pvm`: 137 passed, 0 failed.",
+          "timestamp": "2026-08-14T14:25:38Z",
+          "tree_id": "f042ecdd2b2f34c2df4c7d7ef380f3c9f8f62aaf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/40cae7d7f8db4bdcd64b6180311385c528028663"
+        },
+        "date": 1786723066448,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010872812219999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025799039800000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009938543789999983,
             "unit": "seconds"
           }
         ]
