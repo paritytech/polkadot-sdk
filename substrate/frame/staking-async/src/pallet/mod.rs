@@ -1390,6 +1390,8 @@ pub mod pallet {
 		Unbonded {
 			stash: T::AccountId,
 			amount: BalanceOf<T>,
+			/// The era at which `amount` becomes withdrawable.
+			era: EraIndex,
 		},
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue.
@@ -2080,7 +2082,7 @@ pub mod pallet {
 					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 				}
 
-				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
+				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value, era });
 			}
 
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
