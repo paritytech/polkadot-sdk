@@ -454,6 +454,22 @@ pub enum VestingKind {
 	System,
 }
 
+/// Error returned by [`VestedPayout::add_to_vesting`].
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum VestedPayoutError {
+	/// All slots of a given kind are occupied and no schedule with a matching
+	/// `starting_block` exists to merge into.
+	NoCapacity,
+	/// All other errors.
+	Other(sp_runtime::DispatchError),
+}
+
+impl From<sp_runtime::DispatchError> for VestedPayoutError {
+	fn from(e: sp_runtime::DispatchError) -> Self {
+		Self::Other(e)
+	}
+}
+
 /// Transfer `amount` from `source` to `dest` and apply a linear vesting schedule that completes
 /// within at most `duration` blocks starting from the current block.
 ///
@@ -496,7 +512,26 @@ pub trait VestedPayout<AccountId, Balance> {
 	/// Transfer `amount` from `source` to `dest`, merging with the same-kind schedule
 	/// whose `starting_block` equals `start_at`, or creating a new one. The merge path
 	/// bypasses `MinVestedTransfer` — safe only because trait callers are trusted.
+	///
+	/// Returns [`VestedPayoutError::NoCapacity`] if the per-kind slot cap is reached and no
+	/// same-start schedule exists to merge into. Any other failure is returned as
+	/// [`VestedPayoutError::Other`].
 	fn add_to_vesting(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		duration: Self::BlockNumber,
+		start_at: Self::BlockNumber,
+		kind: VestingKind,
+	) -> Result<(), VestedPayoutError>;
+
+	/// Transfer `amount` from `source` to `dest` and merge it into the existing schedule of
+	/// `kind` whose ending block is closest to the incoming one.
+	///
+	/// Unlike [`add_to_vesting`](Self::add_to_vesting), this method does not check capacity.
+	/// It does require that at least one schedule of the given `kind` already exists on
+	/// `dest`, otherwise it returns an error.
+	fn merge_amount_into_closest_schedule(
 		source: &AccountId,
 		dest: &AccountId,
 		amount: Balance,

@@ -1511,12 +1511,6 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
-		/// The vested incentive delivery failed and the payout was dropped.
-		ValidatorIncentiveDropped {
-			era: EraIndex,
-			validator_stash: T::AccountId,
-			amount: BalanceOf<T>,
-		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1538,6 +1532,11 @@ pub mod pallet {
 		MissingPayee { era: EraIndex, stash: T::AccountId },
 		/// Total validator weight is zero but incentive allocation exists.
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
+		/// Vested incentive delivery failed — the payout was lost.
+		///
+		/// This should never happen in a correctly configured chain (it indicates e.g. a
+		/// `BondingDuration` of zero in vesting mode, or an unexpected transfer failure).
+		ValidatorIncentiveDropped { era: EraIndex, stash: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]

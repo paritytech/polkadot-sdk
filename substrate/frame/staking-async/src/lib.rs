@@ -226,7 +226,7 @@ use frame_support::{
 	traits::{
 		tokens::{
 			fungible::{Credit, Debt, Mutate as FunMutate},
-			Preservation, VestedPayout, VestingKind,
+			Preservation, VestedPayout, VestedPayoutError, VestingKind,
 		},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
@@ -669,7 +669,7 @@ pub struct SequentialTest;
 #[cfg(feature = "std")]
 impl<AccountId> PotAccountProvider<AccountId> for SequentialTest
 where
-	AccountId: From<u64>,
+	AccountId: codec::Encode + From<u64>,
 {
 	fn pot_account(pot: RewardPot) -> AccountId {
 		match pot {
@@ -782,7 +782,19 @@ where
 			));
 		}
 
-		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System)
+		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System).or_else(
+			|e| match e {
+				VestedPayoutError::NoCapacity => V::merge_amount_into_closest_schedule(
+					source,
+					dest,
+					amount,
+					duration,
+					start_at,
+					VestingKind::System,
+				),
+				VestedPayoutError::Other(e) => Err(e),
+			},
+		)
 	}
 }
 

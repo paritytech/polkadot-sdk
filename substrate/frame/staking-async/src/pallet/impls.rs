@@ -760,9 +760,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer validator incentive from era pot to the validator's payout account.
 	///
-	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. If delivery fails (e.g.
-	/// `AtMaxVestingSchedules`) the incentive is silently dropped and we emit
-	/// [`Event::ValidatorIncentiveDropped`] (there is no liquid fallback).
+	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. On success emits
+	/// [`Event::ValidatorIncentivePaid`]. On failure emits
+	/// [`Event::Unexpected`]`(`[`UnexpectedKind::ValidatorIncentiveDropped`]`)`, indicating
+	/// a non-recoverable condition (e.g. misconfigured runtime parameters).
 	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
@@ -792,12 +793,10 @@ impl<T: Config> Pallet<T> {
 			let bonding_duration = T::BondingDuration::get();
 
 			if bonding_duration == 0 {
-				// This should never happen in vesting mode, so we return early.
-				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-					era,
-					validator_stash: stash.clone(),
-					amount,
-				});
+				defensive!("Incentive dropped: BondingDuration is zero in vesting mode", era);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveDropped { era, stash: stash.clone(), amount },
+				));
 				return;
 			}
 
@@ -835,11 +834,9 @@ impl<T: Config> Pallet<T> {
 			},
 			Err(e) => {
 				log!(warn, "Incentive for era {:?} dropped: {:?}", era, e);
-				Self::deposit_event(Event::<T>::ValidatorIncentiveDropped {
-					era,
-					validator_stash: stash.clone(),
-					amount,
-				});
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveDropped { era, stash: stash.clone(), amount },
+				));
 			},
 		}
 	}

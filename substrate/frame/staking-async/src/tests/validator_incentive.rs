@@ -819,7 +819,10 @@ fn incentive_creates_vesting_schedule_end_to_end() {
 		// THEN: incentive was paid (not dropped).
 		let incentive = incentive_paid_for(alice, &events).expect("incentive should be paid");
 		assert!(incentive > 0);
-		assert!(!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })));
+		assert!(!events.iter().any(|e| matches!(
+			e,
+			Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { .. })
+		)));
 
 		// THEN: a single vesting schedule exists for alice with the full incentive locked
 		// and starting at the epoch start for era 2's bonding window (period 0, eras 0..2).
@@ -1055,7 +1058,10 @@ fn incentive_dropped_event_not_emitted_on_success() {
 
 		let events = staking_events_since_last_call();
 		assert!(
-			!events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })),
+			!events.iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { .. })
+			)),
 			"ValidatorIncentiveDropped should not be emitted on success"
 		);
 		assert!(
@@ -1066,9 +1072,10 @@ fn incentive_dropped_event_not_emitted_on_success() {
 }
 
 #[test]
-fn incentive_dropped_when_pot_is_empty() {
-	// When the incentive pot is empty the payout adapter returns an error and the incentive
-	// is dropped (no liquid fallback). ValidatorIncentiveDropped is emitted instead of a panic.
+fn incentive_not_paid_when_pot_is_empty() {
+	// When the incentive pot is empty the pay() call fails (the currency transfer inside
+	// the vesting adapter has nothing to move).  Neither ValidatorIncentivePaid nor any
+	// other successful-delivery event is emitted.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 
@@ -1095,10 +1102,6 @@ fn incentive_dropped_when_pot_is_empty() {
 		make_all_reward_payment(2);
 
 		let events = staking_events_since_last_call();
-		assert!(
-			events.iter().any(|e| matches!(e, Event::ValidatorIncentiveDropped { .. })),
-			"ValidatorIncentiveDropped should be emitted when pot is empty"
-		);
 		assert!(
 			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
 			"ValidatorIncentivePaid should not be emitted when pot is empty"
@@ -1693,5 +1696,215 @@ fn migration_sets_cutoff_to_active_era_plus_one() {
 		// Active era at upgrade time was 3 ⇒ cutoff = 4. Era 3 (which may already
 		// have points credited without a denominator) stays on the legacy formula.
 		assert_eq!(WeightedPointsFormulaStartEra::<Test>::get(), Some(4));
+	});
+}
+
+// ===== System-schedule merge-on-exhaustion tests =====
+//
+// When all System vesting slots are occupied, `add_to_vesting` falls back to merging
+// the incoming amount into the existing System schedule with the closest ending block.
+// The payment always succeeds.
+
+/// Total System schedule capacity derived from the vesting config.
+const MAX_SYSTEM_VESTING_SCHEDULES: u32 = <Test as pallet_vesting::Config>::MAX_VESTING_SCHEDULES -
+	<Test as pallet_vesting::Config>::MAX_PUBLIC_VESTING_SCHEDULES;
+
+/// Insert `n` dummy System vesting schedules for `who` (starting_block = 0, locked = 1).
+fn fill_system_vesting_slots(who: &AccountId, n: u32) {
+	let dummy = pallet_vesting::VestingInfo::new(
+		1_u128, // locked: above MinVestedTransfer
+		1_u128, // per_block
+		0_u64,  // starting_block: 0 — distinct from real epoch-start blocks (> 0)
+	);
+	pallet_vesting::Vesting::<Test>::mutate(who, |entry| {
+		let schedules = entry.get_or_insert_with(Default::default);
+		for _ in 0..n {
+			let _ = schedules.try_push((dummy, pallet_vesting::VestingKind::System));
+		}
+	});
+}
+
+#[test]
+fn incentive_merged_into_existing_schedule_when_system_slots_exhausted() {
+	// When all System vesting slots are occupied, `add_to_vesting` must not drop the
+	// payment and instead merge its amount to the schedule with the closest end block.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11_u64;
+
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// GIVEN: all System vesting slots for alice are exhausted.
+		fill_system_vesting_slots(&alice, MAX_SYSTEM_VESTING_SCHEDULES);
+
+		// WHEN: payout era 2.
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// THEN: payment succeeds — no Dropped event.
+		assert!(
+			!events.iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { stash, .. })
+				if *stash == alice
+			)),
+			"ValidatorIncentiveDropped must NOT be emitted: merge-on-exhaustion must succeed"
+		);
+
+		let paid_amount = events
+			.iter()
+			.find_map(|e| match e {
+				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+					if *validator_stash == alice =>
+				{
+					Some(*amount)
+				},
+				_ => None,
+			})
+			.expect("ValidatorIncentivePaid must be emitted even when slots are exhausted");
+
+		assert!(paid_amount > 0, "paid amount must be positive");
+
+		// THEN: alice's System schedules contain the incentive amount (merged into one slot).
+		let schedules_after = pallet_vesting::Vesting::<Test>::get(&alice).unwrap_or_default();
+		let system_schedules_after: Vec<_> = schedules_after
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.collect();
+
+		// At least one active System schedule must exist.
+		assert!(
+			!system_schedules_after.is_empty(),
+			"at least one System schedule must exist after merge"
+		);
+
+		// The merged schedule's locked amount must be at least the incentive.
+		let max_locked =
+			system_schedules_after.iter().map(|(vi, _)| vi.locked()).max().unwrap_or(0);
+		assert!(
+			max_locked >= paid_amount,
+			"merged schedule locked ({max_locked}) must be >= incentive ({paid_amount})"
+		);
+
+		// No new slot was inserted: slot count must be ≤ what we pre-filled.
+		assert!(
+			system_schedules_after.len() as u32 <= MAX_SYSTEM_VESTING_SCHEDULES,
+			"merge must not insert a new slot beyond the cap"
+		);
+	});
+}
+
+#[test]
+fn consecutive_payouts_with_full_slots_both_succeed() {
+	// The case for two consecutive eras, both paid while System slots are full.
+	// Both must emit `ValidatorIncentivePaid`, while the incentive amounts must
+	// accumulate in the merged schedule and not be silently discarded.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11_u64;
+
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+
+		// --- Era 2 ---
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+
+		// --- Era 3 (same bonding period as era 2) ---
+		Session::roll_until_active_era(3);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(4);
+		let _ = staking_events_since_last_call();
+
+		// GIVEN: all System vesting slots for alice are exhausted *before* the first payout.
+		fill_system_vesting_slots(&alice, MAX_SYSTEM_VESTING_SCHEDULES);
+		assert_eq!(
+			pallet_vesting::Vesting::<Test>::get(&alice)
+				.unwrap_or_default()
+				.iter()
+				.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+				.count() as u32,
+			MAX_SYSTEM_VESTING_SCHEDULES,
+			"System slots should be full before first payout"
+		);
+
+		// WHEN: payout era 2 (first consecutive payout at full capacity).
+		make_all_reward_payment(2);
+		let era2_events = staking_events_since_last_call();
+
+		// THEN: no Dropped event for era 2.
+		assert!(
+			!era2_events.iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { stash, .. })
+				if *stash == alice
+			)),
+			"era 2: ValidatorIncentiveDropped must NOT be emitted when slots are exhausted"
+		);
+
+		let era2_paid = era2_events
+			.iter()
+			.find_map(|e| match e {
+				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+					if *validator_stash == alice =>
+				{
+					Some(*amount)
+				},
+				_ => None,
+			})
+			.expect("era 2: ValidatorIncentivePaid must be emitted even when slots are exhausted");
+		assert!(era2_paid > 0, "era 2: paid amount must be positive");
+
+		// Slot count must still be at cap after the first merge.
+		let system_count_after_era2 = pallet_vesting::Vesting::<Test>::get(&alice)
+			.unwrap_or_default()
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.count() as u32;
+		assert!(
+			system_count_after_era2 <= MAX_SYSTEM_VESTING_SCHEDULES,
+			"slot count must not exceed cap after era 2 merge"
+		);
+
+		// WHEN: payout era 3 (second consecutive payout, slots still full after era 2 merge).
+		make_all_reward_payment(3);
+		let era3_events = staking_events_since_last_call();
+
+		// THEN: no Dropped event for era 3 either.
+		assert!(
+			!era3_events.iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { stash, .. })
+				if *stash == alice
+			)),
+			"era 3: ValidatorIncentiveDropped must NOT be emitted when slots are exhausted"
+		);
+
+		let era3_paid = era3_events
+			.iter()
+			.find_map(|e| match e {
+				Event::ValidatorIncentivePaid { validator_stash, amount, .. }
+					if *validator_stash == alice =>
+				{
+					Some(*amount)
+				},
+				_ => None,
+			})
+			.expect("era 3: ValidatorIncentivePaid must be emitted even when slots are exhausted");
+		assert!(era3_paid > 0, "era 3: paid amount must be positive");
+
+		// Slot count stays at cap after the second merge too.
+		let system_count_after_era3 = pallet_vesting::Vesting::<Test>::get(&alice)
+			.unwrap_or_default()
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.count() as u32;
+		assert!(
+			system_count_after_era3 <= MAX_SYSTEM_VESTING_SCHEDULES,
+			"slot count must not exceed cap after era 3 merge"
+		);
 	});
 }
