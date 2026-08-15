@@ -79,7 +79,8 @@ mod benchmarks {
 		);
 		let min_balance =
 			<T::Assets as fungibles::Inspect<T::AccountId>>::minimum_balance(T::PGASAssetId::get());
-		// The caller is funded with exactly the fee, so the withdrawal completely empties the account.
+		// The caller is funded with exactly the fee, so the withdrawal completely empties the
+		// account.
 		let user_balance = fee;
 		assert!(user_balance >= min_balance, "the caller must be able to hold the whole balance");
 		assert!(
