@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786740204273,
+  "lastUpdate": 1786801128611,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "11329616+Klapeyron@users.noreply.github.com",
-            "name": "Klapeyron",
-            "username": "Klapeyron"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "dca3da257b2d8532867e7856bafd1971aaa34edb",
-          "message": "Missing sign_with forward call (#10784)\n\nAs a follow-up of the discussion\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2682026297,\nI am extracting a missing forward call to a separate PR so we can\ndeliver it independently.\n\nContext:\nWhen keystore is used by some component (like BEEFY) via Arc, then calls\nof `sign_with` function are forwarded to default trait implementation.\nIt is not working, when custom keystore with custom `sign_with`\nimplementation is used.",
-          "timestamp": "2026-01-13T13:10:39Z",
-          "tree_id": "0b900d0cb850b34188068cf7c1bcab61e0f5091c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dca3da257b2d8532867e7856bafd1971aaa34edb"
-        },
-        "date": 1768313948456,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63623.380000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002462961,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005670498830000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002342328,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6573861225000024,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002462961,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.641576464370022,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.2999840308600037,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.622418611173079,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.614389697970001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.633778146170002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7871022860500124,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002342328,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.64326568199,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.6586543685100006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b",
+          "message": "Track nested memory used by `xcm::DoubleEncoded`: approach #2 (#11147)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/8675\nFollow-up for https://github.com/paritytech/polkadot-sdk/pull/10747\n(approach # 1)\n\nDifferent approach for tracking the nested memory used by\n`xcm::DoubleEncoded`\n\nThe idea is to decode the entire `xcm::DoubleEncoded<Call>` when\npossible. This can be done when the `Call` is the `RuntimeCall` of our\nlocal Runtime. When the `Call` is `()` it means that it's a remote\n`RuntimeCall`, and it will be decoded on the destination chain.\n\nThis covers the XCMP/UMP/DMP pathways and the `pallet_xcm::execute()`\nextrinsic or any other extrinsic that accepts XCMs. For extrinsics we\nhave the heap memory limit used for decoding the extrinsic (16 MB) and\nfor XCMP/UMP/DMP we call `decode_with_constraints()` which uses a\nhardcoded 10MB limit now. We can adjust it or make it configurable. I\nhope I'm not missing any use cases.\n\nKnown issues (to be fixed in future PRs):\n- dry-running: The methods defined in `RecordXcm` return\n`VersionedXcm<()>` directly. We should add the `RuntimeCall` as a\ngeneric type param (`RecordXcm<Call>`) and modify all the methods to\nreturn `VersionedXcm<Call>`\n- `DoubleEncoded::transmute_encoded()` is used in some mocks. Not sure\nif it's needed outside of mocks. Maybe we can remove it with some\ncleanup.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-15T12:09:21Z",
+          "tree_id": "70d2a4db3cf13b1e6c10882ac25c39ed2741e449",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b"
+        },
+        "date": 1786801095047,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.81,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000026388569999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.641571293700001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.672725766509999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.640595771660001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8167106432399758,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5540859778228135,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002274202,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002274202,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005269237249999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.664326648360001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.789631321369981,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.348431960650003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000026388569999999998,
             "unit": "seconds"
           }
         ]
