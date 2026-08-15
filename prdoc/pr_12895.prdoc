@@ -1,6 +1,6 @@
 title: 'fix(pgas): charge_pgas benchmark'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     # Description
 
@@ -17,4 +17,4 @@ doc:
     The fix was to to set the account balance, `fee` and `actual_fee` to values which trigger a account reap and re-creation post dispatch.
 crates:
 - name: pallet-pgas-allowance
-  bump: major
+  bump: patch
