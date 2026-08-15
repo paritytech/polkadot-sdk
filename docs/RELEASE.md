@@ -29,7 +29,7 @@ The outputs of a stable release are:
  subscribe to a [calendar link](https://raw.githubusercontent.com/paritytech/release-registry/main/releases-v1.ics)
  to have it in your personal calendar.
 
-Each stable release is supported for a period of one year from its first release. For example, `Polkadot stable2412`
+Each stable release is supported for a period of one year from it's first release. For example, `Polkadot stable2412`
 was released on `2024-12-17` and its end of life is set to `2025-12-16`.
 
 During this period, each stable release is updated with patch releases, which are scheduled on a monthly basis
