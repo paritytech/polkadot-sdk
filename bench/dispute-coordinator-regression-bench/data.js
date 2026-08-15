@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786740291470,
+  "lastUpdate": 1786801212301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0c70641e25b2cdb23cce844b50ec3f00da4ef6f4",
-          "message": "Use the revive-differential-tests reusable action (#10732)\n\n# Description\n\nThis PR changes how we run differential tests. The\n`revive-differential-tests` repo now ships with a reusable action which\nwe use to run the differential tests.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-12T14:46:18Z",
-          "tree_id": "0772aa4ae9b46ce0d70c7ac640a9f934dc4e63ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0c70641e25b2cdb23cce844b50ec3f00da4ef6f4"
-        },
-        "date": 1768233210121,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006573201369999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009333458549999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027603317299999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01081737403999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b",
+          "message": "Track nested memory used by `xcm::DoubleEncoded`: approach #2 (#11147)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/8675\nFollow-up for https://github.com/paritytech/polkadot-sdk/pull/10747\n(approach # 1)\n\nDifferent approach for tracking the nested memory used by\n`xcm::DoubleEncoded`\n\nThe idea is to decode the entire `xcm::DoubleEncoded<Call>` when\npossible. This can be done when the `Call` is the `RuntimeCall` of our\nlocal Runtime. When the `Call` is `()` it means that it's a remote\n`RuntimeCall`, and it will be decoded on the destination chain.\n\nThis covers the XCMP/UMP/DMP pathways and the `pallet_xcm::execute()`\nextrinsic or any other extrinsic that accepts XCMs. For extrinsics we\nhave the heap memory limit used for decoding the extrinsic (16 MB) and\nfor XCMP/UMP/DMP we call `decode_with_constraints()` which uses a\nhardcoded 10MB limit now. We can adjust it or make it configurable. I\nhope I'm not missing any use cases.\n\nKnown issues (to be fixed in future PRs):\n- dry-running: The methods defined in `RecordXcm` return\n`VersionedXcm<()>` directly. We should add the `RuntimeCall` as a\ngeneric type param (`RecordXcm<Call>`) and modify all the methods to\nreturn `VersionedXcm<Call>`\n- `DoubleEncoded::transmute_encoded()` is used in some mocks. Not sure\nif it's needed outside of mocks. Maybe we can remove it with some\ncleanup.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-15T12:09:21Z",
+          "tree_id": "70d2a4db3cf13b1e6c10882ac25c39ed2741e449",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b"
+        },
+        "date": 1786801178889,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00273504595,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.010367228439999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011060996109999999,
             "unit": "seconds"
           }
         ]
