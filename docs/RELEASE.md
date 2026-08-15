@@ -25,7 +25,7 @@ The outputs of a stable release are:
 
 # Timeline
 `Stable` releases are scheduled on a quarterly basis, usually by the end of the last month of each quarter. The exact
- schedule can be found on the [Release Registry](https://github.com/paritytech/release-registry/).It is possible to
+ schedule can be found on the [Release Registry](https://github.com/paritytech/release-registry/). It is possible to
  subscribe to a [calendar link](https://raw.githubusercontent.com/paritytech/release-registry/main/releases-v1.ics)
  to have it in your personal calendar.
 
