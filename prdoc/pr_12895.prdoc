@@ -18,3 +18,5 @@ doc:
 crates:
 - name: pallet-pgas-allowance
   bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
