@@ -14,6 +14,7 @@ use futures::future::try_join_all;
 use std::collections::HashMap;
 use zombienet_sdk::{
 	subxt::{
+		self,
 		ext::subxt_rpcs::client::{rpc_params, RpcParams},
 		OnlineClient, PolkadotConfig,
 	},

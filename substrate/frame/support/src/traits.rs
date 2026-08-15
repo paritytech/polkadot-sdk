@@ -28,9 +28,8 @@ pub use tokens::{
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
-	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2,
-	stable::PsmInterface,
-	BalanceStatus, ExistenceRequirement, Locker, WithdrawReasons,
+	nonfungible, nonfungible_v2, nonfungibles, nonfungibles_v2, BalanceStatus,
+	ExistenceRequirement, Locker, WithdrawReasons,
 };
 
 mod members;
@@ -83,8 +82,6 @@ pub use metadata::{
 };
 
 mod hooks;
-#[allow(deprecated)]
-pub use hooks::GenesisBuild;
 pub use hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
 	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,

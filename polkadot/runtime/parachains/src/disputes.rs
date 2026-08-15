@@ -1293,8 +1293,7 @@ fn check_signature(
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
 			candidates,
 		)) => {
-			if max_approval_coalesce_count > 1 &&
-				candidates.len() <= max_approval_coalesce_count as usize &&
+			if candidates.len() <= max_approval_coalesce_count as usize &&
 				candidates.contains(&candidate_hash)
 			{
 				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)

@@ -107,7 +107,11 @@ std = [
 	"tracing/std",
 ]
 
-increment-spec-version = []
+# The default spec version is 2. The following features can be used to change this value:
+# Change the spec version to 3
+spec-version-3 = []
+# Change the spec version to 4
+spec-version-4 = []
 
 # The default parachain slot duration is 6s. The following features can be used to change this value:
 # Change the parachain slot duration to 12s
@@ -131,9 +135,16 @@ velocity-12 = []
 # The default relay parent offset is 0. The following features can be used to change this value:
 # Change the relay parent offset to 2
 relay-parent-offset-2 = []
+# Change the relay parent offset to 4
+relay-parent-offset-4 = []
+# Change the relay parent offset to 6
+relay-parent-offset-6 = []
+# Change the relay parent offset to 15
+relay-parent-offset-15 = []
 
 # Configure the runtime to use scheduling V3
 v3-descriptor = []
+
 # A runtime variant that enables pallet_session + pallet_authority_discovery and bumps
 # spec_version so that a set_code upgrade from the default runtime triggers migrations.
-with-authority-discovery = []
+with-authority-discovery = ["spec-version-4"]

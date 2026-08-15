@@ -31,6 +31,8 @@ pub mod archive;
 pub mod bitswap;
 pub mod chain_head;
 pub mod chain_spec;
+/// Statement store JSON-RPC methods.
+pub mod statement;
 pub mod transaction;
 
 /// Task executor that is being used by RPC subscriptions.

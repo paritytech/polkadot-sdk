@@ -78,6 +78,24 @@ fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	init_code
 }
 
+/// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
+fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
+	let [b0, b1, b2, b3] = copy_len.to_be_bytes();
+	make_initcode_from_runtime_code(&vec![
+		PUSH4,
+		b0,
+		b1,
+		b2,
+		b3,           // size: bytes to copy
+		PUSH0,        // code offset
+		PUSH0,        // destination memory offset
+		PUSH0,        // calldata offset of the target address
+		CALLDATALOAD, // load the target address
+		EXTCODECOPY,
+		STOP,
+	])
+}
+
 #[test]
 fn basic_evm_flow_works() {
 	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
@@ -282,6 +300,77 @@ fn tload_charges_for_actual_transient_value_size() {
 	);
 }
 
+#[test]
+fn extcodecopy_charges_for_actual_code_size() {
+	// Copy a single byte, so the charge is driven by the target's code size, not the copy length.
+	let reader_code = make_extcodecopy_reader(1);
+
+	let measure = |code_size: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let target_code = VmBinaryModule::evm_init_code_for_runtime_size(code_size).code;
+			let Contract { addr: target_addr, .. } =
+				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+
+			let mut input = vec![0u8; 12];
+			input.extend_from_slice(target_addr.as_bytes());
+
+			let result = builder::bare_call(reader_addr).data(input).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_small = measure(64);
+	let gas_large = measure(20_000);
+
+	assert!(
+		gas_large > gas_small,
+		"extcodecopy must charge more for a larger target contract: \
+		 gas_large={gas_large}, gas_small={gas_small}",
+	);
+}
+
+#[test]
+fn extcodecopy_charges_for_copy_length_beyond_code_size() {
+	const TARGET_CODE_SIZE: u32 = 64;
+
+	let measure = |copy_len: u32| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let target_code = VmBinaryModule::evm_init_code_for_runtime_size(TARGET_CODE_SIZE).code;
+			let Contract { addr: target_addr, .. } =
+				builder::bare_instantiate(Code::Upload(target_code)).build_and_unwrap_contract();
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(make_extcodecopy_reader(copy_len)))
+					.build_and_unwrap_contract();
+
+			let mut input = vec![0u8; 12];
+			input.extend_from_slice(target_addr.as_bytes());
+
+			let result = builder::bare_call(reader_addr).data(input).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_at_code_size = measure(TARGET_CODE_SIZE);
+	let gas_max = measure(crate::limits::EVM_MEMORY_BYTES);
+
+	assert!(
+		gas_max > gas_at_code_size,
+		"extcodecopy must charge for the copy length when it exceeds the code size: \
+		 gas_max={gas_max}, gas_at_code_size={gas_at_code_size}",
+	);
+}
+
 /// Regression test for paritytech/contract-issues#278 — nested-call variant.
 ///
 /// `Stack::call`'s no-code branch (the path taken when a running contract
@@ -431,6 +520,34 @@ fn upload_evm_runtime_code_works() {
 			.build_and_unwrap_result();
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test]
+fn extcodecopy_out_of_range_offset_zero_fills() {
+	// Regression test for #12643: a `code_offset` of 2^64 overflows `usize` and used to halt.
+	// Copy 32 bytes of our own code from that offset and return them; expect all zeroes.
+	#[rustfmt::skip]
+	let runtime_code = vec![
+		PUSH1, 0x20,                                          // size = 32
+		PUSH9, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // code offset = 2^64
+		PUSH1, 0x00,                                          // dest offset = 0
+		ADDRESS,                                              // copy from self
+		EXTCODECOPY,
+		PUSH1, 0x20,                                          // return size = 32
+		PUSH1, 0x00,                                          // return offset = 0
+		RETURN,
+	];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let init_code = make_initcode_from_runtime_code(&runtime_code);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(init_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert_eq!(result.data, vec![0u8; 32]);
 	});
 }
 
@@ -1002,6 +1119,138 @@ fn execution_tracing_works() {
 
 				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
 			});
+		}
+	}
+}
+
+/// Storage opcodes charge a worst-case amount upfront and refund the remainder via
+/// `adjust_weight`, so `weight_consumed` is not monotonic within a step. A step's cost is
+/// `(exit - entry) - child`, which is only exact if every refund lands inside the window that
+/// charged it; one escaping would show up as a gap between consecutive steps.
+#[test]
+fn storage_refunds_stay_inside_the_step_that_charged_them() {
+	use crate::evm::{ExecutionStepKind, ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::Counter;
+
+	let (code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// `increment` is SLOAD then SSTORE, so both refunding paths run.
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Counter::incrementCall {}.abi_encode())
+				.build_and_unwrap_result()
+		});
+		let trace = tracer.collect_trace();
+
+		assert!(
+			trace.struct_logs.iter().any(|step| matches!(
+				&step.kind,
+				ExecutionStepKind::EVMOpcode { op, .. } if *op == SSTORE || *op == SLOAD
+			)),
+			"the fixture must actually touch storage for this to test anything",
+		);
+
+		// Consecutive EVM steps at the same depth must leave the meter continuous.
+		let breaks = trace
+			.struct_logs
+			.iter()
+			.zip(trace.struct_logs.iter().skip(1))
+			.filter(|(step, next)| step.depth == next.depth)
+			.filter(|(step, next)| step.gas.saturating_sub(step.gas_cost) != next.gas)
+			.map(|(step, next)| (step.gas, step.gas_cost, next.gas))
+			.collect::<Vec<_>>();
+		assert!(breaks.is_empty(), "gas discontinuity (gas, gas_cost, next.gas): {breaks:?}");
+
+		let summed: u64 = trace.struct_logs.iter().map(|step| step.gas_cost).sum();
+		assert!(
+			summed <= trace.gas,
+			"steps account for {summed} gas but the transaction used {}",
+			trace.gas,
+		);
+	});
+}
+
+/// Truncation drops steps; it must not change the ones it keeps, and what it keeps must never
+/// sum past what the transaction spent.
+///
+/// Runs the real interpreter: the unit tests drive `Tracing` directly and so assert the
+/// enter/exit pairing rather than exercise it. Truncation must land inside the nested call,
+/// so several limits are swept.
+#[test]
+fn truncation_does_not_alter_the_steps_it_keeps() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::{Callee, Caller};
+
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let trace_with_limit = |limit: Option<u64>| {
+			ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
+
+				let mut tracer =
+					ExecutionTracer::new(ExecutionTracerConfig { limit, ..Default::default() });
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			})
+		};
+
+		// Sweep limits relative to the untruncated length rather than hard-coding step counts.
+		let full = trace_with_limit(None);
+		let steps = full.struct_logs.len() as u64;
+		assert!(steps > 8, "{fixture_type:?}: expected a multi-step trace, got {steps}");
+		assert!(
+			full.struct_logs.iter().any(|step| step.depth > 0),
+			"{fixture_type:?}: the fixture must make a nested call for this to be a real test",
+		);
+
+		for limit in [steps / 4, steps / 2, steps * 3 / 4] {
+			let trace = trace_with_limit(Some(limit));
+			assert_eq!(trace.struct_logs.len() as u64, limit, "{fixture_type:?}: truncated");
+
+			for (index, (truncated, full)) in
+				trace.struct_logs.iter().zip(full.struct_logs.iter()).enumerate()
+			{
+				assert_eq!(
+					(truncated.gas_cost, truncated.weight_cost),
+					(full.gas_cost, full.weight_cost),
+					"{fixture_type:?} limit {limit}: step {index} changed under truncation",
+				);
+			}
+
+			let summed: u64 = trace.struct_logs.iter().map(|step| step.gas_cost).sum();
+			assert!(
+				summed <= trace.gas,
+				"{fixture_type:?} limit {limit}: steps account for {summed} gas \
+				 but the transaction used {}",
+				trace.gas,
+			);
 		}
 	}
 }

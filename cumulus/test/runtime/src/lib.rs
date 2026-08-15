@@ -22,11 +22,14 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-pub mod flavors;
+mod features;
+mod flavors;
 mod genesis_config_presets;
 pub mod test_pallet;
 
 extern crate alloc;
+
+use features::*;
 
 use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
@@ -47,8 +50,9 @@ use sp_version::RuntimeVersion;
 
 use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignature};
 
+define_flavors!(consts wasm);
+
 // A few exports that help ease life for downstream crates.
-pub use flavors::*;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
@@ -99,28 +103,19 @@ pub const PARACHAIN_ID: u32 = 100;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
-// The only difference between the two declarations below is the `spec_version`. With the
-// `increment-spec-version` feature enabled `spec_version` should be greater than the one of without
-// the `increment-spec-version` feature.
+// The only difference between the three declarations below is the `spec_version`.
+// The behavior is:
+// - by default `spec_version` should be 2
+// - with `spec-version-3` feature enabled `spec_version` should be 3
+// - with `spec-version-4` feature enabled `spec_version` should be 4
 //
 // The duplication here is unfortunate necessity.
 //
 // runtime_version macro is dumb. It accepts a const item declaration, passes it through and
 // also emits runtime version custom section. It parses the expressions to extract the version
-// details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
+// details. Since macro kicks in early, it operates on AST. Thus, you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
-
-// Three compile-time variants exist for `VERSION`; each is active under exactly one feature
-// combination:
-//
-//   default (neither `increment-spec-version` nor `with-authority-discovery`)
-//     → spec_version 2
-//   `increment-spec-version` (without `with-authority-discovery`)
-//     → spec_version 3
-//   `with-authority-discovery`
-//     → spec_version 4  (must be > 2 so a set_code upgrade from default triggers migrations)
-
-#[cfg(all(not(feature = "increment-spec-version"), not(feature = "with-authority-discovery"),))]
+#[cfg(all(not(feature = "spec-version-3"), not(feature = "spec-version-4"),))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -134,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(all(feature = "increment-spec-version", not(feature = "with-authority-discovery"),))]
+#[cfg(all(feature = "spec-version-3", not(feature = "spec-version-4"),))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -148,7 +143,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(feature = "with-authority-discovery")]
+#[cfg(feature = "spec-version-4")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
