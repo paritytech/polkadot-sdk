@@ -30,7 +30,7 @@ The outputs of a stable release are:
  to have it in your personal calendar.
 
 Each stable release is supported for a period of one year from it's first release. For example, `Polkadot stable2412`
-was released on `2024-12-17` and its end of life is set to `2025-12-16`.
+was released on `2024-12-17` and it's end of life is set to `2025-12-16`.
 
 During this period, each stable release is updated with patch releases, which are scheduled on a monthly basis
 and contain fixes for any bugs that may be found.
