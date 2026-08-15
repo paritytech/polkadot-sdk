@@ -38,7 +38,7 @@ use sp_runtime::traits::{
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ From<frame_system::Call<T>>,
-	BalanceOf<T>: Send + Sync + From<u64>,
+	BalanceOf<T>: Send + Sync,
 	AssetIdOf<T>: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 )]
@@ -47,23 +47,64 @@ mod benchmarks {
 
 	/// PGAS path: caller holds enough PGAS and the call matches the filter, so the fee is
 	/// withdrawn into a credit and the unused portion is resolved back to the caller.
+	///
+	/// The caller is funded with exactly the fee. `Precision::Exact` plus
+	/// `Preservation::Expendable` then takes the whole balance, so the `Assets::Account` entry is
+	/// removed inside the block, and the refund re-creates it.
 	#[benchmark]
 	fn charge_pgas() {
 		let caller: T::AccountId = account("caller", 0, 0);
-		let initial: BalanceOf<T> = u64::MAX.into();
-		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), initial);
+
+		assert!(
+			!frame_system::Pallet::<T>::account_exists(&caller),
+			"the caller must start with no account"
+		);
 
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
-		let info = DispatchInfo {
-			call_weight: Weight::from_parts(100, 0),
-			class: DispatchClass::Normal,
-			..Default::default()
-		};
-		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::from_parts(10, 0)),
-			pays_fee: Default::default(),
-		};
+
+		let dispatch_class = DispatchClass::Normal;
+		let limits = <T as frame_system::Config>::BlockWeights::get();
+		let call_weight = limits.get(dispatch_class).max_extrinsic.unwrap_or(limits.max_block);
+		let info = DispatchInfo { call_weight, class: dispatch_class, ..Default::default() };
+		let post_info =
+			PostDispatchInfo { actual_weight: Some(Weight::zero()), pays_fee: Default::default() };
+
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(0, &info, Zero::zero());
+		let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
+			0,
+			&info,
+			&post_info,
+			Zero::zero(),
+		);
+		let min_balance =
+			<T::Assets as fungibles::Inspect<T::AccountId>>::minimum_balance(T::PGASAssetId::get());
+		// The caller is funded with exactly the fee, so the withdrawal completely empties the account.
+		let user_balance = fee;
+		assert!(user_balance >= min_balance, "the caller must be able to hold the whole balance");
+		assert!(
+			user_balance.saturating_sub(fee) < min_balance,
+			"the withdrawal must leave the caller below the minimum, killing `Assets::Account`"
+		);
+		assert!(
+			user_balance - actual_fee >= min_balance,
+			"the refund must re-create the account that the withdrawal kills"
+		);
+
+		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), user_balance);
+		assert_eq!(
+			frame_system::Pallet::<T>::providers(&caller),
+			0,
+			"a native provider would keep `System::Account` alive and skip the reap"
+		);
+		assert_eq!(
+			<T::Assets as fungibles::Inspect<T::AccountId>>::balance(
+				T::PGASAssetId::get(),
+				&caller
+			),
+			user_balance,
+			"the caller must hold exactly the fee, so the withdrawal kills the account"
+		);
 
 		let result;
 		#[block]
@@ -78,7 +119,11 @@ mod benchmarks {
 			T::PGASAssetId::get(),
 			&caller,
 		);
-		assert!(remaining < initial, "PGAS should be charged on the PGAS path");
+		assert_eq!(
+			remaining,
+			user_balance - actual_fee,
+			"the killed account must have been re-created with the refund"
+		);
 	}
 
 	/// Skip path: caller holds some PGAS but not enough to cover the fee, so the extension falls
