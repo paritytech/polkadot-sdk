@@ -41,7 +41,7 @@ releases only the crates.io release takes place.
 This three month period between `stable` releases includes a 1.5 month QA period. This means that for each upcoming
 `stable` release, the branch from which that release will be made is created 1.5 months before the release date.
 This time is used to test the upcoming release candidate and find any issues that may arise with publishing crates
-to crates.io, binary artifacts and template synchronisation before the final release. The findings should be fixed
+to crates.io, binary artifacts and template synchronization before the final release. The findings should be fixed
  and backported to the release branch. During this time, multiple release candidates may be built and rolled out.
 
 # Setup
