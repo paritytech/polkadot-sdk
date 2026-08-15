@@ -13,7 +13,7 @@ The outputs of a stable release are:
 
    built for the `x86_64-unknown-linux-gnu` and `aarch64-apple-darwin` targets. The gpg signatures and sha256 checksums.
 
-- The runtimes for Westend and its system parachains.
+- The runtimes for Westend and it's system parachains.
 - The new crate versions published to `crates.io`.
 - Debian package for the Polkadot binary.
 - Docker images for:
@@ -92,7 +92,7 @@ variable.
 ## Westend
 
 For the Westend testnet, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
-sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
+sometimes the `transaction_version`. The spec version is also following the node version. It's schema is: `M_mmm_ppp` and
 for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
 from an on chain `spec_version` easily to the release in this repository.
 
