@@ -228,7 +228,7 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
-			#[cfg(feature = "eth-rpc")]
+			#[cfg(feature = "experimental-eth-rpc-in-node")]
 			ref eth_rpc,
 		} = node_extra_args;
 
@@ -459,8 +459,8 @@ where
 
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
-		#[cfg(feature = "eth-rpc")]
-		let eth_rpc = crate::common::eth_rpc::EthRpcConfig::new(eth_rpc, &config);
+		#[cfg(feature = "experimental-eth-rpc-in-node")]
+		let eth_rpc = crate::common::eth_rpc::embedded_config(eth_rpc, &config);
 
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
@@ -478,7 +478,7 @@ where
 			tracing_execute_block: None,
 		})?;
 
-		#[cfg(feature = "eth-rpc")]
+		#[cfg(feature = "experimental-eth-rpc-in-node")]
 		tokio::task::block_in_place(|| {
 			futures::executor::block_on(crate::common::eth_rpc::start(
 				eth_rpc,

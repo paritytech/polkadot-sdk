@@ -42,6 +42,7 @@ pub(crate) use block_sync::{ChainMetadata, SyncLabel, SyncStateKey};
 pub mod cli;
 pub mod client;
 pub mod example;
+#[cfg(feature = "experimental-eth-rpc-in-node")]
 pub mod in_process;
 pub mod service;
 pub mod subxt_client;

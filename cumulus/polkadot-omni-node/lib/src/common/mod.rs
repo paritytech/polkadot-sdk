@@ -21,7 +21,7 @@
 pub(crate) mod aura;
 pub mod chain_spec;
 pub mod command;
-#[cfg(feature = "eth-rpc")]
+#[cfg(feature = "experimental-eth-rpc-in-node")]
 pub mod eth_rpc;
 pub mod rpc;
 pub mod runtime;
@@ -149,6 +149,6 @@ pub struct NodeExtraArgs {
 	pub hop: Option<sc_hop::HopParams>,
 
 	/// Options for the embedded Ethereum JSON-RPC server.
-	#[cfg(feature = "eth-rpc")]
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
 	pub eth_rpc: eth_rpc::EthRpcParams,
 }

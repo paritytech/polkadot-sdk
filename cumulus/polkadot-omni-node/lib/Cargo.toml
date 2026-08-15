@@ -127,7 +127,11 @@ wait-timeout = { workspace = true }
 
 [features]
 default = []
-eth-rpc = ["dep:pallet-revive-eth-rpc", "dep:tokio"]
+experimental-eth-rpc-in-node = [
+	"dep:pallet-revive-eth-rpc",
+	"dep:tokio",
+	"pallet-revive-eth-rpc?/experimental-eth-rpc-in-node",
+]
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [

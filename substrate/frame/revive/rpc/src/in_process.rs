@@ -21,62 +21,65 @@
 //! still decoded by subxt. Skipping that needs subxt's `Backend` trait, which is sealed today,
 //! so this is the lowest layer currently available to us.
 
-use futures::stream;
+use futures::{Stream, stream};
 use jsonrpsee::{
 	core::{server::Methods, traits::ToRpcParams},
-	server::RpcModule,
 	types::SubscriptionId,
 };
 use serde_json::value::RawValue;
-use std::sync::Arc;
+use std::{
+	collections::BTreeSet,
+	future::ready,
+	pin::Pin,
+	task::{Context, Poll},
+};
 use subxt::rpcs::{
 	Error as RpcError, UserError,
 	client::{RawRpcFuture, RawRpcSubscription, RpcClientT},
 };
 
-/// Same buffer subxt's WebSocket client uses, to keep backpressure behaviour identical.
+/// Matches subxt's own WebSocket client's subscription buffer, so backpressure behaves
+/// identically: <https://docs.rs/subxt-rpcs/0.50.2/src/subxt_rpcs/client/jsonrpsee_impl.rs.html#107>
 const SUBSCRIPTION_BUFFER_CAPACITY: usize = 4096;
 
-/// `sc-service` registers this only on the network-facing module, but subxt's backend needs it.
+/// The `rpc_methods` RPC method's name.
 const RPC_METHODS: &str = "rpc_methods";
 
-/// A [`RpcClientT`] that calls into a node's [`RpcModule`] directly.
+/// A [`RpcClientT`] that calls into a node's `RpcModule` directly.
 ///
 /// ```ignore
 /// let rpc_handlers = sc_service::spawn_tasks(params)?;
-/// let rpc_client = RpcClient::new(InProcessRpcClient::new(rpc_handlers.handle()));
+/// let methods: Methods = rpc_handlers.handle().as_ref().clone().into();
+/// let rpc_client = RpcClient::new(InProcessRpcClient::new(methods));
 /// let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client).await?;
 /// ```
 #[derive(Clone, Debug)]
 pub struct InProcessRpcClient {
 	methods: Methods,
-	/// Canned `rpc_methods` response; `None` when the module answers it itself.
-	rpc_methods_response: Option<Arc<RawValue>>,
-	subscription_buffer_capacity: usize,
+	/// Canned `rpc_methods` response. `sc-service`'s in-memory module never registers that
+	/// method itself (only the network-facing module does), but subxt's `OnlineClient` calls it
+	/// while connecting to learn what the backend supports, so it must always be answered:
+	/// without this, `OnlineClient::from_rpc_client` can't be constructed from this client.
+	rpc_methods_response: Box<RawValue>,
 }
 
 impl InProcessRpcClient {
-	/// Wrap the in-memory RPC module of a running node.
-	pub fn new(rpc_module: Arc<RpcModule<()>>) -> Self {
-		Self::from_methods(rpc_module.as_ref().clone().into())
-	}
+	/// Wrap a node's RPC methods, e.g. from `RpcModule` or
+	/// [`RpcHandlers::handle`](sc_service::RpcHandlers::handle).
+	pub fn new(methods: impl Into<Methods>) -> Self {
+		let methods = methods.into();
 
-	/// Wrap an already extracted set of [`Methods`].
-	pub fn from_methods(methods: Methods) -> Self {
-		let rpc_methods_response = (!methods.method_names().any(|name| name == RPC_METHODS))
-			.then(|| render_rpc_methods(&methods));
+		// The `{"methods": [...]}` shape is what `rpc_methods` itself returns; it's imposed by
+		// the RPC method's spec, not something we control.
+		let names = methods
+			.method_names()
+			.chain(std::iter::once(RPC_METHODS))
+			.collect::<BTreeSet<_>>();
+		let rpc_methods_response =
+			serde_json::value::to_raw_value(&serde_json::json!({ "methods": names }))
+				.expect("a list of strings is always serializable; qed");
 
-		Self {
-			methods,
-			rpc_methods_response,
-			subscription_buffer_capacity: SUBSCRIPTION_BUFFER_CAPACITY,
-		}
-	}
-
-	/// Override how many notifications buffer before the node's subscription task has to wait.
-	pub fn with_subscription_buffer_capacity(mut self, capacity: usize) -> Self {
-		self.subscription_buffer_capacity = capacity.max(1);
-		self
+		Self { methods, rpc_methods_response }
 	}
 }
 
@@ -86,13 +89,11 @@ impl RpcClientT for InProcessRpcClient {
 		method: &'a str,
 		params: Option<Box<RawValue>>,
 	) -> RawRpcFuture<'a, Box<RawValue>> {
-		Box::pin(async move {
-			if method == RPC_METHODS {
-				if let Some(response) = &self.rpc_methods_response {
-					return Ok(clone_raw_value(response));
-				}
-			}
+		if method == RPC_METHODS {
+			return Box::pin(ready(Ok(self.rpc_methods_response.clone())));
+		}
 
+		Box::pin(async move {
 			self.methods
 				.call::<_, Box<RawValue>>(method, Params(params))
 				.await
@@ -104,26 +105,32 @@ impl RpcClientT for InProcessRpcClient {
 		&'a self,
 		sub: &'a str,
 		params: Option<Box<RawValue>>,
-		_unsub: &'a str,
+		unsub: &'a str,
 	) -> RawRpcFuture<'a, RawRpcSubscription> {
 		Box::pin(async move {
 			let subscription = self
 				.methods
-				.subscribe(sub, Params(params), self.subscription_buffer_capacity)
+				.subscribe(sub, Params(params), SUBSCRIPTION_BUFFER_CAPACITY)
 				.await
 				.map_err(into_rpc_error)?;
 
-			let id = match subscription.subscription_id() {
+			let subscription_id = subscription.subscription_id().clone().into_owned();
+			let id = match &subscription_id {
 				SubscriptionId::Str(id) => Some(id.to_string()),
 				SubscriptionId::Num(id) => Some(id.to_string()),
 			};
 
-			// No explicit unsubscribe: dropping the stream closes the channel the node writes
-			// into, which unwinds its subscription task.
 			let stream = stream::unfold(subscription, |mut subscription| async move {
 				let next = subscription.next::<Box<RawValue>>().await?;
 				Some((next.map(|(value, _id)| value).map_err(into_rpc_error), subscription))
 			});
+
+			let stream = UnsubscribeOnDrop {
+				stream: Box::pin(stream),
+				methods: self.methods.clone(),
+				unsub: unsub.to_owned(),
+				subscription_id,
+			};
 
 			Ok(RawRpcSubscription { stream: Box::pin(stream), id })
 		})
@@ -152,25 +159,45 @@ fn into_rpc_error(err: jsonrpsee::core::server::MethodsError) -> RpcError {
 	}
 }
 
-fn render_rpc_methods(methods: &Methods) -> Arc<RawValue> {
-	let mut names = methods.method_names().collect::<Vec<_>>();
-	names.push(RPC_METHODS);
-	names.sort_unstable();
-
-	serde_json::value::to_raw_value(&serde_json::json!({ "methods": names }))
-		.expect("a list of strings is always serializable; qed")
-		.into()
+/// Forwards `sub`'s notifications and, on drop, calls `unsub` explicitly, the same way a real
+/// network transport does when its client drops a subscription. Relying only on the notification
+/// channel closing (dropping `subscription` inside the forwarding stream) happens to work with
+/// today's handlers, but doesn't fulfil the `unsub` contract `RpcClientT::subscribe_raw` documents
+/// callers can rely on.
+struct UnsubscribeOnDrop {
+	stream: Pin<Box<dyn Stream<Item = Result<Box<RawValue>, RpcError>> + Send>>,
+	methods: Methods,
+	unsub: String,
+	subscription_id: SubscriptionId<'static>,
 }
 
-fn clone_raw_value(value: &RawValue) -> Box<RawValue> {
-	RawValue::from_string(value.get().to_owned())
-		.expect("the value was parsed from valid JSON; qed")
+impl Stream for UnsubscribeOnDrop {
+	type Item = Result<Box<RawValue>, RpcError>;
+
+	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+		self.stream.as_mut().poll_next(cx)
+	}
+}
+
+impl Drop for UnsubscribeOnDrop {
+	fn drop(&mut self) {
+		let methods = self.methods.clone();
+		let unsub = std::mem::take(&mut self.unsub);
+		let subscription_id = self.subscription_id.clone();
+		tokio::spawn(async move {
+			let params = serde_json::value::to_raw_value(&[subscription_id]).ok();
+			let _ = methods.call::<_, bool>(&unsub, Params(params)).await;
+		});
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use jsonrpsee::core::{RpcResult, server::SubscriptionMessage};
+	use jsonrpsee::{
+		core::{RpcResult, server::SubscriptionMessage},
+		server::RpcModule,
+	};
 	use subxt::rpcs::{RpcClient, rpc_params};
 
 	#[derive(serde::Deserialize)]
@@ -178,7 +205,7 @@ mod tests {
 		methods: Vec<String>,
 	}
 
-	fn test_module() -> Arc<RpcModule<()>> {
+	fn test_module() -> RpcModule<()> {
 		let mut module = RpcModule::new(());
 		module
 			.register_method::<RpcResult<u64>, _>("test_echo", |params, _, _| {
@@ -208,7 +235,7 @@ mod tests {
 				},
 			)
 			.unwrap();
-		Arc::new(module)
+		module
 	}
 
 	#[tokio::test]
@@ -246,20 +273,6 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn rpc_methods_defers_to_the_module() {
-		let mut module = RpcModule::new(());
-		module
-			.register_method::<RpcResult<serde_json::Value>, _>("rpc_methods", |_, _, _| {
-				Ok(serde_json::json!({ "methods": ["only_this"] }))
-			})
-			.unwrap();
-
-		let client = RpcClient::new(InProcessRpcClient::new(Arc::new(module)));
-		let methods: RpcMethods = client.request("rpc_methods", rpc_params![]).await.unwrap();
-		assert_eq!(methods.methods, vec!["only_this"]);
-	}
-
-	#[tokio::test]
 	async fn subscription_yields_every_item() {
 		let client = RpcClient::new(InProcessRpcClient::new(test_module()));
 		let mut subscription = client
@@ -277,7 +290,9 @@ mod tests {
 		assert_eq!(received, vec![0, 1, 2]);
 	}
 
-	/// Nothing sends an unsubscribe call, so the node-side task has to unwind on its own.
+	/// Handlers that loop on `sink.send(...).is_ok()` rather than `sink.closed()` should still
+	/// unwind: dropping our subscription closes the notification channel too, independently of
+	/// the explicit `unsub` call `UnsubscribeOnDrop` also makes.
 	#[tokio::test]
 	async fn dropping_a_subscription_stops_the_node_side_task() {
 		let (stopped_tx, mut stopped_rx) = tokio::sync::mpsc::channel::<()>(1);
@@ -300,7 +315,7 @@ mod tests {
 			)
 			.unwrap();
 
-		let client = RpcClient::new(InProcessRpcClient::new(Arc::new(module)));
+		let client = RpcClient::new(InProcessRpcClient::new(module));
 		let mut subscription = client
 			.subscribe::<u64>("test_subscribe", rpc_params![], "test_unsubscribe")
 			.await
@@ -312,5 +327,52 @@ mod tests {
 			.await
 			.expect("the node-side subscription task should unwind")
 			.unwrap();
+	}
+
+	/// Dropping our subscription must actually call the `unsub` method, not just close the
+	/// notification channel. A handler that never itself notices the channel closing (unlike
+	/// the tight send-loop above, which finds out the first time `send` fails) only ever stops
+	/// if something explicitly unsubscribes it, so this pins down that `UnsubscribeOnDrop` does.
+	///
+	/// `RandomIntegerIdProvider` (jsonrpsee's default for bare `Methods::subscribe`, which is
+	/// what's used here) always assigns numeric ids, so re-encoding the id as a JSON number to
+	/// call `test_unsubscribe` again matches what jsonrpsee originally stored it as.
+	#[tokio::test]
+	async fn dropping_a_subscription_calls_unsubscribe() {
+		let mut module = RpcModule::new(());
+		module
+			.register_subscription(
+				"test_subscribe",
+				"test_item",
+				"test_unsubscribe",
+				move |_, pending, _, _| async move {
+					let _sink = pending.accept().await?;
+					// Held but never checked, so only an explicit `test_unsubscribe` call (not
+					// the notification channel closing) can end this subscription.
+					std::future::pending::<()>().await;
+					Ok(())
+				},
+			)
+			.unwrap();
+
+		let methods: Methods = module.into();
+		let client = RpcClient::new(InProcessRpcClient::new(methods.clone()));
+		let subscription = client
+			.subscribe::<u64>("test_subscribe", rpc_params![], "test_unsubscribe")
+			.await
+			.unwrap();
+		let sub_id: u64 = subscription.subscription_id().unwrap().parse().unwrap();
+		drop(subscription);
+
+		// `UnsubscribeOnDrop` calls `test_unsubscribe` from a spawned task; give it a moment.
+		tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+		// Calling `test_unsubscribe` a second time is itself destructive (it removes whatever
+		// it finds), so this single call doubles as the assertion: `false` means our drop
+		// handler already removed it, `true` means this call is the one that just did.
+		let params = serde_json::value::to_raw_value(&[sub_id]).ok();
+		let still_subscribed: bool =
+			methods.call("test_unsubscribe", Params(params)).await.unwrap();
+		assert!(!still_subscribed, "drop should have already called `test_unsubscribe`");
 	}
 }

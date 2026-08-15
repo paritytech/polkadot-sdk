@@ -20,28 +20,34 @@ use crate::{
 	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	cli::{EthPruningMode, resolve_db_options},
+	cli::EthPruningMode,
 	client::{
 		Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect_with,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
-	in_process::InProcessRpcClient,
 };
 use futures::future::BoxFuture;
 use jsonrpsee::server::RpcModule;
-use prometheus_endpoint::Registry;
-use sc_service::{
-	SpawnEssentialTaskHandle, TaskManager,
-	config::{BasePath, RpcConfiguration},
-	create_rpc_runtime, start_rpc_servers,
-};
+use sc_service::SpawnEssentialTaskHandle;
 use sqlx::{
 	SqlitePool,
 	sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
-use std::sync::Arc;
 use subxt::rpcs::RpcClient;
 use tokio::sync::mpsc::Receiver;
+
+#[cfg(feature = "experimental-eth-rpc-in-node")]
+use crate::{cli::resolve_db_options, in_process::InProcessRpcClient};
+#[cfg(feature = "experimental-eth-rpc-in-node")]
+use jsonrpsee::core::server::Methods;
+#[cfg(feature = "experimental-eth-rpc-in-node")]
+use prometheus_endpoint::Registry;
+#[cfg(feature = "experimental-eth-rpc-in-node")]
+use sc_service::{
+	TaskManager,
+	config::{BasePath, RpcConfiguration},
+	create_rpc_runtime, start_rpc_servers,
+};
 
 /// Query the maximum number of bound parameters SQLite allows per query
 async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
@@ -131,9 +137,9 @@ pub(crate) async fn build_client(
 
 /// Create the JSON-RPC module exposing the Ethereum, debug, health and Polkadot APIs.
 pub(crate) fn rpc_module(
+	dev_accounts: bool,
 	client: Client,
 	allow_unprotected_txs: bool,
-	dev_accounts: bool,
 ) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if dev_accounts {
@@ -195,6 +201,7 @@ pub(crate) fn spawn_indexing_tasks(
 }
 
 /// Settings for an ETH RPC server embedded in a Substrate node.
+#[cfg(feature = "experimental-eth-rpc-in-node")]
 pub struct EmbeddedConfig {
 	/// Settings of the Ethereum JSON-RPC server, which is separate from the node's own RPC
 	/// server.
@@ -211,10 +218,11 @@ pub struct EmbeddedConfig {
 
 /// Start an ETH RPC server that talks to the node it runs inside.
 ///
-/// `node_rpc_module` comes from [`RpcHandlers::handle`](sc_service::RpcHandlers::handle). Tasks
-/// are spawned on `task_manager`, so the server shuts down with the node.
+/// `node_methods` comes from [`RpcHandlers::handle`](sc_service::RpcHandlers::handle). Tasks are
+/// spawned on `task_manager`, so the server shuts down with the node.
+#[cfg(feature = "experimental-eth-rpc-in-node")]
 pub async fn start_embedded(
-	node_rpc_module: Arc<RpcModule<()>>,
+	node_methods: Methods,
 	task_manager: &mut TaskManager,
 	config: EmbeddedConfig,
 	prometheus_registry: Option<&Registry>,
@@ -225,7 +233,7 @@ pub async fn start_embedded(
 	let db_options = resolve_db_options(eth_pruning, base_path)?;
 	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
 
-	let rpc_client = RpcClient::new(InProcessRpcClient::new(node_rpc_module));
+	let rpc_client = RpcClient::new(InProcessRpcClient::new(node_methods));
 	let client = build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
 
 	let rpc_runtime = create_rpc_runtime(rpc.max_connections)
@@ -234,7 +242,7 @@ pub async fn start_embedded(
 		&rpc,
 		prometheus_registry,
 		&tokio::runtime::Handle::current(),
-		rpc_module(client.clone(), allow_unprotected_txs, dev_accounts)?,
+		rpc_module(dev_accounts, client.clone(), allow_unprotected_txs)?,
 		rpc_runtime,
 		None,
 	)?;

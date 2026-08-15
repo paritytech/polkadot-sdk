@@ -16,10 +16,12 @@
 
 //! An Ethereum JSON-RPC server for `pallet-revive`, served from inside the node.
 //!
-//! The server reaches the node through `sc-service`'s in-memory RPC module instead of a loopback
-//! WebSocket, so no separate `eth-rpc` process is needed. It listens on its own port.
+//! Experimental, gated on the `experimental-eth-rpc-in-node` compile-time feature: the server
+//! reaches the node through `sc-service`'s in-memory RPC module instead of a loopback WebSocket,
+//! so no separate `eth-rpc` process is needed. It listens on its own port.
 
 use clap::Args;
+use jsonrpsee::core::server::Methods;
 use pallet_revive_eth_rpc::{
 	cli::EthPruningMode,
 	service::{start_embedded, EmbeddedConfig},
@@ -35,8 +37,7 @@ const DEFAULT_PORT: u16 = 8545;
 /// Receipt database directory, relative to the chain's data path.
 const DB_DIR: &str = "eth-rpc";
 
-/// CLI options for the embedded Ethereum JSON-RPC server, gated on the `eth-rpc` compile-time
-/// feature rather than a runtime flag.
+/// CLI options for the embedded Ethereum JSON-RPC server.
 #[derive(Debug, Clone, Args)]
 pub struct EthRpcParams {
 	/// Port of the Ethereum JSON-RPC server.
@@ -53,49 +54,46 @@ pub struct EthRpcParams {
 	pub eth_rpc_allow_unprotected_txs: bool,
 }
 
-/// Captured before `sc_service::spawn_tasks` consumes the node configuration, which happens
-/// before the in-memory RPC handlers exist.
-pub(crate) struct EthRpcConfig(EmbeddedConfig);
-
-impl EthRpcConfig {
-	pub(crate) fn new(params: &EthRpcParams, config: &Configuration) -> Self {
-		let node_rpc = &config.rpc;
-		Self(EmbeddedConfig {
-			rpc: RpcConfiguration {
-				// Binds localhost, so the server is never exposed just because the node's
-				// own RPC is.
-				addr: None,
-				port: params.eth_rpc_port,
-				max_connections: node_rpc.max_connections,
-				cors: node_rpc.cors.clone(),
-				methods: node_rpc.methods,
-				max_request_size: node_rpc.max_request_size,
-				max_response_size: node_rpc.max_response_size,
-				id_provider: None,
-				max_subs_per_conn: node_rpc.max_subs_per_conn,
-				message_buffer_capacity: node_rpc.message_buffer_capacity,
-				batch_config: node_rpc.batch_config,
-				rate_limit: node_rpc.rate_limit,
-				rate_limit_whitelisted_ips: node_rpc.rate_limit_whitelisted_ips.clone(),
-				rate_limit_trust_proxy_headers: node_rpc.rate_limit_trust_proxy_headers,
-				request_logger_limit: node_rpc.request_logger_limit,
-			},
-			eth_pruning: params.eth_rpc_pruning,
-			base_path: Some(BasePath::new(config.data_path.join(DB_DIR))),
-			allow_unprotected_txs: params.eth_rpc_allow_unprotected_txs,
-			dev_accounts: config.chain_spec.chain_type() == ChainType::Development,
-		})
+/// Build the embedded server's config. Called before `sc_service::spawn_tasks` consumes the node
+/// configuration, which happens before the in-memory RPC handlers exist.
+pub(crate) fn embedded_config(params: &EthRpcParams, config: &Configuration) -> EmbeddedConfig {
+	let node_rpc = &config.rpc;
+	EmbeddedConfig {
+		rpc: RpcConfiguration {
+			// Binds localhost, so the server is never exposed just because the node's
+			// own RPC is.
+			addr: None,
+			port: params.eth_rpc_port,
+			max_connections: node_rpc.max_connections,
+			cors: node_rpc.cors.clone(),
+			methods: node_rpc.methods,
+			max_request_size: node_rpc.max_request_size,
+			max_response_size: node_rpc.max_response_size,
+			id_provider: None,
+			max_subs_per_conn: node_rpc.max_subs_per_conn,
+			message_buffer_capacity: node_rpc.message_buffer_capacity,
+			batch_config: node_rpc.batch_config,
+			rate_limit: node_rpc.rate_limit,
+			rate_limit_whitelisted_ips: node_rpc.rate_limit_whitelisted_ips.clone(),
+			rate_limit_trust_proxy_headers: node_rpc.rate_limit_trust_proxy_headers,
+			request_logger_limit: node_rpc.request_logger_limit,
+		},
+		eth_pruning: params.eth_rpc_pruning,
+		base_path: Some(BasePath::new(config.data_path.join(DB_DIR))),
+		allow_unprotected_txs: params.eth_rpc_allow_unprotected_txs,
+		dev_accounts: config.chain_spec.chain_type() == ChainType::Development,
 	}
 }
 
 /// Start the server. Must be called from a tokio runtime, after `sc_service::spawn_tasks`.
 pub(crate) async fn start(
-	config: EthRpcConfig,
+	config: EmbeddedConfig,
 	rpc_handlers: &RpcHandlers,
 	task_manager: &mut TaskManager,
 ) -> sc_service::error::Result<()> {
+	let node_methods: Methods = rpc_handlers.handle().as_ref().clone().into();
 	// `None`: the node's own RPC server already registered these metric names on this registry.
-	start_embedded(rpc_handlers.handle(), task_manager, config.0, None)
+	start_embedded(node_methods, task_manager, config, None)
 		.await
 		.map_err(|err| sc_service::Error::Application(err.into()))
 }

@@ -588,8 +588,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
-			#[cfg(feature = "eth-rpc")]
-			let eth_rpc_config = crate::common::eth_rpc::EthRpcConfig::new(
+			#[cfg(feature = "experimental-eth-rpc-in-node")]
+			let eth_rpc_config = crate::common::eth_rpc::embedded_config(
 				&node_extra_args.eth_rpc,
 				&parachain_config,
 			);
@@ -612,7 +612,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				))),
 			})?;
 
-			#[cfg(feature = "eth-rpc")]
+			#[cfg(feature = "experimental-eth-rpc-in-node")]
 			crate::common::eth_rpc::start(eth_rpc_config, &_rpc_handlers, &mut task_manager)
 				.await?;
 

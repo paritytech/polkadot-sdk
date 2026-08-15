@@ -80,6 +80,10 @@ sp-io = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 
 [features]
+# Serving the ETH RPC from inside another node's process, rather than as this crate's standalone
+# `eth-rpc` binary. Off by default: the in-process transport is still being redesigned and its
+# shape may change before it's ready for general use.
+experimental-eth-rpc-in-node = []
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
