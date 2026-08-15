@@ -1007,10 +1007,14 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(ProxyType::Assets, ProxyType::AssetOwner) => true,
 			(ProxyType::Assets, ProxyType::AssetManager) => true,
 			(ProxyType::Staking, ProxyType::StakingOperator) => true,
+			// NOTE: `Governance` is deliberately *not* listed here. `NonTransfer` denies the
+			// `Treasury`, `ConvictionVoting`, `Referenda` and `Whitelist` calls that `Governance`
+			// admits, so it is not a superset of it. Claiming otherwise would let a `NonTransfer`
+			// proxy grant itself a `Governance` proxy and widen its own permissions, since
+			// `pallet_proxy` authorizes `add_proxy`/`remove_proxy` through `is_superset`.
 			(
 				ProxyType::NonTransfer,
 				ProxyType::Collator |
-				ProxyType::Governance |
 				ProxyType::Staking |
 				ProxyType::NominationPools |
 				ProxyType::StakingOperator,
