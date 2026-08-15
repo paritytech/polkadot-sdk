@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786740161614,
+  "lastUpdate": 1786801086055,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80a438ea4defc8e4b93f4ab1c2492b82e9b954e0",
-          "message": "Fix pallet-revive-fixtures (#10780)\n\nFixing two issues:\n\n1. Build on rustc >= 1.92 was broken despite\nhttps://github.com/paritytech/polkadot-sdk/pull/10749. That PR was\nbroken.\n2. The nested cargo didn't properly inherit the parent toolchain (an\nolder error). Leading to the situation where a `1.88` was only applied\nto the parent toolchain\n\nReplacement for https://github.com/paritytech/polkadot-sdk/pull/10778.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-13T14:08:34Z",
-          "tree_id": "e2fd8ae9df0be03497c08378224d879458a594ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80a438ea4defc8e4b93f4ab1c2492b82e9b954e0"
-        },
-        "date": 1768318573824,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007030629373333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1437316425666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022934024853333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009468047113333313,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009904808946666661,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b",
+          "message": "Track nested memory used by `xcm::DoubleEncoded`: approach #2 (#11147)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/8675\nFollow-up for https://github.com/paritytech/polkadot-sdk/pull/10747\n(approach # 1)\n\nDifferent approach for tracking the nested memory used by\n`xcm::DoubleEncoded`\n\nThe idea is to decode the entire `xcm::DoubleEncoded<Call>` when\npossible. This can be done when the `Call` is the `RuntimeCall` of our\nlocal Runtime. When the `Call` is `()` it means that it's a remote\n`RuntimeCall`, and it will be decoded on the destination chain.\n\nThis covers the XCMP/UMP/DMP pathways and the `pallet_xcm::execute()`\nextrinsic or any other extrinsic that accepts XCMs. For extrinsics we\nhave the heap memory limit used for decoding the extrinsic (16 MB) and\nfor XCMP/UMP/DMP we call `decode_with_constraints()` which uses a\nhardcoded 10MB limit now. We can adjust it or make it configurable. I\nhope I'm not missing any use cases.\n\nKnown issues (to be fixed in future PRs):\n- dry-running: The methods defined in `RecordXcm` return\n`VersionedXcm<()>` directly. We should add the `RuntimeCall` as a\ngeneric type param (`RecordXcm<Call>`) and modify all the methods to\nreturn `VersionedXcm<Call>`\n- `DoubleEncoded::transmute_encoded()` is used in some mocks. Not sure\nif it's needed outside of mocks. Maybe we can remove it with some\ncleanup.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-15T12:09:21Z",
+          "tree_id": "70d2a4db3cf13b1e6c10882ac25c39ed2741e449",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b"
+        },
+        "date": 1786801053297,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007511224726666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02286815786666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009979208540000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14342361803333342,
             "unit": "seconds"
           }
         ]
