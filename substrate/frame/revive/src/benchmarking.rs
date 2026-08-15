@@ -127,8 +127,9 @@ mod benchmarks {
 		}
 	}
 
-	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
-	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
+	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read,
+	/// one live-contract lookup, plus the `DeletionQueue` + `DeletionQueueCounter` writes done
+	/// by `entry.remove()`.
 	#[benchmark(pov_mode = Measured)]
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;

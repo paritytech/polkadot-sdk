@@ -438,16 +438,23 @@ impl<T: Config> ContractInfo<T> {
 			remaining = after_entry;
 
 			// Phase 1: drain `NativeDepositOf` rows for this contract.
-			let key_budget = key_budget_for(remaining, weight_per_native_key);
-			if key_budget == 0 {
-				break;
-			}
-			let result =
-				NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
-			remaining = remaining
-				.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
-			if result.maybe_cursor.is_some() {
-				break;
+			// A recreated contract shares the same fallback account but has a different trie ID.
+			let should_clear_native = AccountInfo::<T>::load_contract(
+				&T::AddressMapper::to_address(&entry.value.account_id),
+			)
+			.map_or(true, |info| info.trie_id == entry.value.trie_id);
+			if should_clear_native {
+				let key_budget = key_budget_for(remaining, weight_per_native_key);
+				if key_budget == 0 {
+					break;
+				}
+				let result =
+					NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
+				remaining = remaining
+					.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
+				if result.maybe_cursor.is_some() {
+					break;
+				}
 			}
 
 			// Phase 2: kill the child trie.
