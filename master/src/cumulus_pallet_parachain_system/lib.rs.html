@@ -180,7 +180,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">extern crate </span>alloc;
 <a href=#31 id=31 data-nosnippet>31</a>
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>codec::{Decode, DecodeLimit, Encode};
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>codec::{Decode, Encode};
 <a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>core::cmp;
 <a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>cumulus_primitives_core::{
 <a href=#36 id=36 data-nosnippet>36</a>	relay_chain::{<span class="self">self</span>, UMPSignal, UMP_SEPARATOR},
@@ -209,7 +209,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#59 id=59 data-nosnippet>59</a>	traits::{BlockNumberProvider, Hash},
 <a href=#60 id=60 data-nosnippet>60</a>	Debug, FixedU128, SaturatedConversion,
 <a href=#61 id=61 data-nosnippet>61</a>};
-<a href=#62 id=62 data-nosnippet>62</a><span class="kw">use </span>xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+<a href=#62 id=62 data-nosnippet>62</a><span class="kw">use </span>xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 <a href=#63 id=63 data-nosnippet>63</a><span class="kw">use </span>xcm_builder::InspectMessageQueues;
 <a href=#64 id=64 data-nosnippet>64</a>
 <a href=#65 id=65 data-nosnippet>65</a><span class="kw">mod </span>benchmarking;
@@ -2089,161 +2089,158 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1939 id=1939 data-nosnippet>1939</a>		<span class="kw">let </span>messages: Vec&lt;VersionedXcm&lt;()&gt;&gt; = PendingUpwardMessages::&lt;T&gt;::get()
 <a href=#1940 id=1940 data-nosnippet>1940</a>			.iter()
 <a href=#1941 id=1941 data-nosnippet>1941</a>			.map(|encoded_message| {
-<a href=#1942 id=1942 data-nosnippet>1942</a>				VersionedXcm::&lt;()&gt;::decode_all_with_depth_limit(
-<a href=#1943 id=1943 data-nosnippet>1943</a>					MAX_XCM_DECODE_DEPTH,
-<a href=#1944 id=1944 data-nosnippet>1944</a>					<span class="kw-2">&amp;mut &amp;</span>encoded_message[..],
-<a href=#1945 id=1945 data-nosnippet>1945</a>				)
-<a href=#1946 id=1946 data-nosnippet>1946</a>				.unwrap()
-<a href=#1947 id=1947 data-nosnippet>1947</a>			})
-<a href=#1948 id=1948 data-nosnippet>1948</a>			.collect();
-<a href=#1949 id=1949 data-nosnippet>1949</a>
-<a href=#1950 id=1950 data-nosnippet>1950</a>		<span class="kw">if </span>messages.is_empty() {
-<a href=#1951 id=1951 data-nosnippet>1951</a>			<span class="macro">vec!</span>[]
-<a href=#1952 id=1952 data-nosnippet>1952</a>		} <span class="kw">else </span>{
-<a href=#1953 id=1953 data-nosnippet>1953</a>			<span class="macro">vec!</span>[(VersionedLocation::from(Location::parent()), messages)]
-<a href=#1954 id=1954 data-nosnippet>1954</a>		}
-<a href=#1955 id=1955 data-nosnippet>1955</a>	}
-<a href=#1956 id=1956 data-nosnippet>1956</a>}
-<a href=#1957 id=1957 data-nosnippet>1957</a>
-<a href=#1958 id=1958 data-nosnippet>1958</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#1959 id=1959 data-nosnippet>1959</a></span><span class="kw">impl</span>&lt;T: Config&gt; polkadot_runtime_parachains::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1960 id=1960 data-nosnippet>1960</a>	<span class="kw">fn </span>ensure(para_id: ParaId) {
-<a href=#1961 id=1961 data-nosnippet>1961</a>		<span class="kw">if let </span>ChannelStatus::Closed = <span class="self">Self</span>::get_channel_status(para_id) {
-<a href=#1962 id=1962 data-nosnippet>1962</a>			<span class="self">Self</span>::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
-<a href=#1963 id=1963 data-nosnippet>1963</a>		}
-<a href=#1964 id=1964 data-nosnippet>1964</a>	}
-<a href=#1965 id=1965 data-nosnippet>1965</a>}
-<a href=#1966 id=1966 data-nosnippet>1966</a>
-<a href=#1967 id=1967 data-nosnippet>1967</a><span class="doccomment">/// Something that should be informed about system related events.
-<a href=#1968 id=1968 data-nosnippet>1968</a>///
-<a href=#1969 id=1969 data-nosnippet>1969</a>/// This includes events like [`on_validation_data`](Self::on_validation_data) that is being
-<a href=#1970 id=1970 data-nosnippet>1970</a>/// called when the parachain inherent is executed that contains the validation data.
-<a href=#1971 id=1971 data-nosnippet>1971</a>/// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
-<a href=#1972 id=1972 data-nosnippet>1972</a>/// when the new validation is written to the state. This means that
-<a href=#1973 id=1973 data-nosnippet>1973</a>/// from the next block the runtime is being using this new code.
-<a href=#1974 id=1974 data-nosnippet>1974</a></span><span class="kw">pub trait </span>OnSystemEvent {
-<a href=#1975 id=1975 data-nosnippet>1975</a>	<span class="doccomment">/// Called in each blocks once when the validation data is set by the inherent.
-<a href=#1976 id=1976 data-nosnippet>1976</a>	</span><span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData);
-<a href=#1977 id=1977 data-nosnippet>1977</a>	<span class="doccomment">/// Called when the validation code is being applied, aka from the next block on this is the new
-<a href=#1978 id=1978 data-nosnippet>1978</a>	/// runtime.
-<a href=#1979 id=1979 data-nosnippet>1979</a>	</span><span class="kw">fn </span>on_validation_code_applied();
-<a href=#1980 id=1980 data-nosnippet>1980</a>	<span class="doccomment">/// Called to process keys from the verified relay chain state proof.
-<a href=#1981 id=1981 data-nosnippet>1981</a>	</span><span class="kw">fn </span>on_relay_state_proof(
-<a href=#1982 id=1982 data-nosnippet>1982</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
-<a href=#1983 id=1983 data-nosnippet>1983</a>	) -&gt; Weight;
-<a href=#1984 id=1984 data-nosnippet>1984</a>}
-<a href=#1985 id=1985 data-nosnippet>1985</a>
-<a href=#1986 id=1986 data-nosnippet>1986</a><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
-<a href=#1987 id=1987 data-nosnippet>1987</a></span><span class="kw">impl </span>OnSystemEvent <span class="kw">for </span>Tuple {
-<a href=#1988 id=1988 data-nosnippet>1988</a>	<span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData) {
-<a href=#1989 id=1989 data-nosnippet>1989</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_data(data); )* );
-<a href=#1990 id=1990 data-nosnippet>1990</a>	}
-<a href=#1991 id=1991 data-nosnippet>1991</a>
-<a href=#1992 id=1992 data-nosnippet>1992</a>	<span class="kw">fn </span>on_validation_code_applied() {
-<a href=#1993 id=1993 data-nosnippet>1993</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_code_applied(); )* );
-<a href=#1994 id=1994 data-nosnippet>1994</a>	}
-<a href=#1995 id=1995 data-nosnippet>1995</a>
-<a href=#1996 id=1996 data-nosnippet>1996</a>	<span class="kw">fn </span>on_relay_state_proof(
-<a href=#1997 id=1997 data-nosnippet>1997</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
-<a href=#1998 id=1998 data-nosnippet>1998</a>	) -&gt; Weight {
-<a href=#1999 id=1999 data-nosnippet>1999</a>		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
-<a href=#2000 id=2000 data-nosnippet>2000</a>		<span class="macro">for_tuples!</span>( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
-<a href=#2001 id=2001 data-nosnippet>2001</a>		weight
-<a href=#2002 id=2002 data-nosnippet>2002</a>	}
-<a href=#2003 id=2003 data-nosnippet>2003</a>}
-<a href=#2004 id=2004 data-nosnippet>2004</a>
-<a href=#2005 id=2005 data-nosnippet>2005</a><span class="doccomment">/// Holds the most recent relay-parent state root and block number of the current parachain block.
-<a href=#2006 id=2006 data-nosnippet>2006</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
-<a href=#2007 id=2007 data-nosnippet>2007</a></span><span class="kw">pub struct </span>RelayChainState {
-<a href=#2008 id=2008 data-nosnippet>2008</a>	<span class="doccomment">/// Current relay chain height.
-<a href=#2009 id=2009 data-nosnippet>2009</a>	</span><span class="kw">pub </span>number: relay_chain::BlockNumber,
-<a href=#2010 id=2010 data-nosnippet>2010</a>	<span class="doccomment">/// State root for current relay chain height.
-<a href=#2011 id=2011 data-nosnippet>2011</a>	</span><span class="kw">pub </span>state_root: relay_chain::Hash,
-<a href=#2012 id=2012 data-nosnippet>2012</a>}
-<a href=#2013 id=2013 data-nosnippet>2013</a>
-<a href=#2014 id=2014 data-nosnippet>2014</a><span class="doccomment">/// This exposes the [`RelayChainState`] to other runtime modules.
-<a href=#2015 id=2015 data-nosnippet>2015</a>///
-<a href=#2016 id=2016 data-nosnippet>2016</a>/// Enables parachains to read relay chain state via state proofs.
-<a href=#2017 id=2017 data-nosnippet>2017</a></span><span class="kw">pub trait </span>RelaychainStateProvider {
-<a href=#2018 id=2018 data-nosnippet>2018</a>	<span class="doccomment">/// May be called by any runtime module to obtain the current state of the relay chain.
-<a href=#2019 id=2019 data-nosnippet>2019</a>	///
-<a href=#2020 id=2020 data-nosnippet>2020</a>	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
-<a href=#2021 id=2021 data-nosnippet>2021</a>	</span><span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState;
-<a href=#2022 id=2022 data-nosnippet>2022</a>
-<a href=#2023 id=2023 data-nosnippet>2023</a>	<span class="doccomment">/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-<a href=#2024 id=2024 data-nosnippet>2024</a>	/// else a noop.
-<a href=#2025 id=2025 data-nosnippet>2025</a>	///
-<a href=#2026 id=2026 data-nosnippet>2026</a>	/// It allows for setting a custom RelayChainState.
-<a href=#2027 id=2027 data-nosnippet>2027</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#2028 id=2028 data-nosnippet>2028</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(_state: RelayChainState) {}
-<a href=#2029 id=2029 data-nosnippet>2029</a>}
-<a href=#2030 id=2030 data-nosnippet>2030</a>
-<a href=#2031 id=2031 data-nosnippet>2031</a><span class="doccomment">/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
-<a href=#2032 id=2032 data-nosnippet>2032</a>/// data.
+<a href=#1942 id=1942 data-nosnippet>1942</a>				VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..])
+<a href=#1943 id=1943 data-nosnippet>1943</a>					.unwrap()
+<a href=#1944 id=1944 data-nosnippet>1944</a>			})
+<a href=#1945 id=1945 data-nosnippet>1945</a>			.collect();
+<a href=#1946 id=1946 data-nosnippet>1946</a>
+<a href=#1947 id=1947 data-nosnippet>1947</a>		<span class="kw">if </span>messages.is_empty() {
+<a href=#1948 id=1948 data-nosnippet>1948</a>			<span class="macro">vec!</span>[]
+<a href=#1949 id=1949 data-nosnippet>1949</a>		} <span class="kw">else </span>{
+<a href=#1950 id=1950 data-nosnippet>1950</a>			<span class="macro">vec!</span>[(VersionedLocation::from(Location::parent()), messages)]
+<a href=#1951 id=1951 data-nosnippet>1951</a>		}
+<a href=#1952 id=1952 data-nosnippet>1952</a>	}
+<a href=#1953 id=1953 data-nosnippet>1953</a>}
+<a href=#1954 id=1954 data-nosnippet>1954</a>
+<a href=#1955 id=1955 data-nosnippet>1955</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#1956 id=1956 data-nosnippet>1956</a></span><span class="kw">impl</span>&lt;T: Config&gt; polkadot_runtime_parachains::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1957 id=1957 data-nosnippet>1957</a>	<span class="kw">fn </span>ensure(para_id: ParaId) {
+<a href=#1958 id=1958 data-nosnippet>1958</a>		<span class="kw">if let </span>ChannelStatus::Closed = <span class="self">Self</span>::get_channel_status(para_id) {
+<a href=#1959 id=1959 data-nosnippet>1959</a>			<span class="self">Self</span>::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+<a href=#1960 id=1960 data-nosnippet>1960</a>		}
+<a href=#1961 id=1961 data-nosnippet>1961</a>	}
+<a href=#1962 id=1962 data-nosnippet>1962</a>}
+<a href=#1963 id=1963 data-nosnippet>1963</a>
+<a href=#1964 id=1964 data-nosnippet>1964</a><span class="doccomment">/// Something that should be informed about system related events.
+<a href=#1965 id=1965 data-nosnippet>1965</a>///
+<a href=#1966 id=1966 data-nosnippet>1966</a>/// This includes events like [`on_validation_data`](Self::on_validation_data) that is being
+<a href=#1967 id=1967 data-nosnippet>1967</a>/// called when the parachain inherent is executed that contains the validation data.
+<a href=#1968 id=1968 data-nosnippet>1968</a>/// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
+<a href=#1969 id=1969 data-nosnippet>1969</a>/// when the new validation is written to the state. This means that
+<a href=#1970 id=1970 data-nosnippet>1970</a>/// from the next block the runtime is being using this new code.
+<a href=#1971 id=1971 data-nosnippet>1971</a></span><span class="kw">pub trait </span>OnSystemEvent {
+<a href=#1972 id=1972 data-nosnippet>1972</a>	<span class="doccomment">/// Called in each blocks once when the validation data is set by the inherent.
+<a href=#1973 id=1973 data-nosnippet>1973</a>	</span><span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData);
+<a href=#1974 id=1974 data-nosnippet>1974</a>	<span class="doccomment">/// Called when the validation code is being applied, aka from the next block on this is the new
+<a href=#1975 id=1975 data-nosnippet>1975</a>	/// runtime.
+<a href=#1976 id=1976 data-nosnippet>1976</a>	</span><span class="kw">fn </span>on_validation_code_applied();
+<a href=#1977 id=1977 data-nosnippet>1977</a>	<span class="doccomment">/// Called to process keys from the verified relay chain state proof.
+<a href=#1978 id=1978 data-nosnippet>1978</a>	</span><span class="kw">fn </span>on_relay_state_proof(
+<a href=#1979 id=1979 data-nosnippet>1979</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
+<a href=#1980 id=1980 data-nosnippet>1980</a>	) -&gt; Weight;
+<a href=#1981 id=1981 data-nosnippet>1981</a>}
+<a href=#1982 id=1982 data-nosnippet>1982</a>
+<a href=#1983 id=1983 data-nosnippet>1983</a><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+<a href=#1984 id=1984 data-nosnippet>1984</a></span><span class="kw">impl </span>OnSystemEvent <span class="kw">for </span>Tuple {
+<a href=#1985 id=1985 data-nosnippet>1985</a>	<span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData) {
+<a href=#1986 id=1986 data-nosnippet>1986</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_data(data); )* );
+<a href=#1987 id=1987 data-nosnippet>1987</a>	}
+<a href=#1988 id=1988 data-nosnippet>1988</a>
+<a href=#1989 id=1989 data-nosnippet>1989</a>	<span class="kw">fn </span>on_validation_code_applied() {
+<a href=#1990 id=1990 data-nosnippet>1990</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_code_applied(); )* );
+<a href=#1991 id=1991 data-nosnippet>1991</a>	}
+<a href=#1992 id=1992 data-nosnippet>1992</a>
+<a href=#1993 id=1993 data-nosnippet>1993</a>	<span class="kw">fn </span>on_relay_state_proof(
+<a href=#1994 id=1994 data-nosnippet>1994</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
+<a href=#1995 id=1995 data-nosnippet>1995</a>	) -&gt; Weight {
+<a href=#1996 id=1996 data-nosnippet>1996</a>		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
+<a href=#1997 id=1997 data-nosnippet>1997</a>		<span class="macro">for_tuples!</span>( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
+<a href=#1998 id=1998 data-nosnippet>1998</a>		weight
+<a href=#1999 id=1999 data-nosnippet>1999</a>	}
+<a href=#2000 id=2000 data-nosnippet>2000</a>}
+<a href=#2001 id=2001 data-nosnippet>2001</a>
+<a href=#2002 id=2002 data-nosnippet>2002</a><span class="doccomment">/// Holds the most recent relay-parent state root and block number of the current parachain block.
+<a href=#2003 id=2003 data-nosnippet>2003</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
+<a href=#2004 id=2004 data-nosnippet>2004</a></span><span class="kw">pub struct </span>RelayChainState {
+<a href=#2005 id=2005 data-nosnippet>2005</a>	<span class="doccomment">/// Current relay chain height.
+<a href=#2006 id=2006 data-nosnippet>2006</a>	</span><span class="kw">pub </span>number: relay_chain::BlockNumber,
+<a href=#2007 id=2007 data-nosnippet>2007</a>	<span class="doccomment">/// State root for current relay chain height.
+<a href=#2008 id=2008 data-nosnippet>2008</a>	</span><span class="kw">pub </span>state_root: relay_chain::Hash,
+<a href=#2009 id=2009 data-nosnippet>2009</a>}
+<a href=#2010 id=2010 data-nosnippet>2010</a>
+<a href=#2011 id=2011 data-nosnippet>2011</a><span class="doccomment">/// This exposes the [`RelayChainState`] to other runtime modules.
+<a href=#2012 id=2012 data-nosnippet>2012</a>///
+<a href=#2013 id=2013 data-nosnippet>2013</a>/// Enables parachains to read relay chain state via state proofs.
+<a href=#2014 id=2014 data-nosnippet>2014</a></span><span class="kw">pub trait </span>RelaychainStateProvider {
+<a href=#2015 id=2015 data-nosnippet>2015</a>	<span class="doccomment">/// May be called by any runtime module to obtain the current state of the relay chain.
+<a href=#2016 id=2016 data-nosnippet>2016</a>	///
+<a href=#2017 id=2017 data-nosnippet>2017</a>	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
+<a href=#2018 id=2018 data-nosnippet>2018</a>	</span><span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState;
+<a href=#2019 id=2019 data-nosnippet>2019</a>
+<a href=#2020 id=2020 data-nosnippet>2020</a>	<span class="doccomment">/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
+<a href=#2021 id=2021 data-nosnippet>2021</a>	/// else a noop.
+<a href=#2022 id=2022 data-nosnippet>2022</a>	///
+<a href=#2023 id=2023 data-nosnippet>2023</a>	/// It allows for setting a custom RelayChainState.
+<a href=#2024 id=2024 data-nosnippet>2024</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#2025 id=2025 data-nosnippet>2025</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(_state: RelayChainState) {}
+<a href=#2026 id=2026 data-nosnippet>2026</a>}
+<a href=#2027 id=2027 data-nosnippet>2027</a>
+<a href=#2028 id=2028 data-nosnippet>2028</a><span class="doccomment">/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
+<a href=#2029 id=2029 data-nosnippet>2029</a>/// data.
+<a href=#2030 id=2030 data-nosnippet>2030</a>///
+<a href=#2031 id=2031 data-nosnippet>2031</a>/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
+<a href=#2032 id=2032 data-nosnippet>2032</a>/// [`Pallet::last_relay_block_number()`].
 <a href=#2033 id=2033 data-nosnippet>2033</a>///
-<a href=#2034 id=2034 data-nosnippet>2034</a>/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
-<a href=#2035 id=2035 data-nosnippet>2035</a>/// [`Pallet::last_relay_block_number()`].
+<a href=#2034 id=2034 data-nosnippet>2034</a>/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
+<a href=#2035 id=2035 data-nosnippet>2035</a>/// data fetched from validation data.
 <a href=#2036 id=2036 data-nosnippet>2036</a>///
-<a href=#2037 id=2037 data-nosnippet>2037</a>/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
-<a href=#2038 id=2038 data-nosnippet>2038</a>/// data fetched from validation data.
-<a href=#2039 id=2039 data-nosnippet>2039</a>///
-<a href=#2040 id=2040 data-nosnippet>2040</a>/// NOTE: When validation data is not available (e.g. within `on_initialize`):
-<a href=#2041 id=2041 data-nosnippet>2041</a>///
-<a href=#2042 id=2042 data-nosnippet>2042</a>/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
-<a href=#2043 id=2043 data-nosnippet>2043</a>///   of [`RelayChainState`].
-<a href=#2044 id=2044 data-nosnippet>2044</a>/// - [`current_block_number`](Self::current_block_number): Will return
-<a href=#2045 id=2045 data-nosnippet>2045</a>///   [`Pallet::last_relay_block_number()`].
-<a href=#2046 id=2046 data-nosnippet>2046</a></span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#2037 id=2037 data-nosnippet>2037</a>/// NOTE: When validation data is not available (e.g. within `on_initialize`):
+<a href=#2038 id=2038 data-nosnippet>2038</a>///
+<a href=#2039 id=2039 data-nosnippet>2039</a>/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
+<a href=#2040 id=2040 data-nosnippet>2040</a>///   of [`RelayChainState`].
+<a href=#2041 id=2041 data-nosnippet>2041</a>/// - [`current_block_number`](Self::current_block_number): Will return
+<a href=#2042 id=2042 data-nosnippet>2042</a>///   [`Pallet::last_relay_block_number()`].
+<a href=#2043 id=2043 data-nosnippet>2043</a></span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#2044 id=2044 data-nosnippet>2044</a>
+<a href=#2045 id=2045 data-nosnippet>2045</a><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
+<a href=#2046 id=2046 data-nosnippet>2046</a>	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
 <a href=#2047 id=2047 data-nosnippet>2047</a>
-<a href=#2048 id=2048 data-nosnippet>2048</a><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-<a href=#2049 id=2049 data-nosnippet>2049</a>	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
-<a href=#2050 id=2050 data-nosnippet>2050</a>
-<a href=#2051 id=2051 data-nosnippet>2051</a>	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
-<a href=#2052 id=2052 data-nosnippet>2052</a>		ValidationData::&lt;T&gt;::get()
-<a href=#2053 id=2053 data-nosnippet>2053</a>			.map(|d| d.relay_parent_number)
-<a href=#2054 id=2054 data-nosnippet>2054</a>			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
-<a href=#2055 id=2055 data-nosnippet>2055</a>	}
-<a href=#2056 id=2056 data-nosnippet>2056</a>
-<a href=#2057 id=2057 data-nosnippet>2057</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#2058 id=2058 data-nosnippet>2058</a>	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
-<a href=#2059 id=2059 data-nosnippet>2059</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
-<a href=#2060 id=2060 data-nosnippet>2060</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
-<a href=#2061 id=2061 data-nosnippet>2061</a>			</span>PersistedValidationData {
-<a href=#2062 id=2062 data-nosnippet>2062</a>				parent_head: <span class="macro">vec!</span>[].into(),
-<a href=#2063 id=2063 data-nosnippet>2063</a>				relay_parent_number: Default::default(),
-<a href=#2064 id=2064 data-nosnippet>2064</a>				max_pov_size: Default::default(),
-<a href=#2065 id=2065 data-nosnippet>2065</a>				relay_parent_storage_root: Default::default(),
-<a href=#2066 id=2066 data-nosnippet>2066</a>			});
-<a href=#2067 id=2067 data-nosnippet>2067</a>		validation_data.relay_parent_number = block;
-<a href=#2068 id=2068 data-nosnippet>2068</a>		ValidationData::&lt;T&gt;::put(validation_data)
-<a href=#2069 id=2069 data-nosnippet>2069</a>	}
-<a href=#2070 id=2070 data-nosnippet>2070</a>}
-<a href=#2071 id=2071 data-nosnippet>2071</a>
-<a href=#2072 id=2072 data-nosnippet>2072</a><span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-<a href=#2073 id=2073 data-nosnippet>2073</a>	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
-<a href=#2074 id=2074 data-nosnippet>2074</a>		ValidationData::&lt;T&gt;::get()
-<a href=#2075 id=2075 data-nosnippet>2075</a>			.map(|d| RelayChainState {
-<a href=#2076 id=2076 data-nosnippet>2076</a>				number: d.relay_parent_number,
-<a href=#2077 id=2077 data-nosnippet>2077</a>				state_root: d.relay_parent_storage_root,
-<a href=#2078 id=2078 data-nosnippet>2078</a>			})
-<a href=#2079 id=2079 data-nosnippet>2079</a>			.unwrap_or_default()
-<a href=#2080 id=2080 data-nosnippet>2080</a>	}
-<a href=#2081 id=2081 data-nosnippet>2081</a>
-<a href=#2082 id=2082 data-nosnippet>2082</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#2083 id=2083 data-nosnippet>2083</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
-<a href=#2084 id=2084 data-nosnippet>2084</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
-<a href=#2085 id=2085 data-nosnippet>2085</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
-<a href=#2086 id=2086 data-nosnippet>2086</a>			</span>PersistedValidationData {
-<a href=#2087 id=2087 data-nosnippet>2087</a>				parent_head: <span class="macro">vec!</span>[].into(),
-<a href=#2088 id=2088 data-nosnippet>2088</a>				relay_parent_number: Default::default(),
-<a href=#2089 id=2089 data-nosnippet>2089</a>				max_pov_size: Default::default(),
-<a href=#2090 id=2090 data-nosnippet>2090</a>				relay_parent_storage_root: Default::default(),
-<a href=#2091 id=2091 data-nosnippet>2091</a>			});
-<a href=#2092 id=2092 data-nosnippet>2092</a>		validation_data.relay_parent_number = state.number;
-<a href=#2093 id=2093 data-nosnippet>2093</a>		validation_data.relay_parent_storage_root = state.state_root;
-<a href=#2094 id=2094 data-nosnippet>2094</a>		ValidationData::&lt;T&gt;::put(validation_data)
-<a href=#2095 id=2095 data-nosnippet>2095</a>	}
-<a href=#2096 id=2096 data-nosnippet>2096</a>}
+<a href=#2048 id=2048 data-nosnippet>2048</a>	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
+<a href=#2049 id=2049 data-nosnippet>2049</a>		ValidationData::&lt;T&gt;::get()
+<a href=#2050 id=2050 data-nosnippet>2050</a>			.map(|d| d.relay_parent_number)
+<a href=#2051 id=2051 data-nosnippet>2051</a>			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
+<a href=#2052 id=2052 data-nosnippet>2052</a>	}
+<a href=#2053 id=2053 data-nosnippet>2053</a>
+<a href=#2054 id=2054 data-nosnippet>2054</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#2055 id=2055 data-nosnippet>2055</a>	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
+<a href=#2056 id=2056 data-nosnippet>2056</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
+<a href=#2057 id=2057 data-nosnippet>2057</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
+<a href=#2058 id=2058 data-nosnippet>2058</a>			</span>PersistedValidationData {
+<a href=#2059 id=2059 data-nosnippet>2059</a>				parent_head: <span class="macro">vec!</span>[].into(),
+<a href=#2060 id=2060 data-nosnippet>2060</a>				relay_parent_number: Default::default(),
+<a href=#2061 id=2061 data-nosnippet>2061</a>				max_pov_size: Default::default(),
+<a href=#2062 id=2062 data-nosnippet>2062</a>				relay_parent_storage_root: Default::default(),
+<a href=#2063 id=2063 data-nosnippet>2063</a>			});
+<a href=#2064 id=2064 data-nosnippet>2064</a>		validation_data.relay_parent_number = block;
+<a href=#2065 id=2065 data-nosnippet>2065</a>		ValidationData::&lt;T&gt;::put(validation_data)
+<a href=#2066 id=2066 data-nosnippet>2066</a>	}
+<a href=#2067 id=2067 data-nosnippet>2067</a>}
+<a href=#2068 id=2068 data-nosnippet>2068</a>
+<a href=#2069 id=2069 data-nosnippet>2069</a><span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
+<a href=#2070 id=2070 data-nosnippet>2070</a>	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
+<a href=#2071 id=2071 data-nosnippet>2071</a>		ValidationData::&lt;T&gt;::get()
+<a href=#2072 id=2072 data-nosnippet>2072</a>			.map(|d| RelayChainState {
+<a href=#2073 id=2073 data-nosnippet>2073</a>				number: d.relay_parent_number,
+<a href=#2074 id=2074 data-nosnippet>2074</a>				state_root: d.relay_parent_storage_root,
+<a href=#2075 id=2075 data-nosnippet>2075</a>			})
+<a href=#2076 id=2076 data-nosnippet>2076</a>			.unwrap_or_default()
+<a href=#2077 id=2077 data-nosnippet>2077</a>	}
+<a href=#2078 id=2078 data-nosnippet>2078</a>
+<a href=#2079 id=2079 data-nosnippet>2079</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#2080 id=2080 data-nosnippet>2080</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
+<a href=#2081 id=2081 data-nosnippet>2081</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
+<a href=#2082 id=2082 data-nosnippet>2082</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
+<a href=#2083 id=2083 data-nosnippet>2083</a>			</span>PersistedValidationData {
+<a href=#2084 id=2084 data-nosnippet>2084</a>				parent_head: <span class="macro">vec!</span>[].into(),
+<a href=#2085 id=2085 data-nosnippet>2085</a>				relay_parent_number: Default::default(),
+<a href=#2086 id=2086 data-nosnippet>2086</a>				max_pov_size: Default::default(),
+<a href=#2087 id=2087 data-nosnippet>2087</a>				relay_parent_storage_root: Default::default(),
+<a href=#2088 id=2088 data-nosnippet>2088</a>			});
+<a href=#2089 id=2089 data-nosnippet>2089</a>		validation_data.relay_parent_number = state.number;
+<a href=#2090 id=2090 data-nosnippet>2090</a>		validation_data.relay_parent_storage_root = state.state_root;
+<a href=#2091 id=2091 data-nosnippet>2091</a>		ValidationData::&lt;T&gt;::put(validation_data)
+<a href=#2092 id=2092 data-nosnippet>2092</a>	}
+<a href=#2093 id=2093 data-nosnippet>2093</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

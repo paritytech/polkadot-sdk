@@ -184,7 +184,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#34 id=34 data-nosnippet>34</a>	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 <a href=#35 id=35 data-nosnippet>35</a>
 <a href=#36 id=36 data-nosnippet>36</a>	<span class="attr">#[pallet::config]
-<a href=#37 id=37 data-nosnippet>37</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config {
+<a href=#37 id=37 data-nosnippet>37</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config&lt;RuntimeCall: Decode&gt; {
 <a href=#38 id=38 data-nosnippet>38</a>		<span class="attr">#[allow(deprecated)]
 <a href=#39 id=39 data-nosnippet>39</a>		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 <a href=#40 id=40 data-nosnippet>40</a>		<span class="kw">type </span>XcmExecutor: ExecuteXcm&lt;<span class="self">Self</span>::RuntimeCall&gt;;
