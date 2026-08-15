@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786739252841,
+  "lastUpdate": 1786799991961,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -114803,6 +114803,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2719893422,
             "range": "± 39930652",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b",
+          "message": "Track nested memory used by `xcm::DoubleEncoded`: approach #2 (#11147)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/8675\nFollow-up for https://github.com/paritytech/polkadot-sdk/pull/10747\n(approach # 1)\n\nDifferent approach for tracking the nested memory used by\n`xcm::DoubleEncoded`\n\nThe idea is to decode the entire `xcm::DoubleEncoded<Call>` when\npossible. This can be done when the `Call` is the `RuntimeCall` of our\nlocal Runtime. When the `Call` is `()` it means that it's a remote\n`RuntimeCall`, and it will be decoded on the destination chain.\n\nThis covers the XCMP/UMP/DMP pathways and the `pallet_xcm::execute()`\nextrinsic or any other extrinsic that accepts XCMs. For extrinsics we\nhave the heap memory limit used for decoding the extrinsic (16 MB) and\nfor XCMP/UMP/DMP we call `decode_with_constraints()` which uses a\nhardcoded 10MB limit now. We can adjust it or make it configurable. I\nhope I'm not missing any use cases.\n\nKnown issues (to be fixed in future PRs):\n- dry-running: The methods defined in `RecordXcm` return\n`VersionedXcm<()>` directly. We should add the `RuntimeCall` as a\ngeneric type param (`RecordXcm<Call>`) and modify all the methods to\nreturn `VersionedXcm<Call>`\n- `DoubleEncoded::transmute_encoded()` is used in some mocks. Not sure\nif it's needed outside of mocks. Maybe we can remove it with some\ncleanup.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-15T12:09:21Z",
+          "tree_id": "70d2a4db3cf13b1e6c10882ac25c39ed2741e449",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b"
+        },
+        "date": 1786799959772,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20999546,
+            "range": "± 177069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20921441,
+            "range": "± 163760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22340093,
+            "range": "± 304051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27657446,
+            "range": "± 192643",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 64291687,
+            "range": "± 1811382",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 389022598,
+            "range": "± 7067158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3012344742,
+            "range": "± 136404806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17903765,
+            "range": "± 209367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17874747,
+            "range": "± 182992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18423730,
+            "range": "± 460971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22464319,
+            "range": "± 186909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66310961,
+            "range": "± 1217396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 396617182,
+            "range": "± 5384905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2763719719,
+            "range": "± 11470116",
             "unit": "ns/iter"
           }
         ]
