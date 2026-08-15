@@ -50,7 +50,7 @@ We have two types of branches related to the releases: `master` and `stableYYMM`
 - `master` is the main development branch where normal Pull Requests are opened. Developers need to mostly only care
 about this branch.
 - `stableYYMM` branch contains a version of the code that is ready to be released. Each `stableYYMM` branch corresponds
-to the corresponding stable release, which is in the maintenance or in a QA period. Its contents should be always
+to the corresponding stable release, which is in the maintenance or in a QA period. It's contents should be always
 audited. Merging to it is restricted to [Backports](#backports).
 
 # Versioning
