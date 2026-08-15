@@ -457,17 +457,14 @@ pub async fn connect_with(
 	(OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
 	ClientError,
 > {
-	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
-	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
-	Ok((api, rpc))
 	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
 	// to the CombinedBackend, which routes block streams and header fetches through
 	// the chainHead protocol; its follow restarts and pinning limits stall receipt
 	// indexing under load (blocks become unresolvable once unpinned).
 	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
 	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
-	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc))
+	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
+	Ok((api, rpc))
 }
 
 impl Client {
