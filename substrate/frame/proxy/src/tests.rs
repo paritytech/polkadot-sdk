@@ -968,6 +968,25 @@ mod try_state {
 	}
 
 	#[test]
+	fn proxies_deposit_disagreeing_with_formula_only_warns() {
+		// A deposit that is fully reserved but no longer priced by the current parameters, as
+		// left behind by a governance change until the account calls `poke_deposit`. This must
+		// not fail the check, only warn.
+		new_test_ext().execute_with(|| {
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			// One proxy priced at `ProxyDepositBase + ProxyDepositFactor`, fully reserved.
+			assert_eq!(Proxies::<Test>::get(1).1, 2);
+			assert_eq!(Balances::reserved_balance(1), 2);
+
+			// Governance drops the per-proxy factor: the entry now prices at 1, not 2.
+			ProxyDepositFactor::set(0);
+			assert_eq!(Proxy::deposit(1), 1);
+			assert_eq!(Proxies::<Test>::get(1).1, 2);
+			assert_ok!(Proxy::do_try_state());
+		});
+	}
+
+	#[test]
 	fn detects_empty_announcements_entry() {
 		new_test_ext().execute_with(|| {
 			let value: AnnouncementsValue = (vec![].try_into().unwrap(), 0);
@@ -1037,6 +1056,25 @@ mod try_state {
 					"Announcements deposit exceeds the key account's reserved balance"
 				)
 			);
+		});
+	}
+
+	#[test]
+	fn announcement_deposit_disagreeing_with_formula_only_warns() {
+		// The `Announcements` mirror of `proxies_deposit_disagreeing_with_formula_only_warns`:
+		// fully reserved, but no longer what the current parameters price the entry at.
+		new_test_ext().execute_with(|| {
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+			// One announcement priced at `AnnouncementDepositBase + AnnouncementDepositFactor`,
+			// fully reserved.
+			assert_eq!(Announcements::<Test>::get(2).1, 2);
+			assert_eq!(Balances::reserved_balance(2), 2);
+
+			// Governance drops the per-announcement factor: the entry now prices at 1, not 2.
+			AnnouncementDepositFactor::set(0);
+			assert_eq!(Announcements::<Test>::get(2).1, 2);
+			assert_ok!(Proxy::do_try_state());
 		});
 	}
 }

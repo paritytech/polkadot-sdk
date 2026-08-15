@@ -1066,24 +1066,57 @@ const LOG_TARGET: &str = "runtime::proxy";
 impl<T: Config> Pallet<T> {
 	/// Invariants that must hold before and after every state transition of this pallet.
 	///
-	/// Iterated by key + `get`, since `iter()` silently skips undecodable entries. `Proxies`
-	/// deposit shortfalls only warn: `create_pure` holds the initial deposit on the spawner,
-	/// not the pure account.
+	/// Walked by key + `get`, since `iter()` silently skips undecodable entries.
+	///
+	/// `Proxies`, hard errors except where marked `warn`:
+	/// 1. Delegate list is non-empty: the last removal deletes the entry.
+	/// 2. Delegate list is strictly sorted: `add_proxy_delegate` inserts by `binary_search` and
+	///    rejects an exact hit, making order and uniqueness one property.
+	/// 3. No self-delegation: `add_proxy_delegate` rejects it with `NoSelfProxy`.
+	/// 4. (warn) Reserve covers the deposit; warns because `create_pure` reserves a pure account's
+	///    deposit on the spawner.
+	/// 5. (warn) Deposit equals [`Self::deposit`] of the length; warns because a parameter change
+	///    leaves it stale until [`Pallet::poke_deposit`].
+	///
+	/// `Announcements`, same convention:
+	/// 6. Pending list is non-empty: the last removal deletes the entry.
+	/// 7. Heights are non-decreasing: `announce` appends at the current block, ties allowed.
+	/// 8. No self-announcement: the announcer must be a delegate of `real`, and 3 forbids
+	///    self-delegation.
+	/// 9. No height is later than the current block, the one `announce` stamps.
+	/// 10. Reserve covers the deposit; a hard error unlike 4, since it is always reserved on the
+	///     announcer itself.
+	/// 11. (warn) Deposit equals `AnnouncementDepositBase + AnnouncementDepositFactor *
+	///     pending.len()`; warns for the same reason as 5.
+	///
+	/// Not checked, both legally reachable:
+	/// - An announcement outliving its proxy relationship, since `remove_proxy`, `remove_proxies`
+	///   and `kill_pure` leave `Announcements` alone: `add_proxy(A, B)`, `announce(B, A, h)`,
+	///   `remove_proxy(A, B)`.
+	/// - A repeated call hash, since `announce` does not deduplicate: `announce(B, A, h)` twice.
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		let now = T::BlockNumberProvider::current_block_number();
 
 		for delegator in Proxies::<T>::iter_keys() {
 			let (proxies, deposit) = Proxies::<T>::get(&delegator);
+
+			// Non-empty delegate list.
 			ensure!(!proxies.is_empty(), "Proxies entry must never be empty");
+
+			// Strictly sorted, hence duplicate-free.
 			ensure!(
 				proxies.windows(2).all(|w| w[0] < w[1]),
 				"Proxies must be strictly sorted and duplicate-free"
 			);
+
+			// No self-delegation.
 			ensure!(
 				proxies.iter().all(|p| p.delegate != delegator),
 				"Proxies entry must not list the key account as its own delegate"
 			);
 
+			// (warn) The deposit is covered by the key account's reserve, unless it is a pure
+			// proxy whose deposit sits on the spawner.
 			let reserved = T::Currency::reserved_balance(&delegator);
 			if !deposit.is_zero() && reserved < deposit {
 				log::warn!(
@@ -1096,27 +1129,71 @@ impl<T: Config> Pallet<T> {
 					reserved,
 				);
 			}
+
+			// (warn) The deposit matches what the current parameters price the entry at,
+			// unless a parameter change left it stale.
+			let expected_deposit = Self::deposit(proxies.len() as u32);
+			if deposit != expected_deposit {
+				log::warn!(
+					target: LOG_TARGET,
+					"Proxies deposit for {:?} is {:?}, but its {} proxies price at {:?} under the \
+					current `ProxyDepositBase`/`ProxyDepositFactor`; expected while a parameter \
+					change awaits a `poke_deposit` from the account",
+					delegator,
+					deposit,
+					proxies.len(),
+					expected_deposit,
+				);
+			}
 		}
 
 		for delegate in Announcements::<T>::iter_keys() {
 			let (pending, deposit) = Announcements::<T>::get(&delegate);
+
+			// Non-empty pending list.
 			ensure!(!pending.is_empty(), "Announcements entry must never be empty");
+
+			// Non-decreasing heights.
 			ensure!(
 				pending.windows(2).all(|w| w[0].height <= w[1].height),
 				"Announcements heights must be non-decreasing"
 			);
+
+			// No self-announcement.
 			ensure!(
 				pending.iter().all(|a| a.real != delegate),
 				"Announcements entry must not name the key account as `real`"
 			);
+
+			// No announcement from the future.
 			ensure!(
 				pending.iter().all(|a| a.height <= now),
 				"Announcements entry has a height later than the current block"
 			);
+
+			// The deposit is covered by the key account's reserve.
 			ensure!(
 				T::Currency::reserved_balance(&delegate) >= deposit,
 				"Announcements deposit exceeds the key account's reserved balance"
 			);
+
+			// (warn) The deposit matches what the current parameters price the entry at,
+			// unless a parameter change left it stale.
+			let expected_deposit = T::AnnouncementDepositBase::get() +
+				T::AnnouncementDepositFactor::get() * (pending.len() as u32).into();
+			if deposit != expected_deposit {
+				log::warn!(
+					target: LOG_TARGET,
+					"Announcements deposit for {:?} is {:?}, but its {} announcements price at \
+					{:?} under the current \
+					`AnnouncementDepositBase`/`AnnouncementDepositFactor`; expected while a \
+					parameter change awaits a `poke_deposit` from the account",
+					delegate,
+					deposit,
+					pending.len(),
+					expected_deposit,
+				);
+			}
 		}
 
 		Ok(())

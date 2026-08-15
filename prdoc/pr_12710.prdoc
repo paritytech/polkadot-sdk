@@ -8,10 +8,13 @@ doc:
     entries are never empty, that each `Proxies` list is strictly sorted and duplicate free,
     that neither map lets an account reference itself, and that `Announcements` heights are
     non-decreasing, not in the future, and backed by the announcing account's reserved balance.
-    `Proxies` deposits are checked with a warning rather than a hard error, since a pure
-    proxy's initial deposit is legitimately held by its spawner rather than by the stored key.
-    Storage is iterated by key so that an undecodable value surfaces as a failing check instead
-    of being silently skipped. The change is additive with no migration or weight changes.
+    Each stored deposit is additionally compared against the amount its entry prices at under
+    the current deposit parameters. Both deposit-amount checks warn rather than fail: a pure
+    proxy's initial deposit is legitimately held by its spawner rather than by the stored key,
+    and a deposit parameter change legitimately leaves stored deposits stale until the account
+    calls `poke_deposit`. Storage is iterated by key so that an undecodable value surfaces as a
+    failing check instead of being silently skipped. The change is additive with no migration
+    or weight changes.
 
 crates:
 - name: pallet-proxy
