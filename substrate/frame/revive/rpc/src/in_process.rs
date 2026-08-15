@@ -15,11 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! A [`subxt`] transport that dispatches JSON-RPC calls into a node running in the same
-//! process, replacing the loopback WebSocket connection.
-//!
-//! Only the transport changes: requests are still serialized to JSON and their SCALE payloads
-//! still decoded by subxt. Skipping that needs subxt's `Backend` trait, which is sealed today,
-//! so this is the lowest layer currently available to us.
+//! process, replacing the loopback WebSocket connection. Only the transport changes; subxt
+//! still serializes and decodes as normal. Skipping that needs subxt's sealed `Backend` trait.
 
 use futures::{Stream, stream};
 use jsonrpsee::{
@@ -38,8 +35,7 @@ use subxt::rpcs::{
 	client::{RawRpcFuture, RawRpcSubscription, RpcClientT},
 };
 
-/// Matches subxt's own WebSocket client's subscription buffer, so backpressure behaves
-/// identically: <https://docs.rs/subxt-rpcs/0.50.2/src/subxt_rpcs/client/jsonrpsee_impl.rs.html#107>
+/// Matches subxt's WS client: <https://docs.rs/subxt-rpcs/0.50.2/src/subxt_rpcs/client/jsonrpsee_impl.rs.html#107>
 const SUBSCRIPTION_BUFFER_CAPACITY: usize = 4096;
 
 /// The `rpc_methods` RPC method's name.
@@ -56,10 +52,7 @@ const RPC_METHODS: &str = "rpc_methods";
 #[derive(Clone, Debug)]
 pub struct InProcessRpcClient {
 	methods: Methods,
-	/// Canned `rpc_methods` response. `sc-service`'s in-memory module never registers that
-	/// method itself (only the network-facing module does), but subxt's `OnlineClient` calls it
-	/// while connecting to learn what the backend supports, so it must always be answered:
-	/// without this, `OnlineClient::from_rpc_client` can't be constructed from this client.
+	/// The wrapped module never answers `rpc_methods` itself, but `OnlineClient` needs it.
 	rpc_methods_response: Box<RawValue>,
 }
 
@@ -69,8 +62,7 @@ impl InProcessRpcClient {
 	pub fn new(methods: impl Into<Methods>) -> Self {
 		let methods = methods.into();
 
-		// The `{"methods": [...]}` shape is what `rpc_methods` itself returns; it's imposed by
-		// the RPC method's spec, not something we control.
+		// `rpc_methods`'s response shape isn't ours to change.
 		let names = methods
 			.method_names()
 			.chain(std::iter::once(RPC_METHODS))
@@ -159,11 +151,8 @@ fn into_rpc_error(err: jsonrpsee::core::server::MethodsError) -> RpcError {
 	}
 }
 
-/// Forwards `sub`'s notifications and, on drop, calls `unsub` explicitly, the same way a real
-/// network transport does when its client drops a subscription. Relying only on the notification
-/// channel closing (dropping `subscription` inside the forwarding stream) happens to work with
-/// today's handlers, but doesn't fulfil the `unsub` contract `RpcClientT::subscribe_raw` documents
-/// callers can rely on.
+/// Forwards `sub`'s notifications; on drop, calls `unsub` explicitly rather than relying only
+/// on the notification channel closing, matching what a real network transport does.
 struct UnsubscribeOnDrop {
 	stream: Pin<Box<dyn Stream<Item = Result<Box<RawValue>, RpcError>> + Send>>,
 	methods: Methods,
@@ -290,9 +279,6 @@ mod tests {
 		assert_eq!(received, vec![0, 1, 2]);
 	}
 
-	/// Handlers that loop on `sink.send(...).is_ok()` rather than `sink.closed()` should still
-	/// unwind: dropping our subscription closes the notification channel too, independently of
-	/// the explicit `unsub` call `UnsubscribeOnDrop` also makes.
 	#[tokio::test]
 	async fn dropping_a_subscription_stops_the_node_side_task() {
 		let (stopped_tx, mut stopped_rx) = tokio::sync::mpsc::channel::<()>(1);
@@ -329,14 +315,8 @@ mod tests {
 			.unwrap();
 	}
 
-	/// Dropping our subscription must actually call the `unsub` method, not just close the
-	/// notification channel. A handler that never itself notices the channel closing (unlike
-	/// the tight send-loop above, which finds out the first time `send` fails) only ever stops
-	/// if something explicitly unsubscribes it, so this pins down that `UnsubscribeOnDrop` does.
-	///
-	/// `RandomIntegerIdProvider` (jsonrpsee's default for bare `Methods::subscribe`, which is
-	/// what's used here) always assigns numeric ids, so re-encoding the id as a JSON number to
-	/// call `test_unsubscribe` again matches what jsonrpsee originally stored it as.
+	/// Only an explicit `unsub` call can end this subscription, proving `UnsubscribeOnDrop`
+	/// makes one instead of relying on the notification channel closing.
 	#[tokio::test]
 	async fn dropping_a_subscription_calls_unsubscribe() {
 		let mut module = RpcModule::new(());
@@ -367,9 +347,7 @@ mod tests {
 		// `UnsubscribeOnDrop` calls `test_unsubscribe` from a spawned task; give it a moment.
 		tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
-		// Calling `test_unsubscribe` a second time is itself destructive (it removes whatever
-		// it finds), so this single call doubles as the assertion: `false` means our drop
-		// handler already removed it, `true` means this call is the one that just did.
+		// A second call is destructive, so it doubles as the assertion.
 		let params = serde_json::value::to_raw_value(&[sub_id]).ok();
 		let still_subscribed: bool =
 			methods.call("test_unsubscribe", Params(params)).await.unwrap();
