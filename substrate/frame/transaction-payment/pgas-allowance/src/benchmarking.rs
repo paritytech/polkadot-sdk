@@ -84,7 +84,7 @@ mod benchmarks {
 		let user_balance = fee;
 		assert!(user_balance >= min_balance, "the caller must be able to hold the whole balance");
 		assert!(
-			user_balance.saturating_sub(fee) < min_balance,
+			user_balance - fee < min_balance,
 			"the withdrawal must leave the caller below the minimum, killing `Assets::Account`"
 		);
 		assert!(
