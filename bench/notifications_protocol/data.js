@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786739207984,
+  "lastUpdate": 1786799952768,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -205247,6 +205247,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2361604746,
             "range": "± 37513277",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b",
+          "message": "Track nested memory used by `xcm::DoubleEncoded`: approach #2 (#11147)\n\nResolves https://github.com/paritytech/polkadot-sdk/issues/8675\nFollow-up for https://github.com/paritytech/polkadot-sdk/pull/10747\n(approach # 1)\n\nDifferent approach for tracking the nested memory used by\n`xcm::DoubleEncoded`\n\nThe idea is to decode the entire `xcm::DoubleEncoded<Call>` when\npossible. This can be done when the `Call` is the `RuntimeCall` of our\nlocal Runtime. When the `Call` is `()` it means that it's a remote\n`RuntimeCall`, and it will be decoded on the destination chain.\n\nThis covers the XCMP/UMP/DMP pathways and the `pallet_xcm::execute()`\nextrinsic or any other extrinsic that accepts XCMs. For extrinsics we\nhave the heap memory limit used for decoding the extrinsic (16 MB) and\nfor XCMP/UMP/DMP we call `decode_with_constraints()` which uses a\nhardcoded 10MB limit now. We can adjust it or make it configurable. I\nhope I'm not missing any use cases.\n\nKnown issues (to be fixed in future PRs):\n- dry-running: The methods defined in `RecordXcm` return\n`VersionedXcm<()>` directly. We should add the `RuntimeCall` as a\ngeneric type param (`RecordXcm<Call>`) and modify all the methods to\nreturn `VersionedXcm<Call>`\n- `DoubleEncoded::transmute_encoded()` is used in some mocks. Not sure\nif it's needed outside of mocks. Maybe we can remove it with some\ncleanup.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-15T12:09:21Z",
+          "tree_id": "70d2a4db3cf13b1e6c10882ac25c39ed2741e449",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ff8c61a56f021d4f5af94a8d7eb1c26df9c0b02b"
+        },
+        "date": 1786799920874,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4303355,
+            "range": "± 19277",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 285196,
+            "range": "± 2952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4456440,
+            "range": "± 15701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 352931,
+            "range": "± 2157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5313523,
+            "range": "± 53639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 871306,
+            "range": "± 2690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10652705,
+            "range": "± 110098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4697089,
+            "range": "± 51308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43109492,
+            "range": "± 638237",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38397129,
+            "range": "± 357468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 370542750,
+            "range": "± 3026938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 309392173,
+            "range": "± 1697026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2593755909,
+            "range": "± 16534989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2389474662,
+            "range": "± 13800558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3291013,
+            "range": "± 15170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1811758,
+            "range": "± 7921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3431152,
+            "range": "± 7974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1864494,
+            "range": "± 9302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3865890,
+            "range": "± 17006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2196084,
+            "range": "± 12096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7719131,
+            "range": "± 49337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5158064,
+            "range": "± 62346",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37496071,
+            "range": "± 260772",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35675513,
+            "range": "± 313960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321785296,
+            "range": "± 5238645",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 278916667,
+            "range": "± 1904530",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2529435196,
+            "range": "± 29036505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2439930892,
+            "range": "± 65931209",
             "unit": "ns/iter"
           }
         ]
