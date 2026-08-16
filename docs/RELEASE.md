@@ -148,9 +148,9 @@ Cadence: every 3 months for new `stable` releases and monthly for existing `stab
 From the main Polkadot-sdk repository in the paritytech org:
 
 1. On the cut-off date, create a new branch with the name `satbleYYMM`
-  using combined [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+  using combined [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml).
 2. Create a new rc tag from the stable branch using combined
-   [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+   [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml).
 
 ℹ️ These first two steps can be done all in one if there are no extra actions (like crates release) are needed
 to be done in between.
@@ -161,24 +161,24 @@ the new RC tag can be created using the flow from above.
 From the forked Polkadot-sdk repository in the [paritytech-release org](https://github.com/paritytech-release/polkadot-sdk/actions):
 
 1. Sync the forks before continuing with the release using
-[Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml)
+[Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml).
 2. To build binaries or testnet runtimes and to create a release draft in the github
-trigger [Release - Combined Builds Flow](/.github/workflows/release-22_combined-rc-runtime-builds-release-draft.yml)
-3. Repeat steps 1 and 2 to prepare a new rc if there are any changes were pushed to release branch
+trigger [Release - Combined Builds Flow](/.github/workflows/release-22_combined-rc-runtime-builds-release-draft.yml).
+3. Repeat steps 1 and 2 to prepare a new rc if there are any changes were pushed to release branch.
 4. When the release is finalized and ready to go, publish crates using `parity-publish` tool and push changes
-to the release branch
+to the release branch.
 5. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
-to have it as a final rc on the S3
+to have it as a final rc on the S3.
 6. Publish deb package for the `polkadot` binary using
-[Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
+[Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml).
 7. Adjust the release draft and publish release on GitHub.
-8. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
+8. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml).
 
 From the main Polkadot-sdk repository in the paritytech org:
 
-1. Synchronize templates using [Synchronize templates](/.github/workflows/misc-sync-templates.yml)
-2. Update the [Release Registry](https://github.com/paritytech/release-registry/)
-follwoing the [instructions](https://github.com/paritytech/release-registry?tab=readme-ov-file#maintenance)
+1. Synchronize templates using [Synchronize templates](/.github/workflows/misc-sync-templates.yml).
+2. Update the [Release Registry](https://github.com/paritytech/release-registry/).
+follwoing the [instructions](https://github.com/paritytech/release-registry?tab=readme-ov-file#maintenance).
 in the repo with the actual release dates.
 
 ## Patch release for the latest stable version
