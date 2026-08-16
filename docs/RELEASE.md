@@ -65,7 +65,7 @@ to `Polkadot stable2409` would be `Polkadot stable2409-4`.
 ## Crate
 
 We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. The definitions of
-`major`, `minor` and `patch` version for Rust crates are slightly altered from their standard for pre `1.0.0` versions.
+`major`, `minor`, and `patch` version for Rust crates are slightly altered from their standard for pre `1.0.0` versions.
 Quoting [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html):
 
 >Initial development releases starting with "0.y.z" can treat changes in "y" as a major release, and "z" as a minor
