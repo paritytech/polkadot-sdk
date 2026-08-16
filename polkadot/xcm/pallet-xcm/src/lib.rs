@@ -274,7 +274,9 @@ pub mod pallet {
 
 		/// The fungible in which assets can be locked on this chain, by way of a freeze under
 		/// [`FreezeReason::AssetLock`].
-		// TODO: We should really use a trait which can handle multiple currencies.
+		// TODO: We should really use a trait which can handle multiple currencies. Needs a new
+		// `LockedFungibles` layout, since it stores no asset id, see #7226.
+		type Currency: FunInspect<Self::AccountId>
 			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
 		/// The overarching freeze reason.
