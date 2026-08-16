@@ -169,11 +169,14 @@ mod execution {
 	use sp_core::{
 		hexdisplay::HexDisplay,
 		storage::{ChildInfo, ChildType, PrefixedStorageKey},
-		traits::{CallContext, CodeExecutor, RuntimeCode},
+		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode, TimedCodeExecutor},
 	};
 	use sp_externalities::Extensions;
 	use sp_trie::PrefixedMemoryDB;
-	use std::collections::{HashMap, HashSet};
+	use std::{
+		collections::{HashMap, HashSet},
+		time::Duration,
+	};
 
 	pub(crate) type CallResult<E> = Result<Vec<u8>, E>;
 
@@ -274,6 +277,22 @@ mod execution {
 		///
 		/// Returns the SCALE encoded result of the executed function.
 		pub fn execute(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+			self.execute_inner(|exec, ext, runtime_code, method, call_data, context| {
+				exec.call(ext, runtime_code, method, call_data, context).0
+			})
+		}
+
+		fn execute_inner(
+			&mut self,
+			call: impl FnOnce(
+				&Exec,
+				&mut dyn Externalities,
+				&RuntimeCode,
+				&str,
+				&[u8],
+				CallContext,
+			) -> Result<Vec<u8>, Exec::Error>,
+		) -> Result<Vec<u8>, Box<dyn Error>> {
 			self.overlay
 				.enter_runtime()
 				.expect("StateMachine is never called from the runtime; qed");
@@ -291,10 +310,14 @@ mod execution {
 				"Call",
 			);
 
-			let result = self
-				.exec
-				.call(&mut ext, self.runtime_code, self.method, self.call_data, self.context)
-				.0;
+			let result = call(
+				self.exec,
+				&mut ext,
+				self.runtime_code,
+				self.method,
+				self.call_data,
+				self.context,
+			);
 
 			self.overlay
 				.exit_runtime()
@@ -311,7 +334,34 @@ mod execution {
 		}
 	}
 
+	impl<'a, B, H, Exec> StateMachine<'a, B, H, Exec>
+	where
+		H: Hasher,
+		H::Out: Ord + 'static + codec::Codec,
+		Exec: TimedCodeExecutor + Clone + 'static,
+		B: Backend<H>,
+	{
+		/// Same as [`Self::execute`], but interrupting execution once `timeout` has elapsed.
+		pub fn execute_with_timeout(
+			&mut self,
+			timeout: Duration,
+		) -> Result<Vec<u8>, Box<dyn Error>> {
+			self.execute_inner(|exec, ext, runtime_code, method, call_data, context| {
+				exec.call_with_execution_timeout(
+					ext,
+					runtime_code,
+					method,
+					call_data,
+					context,
+					timeout,
+				)
+			})
+		}
+	}
+
 	/// Prove execution using the given state backend, overlayed changes, and call executor.
+	///
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	pub fn prove_execution<B, H, Exec>(
 		backend: &mut B,
 		overlay: &mut OverlayedChanges<H>,
@@ -319,12 +369,13 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
-		Exec: CodeExecutor + Clone + 'static,
+		Exec: TimedCodeExecutor + Clone + 'static,
 	{
 		let trie_backend = backend.as_trie_backend();
 		prove_execution_on_trie_backend::<_, _, _>(
@@ -335,6 +386,7 @@ mod execution {
 			call_data,
 			runtime_code,
 			&mut Default::default(),
+			timeout,
 		)
 	}
 
@@ -342,6 +394,8 @@ mod execution {
 	/// Produces a state-backend-specific "transaction" which can be used to apply the changes
 	/// to the backing store, such as the disk.
 	/// Execution proof is the set of all 'touched' storage DBValues from the backend.
+	///
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	///
 	/// On an error, no prospective changes are written to the overlay.
 	///
@@ -355,17 +409,18 @@ mod execution {
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
 		extensions: &mut Extensions,
+		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
 		S: trie_backend_essence::TrieBackendStorage<H>,
 		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
-		Exec: CodeExecutor + 'static + Clone,
+		Exec: TimedCodeExecutor + 'static + Clone,
 	{
 		let proving_backend =
 			TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
 
-		let result = StateMachine::<_, H, Exec>::new(
+		let mut state_machine = StateMachine::<_, H, Exec>::new(
 			&proving_backend,
 			overlay,
 			exec,
@@ -374,8 +429,12 @@ mod execution {
 			extensions,
 			runtime_code,
 			CallContext::Offchain,
-		)
-		.execute()?;
+		);
+		let result = match timeout {
+			Some(timeout) => state_machine.execute_with_timeout(timeout),
+			None => state_machine.execute(),
+		}?;
+		drop(state_machine);
 
 		let proof = proving_backend
 			.extract_proof()
@@ -1100,7 +1159,7 @@ mod tests {
 	use sp_core::{
 		map,
 		storage::{ChildInfo, StateVersion},
-		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode},
+		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode, TimedCodeExecutor},
 		H256,
 	};
 	use sp_runtime::traits::BlakeTwo256;
@@ -1138,6 +1197,20 @@ mod tests {
 				),
 				_ => (Err(0), using_native),
 			}
+		}
+	}
+
+	impl TimedCodeExecutor for DummyCodeExecutor {
+		fn call_with_execution_timeout(
+			&self,
+			ext: &mut dyn Externalities,
+			runtime_code: &RuntimeCode,
+			method: &str,
+			data: &[u8],
+			context: CallContext,
+			_timeout: std::time::Duration,
+		) -> CallResult<Self::Error> {
+			self.call(ext, runtime_code, method, data, context).0
 		}
 	}
 
@@ -1211,10 +1284,16 @@ mod tests {
 
 	#[test]
 	fn prove_execution_and_proof_check_works() {
-		prove_execution_and_proof_check_works_inner(StateVersion::V0);
-		prove_execution_and_proof_check_works_inner(StateVersion::V1);
+		for state_version in [StateVersion::V0, StateVersion::V1] {
+			for timeout in [None, Some(std::time::Duration::from_secs(1))] {
+				prove_execution_and_proof_check_works_inner(state_version, timeout);
+			}
+		}
 	}
-	fn prove_execution_and_proof_check_works_inner(state_version: StateVersion) {
+	fn prove_execution_and_proof_check_works_inner(
+		state_version: StateVersion,
+		timeout: Option<std::time::Duration>,
+	) {
 		let executor = DummyCodeExecutor {
 			native_available: true,
 			native_succeeds: true,
@@ -1231,6 +1310,7 @@ mod tests {
 			"test",
 			&[],
 			&RuntimeCode::empty(),
+			timeout,
 		)
 		.unwrap();
 

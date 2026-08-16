@@ -1,0 +1,51 @@
+title: 'Timed runtime calls with execution timeouts via wasmtime epoch interruption'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Adds `create_timed_runtime` / `WasmtimeTimedRuntime` / `WasmtimeTimedInstance` (behind new
+    `TimedWasmModule` / `TimedWasmInstance` traits) — wasm runtimes compiled with wasmtime
+    epoch interruption whose calls take a mandatory execution timeout, failing with the new
+    `Error::ExecutionTimeout`.
+
+    New `WasmExecutor::call_with_execution_timeout` makes a timed runtime call through the
+    normal executor machinery. For wasmtime, the timed counterpart of a cached runtime is
+    compiled in a background thread; timed calls block until it is ready and always run on a
+    fresh, non-pooled instance. PolkaVM has no execution-interruption mechanism: timed calls
+    share the untimed module and run uncapped, with a one-time startup warning.
+
+    The execution timeout is plumbed through to the client execution-proof path serving
+    light-client requests: new `sp_core::traits::TimedCodeExecutor` trait (implemented by
+    `WasmExecutor`), and a per-call `timeout: Option<Duration>` parameter on
+    `ProofProvider::execution_proof`, `CallExecutor::prove_execution` and the
+    sp-state-machine `prove_execution` / `prove_execution_on_trie_backend` functions (with
+    the executor bound tightened to `TimedCodeExecutor`). `None` means uncapped, as before.
+
+    The light-client request handler now caps the execution time of runtime calls serving
+    remote-call requests, bounding the CPU an (untrusted) light client can consume per
+    request. The limit is configured by the new `--light-request-execution-timeout-ms` flag
+    (default 3000, `0` disables; stored in
+    `NetworkConfiguration::light_request_execution_timeout`) and is available on parachain /
+    omni-node CLIs as well. Requests exceeding the limit are answered with an empty proof.
+crates:
+- name: sc-executor
+  bump: minor
+- name: sc-executor-common
+  bump: major
+- name: sc-executor-wasmtime
+  bump: minor
+- name: sc-executor-polkavm
+  bump: major
+- name: sp-core
+  bump: minor
+- name: sp-state-machine
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-service
+  bump: major
+- name: sc-network-light
+  bump: major
+- name: sc-network
+  bump: major
+- name: sc-cli
+  bump: major

@@ -23,7 +23,7 @@ use sc_client_api::{
 };
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_api::ProofRecorder;
-use sp_core::traits::{CallContext, CodeExecutor};
+use sp_core::traits::{CallContext, CodeExecutor, TimedCodeExecutor};
 use sp_externalities::Extensions;
 use sp_runtime::{
 	generic::BlockId,
@@ -33,7 +33,7 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, TryPendingCode},
 	OverlayedChanges, StateMachine, StorageProof,
 };
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, sync::Arc, time::Duration};
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -84,7 +84,7 @@ where
 impl<B, E, Block> CallExecutor<Block> for LocalCallExecutor<Block, B, E>
 where
 	B: backend::Backend<Block>,
-	E: CodeExecutor + RuntimeVersionOf + Clone + 'static,
+	E: TimedCodeExecutor + RuntimeVersionOf + Clone + 'static,
 	Block: BlockT,
 {
 	type Error = E::Error;
@@ -216,6 +216,7 @@ where
 		at_hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
@@ -237,6 +238,7 @@ where
 			call_data,
 			&runtime_code,
 			&mut self.execution_extensions.extensions(at_hash, at_number),
+			timeout,
 		)
 		.map_err(Into::into)
 	}
@@ -259,7 +261,7 @@ where
 impl<Block, B, E> sp_version::GetRuntimeVersionAt<Block> for LocalCallExecutor<Block, B, E>
 where
 	B: backend::Backend<Block>,
-	E: CodeExecutor + RuntimeVersionOf + Clone + 'static,
+	E: TimedCodeExecutor + RuntimeVersionOf + Clone + 'static,
 	Block: BlockT,
 {
 	fn runtime_version(

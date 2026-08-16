@@ -27,16 +27,18 @@ use std::{
 	panic::{AssertUnwindSafe, UnwindSafe},
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use codec::Encode;
 use sc_executor_common::{
 	runtime_blob::RuntimeBlob,
 	wasm_runtime::{
-		AllocationStats, HeapAllocStrategy, WasmInstance, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY,
+		AllocationStats, HeapAllocStrategy, TimedWasmInstance, WasmInstance, WasmModule,
+		DEFAULT_HEAP_ALLOC_STRATEGY,
 	},
 };
-use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode};
+use sp_core::traits::{CallContext, CodeExecutor, Externalities, RuntimeCode, TimedCodeExecutor};
 use sp_version::{GetNativeVersion, NativeVersion, RuntimeVersion};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 
@@ -367,6 +369,104 @@ where
 		}
 	}
 
+	/// Execute the given closure `f` with a fresh timed instance of the latest runtime (based on
+	/// `runtime_code`), whose calls are interrupted once their timeout elapses.
+	///
+	/// May block until the timed module is available — it may still be compiling in the
+	/// background.
+	///
+	/// The closure `f` is expected to catch any `panic!` during the call and return it as
+	/// `Err(_)` (see [`with_externalities_safe`]).
+	///
+	/// # Safety
+	///
+	/// `instance` and `ext` are given as `AssertUnwindSafe` to the closure. The instance is fresh
+	/// and dropped after the call, so a `panic!` cannot poison any state. `ext` is already
+	/// implicitly handled as unwind safe, as we store it in a global variable while executing the
+	/// native runtime.
+	fn with_timed_instance<R, F>(
+		&self,
+		runtime_code: &RuntimeCode,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R>
+	where
+		F: FnOnce(
+			AssertUnwindSafe<&mut dyn TimedWasmInstance>,
+			Option<&RuntimeVersion>,
+			AssertUnwindSafe<&mut dyn Externalities>,
+		) -> Result<Result<R>>,
+	{
+		match self.cache.with_timed_instance::<H, _, _>(
+			runtime_code,
+			ext,
+			self.method,
+			heap_alloc_strategy,
+			self.allow_missing_host_functions,
+			|instance, version, ext| {
+				let instance = AssertUnwindSafe(instance);
+				let ext = AssertUnwindSafe(ext);
+				f(instance, version, ext)
+			},
+		)? {
+			Ok(r) => r,
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Call a given method in the runtime, interrupting execution once `timeout` has elapsed.
+	///
+	/// Returns the result (either the output data or an execution error). The error result of
+	/// [`Error::ExecutionTimeout`] indicates the timeout has been reached.
+	///
+	/// Runs on a fresh, non-pooled instance of the runtime's timed counterpart. May block until
+	/// that counterpart finishes compiling in the background.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped.
+	pub fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		tracing::trace!(
+			target: "executor",
+			%method,
+			"Executing function with timeout",
+		);
+
+		let on_chain_heap_alloc_strategy = if self.ignore_onchain_heap_pages {
+			self.default_onchain_heap_alloc_strategy
+		} else {
+			runtime_code
+				.heap_pages
+				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
+				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
+		};
+
+		let heap_alloc_strategy = match context {
+			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
+			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
+		};
+
+		self.with_timed_instance(
+			runtime_code,
+			ext,
+			heap_alloc_strategy,
+			|mut instance, _on_chain_version, mut ext| {
+				with_externalities_safe(&mut **ext, move || {
+					instance.call_with_timeout(method, data, timeout)
+				})
+			},
+		)
+	}
+
 	/// Perform a call into the given runtime.
 	///
 	/// The runtime is passed as a [`RuntimeBlob`]. The runtime will be instantiated with the
@@ -534,6 +634,23 @@ where
 		);
 
 		(result, false)
+	}
+}
+
+impl<H> TimedCodeExecutor for WasmExecutor<H>
+where
+	H: HostFunctions,
+{
+	fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		self.call_with_execution_timeout(ext, runtime_code, method, data, context, timeout)
 	}
 }
 
@@ -732,6 +849,23 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 			},
 		);
 		(result, used_native)
+	}
+}
+
+#[allow(deprecated)]
+impl<D: NativeExecutionDispatch + 'static> TimedCodeExecutor for NativeElseWasmExecutor<D> {
+	fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		// Timed calls always run wasm — a native call could not be interrupted.
+		self.wasm
+			.call_with_execution_timeout(ext, runtime_code, method, data, context, timeout)
 	}
 }
 
