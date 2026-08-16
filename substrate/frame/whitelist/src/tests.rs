@@ -377,6 +377,11 @@ fn authorize_rejects_when_runtime_not_opted_in() {
 }
 
 /// Submit `call` as a general transaction: no signature, no account to charge.
+fn charge_transaction_payment_weight() -> Weight {
+	use pallet_transaction_payment::WeightInfo;
+	<<Test as pallet_transaction_payment::Config>::WeightInfo>::charge_transaction_payment()
+}
+
 fn submit_unsigned(
 	call: RuntimeCall,
 ) -> (
@@ -389,8 +394,13 @@ fn submit_unsigned(
 		transaction_validity::TransactionSource,
 	};
 
-	let tx =
-		UncheckedExtrinsic::new_transaction(call, (frame_system::AuthorizeCall::<Test>::new(),));
+	let tx = UncheckedExtrinsic::new_transaction(
+		call,
+		(
+			frame_system::AuthorizeCall::<Test>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
+		),
+	);
 	let info = tx.get_dispatch_info();
 	let len = tx.using_encoded(|e| e.len());
 
@@ -438,12 +448,169 @@ fn unsigned_dispatch_is_authorized_by_the_extension() {
 		assert_eq!(Balances::free_balance(1), 1000);
 		assert!(!crate::WhitelistedCall::<Test>::contains_key(call_hash));
 
-		// Weighed by `weight_of_authorize`, with no signer to charge.
+		// Weighed by `weight_of_authorize`, on top of the payment extension.
 		assert_eq!(
 			info.extension_weight,
 			<() as crate::WeightInfo>::authorize_dispatch_whitelisted_call_with_preimage(
 				call.encoded_size() as u32
 			)
+			.saturating_add(charge_transaction_payment_weight()),
+		);
+	});
+}
+
+#[test]
+fn unsigned_dispatch_with_hash_is_authorized_by_the_extension() {
+	new_test_ext().execute_with(|| {
+		let call = RuntimeCall::Balances(pallet_balances::Call::force_set_balance {
+			who: 1,
+			new_free: 1000,
+		});
+		let call_weight = call.get_dispatch_info().call_weight;
+		let encoded = call.encode();
+		let call_encoded_len = encoded.len() as u32;
+		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded[..]);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Preimage::note(encoded.into()));
+
+		let outer = RuntimeCall::Whitelist(crate::Call::dispatch_whitelisted_call {
+			call_hash,
+			call_encoded_len,
+			call_weight_witness: call_weight,
+		});
+		let (info, validity, applied) = submit_unsigned(outer);
+
+		assert_eq!(
+			validity.expect("whitelisted submission is admitted").provides,
+			vec![(call_hash, call_encoded_len, call_weight).encode()]
+		);
+		assert_ok!(applied.expect("transaction is valid"));
+		assert_eq!(Balances::free_balance(1), 1000);
+		assert!(!crate::WhitelistedCall::<Test>::contains_key(call_hash));
+
+		assert_eq!(
+			info.extension_weight,
+			<() as crate::WeightInfo>::authorize_dispatch_whitelisted_call(call_encoded_len)
+				.saturating_add(charge_transaction_payment_weight()),
+		);
+	});
+}
+
+#[test]
+fn unsigned_dispatch_with_a_low_weight_witness_is_rejected_at_the_pool() {
+	use frame::deps::sp_runtime::transaction_validity::{
+		InvalidTransaction, TransactionValidityError,
+	};
+	new_test_ext().execute_with(|| {
+		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+		let call_weight = call.get_dispatch_info().call_weight;
+		let encoded = call.encode();
+		let call_encoded_len = encoded.len() as u32;
+		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded[..]);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Preimage::note(encoded.into()));
+
+		let outer = RuntimeCall::Whitelist(crate::Call::dispatch_whitelisted_call {
+			call_hash,
+			call_encoded_len,
+			call_weight_witness: call_weight - Weight::from_parts(1, 0),
+		});
+
+		// Never enters the pool, so it cannot occupy a block with a free in-block failure.
+		let (_, validity, applied) = submit_unsigned(outer);
+		assert_eq!(validity, Err(TransactionValidityError::Invalid(InvalidTransaction::Call)));
+		assert_eq!(applied, Err(TransactionValidityError::Invalid(InvalidTransaction::Call)));
+		assert!(crate::WhitelistedCall::<Test>::contains_key(call_hash));
+	});
+}
+
+#[test]
+fn permissionless_submission_never_creates_a_deferral() {
+	use frame::deps::sp_runtime::transaction_validity::{
+		InvalidTransaction, TransactionValidityError,
+	};
+	new_test_ext().execute_with(|| {
+		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![3] });
+		let call_weight = call.get_dispatch_info().call_weight;
+		let encoded = call.encode();
+		let call_encoded_len = encoded.len() as u32;
+		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded[..]);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Preimage::note(encoded.into()));
+
+		let outer = || {
+			RuntimeCall::Whitelist(crate::Call::dispatch_whitelisted_call {
+				call_hash,
+				call_encoded_len,
+				call_weight_witness: call_weight,
+			})
+		};
+
+		let (_, _, applied) = submit_unsigned(outer());
+		assert_ok!(applied.expect("transaction is valid"));
+		assert!(!crate::WhitelistedCall::<Test>::contains_key(call_hash));
+
+		// Dispatching drops the preimage too, so re-note it to leave the whitelist check as the
+		// only gate on the second submission.
+		assert_ok!(Preimage::note(call.encode().into()));
+		assert_eq!(<Preimage as QueryPreimage>::len(&call_hash), Some(call_encoded_len));
+
+		// A second submission in the same block re-runs `authorize` through `apply`, so it is
+		// rejected on the consumed hash rather than reaching the deferral arm of the body.
+		let (_, validity, applied) = submit_unsigned(outer());
+		let rejected = TransactionValidityError::Invalid(InvalidTransaction::Call);
+		assert_eq!(validity, Err(rejected.clone()));
+		assert_eq!(applied, Err(rejected));
+		assert!(!crate::DeferredDispatch::<Test>::contains_key(call_hash));
+
+		// The privileged origin does take that arm, so the assertion above is not vacuous.
+		assert_ok!(Whitelist::dispatch_whitelisted_call(
+			RuntimeOrigin::root(),
+			call_hash,
+			call_encoded_len,
+			call_weight
+		));
+		assert!(crate::DeferredDispatch::<Test>::contains_key(call_hash));
+	});
+}
+
+#[test]
+fn authorized_dispatch_is_free_but_the_privileged_and_relayer_paths_are_not() {
+	new_test_ext().execute_with(|| {
+		let call = Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![7] }));
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let outer = RuntimeCall::Whitelist(crate::Call::dispatch_whitelisted_call_with_preimage {
+			call: call.clone(),
+		});
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1, 1_000_000));
+		let issuance = Balances::total_issuance();
+
+		// The body reports `Pays::Yes`, but an `Authorized` origin has no signer, so
+		// `ChargeTransactionPayment` withdraws nothing.
+		let (_, _, applied) = submit_unsigned(outer);
+		let post = applied.expect("transaction is valid").expect("dispatch succeeds");
+		assert_eq!(post.pays_fee, Pays::Yes);
+		assert_eq!(Balances::total_issuance(), issuance);
+		assert_eq!(Balances::free_balance(1), 1_000_000);
+
+		// The relayer path is explicitly free, the privileged path is not.
+		assert_eq!(
+			Whitelist::dispatch_whitelisted_call_with_preimage(RuntimeOrigin::root(), call.clone())
+				.expect("deferral succeeds")
+				.pays_fee,
+			Pays::Yes,
+		);
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_eq!(
+			Whitelist::dispatch_whitelisted_call_with_preimage(RuntimeOrigin::signed(1), call)
+				.expect("relayed dispatch succeeds")
+				.pays_fee,
+			Pays::No,
 		);
 	});
 }
@@ -500,63 +667,45 @@ fn authorize_dispatch_whitelisted_call_uses_hash_argument() {
 	};
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+		let call_weight = call.get_dispatch_info().call_weight;
 		let encoded = call.encode();
 		let call_encoded_len = encoded.len() as u32;
 		let call_hash = <Test as frame_system::Config>::Hashing::hash(&encoded[..]);
 
-		// No preimage: rejected at the pool.
-		assert_eq!(
+		let authorize = |len| {
 			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
 				TransactionSource::External,
 				&call_hash,
-				&call_encoded_len,
-				&Weight::zero(),
-			),
-			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
-		);
+				&len,
+				&call_weight,
+			)
+		};
+		let rejected = Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+
+		// Hash not whitelisted: rejected at the pool.
+		assert_eq!(authorize(call_encoded_len), rejected);
+
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+
+		// Whitelisted but no preimage: rejected.
+		assert_eq!(authorize(call_encoded_len), rejected);
 
 		assert_ok!(Preimage::note(encoded.into()));
 
 		// Wrong length witness: rejected.
-		assert_eq!(
-			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
-				TransactionSource::External,
-				&call_hash,
-				&(call_encoded_len + 1),
-				&Weight::zero(),
-			),
-			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
-		);
-
-		// Preimage available but hash not whitelisted: rejected.
-		assert_eq!(
-			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
-				TransactionSource::External,
-				&call_hash,
-				&call_encoded_len,
-				&Weight::zero(),
-			),
-			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
-		);
-
-		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_eq!(authorize(call_encoded_len + 1), rejected);
 
 		// Whitelisted with preimage: admitted, tagged by hash, length and weight.
-		let call_weight = call.get_dispatch_info().call_weight;
-		let (valid, _) = crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
-			TransactionSource::External,
-			&call_hash,
-			&call_encoded_len,
-			&call_weight,
-		)
-		.expect("whitelisted submission is admitted");
+		let (valid, _) = authorize(call_encoded_len).expect("whitelisted submission is admitted");
 		assert_eq!(valid.provides, vec![(call_hash, call_encoded_len, call_weight).encode()]);
 	});
 }
 
 #[test]
-fn mis_witnessed_dispatch_does_not_share_the_honest_pool_slot() {
-	use frame::deps::sp_runtime::transaction_validity::TransactionSource;
+fn mis_witnessed_dispatch_is_rejected_at_the_pool() {
+	use frame::deps::sp_runtime::transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidityError,
+	};
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
 		let call_weight = call.get_dispatch_info().call_weight;
@@ -567,22 +716,25 @@ fn mis_witnessed_dispatch_does_not_share_the_honest_pool_slot() {
 		assert_ok!(Preimage::note(encoded.into()));
 		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
 
-		let tag_for = |witness| {
+		let authorize = |witness| {
 			crate::Pallet::<Test>::authorize_dispatch_whitelisted_call(
 				TransactionSource::External,
 				&call_hash,
 				&call_encoded_len,
 				&witness,
 			)
-			.expect("whitelisted submission is admitted")
-			.0
-			.provides
 		};
 
-		// A witness too low for `InvalidCallWeightWitness` is admitted, but not into the same slot.
-		let honest = tag_for(call_weight);
-		let too_low = tag_for(call_weight - Weight::from_parts(1, 0));
-		assert_ne!(honest, too_low);
+		// A witness below the call weight would fail in-block with nobody charged, so it is
+		// rejected here instead.
+		assert_eq!(
+			authorize(call_weight - Weight::from_parts(1, 0)),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+		);
+
+		// The exact witness is admitted, and so is an over-witnessed one.
+		let honest = authorize(call_weight).expect("whitelisted submission is admitted").0.provides;
+		assert!(authorize(call_weight + Weight::from_parts(1, 0)).is_ok());
 
 		// The inline variant witnesses the same values, so it shares the slot.
 		let (inline, _) = crate::Pallet::<Test>::authorize_dispatch_whitelisted_call_with_preimage(

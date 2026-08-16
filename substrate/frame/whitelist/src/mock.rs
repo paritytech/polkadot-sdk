@@ -21,9 +21,15 @@
 
 use crate as pallet_whitelist;
 
-use frame::{deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*};
+use frame::{
+	deps::{frame_support::weights::IdentityFee, sp_runtime::testing::UintAuthorityId},
+	testing_prelude::*,
+};
+use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter};
 
-pub type TxExtension = (frame_system::AuthorizeCall<Test>,);
+/// Payment is included so the tests can observe that an `Authorized` submission is charged
+/// nothing, while the privileged and relayer paths keep their own fee behaviour.
+pub type TxExtension = (frame_system::AuthorizeCall<Test>, ChargeTransactionPayment<Test>);
 pub type UncheckedExtrinsic = MockUncheckedExtrinsic<Test, UintAuthorityId, TxExtension>;
 type Block = MockBlock<Test, UintAuthorityId, TxExtension>;
 
@@ -32,6 +38,7 @@ construct_runtime!(
 	{
 		System: frame_system,
 		Balances: pallet_balances,
+		TransactionPayment: pallet_transaction_payment,
 		Whitelist: pallet_whitelist,
 		Preimage: pallet_preimage,
 	}
@@ -46,6 +53,14 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+}
+
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+impl pallet_transaction_payment::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
+	type WeightToFee = IdentityFee<u64>;
+	type LengthToFee = IdentityFee<u64>;
 }
 
 impl pallet_preimage::Config for Test {

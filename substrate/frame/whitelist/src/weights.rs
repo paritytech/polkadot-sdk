@@ -76,7 +76,7 @@ pub trait WeightInfo {
 	fn remove_deferred_dispatch() -> Weight;
 	fn dispatch_whitelisted_call(n: u32, ) -> Weight;
 	fn dispatch_whitelisted_call_with_preimage(n: u32, ) -> Weight;
-	fn authorize_dispatch_whitelisted_call() -> Weight;
+	fn authorize_dispatch_whitelisted_call(n: u32, ) -> Weight;
 	fn authorize_dispatch_whitelisted_call_with_preimage(n: u32, ) -> Weight;
 }
 
@@ -183,19 +183,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// Storage: `Preimage::PreimageFor` (r:1 w:0)
+	/// Proof: `Preimage::PreimageFor` (`max_values`: None, `max_size`: Some(4194344), added: 4196819, mode: `Measured`)
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:0)
 	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Whitelist::WhitelistedCall` (r:1 w:0)
 	/// Proof: `Whitelist::WhitelistedCall` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
-	fn authorize_dispatch_whitelisted_call() -> Weight {
+	/// The range of component `n` is `[1, 4194294]`.
+	fn authorize_dispatch_whitelisted_call(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `412`
-		//  Estimated: `3556`
+		//  Measured:  `412 + n * (1 ±0)`
+		//  Estimated: `3979 + n * (1 ±0)`
 		// Minimum execution time: 14_692_000 picoseconds.
-		Weight::from_parts(15_626_000, 3556)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
+		Weight::from_parts(15_626_000, 3979)
+			// Standard Error: 12
+			.saturating_add(Weight::from_parts(1_580, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	/// Storage: `Whitelist::WhitelistedCall` (r:1 w:0)
 	/// Proof: `Whitelist::WhitelistedCall` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
@@ -314,19 +320,25 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
+	/// Storage: `Preimage::PreimageFor` (r:1 w:0)
+	/// Proof: `Preimage::PreimageFor` (`max_values`: None, `max_size`: Some(4194344), added: 4196819, mode: `Measured`)
 	/// Storage: `Preimage::StatusFor` (r:1 w:0)
 	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Preimage::RequestStatusFor` (r:1 w:0)
 	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
 	/// Storage: `Whitelist::WhitelistedCall` (r:1 w:0)
 	/// Proof: `Whitelist::WhitelistedCall` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
-	fn authorize_dispatch_whitelisted_call() -> Weight {
+	/// The range of component `n` is `[1, 4194294]`.
+	fn authorize_dispatch_whitelisted_call(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `412`
-		//  Estimated: `3556`
+		//  Measured:  `412 + n * (1 ±0)`
+		//  Estimated: `3979 + n * (1 ±0)`
 		// Minimum execution time: 14_692_000 picoseconds.
-		Weight::from_parts(15_626_000, 3556)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
+		Weight::from_parts(15_626_000, 3979)
+			// Standard Error: 12
+			.saturating_add(Weight::from_parts(1_580, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
 	}
 	/// Storage: `Whitelist::WhitelistedCall` (r:1 w:0)
 	/// Proof: `Whitelist::WhitelistedCall` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)

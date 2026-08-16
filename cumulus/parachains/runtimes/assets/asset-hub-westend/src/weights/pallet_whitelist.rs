@@ -172,7 +172,8 @@ impl<T: frame_system::Config> pallet_whitelist::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	fn authorize_dispatch_whitelisted_call() -> Weight {
+	/// The range of component `n` is `[1, 4194294]`.
+	fn authorize_dispatch_whitelisted_call(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

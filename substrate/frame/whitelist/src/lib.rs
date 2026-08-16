@@ -209,7 +209,9 @@ pub mod pallet {
 		}
 
 		#[pallet::authorize(Self::authorize_dispatch_whitelisted_call)]
-		#[pallet::weight_of_authorize(T::WeightInfo::authorize_dispatch_whitelisted_call())]
+		#[pallet::weight_of_authorize(
+			T::WeightInfo::authorize_dispatch_whitelisted_call(*call_encoded_len)
+		)]
 		#[pallet::call_index(2)]
 		#[pallet::weight(
 			T::WeightInfo::dispatch_whitelisted_call(*call_encoded_len)
@@ -335,10 +337,8 @@ impl<T: Config> Pallet<T> {
 	/// Admits the unsigned submission only when [`Config::DispatchWhitelistedOrigin`] accepts
 	/// the `Authorized` system origin and `call_hash` is present in [`WhitelistedCall`].
 	///
-	/// Tagged by `(call_hash, call_encoded_len, call_weight)`. A too-low `call_weight_witness`
-	/// cannot be caught here without decoding the preimage, so it is admitted and fails in-block
-	/// for free; the tag denies it the slot of the correctly witnessed submission, which both
-	/// dispatch calls share.
+	/// Tagged by `(call_hash, call_encoded_len, call_weight)`, so the two dispatch calls share a
+	/// slot when they witness the same values.
 	fn authorize_whitelisted_dispatch(
 		call_hash: T::Hash,
 		call_encoded_len: u32,
@@ -369,11 +369,28 @@ impl<T: Config> Pallet<T> {
 		call_encoded_len: &u32,
 		call_weight_witness: &Weight,
 	) -> TransactionValidityWithRefund {
-		// Missing preimage or wrong length witness would fail at dispatch with nobody charged.
-		if T::Preimages::len(call_hash) != Some(*call_encoded_len) {
+		let validity = Self::authorize_whitelisted_dispatch(
+			*call_hash,
+			*call_encoded_len,
+			*call_weight_witness,
+		)?;
+
+		// Every way this call can fail at dispatch fails with nobody charged, so both witnesses
+		// are checked against the preimage here. `fetch` covers the length witness.
+		let call_data = T::Preimages::fetch(call_hash, Some(*call_encoded_len))
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+
+		let call = <T as Config>::RuntimeCall::decode_all_with_depth_limit(
+			frame::deps::frame_support::MAX_EXTRINSIC_DEPTH,
+			&mut &call_data[..],
+		)
+		.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
+
+		if !call.get_dispatch_info().call_weight.all_lte(*call_weight_witness) {
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
 		}
-		Self::authorize_whitelisted_dispatch(*call_hash, *call_encoded_len, *call_weight_witness)
+
+		Ok(validity)
 	}
 
 	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call_with_preimage`].

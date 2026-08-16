@@ -160,9 +160,18 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Worst case: hash whitelisted and preimage present at the witnessed length.
-	#[benchmark]
-	fn authorize_dispatch_whitelisted_call() -> Result<(), BenchmarkError> {
+	// Worst case: hash whitelisted and preimage present at the witnessed length, so the callback
+	// fetches and decodes the `n`-byte call to check the weight witness.
+	#[benchmark(pov_mode = Measured {
+		Whitelist: MaxEncodedLen,
+		Preimage: MaxEncodedLen,
+		// Use measured PoV size for the Preimages since we pass in a length witness.
+		Preimage::PreimageFor: Measured
+	})]
+	// NOTE: we remove `10` because we need some bytes to encode the variants and vec length
+	fn authorize_dispatch_whitelisted_call(
+		n: Linear<1, { T::Preimages::MAX_LENGTH as u32 - 10 }>,
+	) -> Result<(), BenchmarkError> {
 		// Skip on runtimes that have not opted into permissionless dispatch.
 		let authorized: T::RuntimeOrigin =
 			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
@@ -172,8 +181,8 @@ mod benchmarks {
 
 		let whitelist_origin =
 			T::WhitelistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call: <T as Config>::RuntimeCall =
-			frame_system::Call::remark { remark: alloc::vec![1u8; 100] }.into();
+		let remark = alloc::vec![1u8; n as usize];
+		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
 		let call_weight_witness = call.get_dispatch_info().call_weight;
 		let encoded_call = call.encode();
 		let call_encoded_len = encoded_call.len() as u32;
