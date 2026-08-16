@@ -334,7 +334,7 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 }
 
 impl<T: Config<I>, I: 'static> fungible::InspectFreeze<T::AccountId> for Pallet<T, I> {
-	type Id = T::FreezeIdentifier;
+	type Id = T::RuntimeFreezeReason;
 
 	fn balance_frozen(id: &Self::Id, who: &T::AccountId) -> Self::Balance {
 		let locks = Freezes::<T, I>::get(who);
