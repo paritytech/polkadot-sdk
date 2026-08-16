@@ -11,7 +11,7 @@ The outputs of a stable release are:
    - `chain-spec-builder`
    - `frame-omni-bencher`
 
-   built for the `x86_64-unknown-linux-gnu` and `aarch64-apple-darwin` targets. The gpg signatures and sha256 checksums.
+Built for the `x86_64-unknown-linux-gnu` and `aarch64-apple-darwin` targets. The gpg signatures and sha256 checksums.
 
 - The runtimes for Westend and its system parachains.
 - The new crate versions published to `crates.io`.
