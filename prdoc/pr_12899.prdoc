@@ -3,47 +3,35 @@ title: 'pallet-xcm: migrate from LockableCurrency to fungible freezes'
 doc:
 - audience: Runtime Dev
   description: |
-    Migrates `pallet-xcm` off the deprecated `Currency`/`LockableCurrency` traits onto the
-    `fungible` trait family. Assets locked locally for a remote unlocker (`LockAsset` /
-    `UnlockAsset`) are now held by a `fungible` freeze under `FreezeReason::AssetLock` instead of
-    the `py/xcmlk` balance lock. Part of #7226 / #226.
+    Migrates `pallet-xcm` off the deprecated `Currency`/`LockableCurrency` traits onto `fungible`.
+    Assets locked locally for a remote unlocker are now held by a freeze under
+    `FreezeReason::AssetLock` instead of the `py/xcmlk` lock. Part of #7226 / #226.
 
-    Config changes (breaking):
-    - `Currency: LockableCurrency<AccountId, Moment = BlockNumberFor<Self>>` is replaced by
-      `Currency: fungible::{Inspect, MutateFreeze}` with `Id = Self::RuntimeFreezeReason`.
-    - `RuntimeFreezeReason` is added and must be set to the runtime's overarching freeze reason.
-    - `OldCurrency: InspectLockableCurrency` is added, kept solely so the legacy `py/xcmlk` lock
-      can be released while migrating. It can be removed once all locks have been converted.
+    Breaking `Config` changes:
+    - `Currency: LockableCurrency` becomes `Currency: fungible::{Inspect, MutateFreeze}` with
+      `Id = Self::RuntimeFreezeReason`.
+    - `RuntimeFreezeReason` added, set it to the runtime's overarching freeze reason.
+    - `OldCurrency: InspectLockableCurrency` added, only to release the legacy lock while
+      migrating. Removable once every legacy lock is gone.
 
-    Runtimes configuring `pallet-xcm` therefore also need `pallet-balances` (or whichever fungible
-    they use) to expose the overarching freeze reason: `FreezeIdentifier = RuntimeFreezeReason` and
-    a `MaxFreezes` that covers its variant count. The in-tree runtimes that had freezes disabled
-    (`FreezeIdentifier = ()`, `MaxFreezes = ConstU32<0>`) have been updated accordingly. This is a
-    type-level change only for chains whose `CurrencyMatcher` matches nothing, since those can
-    never create an XCM lock in the first place.
+    Runtimes therefore need their fungible to expose that reason: `FreezeIdentifier =
+    RuntimeFreezeReason` and a `MaxFreezes` covering its variant count. In-tree runtimes that had
+    freezes disabled were updated; for chains whose `CurrencyMatcher` matches nothing this is a
+    type-level change only, since they can never hold an XCM lock.
 
-    Migration:
-    - `pallet_xcm::migration::MigrateLocksToFreezes` is a multi-block migration (`SteppedMigration`)
-      that walks `LockedFungibles` and converts each account's legacy lock into the equivalent
-      freeze. It is registered in the Rococo and Westend relay chain runtimes, the only in-tree
-      runtimes with existing state whose `CurrencyMatcher` can match an asset, and therefore the
-      only ones that can hold a legacy lock. `LockedFungibles` itself is unchanged, so there is no
-      storage version bump.
-    - Accounts are additionally migrated lazily: locking or unlocking again releases any legacy
-      lock once the equivalent freeze is in place. Chains that cannot host a multi-block migration
-      rely on this path.
+    Existing locks are converted by `migration::MigrateLocksToFreezes`, a multi-block migration
+    registered on Rococo and Westend, and lazily on the next lock or unlock for chains without
+    multi-block migration support. `LockedFungibles` is unchanged, so there is no storage version
+    bump.
 
-    Out of scope: `pallet-xcm` still supports a single fungible only. Moving to `fungibles` is
-    deliberately left to a follow-up, because `LockedFungibles` stores no asset id and so multiple
-    currencies require a new storage layout plus a second state migration on top of this one.
+    Out of scope: a single fungible is still the only one supported. `fungibles` needs a new
+    `LockedFungibles` layout (it stores no asset id) and a migration of its own, so it is left to a
+    follow-up.
 
-    Behaviour changes:
-    - `prepare_lock` now also fails with `LockError::NoResources` when the account cannot take
-      another freeze, so that `enact` cannot fail after the lock has been accounted for.
-    - Fully unlocking an account now removes the restriction entirely, where the old code left a
-      zero-amount `py/xcmlk` lock behind.
-    - `try_state` gained an invariant checking that every `LockedFungibles` entry is backed by an
-      equivalent freeze, or by the legacy lock if the account has not been migrated yet.
+    Also: `prepare_lock` now rejects with `LockError::NoResources` when the account cannot take
+    another freeze, fully unlocking no longer leaves a zero-amount lock behind, and `try_state`
+    checks every `LockedFungibles` entry against the freeze, or against the legacy lock if the
+    account is unmigrated.
 
 crates:
 - name: pallet-xcm
@@ -61,7 +49,7 @@ crates:
 - name: xcm-simulator-fuzzer
   bump: patch
 - name: pallet-contracts-mock-network
-  bump: patch
+  bump: major
 - name: rococo-runtime
   bump: major
 - name: westend-runtime

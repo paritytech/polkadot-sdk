@@ -260,7 +260,7 @@ pub mod pallet {
 	/// A reason for this pallet placing a freeze on funds.
 	#[pallet::composite_enum]
 	pub enum FreezeReason {
-		/// Locked for an unlocker on a remote chain, see [`LockedFungibles`].
+		/// Locked for an unlocker on a remote chain, see `LockedFungibles`.
 		#[codec(index = 0)]
 		AssetLock,
 	}
@@ -274,11 +274,7 @@ pub mod pallet {
 
 		/// The fungible in which assets can be locked on this chain, by way of a freeze under
 		/// [`FreezeReason::AssetLock`].
-		///
-		/// Single fungible only: [`LockedFungibles`] stores no asset id, so `fungibles` support
-		/// needs a new storage layout and a migration of its own.
 		// TODO: We should really use a trait which can handle multiple currencies.
-		type Currency: FunInspect<Self::AccountId>
 			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
 		/// The overarching freeze reason.
@@ -3585,10 +3581,8 @@ impl<T: Config> Pallet<T> {
 		FreezeReason::AssetLock.into()
 	}
 
-	/// Recompute `who`'s [`FreezeReason::AssetLock`] freeze from `locks`, their authoritative set
-	/// of local locks. One freeze of the largest amount covers every unlocker.
-	///
-	/// Then releases any legacy [`XCM_LOCK_ID`] lock, lazily migrating accounts that
+	/// Recompute `who`'s freeze from `locks`: one freeze of the largest amount covers every
+	/// unlocker. Then releases any legacy [`XCM_LOCK_ID`] lock, lazily migrating accounts that
 	/// [`migration::MigrateLocksToFreezes`] has not reached.
 	pub(crate) fn update_lock_freeze(
 		who: &T::AccountId,
@@ -3643,7 +3637,7 @@ impl<T: Config> Pallet<T> {
 			)
 		);
 
-		// check `LockedFungibles` against the restriction actually in place
+		// check `LockedFungibles` against the restriction in place
 		for (who, locks) in LockedFungibles::<T>::iter() {
 			let expected = locks.iter().map(|(amount, _)| *amount).max().unwrap_or_else(Zero::zero);
 			let frozen = T::Currency::balance_frozen(&Self::freeze_reason(), &who);

@@ -471,15 +471,12 @@ pub mod locks_to_freezes {
 
 	const LOG_TARGET: &str = "runtime::xcm::pallet_xcm::locks_to_freezes";
 
-	/// Converts every legacy [`XCM_LOCK_ID`] lock into an equivalent freeze under
-	/// [`FreezeReason::AssetLock`](crate::pallet::FreezeReason::AssetLock).
+	/// Converts every legacy [`XCM_LOCK_ID`](crate::XCM_LOCK_ID) lock into an equivalent freeze
+	/// under [`FreezeReason::AssetLock`](crate::pallet::FreezeReason::AssetLock).
 	///
 	/// Multi-block, since `LockedFungibles` is unbounded in accounts. Only balances are touched,
-	/// so the storage version does not change and the [`MigrationId`] versions serve only to make
-	/// that identifier unique.
-	///
-	/// Optional: accounts also migrate lazily on their next lock or unlock, which is what chains
-	/// without multi-block migration support rely on.
+	/// so the storage version does not change and the [`MigrationId`] versions only make that
+	/// identifier unique. Optional: accounts also migrate lazily on their next lock or unlock.
 	pub struct MigrateLocksToFreezes<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> SteppedMigration for MigrateLocksToFreezes<T> {
@@ -494,8 +491,7 @@ pub mod locks_to_freezes {
 			mut cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-			// Per account: a read of `LockedFungibles`, plus a read and write of `Locks` and
-			// `Freezes`.
+			// Per account: a read of `LockedFungibles`, plus a read/write of `Locks` and `Freezes`.
 			let required = T::DbWeight::get().reads_writes(3, 2);
 			if meter.remaining().any_lt(required) {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
@@ -512,14 +508,10 @@ pub mod locks_to_freezes {
 					LockedFungibles::<T>::iter()
 				};
 
-				let Some((who, locks)) = iter.next() else {
-					// Done.
-					return Ok(None);
-				};
+				let Some((who, locks)) = iter.next() else { return Ok(None) };
 
 				if let Err(error) = Pallet::<T>::update_lock_freeze(&who, &locks) {
-					// The legacy lock stays, so the account stays restricted and is retried on
-					// its next lock or unlock.
+					// The legacy lock stays, so the account stays restricted and is retried.
 					tracing::error!(
 						target: LOG_TARGET,
 						account = ?who,
