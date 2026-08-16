@@ -2340,6 +2340,224 @@ fn staking_proxy_can_manage_staking_operator() {
 	assert!(staking_proxy.is_superset(&ProxyType::StakingOperator));
 }
 
+/// Every `ProxyType` variant.
+///
+/// Listed exhaustively (rather than derived) so that adding a variant forces this list to be
+/// updated, keeping [`proxy_type_superset_relation_matches_call_filters`] complete.
+fn all_proxy_types() -> Vec<asset_hub_westend_runtime::ProxyType> {
+	use asset_hub_westend_runtime::ProxyType;
+
+	let all = vec![
+		ProxyType::Any,
+		ProxyType::NonTransfer,
+		ProxyType::CancelProxy,
+		ProxyType::Assets,
+		ProxyType::AssetOwner,
+		ProxyType::AssetManager,
+		ProxyType::Collator,
+		ProxyType::Governance,
+		ProxyType::Staking,
+		ProxyType::NominationPools,
+		ProxyType::OldSudoBalances,
+		ProxyType::OldIdentityJudgement,
+		ProxyType::OldAuction,
+		ProxyType::OldParaRegistration,
+		ProxyType::StakingOperator,
+	];
+
+	// Exhaustiveness guard: a new variant added to `ProxyType` breaks this `match`, which is the
+	// signal to also add it above.
+	for proxy_type in all.iter() {
+		match proxy_type {
+			ProxyType::Any |
+			ProxyType::NonTransfer |
+			ProxyType::CancelProxy |
+			ProxyType::Assets |
+			ProxyType::AssetOwner |
+			ProxyType::AssetManager |
+			ProxyType::Collator |
+			ProxyType::Governance |
+			ProxyType::Staking |
+			ProxyType::NominationPools |
+			ProxyType::OldSudoBalances |
+			ProxyType::OldIdentityJudgement |
+			ProxyType::OldAuction |
+			ProxyType::OldParaRegistration |
+			ProxyType::StakingOperator => (),
+		}
+	}
+
+	all
+}
+
+/// At least one call from every pallet family referenced by the `InstanceFilter<RuntimeCall>`
+/// implementation for `ProxyType`, so that the lattice check below actually exercises the
+/// boundaries the filters draw.
+fn representative_proxy_calls() -> Vec<RuntimeCall> {
+	let remark = || RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+
+	vec![
+		remark(),
+		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+			dest: AccountId::from(BOB).into(),
+			value: 1,
+		}),
+		// Admitted by `AssetOwner`.
+		RuntimeCall::Assets(pallet_assets::Call::<Runtime, TrustBackedAssetsInstance>::create {
+			id: codec::Compact(1),
+			admin: AccountId::from(BOB).into(),
+			min_balance: 1,
+		}),
+		// Admitted by `AssetManager`.
+		RuntimeCall::Assets(pallet_assets::Call::<Runtime, TrustBackedAssetsInstance>::mint {
+			id: codec::Compact(1),
+			beneficiary: AccountId::from(BOB).into(),
+			amount: 1,
+		}),
+		// Admitted by neither `AssetOwner` nor `AssetManager`, only by `Assets`.
+		RuntimeCall::Assets(pallet_assets::Call::<Runtime, TrustBackedAssetsInstance>::transfer {
+			id: codec::Compact(1),
+			target: AccountId::from(BOB).into(),
+			amount: 1,
+		}),
+		RuntimeCall::Nfts(pallet_nfts::Call::set_collection_max_supply {
+			collection: 1,
+			max_supply: 1,
+		}),
+		RuntimeCall::Nfts(pallet_nfts::Call::lock_item_transfer { collection: 1, item: 1 }),
+		RuntimeCall::Uniques(pallet_uniques::Call::set_collection_max_supply {
+			collection: 1,
+			max_supply: 1,
+		}),
+		RuntimeCall::Uniques(pallet_uniques::Call::freeze { collection: 1, item: 1 }),
+		RuntimeCall::NftFractionalization(pallet_nft_fractionalization::Call::unify {
+			nft_collection_id: 1,
+			nft_id: 1,
+			asset_id: 1,
+			beneficiary: AccountId::from(BOB).into(),
+		}),
+		RuntimeCall::Scheduler(pallet_scheduler::Call::cancel { when: 1, index: 0 }),
+		RuntimeCall::Treasury(pallet_treasury::Call::void_spend { index: 0 }),
+		RuntimeCall::Vesting(pallet_vesting::Call::vest {}),
+		RuntimeCall::ConvictionVoting(pallet_conviction_voting::Call::remove_vote {
+			class: None,
+			index: 0,
+		}),
+		RuntimeCall::Referenda(pallet_referenda::Call::refund_decision_deposit { index: 0 }),
+		RuntimeCall::Whitelist(pallet_whitelist::Call::remove_whitelisted_call {
+			call_hash: Default::default(),
+		}),
+		RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement {
+			delegate: AccountId::from(BOB).into(),
+			call_hash: Default::default(),
+		}),
+		RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+			delegate: AccountId::from(BOB).into(),
+			proxy_type: asset_hub_westend_runtime::ProxyType::StakingOperator,
+			delay: 0,
+		}),
+		RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] }),
+		RuntimeCall::Utility(pallet_utility::Call::as_derivative {
+			index: 0,
+			call: Box::new(remark()),
+		}),
+		RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+			other_signatories: vec![],
+			call: Box::new(remark()),
+		}),
+		RuntimeCall::CollatorSelection(pallet_collator_selection::Call::set_desired_candidates {
+			max: 1,
+		}),
+		RuntimeCall::Session(pallet_session::Call::purge_keys {}),
+		RuntimeCall::Staking(pallet_staking_async::Call::chill {}),
+		RuntimeCall::Staking(pallet_staking_async::Call::nominate { targets: vec![] }),
+		RuntimeCall::StakingRcClient(pallet_staking_async_rc_client::Call::purge_keys {
+			max_delivery_and_remote_execution_fee: None,
+		}),
+		RuntimeCall::NominationPools(pallet_nomination_pools::Call::chill { pool_id: 0 }),
+		RuntimeCall::VoterList(
+			pallet_bags_list::Call::<Runtime, pallet_bags_list::Instance1>::rebag {
+				dislocated: AccountId::from(BOB).into(),
+			},
+		),
+	]
+}
+
+/// `pallet_proxy` authorizes `add_proxy`/`remove_proxy` through `ProxyType::is_superset`, so a
+/// proxy type that *declares* itself a superset of another must also *admit* every call that other
+/// type admits. Otherwise the "smaller" type is reachable as an escalation: the declared superset
+/// can grant itself the subset proxy and thereby gain permissions its own filter denies.
+///
+/// This checks that property across the whole lattice rather than a single pair, so the class of
+/// bug cannot silently reappear on another edge.
+#[test]
+fn proxy_type_superset_relation_matches_call_filters() {
+	use frame_support::traits::InstanceFilter;
+
+	let calls = representative_proxy_calls();
+
+	for superset in all_proxy_types() {
+		for subset in all_proxy_types() {
+			if !superset.is_superset(&subset) {
+				continue;
+			}
+
+			for call in calls.iter() {
+				if subset.filter(call) {
+					assert!(
+						superset.filter(call),
+						"lattice violated: {superset:?} declares itself a superset of {subset:?}, \
+						 but rejects {call:?} which {subset:?} admits",
+					);
+				}
+			}
+		}
+	}
+}
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/12724>.
+///
+/// `NonTransfer` used to claim `Governance` as a subset while denying the `Treasury`,
+/// `ConvictionVoting`, `Referenda` and `Whitelist` calls that `Governance` admits, which let a
+/// `NonTransfer` proxy add a `Governance` proxy and widen its own permissions.
+#[test]
+fn non_transfer_proxy_is_not_a_superset_of_governance() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	// `NonTransfer` denies every governance call family that `Governance` admits, except `Utility`.
+	for call in [
+		RuntimeCall::Treasury(pallet_treasury::Call::void_spend { index: 0 }),
+		RuntimeCall::ConvictionVoting(pallet_conviction_voting::Call::remove_vote {
+			class: None,
+			index: 0,
+		}),
+		RuntimeCall::Referenda(pallet_referenda::Call::refund_decision_deposit { index: 0 }),
+		RuntimeCall::Whitelist(pallet_whitelist::Call::remove_whitelisted_call {
+			call_hash: Default::default(),
+		}),
+	] {
+		assert!(ProxyType::Governance.filter(&call), "Governance must admit {call:?}");
+		assert!(!ProxyType::NonTransfer.filter(&call), "NonTransfer must deny {call:?}");
+	}
+
+	// So it must not declare itself a superset of it. This is what stops a `NonTransfer` proxy
+	// from granting itself a `Governance` proxy: `pallet_proxy` gates `add_proxy`/`remove_proxy`
+	// on `is_superset` before it ever consults `filter`, which by itself does not deny `Proxy`
+	// calls.
+	assert!(!ProxyType::NonTransfer.is_superset(&ProxyType::Governance));
+
+	// The other declared `NonTransfer` subsets are unaffected.
+	for subset in [
+		ProxyType::Collator,
+		ProxyType::Staking,
+		ProxyType::NominationPools,
+		ProxyType::StakingOperator,
+	] {
+		assert!(ProxyType::NonTransfer.is_superset(&subset));
+	}
+}
+
 /// Verifies StakingOperator filter allows validator operations and session key management,
 /// but forbids fund management.
 #[test]
