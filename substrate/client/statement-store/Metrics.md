@@ -47,7 +47,9 @@ of statements in the database
 - **Metric:** `substrate_sub_statement_store_accounts_total`
 - **Type:** Gauge
 - **What it measures:** Number of distinct accounts (public keys) that have at least one statement
-  in the store.
+  in the store. Counted at startup and refreshed each time the periodic allowance sweep completes
+  a full pass over the account index, so the value may lag the exact count by up to one sweep
+  cycle.
 - **Why it matters:** Indicates the diversity of statement authors. A single account flooding
   the store is a sign of abuse or misconfiguration. A healthy network shows many accounts.
 - **How to read:** Single stat panel. No threshold coloring (informational).
@@ -267,8 +269,9 @@ percentiles, making it easy to spot tail latency regressions.
 #### Expiration Check Latency
 - **Metric:** `substrate_sub_statement_store_check_expiration_duration_seconds` (histogram)
 - **Buckets:** 1μs, 10μs, 100μs, 1ms, 10ms, 100ms, 1s
-- **What it measures:** Time spent in each expiration check cycle, expiration periodically
-  scans accounts and marks statements as expired.
+- **What it measures:** Time spent in each expiration check cycle. Expiration periodically reaps
+  due statements off the on-disk expiry index and walks a bounded batch of accounts to enforce
+  their allowances.
 - **Why it matters:** Expiration checks run on the main store thread. If they take too long,
   they block statement submissions
 - **How to read:** Three lines (p50/p90/p99). Should typically be sub-millisec.

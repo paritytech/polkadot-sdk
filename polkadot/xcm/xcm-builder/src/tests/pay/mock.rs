@@ -16,6 +16,8 @@
 
 use super::*;
 
+use codec::Decode;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32, Disabled, Everything, Nothing},
@@ -122,6 +124,7 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = RemoveItemsLimit;
 	type AssetIdParameter = AssetIdForAssets;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
