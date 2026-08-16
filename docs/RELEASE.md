@@ -76,9 +76,9 @@ SemVer requires a piece of software to first declare a public API. The public AP
 is hereby declared as the sum of all crates' public APIs.
 
 Inductively, the public API of our library crates is declared as all public items that are neither:
-- Inside a `__private` module
-- Documented as "unstable" or "experimental" in the first line of docs
-- Bear `unstable` or `experimental` in their absolute path
+- Inside a `__private` module.
+- Documented as "unstable" or "experimental" in the first line of docs.
+- Bear `unstable` or `experimental` in their absolute path.
 
 ## Node
 
