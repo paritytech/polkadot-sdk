@@ -562,7 +562,7 @@ fn permissionless_submission_never_creates_a_deferral() {
 		// rejected on the consumed hash rather than reaching the deferral arm of the body.
 		let (_, validity, applied) = submit_unsigned(outer());
 		let rejected = TransactionValidityError::Invalid(InvalidTransaction::Call);
-		assert_eq!(validity, Err(rejected.clone()));
+		assert_eq!(validity, Err(rejected));
 		assert_eq!(applied, Err(rejected));
 		assert!(!crate::DeferredDispatch::<Test>::contains_key(call_hash));
 
