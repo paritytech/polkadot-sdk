@@ -184,6 +184,8 @@ impl pallet_xcm::Config for crate::Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = crate::Balances;
+	type RuntimeFreezeReason = crate::RuntimeFreezeReason;
+	type OldCurrency = crate::Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
 	type SovereignAccountOf = ();

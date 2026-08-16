@@ -455,6 +455,123 @@ pub mod v1 {
 	>;
 }
 
+pub use locks_to_freezes::MigrateLocksToFreezes;
+
+/// Migration of the locally locked fungibles from `LockableCurrency` locks to `fungible` freezes.
+pub mod locks_to_freezes {
+	use super::*;
+	use crate::pallet::LockedFungibles;
+	use frame_support::{
+		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+		weights::WeightMeter,
+	};
+
+	/// Unique identifier of [`MigrateLocksToFreezes`], as tracked by `pallet-migrations`.
+	pub const PALLET_MIGRATIONS_ID: &[u8; 18] = b"pallet-xcm-freezes";
+
+	const LOG_TARGET: &str = "runtime::xcm::pallet_xcm::locks_to_freezes";
+
+	/// Converts every legacy [`XCM_LOCK_ID`] lock into an equivalent freeze under
+	/// [`FreezeReason::AssetLock`](crate::pallet::FreezeReason::AssetLock).
+	///
+	/// Multi-block, since `LockedFungibles` is unbounded in accounts. Only balances are touched,
+	/// so the storage version does not change and the [`MigrationId`] versions serve only to make
+	/// that identifier unique.
+	///
+	/// Optional: accounts also migrate lazily on their next lock or unlock, which is what chains
+	/// without multi-block migration support rely on.
+	pub struct MigrateLocksToFreezes<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> SteppedMigration for MigrateLocksToFreezes<T> {
+		type Cursor = T::AccountId;
+		type Identifier = MigrationId<18>;
+
+		fn id() -> Self::Identifier {
+			MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 0, version_to: 1 }
+		}
+
+		fn step(
+			mut cursor: Option<Self::Cursor>,
+			meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			// Per account: a read of `LockedFungibles`, plus a read and write of `Locks` and
+			// `Freezes`.
+			let required = T::DbWeight::get().reads_writes(3, 2);
+			if meter.remaining().any_lt(required) {
+				return Err(SteppedMigrationError::InsufficientWeight { required });
+			}
+
+			loop {
+				if meter.try_consume(required).is_err() {
+					break;
+				}
+
+				let mut iter = if let Some(last) = cursor.as_ref() {
+					LockedFungibles::<T>::iter_from(LockedFungibles::<T>::hashed_key_for(last))
+				} else {
+					LockedFungibles::<T>::iter()
+				};
+
+				let Some((who, locks)) = iter.next() else {
+					// Done.
+					return Ok(None);
+				};
+
+				if let Err(error) = Pallet::<T>::update_lock_freeze(&who, &locks) {
+					// The legacy lock stays, so the account stays restricted and is retried on
+					// its next lock or unlock.
+					tracing::error!(
+						target: LOG_TARGET,
+						account = ?who,
+						?error,
+						"Failed to convert a locked fungible into a freeze!"
+					);
+				}
+
+				cursor = Some(who);
+			}
+
+			Ok(cursor)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+			let count = LockedFungibles::<T>::iter().count() as u32;
+			tracing::info!(target: LOG_TARGET, count, "Accounts with locked fungibles to migrate");
+			Ok(count.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			use crate::XCM_LOCK_ID;
+			use frame_support::traits::{fungible::InspectFreeze, InspectLockableCurrency};
+			use sp_runtime::traits::Zero;
+
+			let expected_count =
+				u32::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+			ensure!(
+				LockedFungibles::<T>::iter().count() as u32 == expected_count,
+				"the migration must not add or remove `LockedFungibles` entries"
+			);
+
+			for (who, locks) in LockedFungibles::<T>::iter() {
+				let expected =
+					locks.iter().map(|(amount, _)| *amount).max().unwrap_or_else(Zero::zero);
+				ensure!(
+					T::Currency::balance_frozen(&Pallet::<T>::freeze_reason(), &who) == expected,
+					"a locked fungible was not converted into a freeze"
+				);
+				ensure!(
+					T::OldCurrency::balance_locked(XCM_LOCK_ID, &who).is_zero(),
+					"a legacy lock was left behind"
+				);
+			}
+
+			Ok(())
+		}
+	}
+}
+
 /// When adding a new XCM version, we need to run this migration for `pallet_xcm` to ensure that all
 /// previously stored data with subkey prefix `XCM_VERSION-1` (and below) are migrated to the
 /// `XCM_VERSION`.

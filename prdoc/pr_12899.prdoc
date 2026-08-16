@@ -1,0 +1,94 @@
+title: 'pallet-xcm: migrate from LockableCurrency to fungible freezes'
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Migrates `pallet-xcm` off the deprecated `Currency`/`LockableCurrency` traits onto the
+    `fungible` trait family. Assets locked locally for a remote unlocker (`LockAsset` /
+    `UnlockAsset`) are now held by a `fungible` freeze under `FreezeReason::AssetLock` instead of
+    the `py/xcmlk` balance lock. Part of #7226 / #226.
+
+    Config changes (breaking):
+    - `Currency: LockableCurrency<AccountId, Moment = BlockNumberFor<Self>>` is replaced by
+      `Currency: fungible::{Inspect, MutateFreeze}` with `Id = Self::RuntimeFreezeReason`.
+    - `RuntimeFreezeReason` is added and must be set to the runtime's overarching freeze reason.
+    - `OldCurrency: InspectLockableCurrency` is added, kept solely so the legacy `py/xcmlk` lock
+      can be released while migrating. It can be removed once all locks have been converted.
+
+    Runtimes configuring `pallet-xcm` therefore also need `pallet-balances` (or whichever fungible
+    they use) to expose the overarching freeze reason: `FreezeIdentifier = RuntimeFreezeReason` and
+    a `MaxFreezes` that covers its variant count. The in-tree runtimes that had freezes disabled
+    (`FreezeIdentifier = ()`, `MaxFreezes = ConstU32<0>`) have been updated accordingly. This is a
+    type-level change only for chains whose `CurrencyMatcher` matches nothing, since those can
+    never create an XCM lock in the first place.
+
+    Migration:
+    - `pallet_xcm::migration::MigrateLocksToFreezes` is a multi-block migration (`SteppedMigration`)
+      that walks `LockedFungibles` and converts each account's legacy lock into the equivalent
+      freeze. It is registered in the Rococo and Westend relay chain runtimes, the only in-tree
+      runtimes with existing state whose `CurrencyMatcher` can match an asset, and therefore the
+      only ones that can hold a legacy lock. `LockedFungibles` itself is unchanged, so there is no
+      storage version bump.
+    - Accounts are additionally migrated lazily: locking or unlocking again releases any legacy
+      lock once the equivalent freeze is in place. Chains that cannot host a multi-block migration
+      rely on this path.
+
+    Out of scope: `pallet-xcm` still supports a single fungible only. Moving to `fungibles` is
+    deliberately left to a follow-up, because `LockedFungibles` stores no asset id and so multiple
+    currencies require a new storage layout plus a second state migration on top of this one.
+
+    Behaviour changes:
+    - `prepare_lock` now also fails with `LockError::NoResources` when the account cannot take
+      another freeze, so that `enact` cannot fail after the lock has been accounted for.
+    - Fully unlocking an account now removes the restriction entirely, where the old code left a
+      zero-amount `py/xcmlk` lock behind.
+    - `try_state` gained an invariant checking that every `LockedFungibles` entry is backed by an
+      equivalent freeze, or by the legacy lock if the account has not been migrated yet.
+
+crates:
+- name: pallet-xcm
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: xcm-runtime-apis
+  bump: patch
+- name: xcm-docs
+  bump: patch
+- name: xcm-simulator-example
+  bump: patch
+- name: xcm-simulator-fuzzer
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: patch
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: parachain-template-runtime
+  bump: major
+- name: polkadot-test-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
