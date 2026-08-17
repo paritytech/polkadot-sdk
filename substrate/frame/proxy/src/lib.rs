@@ -1089,11 +1089,13 @@ impl<T: Config> Pallet<T> {
 	/// 11. (warn) Deposit equals `AnnouncementDepositBase + AnnouncementDepositFactor *
 	///     pending.len()`; warns for the same reason as 5.
 	///
-	/// Not checked, both legally reachable:
+	/// Not checked. The first two are legally reachable:
 	/// - An announcement outliving its proxy relationship, since `remove_proxy`, `remove_proxies`
 	///   and `kill_pure` leave `Announcements` alone: `add_proxy(A, B)`, `announce(B, A, h)`,
 	///   `remove_proxy(A, B)`.
 	/// - A repeated call hash, since `announce` does not deduplicate: `announce(B, A, h)` twice.
+	/// - Length against `MaxProxies`/`MaxPending`: `BoundedVec` enforces the bound at construction
+	///   and at decode, so such a check could never run against a violating value.
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		let now = T::BlockNumberProvider::current_block_number();
 
