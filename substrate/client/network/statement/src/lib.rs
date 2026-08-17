@@ -761,7 +761,11 @@ enum SendOutcome {
 
 enum SendKind {
 	Propagation,
-	InitialSync { sync_id: u64 },
+	InitialSync {
+		sync_id: u64,
+		/// Cursor position the pending sync advances to once this chunk's send is confirmed.
+		next_cursor: u64,
+	},
 }
 
 impl SendKind {
@@ -1803,7 +1807,7 @@ where
 			self.in_flight_chunks.remove(&peer);
 		}
 
-		let SendKind::InitialSync { sync_id } = kind else { return slot_freed };
+		let SendKind::InitialSync { sync_id, next_cursor } = kind else { return slot_freed };
 
 		// A peer that reconnects inside the send timeout loses its sync on disconnect and gets a
 		// fresh one under the same `PeerId`; a stale result would advance or abort the wrong sync.
@@ -1812,12 +1816,14 @@ where
 		}
 
 		if failure.is_some() {
-			if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
-			}
+			// The cursor still points at the unconfirmed chunk, so a later burst resends it.
+			self.initial_sync_peer_queue.push_back(peer);
 			return slot_freed;
 		}
 
+		if let Some(pending) = self.pending_initial_syncs.get_mut(&peer) {
+			pending.cursor = next_cursor;
+		}
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_statements_sent.inc_by(statement_count as u64);
 		});
@@ -2075,21 +2081,19 @@ where
 					target: LOG_TARGET,
 					"Failed to fetch statements for initial sync of {peer_id}, will retry: {e:?}",
 				);
-				drop(entry);
 				self.initial_sync_peer_queue.push_back(peer_id);
 				return;
 			},
 		};
 
-		// Advance past the fetched admissions; a failed send abandons them.
-		entry.get_mut().cursor = batch.cursor;
-		drop(entry);
-
+		// A failed send must resend the same admissions, so the cursor advances only when a
+		// send is confirmed; chunks that queue no send advance it here.
 		if accumulated_size > max_size {
 			log::warn!(target: LOG_TARGET, "Statement too large, skipping");
 			self.metrics.as_ref().map(|metrics| {
 				metrics.skipped_oversized_statements.inc();
 			});
+			entry.get_mut().cursor = batch.cursor;
 			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		}
@@ -2097,9 +2101,12 @@ where
 		if batch.statements.is_empty() {
 			// Nothing was queued, so no result will arrive for this peer. Put it back and let the
 			// next burst either send the remainder or observe that the sync is done.
+			entry.get_mut().cursor = batch.cursor;
 			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		}
+
+		let next_cursor = batch.cursor;
 
 		let statement_count = batch.statements.len();
 		let send_stmts: Vec<_> = batch.statements.iter().map(|(_, stmt)| stmt).collect();
@@ -2109,14 +2116,14 @@ where
 		};
 		let bytes_to_send = encoded.len() as u64;
 		let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
+			// A missing sink usually means the peer is disconnecting, which removes the sync;
+			// until then the retained cursor lets a later burst retry.
 			log::debug!(
 				target: LOG_TARGET,
-				"Failed to get message sink for peer {peer_id}, abandoning its initial sync",
+				"Failed to get message sink for peer {peer_id}, its initial sync will retry",
 			);
 			self.record_send_failure(send_failure::NO_SINK, statement_count);
-			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
-			}
+			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		};
 		let sent_latency =
@@ -2133,7 +2140,7 @@ where
 				statement_count,
 				bytes_sent: bytes_to_send,
 				result,
-				kind: SendKind::InitialSync { sync_id },
+				kind: SendKind::InitialSync { sync_id, next_cursor },
 				chunk_id,
 			}
 		}));
@@ -3674,14 +3681,14 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn initial_sync_network_error_abandons_the_sync() {
+	async fn initial_sync_network_error_leaves_the_sync_to_retry() {
 		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
 		let peer_id = peer_ids[0];
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 
 		// Two statements small enough to share one chunk, so a statement count cannot be
 		// mistaken for a chunk count.
-		let hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
+		let mut hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
 			.into_iter()
 			.map(|payload| {
 				let mut statement = Statement::new();
@@ -3701,20 +3708,77 @@ mod tests {
 		handler.flush_pending_sends().await;
 
 		assert!(notification_service.get_sent_notifications().is_empty());
-		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert_eq!(pending.cursor, 0, "an unconfirmed chunk must not advance the cursor");
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"the failed send must requeue the peer"
+		);
 
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NETWORK]).get(), 1,);
 		assert_eq!(
 			metrics.undelivered_statements.with_label_values(&[send_failure::NETWORK]).get(),
 			hashes.len() as u64,
-			"both statements in the chunk were lost, counted individually"
+			"both statements in the failed chunk are counted individually"
 		);
 		assert_eq!(
 			metrics.send_failures.with_label_values(&[send_failure::TIMEOUT]).get(),
 			0,
 			"a network error must not be attributed to a timeout"
 		);
+
+		// The network recovers: the retried chunk delivers the same statements.
+		notification_service.allow_sends();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		let mut sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		sent.sort();
+		hashes.sort();
+		assert_eq!(sent, hashes);
+
+		handler.process_initial_sync_burst();
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn missing_sink_leaves_the_initial_sync_to_retry() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"initial-sync statement".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		// No sink is available for the first burst.
+		notification_service.serve_sinks(0);
+		handler.process_initial_sync_burst();
+
+		assert!(handler.pending_sends.is_empty());
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().cursor,
+			0,
+			"a chunk that found no sink must not advance the cursor"
+		);
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"the peer must be requeued for a retry"
+		);
+
+		// The sink comes back: the retried chunk delivers.
+		notification_service.serve_sinks(usize::MAX);
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
 	}
 
 	#[tokio::test]
@@ -4030,7 +4094,7 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
 			chunk_id: 0,
 		});
 		handler.flush_pending_sends().await;
@@ -4063,7 +4127,7 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: 100,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
 			chunk_id: 0,
 		});
 		assert_eq!(handler.pending_sends.len(), 1);
