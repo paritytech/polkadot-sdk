@@ -19,20 +19,18 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::fungible::Mutate as FungibleMutate;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use registrar_primitives::{MessageToPara, MessageToParaV1};
 
-/// An account with enough to cover every deposit this pallet can ask for.
+/// An account able to pay every consideration this pallet can ask for.
 fn funded_manager<T: Config>() -> T::AccountId {
 	let who: T::AccountId = account("manager", 0, 0);
-	let per_byte = T::DataDepositPerByte::get();
-	let worst_case = T::ParaDeposit::get()
-		.saturating_add(per_byte.saturating_mul(T::MaxHeadDataSize::get().into()))
-		.saturating_add(per_byte.saturating_mul(T::MaxCodeSize::get().into()))
-		// Comfortably above the existential deposit as well.
-		.saturating_mul(4u32.into());
-	let _ = T::Currency::set_balance(&who, worst_case);
+	T::ReservationConsideration::ensure_successful(&who, Footprint::from_parts(1, 0));
+	T::RegistrationConsideration::ensure_successful(
+		&who,
+		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get(), T::MaxCodeSize::get()),
+	);
 	who
 }
 

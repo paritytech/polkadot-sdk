@@ -17,9 +17,9 @@
 
 //! # Parachain registrar pallet
 //!
-//! The user-facing half of parachain registration. It hands out para ids, holds the manager's
-//! deposits, and coordinates the registration itself asynchronously with the chain that owns the
-//! parachain registry.
+//! The user-facing half of parachain registration. It hands out para ids, takes the manager's
+//! deposits as [`Consideration`] tickets, and coordinates the registration itself asynchronously
+//! with the chain that owns the parachain registry.
 //!
 //! Both directions of that coordination are abstract: requests go out through [`SendToRelay`],
 //! verdicts come back in through [`Pallet::receive`], gated by [`Config::RelayOrigin`]. Nothing
@@ -31,9 +31,10 @@
 //! through the messaging layer would be wasteful, so this chain only commits to its hash and
 //! length and the blob is uploaded to the relay chain directly:
 //!
-//! 1. [`Pallet::reserve`] allocates a para id here and holds [`Config::ParaDeposit`].
-//! 2. [`Pallet::register`] holds a deposit covering the head data and the *declared* code length,
-//!    then asks the relay chain to accept the registration. Only the code hash and length are sent.
+//! 1. [`Pallet::reserve`] allocates a para id here and takes [`Config::ReservationConsideration`].
+//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and the
+//!    *declared* code length, then asks the relay chain to accept the registration. Only the code
+//!    hash and length are sent.
 //! 3. The manager uploads the validation code to the relay chain, which accepts it only if it
 //!    matches the hash and length committed to in step 2.
 //! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
@@ -56,11 +57,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	defensive,
-	traits::{
-		fungible::{Inspect, Mutate, MutateHold},
-		tokens::Precision,
-		Get,
-	},
+	traits::{Consideration, Footprint},
 };
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -81,10 +78,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-
-/// Balance of the pallet's currency.
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Block number used for registration deadlines.
 ///
@@ -120,16 +113,13 @@ impl SendToRelay for () {
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
-pub enum RegistrationState<Balance, BlockNumber> {
+pub enum RegistrationState<Ticket, BlockNumber> {
 	/// The para id is held by its manager, but nothing is registered on the relay chain yet.
 	Reserved,
 	/// The relay chain has been asked to register this para and has not reported back.
-	///
-	/// `deposit` is held on top of the para id reservation and covers the head data and the
-	/// declared code length.
 	Pending {
-		/// The registration deposit, released if the registration does not go through.
-		deposit: Balance,
+		/// The registration's [`Consideration`] ticket, returned if the registration fails.
+		ticket: Ticket,
 		/// The block from which the manager may give up on this registration.
 		///
 		/// Expressed in [`Config::BlockNumberProvider`] blocks. Long enough that a verdict already
@@ -140,8 +130,8 @@ pub enum RegistrationState<Balance, BlockNumber> {
 	},
 	/// The relay chain has onboarded this para.
 	Registered {
-		/// The registration deposit, held for as long as the para is registered.
-		deposit: Balance,
+		/// The registration's [`Consideration`] ticket, kept while the para is registered.
+		ticket: Ticket,
 	},
 }
 
@@ -149,12 +139,22 @@ pub enum RegistrationState<Balance, BlockNumber> {
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug,
 )]
-pub struct ParaInfo<AccountId, Balance, BlockNumber> {
+pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumber> {
 	/// The account that reserved the para id and controls it.
 	pub manager: AccountId,
+	/// The [`Consideration`] ticket for the para id itself.
+	pub reservation: ReservationTicket,
 	/// Where this para id sits in the registration flow.
-	pub state: RegistrationState<Balance, BlockNumber>,
+	pub state: RegistrationState<RegistrationTicket, BlockNumber>,
 }
+
+/// The [`ParaInfo`] type as configured.
+pub type ParaInfoOf<T> = ParaInfo<
+	<T as frame_system::Config>::AccountId,
+	<T as Config>::ReservationConsideration,
+	<T as Config>::RegistrationConsideration,
+	ProvidedBlockNumberOf<T>,
+>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -164,27 +164,19 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The currency that registration deposits are taken in.
-		type Currency: Inspect<Self::AccountId>
-			+ Mutate<Self::AccountId>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		/// The cost of reserving a para id. The footprint is a single zero-sized item, so a flat
+		/// price fits.
+		type ReservationConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// The overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		/// The cost of a registration, on top of the reservation. The footprint is one item sized
+		/// as head data plus *declared* code length, so a per-byte price fits.
+		type RegistrationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Sends messages to the relay chain.
 		type SendToRelay: SendToRelay<AccountId = Self::AccountId>;
 
 		/// An origin that is sure to be the relay chain's registrar pallet.
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// The deposit held for holding onto a para id.
-		#[pallet::constant]
-		type ParaDeposit: Get<BalanceOf<Self>>;
-
-		/// The deposit held per byte of head data and validation code.
-		#[pallet::constant]
-		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
 		/// The lowest para id this pallet will hand out.
 		///
@@ -233,7 +225,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// A reason for this pallet placing a hold on funds.
+	/// Hold reasons for runtimes that pay the considerations out of held funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// Held for keeping a para id reserved.
@@ -250,12 +242,7 @@ pub mod pallet {
 
 	/// Every para id reserved through this pallet, and what is happening with it.
 	#[pallet::storage]
-	pub type Paras<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		ParaId,
-		ParaInfo<T::AccountId, BalanceOf<T>, ProvidedBlockNumberOf<T>>,
-	>;
+	pub type Paras<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaInfoOf<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -266,12 +253,12 @@ pub mod pallet {
 		RegisterRequested { para_id: ParaId, manager: T::AccountId },
 		/// The relay chain confirmed a registration.
 		Registered { para_id: ParaId, manager: T::AccountId },
-		/// The relay chain rejected a registration. The registration deposit was released.
+		/// The relay chain rejected a registration. The registration consideration was returned.
 		RegistrationFailed { para_id: ParaId, manager: T::AccountId, reason: FailureReason },
 		/// A manager gave up on a pending registration, and the relay chain has been asked to
-		/// drop the authorization. The deposit stays held until it answers.
+		/// drop the authorization. The consideration stays taken until it answers.
 		CancelRequested { para_id: ParaId, manager: T::AccountId },
-		/// The relay chain confirmed a cancellation. The registration deposit was released.
+		/// The relay chain confirmed a cancellation. The registration consideration was returned.
 		RegistrationCancelled { para_id: ParaId, manager: T::AccountId },
 	}
 
@@ -316,8 +303,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Reserve the next free para id for the caller.
 		///
-		/// Holds [`Config::ParaDeposit`]. The caller becomes the manager of the new id and is the
-		/// only account that may [`Pallet::register`] against it.
+		/// Takes [`Config::ReservationConsideration`]. The caller becomes the manager of the new
+		/// id and is the only account that may [`Pallet::register`] against it.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::reserve())]
 		pub fn reserve(origin: OriginFor<T>) -> DispatchResult {
@@ -327,12 +314,11 @@ pub mod pallet {
 			let next = para_id.checked_add(1).ok_or(Error::<T>::NoFreeParaId)?;
 			ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
 
-			let deposit = T::ParaDeposit::get();
-			T::Currency::hold(&HoldReason::ParaIdReservation.into(), &who, deposit)?;
+			let reservation = T::ReservationConsideration::new(&who, Footprint::from_parts(1, 0))?;
 
 			Paras::<T>::insert(
 				para_id,
-				ParaInfo { manager: who.clone(), state: RegistrationState::Reserved },
+				ParaInfo { manager: who.clone(), reservation, state: RegistrationState::Reserved },
 			);
 			NextFreeParaId::<T>::put(next);
 
@@ -346,11 +332,11 @@ pub mod pallet {
 		/// caller uploads the blob to the relay chain separately, which accepts it only if it
 		/// hashes to `code_hash` and is exactly `code_len` bytes long.
 		///
-		/// ## Deposits
+		/// ## Costs
 		///
-		/// Holds [`Config::DataDepositPerByte`] for every byte of head data and for every byte of
-		/// the *declared* code length, on top of the para id reservation. It is released if the
-		/// relay chain rejects the registration or if the caller later abandons it.
+		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
+		/// length, on top of the para id reservation. It is returned if the relay chain rejects
+		/// the registration or if the caller later abandons it.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
 		pub fn register(
@@ -375,15 +361,17 @@ pub mod pallet {
 			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
 			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
 
-			let deposit = Self::registration_deposit(head_len, code_len);
-			T::Currency::hold(&HoldReason::Registration.into(), &who, deposit)?;
+			let ticket = T::RegistrationConsideration::new(
+				&who,
+				Self::registration_footprint(head_len, code_len),
+			)?;
 
 			let cancellable_at = T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get());
-			info.state = RegistrationState::Pending { deposit, cancellable_at };
+			info.state = RegistrationState::Pending { ticket, cancellable_at };
 			Paras::<T>::insert(para_id, info);
 
-			// A transport failure returns `Err` and unwinds everything above, including the hold.
+			// A transport failure returns `Err` and unwinds everything above, ticket included.
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
 				para_id,
 				manager: who.clone(),
@@ -418,7 +406,7 @@ pub mod pallet {
 
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { deposit, cancellable_at } = info.state else {
+			let RegistrationState::Pending { ticket, cancellable_at } = info.state else {
 				return Err(Error::<T>::NotPending.into());
 			};
 			let now = T::BlockNumberProvider::current_block_number();
@@ -427,7 +415,7 @@ pub mod pallet {
 			// Another deadline's grace before the manager may ask again, so a request that goes
 			// missing can be retried without the relay chain being asked once per block.
 			info.state = RegistrationState::Pending {
-				deposit,
+				ticket,
 				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
 			};
 			Paras::<T>::insert(para_id, info);
@@ -463,12 +451,9 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// The deposit held for a registration, on top of the para id reservation.
-	pub fn registration_deposit(head_len: u32, code_len: u32) -> BalanceOf<T> {
-		let per_byte = T::DataDepositPerByte::get();
-		per_byte
-			.saturating_mul(head_len.into())
-			.saturating_add(per_byte.saturating_mul(code_len.into()))
+	/// The footprint a registration is charged for: the head data plus the *declared* code length.
+	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
+		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
 	}
 
 	/// Apply the relay chain's verdict on a registration.
@@ -482,21 +467,22 @@ impl<T: Config> Pallet<T> {
 			defensive!("register response for unknown para, dropping", para_id);
 			return Ok(());
 		};
-		let RegistrationState::Pending { deposit, .. } = info.state else {
+		let RegistrationState::Pending { ticket, .. } = info.state else {
 			defensive!("register response for para which is not pending, dropping", para_id);
 			return Ok(());
 		};
 
+		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				info.state = RegistrationState::Registered { deposit };
-				let manager = info.manager.clone();
+				info.state = RegistrationState::Registered { ticket };
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, manager });
 			},
 			Err(reason) => {
-				let manager = info.manager.clone();
-				Self::release_registration_deposit(para_id)?;
+				ticket.drop(&info.manager)?;
+				info.state = RegistrationState::Reserved;
+				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationFailed { para_id, manager, reason });
 			},
 		}
@@ -518,7 +504,7 @@ impl<T: Config> Pallet<T> {
 			defensive!("cancel response for unknown para, dropping", para_id);
 			return Ok(());
 		};
-		let RegistrationState::Pending { deposit, .. } = info.state else {
+		let RegistrationState::Pending { ticket, .. } = info.state else {
 			log::debug!(
 				target: "runtime::registrar-para",
 				"cancel response for para {para_id} which is no longer pending, dropping",
@@ -526,15 +512,16 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		};
 
+		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				let manager = info.manager.clone();
-				Self::release_registration_deposit(para_id)?;
+				ticket.drop(&info.manager)?;
+				info.state = RegistrationState::Reserved;
+				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationCancelled { para_id, manager });
 			},
 			Err(FailureReason::AlreadyRegistered) => {
-				info.state = RegistrationState::Registered { deposit };
-				let manager = info.manager.clone();
+				info.state = RegistrationState::Registered { ticket };
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, manager });
 			},
@@ -546,24 +533,5 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
-	}
-
-	/// Release the registration deposit for a pending para id and put it back to `Reserved`.
-	fn release_registration_deposit(para_id: ParaId) -> sp_runtime::DispatchResult {
-		Paras::<T>::try_mutate(para_id, |maybe_info| -> sp_runtime::DispatchResult {
-			let info = maybe_info.as_mut().ok_or(Error::<T>::NotReserved)?;
-			let RegistrationState::Pending { deposit, .. } = info.state else {
-				return Err(Error::<T>::NotPending.into());
-			};
-
-			T::Currency::release(
-				&HoldReason::Registration.into(),
-				&info.manager,
-				deposit,
-				Precision::BestEffort,
-			)?;
-			info.state = RegistrationState::Reserved;
-			Ok(())
-		})
 	}
 }

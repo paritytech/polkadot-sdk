@@ -23,11 +23,11 @@ use frame_support::{
 	traits::{fungible::InspectHold, EnsureOrigin},
 };
 use pallet_registrar_para::{HoldReason, RegistrationState};
+use para::{Balances, Runtime};
 use polkadot_primitives::ValidationCode;
 use registrar_primitives::{FailureReason, MessageToRelay, MessageToRelayV1};
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use xcm_simulator::TestExt;
-use para::{Balances, Runtime};
 
 /// A validation code that is at least `MIN_CODE_SIZE` and hashes to something predictable.
 fn code(len: usize) -> Vec<u8> {
@@ -45,16 +45,11 @@ fn hash_of(code: &[u8]) -> sp_core::H256 {
 
 /// Total held on the parachain for `who`, across both registrar reasons.
 fn para_held(who: &AccountId32) -> u128 {
-
 	<Balances as InspectHold<_>>::balance_on_hold(
-		&<Runtime as pallet_registrar_para::Config>::RuntimeHoldReason::from(
-			HoldReason::ParaIdReservation,
-		),
+		&para::RuntimeHoldReason::from(HoldReason::ParaIdReservation),
 		who,
 	) + <Balances as InspectHold<_>>::balance_on_hold(
-		&<Runtime as pallet_registrar_para::Config>::RuntimeHoldReason::from(
-			HoldReason::Registration,
-		),
+		&para::RuntimeHoldReason::from(HoldReason::Registration),
 		who,
 	)
 }
@@ -114,7 +109,9 @@ fn submit_code(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
 	.map_err(|e| e.error)
 }
 
-fn para_state(para_id: u32) -> Option<RegistrationState<u128, u64>> {
+type RegistrationTicket = <Runtime as pallet_registrar_para::Config>::RegistrationConsideration;
+
+fn para_state(para_id: u32) -> Option<RegistrationState<RegistrationTicket, u64>> {
 	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).map(|info| info.state)
 }
 
@@ -192,10 +189,7 @@ fn a_registration_travels_from_the_parachain_to_the_relay_chain_and_onboards_a_p
 
 	// And the parachain heard about it.
 	RegistrarPara::execute_with(|| {
-		assert_eq!(
-			para_state(para_id),
-			Some(RegistrationState::Registered { deposit: expected_deposit })
-		);
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
 		// Both deposits stay held for as long as the para is registered.
 		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + expected_deposit);
 	});

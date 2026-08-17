@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-registrar-para`.
 
-use crate::{mock::*, Error, Event, HoldReason, ParaInfo, Paras, RegistrationState};
+use crate::{mock::*, Error, Event, HoldReason, Paras, RegistrationState};
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -92,10 +92,9 @@ mod reserve {
 			let before = Balances::free_balance(ALICE);
 			let para_id = reserve_for(ALICE);
 
-			assert_eq!(
-				Paras::<Test>::get(para_id),
-				Some(ParaInfo { manager: ALICE, state: RegistrationState::Reserved })
-			);
+			let info = Paras::<Test>::get(para_id).unwrap();
+			assert_eq!(info.manager, ALICE);
+			assert_eq!(info.state, RegistrationState::Reserved);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
 			assert_eq!(Balances::free_balance(ALICE), before - PARA_DEPOSIT);
 		});
@@ -135,11 +134,11 @@ mod register {
 			let expected = PER_BYTE * (head_len as Balance + code_len as Balance);
 			assert_eq!(held(ALICE), PARA_DEPOSIT + expected);
 
-			let cancellable_at = System::block_number() + PENDING_DEADLINE;
-			assert_eq!(
+			let expected_at = System::block_number() + PENDING_DEADLINE;
+			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Pending { deposit: expected, cancellable_at }
-			);
+				RegistrationState::Pending { cancellable_at, .. } if cancellable_at == expected_at
+			));
 			assert_eq!(
 				registrar_events(),
 				vec![Event::RegisterRequested { para_id, manager: ALICE }]
@@ -291,10 +290,10 @@ mod receive {
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(())),));
 
-			assert_eq!(
+			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { deposit }
-			);
+				RegistrationState::Registered { .. }
+			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			assert_eq!(registrar_events(), vec![Event::Registered { para_id, manager: ALICE }]);
 		});
@@ -373,10 +372,10 @@ mod receive {
 				cancel_message(para_id, Err(FailureReason::AlreadyRegistered)),
 			));
 
-			assert_eq!(
+			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { deposit }
-			);
+				RegistrationState::Registered { .. }
+			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			assert_eq!(registrar_events(), vec![Event::Registered { para_id, manager: ALICE }]);
 		});
@@ -397,10 +396,10 @@ mod receive {
 			// response this is expected, so it is not defensive.
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_message(para_id, Ok(()))));
 
-			assert_eq!(
+			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { deposit }
-			);
+				RegistrationState::Registered { .. }
+			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			assert!(registrar_events().is_empty());
 		});
@@ -455,13 +454,11 @@ mod cancel_registration {
 
 			// The relay chain has been asked, and until it answers nothing is given back: it is the
 			// only side that knows whether the code landed.
-			assert_eq!(
+			let expected_at = System::block_number() + PENDING_DEADLINE;
+			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Pending {
-					deposit,
-					cancellable_at: System::block_number() + PENDING_DEADLINE,
-				}
-			);
+				RegistrationState::Pending { cancellable_at, .. } if cancellable_at == expected_at
+			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			assert_eq!(take_sent(), vec![cancel_request(para_id)]);
 			assert_eq!(
@@ -521,10 +518,11 @@ mod cancel_registration {
 			);
 
 			// The pushed-out deadline went with it, so the manager can retry immediately.
-			assert_eq!(
+			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Pending { deposit: PER_BYTE * (20 + 300), cancellable_at }
-			);
+				RegistrationState::Pending { cancellable_at: at, .. } if at == cancellable_at
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + 300));
 			SendFails::set(false);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 		});

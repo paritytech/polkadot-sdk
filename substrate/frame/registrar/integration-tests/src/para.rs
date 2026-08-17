@@ -23,7 +23,10 @@
 
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, Disabled, Everything, Nothing},
+	traits::{
+		fungible::HoldConsideration, ConstU128, ConstU32, ConstantStoragePrice, Disabled,
+		Everything, LinearStoragePrice, Nothing,
+	},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -170,17 +173,29 @@ impl pallet_xcm::Config for Runtime {
 parameter_types! {
 	pub const ParaDeposit: Balance = PARA_DEPOSIT;
 	pub const DataDepositPerByte: Balance = PER_BYTE;
+	pub const ReservationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Registrar(pallet_registrar_para::HoldReason::ParaIdReservation);
+	pub const RegistrationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Registrar(pallet_registrar_para::HoldReason::Registration);
 }
 
 impl pallet_registrar_para::Config for Runtime {
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type ReservationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ReservationHoldReason,
+		ConstantStoragePrice<ParaDeposit, Balance>,
+	>;
+	type RegistrationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RegistrationHoldReason,
+		LinearStoragePrice<ConstU128<0>, DataDepositPerByte, Balance>,
+	>;
 	type SendToRelay = ParaSendToRelay;
 	// The relay chain reports with `OriginKind::Superuser`, which `ParentAsSuperuser` turns into
 	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.
 	type RelayOrigin = EnsureRoot<AccountId>;
-	type ParaDeposit = ParaDeposit;
-	type DataDepositPerByte = DataDepositPerByte;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;

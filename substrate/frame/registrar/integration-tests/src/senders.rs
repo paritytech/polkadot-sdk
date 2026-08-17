@@ -27,10 +27,10 @@ use frame_support::traits::{CallerTrait, OriginTrait};
 use pallet_registrar_para::SendToRelay;
 use pallet_registrar_relay::SendToPara;
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
+use polkadot_runtime_parachains::Origin as ParachainsOrigin;
 use registrar_primitives::{MessageToPara, MessageToRelay, MessageToRelayV1};
 use sp_runtime::AccountId32;
 use xcm::latest::prelude::*;
-use polkadot_runtime_parachains::Origin as ParachainsOrigin;
 
 /// The para id of the control-plane parachain in this test network.
 pub const PARA_ID: u32 = 1000;

@@ -21,10 +21,12 @@
 //! and can be told to fail, which is all this side needs to be tested on its own. The two halves
 //! meeting for real is the job of the `pallet-registrar-test` crate.
 
-use crate::{self as pallet_registrar_para, SendToRelay};
+use crate::{self as pallet_registrar_para, HoldReason, SendToRelay};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32},
+	traits::{
+		fungible::HoldConsideration, ConstU128, ConstU32, ConstantStoragePrice, LinearStoragePrice,
+	},
 };
 use registrar_primitives::MessageToRelay;
 use sp_runtime::BuildStorage;
@@ -118,15 +120,27 @@ pub fn take_sent() -> Vec<MessageToRelay<AccountId>> {
 parameter_types! {
 	pub const ParaDeposit: Balance = PARA_DEPOSIT;
 	pub const DataDepositPerByte: Balance = PER_BYTE;
+	pub const ReservationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Registrar(HoldReason::ParaIdReservation);
+	pub const RegistrationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Registrar(HoldReason::Registration);
 }
 
 impl pallet_registrar_para::Config for Test {
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
+	type ReservationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ReservationHoldReason,
+		ConstantStoragePrice<ParaDeposit, Balance>,
+	>;
+	type RegistrationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RegistrationHoldReason,
+		LinearStoragePrice<ConstU128<0>, DataDepositPerByte, Balance>,
+	>;
 	type SendToRelay = RecordingSender;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
-	type ParaDeposit = ParaDeposit;
-	type DataDepositPerByte = DataDepositPerByte;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
