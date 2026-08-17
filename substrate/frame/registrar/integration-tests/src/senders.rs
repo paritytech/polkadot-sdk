@@ -30,6 +30,7 @@ use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
 use registrar_primitives::{MessageToPara, MessageToRelay, MessageToRelayV1};
 use sp_runtime::AccountId32;
 use xcm::latest::prelude::*;
+use polkadot_runtime_parachains::Origin as ParachainsOrigin;
 
 /// The para id of the control-plane parachain in this test network.
 pub const PARA_ID: u32 = 1000;
@@ -149,15 +150,10 @@ impl frame_support::traits::EnsureOrigin<crate::relay::RuntimeOrigin> for Ensure
 		if o.caller().is_root() {
 			return Ok(());
 		}
-		match <crate::relay::RuntimeOrigin as Into<
-			Result<polkadot_runtime_parachains::Origin, crate::relay::RuntimeOrigin>,
-		>>::into(o.clone())
-		{
-			Ok(polkadot_runtime_parachains::Origin::Parachain(id))
-				if id == RegistrarParaId::get() =>
-			{
-				Ok(())
-			},
+
+		let parachain_origin: Result<ParachainsOrigin, _> = o.clone().into();
+		match parachain_origin {
+			Ok(ParachainsOrigin::Parachain(id)) if id == RegistrarParaId::get() => Ok(()),
 			_ => Err(o),
 		}
 	}
