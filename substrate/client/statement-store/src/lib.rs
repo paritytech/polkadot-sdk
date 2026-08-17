@@ -2554,10 +2554,6 @@ impl StatementStore for Store {
 		// does not make it into the finalized chain, but this is an acceptable tradeoff for
 		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {
-			// A depleted allowance stores nothing, so it is rejected here rather than left to the
-			// constraint check: `plan_insert` only evaluates `max_count` while walking the
-			// account's existing statements, so a `max_count` of zero would not stop the first
-			// statement of an account that has none.
 			Ok(Some(allowance)) if !allowance.is_depleted() => allowance,
 			Ok(Some(_)) | Ok(None) => {
 				log::debug!(
