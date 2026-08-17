@@ -3350,42 +3350,37 @@ fn cold_hot_transient_skips_access_list() {
 	});
 }
 
-/// A write touches the access list before charging, and a failed charge
-/// kills its frame: the rollback must drop the upgrade, so the slot's
-/// write is priced again. The child is a self-call, so both frames run
-/// under the same contract address and touch the same entry.
 #[test]
-fn cold_hot_reverted_write_charge_rolls_back_the_upgrade() {
+fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		use crate::vm::RuntimeCosts;
 		let slot = Key::Fix([1; 32]);
 
-		if ctx.input_data == vec![1] {
-			let kind = ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
-			let over_budget =
-				RuntimeCosts::SetStorage { new_bytes: u32::MAX, old_bytes: u32::MAX, kind };
-			assert!(
-				ctx.ext.frame_meter_mut().charge_weight_token(over_budget).is_err(),
-				"the charge must exceed the budget",
-			);
-			return Err("die at the write charge".into());
+		match ctx.input_data.as_slice() {
+			[1] => {
+				ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
+				return Err("revert after upgrading".into());
+			},
+			[2] => {
+				ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
+				return exec_success();
+			},
+			_ => (),
 		}
 
 		ctx.ext.touch_storage_access(false, &slot, StorageOp::Read);
-		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the self-call must revert");
+
+		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the child must revert");
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
 			StorageAccessKind::Persistent(Warmth::Hot(Paid::Read)),
-			"the reverted frame's upgrade must roll back, leaving the write unpaid",
+			"the reverted child's upgrade must roll back, leaving the write unpaid",
 		);
 
-		let kind = ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
-		let within_budget = RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 32, kind };
-		assert!(ctx.ext.frame_meter_mut().charge_weight_token(within_budget).is_ok());
+		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![2]).is_ok(), "the child must succeed");
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
 			StorageAccessKind::Persistent(Warmth::Hot(Paid::Write)),
-			"a paid write in a surviving frame stays paid",
+			"the committed child's upgrade must stay",
 		);
 		exec_success()
 	});

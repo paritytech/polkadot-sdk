@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{Paid, StorageAccessKind, StorageOp, Warmth},
+	access_list::{StorageAccessKind, StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -228,17 +228,13 @@ impl RuntimeCosts {
 	}
 
 	/// What a write adds over the read that made the slot hot: the deferred cost
-	/// of re-hashing its path when the block's storage root is computed. Paid by
-	/// the first write to each slot, since a cold write prepaid it and the
-	/// re-hash happens once per slot. A reverted frame's upgrade rolls back
-	/// with its write, so the next write of the slot pays it again.
+	/// of re-hashing its path when the block's storage root is computed.
 	fn hot_write_surcharge<T: Config>() -> Weight {
 		let db = T::DbWeight::get();
 		db.writes(1).saturating_sub(db.reads(1))
 	}
 
-	/// Pick the matching storage bench for the access `kind`. A write to a
-	/// slot that had only paid the read cost adds the write surcharge.
+	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
 		op: StorageOp,
 		kind: StorageAccessKind,
@@ -258,10 +254,10 @@ impl RuntimeCosts {
 				}
 			},
 			StorageAccessKind::Persistent(Warmth::Hot(paid)) => hot()
-				.saturating_add(if op == StorageOp::Write && paid == Paid::Read {
-					Self::hot_write_surcharge::<T>()
-				} else {
+				.saturating_add(if paid.covers(op) {
 					Weight::zero()
+				} else {
+					Self::hot_write_surcharge::<T>()
 				})
 				.saturating_add(Self::hot_storage_overlay_overhead::<T>())
 				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
@@ -411,7 +407,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::Test;
+	use crate::{access_list::Paid, tests::Test};
 
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
@@ -480,12 +476,14 @@ mod tests {
 				RuntimeCosts::TakeStorage { len: LEN, kind },
 			]
 		};
-		for (on_first, on_repeat) in write_costs(read_paid).into_iter().zip(write_costs(write_paid))
+		for (write_to_read_paid_slot, write_to_write_paid_slot) in
+			write_costs(read_paid).into_iter().zip(write_costs(write_paid))
 		{
 			assert_eq!(
-				weight(&on_first),
-				weight(&on_repeat).saturating_add(surcharge),
-				"a write to a read-paid slot must pay exactly the surcharge: {on_first:?}",
+				weight(&write_to_read_paid_slot).saturating_sub(weight(&write_to_write_paid_slot)),
+				surcharge,
+				"a write to a read-paid slot pays exactly the surcharge: \
+				 {write_to_read_paid_slot:?}",
 			);
 		}
 
@@ -495,13 +493,13 @@ mod tests {
 				RuntimeCosts::ContainsStorage { len: LEN, kind },
 			]
 		};
-		for (on_read_paid, on_write_paid) in
+		for (read_of_read_paid_slot, read_of_write_paid_slot) in
 			read_costs(read_paid).into_iter().zip(read_costs(write_paid))
 		{
 			assert_eq!(
-				weight(&on_read_paid),
-				weight(&on_write_paid),
-				"a read never pays the surcharge: {on_read_paid:?}",
+				weight(&read_of_read_paid_slot),
+				weight(&read_of_write_paid_slot),
+				"a read is covered at either paid level: {read_of_read_paid_slot:?}",
 			);
 		}
 	}
