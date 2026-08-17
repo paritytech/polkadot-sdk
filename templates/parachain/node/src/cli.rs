@@ -100,9 +100,6 @@ pub struct RelayChainCli {
 
 	/// The base path that should be used by the relay chain.
 	pub base_path: Option<PathBuf>,
-
-	/// Whether this node is the relay chain side of a collator.
-	pub is_relay_side_of_collator: bool,
 }
 
 impl RelayChainCli {
@@ -118,7 +115,6 @@ impl RelayChainCli {
 			base_path: Some(base_path),
 			chain_id,
 			base: clap::Parser::parse_from(relay_chain_args),
-			is_relay_side_of_collator: para_config.role.is_authority(),
 		}
 	}
 }

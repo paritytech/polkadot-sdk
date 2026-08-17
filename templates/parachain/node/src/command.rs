@@ -245,9 +245,23 @@ pub fn run() -> Result<()> {
 				);
 
 				let tokio_handle = config.tokio_handle.clone();
-				let polkadot_config =
+				let mut polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {err}"))?;
+
+				// The relay chain side of a collator doesn't listen on WebRTC by default;
+				// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
+				let relay_network_params = &polkadot_cli.base.base.network_params;
+				if config.role.is_authority() &&
+					!relay_network_params.force_enable_webrtc &&
+					relay_network_params.listen_addr.is_empty()
+				{
+					polkadot_config.network.listen_addresses.retain(|address| {
+						!address.iter().any(|protocol| {
+							matches!(protocol, sc_network::multiaddr::Protocol::WebRTCDirect)
+						})
+					});
+				}
 
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
@@ -282,10 +296,6 @@ impl DefaultConfigurationValues for RelayChainCli {
 impl CliConfiguration<Self> for RelayChainCli {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
-	}
-
-	fn is_relay_side_of_collator(&self) -> Result<bool> {
-		Ok(self.is_relay_side_of_collator)
 	}
 
 	fn import_params(&self) -> Option<&ImportParams> {

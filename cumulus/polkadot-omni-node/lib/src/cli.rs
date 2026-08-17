@@ -388,9 +388,6 @@ pub struct RelayChainCli<Config: CliConfig> {
 	/// The base path that should be used by the relay chain.
 	pub base_path: Option<PathBuf>,
 
-	/// Whether this node is the relay chain side of a collator.
-	pub is_relay_side_of_collator: bool,
-
 	_phantom: PhantomData<Config>,
 }
 
@@ -421,13 +418,7 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
-		Self {
-			base,
-			chain_id,
-			base_path: Some(base_path),
-			is_relay_side_of_collator: para_config.role.is_authority(),
-			_phantom: Default::default(),
-		}
+		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }
 	}
 }
 
@@ -478,10 +469,6 @@ impl<Config: CliConfig> DefaultConfigurationValues for RelayChainCli<Config> {
 impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
-	}
-
-	fn is_relay_side_of_collator(&self) -> sc_cli::Result<bool> {
-		Ok(self.is_relay_side_of_collator)
 	}
 
 	fn import_params(&self) -> Option<&ImportParams> {

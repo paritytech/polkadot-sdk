@@ -150,13 +150,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(Role::Full)
 	}
 
-	/// Whether the node is the relay chain side of a collator.
-	///
-	/// By default this is `false`.
-	fn is_relay_side_of_collator(&self) -> Result<bool> {
-		Ok(false)
-	}
-
 	/// Get the transaction pool options
 	///
 	/// By default this is `TransactionPoolOptions::default()`.
@@ -174,7 +167,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		chain_spec: &Box<dyn ChainSpec>,
 		is_dev: bool,
 		is_validator: bool,
-		is_relay_side_of_collator: bool,
 		net_config_dir: PathBuf,
 		client_id: &str,
 		node_name: &str,
@@ -186,7 +178,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				chain_spec,
 				is_dev,
 				is_validator,
-				is_relay_side_of_collator,
 				Some(net_config_dir),
 				client_id,
 				node_name,
@@ -542,7 +533,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				&chain_spec,
 				is_dev,
 				is_validator,
-				self.is_relay_side_of_collator()?,
 				net_config_dir,
 				client_id.as_str(),
 				self.node_name()?.as_str(),

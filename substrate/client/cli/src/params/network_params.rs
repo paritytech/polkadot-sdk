@@ -218,7 +218,6 @@ impl NetworkParams {
 		chain_spec: &Box<dyn ChainSpec>,
 		is_dev: bool,
 		is_validator: bool,
-		is_relay_side_of_collator: bool,
 		net_config_path: Option<PathBuf>,
 		client_id: &str,
 		node_name: &str,
@@ -259,7 +258,7 @@ impl NetworkParams {
 			};
 
 			if matches!(self.network_backend, NetworkBackendType::Litep2p) &&
-				(self.force_enable_webrtc || !(is_validator || is_relay_side_of_collator))
+				(self.force_enable_webrtc || !is_validator)
 			{
 				listen_addresses.extend([
 					Multiaddr::empty()
