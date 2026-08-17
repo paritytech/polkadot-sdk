@@ -359,10 +359,7 @@ pub mod pallet {
 			);
 
 			let head_len = genesis_head.len() as u32;
-			ensure!(
-				head_len <= T::MaxHeadDataSize::get(),
-				Error::<T>::HeadDataTooLarge
-			);
+			ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
 			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
 			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
 

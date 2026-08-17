@@ -708,7 +708,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-
 	/// Deregister a Para Id, freeing all data returning any deposit.
 	fn do_deregister(id: ParaId) -> DispatchResult {
 		match paras::Pallet::<T>::lifecycle(id) {
