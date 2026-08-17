@@ -173,7 +173,6 @@ parameter_types! {
 }
 
 impl pallet_registrar_para::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type SendToRelay = ParaSendToRelay;

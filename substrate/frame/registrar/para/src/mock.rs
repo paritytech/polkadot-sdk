@@ -121,7 +121,6 @@ parameter_types! {
 }
 
 impl pallet_registrar_para::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type SendToRelay = RecordingSender;
