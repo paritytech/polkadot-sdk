@@ -17,9 +17,8 @@
 
 //! Stock, pure Aura collators.
 //!
-//! This includes the [`basic`] collator, which only builds on top of the most recently
-//! included parachain block, as well as the [`lookahead`] collator, which prospectively
-//! builds on parachain blocks which have not yet been included in the relay chain.
+//! This includes the [`lookahead`] collator, which prospectively builds on parachain blocks which
+//! have not yet been included in the relay chain.
 
 use crate::collator::SlotClaim;
 use codec::Codec;
@@ -42,7 +41,6 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 
-pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
 
