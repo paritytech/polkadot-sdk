@@ -91,6 +91,7 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(2000), 9..11)], []).await?;
 
 	let opts = LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(30), false);
+	let absence_opts = LogLineCountOptions::new(|n| n == 0, Duration::from_secs(10), true);
 
 	// Experimental validators negotiate V4 and receive segment advertisements.
 	for i in 0..3 {
@@ -126,6 +127,24 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			.ok_or_else(|| {
 				anyhow!("validator-classic-{i} did not receive a collation advertisement")
 			})?;
+		node.wait_log_line_count_with_timeout(
+			"peer_set=Collation version=4",
+			false,
+			absence_opts.clone(),
+		)
+		.await?
+		.success()
+		.then_some(())
+		.ok_or_else(|| anyhow!("validator-classic-{i} accepted collation V4"))?;
+		node.wait_log_line_count_with_timeout(
+			"Received a segment advertisement",
+			false,
+			absence_opts.clone(),
+		)
+		.await?
+		.success()
+		.then_some(())
+		.ok_or_else(|| anyhow!("validator-classic-{i} received a segment advertisement"))?;
 	}
 
 	Ok(())

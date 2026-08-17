@@ -23,7 +23,7 @@ use cumulus_relay_chain_rpc_interface::{RelayChainRpcClient, RelayChainRpcInterf
 use network::build_collator_network;
 use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames},
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1, v2, v3, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames,
 	},
@@ -195,7 +195,7 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 
 	let genesis_hash = relay_chain_rpc_client.block_get_hash(Some(0)).await?.unwrap_or_default();
 	let peerset_protocol_names =
-		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id(), CollationVersion::V4);
+		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
 	let notification_services = peer_sets_info::<_, Network>(
 		is_authority,

@@ -306,15 +306,25 @@ pub struct PeerSetProtocolNames {
 	names: HashMap<(PeerSet, ProtocolVersion), ProtocolName>,
 	genesis_hash: Hash,
 	fork_id: Option<String>,
-	main_collation_version: CollationVersion,
+	main_collation_version: Option<CollationVersion>,
 }
 
 impl PeerSetProtocolNames {
 	/// Construct [`PeerSetProtocolNames`] using `genesis_hash` and `fork_id`.
-	pub fn new(
+	pub fn new(genesis_hash: Hash, fork_id: Option<&str>) -> Self {
+		Self::new_with_main_collation_version(genesis_hash, fork_id, None)
+	}
+
+	/// Same as [`Self::new`], but pins the main collation protocol version.
+	///
+	/// With `None`, tracks the newest supported version — same as [`Self::new`].
+	///
+	/// Only intended for the legacy collator protocol, which is capped at
+	/// [`CollationVersion::V3`] and will never support newer versions.
+	pub fn new_with_main_collation_version(
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-		main_collation_version: CollationVersion,
+		main_collation_version: Option<CollationVersion>,
 	) -> Self {
 		let mut protocols = HashMap::new();
 		let mut names = HashMap::new();
@@ -457,7 +467,7 @@ impl PeerSetProtocolNames {
 			},
 			PeerSet::Collation => {
 				// Collation V3 fallback so that V4 nodes can negotiate V3 with older peers
-				if self.main_collation_version == CollationVersion::V4 {
+				if self.get_main_version(PeerSet::Collation) == CollationVersion::V4.into() {
 					fallbacks.push(Self::generate_name(
 						&self.genesis_hash,
 						self.fork_id.as_deref(),
@@ -483,9 +493,24 @@ impl PeerSetProtocolNames {
 	/// protocol name reported by `get_main_name()`.
 	pub fn get_main_version(&self, protocol: PeerSet) -> ProtocolVersion {
 		match protocol {
-			PeerSet::Validation => ValidationVersion::V3.into(),
-			PeerSet::Collation => self.main_collation_version.into(),
+			PeerSet::Validation => Self::newest_validation_version().into(),
+			PeerSet::Collation => self
+				.main_collation_version
+				.unwrap_or_else(Self::newest_collation_version)
+				.into(),
 		}
+	}
+
+	fn newest_collation_version() -> CollationVersion {
+		CollationVersion::iter()
+			.max_by_key(|v| *v as u32)
+			.expect("`CollationVersion` has at least one variant; qed")
+	}
+
+	fn newest_validation_version() -> ValidationVersion {
+		ValidationVersion::iter()
+			.max_by_key(|v| *v as u32)
+			.expect("ValidationVersion` has at least one variant; qed")
 	}
 }
 
@@ -558,7 +583,7 @@ mod tests {
 			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
 			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
 		]);
-		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None, CollationVersion::V4);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
 
 		let validation_main =
 			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/validation/3";
@@ -590,7 +615,7 @@ mod tests {
 			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
 			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
 		]);
-		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None, CollationVersion::V4);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
 
 		for protocol in PeerSet::iter() {
 			match protocol {
@@ -629,14 +654,18 @@ mod tests {
 	/// as a fallback causes peers to silently downgrade further than intended.
 	fn assert_all_versions_negotiable(
 		peer_set: PeerSet,
-		main_collation_version: CollationVersion,
+		main_collation_version: Option<CollationVersion>,
 		versions: impl Iterator<Item = ProtocolVersion>,
 	) {
 		let genesis_hash = Hash::from([
 			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
 			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
 		]);
-		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None, main_collation_version);
+		let protocol_names = PeerSetProtocolNames::new_with_main_collation_version(
+			genesis_hash,
+			None,
+			main_collation_version,
+		);
 		let main_version = protocol_names.get_main_version(peer_set);
 		let fallback_names = protocol_names.get_fallback_names(peer_set);
 
@@ -669,7 +698,7 @@ mod tests {
 	fn all_collation_versions_are_negotiable() {
 		assert_all_versions_negotiable(
 			PeerSet::Collation,
-			CollationVersion::V4,
+			None,
 			CollationVersion::iter().map(Into::into),
 		);
 	}
@@ -678,7 +707,7 @@ mod tests {
 	fn all_validation_versions_are_negotiable() {
 		assert_all_versions_negotiable(
 			PeerSet::Validation,
-			CollationVersion::V4,
+			None,
 			ValidationVersion::iter().map(Into::into),
 		);
 	}
@@ -710,7 +739,7 @@ mod tests {
 		// Everything up to V3 stays negotiable...
 		assert_all_versions_negotiable(
 			PeerSet::Collation,
-			CollationVersion::V3,
+			Some(CollationVersion::V3),
 			CollationVersion::iter().filter(|v| *v != CollationVersion::V4).map(Into::into),
 		);
 
@@ -719,7 +748,11 @@ mod tests {
 			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
 			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
 		]);
-		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None, CollationVersion::V3);
+		let protocol_names = PeerSetProtocolNames::new_with_main_collation_version(
+			genesis_hash,
+			None,
+			Some(CollationVersion::V3),
+		);
 		let v4_name = protocol_names.get_name(PeerSet::Collation, CollationVersion::V4.into());
 		let main_name = protocol_names.get_main_name(PeerSet::Collation);
 		let fallbacks = protocol_names.get_fallback_names(PeerSet::Collation);

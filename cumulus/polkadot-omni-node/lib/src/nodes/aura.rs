@@ -420,7 +420,12 @@ where
 		}
 		let hop_pool = hop
 			.as_ref()
-			.map(|params| params.build_pool(config.database.path().map(|p| p.to_path_buf())))
+			.map(|params| {
+				params.build_pool(
+					config.database.path().map(|p| p.to_path_buf()),
+					config.prometheus_registry(),
+				)
+			})
 			.transpose()
 			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
@@ -726,12 +731,7 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -899,12 +899,7 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {

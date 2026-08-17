@@ -161,11 +161,10 @@ fn dummy_candidate_v3(
 
 /// A distinct V4 wire fingerprint per seed. The hashes only need to be unique and stable —
 /// nothing in the accept path interprets them.
-fn v4_fingerprint(seed: u8, relay_parent: Hash) -> CandidateFingerprint {
-	CandidateFingerprint {
+fn v4_fingerprint(seed: u8) -> protocol_v4::CandidateFingerprint {
+	protocol_v4::CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(seed),
 		parent_head_data_hash: Hash::repeat_byte(seed.wrapping_add(0x80)),
-		relay_parent,
 		claim_queue_offset: 0,
 	}
 }
@@ -175,7 +174,6 @@ fn v4_entry(fp: &CandidateFingerprint) -> ProspectiveCandidate {
 	ProspectiveCandidate::ByOutputHead {
 		output_head_data_hash: fp.output_head_data_hash,
 		parent_head_data_hash: fp.parent_head_data_hash,
-		relay_parent: fp.relay_parent,
 	}
 }
 
@@ -1148,10 +1146,15 @@ async fn make_state<B: Backend>(
 		.await
 		.unwrap();
 
-		let peer_manager =
-			PeerManager::startup(db, &mut sender, collation_manager.assignments(), clock)
-				.await
-				.unwrap();
+		let peer_manager = PeerManager::startup(
+			db,
+			&mut sender,
+			collation_manager.assignments(),
+			clock,
+			Metrics::default(),
+		)
+		.await
+		.unwrap();
 
 		State::new(peer_manager, collation_manager, Metrics::default())
 	};
@@ -3476,7 +3479,6 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 	let candidates = vec![protocol_v4::CandidateFingerprint {
 		output_head_data_hash,
 		parent_head_data_hash,
-		relay_parent,
 		claim_queue_offset: 0,
 	}]
 	.try_into()
@@ -3489,7 +3491,6 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 		prospective_candidate: Some(ProspectiveCandidate::ByOutputHead {
 			output_head_data_hash,
 			parent_head_data_hash,
-			relay_parent,
 		}),
 		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 	};
@@ -3555,7 +3556,6 @@ async fn v4_first_advertisement_implicitly_declares() {
 	let fingerprints = vec![protocol_v4::CandidateFingerprint {
 		output_head_data_hash,
 		parent_head_data_hash,
-		relay_parent,
 		claim_queue_offset: 0,
 	}];
 
@@ -3580,7 +3580,6 @@ async fn v4_first_advertisement_implicitly_declares() {
 		prospective_candidate: Some(ProspectiveCandidate::ByOutputHead {
 			output_head_data_hash,
 			parent_head_data_hash,
-			relay_parent,
 		}),
 		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 	};
@@ -3642,44 +3641,16 @@ async fn v4_fetched_collation_mismatches_are_slashed() {
 	);
 	let parent_head_data_hash = dummy_pvd().parent_head.hash();
 
-	let advertise_and_fetch = |output_head_data_hash: Hash, claimed_relay_parent: Hash| {
+	let advertise_and_fetch = |output_head_data_hash: Hash| {
 		(
 			PeerId::random(),
-			ProspectiveCandidate::ByOutputHead {
-				output_head_data_hash,
-				parent_head_data_hash,
-				relay_parent: claimed_relay_parent,
-			},
+			ProspectiveCandidate::ByOutputHead { output_head_data_hash, parent_head_data_hash },
 		)
 	};
 
 	// The advertised output head doesn't match the fetched receipt.
 	{
-		let (peer_id, claim) = advertise_and_fetch(Hash::repeat_byte(0xaa), relay_parent);
-		let adv = Advertisement {
-			peer_id,
-			para_id: 100.into(),
-			scheduling_parent,
-			prospective_candidate: Some(claim),
-			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
-		};
-
-		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
-		state.handle_declare(&mut sender, peer_id, 100.into()).await;
-		test_state.handle_advertisement(&mut state, adv).await;
-
-		state.try_launch_new_fetch_requests(&mut sender).await;
-		test_state.assert_collation_request(adv).await;
-
-		let res = Ok(CollationFetchingResponse::Collation(ccr.to_plain(), dummy_pov()));
-		state.handle_fetched_collation(&mut sender, (adv, res)).await;
-		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
-		test_state.assert_no_messages().await;
-	}
-
-	// The advertised relay parent doesn't match the fetched receipt.
-	{
-		let (peer_id, claim) = advertise_and_fetch(ccr.descriptor.para_head(), get_hash(7));
+		let (peer_id, claim) = advertise_and_fetch(Hash::repeat_byte(0xaa));
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
@@ -3704,7 +3675,7 @@ async fn v4_fetched_collation_mismatches_are_slashed() {
 	// An output head doesn't pin the para the way a candidate hash did: the receipt's para
 	// differs from the declared one, everything else matches.
 	{
-		let (peer_id, claim) = advertise_and_fetch(ccr.descriptor.para_head(), relay_parent);
+		let (peer_id, claim) = advertise_and_fetch(ccr.descriptor.para_head());
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
@@ -3738,8 +3709,7 @@ async fn v4_fetched_collation_mismatches_are_slashed() {
 		ccr_v2.descriptor.set_session_index(leaf_info.session_index);
 
 		// For V2 descriptors the scheduling parent is the relay parent.
-		let (peer_id, claim) =
-			advertise_and_fetch(ccr_v2.descriptor.para_head(), scheduling_parent);
+		let (peer_id, claim) = advertise_and_fetch(ccr_v2.descriptor.para_head());
 		let adv = Advertisement {
 			peer_id,
 			para_id: 100.into(),
@@ -3814,7 +3784,7 @@ async fn v4_whole_segment_stored_and_byte_deduped() {
 		state.handle_declare(&mut sender, peer, 100.into()).await;
 	}
 
-	let fps: Vec<_> = (0xa1..=0xa3).map(|s| v4_fingerprint(s, get_hash(9))).collect();
+	let fps: Vec<_> = (0xa1..=0xa3).map(|s| v4_fingerprint(s)).collect();
 	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
 
 	test_state
@@ -3859,7 +3829,7 @@ async fn v4_one_fetch_per_segment() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
-	let fps: Vec<_> = (0xb1..=0xb2).map(|s| v4_fingerprint(s, get_hash(9))).collect();
+	let fps: Vec<_> = (0xb1..=0xb2).map(|s| v4_fingerprint(s)).collect();
 	test_state
 		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
@@ -3894,7 +3864,7 @@ async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
-	let fps: Vec<_> = (0xc1..=0xc2).map(|s| v4_fingerprint(s, get_hash(9))).collect();
+	let fps: Vec<_> = (0xc1..=0xc2).map(|s| v4_fingerprint(s)).collect();
 	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
 	let mut tip_adv = Advertisement {
 		peer_id,
@@ -3995,7 +3965,7 @@ async fn v4_cap_counts_segments_not_entries() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
-	let fps: Vec<_> = (0xd1..=0xd3).map(|s| v4_fingerprint(s, get_hash(8))).collect();
+	let fps: Vec<_> = (0xd1..=0xd3).map(|s| v4_fingerprint(s)).collect();
 	test_state
 		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
 		.await;
@@ -4005,7 +3975,7 @@ async fn v4_cap_counts_segments_not_entries() {
 	assert_eq!(state.segments(), expected);
 
 	// The second segment (byte-different) trips the cap.
-	let more: Vec<_> = (0xe1..=0xe2).map(|s| v4_fingerprint(s, get_hash(8))).collect();
+	let more: Vec<_> = (0xe1..=0xe2).map(|s| v4_fingerprint(s)).collect();
 	test_state
 		.send_v4_segment(&mut state, peer_id, scheduling_parent, more, 100.into())
 		.await;
@@ -5120,13 +5090,11 @@ async fn v4_resubmission_at_new_sp_skips_fetched_entry() {
 	let fp_a = CandidateFingerprint {
 		output_head_data_hash: ccr.descriptor.para_head(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
-		relay_parent,
 		claim_queue_offset: 0,
 	};
 	let fp_b = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xb2),
 		parent_head_data_hash: fp_a.output_head_data_hash,
-		relay_parent,
 		claim_queue_offset: 0,
 	};
 
@@ -5194,11 +5162,10 @@ async fn v4_walk_advances_past_in_flight_fetch() {
 		state.handle_declare(&mut sender, peer, 100.into()).await;
 	}
 
-	let fp_a = v4_fingerprint(0xa1, get_hash(9));
+	let fp_a = v4_fingerprint(0xa1);
 	let fp_b = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xa2),
 		parent_head_data_hash: fp_a.output_head_data_hash,
-		relay_parent: get_hash(9),
 		claim_queue_offset: 0,
 	};
 
@@ -5238,11 +5205,10 @@ async fn v4_walk_advances_past_in_flight_fetch() {
 // are skipped by the walk; a segment whose every entry is PP-known is consumed without
 // a launch and disappears from the live view.
 async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
-	let fp_a = v4_fingerprint(0xa1, get_hash(9));
+	let fp_a = v4_fingerprint(0xa1);
 	let fp_b = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xa2),
 		parent_head_data_hash: fp_a.output_head_data_hash,
-		relay_parent: get_hash(9),
 		claim_queue_offset: 0,
 	};
 
@@ -5344,13 +5310,11 @@ async fn v4_seconded_head_blocked_after_fetched_entry_expires(#[case] pp_reports
 	let fp_a = CandidateFingerprint {
 		output_head_data_hash: ccr.descriptor.para_head(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
-		relay_parent,
 		claim_queue_offset: 0,
 	};
 	let fp_b = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xb2),
 		parent_head_data_hash: fp_a.output_head_data_hash,
-		relay_parent,
 		claim_queue_offset: 0,
 	};
 
@@ -5427,7 +5391,7 @@ async fn v4_seconded_head_blocked_after_fetched_entry_expires(#[case] pp_reports
 // fetch concludes (output heads are recorded for EVERY protocol version), the walk converges:
 //  a re-advertised segment resolves C, never B again.
 async fn v4_mixed_version_double_fetch_converges() {
-	let fp_a = v4_fingerprint(0xa1, get_hash(9));
+	let fp_a = v4_fingerprint(0xa1);
 
 	let mut test_state = TestState::default();
 	// A is already PP-known so the V4 segment resolves B on its first pick.
@@ -5472,13 +5436,11 @@ async fn v4_mixed_version_double_fetch_converges() {
 	let fp_b = CandidateFingerprint {
 		output_head_data_hash: ccr.descriptor.para_head(),
 		parent_head_data_hash: fp_a.output_head_data_hash,
-		relay_parent,
 		claim_queue_offset: 0,
 	};
 	let fp_c = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xc3),
 		parent_head_data_hash: fp_b.output_head_data_hash,
-		relay_parent,
 		claim_queue_offset: 0,
 	};
 	let segment = vec![fp_a.clone(), fp_b.clone(), fp_c.clone()];
@@ -5550,10 +5512,9 @@ async fn v4_zero_length_cycle_segment_rejected_at_wire() {
 	let self_loop = CandidateFingerprint {
 		output_head_data_hash: Hash::repeat_byte(0xaa),
 		parent_head_data_hash: Hash::repeat_byte(0xaa),
-		relay_parent: get_hash(9),
 		claim_queue_offset: 0,
 	};
-	let fp_ok = v4_fingerprint(0xb1, get_hash(9));
+	let fp_ok = v4_fingerprint(0xb1);
 
 	test_state
 		.send_v4_segment(

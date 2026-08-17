@@ -522,8 +522,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 ) {
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let fork_id = None;
-	let peerset_protocol_names =
-		PeerSetProtocolNames::new(genesis_hash, fork_id, CollationVersion::V4);
+	let peerset_protocol_names = PeerSetProtocolNames::new(genesis_hash, fork_id);
 
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (network, network_handle, discovery, validation_service, collation_service) =
@@ -1783,7 +1782,6 @@ fn network_protocol_versioning_subsystem_msg() {
 				vec![v4_collation::CandidateFingerprint {
 					output_head_data_hash: Hash::random(),
 					parent_head_data_hash: Hash::random(),
-					relay_parent: Hash::random(),
 					claim_queue_offset: 0,
 				}],
 			)

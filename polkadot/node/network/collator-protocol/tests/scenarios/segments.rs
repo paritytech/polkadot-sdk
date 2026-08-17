@@ -124,7 +124,6 @@ mod same_head_retry {
 		let fingerprint = CandidateFingerprint {
 			output_head_data_hash: head_data.hash(),
 			parent_head_data_hash: parent_head.hash(),
-			relay_parent,
 			claim_queue_offset: 0,
 		};
 		V4Candidate { receipt, commitments, pvd, fingerprint }

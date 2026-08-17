@@ -3213,7 +3213,7 @@ pub fn descriptor_version_sanity_check_with_params(
 	match descriptor.version() {
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
-			// V3 descriptors must only arrive via V3 of V4 protocol.
+			// V3 descriptors must only arrive via V3 or V4 protocol.
 			if descriptor.version() == CandidateDescriptorVersion::V3 &&
 				!matches!(collator_protocol_version, CollationVersion::V3 | CollationVersion::V4)
 			{

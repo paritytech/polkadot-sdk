@@ -481,7 +481,7 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 				CollatorProtocolMessage::DistributeSegment {
 					core_index: CoreIndex(0),
 					para_id: test_state.para_id,
-					segment: Segment::V2(built_entry_from_receipt(
+					segment: Segment::V2(segment_entry_from_receipt(
 						&candidate,
 						&pov,
 						HeadData(vec![1, 2, 3]),
@@ -589,7 +589,7 @@ fn distribute_collation_up_to_limit() {
 				CollatorProtocolMessage::DistributeSegment {
 					core_index: CoreIndex(0),
 					para_id: test_state.para_id,
-					segment: Segment::V2(built_entry_from_receipt(
+					segment: Segment::V2(segment_entry_from_receipt(
 						&candidate,
 						&pov,
 						HeadData(vec![1, 2, 3]),
@@ -624,7 +624,7 @@ fn distribute_collation_up_to_limit() {
 				CollatorProtocolMessage::DistributeSegment {
 					core_index: CoreIndex(1),
 					para_id: test_state.para_id,
-					segment: Segment::V2(built_entry_from_receipt(
+					segment: Segment::V2(segment_entry_from_receipt(
 						&candidate,
 						&pov,
 						HeadData(vec![1, 2, 3]),

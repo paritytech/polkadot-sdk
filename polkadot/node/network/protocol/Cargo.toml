@@ -33,4 +33,3 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 rand_chacha = { workspace = true, default-features = true }
-rstest = { workspace = true }

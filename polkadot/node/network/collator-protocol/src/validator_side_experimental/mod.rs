@@ -131,6 +131,8 @@ async fn initialize<Context>(
 			"Collator protocol initial assignments",
 		);
 
+		metrics.note_assigned_paras(scheduled_paras.len());
+
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
@@ -161,6 +163,7 @@ async fn initialize<Context>(
 			ctx.sender(),
 			scheduled_paras.into_iter().collect(),
 			clock.clone(),
+			metrics.clone(),
 		)
 		.await
 		{
@@ -304,6 +307,11 @@ async fn run_inner<Context>(
 				persistence_timer = create_persistence_timer(&*clock, persist_interval);
 			},
 		}
+
+		// Refresh the in-memory connected peers. Done once per loop iteration, so that
+		// it covers every event source above and cannot be missed by a handler that forgets to
+		// update it.
+		state.note_in_memory_connected_peers();
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
@@ -506,7 +514,7 @@ async fn process_incoming_peer_message<Sender, B>(
 			candidates,
 		}) => {
 			if candidates.is_empty() {
-				gum::info!(
+				gum::error!(
 					target: LOG_TARGET,
 					?scheduling_parent,
 					?origin,
@@ -533,7 +541,6 @@ async fn process_incoming_peer_message<Sender, B>(
 				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {
 					output_head_data_hash: candidate_fingerprint.output_head_data_hash,
 					parent_head_data_hash: candidate_fingerprint.parent_head_data_hash,
-					relay_parent: candidate_fingerprint.relay_parent,
 				})
 				.collect();
 			state

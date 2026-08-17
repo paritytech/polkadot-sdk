@@ -414,18 +414,17 @@ impl CollationGenerationSubsystem {
 						None => return,
 					};
 
-					let (collation, result_sender) =
-						match collator_fn(activated, &validation_data).await {
-							Some(collation) => collation.into_inner(),
-							None => {
-								gum::debug!(
-									target: LOG_TARGET,
-									?para_id,
-									"collator returned no collation on collate",
-								);
-								return;
-							},
-						};
+					let collation = match collator_fn(activated, &validation_data).await {
+						Some(collation_result) => collation_result.collation,
+						None => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?para_id,
+								"collator returned no collation on collate",
+							);
+							return;
+						},
+					};
 
 					// Use the core_selector method from CandidateCommitments to extract
 					// CoreSelector and ClaimQueueOffset.
@@ -501,7 +500,6 @@ impl CollationGenerationSubsystem {
 								relay_parent: activated,
 								validation_data: validation_data.clone(),
 								validation_code_hash,
-								result_sender,
 								session_index,
 							},
 							para_id,
@@ -600,7 +598,6 @@ fn construct_segment_entry(
 				relay_parent,
 				validation_data,
 				validation_code_hash,
-				result_sender,
 				session_index,
 			},
 		para_id,
@@ -662,7 +659,6 @@ fn construct_segment_entry(
 		output_head_data_hash: commitments.head_data.hash(),
 		pov,
 		parent_head_data,
-		result_sender,
 	})
 }
 
@@ -676,14 +672,14 @@ async fn construct_and_distribute_v2_receipt(
 ) -> Result<()> {
 	let para_id = collation.para_id;
 	let core_index = collation.core_index;
-	let built_entry = construct_segment_entry(
+	let segment_entry = construct_segment_entry(
 		collation,
 		metrics,
 		transposed_claim_queue,
 		CandidateDescriptorVersion::V2,
 	)?;
 
-	let segment = Segment::V2(built_entry);
+	let segment = Segment::V2(segment_entry);
 	sender
 		.send_message(CollatorProtocolMessage::DistributeSegment { core_index, para_id, segment })
 		.await;

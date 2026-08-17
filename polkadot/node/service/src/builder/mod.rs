@@ -318,11 +318,11 @@ where
 		let main_collation_version = if is_parachain_node.is_running_alongside_parachain_node() ||
 			experimental_collator_protocol
 		{
-			CollationVersion::V4
+			None
 		} else {
-			CollationVersion::V3
+			Some(CollationVersion::V3)
 		};
-		let peerset_protocol_names = PeerSetProtocolNames::new(
+		let peerset_protocol_names = PeerSetProtocolNames::new_with_main_collation_version(
 			genesis_hash,
 			config.chain_spec.fork_id(),
 			main_collation_version,

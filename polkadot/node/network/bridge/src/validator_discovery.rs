@@ -209,11 +209,7 @@ mod tests {
 	fn new_service() -> Service<TestNetwork, TestAuthorityDiscovery> {
 		let genesis_hash = Hash::repeat_byte(0xff);
 		let fork_id = None;
-		let protocol_names = PeerSetProtocolNames::new(
-			genesis_hash,
-			fork_id,
-			polkadot_node_network_protocol::peer_set::CollationVersion::V4,
-		);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, fork_id);
 
 		Service::new(protocol_names)
 	}

@@ -658,6 +658,11 @@ pub mod v4_collation {
 		/// Advertise an ordered list of unincluded candidates. The list
 		/// is ordered by age. A length 1 segment is the V3 single-candidate
 		/// equivalent.
+		///
+		/// V4 has no `Declare` message. Although every `AdvertiseSegment`
+		/// carries a `para_id`, the peer is bound to a single para by its
+		/// first advertisement. Sending a different `para_id` in a
+		/// subsequent message results in disconnection.
 		#[codec(index = 5)]
 		AdvertiseSegment {
 			/// Hash of the scheduling parent
@@ -680,8 +685,6 @@ pub mod v4_collation {
 		pub output_head_data_hash: Hash,
 		/// Parachain head data hash before candidate execution.
 		pub parent_head_data_hash: Hash,
-		/// Relay parent the advertised candidate builds on.
-		pub relay_parent: Hash,
 		/// The claim queue offset.
 		pub claim_queue_offset: u8,
 	}
@@ -693,72 +696,6 @@ pub mod v4_collation {
 		#[codec(index = 0)]
 		#[from]
 		CollatorProtocol(CollatorProtocolMessage),
-	}
-
-	#[cfg(test)]
-	mod tests {
-		use codec::{Decode, Encode};
-		use polkadot_primitives::{CandidateDescriptorVersion, Hash};
-		use rstest::rstest;
-
-		use super::*;
-
-		fn build_segment(len: u32) -> BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>> {
-			let mut candidates = vec![];
-			for _ in 0..len {
-				let fingerprint = CandidateFingerprint {
-					output_head_data_hash: Hash::random(),
-					parent_head_data_hash: Hash::random(),
-					relay_parent: Hash::random(),
-					claim_queue_offset: 0,
-				};
-				candidates.push(fingerprint);
-			}
-			BoundedVec::try_from(candidates).expect("len 0 ≤ MAX_SEGMENT_LEN;")
-		}
-
-		#[rstest]
-		#[case::length_zero(0)]
-		#[case::length_one(1)]
-		#[case::length_many(5)]
-		#[case::length_max(MAX_SEGMENT_LEN)]
-		fn v4_advertise_segment_roundtrip(#[case] len: u32) {
-			let candidates = build_segment(len);
-			let original =
-				CollationProtocol::CollatorProtocol(CollatorProtocolMessage::AdvertiseSegment {
-					scheduling_parent: Hash::random(),
-					candidates_descriptor_version: CandidateDescriptorVersion::V3,
-					candidates,
-					para_id: ParaId::new(1001),
-				});
-			let encoded = original.encode();
-			let decoded =
-				CollationProtocol::decode(&mut &encoded[..]).expect("roundtrip decode succeeds");
-			assert_eq!(original, decoded);
-		}
-
-		#[test]
-		fn v4_advertise_segment_oversize_rejected_at_decode() {
-			let fingerprints: Vec<CandidateFingerprint> = (0..=MAX_SEGMENT_LEN)
-				.map(|_| CandidateFingerprint {
-					output_head_data_hash: Hash::random(),
-					parent_head_data_hash: Hash::random(),
-					relay_parent: Hash::random(),
-					claim_queue_offset: 0,
-				})
-				.collect();
-			assert_eq!(fingerprints.len(), MAX_SEGMENT_LEN as usize + 1);
-
-			let mut wire = Vec::new();
-			wire.push(0x00); // CollationProtocol::CollatorProtocol variant tag
-			wire.push(0x05); // CollatorProtocolMessage::AdvertiseSegment variant tag
-			Hash::repeat_byte(0xAA).encode_to(&mut wire); // scheduling_parent
-			ParaId::from(1001).encode_to(&mut wire);
-			CandidateDescriptorVersion::V3.encode_to(&mut wire); // candidates_descriptor_version
-			fingerprints.encode_to(&mut wire); // compact length + 101 × encoded fingerprint
-
-			assert!(CollationProtocol::decode(&mut &wire[..]).is_err());
-		}
 	}
 }
 

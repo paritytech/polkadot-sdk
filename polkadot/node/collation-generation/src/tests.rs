@@ -134,7 +134,7 @@ impl TestCollator {
 				core_selector_data.index += core_selector_data.increment_index_by;
 			}
 
-			async move { Some(CollationResult { collation, result_sender: None }) }.boxed()
+			async move { Some(CollationResult { collation }) }.boxed()
 		})
 	}
 }
@@ -182,7 +182,6 @@ fn submit_segment_is_no_op_before_initialization() {
 						relay_parent: Hash::repeat_byte(0),
 						collation: test_collation(),
 						validation_code_hash: Hash::repeat_byte(1).into(),
-						result_sender: None,
 						session_index: 1,
 						validation_data: PersistedValidationData {
 							parent_head: vec![1, 2, 3].into(),
@@ -237,7 +236,6 @@ fn submit_segment_leads_to_distribution() {
 						relay_parent,
 						collation,
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])
@@ -304,7 +302,6 @@ fn submit_segment_v3_runtime_calls_use_scheduling_parent() {
 						relay_parent,
 						collation,
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])
@@ -554,7 +551,6 @@ fn v2_receipts_failed_core_index_check() {
 						relay_parent,
 						collation: test_collation(),
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])
@@ -572,6 +568,139 @@ fn v2_receipts_failed_core_index_check() {
 		.await;
 
 		// No collation is distributed.
+
+		virtual_overseer
+	});
+}
+
+#[test]
+// An empty segment is rejected with `Error::InvalidSegmentSize`.
+fn submit_empty_segment_is_rejected() {
+	let para_id = ParaId::from(5);
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: Hash::repeat_byte(0),
+					core_index: CoreIndex(0),
+					candidates_descriptor_version: CandidateDescriptorVersion::V3,
+					collations: BoundedVec::try_from(vec![])
+						.expect("Empty segment should fit;qed!"),
+				}),
+			})
+			.await;
+
+		virtual_overseer
+	});
+}
+
+#[test]
+// A V2 segment with more than one collation is rejected with `Error::V2InvalidSegmentLength`.
+fn submit_v2_segment_with_multiple_collations_is_rejected() {
+	let relay_parent = Hash::repeat_byte(0);
+	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+	let para_id = ParaId::from(5);
+	let pvd = PersistedValidationData {
+		parent_head: dummy_head_data(),
+		relay_parent_number: 10,
+		relay_parent_storage_root: Hash::repeat_byte(1),
+		max_pov_size: 1024,
+	};
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		let collations = (0..2)
+			.map(|_| SegmentCollation {
+				relay_parent,
+				collation: test_collation(),
+				validation_code_hash,
+				session_index: 1,
+				validation_data: pvd.clone(),
+			})
+			.collect::<Vec<_>>();
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: relay_parent,
+					core_index: CoreIndex(0),
+					candidates_descriptor_version: CandidateDescriptorVersion::V2,
+					collations: BoundedVec::try_from(collations)
+						.expect("Two element segment should fit;qed!"),
+				}),
+			})
+			.await;
+
+		virtual_overseer
+	});
+}
+
+#[rstest]
+#[case(CandidateDescriptorVersion::V1)]
+#[case(CandidateDescriptorVersion::Unknown(42))]
+// Only V2 and V3 descriptor versions can be submitted.
+fn submit_segment_with_unsupported_descriptor_version_is_rejected(
+	#[case] version: CandidateDescriptorVersion,
+) {
+	let relay_parent = Hash::repeat_byte(0);
+	let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
+	let para_id = ParaId::from(5);
+	let pvd = PersistedValidationData {
+		parent_head: dummy_head_data(),
+		relay_parent_number: 10,
+		relay_parent_storage_root: Hash::repeat_byte(1),
+		max_pov_size: 1024,
+	};
+
+	test_harness(|mut virtual_overseer| async move {
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Initialize(test_config_no_collator(para_id)),
+			})
+			.await;
+
+		virtual_overseer
+			.send(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+					scheduling_parent: relay_parent,
+					core_index: CoreIndex(0),
+					candidates_descriptor_version: version,
+					// A plain collation without UMP signals: with a `SelectCore` signal a
+					// `V1` submission would already fail the UMP signal checks instead of
+					// reaching the descriptor version check.
+					collations: BoundedVec::try_from(vec![SegmentCollation {
+						relay_parent,
+						collation: test_collation(),
+						validation_code_hash,
+						session_index: 1,
+						validation_data: pvd,
+					}])
+					.expect("One element segment should fit;qed!"),
+				}),
+			})
+			.await;
+
+		// The runtime calls precede the descriptor version checks.
+		helpers::handle_runtime_calls_on_submit_segment(
+			&mut virtual_overseer,
+			relay_parent,
+			[(CoreIndex(0), VecDeque::from([para_id]))].into(),
+		)
+		.await;
+
+		// No segment is distributed.
 
 		virtual_overseer
 	});
@@ -615,7 +744,6 @@ fn approved_peer_signal() {
 						relay_parent,
 						collation,
 						validation_code_hash,
-						result_sender: None,
 						session_index: 1,
 						validation_data: expected_pvd.clone(),
 					}])

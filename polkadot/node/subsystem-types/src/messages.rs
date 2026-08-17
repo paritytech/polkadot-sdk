@@ -38,9 +38,8 @@ use polkadot_node_primitives::{
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
-	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
-	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitSegmentParams,
-	ValidationResult, MAX_SEGMENT_LEN,
+	DisputeMessage, DisputeStatus, ErasureChunk, PoV, SignedDisputeStatement, SignedFullStatement,
+	SignedFullStatementWithPVD, SubmitSegmentParams, ValidationResult, MAX_SEGMENT_LEN,
 };
 use polkadot_primitives::{
 	self,
@@ -293,8 +292,6 @@ pub struct SegmentEntry {
 	pub pov: PoV,
 	/// Parachain head data before candidate execution.
 	pub parent_head_data: HeadData,
-	/// Optional channel notified with the validator's seconded statement.
-	pub result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 }
 
 /// The candidates of one `DistributeSegment` message, shaped by descriptor
@@ -314,7 +311,7 @@ pub enum Segment {
 		/// Ordered candidates; the list may have gaps. Every entry is fully
 		/// built. When on-demand candidate building lands, entries become
 		/// fingerprint advertisements materialized at fetch time, and
-		/// `BuiltEntry` leaves this message entirely.
+		/// `SegmentEntry` leaves this message entirely.
 		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
 	},
 }
