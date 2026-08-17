@@ -60,7 +60,7 @@ use crate::{
 		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
 		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
 	},
-	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
@@ -106,7 +106,10 @@ pub use crate::{
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
 	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
-	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
+	exec::{
+		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
+		ReentrancyProtection,
+	},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
