@@ -63,7 +63,7 @@ crates:
   - name: polkadot-service
     bump: major
   - name: polkadot-primitives-test-helpers
-    bump: minor
+    bump: major
   - name: polkadot-runtime-parachains
     bump: patch
   - name: cumulus-client-consensus-aura
@@ -71,4 +71,6 @@ crates:
   - name: cumulus-relay-chain-minimal-node
     bump: patch
   - name: polkadot-node-core-pvf-execute-worker
+    bump: patch
+  - name: polkadot-omni-node-lib
     bump: patch

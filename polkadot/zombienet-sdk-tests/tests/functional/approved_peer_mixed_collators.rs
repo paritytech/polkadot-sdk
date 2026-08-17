@@ -95,8 +95,8 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 		&relay_client,
 		20,
 		[
-			(ParaId::from(PRE_APPROVED_UMP_SIGNAL_PARA_ID), 10..16),
-			(ParaId::from(V1_PARA_ID), 10..16),
+			(ParaId::from(PRE_APPROVED_UMP_SIGNAL_PARA_ID), 15..21),
+			(ParaId::from(V1_PARA_ID), 15..21),
 		],
 		[],
 	)
