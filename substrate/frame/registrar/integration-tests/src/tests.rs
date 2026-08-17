@@ -27,6 +27,7 @@ use polkadot_primitives::ValidationCode;
 use registrar_primitives::{FailureReason, MessageToRelay, MessageToRelayV1};
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use xcm_simulator::TestExt;
+use para::{Balances, Runtime};
 
 /// A validation code that is at least `MIN_CODE_SIZE` and hashes to something predictable.
 fn code(len: usize) -> Vec<u8> {
@@ -44,7 +45,7 @@ fn hash_of(code: &[u8]) -> sp_core::H256 {
 
 /// Total held on the parachain for `who`, across both registrar reasons.
 fn para_held(who: &AccountId32) -> u128 {
-	use para::{Balances, Runtime};
+
 	<Balances as InspectHold<_>>::balance_on_hold(
 		&<Runtime as pallet_registrar_para::Config>::RuntimeHoldReason::from(
 			HoldReason::ParaIdReservation,
