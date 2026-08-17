@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786974066599,
+  "lastUpdate": 1787003014895,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "84064c944a46abef63eb7f66b3c1184dc2083d7e",
-          "message": "pallet-broker: Fix `force_reserve` (#10792)\n\nWhen issuing a `force_reserve` we are putting the reservation into the\ncurrent and next region `WorkPlan`. The issue is that at the next sale\nrotation we override all unused cores. As the sale rotation isn't aware\nof the forcefully registered core, also the force reserved core is\noverwritten and the parachain looses their coretime for one region (it\ncomes back in the next region). To fix this we now keep track of\nforcefully registered reserves. We input them alongside the other\nreservations into the workplan, but for the current region using any\nfree cores from the previous sale.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
-          "timestamp": "2026-01-14T12:27:06Z",
-          "tree_id": "3c822971879882703dc9218117bdb59dcadec8c0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/84064c944a46abef63eb7f66b3c1184dc2083d7e"
-        },
-        "date": 1768397746612,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63622.369999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.64129064622,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021050020000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.76282242111004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.67344405701,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8170458355400367,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3258417666800026,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.692417810389999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006172585010000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.606609720260001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.560884291362826,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020778699999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020778699999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021050020000000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.840229034189965,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e2160c37e69a0133bd378ee8a51e575dd70491a",
+          "message": "asset-hub-westend: deny value-moving calls to the `NonTransfer` proxy (#12771)\n\n# Description\n\n`ProxyType::NonTransfer` on Asset Hub Westend is documented as\npermitting *\"any call that does not transfer funds or assets\"*, but it\nis implemented as a **deny-list** (`!matches!(...)`) and therefore fails\nopen: a pallet added to the runtime is reachable by a `NonTransfer`\nproxy unless someone remembers to list it.\n\nSeveral call families that move the delegator's funds or assets were not\nlisted.\n\nFixes #12466 (found by the Runtime Whitebox Fuzzer).\n\n## Integration\n\nNo API change. `NonTransfer` proxies lose the ability to make the calls\nlisted below. Calls that do not move value are unaffected — including\n`Indices::claim`/`free`/`freeze` and `Vesting::vest` — as are all call\nfamilies backing the proxy types `NonTransfer` declares as its subsets,\nso the `is_superset` lattice is unchanged.\n\n## Review Notes\n\n**Scope.** The issue reports `ForeignAssets` and `PoolAssets`. While\nverifying it I found the same root cause admits five more families. The\nadded test enumerates every value-moving call it knows about; with the\nfix reverted it reports:\n\n```\nNonTransfer must reject calls that move funds or assets, but permitted:\n[\"ForeignAssets::transfer\", \"PoolAssets::transfer\",\n \"AssetConversion::swap_exact_tokens_for_tokens\", \"Psm::mint\",\n \"PolkadotXcm::transfer_assets\", \"Revive::call\", \"Indices::transfer\"]\n```\n\nSo every denial below is load-bearing, not speculative:\n\n| Denied | Why |\n|---|---|\n| `ForeignAssets`, `PoolAssets` | the other `pallet-assets` instances;\ntransfer value exactly as `Assets` does *(as reported)* |\n| `AssetConversion` | `swap_*`, `add_liquidity`, `remove_liquidity` move\nthe caller's assets |\n| `Psm` | `mint`/`redeem` swap the caller's stablecoins |\n| `PolkadotXcm` | `transfer_assets`/`teleport_assets` move assets\ncross-chain; `send`/`execute` express the same as raw XCM |\n| `Revive` | `call`/`instantiate*` carry a `value` to transfer |\n| `Indices::transfer`, `force_transfer` | `repatriate_reserved(&who,\n&new, amount)` moves the index's reserved deposit to another account |\n\nTwo of these are cases the **relay chain excludes by name** and the\nAsset Hub port dropped: the Westend relay's `NonTransfer` is an\nallow-list that specifically omits the entire XCM pallet, and\nspecifically omits `Indices::transfer`/`force_transfer`. `Indices` is\ntherefore denied per-variant here rather than wholesale, to draw the\nsame line.\n\n**I am happy to narrow this to just `ForeignAssets`/`PoolAssets` if\nyou'd prefer the minimal fix for the reported issue** — I went wider\nbecause closing the issue while leaving five instances of the identical\nbug seemed worse than proposing the broader change and letting you scope\nit.\n\n**Not touched.** I checked that none of the denied families back\n`Collator`, `Staking`, `NominationPools` or `StakingOperator`, the proxy\ntypes `NonTransfer` declares as subsets. Denying `NominationPools` or\n`Staking` would move value *and* silently break the superset lattice.\n\n**Tests.** Two, pinning the change from both directions:\n\n- `non_transfer_proxy_rejects_value_moving_calls` — collects every leak\nrather than asserting one at a time, so a regression names all of them.\n- `non_transfer_proxy_still_permits_non_value_moving_calls` — guards\nagainst over-reach. It passes both before and after this change.\n\nFull `asset-hub-westend-runtime` suite: 54 passed, 0 failed. Clippy\nclean.\n\nRelated: #12769 fixes a separate defect in the same `impl InstanceFilter\nfor ProxyType` (the `is_superset` relation rather than the filter). The\ntwo do not conflict.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2026-08-17T20:14:06Z",
+          "tree_id": "ee6e7eb2491e0d7fe04b3b16963c2380dc574584",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e2160c37e69a0133bd378ee8a51e575dd70491a"
+        },
+        "date": 1787002982745,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.19,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.65190477132,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.407135566929997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018011249999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.903732357349977,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.526496339252864,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005653152959999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001765807,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6969778005800005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018011249999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.79272319978998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.662317808669999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.687020057100001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001765807,
             "unit": "seconds"
           }
         ]
