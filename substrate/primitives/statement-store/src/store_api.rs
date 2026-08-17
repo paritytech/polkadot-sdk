@@ -389,7 +389,7 @@ pub struct AdmittedBatch {
 	pub statements: Vec<(Hash, Statement)>,
 	/// Admission sequence number to resume the walk from.
 	pub cursor: u64,
-	/// Whether the walk reached the watermark.
+	/// Whether the walk reached the watermark; always equals `cursor >= watermark`.
 	pub done: bool,
 }
 
@@ -444,6 +444,9 @@ pub trait StatementStore: Send + Sync {
 	/// Sequence numbers whose statement has left the store are passed over. The returned
 	/// cursor sits after every visited statement except an `Abort`ed one, which the next
 	/// walk revisits first.
+	///
+	/// A call walks the whole `cursor..watermark` range unless aborted, so its cost is
+	/// bounded by the range, not by the number of taken statements.
 	fn admitted_statements(
 		&self,
 		cursor: u64,

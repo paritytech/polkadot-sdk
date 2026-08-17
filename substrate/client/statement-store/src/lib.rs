@@ -2261,6 +2261,12 @@ impl StatementStore for Store {
 		watermark: u64,
 		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
 	) -> Result<AdmittedBatch> {
+		// A cursor past the watermark would snap back to it below, moving the caller's
+		// position backwards.
+		debug_assert!(
+			cursor <= watermark,
+			"admission cursor {cursor} must not exceed the watermark {watermark}"
+		);
 		let mut statements = Vec::new();
 		let mut aborted = false;
 		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
@@ -2302,7 +2308,7 @@ impl StatementStore for Store {
 				Err(e) => {
 					log::error!(
 						target: LOG_TARGET,
-						"Could not decode statement {:?} while replaying it: {:?}",
+						"Could not decode statement {:?} while walking the admission journal: {:?}",
 						HexDisplay::from(&hash),
 						e
 					);
@@ -3161,7 +3167,9 @@ impl Store {
 				}
 				chunk_bytes += encoded.len();
 				statements.push(encoded.to_vec());
-				FilterDecision::Take
+				// The encoded bytes are already captured above, so the statement is reported
+				// as skipped to keep the walk from cloning it into the returned batch too.
+				FilterDecision::Skip
 			},
 		)?;
 		Ok(ReplayBatch { statements, cursor: batch.cursor, done: batch.done })
