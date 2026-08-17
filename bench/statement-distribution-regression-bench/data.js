@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786974110602,
+  "lastUpdate": 1787003055423,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80a438ea4defc8e4b93f4ab1c2492b82e9b954e0",
-          "message": "Fix pallet-revive-fixtures (#10780)\n\nFixing two issues:\n\n1. Build on rustc >= 1.92 was broken despite\nhttps://github.com/paritytech/polkadot-sdk/pull/10749. That PR was\nbroken.\n2. The nested cargo didn't properly inherit the parent toolchain (an\nolder error). Leading to the situation where a `1.88` was only applied\nto the parent toolchain\n\nReplacement for https://github.com/paritytech/polkadot-sdk/pull/10778.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-13T14:08:34Z",
-          "tree_id": "e2fd8ae9df0be03497c08378224d879458a594ad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/80a438ea4defc8e4b93f4ab1c2492b82e9b954e0"
-        },
-        "date": 1768318641539,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.01999999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06500876857799995,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038523811972000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08228468373999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e2160c37e69a0133bd378ee8a51e575dd70491a",
+          "message": "asset-hub-westend: deny value-moving calls to the `NonTransfer` proxy (#12771)\n\n# Description\n\n`ProxyType::NonTransfer` on Asset Hub Westend is documented as\npermitting *\"any call that does not transfer funds or assets\"*, but it\nis implemented as a **deny-list** (`!matches!(...)`) and therefore fails\nopen: a pallet added to the runtime is reachable by a `NonTransfer`\nproxy unless someone remembers to list it.\n\nSeveral call families that move the delegator's funds or assets were not\nlisted.\n\nFixes #12466 (found by the Runtime Whitebox Fuzzer).\n\n## Integration\n\nNo API change. `NonTransfer` proxies lose the ability to make the calls\nlisted below. Calls that do not move value are unaffected — including\n`Indices::claim`/`free`/`freeze` and `Vesting::vest` — as are all call\nfamilies backing the proxy types `NonTransfer` declares as its subsets,\nso the `is_superset` lattice is unchanged.\n\n## Review Notes\n\n**Scope.** The issue reports `ForeignAssets` and `PoolAssets`. While\nverifying it I found the same root cause admits five more families. The\nadded test enumerates every value-moving call it knows about; with the\nfix reverted it reports:\n\n```\nNonTransfer must reject calls that move funds or assets, but permitted:\n[\"ForeignAssets::transfer\", \"PoolAssets::transfer\",\n \"AssetConversion::swap_exact_tokens_for_tokens\", \"Psm::mint\",\n \"PolkadotXcm::transfer_assets\", \"Revive::call\", \"Indices::transfer\"]\n```\n\nSo every denial below is load-bearing, not speculative:\n\n| Denied | Why |\n|---|---|\n| `ForeignAssets`, `PoolAssets` | the other `pallet-assets` instances;\ntransfer value exactly as `Assets` does *(as reported)* |\n| `AssetConversion` | `swap_*`, `add_liquidity`, `remove_liquidity` move\nthe caller's assets |\n| `Psm` | `mint`/`redeem` swap the caller's stablecoins |\n| `PolkadotXcm` | `transfer_assets`/`teleport_assets` move assets\ncross-chain; `send`/`execute` express the same as raw XCM |\n| `Revive` | `call`/`instantiate*` carry a `value` to transfer |\n| `Indices::transfer`, `force_transfer` | `repatriate_reserved(&who,\n&new, amount)` moves the index's reserved deposit to another account |\n\nTwo of these are cases the **relay chain excludes by name** and the\nAsset Hub port dropped: the Westend relay's `NonTransfer` is an\nallow-list that specifically omits the entire XCM pallet, and\nspecifically omits `Indices::transfer`/`force_transfer`. `Indices` is\ntherefore denied per-variant here rather than wholesale, to draw the\nsame line.\n\n**I am happy to narrow this to just `ForeignAssets`/`PoolAssets` if\nyou'd prefer the minimal fix for the reported issue** — I went wider\nbecause closing the issue while leaving five instances of the identical\nbug seemed worse than proposing the broader change and letting you scope\nit.\n\n**Not touched.** I checked that none of the denied families back\n`Collator`, `Staking`, `NominationPools` or `StakingOperator`, the proxy\ntypes `NonTransfer` declares as subsets. Denying `NominationPools` or\n`Staking` would move value *and* silently break the superset lattice.\n\n**Tests.** Two, pinning the change from both directions:\n\n- `non_transfer_proxy_rejects_value_moving_calls` — collects every leak\nrather than asserting one at a time, so a regression names all of them.\n- `non_transfer_proxy_still_permits_non_value_moving_calls` — guards\nagainst over-reach. It passes both before and after this change.\n\nFull `asset-hub-westend-runtime` suite: 54 passed, 0 failed. Clippy\nclean.\n\nRelated: #12769 fixes a separate defect in the same `impl InstanceFilter\nfor ProxyType` (the `is_superset` relation rather than the filter). The\ntwo do not conflict.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2026-08-17T20:14:06Z",
+          "tree_id": "ee6e7eb2491e0d7fe04b3b16963c2380dc574584",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e2160c37e69a0133bd378ee8a51e575dd70491a"
+        },
+        "date": 1787003023514,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.112,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04007656410600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08846803746799992,
             "unit": "seconds"
           }
         ]
