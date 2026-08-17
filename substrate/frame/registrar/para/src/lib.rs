@@ -358,9 +358,11 @@ pub mod pallet {
 				Error::<T>::AlreadyRegistered
 			);
 
-			let head_len =
-				u32::try_from(genesis_head.len()).map_err(|_| Error::<T>::HeadDataTooLarge)?;
-			ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+			let head_len = genesis_head.len() as u32;
+			ensure!(
+				head_len <= T::MaxHeadDataSize::get(),
+				Error::<T>::HeadDataTooLarge
+			);
 			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
 			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
 
