@@ -1796,6 +1796,34 @@ module tests {
     }
   }
 
+  /// §5.1: rejection is what confines the privileged host functions of §4.3. A
+  /// candidate rejected at the parent-head check must never reach the replay step,
+  /// so a stale-parent candidate carrying `UpgradeService` cannot swap the service's
+  /// own code. The control at the end replays the identical message from an accepted
+  /// candidate and shows it does take effect, so the block is rejection and not some
+  /// unrelated precondition.
+  run rejectedCandidateCannotUsePrivilegedCallsTest = {
+    val ah = AssetHubParaId
+    val ahCode: ValidationCodeHash = { vchBytes: 2 }
+    val newCode: Hash = { hashBytes: 4242 }
+    val upgrade =
+      UpgradeService({ codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 })
+    init
+      // Make the new service code available, so the upgrade's own preconditions hold.
+      .then(applyHappyPath(ah, ahCode, List(Solicit({ hash: newCode, len: FixedCodeLen }))))
+      .then(provide(newCode, FixedCodeLen))
+      .then(expectThat(all {
+        svc.preimageAvailable(newCode, FixedCodeLen),
+        svc.serviceCodeHash == initialState.serviceCodeHash
+      }))
+      // A REJECTED candidate carrying the upgrade: nothing may happen.
+      .then(applyStaleParentCandidate(ah, ahCode, List(upgrade)))
+      .then(expectThat(svc.serviceCodeHash == initialState.serviceCodeHash))
+      // Control: the same message from an accepted candidate does upgrade.
+      .then(applyHappyPath(ah, ahCode, List(upgrade)))
+      .then(expectThat(svc.serviceCodeHash == newCode))
+  }
+
   /// True iff a work result carries a successful digest.
   pure def isOkDigest(r: WorkExecResult): bool =
     match r { | WorkOk(d) => match d { | Ok(_) => true | Err(_) => false } | WorkErr => false }

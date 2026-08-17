@@ -500,17 +500,19 @@ enum UpwardMessage {
     /// and increments `ParaInfo.used_state_balance` (rejected if it
     /// would exceed `total_state_balance`). See §6.1.
     Solicit { hash: Hash, len: Compact<u32> },
-    /// From `forget`: release a previously solicited preimage. Removing the
-    /// last referencer may need a follow-up `forget` (two-step expunge; see
-    /// §6.1). For the parachain's active or pending validation code it only
-    /// clears `pinned` (§5.2).
-    Forget { hash: Hash, len: Compact<u32> },
+    /// From `forget`: release a previously solicited preimage. `para_id` names
+    /// whose reference is released and whose `used_state_balance` is refunded,
+    /// since only that parachain was ever charged for it. Removing the last
+    /// referencer may need a follow-up `forget` (two-step expunge; see §6.1).
+    /// For that parachain's active or pending validation code it only clears
+    /// `pinned` (§5.2).
+    Forget { para_id: ParaId, hash: Hash, len: Compact<u32> },
     /// From `kv_set`: upsert `key_value_storage[(para_id, key)] = value`.
     /// Accumulate replays it with delta state-balance charging (see §6.1).
     SetKV { key: Vec<u8>, value: Vec<u8> },
     /// From `kv_remove`: remove `key_value_storage[(para_id, key)]`, refunding
-    /// its footprint (see §6.1).
-    RemoveKV { key: Vec<u8> },
+    /// its footprint to `para_id` (see §6.1).
+    RemoveKV { para_id: ParaId, key: Vec<u8> },
     /// From `transfer_out`: transfer balance to another JAM service.
     /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
     /// deferred transfer. JAM ignores the gas limit when no memo is supplied.
@@ -765,7 +767,11 @@ Performed once for each work package that is being accumulated in this block, in
 A work result of gray-paper `WorkExecResult::Error`, either a bug in the parachain
 service's `refine` or a PVF that failed without reporting an actual error (§4.2), is skipped entirely
 here: no `parachain_log` entry, no state change, and it never reaches the steps below.
-Otherwise:
+
+A candidate **rejected** at any step below is abandoned there: no later step runs for
+it, and in particular its upward messages are never replayed. Rejection is what confines
+the privileged host functions of §4.3, so a candidate failing the parent-head or
+validation-code check can invoke none of them. Otherwise:
 
 1. **Registration check**: Reject the work-package immediately, and record no
    `parachain_log` entry, if `para_id` is not in `parachains` or its `ParaInfo`
@@ -1429,6 +1435,10 @@ the service only ever has to forget the two validation codes, never an unbounded
 set of solicited preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `forget` and `kv_remove` take a `para_id` (§4.3),
 letting the Coretime chain free any parachain's state on its behalf.
+
+A clean-up that stops for a retry leaves `validation_code` and `pending_upgrade` in
+place. Their footprints remain charged until the expunging `forget` succeeds, so the
+allowance the check compares against must keep counting them.
 
 While `is_deregistering` is set the service rejects every work package for the
 parachain (§5.1), so no new state accrues. Each not-yet-expungeable validation
