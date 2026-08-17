@@ -46,7 +46,7 @@ use std::{
 use storage_api::StorageApi;
 use subxt::{
 	OnlineClient,
-	backend::{StreamOf, StreamOfResults},
+	backend::{LegacyBackend, StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
 	rpcs::{
@@ -453,7 +453,12 @@ pub async fn connect(
 	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
-	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
+	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
+	// to the CombinedBackend, which routes block streams and header fetches through
+	// the chainHead protocol; its follow restarts and pinning limits stall receipt
+	// indexing under load (blocks become unresolvable once unpinned).
+	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
+	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
@@ -618,9 +623,22 @@ impl Client {
 				},
 			};
 
-			let block = block.at().await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to resolve streamed block: {err:?}");
-			})?;
+			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
+			// erroring out here would kill the essential subscription task and with it the
+			// whole server. Skip instead: a skipped finalized block doesn't advance
+			// `last_finalized_seen`, so the gap filler backfills it.
+			let block = match block.at().await {
+				Ok(block) => block,
+				Err(err) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+						block.number(),
+						block.hash(),
+					);
+					continue;
+				},
+			};
 
 			// Acquire lock to ensure only one subscription can perform write operations at a time
 			let _guard = self.subscription_lock.lock().await;
