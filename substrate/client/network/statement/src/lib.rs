@@ -1488,7 +1488,14 @@ where
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
 	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
-		let Some(peer) = self.peers.get(who) else {
+		let Self {
+			peers,
+			propagation_outboxes,
+			recently_received_statements,
+			pending_statements_peers,
+			..
+		} = self;
+		let Some(peer) = peers.get(who) else {
 			return;
 		};
 
@@ -1496,43 +1503,37 @@ where
 			return;
 		}
 
-		let to_send: Vec<_> = statements
-			.iter()
-			.filter_map(|(hash, stmt)| {
-				// The peer supplied this statement, do not send it back.
-				if has_received_from(
-					&self.recently_received_statements,
-					&self.pending_statements_peers,
-					hash,
-					who,
-				) {
-					return None;
-				}
-				// For v2 peers with topic affinity, filter by topic match.
-				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-					return None;
-				}
-				Some(*hash)
-			})
-			.collect();
+		let to_send = statements.iter().filter_map(|(hash, stmt)| {
+			// The peer supplied this statement, do not send it back.
+			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
+			{
+				return None;
+			}
+			// For v2 peers with topic affinity, filter by topic match.
+			if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+				return None;
+			}
+			Some(*hash)
+		});
 
-		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
-
-		if to_send.is_empty() {
-			return;
+		let outbox = propagation_outboxes.entry(*who).or_default();
+		let mut queued = 0;
+		let mut overflow = 0;
+		for hash in to_send {
+			// The freshest statements are the ones still worth delivering, so an
+			// overflowing outbox drops from the front.
+			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
+				outbox.pop_front();
+				overflow += 1;
+			}
+			outbox.push_back(hash);
+			queued += 1;
 		}
 
-		let outbox = self.propagation_outboxes.entry(*who).or_default();
-		// The freshest statements are the ones still worth delivering, so an overflowing
-		// outbox drops from the front.
-		let overflow = (outbox.len() + to_send.len()).saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
+		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
+
 		if overflow > 0 {
-			let dropped_queued = overflow.min(outbox.len());
-			outbox.drain(..dropped_queued);
-			outbox.extend(to_send.into_iter().skip(overflow - dropped_queued));
 			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
-		} else {
-			outbox.extend(to_send);
 		}
 		self.try_send_next_chunk(*who);
 	}
