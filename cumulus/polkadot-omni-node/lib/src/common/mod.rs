@@ -158,11 +158,6 @@ pub struct NodeExtraArgs {
 pub(crate) const GAP_SYNC_BODY_SAFETY_MARGIN: u32 = 256;
 
 /// Returns the [`GapSyncBodyPolicyProvider`] for this node.
-///
-/// The provider is evaluated when a `ChainSync` instance is created — on a warp-syncing
-/// node right after state sync completes — so it queries the runtime at the warp target
-/// instead of genesis. Errors fail the node instead of silently degrading a storage
-/// chain to header-only gap sync.
 pub(crate) fn gap_sync_body_policy_provider<Block, Client>(
 	client: Arc<Client>,
 	blocks_pruning: BlocksPruning,
@@ -201,8 +196,7 @@ where
 	})
 }
 
-/// Maps the runtime's transaction-storage retention period (`None` when the runtime does
-/// not expose `TransactionStorageApi` v2) and the local pruning configuration onto a
+/// Maps the runtime's transaction-storage retention period and the local pruning configuration onto a
 /// [`GapSyncBodyPolicy`], validating that the configuration can actually serve the
 /// storage chain.
 fn resolve_gap_sync_body_policy(
@@ -210,19 +204,12 @@ fn resolve_gap_sync_body_policy(
 	blocks_pruning: BlocksPruning,
 	safety_margin: u32,
 ) -> Result<GapSyncBodyPolicy, String> {
-	let Some(retention_period) = storage_chain_retention else {
-		// Not a storage chain: archive nodes backfill the whole gap with bodies, pruned
-		// nodes backfill headers and justifications only.
-		return Ok(match blocks_pruning {
-			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => GapSyncBodyPolicy::All,
-			BlocksPruning::Some(_) => GapSyncBodyPolicy::HeadersOnly,
-		});
-	};
-
-	match blocks_pruning {
-		// Archive nodes retain every body anyway; no safety cutoff is necessary.
-		BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => Ok(GapSyncBodyPolicy::All),
-		BlocksPruning::Some(window) => {
+	match (storage_chain_retention, blocks_pruning) {
+		// Archive nodes backfill the whole gap with bodies; no safety cutoff is necessary.
+		(_, BlocksPruning::KeepAll | BlocksPruning::KeepFinalized) => Ok(GapSyncBodyPolicy::All),
+		// Pruned nodes off a storage chain backfill headers and justifications only.
+		(None, BlocksPruning::Some(_)) => Ok(GapSyncBodyPolicy::HeadersOnly),
+		(Some(retention_period), BlocksPruning::Some(window)) => {
 			if safety_margin >= retention_period {
 				return Err(format!(
 					"the gap sync body safety margin ({safety_margin}) must be smaller than \
