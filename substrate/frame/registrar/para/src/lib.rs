@@ -65,7 +65,10 @@ use registrar_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::traits::{BlockNumberProvider, Saturating};
+use sp_runtime::{
+	traits::{BlockNumberProvider, Saturating},
+	DispatchResult,
+};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -159,7 +162,7 @@ pub type ParaInfoOf<T> = ParaInfo<
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::pallet_prelude::{DispatchResult, *};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -462,7 +465,7 @@ impl<T: Config> Pallet<T> {
 	/// dispatch error: erroring here would unwind the whole incoming message for something we can
 	/// do nothing about anyway. Unexpected responses still trip a defensive failure so they are
 	/// loud in logs (and panic under `debug_assertions`).
-	fn on_register_response(para_id: ParaId, outcome: Outcome) -> sp_runtime::DispatchResult {
+	fn on_register_response(para_id: ParaId, outcome: Outcome) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
 			defensive!("register response for unknown para, dropping", para_id);
 			return Ok(());
@@ -499,7 +502,7 @@ impl<T: Config> Pallet<T> {
 	/// Unlike a register response, an answer for a para that is no longer pending is expected
 	/// rather than defensive: a verdict already in flight when the cancellation was sent settles
 	/// the registration first, and this then has nothing left to do.
-	fn on_cancel_response(para_id: ParaId, outcome: Outcome) -> sp_runtime::DispatchResult {
+	fn on_cancel_response(para_id: ParaId, outcome: Outcome) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
 			defensive!("cancel response for unknown para, dropping", para_id);
 			return Ok(());
