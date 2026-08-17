@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786801170373,
+  "lastUpdate": 1786961879095,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0130e98195941a7ce009547b797dcd007003424a",
-          "message": "[Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530)\n\nStoring release and non-release distribution binaries into different\nbuckets (only for RPM in this PR)\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-12T18:16:26Z",
-          "tree_id": "dc9fb6e050543bdbe4487b33168190ca4b51144c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0130e98195941a7ce009547b797dcd007003424a"
-        },
-        "date": 1768245854881,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.09599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038424594962000014,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06821088777599993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08610917728199997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e02db0d5706ae3bfb111c79a453f64e37aeee82",
+          "message": "[pallet-revive] expose ReentrancyProtection (#12866)\n\nExport ReentrancyProtection from pallet_revive and\npallet_revive::precompiles: it is a parameter type of the public\nExt::call, so it must be nameable by out-of-crate precompile\nimplementors.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-17T08:42:59Z",
+          "tree_id": "bb796b4922305fc96dcaffe53035253f768e2190",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e02db0d5706ae3bfb111c79a453f64e37aeee82"
+        },
+        "date": 1786961844263,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.07399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04006171758200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08756282356199996,
             "unit": "seconds"
           }
         ]
