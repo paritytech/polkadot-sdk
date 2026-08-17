@@ -33,7 +33,10 @@ use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
-use sc_service::{config::PrometheusConfig, BasePath};
+use sc_service::{
+	config::{NetworkConfiguration, NodeKeyConfig, PrometheusConfig},
+	BasePath,
+};
 use sc_storage_monitor::StorageMonitorParams;
 use std::{
 	fmt::{Display, Formatter},
@@ -388,6 +391,9 @@ pub struct RelayChainCli<Config: CliConfig> {
 	/// The base path that should be used by the relay chain.
 	pub base_path: Option<PathBuf>,
 
+	/// Whether this node is the relay chain side of a collator.
+	pub is_relay_side_of_collator: bool,
+
 	_phantom: PhantomData<Config>,
 }
 
@@ -418,7 +424,13 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
-		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }
+		Self {
+			base,
+			chain_id,
+			base_path: Some(base_path),
+			is_relay_side_of_collator: para_config.role.is_authority(),
+			_phantom: Default::default(),
+		}
 	}
 }
 
@@ -469,6 +481,45 @@ impl<Config: CliConfig> DefaultConfigurationValues for RelayChainCli<Config> {
 impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
+	}
+
+	fn network_config(
+		&self,
+		chain_spec: &Box<dyn ChainSpec>,
+		is_dev: bool,
+		is_validator: bool,
+		net_config_dir: PathBuf,
+		client_id: &str,
+		node_name: &str,
+		node_key: NodeKeyConfig,
+		default_listen_port: u16,
+	) -> sc_cli::Result<NetworkConfiguration> {
+		let mut network_config = self.base.base.network_config(
+			chain_spec,
+			is_dev,
+			is_validator,
+			net_config_dir,
+			client_id,
+			node_name,
+			node_key,
+			default_listen_port,
+		)?;
+
+		// The relay chain side of a collator doesn't listen on WebRTC by default;
+		// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
+		let network_params = &self.base.base.network_params;
+		if self.is_relay_side_of_collator &&
+			!network_params.force_enable_webrtc &&
+			network_params.listen_addr.is_empty()
+		{
+			network_config.listen_addresses.retain(|address| {
+				!address.iter().any(|protocol| {
+					matches!(protocol, sc_network::multiaddr::Protocol::WebRTCDirect)
+				})
+			});
+		}
+
+		Ok(network_config)
 	}
 
 	fn import_params(&self) -> Option<&ImportParams> {

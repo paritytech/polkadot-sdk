@@ -78,26 +78,12 @@ fn main() -> Result<(), sc_cli::Error> {
 				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
 			let tokio_handle = parachain_config.tokio_handle.clone();
-			let mut relay_chain_config = SubstrateCli::create_configuration(
+			let relay_chain_config = SubstrateCli::create_configuration(
 				&relay_chain_cli,
 				&relay_chain_cli,
 				tokio_handle,
 			)
 			.map_err(|err| format!("Relay chain argument error: {}", err))?;
-
-			// The relay chain side of a collator doesn't listen on WebRTC by default;
-			// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
-			let relay_network_params = &relay_chain_cli.base.base.network_params;
-			if parachain_config.role.is_authority() &&
-				!relay_network_params.force_enable_webrtc &&
-				relay_network_params.listen_addr.is_empty()
-			{
-				relay_chain_config.network.listen_addresses.retain(|address| {
-					!address.iter().any(|protocol| {
-						matches!(protocol, sc_network::multiaddr::Protocol::WebRTCDirect)
-					})
-				});
-			}
 
 			tracing::info!(
 				"Is collating: {}",
