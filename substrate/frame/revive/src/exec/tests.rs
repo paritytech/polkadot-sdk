@@ -3350,39 +3350,42 @@ fn cold_hot_transient_skips_access_list() {
 	});
 }
 
+/// A write touches the access list before charging, and a failed charge
+/// kills its frame: the rollback must drop the upgrade, so the slot's
+/// write is priced again. The child is a self-call, so both frames run
+/// under the same contract address and touch the same entry.
 #[test]
-fn failed_write_charge_leaves_the_slot_unpaid() {
+fn cold_hot_reverted_write_charge_rolls_back_the_upgrade() {
 	let code_hash = MockLoader::insert(Call, |ctx, _| {
 		use crate::vm::RuntimeCosts;
-		let read_slot = Key::Fix([1; 32]);
-		let cold_slot = Key::Fix([2; 32]);
-		let over_budget =
-			|kind| RuntimeCosts::SetStorage { new_bytes: u32::MAX, old_bytes: u32::MAX, kind };
+		let slot = Key::Fix([1; 32]);
 
-		ctx.ext.warm_storage_slot(false, &read_slot, StorageOp::Read);
-		assert!(
-			ctx.ext.charge_storage_write(false, &read_slot, over_budget).is_err(),
-			"the charge must exceed the budget",
-		);
+		if ctx.input_data == vec![1] {
+			let kind = ctx.ext.warm_storage_slot(false, &slot, StorageOp::Write);
+			let over_budget =
+				RuntimeCosts::SetStorage { new_bytes: u32::MAX, old_bytes: u32::MAX, kind };
+			assert!(
+				ctx.ext.frame_meter_mut().charge_weight_token(over_budget).is_err(),
+				"the charge must exceed the budget",
+			);
+			return Err("die at the write charge".into());
+		}
+
+		ctx.ext.warm_storage_slot(false, &slot, StorageOp::Read);
+		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the self-call must revert");
 		assert_matches!(
-			ctx.ext.storage_slot_warmth(false, &read_slot, StorageOp::Write),
+			ctx.ext.storage_slot_warmth(false, &slot, StorageOp::Write),
 			ContractStorageKind::Persistent(Warmth::Hot { first_write: true }),
-			"a failed charge must not mark the read-paid slot write-paid",
+			"the reverted frame's upgrade must roll back, leaving the write unpaid",
 		);
 
-		assert!(ctx.ext.charge_storage_write(false, &cold_slot, over_budget).is_err());
+		let kind = ctx.ext.warm_storage_slot(false, &slot, StorageOp::Write);
+		let within_budget = RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 32, kind };
+		assert!(ctx.ext.frame_meter_mut().charge_weight_token(within_budget).is_ok());
 		assert_matches!(
-			ctx.ext.storage_slot_warmth(false, &cold_slot, StorageOp::Write),
-			ContractStorageKind::Persistent(Warmth::Cold { .. }),
-			"a failed charge must not warm a cold slot",
-		);
-
-		let within_budget = |kind| RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 32, kind };
-		assert!(ctx.ext.charge_storage_write(false, &read_slot, within_budget).is_ok());
-		assert_matches!(
-			ctx.ext.storage_slot_warmth(false, &read_slot, StorageOp::Write),
+			ctx.ext.storage_slot_warmth(false, &slot, StorageOp::Write),
 			ContractStorageKind::Persistent(Warmth::Hot { first_write: false }),
-			"a successful charge must mark the slot write-paid",
+			"a paid write in a surviving frame stays paid",
 		);
 		exec_success()
 	});

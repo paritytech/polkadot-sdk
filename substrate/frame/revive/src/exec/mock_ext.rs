@@ -274,18 +274,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::storage_slot_warmth")
 	}
 
-	fn charge_storage_write<Tok: crate::metering::Token<Self::T>>(
-		&mut self,
-		_transient: bool,
-		_key: &Key,
-		_token: impl FnOnce(crate::access_list::ContractStorageKind) -> Tok,
-	) -> Result<
-		(crate::metering::ChargedAmount, crate::access_list::ContractStorageKind),
-		DispatchError,
-	> {
-		panic!("MockExt::charge_storage_write")
-	}
-
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}

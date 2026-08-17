@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, ContractStorageKind, StorageOp, Warmth},
+	access_list::{AccessEntry, AccessList, ContractStorageKind, StorageOp},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -548,8 +548,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
 	/// the slot's [`ContractStorageKind`]. `op` is the operation being
 	/// performed, so the first write to a slot that was only read can be
-	/// charged the write surcharge exactly once. When `transient` is true,
-	/// skips the access list and returns the `Transient` variant.
+	/// charged the write surcharge. When `transient` is true, skips the
+	/// access list and returns the `Transient` variant.
 	fn warm_storage_slot(
 		&mut self,
 		transient: bool,
@@ -561,18 +561,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// warming the slot.
 	fn storage_slot_warmth(&self, transient: bool, key: &Key, op: StorageOp)
 	-> ContractStorageKind;
-
-	/// Charge for a storage write of `key`, with the slot's warmth priced in.
-	///
-	/// The slot is warmed only after a successful charge, so a failed charge
-	/// cannot leave an unpaid write behind. Returns the charge and the cost
-	/// kind.
-	fn charge_storage_write<Tok: Token<Self::T>>(
-		&mut self,
-		transient: bool,
-		key: &Key,
-		token: impl FnOnce(ContractStorageKind) -> Tok,
-	) -> Result<(ChargedAmount, ContractStorageKind), DispatchError>;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2665,31 +2653,6 @@ where
 		ContractStorageKind::Persistent(
 			self.access_list.peek(&AccessEntry { address, slot: key.into() }, op),
 		)
-	}
-
-	fn charge_storage_write<Tok: Token<Self::T>>(
-		&mut self,
-		transient: bool,
-		key: &Key,
-		token: impl FnOnce(ContractStorageKind) -> Tok,
-	) -> Result<(ChargedAmount, ContractStorageKind), DispatchError> {
-		if transient {
-			let kind = ContractStorageKind::Transient;
-			return Ok((self.frame_meter_mut().charge_weight_token(token(kind))?, kind));
-		}
-		let entry = AccessEntry { address: self.address(), slot: key.into() };
-		let warmth = self.access_list.peek(&entry, StorageOp::Write);
-		let kind = ContractStorageKind::Persistent(warmth);
-		let charged = self.frame_meter_mut().charge_weight_token(token(kind))?;
-		let previous = self.access_list.record(entry, StorageOp::Write, warmth);
-		debug_assert!(
-			match warmth {
-				Warmth::Hot { first_write: true } => previous == Some(StorageOp::Read),
-				Warmth::Hot { first_write: false } | Warmth::Cold { .. } => previous.is_none(),
-			},
-			"stale warmth: the access list changed between peek and record",
-		);
-		Ok((charged, kind))
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

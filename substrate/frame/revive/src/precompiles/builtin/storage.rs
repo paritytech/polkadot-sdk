@@ -64,9 +64,12 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let (charged, access_kind) = env.charge_storage_write(transient, &key, |kind| {
-					RuntimeCosts::ClearStorage { len: max_size, kind }
-				})?;
+				let access_kind = env.warm_storage_slot(transient, &key, StorageOp::Write);
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
+						len: max_size,
+						kind: access_kind,
+					})?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting transient storage".into()))?
@@ -108,9 +111,12 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let (charged, access_kind) = env.charge_storage_write(transient, &key, |kind| {
-					RuntimeCosts::TakeStorage { len: max_size, kind }
-				})?;
+				let access_kind = env.warm_storage_slot(transient, &key, StorageOp::Write);
+				let charged =
+					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {
+						len: max_size,
+						kind: access_kind,
+					})?;
 				let outcome = if transient {
 					env.set_transient_storage(&key, None, true)?
 				} else {

@@ -457,8 +457,11 @@ mod tests {
 		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
 
 		let surcharge = RuntimeCosts::hot_write_surcharge::<Test>();
-		assert!(surcharge.ref_time() > 0, "mock DbWeight must price the surcharge");
-		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
+		assert_eq!(
+			surcharge,
+			Weight::from_parts(200, 0),
+			"the surcharge is the mock's 300 ps write minus its 100 ps read",
+		);
 
 		let storage_costs = |kind: ContractStorageKind| {
 			[

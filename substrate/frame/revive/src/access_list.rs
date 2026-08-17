@@ -17,7 +17,7 @@
 
 //! Per-transaction cold/hot access list.
 //!
-//! The per-frame rollback machinery here (flat journal + checkpoint stack, with
+//! The per-frame rollback machinery here (flat journals + checkpoint stack, with
 //! `enter_frame` / `commit_frame` / `rollback_frame` wired into `Stack::run`)
 //! mirrors [`crate::transient_storage::TransientStorage`].
 
@@ -63,12 +63,14 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// (~7.5 MiB PoV) at ~770 cold touches.
 pub const MAX_ACCESS_LIST_ENTRIES: usize = 2_048;
 
-/// Worst-case per-entry memory in the `BoundedBTreeMap` + journal, measured against
-/// sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
-/// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. Rounded up to 512
-/// for headroom. The 1-byte [`Paid`] value fits in the tree nodes' spare
-/// space and adds nothing to these figures.
-const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 512;
+/// Worst-case per-entry memory in the `BoundedBTreeMap` + journals, measured
+/// against sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
+/// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. A slot written
+/// after its first read holds a second journal entry, in `upgrades`: its
+/// 64 B vector slot, plus the key's own heap buffer for `VarLong`, ~136 B.
+/// Rounded up to 768 for headroom. The 1-byte [`Paid`] value fits in the
+/// tree nodes' spare space and adds nothing to these figures.
+const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 768;
 
 /// Worst-case total memory the access list can hold per transaction.
 pub const MAX_ACCESS_LIST_BYTES: u32 =
@@ -120,7 +122,9 @@ pub enum ContractStorageKind {
 /// What a transaction has already paid for a slot.
 ///
 /// A write costs more than a read, and the difference is owed once per slot:
-/// the first write pays it.
+/// the first write pays it. The upgrade rolls back with a reverting frame,
+/// whose write was undone: the next write of the slot pays the difference
+/// again.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Paid {
 	/// Only the read cost is paid.
@@ -179,18 +183,16 @@ pub struct AccessEntry {
 
 /// Per-transaction access list with per-frame rollback support. Layout
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state
-/// map, a flat journal of insertions, and journal-index checkpoints.
+/// map, flat journals of insertions and of upgrades, and checkpoints holding
+/// both journals' lengths at frame entry.
 ///
 /// # Safety invariant
 ///
-/// Read sites touch before charging gas, so reverts must roll back the touches
-/// they made: an out-of-gas at the charge must not leave the slot hot without
-/// the cold charge being paid. The journal provides exactly that.
-///
-/// The [`Paid`] level never reverts, so write sites must order the other way around:
-/// peek, charge, and touch only once the charge succeeded. An upgrade can then
-/// only exist if it was paid for, and charges are kept on revert. Write sites
-/// go through `charge_storage_write`, which owns this order.
+/// Sites touch the access list before charging gas, and a failed charge
+/// terminates the frame. Every touch is journaled, insertions in `journal`
+/// and `Read` to `Write` upgrades in `upgrades`, and rolled back when its
+/// frame reverts, so a frame that dies at a charge leaves nothing behind
+/// that was not paid for.
 
 #[derive(Default)]
 pub struct AccessList {
@@ -200,10 +202,14 @@ pub struct AccessList {
 	/// one frame, and `checkpoints` marks the frame boundaries inside this
 	/// journal.
 	journal: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
-	/// Stack of journal indices. `checkpoints.last()` is the index at which
-	/// the current frame started inserting; rolling back means draining
-	/// `journal` from that index and removing those entries from `accessed`.
-	checkpoints: Vec<usize>,
+	/// Flat journal of `Read` to `Write` upgrades (in order). Kept separate
+	/// from `journal` so entries stay 64 bytes: the runtime allocator hands
+	/// out power-of-two blocks, and 64-byte entries fill them exactly.
+	upgrades: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
+	/// Stack of `(journal, upgrades)` lengths at frame entry. Rolling back
+	/// drains both journals down to `checkpoints.last()`: drained insertions
+	/// are removed from `accessed`, drained upgrades downgraded to `Read`.
+	checkpoints: Vec<(usize, usize)>,
 	/// Total cold touches across the transaction. Includes touches in
 	/// frames that later rolled back.
 	cold_count: u32,
@@ -224,7 +230,7 @@ impl AccessList {
 	/// after this call. For every `enter_frame` there must be a matching call
 	/// to either `commit_frame` or `rollback_frame`.
 	pub fn enter_frame(&mut self) {
-		self.checkpoints.push(self.journal.len());
+		self.checkpoints.push((self.journal.len(), self.upgrades.len()));
 	}
 
 	/// Commit the top frame.
@@ -247,9 +253,16 @@ impl AccessList {
 	///
 	/// Will panic if there is no open frame.
 	pub fn rollback_frame(&mut self) {
-		let checkpoint = self.checkpoints.pop().expect("frame open; qed");
-		for entry in self.journal.drain(checkpoint..) {
+		let (journal_checkpoint, upgrades_checkpoint) =
+			self.checkpoints.pop().expect("frame open; qed");
+		for entry in self.journal.drain(journal_checkpoint..) {
 			self.accessed.remove(&entry);
+		}
+		for entry in self.upgrades.drain(upgrades_checkpoint..) {
+			// Gone already if the same frame also inserted the entry.
+			if let Some(paid) = self.accessed.get_mut(&entry) {
+				*paid = Paid::Read;
+			}
 		}
 	}
 
@@ -282,43 +295,28 @@ impl AccessList {
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
 	pub fn touch(&mut self, entry: AccessEntry, op: StorageOp) -> Warmth {
-		let warmth = self.peek(&entry, op);
-		self.record(entry, op, warmth);
-		warmth
-	}
-
-	/// Record `warmth`, as returned by [`peek`](Self::peek) for the same
-	/// `entry` and `op`: count it, mark a first write paid, insert and
-	/// journal a new cold entry. Returns the previous paid level from the
-	/// map write it performs (`None` when it performs none), so the caller
-	/// can assert the warmth it recorded was not stale.
-	pub fn record(&mut self, entry: AccessEntry, op: StorageOp, warmth: Warmth) -> Option<Paid> {
-		match warmth {
-			Warmth::Hot { first_write } => {
-				self.hot_count = self.hot_count.saturating_add(1);
-				if !first_write {
-					return None;
-				}
-				let tracked = self.accessed.get_mut(&entry).expect("peeked hot, so tracked; qed");
-				let previous = *tracked;
-				*tracked = Paid::Write;
-				Some(previous)
-			},
-			Warmth::Cold { revertible: _ } => {
-				self.cold_count = self.cold_count.saturating_add(1);
-				if self.is_full() {
-					return None;
-				}
-				let previous = self
-					.accessed
-					.try_insert(entry.clone(), op)
-					.expect("under cap; peek checked is_full; qed");
-				self.journal
+		if let Some(paid) = self.accessed.get_mut(&entry) {
+			self.hot_count = self.hot_count.saturating_add(1);
+			let first_write = op == StorageOp::Write && *paid == Paid::Read;
+			if first_write {
+				*paid = Paid::Write;
+				self.upgrades
 					.try_push(entry)
-					.expect("journal grows in lockstep with accessed and shares its bound; qed");
-				previous
-			},
+					.expect("at most one live upgrade per tracked slot; qed");
+			}
+			return Warmth::Hot { first_write };
 		}
+		self.cold_count = self.cold_count.saturating_add(1);
+		if self.is_full() {
+			return Warmth::Cold { revertible: false };
+		}
+		self.accessed
+			.try_insert(entry.clone(), op)
+			.expect("under cap; is_full checked above; qed");
+		self.journal
+			.try_push(entry)
+			.expect("journal grows in lockstep with accessed and shares its bound; qed");
+		Warmth::Cold { revertible: self.in_nested_frame() }
 	}
 
 	/// Per-transaction metrics snapshot.
@@ -536,27 +534,66 @@ mod tests {
 	}
 
 	#[test]
-	fn paid_upgrade_survives_the_reverting_frame() {
+	fn upgrade_rolls_back_with_the_reverting_frame() {
 		let mut al = AccessList::new();
-		let outer = AccessEntry { address: H160::zero(), slot: Slot::Fix([4; 32]) };
-		let inner = AccessEntry { address: H160::zero(), slot: Slot::Fix([5; 32]) };
-
-		al.touch(outer.clone(), StorageOp::Read);
+		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([9; 32]) };
+		al.touch(entry.clone(), StorageOp::Read);
 
 		al.enter_frame();
+		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::Hot { first_write: true });
+		al.rollback_frame();
 		assert_eq!(
-			al.touch(outer.clone(), StorageOp::Write),
+			al.peek(&entry, StorageOp::Write),
 			Warmth::Hot { first_write: true },
-			"upgrade in frame"
+			"the reverted frame's write was undone, so the next write pays again"
 		);
-		assert!(al.touch(inner.clone(), StorageOp::Write).is_cold(), "inserted in frame");
+
+		al.enter_frame();
+		al.enter_frame();
+		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::Hot { first_write: true });
+		al.commit_frame();
+		assert_eq!(
+			al.peek(&entry, StorageOp::Write),
+			Warmth::Hot { first_write: false },
+			"a committed upgrade belongs to the parent frame"
+		);
+		al.rollback_frame();
+		assert_eq!(
+			al.peek(&entry, StorageOp::Write),
+			Warmth::Hot { first_write: true },
+			"the parent's revert drops the committed upgrade"
+		);
+	}
+
+	#[test]
+	fn upgrade_survives_a_nested_frames_rollback() {
+		let mut al = AccessList::new();
+		let upgraded = AccessEntry { address: H160::zero(), slot: Slot::Fix([7; 32]) };
+		al.touch(upgraded.clone(), StorageOp::Read);
+		al.touch(upgraded.clone(), StorageOp::Write);
+
+		al.enter_frame();
+		al.touch(AccessEntry { address: H160::zero(), slot: Slot::Fix([6; 32]) }, StorageOp::Write);
 		al.rollback_frame();
 
 		assert_eq!(
-			al.peek(&outer, StorageOp::Write),
+			al.peek(&upgraded, StorageOp::Write),
 			Warmth::Hot { first_write: false },
-			"upgrade survives the revert",
+			"a rollback must only drop its own frame's upgrades"
 		);
-		assert!(al.peek(&inner, StorageOp::Read).is_cold(), "own insertion is rolled back whole");
+	}
+
+	#[test]
+	fn same_frame_insert_and_upgrade_roll_back_together() {
+		let mut al = AccessList::new();
+		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([8; 32]) };
+		al.enter_frame();
+		al.touch(entry.clone(), StorageOp::Read);
+		al.touch(entry.clone(), StorageOp::Write);
+		al.rollback_frame();
+		assert!(
+			al.peek(&entry, StorageOp::Read).is_cold(),
+			"the entry and its upgrade are both gone"
+		);
 	}
 }
