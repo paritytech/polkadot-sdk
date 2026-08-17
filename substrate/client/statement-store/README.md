@@ -4,13 +4,17 @@
 
 The statement store is an off-chain, decentralized data store for cryptographically signed
 statements. It enables accounts to publish arbitrary data that can be queried and propagated across
-the network without consuming on-chain storage. Statement store designed around two fundamental
-pillars: Scalability and Graceful Degradation. It expressly avoids the properties of centralized
-data structures. Instead, it prioritizes privacy, scalability, and decentralization by
-deliberately reducing other guarantees.
+the network without consuming on-chain storage.
 
 **Unlike centralized services, the Statement Store is a weakly coherent system and does not
 guarantee message delivery or specific delivery times.**
+
+## Documentation
+
+- [Overview](docs/overview.md) — concepts, design principles, architecture, account quotas,
+  channels, and topics.
+- [Usage guide](docs/usage.md) — integrating the store: signing, expiry and priority, submission
+  errors, delivery semantics, and privacy.
 
 ## How do I run a local statement-store node for development?
 
@@ -154,10 +158,17 @@ information.
 }
 ```
 
-## Expiration and maintenance
+## Using the statement store from TrUAPI
 
-Message expiration is based on the `expiry` field. Please refer to the in-code
-[description][expiration-description].
+[TrUAPI](https://github.com/paritytech/truapi) is the API surface that Polkadot hosts (e.g. the
+Polkadot Desktop Browser) expose to product apps running inside them. It includes a dedicated
+statement-store API domain (`subscribe`, `create_proof`, `create_proof_authorized`, `submit`), so
+products use the store through the host instead of talking JSON-RPC to a node directly — the host
+handles signing and proof creation with the product account's key.
+
+To get started, use the `@parity/truapi` TypeScript client or the higher-level
+[`product-sdk`](https://github.com/paritytech/product-sdk). See the Rust API docs at
+[paritytech.github.io/truapi](https://paritytech.github.io/truapi) and try the live playground at
+[truapi-playground.dot.li](https://truapi-playground.dot.li/).
 
 [statement-allowance-code]: https://github.com/paritytech/polkadot-sdk/blob/cac11f4a5325b217ca74b0c339459597daf03838/substrate/primitives/statement-store/src/lib.rs#L217
-[expiration-description]: ../../primitives/statement-store/src/lib.rs

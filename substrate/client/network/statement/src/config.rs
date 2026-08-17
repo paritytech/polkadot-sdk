@@ -23,11 +23,13 @@ use std::{num::NonZeroUsize, time};
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
 
-/// Maximum number of known statement hashes to keep for a peer.
-pub const MAX_KNOWN_STATEMENTS: usize = 4 * 1024 * 1024; // * 32 bytes for hash = 128 MB per peer
-
 /// Maximum allowed size for a statement notification.
 pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
+
+/// Soft limit on encoded initial-sync chunks held in flight across all peers. Since admission is
+/// checked before adding the next whole notification, it may be exceeded by less than one
+/// maximum-sized notification.
+pub const MAX_INITIAL_SYNC_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
 
 /// Maximum number of statement validation request we keep at any moment.
 pub const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;

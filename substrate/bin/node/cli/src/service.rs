@@ -127,7 +127,10 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+			(
+				kitchensink_runtime::ScarcityTxExtension::new(None),
+				frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+			),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -152,7 +155,7 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			(),
+			((), ()),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -1135,10 +1138,11 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
+				let as_scarcity = kitchensink_runtime::ScarcityTxExtension::new(None);
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					authorize_call,
+					(as_scarcity, authorize_call),
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1155,7 +1159,7 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						(),
+						((), ()),
 						(),
 						spec_version,
 						transaction_version,
