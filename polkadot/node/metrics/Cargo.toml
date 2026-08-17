@@ -43,3 +43,6 @@ runtime-benchmarks = [
 	"polkadot-test-service/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+development = ["polkadot-test-service", "prometheus-parse"]

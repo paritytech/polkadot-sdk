@@ -105,3 +105,6 @@ fast-runtime = [
 	"bridge-hub-westend-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["polkadot-jemalloc-shim"]

@@ -63,3 +63,6 @@ try-runtime = [
 
 [dev-dependencies]
 sp-io = { workspace = true }
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["frame-benchmarking"]

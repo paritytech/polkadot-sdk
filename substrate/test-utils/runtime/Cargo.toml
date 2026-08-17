@@ -129,3 +129,6 @@ disable-logging = ["sp-api/disable-logging"]
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bls-experimental = ["sp-application-crypto/bls-experimental"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["sp-debug-derive"]

@@ -29,3 +29,6 @@ std = ["codec/std", "impl-serde/std", "serde/std", "sp-debug-derive/std"]
 
 # Serde support without relying on std features.
 serde = ["dep:serde", "impl-serde"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["sp-debug-derive"]

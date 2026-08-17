@@ -110,3 +110,6 @@ metadata-hash = [
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
 # when run locally depending on system load
 ci-only-tests = ["polkadot-node-core-pvf/ci-only-tests"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["polkadot-jemalloc-shim"]

@@ -35,3 +35,9 @@ std = [
 	"sp-virtualization/std",
 	"substrate-wasm-builder",
 ]
+
+# `sp-virtualization` is used from inside `sp_core::wasm_export_functions!`, whose bodies expand
+# behind `#[cfg(not(feature = "std"))]`. The check runs with `--all-features`, so the only use site
+# is compiled out and cannot be seen.
+[package.metadata.cargo-udeps.ignore]
+normal = ["sp-virtualization"]

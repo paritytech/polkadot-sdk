@@ -48,3 +48,6 @@ serde = [
 ]
 
 json-schema = ["dep:schemars"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["sp-debug-derive"]

@@ -104,3 +104,8 @@ bls-experimental = [
 	"sp-io/bls-experimental",
 	"substrate-test-runtime-client/bls-experimental",
 ]
+
+# `simple-mermaid` is only referenced from the mermaid doc attribute in
+# `generic/unchecked_extrinsic.rs`, which is currently commented out, so no code path reaches it.
+[package.metadata.cargo-udeps.ignore]
+normal = ["simple-mermaid"]

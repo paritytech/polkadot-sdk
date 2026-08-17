@@ -1,0 +1,106 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "ci: add a cargo-udeps check for unused dependencies"
+
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |-
+      Adds `cargo-udeps` to the `Checks` workflow so that dependencies which are declared but never
+      linked are caught in CI instead of accumulating.
+
+      The unused dependencies it reported across the workspace are removed in this PR. No public API
+      is affected: every removed dependency was non-optional, so no implicit feature disappears, and
+      no feature list entries were changed.
+
+      Dependencies that `cargo-udeps` cannot see are declared through
+      `[package.metadata.cargo-udeps.ignore]`. These fall into a few structural categories the tool
+      has no way of detecting: crates linked purely for a side effect (allocator shims), crates used
+      only under `cfg(doc)` or behind `cfg` gates that `--all-features` compiles out, dependencies
+      that exist only to forward a feature, and UI/test harnesses driven by build machinery.
+
+crates:
+  - name: cumulus-client-collator
+    bump: patch
+  - name: cumulus-client-consensus-relay-chain
+    bump: patch
+  - name: cumulus-client-service
+    bump: patch
+  - name: cumulus-test-relay-sproof-builder
+    bump: patch
+  - name: pallet-staking-async
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch
+  - name: people-westend-runtime
+    bump: patch
+  - name: frame-election-provider-solution-type
+    bump: none
+  - name: frame-storage-access-test-runtime
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: frame-support-procedural
+    bump: none
+  - name: frame-support-test
+    bump: none
+  - name: pallet-contracts-uapi
+    bump: none
+  - name: pallet-meta-tx
+    bump: none
+  - name: pallet-revive-fixtures
+    bump: none
+  - name: pallet-revive-uapi
+    bump: none
+  - name: pallet-staking-async-ah-client
+    bump: none
+  - name: pallet-staking-async-parachain-runtime
+    bump: none
+  - name: pallet-staking-async-preset-store
+    bump: none
+  - name: polkadot
+    bump: none
+  - name: polkadot-jemalloc-shim
+    bump: none
+  - name: polkadot-node-core-pvf
+    bump: none
+  - name: polkadot-node-metrics
+    bump: none
+  - name: polkadot-omni-node
+    bump: none
+  - name: polkadot-omni-node-lib
+    bump: none
+  - name: polkadot-parachain-bin
+    bump: none
+  - name: polkadot-runtime-parachains
+    bump: none
+  - name: polkadot-test-malus
+    bump: none
+  - name: sc-runtime-test
+    bump: none
+  - name: sp-api
+    bump: none
+  - name: sp-api-test
+    bump: none
+  - name: sp-core
+    bump: none
+  - name: sp-mmr-primitives
+    bump: none
+  - name: sp-runtime
+    bump: none
+  - name: sp-runtime-interface
+    bump: none
+  - name: sp-storage
+    bump: none
+  - name: sp-weights
+    bump: none
+  - name: substrate-frame-rpc-support
+    bump: none
+  - name: substrate-test-runtime
+    bump: none
+  - name: test-parachain-adder
+    bump: none
+  - name: test-parachain-undying
+    bump: none
+  - name: xcm-simulator-fuzzer
+    bump: none
