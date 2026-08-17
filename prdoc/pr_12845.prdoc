@@ -10,12 +10,12 @@ doc:
 
       `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
       `GenRpcModuleParams` no longer carry a transaction pool type parameter, and the client bound
-      they need is spelled out once as the new `sc_transaction_pool::TransactionPoolClient` trait.
+      they need is spelled out once as the new `sc_transaction_pool::ClientForTransactionPool` trait.
       Components that keep the pool behind an `Arc` (the RPC servers, the proposer factory, manual
       seal, mixnet) accept unsized pools now, which is a relaxation and needs no changes on their
       side.
 
-      `TransactionPoolClient` pins the `BlockIdTo` error to `sp_blockchain::Error`, which every call
+      `ClientForTransactionPool` pins the `BlockIdTo` error to `sp_blockchain::Error`, which every call
       site already required, so the long client bound lists on `build_network`, `spawn_tasks`,
       `gen_rpc_module` and the transaction pool `Builder` collapse to that single trait plus the few
       capabilities each one genuinely adds.
@@ -30,7 +30,7 @@ doc:
       - Add `?Sized` to any generic parameter that holds the pool behind an `Arc`, because
         `TransactionPoolHandle` is a trait object and no longer has a statically known size.
       - A hand written client type has to use `sp_blockchain::Error` as its `BlockIdTo` error to
-        satisfy `TransactionPoolClient`.
+        satisfy `ClientForTransactionPool`.
 
 crates:
   - name: sc-transaction-pool

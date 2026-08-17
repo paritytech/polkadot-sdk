@@ -33,7 +33,7 @@ use std::sync::Arc;
 
 pub use api::FullChainApi;
 pub use builder::{
-	Builder, FullClientTransactionPool, TransactionPoolClient, TransactionPoolHandle,
+	Builder, ClientForTransactionPool, FullClientTransactionPool, TransactionPoolHandle,
 	TransactionPoolOptions, TransactionPoolType,
 };
 pub use common::notification_future;

@@ -122,9 +122,9 @@ impl TransactionPoolOptions {
 /// The client capabilities the transaction pool of a full node relies on.
 ///
 /// It is blanket implemented, so every client able to validate transactions against the runtime
-/// qualifies. Having it as a single bound keeps the transaction pool type parameters readable at
-/// the places holding a [`TransactionPoolHandle`].
-pub trait TransactionPoolClient<Block: BlockT>:
+/// qualifies. Having it as a single bound keeps the client bounds readable at the places holding a
+/// [`TransactionPoolHandle`].
+pub trait ClientForTransactionPool<Block: BlockT>:
 	sp_api::ProvideRuntimeApi<
 		Block,
 		Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
@@ -136,7 +136,7 @@ pub trait TransactionPoolClient<Block: BlockT>:
 {
 }
 
-impl<Block: BlockT, T> TransactionPoolClient<Block> for T where
+impl<Block: BlockT, T> ClientForTransactionPool<Block> for T where
 	T: sp_api::ProvideRuntimeApi<
 			Block,
 			Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
@@ -169,14 +169,14 @@ pub trait FullClientTransactionPool<Block, Client>:
 	>
 where
 	Block: BlockT,
-	Client: TransactionPoolClient<Block>,
+	Client: ClientForTransactionPool<Block>,
 {
 }
 
 impl<Block, Client, P> FullClientTransactionPool<Block, Client> for P
 where
 	Block: BlockT,
-	Client: TransactionPoolClient<Block>,
+	Client: ClientForTransactionPool<Block>,
 	P: MaintainedTransactionPool<
 			Block = Block,
 			Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
@@ -213,7 +213,7 @@ pub struct Builder<'a, Block, Client> {
 impl<'a, Client, Block> Builder<'a, Block, Client>
 where
 	Block: BlockT,
-	Client: TransactionPoolClient<Block>
+	Client: ClientForTransactionPool<Block>
 		+ sc_client_api::ExecutorProvider<Block>
 		+ sc_client_api::UsageProvider<Block>,
 	<Block as BlockT>::Hash: std::marker::Unpin,

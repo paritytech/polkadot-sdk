@@ -37,7 +37,6 @@ use sp_core::{crypto::Pair, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
 use staging_node_cli as node_cli;
-use std::sync::Arc;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
@@ -195,7 +194,7 @@ fn create_benchmark_extrinsics(
 }
 
 async fn submit_tx_and_wait_for_inclusion(
-	tx_pool: &Arc<TransactionPool>,
+	tx_pool: &TransactionPool,
 	tx: OpaqueExtrinsic,
 	client: &FullClient,
 	wait_for_finalized: bool,
@@ -244,7 +243,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 
 					runtime.block_on(future::join_all(prepare_extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&node.transaction_pool,
+							&*node.transaction_pool,
 							tx,
 							&node.client,
 							true,
@@ -256,7 +255,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 				|extrinsics| {
 					runtime.block_on(future::join_all(extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&node.transaction_pool,
+							&*node.transaction_pool,
 							tx,
 							&node.client,
 							false,

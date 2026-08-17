@@ -113,9 +113,9 @@ where
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<P: ?Sized, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
+impl<P, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
 where
-	P: TransactionPool + Sync + Send + 'static,
+	P: TransactionPool + Sync + Send + 'static + ?Sized,
 	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,
 	Client::Api: SessionKeys<P::Block>,
 	P::Hash: Unpin,

@@ -52,10 +52,10 @@ use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
-use sp_blockchain::{HeaderBackend, HeaderMetadata};
+use sp_blockchain::HeaderBackend;
 use sp_core::{traits::CallContext, Decode};
 use sp_runtime::{
-	traits::{Block as BlockT, BlockIdTo, HashingFor, Header},
+	traits::{Block as BlockT, HashingFor, Header},
 	SaturatedConversion, Saturating,
 };
 use sp_state_machine::OverlayedChanges;
@@ -279,7 +279,7 @@ pub enum CollatorSybilResistance {
 pub struct BuildNetworkParams<
 	'a,
 	Block: BlockT,
-	Client: sc_transaction_pool::TransactionPoolClient<Block>,
+	Client: sc_transaction_pool::ClientForTransactionPool<Block>,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 	RCInterface,
 	IQ,
@@ -321,20 +321,12 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 )>
 where
 	Block: BlockT,
-	Client: UsageProvider<Block>
-		+ HeaderBackend<Block>
+	Client: sc_transaction_pool::ClientForTransactionPool<Block>
+		+ UsageProvider<Block>
 		+ sp_consensus::block_validation::Chain<Block>
-		+ Send
-		+ Sync
-		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>
-		+ ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ 'static,
-	Client::Api: CollectCollationInfo<Block>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
+		+ ProofProvider<Block>,
+	Client::Api: CollectCollationInfo<Block>,
 	for<'b> &'b Client: BlockImport<Block>,
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,

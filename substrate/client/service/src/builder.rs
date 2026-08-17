@@ -83,7 +83,7 @@ use sc_rpc_spec_v2::{
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_tracing::block::TracingExecuteBlock;
-use sc_transaction_pool::{TransactionPoolClient, TransactionPoolHandle};
+use sc_transaction_pool::{ClientForTransactionPool, TransactionPoolHandle};
 use sc_transaction_pool_api::MaintainedTransactionPool;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
@@ -447,7 +447,7 @@ where
 }
 
 /// Parameters to pass into `build`.
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl: TransactionPoolClient<TBl>, TRpc, Backend> {
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl: ClientForTransactionPool<TBl>, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -498,7 +498,7 @@ pub fn spawn_tasks<TBl, TBackend, TRpc, TCl>(
 	}: SpawnTasksParams<TBl, TCl, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
-	TCl: TransactionPoolClient<TBl>
+	TCl: ClientForTransactionPool<TBl>
 		+ Chain<TBl>
 		+ ProofProvider<TBl>
 		+ BlockchainEvents<TBl>
@@ -778,7 +778,7 @@ where
 }
 
 /// Parameters for [`gen_rpc_module`].
-pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl: TransactionPoolClient<TBl>, TRpc> {
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl: ClientForTransactionPool<TBl>, TRpc> {
 	/// The handle to spawn tasks on the RPC runtime.
 	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
@@ -835,7 +835,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc>(
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: TransactionPoolClient<TBl>
+	TCl: ClientForTransactionPool<TBl>
 		+ BlockchainEvents<TBl>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
@@ -966,7 +966,7 @@ pub struct BuildNetworkParams<'a, Block, Net, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Client: TransactionPoolClient<Block>,
+	Client: ClientForTransactionPool<Block>,
 {
 	/// The service configuration.
 	pub config: &'a Configuration,
@@ -1009,7 +1009,7 @@ pub fn build_network<Block, Net, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: TransactionPoolClient<Block>
+	Client: ClientForTransactionPool<Block>
 		+ Chain<Block>
 		+ ProofProvider<Block>
 		+ BlockchainEvents<Block>,
@@ -1119,7 +1119,7 @@ pub struct BuildNetworkAdvancedParams<'a, Block, Net, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Client: TransactionPoolClient<Block>,
+	Client: ClientForTransactionPool<Block>,
 {
 	/// Role of the local node.
 	pub role: Role,
@@ -1170,7 +1170,7 @@ pub fn build_network_advanced<Block, Net, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: TransactionPoolClient<Block>
+	Client: ClientForTransactionPool<Block>
 		+ Chain<Block>
 		+ ProofProvider<Block>
 		+ BlockchainEvents<Block>,
