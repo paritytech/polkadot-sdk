@@ -24,7 +24,9 @@ use crate::{
 	vm::{
 		Ext,
 		evm::{
-			Interpreter, instructions::utility::IntoAddress, interpreter::Halt,
+			Interpreter,
+			instructions::utility::{IntoAddress, as_usize_saturated},
+			interpreter::Halt,
 			util::as_usize_or_halt,
 		},
 	},
@@ -86,7 +88,9 @@ pub fn extcodecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt
 		.charge_or_halt(RuntimeCosts::ExtCodeCopy(code_size.max(len as u32)))?;
 
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
-	let code_offset = as_usize_or_halt::<E::T>(code_offset)?;
+	// Saturate rather than halt: an offset past the code just zero-fills, which
+	// `copy_code_slice` already handles.
+	let code_offset = as_usize_saturated(code_offset);
 
 	interpreter.memory.resize(memory_offset, len)?;
 

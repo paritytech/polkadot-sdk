@@ -403,6 +403,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if the caller is origin, and this origin is root.
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
 
+	/// Check if the origin of the whole call stack is root.
+	///
+	/// Unlike [`Self::caller_is_root`], this does not require the caller to be the origin: any
+	/// number of intermediate frames may sit between this contract and the original dispatch.
+	fn origin_is_root(&self) -> bool;
+
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
@@ -2414,6 +2420,10 @@ where
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
 		// if the caller isn't origin, then it can't be root.
 		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
+	}
+
+	fn origin_is_root(&self) -> bool {
+		self.origin == Origin::Root
 	}
 
 	fn balance(&self) -> U256 {
