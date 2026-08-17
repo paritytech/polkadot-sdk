@@ -1397,7 +1397,7 @@ fn gap_sync_body_request_depends_on_policy() {
 	let headers_only = BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION;
 
 	// Blocks #1..=#10 exist, #10 is finalized (unless the case exercises lagging
-	// finality) and the gap covers #1..=#9, so with `RequiredWithin(3)` the body
+	// finality) and the gap covers #1..=#9, so with `DownloadFinalized(3)` the body
 	// cutoff is #7. `max_blocks_per_request` is 2, so the requested range is the two
 	// blocks above `best_queued_number`.
 	let cases = [
@@ -1406,18 +1406,18 @@ fn gap_sync_body_request_depends_on_policy() {
 		// `All` requests bodies for the whole gap.
 		(GapSyncBodyPolicy::All, 0, true, bodies),
 		// Range #1..=#2 is entirely below the cutoff.
-		(GapSyncBodyPolicy::RequiredWithin(3), 0, true, headers_only),
+		(GapSyncBodyPolicy::DownloadFinalized(3), 0, true, headers_only),
 		// Range #8..=#9 is entirely above the cutoff.
-		(GapSyncBodyPolicy::RequiredWithin(3), 7, true, bodies),
+		(GapSyncBodyPolicy::DownloadFinalized(3), 7, true, bodies),
 		// Range #7..=#8 straddles the cutoff: bodies are requested for all of it.
-		(GapSyncBodyPolicy::RequiredWithin(3), 6, true, bodies),
+		(GapSyncBodyPolicy::DownloadFinalized(3), 6, true, bodies),
 		// While client finality still lags after warp sync (finalized is #0 here), the
 		// cutoff anchors at `gap.target + 1` and yields the same decisions.
-		(GapSyncBodyPolicy::RequiredWithin(3), 0, false, headers_only),
-		(GapSyncBodyPolicy::RequiredWithin(3), 7, false, bodies),
+		(GapSyncBodyPolicy::DownloadFinalized(3), 0, false, headers_only),
+		(GapSyncBodyPolicy::DownloadFinalized(3), 7, false, bodies),
 		// A window larger than the chain saturates to cutoff #0 and never strips bodies.
-		(GapSyncBodyPolicy::RequiredWithin(100), 0, true, bodies),
-		(GapSyncBodyPolicy::RequiredWithin(u32::MAX), 0, true, bodies),
+		(GapSyncBodyPolicy::DownloadFinalized(100), 0, true, bodies),
+		(GapSyncBodyPolicy::DownloadFinalized(u32::MAX), 0, true, bodies),
 	];
 
 	for (policy, best_queued_number, finalize, expected_fields) in cases {
@@ -1482,7 +1482,7 @@ fn gap_sync_truncated_straddling_response_is_retried_header_only() {
 	client.finalize_block(blocks[9].hash(), None).unwrap();
 
 	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9, so with
-	// `RequiredWithin(3)` the body cutoff is #7.
+	// `DownloadFinalized(3)` the body cutoff is #7.
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1490,7 +1490,7 @@ fn gap_sync_truncated_straddling_response_is_retried_header_only() {
 		4,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		GapSyncBodyPolicy::RequiredWithin(3),
+		GapSyncBodyPolicy::DownloadFinalized(3),
 		None,
 		std::iter::empty(),
 	)
@@ -1531,7 +1531,7 @@ fn gap_sync_body_cutoff_moves_with_advancing_finality() {
 	client.finalize_block(blocks[9].hash(), None).unwrap();
 
 	// Blocks #1..=#12 exist, #10 is finalized and the gap covers #1..=#9, so with
-	// `RequiredWithin(3)` the body cutoff starts at #7. `max_blocks_per_request` is 2.
+	// `DownloadFinalized(3)` the body cutoff starts at #7. `max_blocks_per_request` is 2.
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1539,7 +1539,7 @@ fn gap_sync_body_cutoff_moves_with_advancing_finality() {
 		2,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		GapSyncBodyPolicy::RequiredWithin(3),
+		GapSyncBodyPolicy::DownloadFinalized(3),
 		None,
 		std::iter::empty(),
 	)
@@ -1576,7 +1576,7 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	client.finalize_block(blocks[9].hash(), None).unwrap();
 
 	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9, so with
-	// `RequiredWithin(3)` the body cutoff is #7.
+	// `DownloadFinalized(3)` the body cutoff is #7.
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1584,7 +1584,7 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 		2,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		GapSyncBodyPolicy::RequiredWithin(3),
+		GapSyncBodyPolicy::DownloadFinalized(3),
 		None,
 		std::iter::empty(),
 	)
@@ -1628,7 +1628,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 	for policy in [
 		GapSyncBodyPolicy::All,
 		GapSyncBodyPolicy::HeadersOnly,
-		GapSyncBodyPolicy::RequiredWithin(0),
+		GapSyncBodyPolicy::DownloadFinalized(0),
 	] {
 		log::info!("Testing regular sync with policy: {policy:?}");
 

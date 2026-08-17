@@ -336,7 +336,7 @@ pub enum GapSyncBodyPolicy {
 	/// Require bodies for blocks above `anchor - window`. The window is expected to be
 	/// pre-shrunk by the node with a safety margin, so that peers whose finality runs
 	/// ahead of ours still retain every requested body.
-	RequiredWithin(u32),
+	DownloadFinalized(u32),
 }
 
 /// Resolves the [`GapSyncBodyPolicy`] lazily, when a `ChainSync` instance is created.
@@ -2042,7 +2042,7 @@ where
 		let body_anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
 			std::cmp::max(finalized_number, gap.target + One::one())
 		});
-		// The block attributes for gap requests and, for `RequiredWithin`, the moving
+		// The block attributes for gap requests and, for `DownloadFinalized`, the moving
 		// body cutoff: bodies are required for blocks above it and stripped from ranges
 		// entirely at or below it. The cutoff is recomputed every scheduling pass so it
 		// follows finality.
@@ -2051,7 +2051,7 @@ where
 			match self.gap_sync_body_policy {
 				GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
 				GapSyncBodyPolicy::All => (attrs, None),
-				GapSyncBodyPolicy::RequiredWithin(window) => {
+				GapSyncBodyPolicy::DownloadFinalized(window) => {
 					(attrs, Some(body_anchor.saturating_sub(window.into())))
 				},
 			}

@@ -239,7 +239,7 @@ fn resolve_gap_sync_body_policy(
 					 chain; increase `--blocks-pruning`",
 				));
 			}
-			Ok(GapSyncBodyPolicy::RequiredWithin(retention_period - safety_margin))
+			Ok(GapSyncBodyPolicy::DownloadFinalized(retention_period - safety_margin))
 		},
 	}
 }
@@ -266,7 +266,7 @@ mod tests {
 	fn storage_chain_enables_required_within_with_pre_shrunk_window() {
 		assert_eq!(
 			resolve_gap_sync_body_policy(Some(100_800), BlocksPruning::Some(200_000), 128),
-			Ok(GapSyncBodyPolicy::RequiredWithin(100_800 - 128)),
+			Ok(GapSyncBodyPolicy::DownloadFinalized(100_800 - 128)),
 		);
 	}
 
@@ -295,7 +295,7 @@ mod tests {
 		assert!(resolve_gap_sync_body_policy(Some(1000), BlocksPruning::Some(999), 128).is_err());
 		assert_eq!(
 			resolve_gap_sync_body_policy(Some(1000), BlocksPruning::Some(1000), 128),
-			Ok(GapSyncBodyPolicy::RequiredWithin(872)),
+			Ok(GapSyncBodyPolicy::DownloadFinalized(872)),
 		);
 	}
 }
