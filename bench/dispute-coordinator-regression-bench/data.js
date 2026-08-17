@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786801212301,
+  "lastUpdate": 1786961923455,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0130e98195941a7ce009547b797dcd007003424a",
-          "message": "[Release|CI/CD] Handling RPM staging distribution as input for testing purposes (#10530)\n\nStoring release and non-release distribution binaries into different\nbuckets (only for RPM in this PR)\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-12T18:16:26Z",
-          "tree_id": "dc9fb6e050543bdbe4487b33168190ca4b51144c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0130e98195941a7ce009547b797dcd007003424a"
-        },
-        "date": 1768245887890,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026522541900000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00925966706999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0066336341600000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011060996109999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e02db0d5706ae3bfb111c79a453f64e37aeee82",
+          "message": "[pallet-revive] expose ReentrancyProtection (#12866)\n\nExport ReentrancyProtection from pallet_revive and\npallet_revive::precompiles: it is a parameter type of the public\nExt::call, so it must be nameable by out-of-crate precompile\nimplementors.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-17T08:42:59Z",
+          "tree_id": "bb796b4922305fc96dcaffe53035253f768e2190",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e02db0d5706ae3bfb111c79a453f64e37aeee82"
+        },
+        "date": 1786961888690,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002643477499999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010426840489999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00979737308999998,
             "unit": "seconds"
           }
         ]
