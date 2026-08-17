@@ -29,8 +29,7 @@
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
-9. [Missing JAM / Gray Paper Features](#9-missing-jam-gray-paper-features)
-10. [References](#10-references)
+9. [References](#9-references)
 
 ---
 
@@ -150,6 +149,11 @@ Even in blocks where no parachain candidate becomes available, it still needs an
 to apply privileged control-plane updates such as authorizer queue changes, validator-key updates,
 and other service-level bookkeeping that must take effect without waiting for a parachain block.
 
+This, together with the host calls the service forwards, presupposes three privileged
+registrations in JAM's protocol state: membership in the always-accumulate set (with a gas
+allowance), being the **delegator** (required for `designate`, §5.3), and being the registered
+**assigner** of every core it manages (required for `assign`, §7.1).
+
 ### 3.1 Service State Layout
 
 The service state is a key-value store. Logically it contains:
@@ -249,8 +253,9 @@ enum RefineLog {
     /// The authorizer config's `authorized_paras` prefix length does not
     /// match the work package's item count. See §4.1 step 1.
     AuthConfigMismatch,
-    /// The work package has 0 items or more than 1 item; only single-item
-    /// packages are currently supported (§3.2).
+    /// The work package has more than 1 item; only single-item packages are
+    /// currently supported (§3.2). A 0-item package is structurally impossible
+    /// (the Gray Paper bounds packages to 1–16 items).
     InvalidItemCount,
     /// The opaque `AuthorizerConfig` blob failed to decode. See §4.1 step 1.
     MalformedAuthorizerConfig,
@@ -279,7 +284,7 @@ enum AccumulateLog {
     /// The work digest's `validation_code_hash` matches neither the active
     /// `ParaInfo.validation_code` nor the pending upgrade's code hash.
     /// This is the authoritative validation-code check (Refine does not
-    /// perform it). See §5.1 step 3.
+    /// perform it). See §5.1 step 5.
     InvalidCodeHash { hash: ValidationCodeHash },
     /// Available state balance insufficient for the operation described by
     /// `reason`. See §6.1.
@@ -643,7 +648,7 @@ These forward the full JAM fetch functionality to the PVF:
 | `foreign_lookup(service: ServiceId, hash: Hash)` | `Option<Vec<u8>>` | Fetch a preimage from another service's store |
 | `gas()` | `u64` | Query the remaining gas budget |
 | `work_package()` | `WorkPackage` | Access the full encoded work package |
-| `work_package_context()` | `RefineContext` | Access the refinement context: anchor (hash, timeslot, posterior state-root), lookup-anchor (hash, timeslot, posterior state-root), prerequisites |
+| `work_package_context()` | `RefineContext` | Access the refinement context: anchor (hash, timeslot, posterior state-root, accumulation-output-log super-peak), lookup-anchor (hash, timeslot, posterior state-root), prerequisites |
 | `auth_config()` | `Vec<u8>` | Access the authorizer config blob |
 | `auth_token()` | `Vec<u8>` | Access the authorization token blob |
 | `work_items_summary()` | `Vec<WorkItemSummary>` | Summary of all work items (service, code hash, gas limits, counts, payload length) |
@@ -660,7 +665,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
-| `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent: no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent: no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
@@ -956,7 +961,7 @@ Phase 5: Activation or Rejection
     (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
         the preimage becoming available or without any block using the new
         code, the upgrade is rejected on the next per-work-package
-        accumulate for this parachain (see §5.1, step 2): the new code is
+        accumulate for this parachain (see §5.1, step 4): the new code is
         released (§6.1) and pending_upgrade is cleared. The parachain
         continues with the old code.
 ```
@@ -977,7 +982,7 @@ Phase 5: Activation or Rejection
 
 ### 5.3 Validator-Key Updates
 
-A full `stagingset` (gray paper Safrole, eq. 108–112) is up to `1023 × 336 B ≈
+A full `stagingset` (Gray Paper, Safrole section, validator-key definitions) is up to `1023 × 336 B ≈
 336 KiB`, too large for a single work-report's `C_maxreportvarsize = 48 KiB`
 result-blob budget, and JAM's `designate` accepts only the complete vector.
 The Parachain Service therefore buffers chunks in `staged_validator_keys`
@@ -1449,7 +1454,7 @@ For the Parachain Service, the ownership boundary is:
 - The **Coretime chain** decides which parachain owns each core and computes the desired
   authorizer queue for that core.
 - The **Parachain Service** applies those decisions to JAM via the JAM `assign` host call,
-  emitted as an `UpwardMessage::SetAuthorizerQueue` from the PVF or from the
+  emitted as an `UpwardMessage::AssignCore` from the PVF or from the
   always-accumulate control path.
 - JAM's `is_authorized` invocation then checks a work-package token against one of the
   authorizers currently in the core's authorizer pool.
