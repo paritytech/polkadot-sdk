@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786974022914,
+  "lastUpdate": 1787002973829,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b3bfba618e98f2aa10ee8d4233a15c1e09fef50f",
-          "message": "[Staking] Allow nominators to be non-slashable and fast unbondable (#10502)\n\n## Context\nWe want to make nominators unslashable (configurable via a storage set),\nand once they are unslashable, they can also unbond and withdraw in 2\nera instead of the full BondingDuration (28 eras).\n\n## Storage Changes\n- `AreNominatorsSlashable: StorageValue<bool>` (default: true):\nRuntime-configurable flag. Made this a storage value (not a config\nconstant) so it can be enabled together with MinValidatorBond and\nMinCommission via `set_staking_configs`.\n- `ErasNominatorsSlashable: StorageMap<EraIndex, bool>` (default: true):\nPer-era snapshot of slashability setting. This ensures offences are\nprocessed with the rules that were in effect at the time of the offence,\nnot the current rules. Cleaned up automatically for eras outside bonding\nwindow.\n- `LastValidatorEra` to track if a staker was a validator in a recent\nera and hence needs to follow full unbonding time. Does not need\nmigration as long as we disable nominator slash (in other words: reduce\ntheir unbond time) at least one era after these changes are applied.\n\n## Slashing logic\n- Added `process_offence_validator_only` as a separate code path instead\nof overloading the same function. See `process_offence_for_era` in\n`substrate/frame/staking-async/src/slashing.rs`.\n- We might want to remove nominator slashing code completely at some\npoint.\n\n## Unbonding logic:\n- Introduce new config constant `NominatorFastUnbondDuration` that\ndetermines the fast unbond duration (recommended value: 2 eras) when\nnominators are not slashable.\n- Added `nominator_bonding_duration()` to `StakingInterface` trait\n(returns `NominatorFastUnbondDuration` era when not slashable, full\nunbond duration otherwise).\n- Nomination pools now use `nominator_bonding_duration()`, so pool\nmembers also benefit from fast unbonding.\n- Ported auto-chill on full unbond from pallet-staking (PR #3811) to\nprevent `InsufficientBond` errors.\n- Nominators unbonding the era before the nominators become unslashable\nwill still have 28 days of unbonding.\n\n## Era pruning:\n- Moved pruning of `ValidatorSlashInEra` as well as\n`ErasNominatorsSlashable` in lazy pruning. This has a minor (I believe\nacceptable) side effect that they will be cleaned up in 84 eras instead\nof 28 eras.\n---\n\n## TODO\n- [x] Ensure delegator slash works correctly (nomination pool). \n- [x] Ensure pool members can unbond in 1 day as well.\n- [x] Benchmark update.\n- [x] Document how all three can be changed in one go: `MinCommission`,\n`MinValidatorBond`, and `AreNominatorsSlashable`.\n- [x] Regenerate weight\n- [x] Make nominator unbonding time configurable and set it to 2 eras.\n- [x] Refactor compute slash to avoid calling `slash_nominator`\ncompletely.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-14T21:42:10Z",
-          "tree_id": "6fdc9be95a252247b6eab51732820ba65a2a6534",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3bfba618e98f2aa10ee8d4233a15c1e09fef50f"
-        },
-        "date": 1768431161779,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023038118293333326,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007058864526666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009921234273333317,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14432562515333341,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1434158844600001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e2160c37e69a0133bd378ee8a51e575dd70491a",
+          "message": "asset-hub-westend: deny value-moving calls to the `NonTransfer` proxy (#12771)\n\n# Description\n\n`ProxyType::NonTransfer` on Asset Hub Westend is documented as\npermitting *\"any call that does not transfer funds or assets\"*, but it\nis implemented as a **deny-list** (`!matches!(...)`) and therefore fails\nopen: a pallet added to the runtime is reachable by a `NonTransfer`\nproxy unless someone remembers to list it.\n\nSeveral call families that move the delegator's funds or assets were not\nlisted.\n\nFixes #12466 (found by the Runtime Whitebox Fuzzer).\n\n## Integration\n\nNo API change. `NonTransfer` proxies lose the ability to make the calls\nlisted below. Calls that do not move value are unaffected — including\n`Indices::claim`/`free`/`freeze` and `Vesting::vest` — as are all call\nfamilies backing the proxy types `NonTransfer` declares as its subsets,\nso the `is_superset` lattice is unchanged.\n\n## Review Notes\n\n**Scope.** The issue reports `ForeignAssets` and `PoolAssets`. While\nverifying it I found the same root cause admits five more families. The\nadded test enumerates every value-moving call it knows about; with the\nfix reverted it reports:\n\n```\nNonTransfer must reject calls that move funds or assets, but permitted:\n[\"ForeignAssets::transfer\", \"PoolAssets::transfer\",\n \"AssetConversion::swap_exact_tokens_for_tokens\", \"Psm::mint\",\n \"PolkadotXcm::transfer_assets\", \"Revive::call\", \"Indices::transfer\"]\n```\n\nSo every denial below is load-bearing, not speculative:\n\n| Denied | Why |\n|---|---|\n| `ForeignAssets`, `PoolAssets` | the other `pallet-assets` instances;\ntransfer value exactly as `Assets` does *(as reported)* |\n| `AssetConversion` | `swap_*`, `add_liquidity`, `remove_liquidity` move\nthe caller's assets |\n| `Psm` | `mint`/`redeem` swap the caller's stablecoins |\n| `PolkadotXcm` | `transfer_assets`/`teleport_assets` move assets\ncross-chain; `send`/`execute` express the same as raw XCM |\n| `Revive` | `call`/`instantiate*` carry a `value` to transfer |\n| `Indices::transfer`, `force_transfer` | `repatriate_reserved(&who,\n&new, amount)` moves the index's reserved deposit to another account |\n\nTwo of these are cases the **relay chain excludes by name** and the\nAsset Hub port dropped: the Westend relay's `NonTransfer` is an\nallow-list that specifically omits the entire XCM pallet, and\nspecifically omits `Indices::transfer`/`force_transfer`. `Indices` is\ntherefore denied per-variant here rather than wholesale, to draw the\nsame line.\n\n**I am happy to narrow this to just `ForeignAssets`/`PoolAssets` if\nyou'd prefer the minimal fix for the reported issue** — I went wider\nbecause closing the issue while leaving five instances of the identical\nbug seemed worse than proposing the broader change and letting you scope\nit.\n\n**Not touched.** I checked that none of the denied families back\n`Collator`, `Staking`, `NominationPools` or `StakingOperator`, the proxy\ntypes `NonTransfer` declares as subsets. Denying `NominationPools` or\n`Staking` would move value *and* silently break the superset lattice.\n\n**Tests.** Two, pinning the change from both directions:\n\n- `non_transfer_proxy_rejects_value_moving_calls` — collects every leak\nrather than asserting one at a time, so a regression names all of them.\n- `non_transfer_proxy_still_permits_non_value_moving_calls` — guards\nagainst over-reach. It passes both before and after this change.\n\nFull `asset-hub-westend-runtime` suite: 54 passed, 0 failed. Clippy\nclean.\n\nRelated: #12769 fixes a separate defect in the same `impl InstanceFilter\nfor ProxyType` (the `is_superset` relation rather than the filter). The\ntwo do not conflict.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>",
+          "timestamp": "2026-08-17T20:14:06Z",
+          "tree_id": "ee6e7eb2491e0d7fe04b3b16963c2380dc574584",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2e2160c37e69a0133bd378ee8a51e575dd70491a"
+        },
+        "date": 1787002941769,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14401916303333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007840406633333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009877902313333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02307464475333333,
             "unit": "seconds"
           }
         ]
