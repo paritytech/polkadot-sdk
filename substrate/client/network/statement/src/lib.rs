@@ -2069,9 +2069,14 @@ where
 		) {
 			Ok(r) => r,
 			Err(e) => {
-				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
-				let pending = entry.remove();
-				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
+				// A store read error says nothing about the journal, and the cursor is
+				// retained, so the sync resumes from the same position on a later burst.
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to fetch statements for initial sync of {peer_id}, will retry: {e:?}",
+				);
+				drop(entry);
+				self.initial_sync_peer_queue.push_back(peer_id);
 				return;
 			},
 		};
@@ -2588,6 +2593,9 @@ mod tests {
 				&sp_statement_store::Statement,
 			) -> FilterDecision,
 		) -> sp_statement_store::Result<sp_statement_store::AdmittedBatch> {
+			if self.fail_fetches.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Db("fetch failed".into()));
+			}
 			let admissions = self.admissions.lock().unwrap();
 			let statements = self.statements.lock().unwrap();
 			let mut result = Vec::new();
@@ -3707,6 +3715,46 @@ mod tests {
 			0,
 			"a network error must not be attributed to a timeout"
 		);
+	}
+
+	#[tokio::test]
+	async fn failed_store_fetch_retains_the_sync_and_a_later_burst_retries() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"initial-sync statement".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		let watermark = handler.pending_initial_syncs.get(&peer_id).unwrap().watermark;
+
+		statement_store.fail_fetches.store(true, Ordering::Relaxed);
+		handler.process_initial_sync_burst();
+
+		assert!(handler.pending_sends.is_empty(), "a failed fetch must not queue a send");
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert_eq!(pending.cursor, 0, "the cursor must stay at the failed position");
+		assert_eq!(pending.watermark, watermark);
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"the peer must be requeued for a retry"
+		);
+
+		// The store recovers: the next burst resumes from the retained cursor.
+		statement_store.fail_fetches.store(false, Ordering::Relaxed);
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+
+		// The completed send requeued the peer; the next burst observes the finished sync.
+		handler.process_initial_sync_burst();
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 	}
 
 	#[tokio::test]
