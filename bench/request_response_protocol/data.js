@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786799991961,
+  "lastUpdate": 1786960769396,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -114911,6 +114911,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2763719719,
             "range": "± 11470116",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e02db0d5706ae3bfb111c79a453f64e37aeee82",
+          "message": "[pallet-revive] expose ReentrancyProtection (#12866)\n\nExport ReentrancyProtection from pallet_revive and\npallet_revive::precompiles: it is a parameter type of the public\nExt::call, so it must be nameable by out-of-crate precompile\nimplementors.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-17T08:42:59Z",
+          "tree_id": "bb796b4922305fc96dcaffe53035253f768e2190",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e02db0d5706ae3bfb111c79a453f64e37aeee82"
+        },
+        "date": 1786960735914,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21179579,
+            "range": "± 256795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21013611,
+            "range": "± 107088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23528990,
+            "range": "± 183281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28346064,
+            "range": "± 303051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66711613,
+            "range": "± 865135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 418023280,
+            "range": "± 6567285",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2776691315,
+            "range": "± 149291345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18372096,
+            "range": "± 264886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18953998,
+            "range": "± 236224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19646914,
+            "range": "± 302371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23769951,
+            "range": "± 264479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 68228967,
+            "range": "± 1045580",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 410536595,
+            "range": "± 7170473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2962779687,
+            "range": "± 35514874",
             "unit": "ns/iter"
           }
         ]
