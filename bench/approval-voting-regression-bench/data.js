@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786961834843,
+  "lastUpdate": 1786968486581,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "x@acg.box",
-            "name": "Xavier Lau",
-            "username": "aurexav"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1ea05e170716a1bace2e2d8bad2d98c1fdcea224",
-          "message": "Fix auto-renew core tracking on immediate renew (#10767)\n\n## Summary\nFix auto-renew tracking when `do_enable_auto_renew` triggers an\nimmediate renewal. The auto-renew record now follows the new core index\nreturned by `do_renew`, preventing a stale core from being\nrenewed in the next sale rotation.\n\nDiscovered by the Darwinia Network team while attempting a renew.\n\n## Problem\nWhen enabling auto-renew during the renewal window (`PotentialRenewals`\nat `sale.region_begin`), `do_enable_auto_renew` immediately calls\n`do_renew`. That call can allocate a *different* core\nindex, but the auto-renew record was stored with the **old** core. On\nthe next rotation, `renew_cores` attempts to renew that stale core and\nemits `AutoRenewalFailed`, even though the workload has\nalready moved to the new core.\n\n## Fix\nCapture the returned core index from `do_renew` inside\n`do_enable_auto_renew`, and store that core in `AutoRenewals` (and the\nenable event).\n\n## Tests\n- Added `enable_auto_renew_immediate_updates_core_and_renews`\n- `cargo test -p pallet-broker`\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10006\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-13T22:05:32Z",
-          "tree_id": "d40538ab29c12ab529aa5da38fef927d44adbba5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea05e170716a1bace2e2d8bad2d98c1fdcea224"
-        },
-        "date": 1768346295682,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63627.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000230526,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6907720975400022,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005520870710000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6519892934100007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000230526,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025114919999999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3229946099999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8191739399700598,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6911584577300025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.815755775430063,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.634146506070001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.858940696293012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025114919999999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005909996110000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "578a14fdc7bad9a0105e68b23ae26277e58cbc4b",
+          "message": "ci: Enhance backports with PR title for more details (#12820)\n\nThis PR changes the shape of the backports:\n- backport title now includes the full PR title \n- description backport has a bullet line to expand the full PR in\nmarkdown view\n\nThis effectively chances the title of the backport such that we can\nfollow easily the backport purpose:\n\n```\n// Before\n[stable2512] Backport #12767\n\n// After\n[stable2512 Backport #12767] grandpa: Revert memory changes synced with db\n```\n\nWhen having multiple backports in flight its difficult to follow git\nnotifications without click the git issue\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-08-17T10:36:02Z",
+          "tree_id": "36d20574d57d5aa61bd9500c2659dd4b715524d1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/578a14fdc7bad9a0105e68b23ae26277e58cbc4b"
+        },
+        "date": 1786968453099,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.17999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002123898,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3181932620600043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002123898,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005106825759999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6471309842999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021050090000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6554266812300007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.638921298819999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021050090000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6032719823200017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7903495528099707,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.309831734112719,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.65840058729997,
             "unit": "seconds"
           }
         ]
