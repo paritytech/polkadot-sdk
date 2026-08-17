@@ -1009,9 +1009,8 @@ where
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 	/// Which block bodies gap sync downloads after warp sync. `None` derives the
-	/// default from the block pruning configuration
-	/// (see [`default_gap_sync_body_policy`]); storage-chain nodes install a provider
-	/// that queries the runtime's retention period instead.
+	/// default from the block pruning configuration, see
+	/// [`default_gap_sync_body_policy`].
 	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
@@ -1392,8 +1391,8 @@ where
 	/// Metrics.
 	pub metrics: NotificationMetrics,
 	/// Resolves the gap sync body policy when a `ChainSync` instance is created. Use
-	/// [`default_gap_sync_body_policy`] unless the node explicitly opts into
-	/// storage-chain body recovery.
+	/// [`default_gap_sync_body_policy`] unless the node opts into storage-chain body
+	/// recovery.
 	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
@@ -1508,10 +1507,9 @@ where
 
 /// The default gap sync body policy provider, derived from the block pruning
 /// configuration: archive nodes backfill the whole gap with bodies, pruned nodes
-/// backfill headers and justifications only.
+/// headers and justifications only.
 ///
-/// Nodes that must recover recent bodies after warp sync (storage chains) install
-/// their own provider instead, via
+/// Storage-chain nodes install their own provider instead, via
 /// [`BuildNetworkParams::gap_sync_body_policy`].
 pub fn default_gap_sync_body_policy(blocks_pruning: BlocksPruning) -> GapSyncBodyPolicyProvider {
 	Arc::new(move || {

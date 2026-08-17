@@ -304,8 +304,7 @@ pub struct BuildNetworkParams<
 	pub sybil_resistance_level: CollatorSybilResistance,
 	pub metrics: sc_network::NotificationMetrics,
 	/// Which block bodies gap sync downloads after warp sync. `None` derives the
-	/// default from the block pruning configuration; storage-chain nodes install a
-	/// provider that queries the runtime's retention period instead.
+	/// default from the block pruning configuration.
 	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 

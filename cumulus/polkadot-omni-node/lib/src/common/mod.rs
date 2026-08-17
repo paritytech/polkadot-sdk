@@ -152,19 +152,17 @@ pub struct NodeExtraArgs {
 /// Safety margin, in blocks, subtracted from the runtime's transaction-storage retention
 /// period when deriving the gap sync body download window.
 ///
-/// Bodies are only required for blocks above `finalized - (retention - margin)`. The
-/// margin covers the finality lead of serving peers over the local node plus request,
-/// retry and import-queue delays, so that every conforming peer still retains the bodies
-/// we require. It is small compared to real retention periods, which span days or weeks.
+/// The margin covers the finality lead of serving peers plus request and import delays,
+/// so that peers still retain every body we require. It is small compared to real
+/// retention periods, which span days or weeks.
 pub(crate) const GAP_SYNC_BODY_SAFETY_MARGIN: u32 = 128;
 
 /// Returns the [`GapSyncBodyPolicyProvider`] for this node.
 ///
 /// The provider is evaluated when a `ChainSync` instance is created — on a warp-syncing
-/// node right after state sync completes — so it queries the runtime at the best block
-/// (the warp target) instead of genesis. A runtime API failure or an invalid
-/// configuration fails `ChainSync` creation and thereby the node, instead of silently
-/// degrading a storage chain to header-only gap sync.
+/// node right after state sync completes — so it queries the runtime at the warp target
+/// instead of genesis. Errors fail the node instead of silently degrading a storage
+/// chain to header-only gap sync.
 pub(crate) fn gap_sync_body_policy_provider<Block, Client>(
 	client: Arc<Client>,
 	blocks_pruning: BlocksPruning,

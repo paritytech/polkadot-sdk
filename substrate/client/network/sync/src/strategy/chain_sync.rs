@@ -322,29 +322,23 @@ impl ChainSyncMode {
 
 /// Which block bodies gap sync downloads while backfilling the block history below a
 /// warp-synced block.
-///
-/// The anchor below is `max(finalized_number, gap_target + 1)`: the gap is created by
-/// importing a finalized block right above it, so the gap target bounds the finalized
-/// number from below even while the client's finality info still lags right after warp
-/// sync.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum GapSyncBodyPolicy {
 	/// Backfill gap headers and justifications without bodies.
 	HeadersOnly,
 	/// Require bodies for the complete gap.
 	All,
-	/// Require bodies for blocks above `anchor - window`. The window is expected to be
-	/// pre-shrunk by the node with a safety margin, so that peers whose finality runs
-	/// ahead of ours still retain every requested body.
+	/// Require bodies for blocks within the given window below the finalized block.
+	/// The window is expected to be pre-shrunk by the node with a safety margin, so
+	/// that peers whose finality runs ahead of ours still retain every requested body.
 	DownloadFinalized(u32),
 }
 
 /// Resolves the [`GapSyncBodyPolicy`] lazily, when a `ChainSync` instance is created.
 ///
 /// On a warp-syncing node this happens right after state sync completes, so the
-/// provider can query runtime state at the warp target — which a policy computed at
-/// node startup could not (a fresh node only has genesis state then). Errors fail
-/// `ChainSync` creation instead of silently degrading the policy.
+/// provider can query runtime state at the warp target. Errors fail `ChainSync`
+/// creation instead of silently degrading the policy.
 pub type GapSyncBodyPolicyProvider =
 	Arc<dyn Fn() -> Result<GapSyncBodyPolicy, ClientError> + Send + Sync>;
 
@@ -1173,6 +1167,9 @@ where
 			"Block history download is complete.",
 		);
 		self.gap_sync = None;
+		if let Some(metrics) = &self.metrics {
+			metrics.gap_oldest_required_body.set(0);
+		}
 	}
 
 	#[must_use]
@@ -1352,11 +1349,8 @@ where
 					PeerSyncState::DownloadingGap(_) => {
 						peer.state = PeerSyncState::Available;
 						if blocks.is_empty() && request.fields.contains(BlockAttributes::BODY) {
-							// The peer cannot serve the required bodies: the safety-adjusted
-							// window keeps mandatory body requests serviceable by every
-							// conforming peer, so this peer is misconfigured, itself not
-							// backfilled yet, or malicious. `validate_blocks` below drops it,
-							// freeing the range for another peer.
+							// Conforming peers can always serve the required bodies;
+							// `validate_blocks` below drops this one, freeing the range.
 							warn!(
 								target: LOG_TARGET,
 								"Peer {peer_id} sent an empty response for gap block request \
@@ -2042,10 +2036,8 @@ where
 		let body_anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
 			std::cmp::max(finalized_number, gap.target + One::one())
 		});
-		// The block attributes for gap requests and, for `DownloadFinalized`, the moving
-		// body cutoff: bodies are required for blocks above it and stripped from ranges
-		// entirely at or below it. The cutoff is recomputed every scheduling pass so it
-		// follows finality.
+		// Bodies are required for gap blocks above the cutoff and stripped from ranges
+		// entirely at or below it; recomputed every pass so the cutoff follows finality.
 		let (gap_attrs, gap_body_cutoff) = {
 			let attrs = mode.required_block_attributes();
 			match self.gap_sync_body_policy {
@@ -2059,9 +2051,8 @@ where
 		if let (Some(metrics), Some(cutoff), Some(gap)) =
 			(self.metrics.as_ref(), gap_body_cutoff, self.gap_sync.as_ref())
 		{
-			// The oldest block still requiring a body: the lowest not-yet-queued gap
-			// block, clamped from below by the cutoff (blocks at or below it are
-			// header-only).
+			// The oldest gap block still requiring a body: the lowest not-yet-queued
+			// block, clamped from below by the cutoff.
 			let oldest_required = std::cmp::max(gap.best_queued_number, cutoff) + One::one();
 			metrics.gap_oldest_required_body.set(if oldest_required <= gap.target {
 				oldest_required.saturated_into::<u64>()
@@ -2467,9 +2458,8 @@ fn peer_block_request<B: BlockT>(
 /// Get a new gap block request for the peer if any.
 ///
 /// Bodies are stripped from the request if the whole range is at or below
-/// `body_cutoff`. A range straddling the cutoff requests bodies for all its blocks:
-/// splitting it would desync the [`BlockCollection`] bookkeeping, and the few extra
-/// bodies below the cutoff are harmless.
+/// `body_cutoff`. A range straddling the cutoff requests bodies for all its blocks
+/// rather than being split.
 fn peer_gap_block_request<B: BlockT>(
 	id: &PeerId,
 	peer: &PeerSync<B>,

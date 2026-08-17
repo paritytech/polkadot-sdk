@@ -74,9 +74,7 @@ where
 	pub state_request_protocol_name: ProtocolName,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
-	/// Resolves the gap sync body policy when a `ChainSync` instance is created. On a
-	/// warp-syncing node this happens right after state sync completes, so the provider
-	/// can query runtime state at the warp target.
+	/// Resolves the gap sync body policy when a `ChainSync` instance is created.
 	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
