@@ -1878,28 +1878,39 @@ where
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
-		let sync_id = self.next_initial_sync_id;
-		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
-		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
-			self.initial_sync_peer_queue.retain(|p| *p != peer);
+		// A sync raises the peer's watermark, which suppresses propagation below it, so
+		// scheduling one for a peer absent from the map has nothing to mirror it into.
+		if !self.peers.contains_key(&peer) {
+			return;
 		}
+		// The watermark is read before the existing sync is touched, so a store error
+		// leaves an in-progress sync running instead of destroying it with no successor.
 		let watermark = match self.statement_store.admission_watermark() {
 			Ok(watermark) => watermark,
 			Err(e) => {
-				log::debug!(
+				log::warn!(
 					target: LOG_TARGET,
 					"Failed to read the admission watermark, skipping initial sync for {peer}: {e:?}",
 				);
 				return;
 			},
 		};
+		let sync_id = self.next_initial_sync_id;
+		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
+		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
+			self.initial_sync_peer_queue.retain(|p| *p != peer);
+		}
 		if watermark > 0 {
 			// The watermark splits delivery between the two paths: this sync's cursor covers
 			// the admissions below it, propagation covers the ones at or above it.
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
 			}
+			// Hashes queued for propagation before this scheduling sit below the new
+			// watermark, so the cursor already covers them; dropping the outbox keeps
+			// them from arriving twice.
+			self.propagation_outboxes.remove(&peer);
 			self.pending_initial_syncs.insert(
 				peer,
 				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
@@ -3741,6 +3752,32 @@ mod tests {
 
 		handler.process_initial_sync_burst();
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn rescheduling_a_sync_drops_the_propagation_outbox() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = Statement::new();
+		statement.set_plain_data(b"queued before re-sync".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		assert!(
+			!handler.propagation_outboxes.contains_key(&peer_id),
+			"hashes queued before the sync are covered by its cursor"
+		);
+
+		// The sync cursor remains the only path, so the statement arrives exactly once.
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
 	}
 
 	#[tokio::test]
