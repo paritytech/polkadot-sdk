@@ -95,10 +95,6 @@ pub type ProvidedBlockNumberOf<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// Used to send an XCM `Transact` to the registrar pallet on the remote relay chain.
-///
-/// Deliberately free of XCM types: what a message means is this pallet's business, how it travels
-/// is the runtime's. The runtime supplies an implementation that encodes the relay chain's call
-/// index and hands the program to the router.
 pub trait SendToRelay {
 	/// The account id used to identify a registration's manager on both chains.
 	type AccountId;
