@@ -372,10 +372,16 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 	let strategy = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static { extra_pages: p as _ });
+	// TRACING/DEV ONLY (this branch): give offchain calls (runtime-API replays such
+	// as `ReviveApi_trace_tx` via `state_callRecorded`) a 1 GiB heap so full EVM
+	// execution traces fit. Scoped to the offchain strategy on purpose: block
+	// authoring/import (CallContext::Onchain) keeps the standard strategy, so
+	// consensus execution and any collected performance metrics are unaffected.
+	let offchain_strategy = HeapAllocStrategy::Static { extra_pages: 16384 };
 	WasmExecutor::<H>::builder()
 		.with_execution_method(config.wasm_method)
 		.with_onchain_heap_alloc_strategy(strategy)
-		.with_offchain_heap_alloc_strategy(strategy)
+		.with_offchain_heap_alloc_strategy(offchain_strategy)
 		.with_max_runtime_instances(config.max_runtime_instances)
 		.with_runtime_cache_size(config.runtime_cache_size)
 		.build()

@@ -36,7 +36,8 @@
 //!
 //! For implementing freeing we maintain a linked lists for each order. The maximum supported
 //! allocation size is capped, therefore the number of orders and thus the linked lists is as well
-//! limited. Currently, the maximum size of an allocation is 32 MiB.
+//! limited. Currently, the maximum size of an allocation is 256 MiB (raised on this branch, see
+//! `sp_core::MAX_POSSIBLE_ALLOCATION`).
 //!
 //! When the allocator serves an allocation request it first checks the linked list for the
 //! respective order. If it doesn't have any free chunks, the allocator requests memory from the
@@ -96,13 +97,14 @@ const LOG_TARGET: &str = "wasm-heap";
 // The minimum possible allocation size is chosen to be 8 bytes because in that case we would have
 // easier time to provide the guaranteed alignment of 8.
 //
-// The maximum possible allocation size is set in the primitives to 32MiB.
+// The maximum possible allocation size is set in the primitives to 256MiB (raised from 32MiB on
+// this branch for execution tracing — see `sp_core::MAX_POSSIBLE_ALLOCATION`).
 //
 // N_ORDERS - represents the number of orders supported.
 //
 // This number corresponds to the number of powers between the minimum possible allocation and
-// maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
-const N_ORDERS: usize = 23;
+// maximum possible allocation, or: 2^3...2^28 (both ends inclusive, hence 26).
+const N_ORDERS: usize = 26;
 const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
 
 /// The exponent for the power of two sized block adjusted to the minimum size.
