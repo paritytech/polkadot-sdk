@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786961790260,
+  "lastUpdate": 1786968444553,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
-          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-01-14T11:50:36Z",
-          "tree_id": "36107140a1792163eace77a49154710099d32009",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
-        },
-        "date": 1768395374070,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14373588527333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02321140406,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009912981653333371,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0067293502266666675,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.00751378052666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "578a14fdc7bad9a0105e68b23ae26277e58cbc4b",
+          "message": "ci: Enhance backports with PR title for more details (#12820)\n\nThis PR changes the shape of the backports:\n- backport title now includes the full PR title \n- description backport has a bullet line to expand the full PR in\nmarkdown view\n\nThis effectively chances the title of the backport such that we can\nfollow easily the backport purpose:\n\n```\n// Before\n[stable2512] Backport #12767\n\n// After\n[stable2512 Backport #12767] grandpa: Revert memory changes synced with db\n```\n\nWhen having multiple backports in flight its difficult to follow git\nnotifications without click the git issue\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-08-17T10:36:02Z",
+          "tree_id": "36d20574d57d5aa61bd9500c2659dd4b715524d1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/578a14fdc7bad9a0105e68b23ae26277e58cbc4b"
+        },
+        "date": 1786968411076,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1436350435,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00761339082,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02285148522666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009927126199999999,
             "unit": "seconds"
           }
         ]
