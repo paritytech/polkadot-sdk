@@ -57,10 +57,9 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::{Error as TxPoolApiError, IntoPoolError},
-	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
-	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
-	TxInvalidityReportMap,
+	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -754,7 +753,7 @@ where
 			return Err(TxPoolApiError::AlreadyImported(Box::new(tx_hash)).into())
 		};
 
-		let snapshot = self.view_store.most_recent_view_hash();
+		let preexisting_views = self.view_store.active_view_hashes();
 
 		let insertion = match self.mempool.push_watched(source, at_number, xt.clone()).await {
 			Ok(result) => result,
@@ -778,7 +777,11 @@ where
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		self.events_metrics_collector.report_submitted(&insertion);
 
-		match self.view_store.submit_and_watch(at, insertion.source, xt).await {
+		match self
+			.view_store
+			.submit_and_watch(at, insertion.source, xt, &preexisting_views)
+			.await
+		{
 			Ok(outcome) => {
 				self.mempool
 					.update_transaction_priority(outcome.hash(), outcome.priority())
@@ -786,27 +789,9 @@ where
 				Ok(external_watcher)
 			},
 			Err(e) => {
-				match e.into_pool_error() {
-					Ok(TxPoolApiError::AlreadyImported(_)) if snapshot != self.view_store.most_recent_view_hash() => {
-						trace!(
-							target: LOG_TARGET,
-							?tx_hash,
-							"submit_and_watch: AlreadyImported due to concurrent \
-							 maintain race, treating as success"
-						);
-						Ok(external_watcher)
-					},
-					Ok(pool_err) => {
-						self.view_store.listener.remove_external_watcher(tx_hash);
-						self.mempool.remove_transactions(&[insertion.hash]).await;
-						Err(pool_err.into())
-					},
-					Err(err) => {
-						self.view_store.listener.remove_external_watcher(tx_hash);
-						self.mempool.remove_transactions(&[insertion.hash]).await;
-						Err(err)
-					},
-				}
+				self.view_store.listener.remove_external_watcher(tx_hash);
+				self.mempool.remove_transactions(&[insertion.hash]).await;
+				Err(e)
 			},
 		}
 	}
@@ -828,7 +813,7 @@ where
 			.as_u64();
 		let view_store = self.view_store.clone();
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		let snapshot = self.view_store.most_recent_view_hash();
+		let preexisting_views = self.view_store.active_view_hashes();
 
 		let mempool_results = self.mempool.extend_unwatched(source, at_number, &xts).await;
 
@@ -873,8 +858,10 @@ where
 		// ... and submit them to the view_store. Please note that transactions rejected by mempool
 		// are not sent here.
 		let mempool = self.mempool.clone();
-		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
-		let mut submission_results = reduce_multiview_result(results_map).into_iter();
+		let mut submission_results = view_store
+			.submit(to_be_submitted.into_iter(), &preexisting_views)
+			.await
+			.into_iter();
 
 		// Note for composing final result:
 		//
@@ -909,25 +896,8 @@ where
 						final_results.push(Ok(r.hash()));
 					},
 					Err(e) => {
-						match e.into_pool_error() {
-							Ok(TxPoolApiError::AlreadyImported(_)) if snapshot != self.view_store.most_recent_view_hash() => {
-								trace!(
-									target: LOG_TARGET,
-									?hash,
-									"submit_at: AlreadyImported due to concurrent \
-									 maintain race, treating as success"
-								);
-								final_results.push(Ok(hash));
-							},
-							Ok(pool_err) => {
-								mempool.remove_transactions(&[hash]).await;
-								final_results.push(Err(pool_err.into()));
-							},
-							Err(err) => {
-								mempool.remove_transactions(&[hash]).await;
-								final_results.push(Err(err));
-							},
-						}
+						mempool.remove_transactions(&[hash]).await;
+						final_results.push(Err(e));
 					},
 				},
 				Err(e) => final_results.push(Err(e)),
@@ -943,53 +913,6 @@ where
 	pub fn import_notification_sink_len(&self) -> usize {
 		self.import_notification_sink.notified_items_len()
 	}
-}
-
-/// Converts the input view-to-statuses map into the output vector of statuses.
-///
-/// The result of importing a bunch of transactions into a single view is the vector of statuses.
-/// Every item represents a status for single transaction. The input is the map that associates
-/// hash-views with vectors indicating the statuses of transactions imports.
-///
-/// Import to multiple views result in two-dimensional array of statuses, which is provided as
-/// input map.
-///
-/// This function converts the map into the vec of results, according to the following rules:
-/// - for given transaction if at least one status is success, then output vector contains success,
-/// - if given transaction status is error for every view, then output vector contains error.
-///
-/// The results for transactions are in the same order for every view. An output vector preserves
-/// this order.
-///
-/// ```skip
-/// in:
-/// view  |   xt0 status | xt1 status | xt2 status
-/// h1   -> [ Ok(xth0),    Ok(xth1),    Err       ]
-/// h2   -> [ Ok(xth0),    Err,         Err       ]
-/// h3   -> [ Ok(xth0),    Ok(xth1),    Err       ]
-///
-/// out:
-/// [ Ok(xth0), Ok(xth1), Err ]
-/// ```
-fn reduce_multiview_result<H, D, E>(input: HashMap<H, Vec<Result<D, E>>>) -> Vec<Result<D, E>> {
-	let mut values = input.values();
-	let Some(first) = values.next() else {
-		return Default::default();
-	};
-	let length = first.len();
-	debug_assert!(values.all(|x| length == x.len()));
-
-	input
-		.into_values()
-		.reduce(|mut agg_results, results| {
-			agg_results.iter_mut().zip(results.into_iter()).for_each(|(agg_r, r)| {
-				if agg_r.is_err() {
-					*agg_r = r;
-				}
-			});
-			agg_results
-		})
-		.unwrap_or_default()
 }
 
 #[async_trait]
@@ -1009,7 +932,8 @@ where
 	/// Actual transactions submission process is delegated to the `ViewStore` internal instance.
 	///
 	/// The internal limits of the pool are checked. The results of submissions to individual views
-	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
+	/// are merged into a single result for every transaction. Refer to
+	/// `ViewStore::merge_submission_results` for more details.
 	async fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
@@ -1237,7 +1161,7 @@ where
 			.into()
 			.as_u64();
 
-		let snapshot = self.view_store.most_recent_view_hash();
+		let preexisting_views = self.view_store.active_view_hashes();
 
 		// note: would be nice to get rid of sync methods one day. See: #8912
 		let result = self
@@ -1255,33 +1179,16 @@ where
 			_ => result,
 		}?;
 
-		match self.view_store.submit_local(xt) {
+		match self.view_store.submit_local(xt, &preexisting_views) {
 			Ok(outcome) => {
 				self.mempool
 					.clone()
 					.update_transaction_priority_sync(outcome.hash(), outcome.priority());
 				Ok(outcome.hash())
 			},
-			Err(e) => {
-				match e.into_pool_error() {
-					Ok(TxPoolApiError::AlreadyImported(_)) if snapshot != self.view_store.most_recent_view_hash() => {
-						trace!(
-							target: LOG_TARGET,
-							hash = ?insertion.hash,
-							"submit_local: AlreadyImported due to concurrent \
-							 maintain race, treating as success"
-						);
-						Ok(insertion.hash)
-					},
-					Ok(_) => {
-						self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
-						Ok(insertion.hash)
-					},
-					Err(_) => {
-						self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
-						Ok(insertion.hash)
-					},
-				}
+			Err(_) => {
+				self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
+				Ok(insertion.hash)
 			},
 		}
 	}
@@ -2179,154 +2086,5 @@ where
 		);
 
 		pool
-	}
-}
-
-#[cfg(test)]
-mod reduce_multiview_result_tests {
-	use super::*;
-	use sp_core::H256;
-	#[derive(Debug, PartialEq, Clone)]
-	enum Error {
-		Custom(u8),
-	}
-
-	#[test]
-	fn empty() {
-		sp_tracing::try_init_simple();
-		let input = HashMap::default();
-		let r = reduce_multiview_result::<H256, H256, Error>(input);
-		assert!(r.is_empty());
-	}
-
-	#[test]
-	fn errors_only() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(
-				H256::repeat_byte(0x13),
-				vec![
-					Err(Error::Custom(10)),
-					Err(Error::Custom(11)),
-					Err(Error::Custom(12)),
-					Err(Error::Custom(13)),
-				],
-			),
-			(
-				H256::repeat_byte(0x14),
-				vec![
-					Err(Error::Custom(20)),
-					Err(Error::Custom(21)),
-					Err(Error::Custom(22)),
-					Err(Error::Custom(23)),
-				],
-			),
-			(
-				H256::repeat_byte(0x15),
-				vec![
-					Err(Error::Custom(30)),
-					Err(Error::Custom(31)),
-					Err(Error::Custom(32)),
-					Err(Error::Custom(33)),
-				],
-			),
-		];
-		let input = HashMap::from_iter(v.clone());
-		let r = reduce_multiview_result(input);
-
-		// order in HashMap is random, the result shall be one of:
-		assert!(r == v[0].1 || r == v[1].1 || r == v[2].1);
-	}
-
-	#[test]
-	#[should_panic]
-	#[cfg(debug_assertions)]
-	fn invalid_lengths() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(H256::repeat_byte(0x13), vec![Err(Error::Custom(12)), Err(Error::Custom(13))]),
-			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
-		];
-		let input = HashMap::from_iter(v);
-		let _ = reduce_multiview_result(input);
-	}
-
-	#[test]
-	fn only_hashes() {
-		sp_tracing::try_init_simple();
-
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(
-				H256::repeat_byte(0x13),
-				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
-			),
-			(
-				H256::repeat_byte(0x14),
-				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
-			),
-		];
-		let input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(input);
-
-		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))]);
-	}
-
-	#[test]
-	fn one_view() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![(
-			H256::repeat_byte(0x13),
-			vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))],
-		)];
-		let input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(input);
-
-		assert_eq!(r, vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))]);
-	}
-
-	#[test]
-	fn mix() {
-		sp_tracing::try_init_simple();
-		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
-			(
-				H256::repeat_byte(0x13),
-				vec![
-					Ok(H256::repeat_byte(0x10)),
-					Err(Error::Custom(11)),
-					Err(Error::Custom(12)),
-					Err(Error::Custom(33)),
-				],
-			),
-			(
-				H256::repeat_byte(0x14),
-				vec![
-					Err(Error::Custom(20)),
-					Ok(H256::repeat_byte(0x21)),
-					Err(Error::Custom(22)),
-					Err(Error::Custom(33)),
-				],
-			),
-			(
-				H256::repeat_byte(0x15),
-				vec![
-					Err(Error::Custom(30)),
-					Err(Error::Custom(31)),
-					Ok(H256::repeat_byte(0x32)),
-					Err(Error::Custom(33)),
-				],
-			),
-		];
-		let input = HashMap::from_iter(v);
-		let r = reduce_multiview_result(input);
-
-		assert_eq!(
-			r,
-			vec![
-				Ok(H256::repeat_byte(0x10)),
-				Ok(H256::repeat_byte(0x21)),
-				Ok(H256::repeat_byte(0x32)),
-				Err(Error::Custom(33))
-			]
-		);
 	}
 }

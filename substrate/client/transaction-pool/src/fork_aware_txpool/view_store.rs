@@ -33,9 +33,11 @@ use crate::{
 	},
 	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
 };
-use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{PoolStatus, TransactionTag as Tag, TxInvalidityReportMap};
+use sc_transaction_pool_api::{
+	error::{Error as PoolError, IntoPoolError},
+	PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -223,10 +225,21 @@ where
 	}
 
 	/// Imports a bunch of unverified extrinsics to every active view.
+	///
+	/// The results of submissions to individual views are merged into a single result for every
+	/// extrinsic, preserving the input order. Refer to [`Self::merge_submission_results`] for
+	/// details on how the individual views' results (including `AlreadyImported` errors
+	/// interpreted against `preexisting_views`) are combined.
 	pub(super) async fn submit(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)> + Clone,
-	) -> HashMap<Block::Hash, Vec<Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error>>> {
+		preexisting_views: &HashSet<Block::Hash>,
+	) -> Vec<Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error>> {
+		let tx_hashes = xts
+			.clone()
+			.into_iter()
+			.map(|(_, xt)| self.api.hash_and_length(&xt).0)
+			.collect::<Vec<_>>();
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
@@ -249,48 +262,70 @@ where
 		};
 		let results = futures::future::join_all(submit_futures).await;
 
-		HashMap::<_, _>::from_iter(results.into_iter())
+		let mut per_view_results = results
+			.into_iter()
+			.map(|(view_hash, results)| {
+				debug_assert_eq!(results.len(), tx_hashes.len());
+				(view_hash, results.into_iter())
+			})
+			.collect::<Vec<_>>();
+
+		tx_hashes
+			.into_iter()
+			.map(|tx_hash| {
+				let row = per_view_results.iter_mut().map(|(view_hash, results)| {
+					(
+						*view_hash,
+						results
+							.next()
+							.expect("all views return one result per extrinsic; qed"),
+					)
+				});
+				self.merge_submission_results(tx_hash, row, preexisting_views)
+			})
+			.collect()
 	}
 
 	/// Synchronously imports single unverified extrinsics into every active view.
+	///
+	/// `preexisting_views` shall contain the hashes of the views that were active before the
+	/// transaction was inserted into the mempool (see [`Self::active_view_hashes`]). Refer to
+	/// [`Self::merge_submission_results`] for details on how the individual views' results are
+	/// combined into the final result.
 	pub(super) fn submit_local(
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
+		preexisting_views: &HashSet<Block::Hash>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let active_views = self.active_views.read().values().cloned().collect::<Vec<_>>();
 
 		let tx_hash = self.api.hash_and_length(&xt).0;
 
-		let result = active_views
+		let results = active_views
 			.iter()
-			.map(|view| view.submit_local(xt.clone()))
-			.find_or_first(Result::is_ok);
+			.map(|view| (view.at.hash, view.submit_local(xt.clone()).map(Into::into)))
+			.collect::<Vec<_>>();
 
-		match result {
-			Some(Err(error)) => {
-				trace!(
-					target: LOG_TARGET,
-					?tx_hash,
-					%error,
-					"submit_local failed"
-				);
-				Err(error)
-			},
-			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
-			Some(Ok(r)) => Ok(r.into()),
-		}
+		self.merge_submission_results(tx_hash, results, preexisting_views)
 	}
 
-	/// Import a single extrinsic into every active view.
+	/// Import a single extrinsic into every active view and provide the submission outcome.
 	///
-	/// The caller is responsible for creating the external watcher beforehand and for
-	/// race-condition detection (comparing `most_recent_view` snapshots).
+	/// The external watcher is not created here — the caller is expected to create it (using
+	/// `MultiViewListener::create_external_watcher_for_tx`) before inserting the transaction
+	/// into the mempool.
+	///
+	/// `preexisting_views` shall contain the hashes of the views that were active before the
+	/// transaction was inserted into the mempool (see [`Self::active_view_hashes`]). It is used
+	/// to interpret `AlreadyImported` errors reported by individual views. Refer to
+	/// [`Self::merge_submission_results`] for details on how the final result is computed.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::sumbit_and_watch")]
 	pub(super) async fn submit_and_watch(
 		&self,
 		_at: Block::Hash,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
+		preexisting_views: &HashSet<Block::Hash>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let submit_futures = {
@@ -302,21 +337,114 @@ where
 					let xt = xt.clone();
 					let source = source.clone();
 					async move {
-						view.submit_one(source, xt, ValidateTransactionPriority::Submitted).await
+						(
+							view.at.hash,
+							view.submit_one(source, xt, ValidateTransactionPriority::Submitted)
+								.await,
+						)
 					}
 				})
 				.collect::<Vec<_>>()
 		};
-		let result = futures::future::join_all(submit_futures)
-			.await
-			.into_iter()
-			.find_or_first(Result::is_ok);
+		let results = futures::future::join_all(submit_futures).await;
 
-		match result {
-			Some(Err(error)) => Err(error),
-			Some(Ok(result)) => Ok(ViewStoreSubmitOutcome::from(result)),
-			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
+		self.merge_submission_results(
+			tx_hash,
+			results.into_iter().map(|(view_hash, result)| (view_hash, result.map(Into::into))),
+			preexisting_views,
+		)
+	}
+
+	/// Merges the per-view submission results of a single extrinsic into the final result.
+	///
+	/// `preexisting_views` shall contain the hashes of the views that were active before the
+	/// transaction was inserted into the mempool (see [`Self::active_view_hashes`]). It is used
+	/// to interpret `AlreadyImported` errors reported by individual views:
+	/// - an `AlreadyImported` error is ignored if reported by a view not contained in
+	///   `preexisting_views`: such a view was created during the submission process and the
+	///   transaction was already imported into it from the mempool (by
+	///   `update_view_with_mempool`),
+	/// - an `AlreadyImported` error reported by a view contained in `preexisting_views`
+	///   indicates an inconsistency between the mempool and the views: the transaction was
+	///   present in the view while it was absent from the mempool. A warning is logged whenever
+	///   this is detected, regardless of the final result.
+	///
+	/// The final result is computed from the individual views' results as follows:
+	/// - if any view accepted the transaction, the outcome of the first successful submission is
+	///   returned,
+	/// - if all views reported errors:
+	///   - if `AlreadyImported` was reported by any view contained in `preexisting_views`, the
+	///     `AlreadyImported` error is returned (this rule takes precedence over the following
+	///     one),
+	///   - if `AlreadyImported` was reported only by views not contained in
+	///     `preexisting_views`, the errors are ignored and a successful outcome (with unknown
+	///     priority) is returned,
+	///   - otherwise, the first reported error is returned,
+	/// - if there are no active views, a successful outcome (with unknown priority) is returned.
+	fn merge_submission_results(
+		&self,
+		tx_hash: ExtrinsicHash<ChainApi>,
+		results: impl IntoIterator<
+			Item = (Block::Hash, Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error>),
+		>,
+		preexisting_views: &HashSet<Block::Hash>,
+	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
+		let mut first_outcome = None;
+		let mut already_imported_in_preexisting_view = false;
+		let mut already_imported_in_new_view = false;
+		let mut first_error = None;
+		let mut no_views = true;
+
+		for (view_hash, result) in results {
+			no_views = false;
+			match result {
+				Ok(outcome) =>
+					if first_outcome.is_none() {
+						first_outcome = Some(outcome);
+					},
+				Err(error) => match error.into_pool_error() {
+					Ok(PoolError::AlreadyImported(_)) =>
+						if preexisting_views.contains(&view_hash) {
+							warn!(
+								target: LOG_TARGET,
+								?tx_hash,
+								?view_hash,
+								"transaction already present in a pre-existing view while it \
+								 was not in the mempool - views/mempool inconsistency"
+							);
+							already_imported_in_preexisting_view = true;
+						} else {
+							trace!(
+								target: LOG_TARGET,
+								?tx_hash,
+								?view_hash,
+								"transaction already imported into a view created during \
+								 submission, ignoring"
+							);
+							already_imported_in_new_view = true;
+						},
+					Ok(pool_error) =>
+						if first_error.is_none() {
+							first_error = Some(pool_error.into());
+						},
+					Err(error) =>
+						if first_error.is_none() {
+							first_error = Some(error);
+						},
+				},
+			}
 		}
+
+		if let Some(outcome) = first_outcome {
+			return Ok(outcome)
+		}
+		if already_imported_in_preexisting_view {
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
+		}
+		if already_imported_in_new_view || no_views {
+			return Ok(ViewStoreSubmitOutcome::new(tx_hash, None))
+		}
+		Err(first_error.expect("all results are non-AlreadyImported errors; qed"))
 	}
 
 	/// Returns the pool status for every active view.
@@ -329,11 +457,13 @@ where
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
 	}
 
-	/// Returns the hash of the most recently processed view, if any.
+	/// Returns the hashes of all currently active views.
 	///
-	/// Used for race-condition detection between mempool insertion and view submission.
-	pub(super) fn most_recent_view_hash(&self) -> Option<Block::Hash> {
-		self.most_recent_view.read().as_ref().map(|v| v.at.hash)
+	/// The returned set is a snapshot of the `active_views` collection taken at the time of the
+	/// call, allowing callers to determine at a later point which views were already present and
+	/// which were added afterwards (e.g. refer to [`Self::submit_and_watch`]).
+	pub(super) fn active_view_hashes(&self) -> HashSet<Block::Hash> {
+		self.active_views.read().keys().cloned().collect()
 	}
 
 	/// Searches in the view store for the first descendant view by iterating through the fork of
@@ -1033,14 +1163,10 @@ mod tests {
 		(view_store, listener_task)
 	}
 
-	/// Verifies that submit_and_watch correctly propagates AlreadyImported errors.
-	///
-	/// Since race detection is now handled by the caller (submit_and_watch_inner),
-	/// the view_store's submit_and_watch should propagate AlreadyImported as an error.
-	#[tokio::test]
-	async fn submit_and_watch_propagates_already_imported_error() {
-		sp_tracing::try_init_simple();
-
+	/// Creates a view store with a single active view at block 0 that already contains the
+	/// returned transaction (mimicking an import done by `update_view_with_mempool`).
+	async fn create_test_view_store_with_tx_in_view(
+	) -> (TestViewStore, H256, ExtrinsicFor<TestApi>) {
 		let api = Arc::new(TestApi::default());
 		let (view_store, listener_task) = create_test_view_store(api.clone());
 
@@ -1067,7 +1193,7 @@ mod tests {
 		// Submit the tx to the view first — this is what update_view_with_mempool does.
 		view.submit_one(
 			TimedTransactionSource::new_external(false),
-			xt.clone(),
+			Arc::clone(&xt),
 			ValidateTransactionPriority::Maintained,
 		)
 		.await
@@ -1079,16 +1205,172 @@ mod tests {
 			.add_view_aggregated_stream(block_hash, aggregated_stream.boxed());
 		view_store.active_views.write().insert(block_hash, view);
 
-		// Now call submit_and_watch for the same tx.
-		// The view already has this tx, so view.submit_one will return AlreadyImported.
-		// submit_and_watch no longer handles this — it propagates the error to the caller.
+		(view_store, block_hash, xt)
+	}
+
+	/// An `AlreadyImported` error from a view created during the submission process (not
+	/// contained in `preexisting_views`) is the benign maintain race — it shall be ignored and
+	/// the submission shall succeed.
+	#[tokio::test]
+	async fn submit_and_watch_ignores_already_imported_from_new_view() {
+		sp_tracing::try_init_simple();
+		let (view_store, block_hash, xt) = create_test_view_store_with_tx_in_view().await;
+
+		// The view holding the tx is not in the pre-existing set, i.e. it was created during
+		// the submission process and got the tx from the mempool.
+		let preexisting_views = HashSet::default();
+
 		let result = view_store
-			.submit_and_watch(block_hash, TimedTransactionSource::new_external(false), xt)
+			.submit_and_watch(
+				block_hash,
+				TimedTransactionSource::new_external(false),
+				xt,
+				&preexisting_views,
+			)
+			.await;
+
+		assert!(
+			result.is_ok(),
+			"AlreadyImported from a view created during submission shall be ignored, got: {:?}",
+			result.err().map(|e| e.to_string())
+		);
+	}
+
+	/// An `AlreadyImported` error from a view that existed before the submission started
+	/// indicates a views/mempool inconsistency — the error shall be propagated.
+	#[tokio::test]
+	async fn submit_and_watch_rejects_already_imported_from_preexisting_view() {
+		sp_tracing::try_init_simple();
+		let (view_store, block_hash, xt) = create_test_view_store_with_tx_in_view().await;
+
+		// The view holding the tx was active before the submission started.
+		let preexisting_views = HashSet::from([block_hash]);
+
+		let result = view_store
+			.submit_and_watch(
+				block_hash,
+				TimedTransactionSource::new_external(false),
+				xt,
+				&preexisting_views,
+			)
 			.await;
 
 		assert!(
 			result.is_err(),
-			"submit_and_watch should propagate AlreadyImported (race detection is caller's job)"
+			"AlreadyImported from a pre-existing view indicates views/mempool inconsistency \
+			 and shall be propagated"
 		);
+	}
+
+	// Direct unit tests of the per-transaction merging rules (successor of the coverage
+	// provided by the former `reduce_multiview_result` tests).
+
+	type MergeResults = Vec<(H256, Result<ViewStoreSubmitOutcome<TestApi>, PoolError>)>;
+
+	fn merge_test_view_store() -> TestViewStore {
+		let api = Arc::new(TestApi::default());
+		let (view_store, _listener_task) = create_test_view_store(api);
+		view_store
+	}
+
+	fn h(n: u64) -> H256 {
+		H256::from_low_u64_be(n)
+	}
+
+	/// If any view accepted the transaction, the outcome of the first successful submission is
+	/// returned.
+	#[test]
+	fn merge_submission_results_first_success_wins() {
+		let view_store = merge_test_view_store();
+		let tx_hash = h(1);
+		let results: MergeResults = vec![
+			(h(0x13), Err(PoolError::ImmediatelyDropped)),
+			(h(0x14), Ok(ViewStoreSubmitOutcome::new(tx_hash, Some(10)))),
+			(h(0x15), Ok(ViewStoreSubmitOutcome::new(tx_hash, Some(20)))),
+		];
+		let result = view_store
+			.merge_submission_results(tx_hash, results, &HashSet::default())
+			.expect("first success wins");
+		assert_eq!(result.hash(), tx_hash);
+		assert_eq!(result.priority(), Some(10));
+	}
+
+	/// If all views reported errors and none of them is `AlreadyImported`, the first reported
+	/// error is returned.
+	#[test]
+	fn merge_submission_results_returns_first_error() {
+		let view_store = merge_test_view_store();
+		let tx_hash = h(1);
+		let results: MergeResults = vec![
+			(h(0x13), Err(PoolError::ImmediatelyDropped)),
+			(h(0x14), Err(PoolError::TemporarilyBanned)),
+		];
+		let error = view_store
+			.merge_submission_results(tx_hash, results, &HashSet::default())
+			.err()
+			.expect("all views failed");
+		assert!(matches!(error.into_pool_error(), Ok(PoolError::ImmediatelyDropped)));
+	}
+
+	/// With no active views the submission succeeds with unknown priority.
+	#[test]
+	fn merge_submission_results_no_views_is_success() {
+		let view_store = merge_test_view_store();
+		let tx_hash = h(1);
+		let result = view_store
+			.merge_submission_results(tx_hash, MergeResults::default(), &HashSet::default())
+			.expect("no views is success");
+		assert_eq!(result.hash(), tx_hash);
+		assert_eq!(result.priority(), None);
+	}
+
+	/// `AlreadyImported` reported only by views created during the submission process is
+	/// ignored, even if other views reported unrelated errors.
+	#[test]
+	fn merge_submission_results_ignores_already_imported_from_new_views() {
+		let view_store = merge_test_view_store();
+		let tx_hash = h(1);
+		let results: MergeResults = vec![
+			(h(0x13), Err(PoolError::AlreadyImported(Box::new(tx_hash)))),
+			(h(0x14), Err(PoolError::ImmediatelyDropped)),
+		];
+		let result = view_store
+			.merge_submission_results(tx_hash, results, &HashSet::default())
+			.expect("AlreadyImported from a view created during submission is benign");
+		assert_eq!(result.hash(), tx_hash);
+		assert_eq!(result.priority(), None);
+	}
+
+	/// `AlreadyImported` reported by a pre-existing view takes precedence over the benign
+	/// `AlreadyImported` reported by a view created during the submission process.
+	#[test]
+	fn merge_submission_results_preexisting_already_imported_takes_precedence() {
+		let view_store = merge_test_view_store();
+		let tx_hash = h(1);
+		let results: MergeResults = vec![
+			(h(0x13), Err(PoolError::AlreadyImported(Box::new(tx_hash)))),
+			(h(0x14), Err(PoolError::AlreadyImported(Box::new(tx_hash)))),
+		];
+		let error = view_store
+			.merge_submission_results(tx_hash, results, &HashSet::from([h(0x13)]))
+			.err()
+			.expect("AlreadyImported from a pre-existing view shall be propagated");
+		assert!(matches!(error.into_pool_error(), Ok(PoolError::AlreadyImported(_))));
+	}
+
+	/// A successful submission to any view wins over the views/mempool inconsistency detected
+	/// in another view (which is still logged).
+	#[test]
+	fn merge_submission_results_success_wins_over_preexisting_already_imported() {
+		let view_store = merge_test_view_store();
+		let tx_hash = h(1);
+		let results: MergeResults = vec![
+			(h(0x13), Err(PoolError::AlreadyImported(Box::new(tx_hash)))),
+			(h(0x14), Ok(ViewStoreSubmitOutcome::new(tx_hash, Some(7)))),
+		];
+		let result = view_store
+			.merge_submission_results(tx_hash, results, &HashSet::from([h(0x13)]))
+			.expect("success wins");
+		assert_eq!(result.priority(), Some(7));
 	}
 }

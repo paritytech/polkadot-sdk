@@ -9,24 +9,24 @@ doc:
     `maintain()` call imports the transaction from mempool into a newly-built view
     before `submit_and_watch` gets to submit to that view.
 
-    The fix is implemented in the caller submission paths
-    (`submit_and_watch_inner`, `submit_at_inner`, `submit_local`) instead of
-    inside `ViewStore::submit_and_watch`:
+    The fix:
 
     - `submit_and_watch_inner` now pre-creates the external watcher before mempool
       insertion, so events emitted by a concurrently-created view are not missed.
-    - A snapshot of `most_recent_view` is taken before insertion. If view
-      submission later returns `AlreadyImported`, the snapshot is compared with
-      the current `most_recent_view`. If it changed, the error is treated as the
-      maintain-race and converted to success.
-    - On non-race failures after watcher pre-creation, the external watcher is
-      explicitly removed, and inserted mempool entries are cleaned up as before.
-    - `ViewStore::submit_and_watch` now only submits to active views and
-      propagates errors; race detection is handled by callers that have the
-      necessary timing context.
+      On failures the watcher is explicitly removed and inserted mempool entries
+      are cleaned up as before.
+    - All submission paths (`submit_and_watch_inner`, `submit_at_inner`,
+      `submit_local`) capture the set of active view hashes before mempool
+      insertion and pass it to the `ViewStore` submission functions.
+    - `ViewStore` interprets `AlreadyImported` errors reported by individual views
+      against that set: an error from a view created during the submission process
+      is the benign maintain-race and is ignored (the transaction was already
+      imported into that view from the mempool), while an error from a
+      pre-existing view indicates a views/mempool inconsistency and is propagated,
+      with a warning logged.
 
-    This avoids returning spurious RPC 1013 for the race case while preserving
-    normal error handling for non-race `AlreadyImported` paths.
+    This avoids returning spurious RPC 1013 for the race case while still
+    rejecting transactions that are already known to the pool.
 
 crates:
 - name: sc-transaction-pool
