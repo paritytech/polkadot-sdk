@@ -1,0 +1,15 @@
+title: '[WIP][HRMP] Extend InboundMessageId for horizontal messages'
+doc:
+- audience: Runtime Dev
+  description: '[WIP][HRMP] Extend InboundMessageId for horizontal messages'
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
