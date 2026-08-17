@@ -21,6 +21,7 @@ use crate::{CompactProof, StorageProof};
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
+use std::time::Duration;
 
 /// Interface for providing block proving utilities.
 pub trait ProofProvider<Block: BlockT> {
@@ -43,12 +44,15 @@ pub trait ProofProvider<Block: BlockT> {
 	/// Execute a call to a contract on top of state in a block of given hash
 	/// AND returning execution proof.
 	///
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
+	///
 	/// No changes are made.
 	fn execution_proof(
 		&self,
 		hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)>;
 
 	/// Given a `Hash` iterate over all storage values starting at `start_keys`.

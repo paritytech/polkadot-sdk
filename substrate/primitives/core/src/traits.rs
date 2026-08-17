@@ -18,7 +18,10 @@
 //! Shareable Substrate traits.
 
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
-use core::fmt::{Debug, Display};
+use core::{
+	fmt::{Debug, Display},
+	time::Duration,
+};
 
 pub use sp_externalities::{Externalities, ExternalitiesExt};
 
@@ -54,6 +57,23 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 		data: &[u8],
 		context: CallContext,
 	) -> (Result<Vec<u8>, Self::Error>, bool);
+}
+
+/// An executor that can additionally bound runtime calls in wall-clock execution time.
+pub trait TimedCodeExecutor: CodeExecutor {
+	/// Call a given method in the runtime, interrupting execution once `timeout` has elapsed.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped.
+	fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>, Self::Error>;
 }
 
 /// Something that can fetch the runtime code.

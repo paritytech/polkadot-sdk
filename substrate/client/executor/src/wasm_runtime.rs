@@ -27,7 +27,9 @@ use codec::Decode;
 use parking_lot::Mutex;
 use sc_executor_common::{
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
+	wasm_runtime::{
+		HeapAllocStrategy, TimedWasmInstance, TimedWasmModule, WasmInstance, WasmModule,
+	},
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::traits::{Externalities, FetchRuntimeCode, RuntimeCode};
@@ -37,7 +39,7 @@ use sp_wasm_interface::HostFunctions;
 use std::{
 	panic::AssertUnwindSafe,
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{Arc, OnceLock},
 };
 
 /// Specification of different methods of executing the runtime Wasm code.
@@ -66,10 +68,19 @@ struct VersionedRuntimeId {
 	wasm_method: WasmExecutionMethod,
 }
 
+/// Timed counterpart of a cached runtime's module.
+///
+/// Filled synchronously for engines whose modules are timed-callable as-is (PolkaVM — same
+/// compile, uncapped), by a background compile thread for wasmtime (separate epoch-interruption
+/// compile). Always eventually set, so [`OnceLock::wait`] cannot hang.
+type TimedModuleSlot = Arc<OnceLock<Result<Box<dyn TimedWasmModule>, WasmError>>>;
+
 /// A Wasm runtime object along with its cached runtime version.
 struct VersionedRuntime {
 	/// Shared runtime that can spawn instances.
 	module: Box<dyn WasmModule>,
+	/// Timed counterpart of the module.
+	timed_module: TimedModuleSlot,
 	/// Runtime version according to `Core_version` if any.
 	version: Option<RuntimeVersion>,
 
@@ -155,6 +166,29 @@ impl VersionedRuntime {
 				f(&*self.module, &mut *instance, self.version.as_ref(), ext)
 			},
 		}
+	}
+
+	/// Run the given closure `f` with a fresh timed instance of this runtime.
+	///
+	/// Blocks until the timed module is available — it may still be compiling in the
+	/// background. Timed instances are not pooled: every call gets a fresh instance.
+	fn with_timed_instance<R, F>(
+		&self,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R, Error>
+	where
+		F: FnOnce(
+			&mut dyn TimedWasmInstance,
+			Option<&RuntimeVersion>,
+			&mut dyn Externalities,
+		) -> Result<R, Error>,
+	{
+		let module = self.timed_module.wait().as_ref().map_err(|e| Error::from(e.clone()))?;
+		let mut instance = module.new_instance(heap_alloc_strategy)?;
+
+		f(&mut *instance, self.version.as_ref(), ext)
 	}
 }
 
@@ -243,55 +277,134 @@ impl RuntimeCache {
 			&mut dyn Externalities,
 		) -> Result<R, Error>,
 	{
+		let versioned_runtime = self.versioned_runtime::<H>(
+			runtime_code,
+			ext,
+			wasm_method,
+			heap_alloc_strategy,
+			allow_missing_func_imports,
+		)?;
+
+		Ok(versioned_runtime.with_instance(ext, heap_alloc_strategy, f))
+	}
+
+	/// Prepares a fresh timed WASM module instance and executes given function for it.
+	///
+	/// Same as [`Self::with_instance`], but `f` gets a timed instance whose calls are
+	/// interrupted on timeout. May block until the timed module is available — it may still be
+	/// compiling in the background.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped.
+	pub fn with_timed_instance<'c, H, R, F>(
+		&self,
+		runtime_code: &'c RuntimeCode<'c>,
+		ext: &mut dyn Externalities,
+		wasm_method: WasmExecutionMethod,
+		heap_alloc_strategy: HeapAllocStrategy,
+		allow_missing_func_imports: bool,
+		f: F,
+	) -> Result<Result<R, Error>, Error>
+	where
+		H: HostFunctions,
+		F: FnOnce(
+			&mut dyn TimedWasmInstance,
+			Option<&RuntimeVersion>,
+			&mut dyn Externalities,
+		) -> Result<R, Error>,
+	{
+		let versioned_runtime = self.versioned_runtime::<H>(
+			runtime_code,
+			ext,
+			wasm_method,
+			heap_alloc_strategy,
+			allow_missing_func_imports,
+		)?;
+
+		Ok(versioned_runtime.with_timed_instance(ext, heap_alloc_strategy, f))
+	}
+
+	/// Get the cached [`VersionedRuntime`] for the given code, creating and caching it first if
+	/// needed.
+	fn versioned_runtime<H>(
+		&self,
+		runtime_code: &RuntimeCode,
+		ext: &mut dyn Externalities,
+		wasm_method: WasmExecutionMethod,
+		heap_alloc_strategy: HeapAllocStrategy,
+		allow_missing_func_imports: bool,
+	) -> Result<Arc<VersionedRuntime>, WasmError>
+	where
+		H: HostFunctions,
+	{
 		let code_hash = &runtime_code.hash;
 
 		let versioned_runtime_id = VersionedRuntimeId { code_hash: code_hash.clone(), wasm_method };
 
-		let mut runtimes = self.runtimes.lock(); // this must be released prior to calling f
-		let versioned_runtime = if let Some(versioned_runtime) = runtimes.get(&versioned_runtime_id)
-		{
-			versioned_runtime.clone()
-		} else {
-			let code = runtime_code.fetch_runtime_code().ok_or(WasmError::CodeNotFound)?;
+		// The lock is released when the guard goes out of scope, prior to calling any
+		// instance method.
+		let mut runtimes = self.runtimes.lock();
+		if let Some(versioned_runtime) = runtimes.get(&versioned_runtime_id) {
+			return Ok(versioned_runtime.clone());
+		}
 
-			let time = std::time::Instant::now();
+		let code = runtime_code.fetch_runtime_code().ok_or(WasmError::CodeNotFound)?;
 
-			let result = create_versioned_wasm_runtime::<H>(
-				&code,
-				ext,
-				wasm_method,
-				heap_alloc_strategy,
-				allow_missing_func_imports,
-				self.max_runtime_instances,
-				self.cache_path.as_deref(),
-			);
+		let time = std::time::Instant::now();
 
-			match result {
-				Ok(ref result) => {
-					tracing::debug!(
-						target: "wasm-runtime",
-						"Prepared new runtime version {:?} in {} ms.",
-						result.version,
-						time.elapsed().as_millis(),
-					);
-				},
-				Err(ref err) => {
-					tracing::warn!(target: "wasm-runtime", error = ?err, "Cannot create a runtime");
-				},
-			}
+		let result = create_versioned_wasm_runtime::<H>(
+			&code,
+			ext,
+			wasm_method,
+			heap_alloc_strategy,
+			allow_missing_func_imports,
+			self.max_runtime_instances,
+			self.cache_path.as_deref(),
+		);
 
-			let versioned_runtime = Arc::new(result?);
+		match result {
+			Ok(ref result) => {
+				tracing::debug!(
+					target: "wasm-runtime",
+					"Prepared new runtime version {:?} in {} ms.",
+					result.version,
+					time.elapsed().as_millis(),
+				);
+			},
+			Err(ref err) => {
+				tracing::warn!(target: "wasm-runtime", error = ?err, "Cannot create a runtime");
+			},
+		}
 
-			// Save new versioned wasm runtime in cache
-			runtimes.insert(versioned_runtime_id, versioned_runtime.clone());
+		let versioned_runtime = Arc::new(result?);
 
-			versioned_runtime
-		};
+		// Save new versioned wasm runtime in cache
+		runtimes.insert(versioned_runtime_id, versioned_runtime.clone());
 
-		// Lock must be released prior to calling f
-		drop(runtimes);
+		Ok(versioned_runtime)
+	}
+}
 
-		Ok(versioned_runtime.with_instance(ext, heap_alloc_strategy, f))
+fn wasmtime_config(
+	heap_alloc_strategy: HeapAllocStrategy,
+	instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy,
+	allow_missing_func_imports: bool,
+	cache_path: Option<&Path>,
+) -> sc_executor_wasmtime::Config {
+	sc_executor_wasmtime::Config {
+		allow_missing_func_imports,
+		cache_path: cache_path.map(ToOwned::to_owned),
+		semantics: sc_executor_wasmtime::Semantics {
+			heap_alloc_strategy,
+			instantiation_strategy,
+			deterministic_stack_limit: None,
+			canonicalize_nans: false,
+			parallel_compilation: true,
+			wasm_multi_value: false,
+			wasm_bulk_memory: false,
+			wasm_reference_types: false,
+			wasm_simd: false,
+		},
 	}
 }
 
@@ -307,31 +420,137 @@ where
 	H: HostFunctions,
 {
 	if let Some(blob) = blob.as_polkavm_blob() {
-		return sc_executor_polkavm::create_runtime::<H>(blob);
+		return sc_executor_polkavm::create_runtime::<H>(blob)
+			.map(|pre| -> Box<dyn WasmModule> { Box::new(pre) });
 	}
 
 	match wasm_method {
 		WasmExecutionMethod::Compiled { instantiation_strategy } => {
 			sc_executor_wasmtime::create_runtime::<H>(
 				blob,
-				sc_executor_wasmtime::Config {
+				wasmtime_config(
+					heap_alloc_strategy,
+					instantiation_strategy,
 					allow_missing_func_imports,
-					cache_path: cache_path.map(ToOwned::to_owned),
-					semantics: sc_executor_wasmtime::Semantics {
-						heap_alloc_strategy,
-						instantiation_strategy,
-						deterministic_stack_limit: None,
-						canonicalize_nans: false,
-						parallel_compilation: true,
-						wasm_multi_value: false,
-						wasm_bulk_memory: false,
-						wasm_reference_types: false,
-						wasm_simd: false,
-					},
-				},
+					cache_path,
+				),
 			)
 			.map(|runtime| -> Box<dyn WasmModule> { Box::new(runtime) })
 		},
+	}
+}
+
+/// Like [`create_wasm_runtime_with_code`], but also provides the runtime's timed counterpart.
+fn create_wasm_runtime_with_timed<H>(
+	wasm_method: WasmExecutionMethod,
+	heap_alloc_strategy: HeapAllocStrategy,
+	blob: RuntimeBlob,
+	allow_missing_func_imports: bool,
+	cache_path: Option<&Path>,
+) -> Result<(Box<dyn WasmModule>, TimedModuleSlot), WasmError>
+where
+	H: HostFunctions,
+{
+	if let Some(program_blob) = blob.as_polkavm_blob() {
+		static POLKAVM_TIMED_WARN: std::sync::Once = std::sync::Once::new();
+		POLKAVM_TIMED_WARN.call_once(|| {
+			tracing::warn!(
+				target: "wasm-runtime",
+				"PolkaVM does not support execution timeouts; timed runtime calls will run \
+				 uncapped",
+			);
+		});
+
+		// One compile, two handles: `InstancePre` clones via `Arc`.
+		let pre = sc_executor_polkavm::create_runtime::<H>(program_blob)?;
+		return Ok((
+			Box::new(pre.clone()),
+			Arc::new(OnceLock::from(Ok(Box::new(pre) as Box<dyn TimedWasmModule>))),
+		));
+	}
+
+	let timed_blob = blob.clone();
+	let runtime = create_wasm_runtime_with_code::<H>(
+		wasm_method,
+		heap_alloc_strategy,
+		blob,
+		allow_missing_func_imports,
+		cache_path,
+	)?;
+
+	let timed_module: TimedModuleSlot = Arc::new(OnceLock::new());
+	let WasmExecutionMethod::Compiled { instantiation_strategy } = wasm_method;
+
+	spawn_timed_compilation::<H>(
+		timed_blob,
+		// Reusing `cache_path` is safe: wasmtime keys on-disk artifacts on the full config,
+		// including the epoch-interruption flag forced by `create_timed_runtime`.
+		wasmtime_config(
+			heap_alloc_strategy,
+			instantiation_strategy,
+			allow_missing_func_imports,
+			cache_path,
+		),
+		timed_module.clone(),
+	);
+
+	Ok((runtime, timed_module))
+}
+
+/// Compile the timed counterpart of a wasmtime runtime in a detached background thread,
+/// eventually filling `slot`.
+///
+/// `slot` is always set — even on spawn failure or compile panic — so [`OnceLock::wait`] on it
+/// cannot hang.
+fn spawn_timed_compilation<H>(
+	blob: RuntimeBlob,
+	config: sc_executor_wasmtime::Config,
+	slot: TimedModuleSlot,
+) where
+	H: HostFunctions,
+{
+	let thread = std::thread::Builder::new().name("wasm-timed-compile".into()).spawn({
+		let slot = slot.clone();
+		move || {
+			// Substrate's panic hook aborts the process; force unwinding to contain a compile
+			// panic to this thread.
+			let _guard = sp_panic_handler::AbortGuard::force_unwind();
+			let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+				sc_executor_wasmtime::create_timed_runtime::<H>(blob, config)
+			}))
+			.unwrap_or_else(|e| {
+				let message = if let Some(msg) = e.downcast_ref::<String>() {
+					msg.clone()
+				} else if let Some(msg) = e.downcast_ref::<&'static str>() {
+					msg.to_string()
+				} else {
+					"unknown panic".into()
+				};
+				Err(WasmError::Other(format!("timed runtime compilation panicked: {message}")))
+			})
+			.map(|runtime| -> Box<dyn TimedWasmModule> { Box::new(runtime) });
+
+			match result {
+				Ok(_) => {
+					tracing::debug!(target: "wasm-runtime", "Prepared new timed runtime.");
+				},
+				Err(ref err) => {
+					tracing::warn!(
+						target: "wasm-runtime",
+						error = ?err,
+						"Cannot create a timed runtime",
+					);
+				},
+			}
+
+			let _ = slot.set(result);
+		}
+	});
+
+	if let Err(err) = thread {
+		let _ = slot.set(Err(WasmError::Other(format!(
+			"failed to spawn the timed runtime compilation thread: {err}"
+		))));
 	}
 }
 
@@ -412,7 +631,7 @@ where
 	// runtime.
 	let mut version = read_embedded_version(&blob)?;
 
-	let runtime = create_wasm_runtime_with_code::<H>(
+	let (runtime, timed_module) = create_wasm_runtime_with_timed::<H>(
 		wasm_method,
 		heap_alloc_strategy,
 		blob,
@@ -446,7 +665,7 @@ where
 	let mut instances = Vec::with_capacity(max_instances);
 	instances.resize_with(max_instances, || Mutex::new(None));
 
-	Ok(VersionedRuntime { module: runtime, version, instances })
+	Ok(VersionedRuntime { module: runtime, timed_module, version, instances })
 }
 
 #[cfg(test)]

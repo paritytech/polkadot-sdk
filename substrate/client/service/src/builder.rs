@@ -90,7 +90,7 @@ use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator, Chain, DefaultBlockAnnounceValidator,
 };
-use sp_core::traits::{CodeExecutor, SpawnNamed};
+use sp_core::traits::{SpawnNamed, TimedCodeExecutor};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
@@ -153,7 +153,7 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + Clone,
+	TExec: TimedCodeExecutor + RuntimeVersionOf + Clone,
 {
 	new_full_parts(config, telemetry, executor, pruning_filters).map(|parts| parts.0)
 }
@@ -171,7 +171,7 @@ pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + Clone,
+	TExec: TimedCodeExecutor + RuntimeVersionOf + Clone,
 {
 	let mut db_config = config.db_config();
 	db_config.pruning_filters = pruning_filters;
@@ -206,7 +206,7 @@ pub fn new_full_parts<TBl, TRtApi, TExec>(
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + Clone,
+	TExec: TimedCodeExecutor + RuntimeVersionOf + Clone,
 {
 	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters)
 }
@@ -222,7 +222,7 @@ pub fn new_full_parts_with_genesis_builder<TBl, TRtApi, TExec, TBuildGenesisBloc
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + Clone,
+	TExec: TimedCodeExecutor + RuntimeVersionOf + Clone,
 	TBuildGenesisBlock: BuildGenesisBlock<
 		TBl,
 		BlockImportOperation = <Backend<TBl> as sc_client_api::backend::Backend<TBl>>::BlockImportOperation
@@ -419,7 +419,7 @@ pub fn new_client<E, Block, RA, G>(
 >
 where
 	Block: BlockT,
-	E: CodeExecutor + RuntimeVersionOf,
+	E: TimedCodeExecutor + RuntimeVersionOf,
 	G: BuildGenesisBlock<
 		Block,
 		BlockImportOperation = <Backend<Block> as sc_client_api::backend::Backend<Block>>::BlockImportOperation
@@ -1225,8 +1225,12 @@ where
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) =
-			LightClientRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone());
+		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
+			&protocol_id,
+			fork_id,
+			client.clone(),
+			net_config.network_config.light_request_execution_timeout,
+		);
 		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
 		protocol_config
 	};

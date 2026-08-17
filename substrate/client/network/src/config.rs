@@ -89,6 +89,9 @@ pub const KADEMLIA_PROVIDER_RECORD_TTL: Duration = Duration::from_secs(10 * 3600
 /// 3.5 h means we refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
 pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(12600);
 
+/// Default value for the `--light-request-execution-timeout-ms` parameter.
+pub const DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
+
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
 /// Deprecated in favour of genesis hash & fork ID based protocol names.
@@ -693,6 +696,10 @@ pub struct NetworkConfiguration {
 	/// requests from peers that already know its address.
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
+	/// Wall-clock limit for a single runtime call serving an (untrusted) light-client request.
+	/// `None` disables the limit.
+	pub light_request_execution_timeout: Option<Duration>,
+
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
 }
@@ -730,6 +737,7 @@ impl NetworkConfiguration {
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
 			ipfs_bootnodes: Vec::new(),
+			light_request_execution_timeout: Some(DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT),
 			network_backend: NetworkBackendType::Litep2p,
 		}
 	}

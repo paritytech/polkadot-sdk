@@ -28,6 +28,7 @@
 //! | `"perfmap"` | perfmap profiling       |
 //! | other value | No profiling (warning)  |
 
+mod epoch;
 mod host;
 mod imports;
 mod instance_wrapper;
@@ -39,10 +40,10 @@ mod tests;
 
 pub use runtime::{
 	create_runtime, create_runtime_from_artifact, create_runtime_from_artifact_bytes,
-	prepare_runtime_artifact, Config, DeterministicStackLimit, InstantiationStrategy, Semantics,
-	WasmtimeRuntime,
+	create_timed_runtime, prepare_runtime_artifact, Config, DeterministicStackLimit,
+	InstantiationStrategy, Semantics, WasmtimeRuntime, WasmtimeTimedRuntime,
 };
 pub use sc_executor_common::{
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, WasmModule},
+	wasm_runtime::{HeapAllocStrategy, TimedWasmInstance, TimedWasmModule, WasmModule},
 };
