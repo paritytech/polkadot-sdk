@@ -132,7 +132,8 @@ pub enum Paid {
 /// The same two variants named for the operation being performed.
 pub type StorageOp = Paid;
 
-/// Warmth of an access-list entry, as it stood **before** the access.
+/// Warmth of an access-list entry. `Hot`/`Cold` describe the entry as it
+/// stood **before** the access; `first_write` describes the access itself.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Warmth {
 	/// Entry is in the access list. `first_write` is true when this access is
@@ -182,20 +183,22 @@ pub struct AccessEntry {
 ///
 /// # Safety invariant
 ///
-/// Callers touch the `AccessList` before charging gas, so reverts must roll back the touches
-/// they made. Without that, an out-of-gas at the cold charge after the touch would leave the slot
-/// hot without the cold charge being paid, and a later access would then be billed hot.
+/// Read sites touch before charging gas, so reverts must roll back the touches
+/// they made: an out-of-gas at the charge must not leave the slot hot without
+/// the cold charge being paid. The journal provides exactly that.
 ///
-/// The [`Paid`] cost is the exception: a `Read` to `Write` upgrade survives the
-/// revert. A reverted frame keeps its weight charges, so dropping the upgrade
-/// refunds nothing and only charges again if the slot is written once more.
+/// The [`Paid`] level never reverts, so write sites must order the other way around:
+/// peek, charge, and touch only once the charge succeeded. An upgrade can then
+/// only exist if it was paid for, and charges are kept on revert. Write sites
+/// go through `charge_storage_write`, which owns this order.
 
 #[derive(Default)]
 pub struct AccessList {
 	/// All currently-hot entries with the cost each has paid.
 	accessed: BoundedBTreeMap<AccessEntry, Paid, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
-	/// Flat journal of insertions (in order); Each entry was added by exactly one frame;
-	/// `checkpoints` marks the frame boundaries inside this journal.
+	/// Flat journal of insertions (in order); each entry was added by exactly
+	/// one frame, and `checkpoints` marks the frame boundaries inside this
+	/// journal.
 	journal: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
 	/// Stack of journal indices. `checkpoints.last()` is the index at which
 	/// the current frame started inserting; rolling back means draining
@@ -251,14 +254,15 @@ impl AccessList {
 	}
 
 	/// Non-mutating sibling of [`touch`](Self::touch): the warmth a touch with
-	/// `op` would return. A peek never journals, so a cold result is always
-	/// non-revertible.
+	/// `op` would return.
 	pub fn peek(&self, entry: &AccessEntry, op: StorageOp) -> Warmth {
 		match self.accessed.get(entry) {
 			Some(paid) => {
 				Warmth::Hot { first_write: op == StorageOp::Write && *paid == Paid::Read }
 			},
-			None => Warmth::Cold { revertible: false },
+			// Past the cap: billed cold, but never journaled, so not revertible.
+			None if self.is_full() => Warmth::Cold { revertible: false },
+			None => Warmth::Cold { revertible: self.in_nested_frame() },
 		}
 	}
 
@@ -278,30 +282,43 @@ impl AccessList {
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
 	pub fn touch(&mut self, entry: AccessEntry, op: StorageOp) -> Warmth {
-		// Tracked slots come first so a write can still upgrade them once the
-		// map is full.
-		if let Some(tracked) = self.accessed.get_mut(&entry) {
-			self.hot_count = self.hot_count.saturating_add(1);
-			let first_write = op == StorageOp::Write && *tracked == Paid::Read;
-			if first_write {
+		let warmth = self.peek(&entry, op);
+		self.record(entry, op, warmth);
+		warmth
+	}
+
+	/// Record `warmth`, as returned by [`peek`](Self::peek) for the same
+	/// `entry` and `op`: count it, mark a first write paid, insert and
+	/// journal a new cold entry. Returns the previous paid level from the
+	/// map write it performs (`None` when it performs none), so the caller
+	/// can assert the warmth it recorded was not stale.
+	pub fn record(&mut self, entry: AccessEntry, op: StorageOp, warmth: Warmth) -> Option<Paid> {
+		match warmth {
+			Warmth::Hot { first_write } => {
+				self.hot_count = self.hot_count.saturating_add(1);
+				if !first_write {
+					return None;
+				}
+				let tracked = self.accessed.get_mut(&entry).expect("peeked hot, so tracked; qed");
+				let previous = *tracked;
 				*tracked = Paid::Write;
-			}
-			return Warmth::Hot { first_write };
+				Some(previous)
+			},
+			Warmth::Cold { revertible: _ } => {
+				self.cold_count = self.cold_count.saturating_add(1);
+				if self.is_full() {
+					return None;
+				}
+				let previous = self
+					.accessed
+					.try_insert(entry.clone(), op)
+					.expect("under cap; peek checked is_full; qed");
+				self.journal
+					.try_push(entry)
+					.expect("journal grows in lockstep with accessed and shares its bound; qed");
+				previous
+			},
 		}
-
-		self.cold_count = self.cold_count.saturating_add(1);
-
-		if self.is_full() {
-			return Warmth::Cold { revertible: false };
-		}
-
-		self.accessed
-			.try_insert(entry.clone(), op)
-			.expect("under cap; checked is_full above; qed");
-		self.journal
-			.try_push(entry)
-			.expect("journal grows in lockstep with accessed and shares its bound; qed");
-		Warmth::Cold { revertible: self.in_nested_frame() }
 	}
 
 	/// Per-transaction metrics snapshot.
@@ -379,18 +396,20 @@ mod tests {
 		);
 	}
 
+	/// Touch read-paid entries with distinct addresses until the map is full.
+	fn fill_to_cap(al: &mut AccessList) {
+		for i in 0..MAX_ACCESS_LIST_ENTRIES {
+			let address = H160::from_low_u64_be(i as u64);
+			let entry = AccessEntry { address, slot: Slot::Fix([0; 32]) };
+			assert!(al.touch(entry, StorageOp::Read).is_cold(), "fill entries must be new");
+		}
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES, "map filled to the cap");
+	}
+
 	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
-		// Fill to the cap with distinct addresses.
-		for i in 0..MAX_ACCESS_LIST_ENTRIES {
-			let address = H160::from_low_u64_be(i as u64);
-			assert!(
-				al.touch(AccessEntry { address, slot: Slot::Fix([0; 32]) }, StorageOp::Read)
-					.is_cold()
-			);
-		}
-		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
+		fill_to_cap(&mut al);
 
 		let new_entry = AccessEntry {
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
@@ -481,6 +500,39 @@ mod tests {
 		let written = AccessEntry { address: H160::zero(), slot: Slot::Fix([3; 32]) };
 		assert!(al.touch(written.clone(), StorageOp::Write).is_cold(), "first write: cold");
 		assert_eq!(al.touch(written, StorageOp::Write), repeat, "cold write starts at Write");
+	}
+
+	#[test]
+	fn peek_agrees_with_touch() {
+		fn agree(al: &mut AccessList, entry: AccessEntry, op: StorageOp, expected: Warmth) {
+			assert_eq!(al.peek(&entry, op), expected, "peek must classify like touch");
+			assert_eq!(al.touch(entry, op), expected, "touch must classify like peek");
+		}
+
+		let entry = |i: u8| AccessEntry { address: H160::zero(), slot: Slot::Fix([i; 32]) };
+		let cold = |revertible| Warmth::Cold { revertible };
+		let hot = |first_write| Warmth::Hot { first_write };
+		let mut al = AccessList::new();
+
+		agree(&mut al, entry(1), StorageOp::Read, cold(false));
+		agree(&mut al, entry(1), StorageOp::Read, hot(false));
+		agree(&mut al, entry(1), StorageOp::Write, hot(true));
+		agree(&mut al, entry(1), StorageOp::Write, hot(false));
+		agree(&mut al, entry(1), StorageOp::Read, hot(false));
+
+		al.enter_frame();
+		agree(&mut al, entry(2), StorageOp::Write, cold(true));
+		al.rollback_frame();
+
+		fill_to_cap(&mut al);
+
+		al.enter_frame();
+		// Past the cap a cold touch is not revertible, even inside a frame.
+		agree(&mut al, entry(3), StorageOp::Write, cold(false));
+		// A tracked read-paid slot still upgrades at the cap.
+		let filled = AccessEntry { address: H160::from_low_u64_be(0), slot: Slot::Fix([0; 32]) };
+		agree(&mut al, filled, StorageOp::Write, hot(true));
+		al.rollback_frame();
 	}
 
 	#[test]

@@ -162,12 +162,17 @@ fn store_helper<'ext, E: Ext>(
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
-	let access_kind = interpreter.ext.warm_storage_slot(transient, &key, StorageOp::Write);
-	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
-		new_bytes: 32,
-		old_bytes: limits::STORAGE_BYTES,
-		kind: access_kind,
-	})?;
+	let Ok((charged, access_kind)) =
+		interpreter
+			.ext
+			.charge_storage_write(transient, &key, |kind| RuntimeCosts::SetStorage {
+				new_bytes: 32,
+				old_bytes: limits::STORAGE_BYTES,
+				kind,
+			})
+	else {
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
+	};
 
 	let value_to_store = if value.is_zero() { None } else { Some(value.to_big_endian().to_vec()) };
 	let new_bytes = value_to_store.as_ref().map(|v| v.len() as u32).unwrap_or(0);

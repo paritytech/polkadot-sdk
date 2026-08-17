@@ -3351,6 +3351,49 @@ fn cold_hot_transient_skips_access_list() {
 }
 
 #[test]
+fn failed_write_charge_leaves_the_slot_unpaid() {
+	let code_hash = MockLoader::insert(Call, |ctx, _| {
+		use crate::vm::RuntimeCosts;
+		let read_slot = Key::Fix([1; 32]);
+		let cold_slot = Key::Fix([2; 32]);
+		let over_budget =
+			|kind| RuntimeCosts::SetStorage { new_bytes: u32::MAX, old_bytes: u32::MAX, kind };
+
+		ctx.ext.warm_storage_slot(false, &read_slot, StorageOp::Read);
+		assert!(
+			ctx.ext.charge_storage_write(false, &read_slot, over_budget).is_err(),
+			"the charge must exceed the budget",
+		);
+		assert_matches!(
+			ctx.ext.storage_slot_warmth(false, &read_slot, StorageOp::Write),
+			ContractStorageKind::Persistent(Warmth::Hot { first_write: true }),
+			"a failed charge must not mark the read-paid slot write-paid",
+		);
+
+		assert!(ctx.ext.charge_storage_write(false, &cold_slot, over_budget).is_err());
+		assert_matches!(
+			ctx.ext.storage_slot_warmth(false, &cold_slot, StorageOp::Write),
+			ContractStorageKind::Persistent(Warmth::Cold { .. }),
+			"a failed charge must not warm a cold slot",
+		);
+
+		let within_budget = |kind| RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 32, kind };
+		assert!(ctx.ext.charge_storage_write(false, &read_slot, within_budget).is_ok());
+		assert_matches!(
+			ctx.ext.storage_slot_warmth(false, &read_slot, StorageOp::Write),
+			ContractStorageKind::Persistent(Warmth::Hot { first_write: false }),
+			"a successful charge must mark the slot write-paid",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, code_hash);
+		run_root_call(BOB_ADDR, vec![]);
+	});
+}
+
+#[test]
 fn cold_hot_3level_commit_then_revert_drops_committed() {
 	// root → A → grandchild. Grandchild commits a touch into A; A then reverts,
 	// dropping it. The next grandchild call must see the slot cold again.

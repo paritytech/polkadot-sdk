@@ -504,12 +504,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = self.ext.warm_storage_slot(transient, &key, StorageOp::Write);
-		let charged = self.charge_gas(RuntimeCosts::SetStorage {
-			new_bytes: value_len,
-			old_bytes: max_size,
-			kind: access_kind,
-		})?;
+		let (charged, access_kind) =
+			self.ext
+				.charge_storage_write(transient, &key, |kind| RuntimeCosts::SetStorage {
+					new_bytes: value_len,
+					old_bytes: max_size,
+					kind,
+				})?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),
@@ -541,11 +542,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.warm_storage_slot(transient, &key, StorageOp::Write);
-		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
-			len: limits::STORAGE_BYTES,
-			kind: access_kind,
-		})?;
+		let (charged, access_kind) =
+			self.ext
+				.charge_storage_write(transient, &key, |kind| RuntimeCosts::ClearStorage {
+					len: limits::STORAGE_BYTES,
+					kind,
+				})?;
 		let outcome = if transient {
 			self.ext.set_transient_storage(&key, None, false)?
 		} else {
