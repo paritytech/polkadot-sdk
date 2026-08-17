@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786961923455,
+  "lastUpdate": 1786968573827,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fb8ca008c2db780dbd690096d148368b75755cb3",
-          "message": "Statement-store: Follow-up improvements from PR #10718 review (#10770)\n\n# Description\n\nThis follow-up PR addresses review comments from PR #10718:\n- Removed unnecessary Result wrapper from statement_hashes() - method is\ninfallible\n- Added debug assertion to validate sent count matches prepared count\n\n## Integration\n\nShould not affect downstream projects.",
-          "timestamp": "2026-01-13T08:45:40Z",
-          "tree_id": "c57e294aee46328e45f991b740733a05b0b92896",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8ca008c2db780dbd690096d148368b75755cb3"
-        },
-        "date": 1768299327455,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026652700299999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009202850209999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006499377529999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00979737308999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "578a14fdc7bad9a0105e68b23ae26277e58cbc4b",
+          "message": "ci: Enhance backports with PR title for more details (#12820)\n\nThis PR changes the shape of the backports:\n- backport title now includes the full PR title \n- description backport has a bullet line to expand the full PR in\nmarkdown view\n\nThis effectively chances the title of the backport such that we can\nfollow easily the backport purpose:\n\n```\n// Before\n[stable2512] Backport #12767\n\n// After\n[stable2512 Backport #12767] grandpa: Revert memory changes synced with db\n```\n\nWhen having multiple backports in flight its difficult to follow git\nnotifications without click the git issue\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-08-17T10:36:02Z",
+          "tree_id": "36d20574d57d5aa61bd9500c2659dd4b715524d1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/578a14fdc7bad9a0105e68b23ae26277e58cbc4b"
+        },
+        "date": 1786968540608,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009582884709999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002527339850000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009717840919999988,
             "unit": "seconds"
           }
         ]
