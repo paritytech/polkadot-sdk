@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786801044087,
+  "lastUpdate": 1786961746565,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
-          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-01-14T11:50:36Z",
-          "tree_id": "36107140a1792163eace77a49154710099d32009",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
-        },
-        "date": 1768395340968,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12207104256666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.1535071676,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13911412163333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e02db0d5706ae3bfb111c79a453f64e37aeee82",
+          "message": "[pallet-revive] expose ReentrancyProtection (#12866)\n\nExport ReentrancyProtection from pallet_revive and\npallet_revive::precompiles: it is a parameter type of the public\nExt::call, so it must be nameable by out-of-crate precompile\nimplementors.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-17T08:42:59Z",
+          "tree_id": "bb796b4922305fc96dcaffe53035253f768e2190",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0e02db0d5706ae3bfb111c79a453f64e37aeee82"
+        },
+        "date": 1786961711738,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.039295688533333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14100653003333333,
             "unit": "seconds"
           }
         ]
