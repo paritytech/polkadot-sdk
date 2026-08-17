@@ -3505,8 +3505,7 @@ mod admin {
 
 	#[test]
 	fn create_psm_charges_deposit_for_instance_footprint() {
-		use frame_support::traits::LinearStoragePrice;
-		use sp_runtime::traits::Convert;
+		use codec::MaxEncodedLen;
 
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
@@ -3522,11 +3521,13 @@ mod admin {
 				DEFAULT_MIN_SWAP,
 			));
 
-			// The hold is priced from the instance's storage footprint, i.e. the `Psm` and
-			// `PsmAdmin` entries written by `create_psm`.
-			let expected = LinearStoragePrice::<PsmCreationDeposit, PsmDepositSlope, u128>::convert(
-				crate::Pallet::<Test>::psm_creation_footprint(),
-			);
+			// Recompute the expected deposit from the stored types instead of calling
+			// `psm_creation_footprint`, so this test fails if that helper breaks.
+			let items = 2u128;
+			let size = (2 * u32::max_encoded_len() +
+				crate::PsmInfo::<Test>::max_encoded_len() +
+				crate::PsmAdminInfo::<Test>::max_encoded_len()) as u128;
+			let expected = PsmCreationDeposit::get() + PsmDepositSlope::get() * items * size;
 			assert_eq!(Balances::reserved_balance(&ALICE) - reserved_before, expected);
 		});
 	}
