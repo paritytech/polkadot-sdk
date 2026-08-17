@@ -155,7 +155,7 @@ pub struct NodeExtraArgs {
 /// The margin covers the finality lead of serving peers plus request and import delays,
 /// so that peers still retain every body we require. It is small compared to real
 /// retention periods, which span days or weeks.
-pub(crate) const GAP_SYNC_BODY_SAFETY_MARGIN: u32 = 128;
+pub(crate) const GAP_SYNC_BODY_SAFETY_MARGIN: u32 = 256;
 
 /// Returns the [`GapSyncBodyPolicyProvider`] for this node.
 ///
