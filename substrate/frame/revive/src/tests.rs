@@ -278,8 +278,7 @@ parameter_types! {
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
 	pub static ExistentialDeposit: u128 = 1;
-	// Tiny but non-zero, so tests can tell a dropped `DbWeight` term from an
-	// added one without disturbing gas budgets.
+	// Non-zero, so tests fail when a DB access is not charged.
 	pub const TestDbWeight: frame_support::weights::RuntimeDbWeight =
 		frame_support::weights::RuntimeDbWeight { read: 100, write: 300 };
 }

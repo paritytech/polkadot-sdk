@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{ContractStorageKind, Warmth},
+	access_list::{StorageAccessKind, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
@@ -1112,7 +1112,7 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: ContractStorageKind::Persistent(Warmth::Cold { revertible: true }),
+						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
