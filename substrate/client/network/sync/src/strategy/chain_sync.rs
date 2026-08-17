@@ -1164,7 +1164,8 @@ where
 
 		info!(
 			target: LOG_TARGET,
-			"Block history download is complete.",
+			"Block history download is complete. Downloaded {}.",
+			gap_sync.stats,
 		);
 		self.gap_sync = None;
 		if let Some(metrics) = &self.metrics {
