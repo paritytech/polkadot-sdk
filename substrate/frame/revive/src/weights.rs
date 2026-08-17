@@ -103,6 +103,7 @@ pub trait WeightInfo {
 	fn seal_code_size() -> Weight;
 	fn caller_is_origin() -> Weight;
 	fn caller_is_root() -> Weight;
+	fn origin_is_root() -> Weight;
 	fn seal_address() -> Weight;
 	fn weight_left() -> Weight;
 	fn seal_ref_time_left() -> Weight;
@@ -708,6 +709,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 1_097_000 picoseconds.
 		Weight::from_parts(1_410_000, 0)
+	}
+	fn origin_is_root() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_152_000 picoseconds.
+		Weight::from_parts(1_418_000, 0)
 	}
 	fn seal_address() -> Weight {
 		// Proof Size summary in bytes:
@@ -2273,6 +2281,13 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 1_097_000 picoseconds.
 		Weight::from_parts(1_410_000, 0)
+	}
+	fn origin_is_root() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_152_000 picoseconds.
+		Weight::from_parts(1_418_000, 0)
 	}
 	fn seal_address() -> Weight {
 		// Proof Size summary in bytes:
