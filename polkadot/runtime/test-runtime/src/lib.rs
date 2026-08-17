@@ -130,7 +130,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
 
-
 sp_api::decl_runtime_apis! {
 	pub trait GetLastTimestamp {
 		/// Returns the last timestamp of a runtime.

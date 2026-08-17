@@ -93,7 +93,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
-
 /// The transaction extensions that are added to the runtime.
 type TxExtension = (
 	// Authorize calls that validate themselves.

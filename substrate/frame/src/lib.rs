@@ -402,7 +402,6 @@ pub mod runtime {
 		pub use sp_version::create_runtime_str;
 		pub use sp_version::{runtime_version, RuntimeVersion};
 
-
 		/// Macro to implement runtime APIs.
 		pub use sp_api::impl_runtime_apis;
 

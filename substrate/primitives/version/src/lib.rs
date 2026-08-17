@@ -750,7 +750,6 @@ impl RuntimeVersion {
 	}
 }
 
-
 /// Something that can provide the runtime version at a given block.
 #[cfg(feature = "std")]
 pub trait GetRuntimeVersionAt<Block: BlockT> {
@@ -774,7 +773,6 @@ impl<T: GetRuntimeVersionAt<Block>, Block: BlockT> GetRuntimeVersionAt<Block>
 		(&**self).runtime_version(at, call_context)
 	}
 }
-
 
 #[cfg(feature = "serde")]
 mod apis_serialize {

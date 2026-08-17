@@ -119,7 +119,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const YAP: Balance = 1_000_000_000_000;
 pub const NANOYAP: Balance = 1_000;
 
-
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);

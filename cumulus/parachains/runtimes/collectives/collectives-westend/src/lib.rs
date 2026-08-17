@@ -135,7 +135,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 const RELAY_PARENT_OFFSET: u32 = 0;
 
-
 /// Privileged origin that represents Root or more than two thirds of the Alliance.
 pub type RootOrAllianceTwoThirdsMajority = EitherOfDiverse<
 	EnsureRoot<AccountId>,

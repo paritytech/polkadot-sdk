@@ -129,7 +129,6 @@ fn version() -> RuntimeVersion {
 	VERSION
 }
 
-
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct TransferData {

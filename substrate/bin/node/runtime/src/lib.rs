@@ -192,7 +192,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
 	};
 
-
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.

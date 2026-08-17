@@ -256,7 +256,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 const RELAY_PARENT_OFFSET: u32 = 0;
 
-
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =

@@ -209,4 +209,3 @@ where
 pub fn new() -> Client<Backend> {
 	TestClientBuilder::new().build()
 }
-
