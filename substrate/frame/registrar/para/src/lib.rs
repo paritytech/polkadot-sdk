@@ -242,7 +242,7 @@ pub mod pallet {
 
 	/// Every para id reserved through this pallet, and what is happening with it.
 	#[pallet::storage]
-	pub type Paras<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaInfoOf<T>>;
+	pub type Paras<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ParaInfoOf<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
