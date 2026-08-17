@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786960769396,
+  "lastUpdate": 1786967554761,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -115019,6 +115019,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2962779687,
             "range": "± 35514874",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "578a14fdc7bad9a0105e68b23ae26277e58cbc4b",
+          "message": "ci: Enhance backports with PR title for more details (#12820)\n\nThis PR changes the shape of the backports:\n- backport title now includes the full PR title \n- description backport has a bullet line to expand the full PR in\nmarkdown view\n\nThis effectively chances the title of the backport such that we can\nfollow easily the backport purpose:\n\n```\n// Before\n[stable2512] Backport #12767\n\n// After\n[stable2512 Backport #12767] grandpa: Revert memory changes synced with db\n```\n\nWhen having multiple backports in flight its difficult to follow git\nnotifications without click the git issue\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2026-08-17T10:36:02Z",
+          "tree_id": "36d20574d57d5aa61bd9500c2659dd4b715524d1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/578a14fdc7bad9a0105e68b23ae26277e58cbc4b"
+        },
+        "date": 1786967522239,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21317645,
+            "range": "± 226767",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21675931,
+            "range": "± 311285",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23262603,
+            "range": "± 263857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28159091,
+            "range": "± 148647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67000524,
+            "range": "± 862111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 428996494,
+            "range": "± 8029858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3169252399,
+            "range": "± 82056873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19188063,
+            "range": "± 157972",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19449519,
+            "range": "± 250162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19697783,
+            "range": "± 148300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24585265,
+            "range": "± 235473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67601611,
+            "range": "± 302905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 400825750,
+            "range": "± 8403302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2898317037,
+            "range": "± 166381545",
             "unit": "ns/iter"
           }
         ]
