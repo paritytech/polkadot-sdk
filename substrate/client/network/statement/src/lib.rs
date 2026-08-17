@@ -53,20 +53,24 @@
 //!
 //! ## Initial sync
 //!
-//! A peer joining (or changing its topic affinity) is synced the store's existing statements
+//! A peer joining (or changing its topic affinity) receives the store's existing statements
 //! through a cursor over the store's admission journal: scheduling captures the journal's
-//! watermark, and bursts walk the admissions below it chunk by chunk. The watermark also splits
-//! delivery between the two paths — the peer's propagation skips admissions below its highest
-//! watermark, so a statement reaches the peer either through the sync cursor or through a
-//! propagation tick, never both.
+//! watermark, and bursts walk the admissions below it chunk by chunk, advancing the cursor as
+//! each send is confirmed — a failed chunk is resent from the same position. The watermark also
+//! splits delivery ownership between the two paths: admissions below the peer's highest
+//! watermark are the sync cursor's job, and propagation skips them, so within one sync a
+//! statement reaches the peer through at most one path. Duplicates stay possible at the edges —
+//! an affinity-change re-sync restarts the cursor from zero and redelivers earlier admissions,
+//! and a chunk whose send timed out may have arrived regardless, so its resend repeats it.
 //!
 //! ## Send scheduling
 //!
 //! Every peer has one send slot, shared by propagation and initial sync, so at most one chunk per
 //! connection is in flight. Each chunk carries a fresh id, so the result of a send left over from
 //! a previous connection cannot free the current one's slot. A completed chunk frees the slot at
-//! once and the next propagation chunk follows, a failed send included: the failed chunk is not
-//! retried, but the rest of the backlog keeps draining.
+//! once and the next propagation chunk follows, a failed send included: a failed propagation
+//! chunk is not retried, but the rest of the backlog keeps draining, while a failed initial-sync
+//! chunk is resent from the sync's cursor.
 //!
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
@@ -732,8 +736,7 @@ pub struct Peer {
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
 	/// One past the newest admission covered by the peer's initial syncs. Admissions below
-	/// it are delivered by the sync cursor, so propagation skips them — a statement can
-	/// reach the peer through one path only.
+	/// it are the sync cursor's job, so propagation skips them.
 	sync_watermark: u64,
 }
 
@@ -811,7 +814,8 @@ fn max_statement_payload_size(envelope_overhead: usize) -> usize {
 }
 
 /// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
-/// in the `admitted_statements` callback so non-matching statements are never materialized.
+/// in the `admitted_statements` callback so non-matching statements are never cloned into
+/// the batch.
 ///
 /// Returns the batch and the accumulated encoded size. A size above `max_size` signals a
 /// lone oversized statement: it is taken and the cursor sits past it, so the caller must

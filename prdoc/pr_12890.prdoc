@@ -8,8 +8,9 @@ doc:
     around it, costing duplicate-statement reputation penalties. The sync now
     walks the store's admission journal behind a per-peer cursor: scheduling
     captures the journal watermark in constant time, and the peer's propagation
-    skips admissions below the watermark, so every statement reaches a peer
-    through exactly one path.
+    skips admissions below the watermark, so the two paths own disjoint
+    admission ranges. A sync interrupted by a failed send or store read resumes
+    from its cursor instead of being abandoned.
 - audience: Node Dev
   description: |-
     `sp_statement_store::StatementStore` gains `admission_watermark` and
