@@ -509,9 +509,13 @@ fn upload_evm_runtime_code_works() {
 
 		let contract_address = crate::address::create1(&deployer_addr, 0u32.into());
 
-		let contract_info =
-			ContractInfo::<Test>::new(&contract_address, 0u32.into(), *uploaded_blob.code_hash())
-				.unwrap();
+		let contract_info = ContractInfo::<Test>::new(
+			&contract_address,
+			0u32.into(),
+			*uploaded_blob.code_hash(),
+			false,
+		)
+		.unwrap();
 		AccountInfo::<Test>::insert_contract(&contract_address, contract_info);
 
 		// Call the contract and verify it works

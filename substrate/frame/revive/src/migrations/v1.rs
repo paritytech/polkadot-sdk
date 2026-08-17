@@ -140,7 +140,7 @@ fn migrate_to_v1() {
 			let addr = H160::from([i; 20]);
 			old::ContractInfoOf::<Test>::insert(
 				addr,
-				ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap(),
+				ContractInfo::new(&addr, 1u32.into(), Default::default(), false).unwrap(),
 			);
 		}
 

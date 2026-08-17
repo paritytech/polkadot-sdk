@@ -107,6 +107,9 @@ pub struct ContractInfo<T: Config> {
 	pub storage_base_deposit: BalanceOf<T>,
 	/// The size of the immutable data of this contract.
 	pub immutable_data_len: u32,
+	/// `true` if the account already existed at instantiation so the pallet minted no ED and
+	/// termination must not reclaim one.
+	pub ed_externally_funded: bool,
 }
 
 impl<T: Config> From<H160> for AccountIdOrAddress<T> {
@@ -193,10 +196,15 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// This returns an `Err` if an contract with the supplied `account` already exists
 	/// in storage.
+	///
+	/// `ed_externally_funded` records whether the account's existential deposit was supplied
+	/// by someone other than the pallet. Callers must pass this explicitly so termination
+	/// never reclaims an ED the pallet never minted.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
+		ed_externally_funded: bool,
 	) -> Result<Self, DispatchError> {
 		if <AccountInfo<T>>::is_contract(address) {
 			return Err(Error::<T>::DuplicateContract.into());
@@ -228,6 +236,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
 			immutable_data_len: 0,
+			ed_externally_funded,
 		};
 
 		Ok(contract)

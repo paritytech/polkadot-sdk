@@ -91,6 +91,7 @@ fn new_info(info: StorageInfo) -> ContractInfo<Test> {
 		storage_item_deposit: info.items_deposit,
 		storage_base_deposit: Default::default(),
 		immutable_data_len: info.immutable_data_len,
+		ed_externally_funded: false,
 	}
 }
 

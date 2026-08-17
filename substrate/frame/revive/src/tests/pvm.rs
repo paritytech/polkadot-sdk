@@ -5547,6 +5547,64 @@ fn existential_deposit_shall_not_be_charged_twice() {
 	});
 }
 
+/// Regression test: terminating a contract instantiated at a pre-funded address must not burn
+/// or reactivate an existential deposit the pallet never minted, which previously skewed
+/// `active_issuance`.
+#[test]
+fn terminate_at_prefunded_address_keeps_issuance_balanced() {
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+		let contract_addr = create2(&ALICE_ADDR, &code, &[0u8; 0], &salt);
+		let contract_account = <Test as Config>::AddressMapper::to_account_id(&contract_addr);
+
+		// Pre-fund the address so the account already exists at instantiation (pallet mints no
+		// ED and, the bug, must not burn/reactivate one on termination).
+		let ed = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&contract_account, ed);
+		assert!(System::account_exists(&contract_account));
+
+		let total_before = Balances::total_issuance();
+		let inactive_before = Balances::inactive_issuance();
+
+		let Contract { addr, account_id: _ } = builder::bare_instantiate(Code::Upload(code))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+		assert_eq!(addr, contract_addr);
+		// The externally-funded ED is recorded on the contract info so termination does not
+		// reclaim it.
+		assert!(
+			AccountInfo::<Test>::load_contract(&addr).unwrap().ed_externally_funded,
+			"externally-funded ED must be recorded on the contract info",
+		);
+
+		// Terminate, forwarding the remaining balance to EVE's fallback account.
+		let beneficiary_before = <Test as Config>::Currency::total_balance(&EVE_FALLBACK);
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+
+		assert!(
+			AccountInfo::<Test>::load_contract(&addr).is_none(),
+			"contract must be removed on termination",
+		);
+		// The externally-funded ED was never deactivated or reactivated, so inactive issuance is
+		// undisturbed (the bug drifted it downward).
+		assert_eq!(
+			Balances::inactive_issuance(),
+			inactive_before,
+			"inactive issuance must not drift",
+		);
+		// The ED was forwarded to the beneficiary, not burned, so total issuance is unchanged.
+		assert_eq!(Balances::total_issuance(), total_before, "ED must not be burned");
+		assert!(
+			<Test as Config>::Currency::total_balance(&EVE_FALLBACK) >= beneficiary_before + ed,
+			"the pre-funded ED should reach the beneficiary, not be burned",
+		);
+	});
+}
+
 #[test]
 fn self_destruct_by_syscall_tracing_works() {
 	use crate::evm::{PrestateTracer, PrestateTracerConfig, Tracer};

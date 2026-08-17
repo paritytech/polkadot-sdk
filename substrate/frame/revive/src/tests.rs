@@ -137,7 +137,7 @@ pub mod test_utils {
 		<CodeInfoOf<Test>>::insert(code_hash, CodeInfo::new(address.clone()));
 		let address =
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(&address);
-		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash).unwrap();
+		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash, false).unwrap();
 		AccountInfo::<Test>::insert_contract(&address, contract);
 	}
 	pub fn set_balance(who: &AccountIdOf<Test>, amount: u128) {

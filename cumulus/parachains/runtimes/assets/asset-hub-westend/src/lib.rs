@@ -1449,6 +1449,7 @@ impl pallet_migrations::Config for Runtime {
 			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
+		pallet_revive::migrations::v5::Migration<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]

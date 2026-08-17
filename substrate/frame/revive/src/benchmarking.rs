@@ -1350,6 +1350,7 @@ mod benchmarks {
 		let beneficiary_clone = beneficiary.clone();
 		let trie_id = instance.info()?.trie_id.clone();
 		let code_hash = instance.info()?.code_hash;
+		let ed_externally_funded = instance.info()?.ed_externally_funded;
 		let only_if_same_tx = false;
 
 		let result;
@@ -1363,6 +1364,7 @@ mod benchmarks {
 				beneficiary_clone,
 				trie_id,
 				code_hash,
+				ed_externally_funded,
 				only_if_same_tx,
 			);
 		}
@@ -3104,7 +3106,8 @@ mod benchmarks {
 	fn v1_migration_step() {
 		use crate::migrations::v1;
 		let addr = H160::from([1u8; 20]);
-		let contract_info = ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap();
+		let contract_info =
+			ContractInfo::new(&addr, 1u32.into(), Default::default(), false).unwrap();
 
 		v1::old::ContractInfoOf::<T>::insert(addr, contract_info.clone());
 		let mut meter = WeightMeter::new();
@@ -3237,8 +3240,8 @@ mod benchmarks {
 		for byte in [0x41u8, 0x42u8] {
 			let addr = H160::from([byte; 20]);
 			let contract_account = T::AddressMapper::to_account_id(&addr);
-			let info =
-				ContractInfo::<T>::new(&addr, 1u32.into(), code_hash).expect("fresh contract info");
+			let info = ContractInfo::<T>::new(&addr, 1u32.into(), code_hash, false)
+				.expect("fresh contract info");
 			AccountInfoOf::<T>::insert(
 				addr,
 				crate::storage::AccountInfo::<T> {
@@ -3315,6 +3318,46 @@ mod benchmarks {
 		assert!(
 			DeletionQueue::<T>::get(0u32).is_some() && DeletionQueue::<T>::get(1u32).is_some(),
 			"both legacy entries rewritten into the new format",
+		);
+	}
+
+	/// One iteration of v5: re-encode an old-layout contract entry with `ed_externally_funded`.
+	#[benchmark]
+	fn v5_migration_step() {
+		use crate::migrations::v5;
+
+		let _ = AccountInfoOf::<T>::clear(u32::MAX, None);
+
+		let addr = H160::from([0x41u8; 20]);
+		let trie_id: TrieId = vec![0xABu8; 16].try_into().unwrap();
+		v5::old::AccountInfoOf::<T>::insert(
+			addr,
+			v5::old::AccountInfo {
+				account_type: v5::old::AccountType::Contract(v5::old::ContractInfo {
+					trie_id,
+					code_hash: H256::from([0u8; 32]),
+					storage_bytes: 0,
+					storage_items: 0,
+					storage_byte_deposit: 0u32.into(),
+					storage_item_deposit: 0u32.into(),
+					storage_base_deposit: 0u32.into(),
+					immutable_data_len: 0,
+				}),
+				dust: 0,
+			},
+		);
+
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v5::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		let info = AccountInfoOf::<T>::get(addr).expect("contract migrated");
+		assert!(
+			matches!(info.account_type, crate::storage::AccountType::Contract(c) if !c.ed_externally_funded),
+			"contract re-encoded with the flag defaulting to false",
 		);
 	}
 

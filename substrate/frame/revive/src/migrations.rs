@@ -29,5 +29,8 @@ pub mod v3;
 /// Switch storage deposits from native currency to PGAS.
 pub mod v4;
 
+/// Record on each contract whether its existential deposit was funded externally.
+pub mod v5;
+
 /// A unique identifier across all pallets.
 const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";

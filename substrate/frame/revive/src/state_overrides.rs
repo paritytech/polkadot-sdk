@@ -186,7 +186,7 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 			},
 			_ => {
 				let nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
-				let contract = ContractInfo::<T>::new(address, nonce, code_hash)?;
+				let contract = ContractInfo::<T>::new(address, nonce, code_hash, false)?;
 				*account = Some(AccountInfo {
 					account_type: contract.into(),
 					dust: account.as_ref().map(|a| a.dust).unwrap_or(0),

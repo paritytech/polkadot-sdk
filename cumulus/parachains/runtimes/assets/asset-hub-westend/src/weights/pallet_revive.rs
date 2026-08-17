@@ -1679,6 +1679,18 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(248), added: 2723, mode: `MaxEncodedLen`)
+	fn v5_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `744`
+		//  Estimated: `6436`
+		// Minimum execution time: 15_873_000 picoseconds.
+		Weight::from_parts(17_135_000, 0)
+			.saturating_add(Weight::from_parts(0, 6436))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
 	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Revive::BlockHash` (r:1 w:1)
