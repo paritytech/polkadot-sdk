@@ -305,10 +305,7 @@ impl ChainSyncMode {
 	/// Returns the base block attributes required for this sync mode.
 	pub fn required_block_attributes(&self) -> BlockAttributes {
 		match self {
-			ChainSyncMode::Full => {
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
-			},
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
+			ChainSyncMode::Full | ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
 			},
 			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
@@ -1107,10 +1104,7 @@ where
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
-		info!(
-			target: LOG_TARGET,
-			"Gap sync body policy: {gap_sync_body_policy:?}",
-		);
+		info!(target: LOG_TARGET, "Gap sync body policy: {gap_sync_body_policy:?}");
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
@@ -2031,12 +2025,6 @@ where
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
 		let finalized_number = self.client.info().finalized_number;
-		// The gap is created by importing a finalized block right above it, so
-		// `gap.target + 1` is a lower bound for the finalized number even while the
-		// client's finality info still lags right after warp sync.
-		let body_anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
-			std::cmp::max(finalized_number, gap.target + One::one())
-		});
 		// Bodies are required for gap blocks above the cutoff and stripped from ranges
 		// entirely at or below it; recomputed every pass so the cutoff follows finality.
 		let (gap_attrs, gap_body_cutoff) = {
@@ -2045,7 +2033,13 @@ where
 				GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
 				GapSyncBodyPolicy::All => (attrs, None),
 				GapSyncBodyPolicy::DownloadFinalized(window) => {
-					(attrs, Some(body_anchor.saturating_sub(window.into())))
+					// The gap is created by importing a finalized block right above it,
+					// so `gap.target + 1` is a lower bound for the finalized number even
+					// while the client's finality info still lags right after warp sync.
+					let anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
+						std::cmp::max(finalized_number, gap.target + One::one())
+					});
+					(attrs, Some(anchor.saturating_sub(window.into())))
 				},
 			}
 		};

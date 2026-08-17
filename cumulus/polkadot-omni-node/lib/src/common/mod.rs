@@ -173,13 +173,13 @@ where
 		let has_storage_api = api
 			.has_api_with::<dyn TransactionStorageApi<Block>, _>(at, |version| version >= 2)
 			.map_err(sp_blockchain::Error::RuntimeApiError)?;
-		let storage_chain_retention = has_storage_api
-			.then(|| {
-				api.retention_period(at)
-					.map(|retention| retention.saturated_into::<u32>())
-					.map_err(sp_blockchain::Error::RuntimeApiError)
-			})
-			.transpose()?;
+		let storage_chain_retention = if has_storage_api {
+			let retention =
+				api.retention_period(at).map_err(sp_blockchain::Error::RuntimeApiError)?;
+			Some(retention.saturated_into::<u32>())
+		} else {
+			None
+		};
 
 		let policy = resolve_gap_sync_body_policy(
 			storage_chain_retention,
@@ -196,8 +196,8 @@ where
 	})
 }
 
-/// Maps the runtime's transaction-storage retention period and the local pruning configuration onto a
-/// [`GapSyncBodyPolicy`], validating that the configuration can actually serve the
+/// Maps the runtime's transaction-storage retention period and the local pruning configuration onto
+/// a [`GapSyncBodyPolicy`], validating that the configuration can actually serve the
 /// storage chain.
 fn resolve_gap_sync_body_policy(
 	storage_chain_retention: Option<u32>,
