@@ -607,11 +607,13 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> DispatchResult {
-		Self::do_register_without_deposit(
+		Self::do_register(
 			manager,
+			Some(BalanceOf::<T>::zero()),
 			ParaId::from(para_id),
 			HeadData(genesis_head),
 			ValidationCode(validation_code),
+			false,
 		)
 	}
 }
@@ -706,33 +708,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Register a para whose deposit is held elsewhere.
-	///
-	/// No deposit is taken here. Used when a remote control plane owns the manager relationship and
-	/// the deposit (see the [`ParachainRegistrar`](registrar_primitives::ParachainRegistrar)
-	/// impl), so this pallet has no funds of the manager's to reserve — the manager account need
-	/// not even exist here.
-	///
-	/// Everything else is a normal registration: head data and code are still validated against the
-	/// live [`configuration`](configuration::ActiveConfig), and the para still goes through the
-	/// usual onboarding and PVF pre-check.
-	pub fn do_register_without_deposit(
-		manager: T::AccountId,
-		id: ParaId,
-		genesis_head: HeadData,
-		validation_code: ValidationCode,
-	) -> DispatchResult {
-		// `Currency::reserve` short-circuits on a zero amount, so overriding the deposit to zero
-		// takes nothing and does not require `manager` to exist on this chain.
-		Self::do_register(
-			manager,
-			Some(BalanceOf::<T>::zero()),
-			id,
-			genesis_head,
-			validation_code,
-			false,
-		)
-	}
 
 	/// Deregister a Para Id, freeing all data returning any deposit.
 	fn do_deregister(id: ParaId) -> DispatchResult {
