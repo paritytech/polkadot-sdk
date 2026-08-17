@@ -1,0 +1,177 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Exercises the `System.originIsRoot` and `System.callerIsRoot` precompile methods through various call shapes."><title>pallet_revive_fixtures::OriginIsRoot - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_revive_fixtures" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module OriginIsRoot</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_revive_fixtures/index.html">pallet_<wbr>revive_<wbr>fixtures</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module Origin<wbr>IsRoot</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>revive_<wbr>fixtures</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_revive_fixtures</a></div><h1>Module <span>Origin<wbr>IsRoot</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_revive_fixtures/__w/polkadot-sdk/polkadot-sdk/target/debug/build/pallet-revive-fixtures-03558f6bcce4bb16/out/fixture_location.rs.html#33">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Exercises the <code>System.originIsRoot</code> and <code>System.callerIsRoot</code> precompile methods
+through various call shapes.</p>
+<p>A single instance can play either role: the contract that ultimately invokes the
+precompile, or a proxy that reaches another instance through a regular call or
+delegate call.</p>
+<div class="example-wrap"><pre class="language-solidity"><code>contract OriginIsRoot {
+    function originIsRoot() external view returns (bool) { &lt;stmts&gt; }
+    function callerIsRoot() external view returns (bool) { &lt;stmts&gt; }
+    function callOriginIsRoot(address target) external view returns (bool) { &lt;stmts&gt; }
+    function callCallerIsRoot(address target) external view returns (bool) { &lt;stmts&gt; }
+    function delegateOriginIsRoot(address _impl) external returns (bool) { &lt;stmts&gt; }
+}</code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.callCallerIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::callCallerIsRootCall">call<wbr>Caller<wbr>IsRoot<wbr>Call</a></dt><dd>Regular contract call into <code>target.callerIsRoot()</code>.
+Function with signature <code>callCallerIsRoot(address)</code> and selector <code>0xc31e7613</code>.</dd><dt><a class="struct" href="struct.callCallerIsRootReturn.html" title="struct pallet_revive_fixtures::OriginIsRoot::callCallerIsRootReturn">call<wbr>Caller<wbr>IsRoot<wbr>Return</a></dt><dd>Regular contract call into <code>target.callerIsRoot()</code>.
+Container type for the return parameters of the <a href="struct.callCallerIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::callCallerIsRootCall"><code>callCallerIsRoot(address)</code></a> function.</dd><dt><a class="struct" href="struct.callOriginIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::callOriginIsRootCall">call<wbr>Origin<wbr>IsRoot<wbr>Call</a></dt><dd>Regular contract call into <code>target.originIsRoot()</code>.
+Function with signature <code>callOriginIsRoot(address)</code> and selector <code>0x82ad25fe</code>.</dd><dt><a class="struct" href="struct.callOriginIsRootReturn.html" title="struct pallet_revive_fixtures::OriginIsRoot::callOriginIsRootReturn">call<wbr>Origin<wbr>IsRoot<wbr>Return</a></dt><dd>Regular contract call into <code>target.originIsRoot()</code>.
+Container type for the return parameters of the <a href="struct.callOriginIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::callOriginIsRootCall"><code>callOriginIsRoot(address)</code></a> function.</dd><dt><a class="struct" href="struct.callerIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::callerIsRootCall">caller<wbr>IsRoot<wbr>Call</a></dt><dd>Directly invoke <code>callerIsRoot()</code> on the System precompile.
+Function with signature <code>callerIsRoot()</code> and selector <code>0x0bd0e5fb</code>.</dd><dt><a class="struct" href="struct.callerIsRootReturn.html" title="struct pallet_revive_fixtures::OriginIsRoot::callerIsRootReturn">caller<wbr>IsRoot<wbr>Return</a></dt><dd>Directly invoke <code>callerIsRoot()</code> on the System precompile.
+Container type for the return parameters of the <a href="struct.callerIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::callerIsRootCall"><code>callerIsRoot()</code></a> function.</dd><dt><a class="struct" href="struct.delegateOriginIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::delegateOriginIsRootCall">delegate<wbr>Origin<wbr>IsRoot<wbr>Call</a></dt><dd>Delegate-call into <code>impl.originIsRoot()</code>, the same shape as an upgradeable proxy
+dispatching into its implementation.
+Function with signature <code>delegateOriginIsRoot(address)</code> and selector <code>0x98b4b343</code>.</dd><dt><a class="struct" href="struct.delegateOriginIsRootReturn.html" title="struct pallet_revive_fixtures::OriginIsRoot::delegateOriginIsRootReturn">delegate<wbr>Origin<wbr>IsRoot<wbr>Return</a></dt><dd>Delegate-call into <code>impl.originIsRoot()</code>, the same shape as an upgradeable proxy
+dispatching into its implementation.
+Container type for the return parameters of the <a href="struct.delegateOriginIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::delegateOriginIsRootCall"><code>delegateOriginIsRoot(address)</code></a> function.</dd><dt><a class="struct" href="struct.originIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::originIsRootCall">origin<wbr>IsRoot<wbr>Call</a></dt><dd>Directly invoke <code>originIsRoot()</code> on the System precompile.
+Function with signature <code>originIsRoot()</code> and selector <code>0x8ce6a15f</code>.</dd><dt><a class="struct" href="struct.originIsRootReturn.html" title="struct pallet_revive_fixtures::OriginIsRoot::originIsRootReturn">origin<wbr>IsRoot<wbr>Return</a></dt><dd>Directly invoke <code>originIsRoot()</code> on the System precompile.
+Container type for the return parameters of the <a href="struct.originIsRootCall.html" title="struct pallet_revive_fixtures::OriginIsRoot::originIsRootCall"><code>originIsRoot()</code></a> function.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.OriginIsRootCalls.html" title="enum pallet_revive_fixtures::OriginIsRoot::OriginIsRootCalls">Origin<wbr>IsRoot<wbr>Calls</a></dt><dd>Container for all the <a href="index.html" title="mod pallet_revive_fixtures::OriginIsRoot"><code>OriginIsRoot</code></a> function calls.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

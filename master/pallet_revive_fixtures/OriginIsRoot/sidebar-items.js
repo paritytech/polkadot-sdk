@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OriginIsRootCalls"],"struct":["callCallerIsRootCall","callCallerIsRootReturn","callOriginIsRootCall","callOriginIsRootReturn","callerIsRootCall","callerIsRootReturn","delegateOriginIsRootCall","delegateOriginIsRootReturn","originIsRootCall","originIsRootReturn"]};
