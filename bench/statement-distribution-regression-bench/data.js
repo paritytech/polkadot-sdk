@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786968531297,
+  "lastUpdate": 1786974110602,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "11329616+Klapeyron@users.noreply.github.com",
-            "name": "Klapeyron",
-            "username": "Klapeyron"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "dca3da257b2d8532867e7856bafd1971aaa34edb",
-          "message": "Missing sign_with forward call (#10784)\n\nAs a follow-up of the discussion\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2682026297,\nI am extracting a missing forward call to a separate PR so we can\ndeliver it independently.\n\nContext:\nWhen keystore is used by some component (like BEEFY) via Arc, then calls\nof `sign_with` function are forwarded to default trait implementation.\nIt is not working, when custom keystore with custom `sign_with`\nimplementation is used.",
-          "timestamp": "2026-01-13T13:10:39Z",
-          "tree_id": "0b900d0cb850b34188068cf7c1bcab61e0f5091c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dca3da257b2d8532867e7856bafd1971aaa34edb"
-        },
-        "date": 1768313981543,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.09799999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03807911775200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06523771088399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.040103348514000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7987c72c414246ab96115da9347bee0236f3dc85",
+          "message": "[pallet-revive] Implement `originIsRoot` precompile method (#12281)\n\nWe have the `callerIsRoot` API but this doesn't work with nested calls.\n`originIsRoot` fills this gap.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-17T12:12:41Z",
+          "tree_id": "fcfbfb91d68558fc22d5471b08043af564ee183a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7987c72c414246ab96115da9347bee0236f3dc85"
+        },
+        "date": 1786974075949,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.07999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039857586076,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08228468373999993,
             "unit": "seconds"
           }
         ]
