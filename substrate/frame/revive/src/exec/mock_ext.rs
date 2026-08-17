@@ -269,7 +269,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		&self,
 		_transient: bool,
 		_key: &Key,
-		_op: crate::access_list::StorageOp,
 	) -> crate::access_list::StorageAccessKind {
 		panic!("MockExt::peek_storage_access")
 	}

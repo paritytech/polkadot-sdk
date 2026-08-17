@@ -546,10 +546,10 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the slot's [`StorageAccessKind`]. `op` is the operation being
-	/// performed, so the first write to a slot that was only read can be
-	/// charged the write surcharge. When `transient` is true, skips the
-	/// access list and returns the `Transient` variant.
+	/// the slot's [`StorageAccessKind`]. `op` is the paid level this access
+	/// sets: a write upgrades a slot that had only paid for a read. When
+	/// `transient` is true, skips the access list and returns the `Transient`
+	/// variant.
 	fn touch_storage_access(
 		&mut self,
 		transient: bool,
@@ -559,7 +559,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Non-mutating sibling of `touch_storage_access`: prices the access without
 	/// warming the slot.
-	fn peek_storage_access(&self, transient: bool, key: &Key, op: StorageOp) -> StorageAccessKind;
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2639,13 +2639,13 @@ where
 		)
 	}
 
-	fn peek_storage_access(&self, transient: bool, key: &Key, op: StorageOp) -> StorageAccessKind {
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
 		if transient {
 			return StorageAccessKind::Transient;
 		}
 		let address = self.address();
 		StorageAccessKind::Persistent(
-			self.access_list.peek(&AccessEntry { address, slot: key.into() }, op),
+			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
 		)
 	}
 

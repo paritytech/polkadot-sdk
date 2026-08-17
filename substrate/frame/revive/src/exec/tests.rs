@@ -23,7 +23,7 @@
 use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
-	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StorageOp, Warmth},
+	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, Paid, StorageOp, Warmth},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
 	test_utils::*,
@@ -3335,7 +3335,7 @@ fn cold_hot_transient_skips_access_list() {
 		assert!(matches!(kind, StorageAccessKind::Transient));
 
 		// The same key is still cold in the persistent access list.
-		let persistent_kind = ctx.ext.peek_storage_access(false, &key, StorageOp::Read);
+		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
 		assert!(
 			matches!(persistent_kind, StorageAccessKind::Persistent(Warmth::Cold { .. })),
 			"transient access must not warm the persistent access list",
@@ -3374,8 +3374,8 @@ fn cold_hot_reverted_write_charge_rolls_back_the_upgrade() {
 		ctx.ext.touch_storage_access(false, &slot, StorageOp::Read);
 		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the self-call must revert");
 		assert_matches!(
-			ctx.ext.peek_storage_access(false, &slot, StorageOp::Write),
-			StorageAccessKind::Persistent(Warmth::Hot { first_write: true }),
+			ctx.ext.peek_storage_access(false, &slot),
+			StorageAccessKind::Persistent(Warmth::Hot(Paid::Read)),
 			"the reverted frame's upgrade must roll back, leaving the write unpaid",
 		);
 
@@ -3383,8 +3383,8 @@ fn cold_hot_reverted_write_charge_rolls_back_the_upgrade() {
 		let within_budget = RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 32, kind };
 		assert!(ctx.ext.frame_meter_mut().charge_weight_token(within_budget).is_ok());
 		assert_matches!(
-			ctx.ext.peek_storage_access(false, &slot, StorageOp::Write),
-			StorageAccessKind::Persistent(Warmth::Hot { first_write: false }),
+			ctx.ext.peek_storage_access(false, &slot),
+			StorageAccessKind::Persistent(Warmth::Hot(Paid::Write)),
 			"a paid write in a surviving frame stays paid",
 		);
 		exec_success()
