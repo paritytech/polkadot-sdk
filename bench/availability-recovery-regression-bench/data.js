@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786968402602,
+  "lastUpdate": 1786973979499,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b3bfba618e98f2aa10ee8d4233a15c1e09fef50f",
-          "message": "[Staking] Allow nominators to be non-slashable and fast unbondable (#10502)\n\n## Context\nWe want to make nominators unslashable (configurable via a storage set),\nand once they are unslashable, they can also unbond and withdraw in 2\nera instead of the full BondingDuration (28 eras).\n\n## Storage Changes\n- `AreNominatorsSlashable: StorageValue<bool>` (default: true):\nRuntime-configurable flag. Made this a storage value (not a config\nconstant) so it can be enabled together with MinValidatorBond and\nMinCommission via `set_staking_configs`.\n- `ErasNominatorsSlashable: StorageMap<EraIndex, bool>` (default: true):\nPer-era snapshot of slashability setting. This ensures offences are\nprocessed with the rules that were in effect at the time of the offence,\nnot the current rules. Cleaned up automatically for eras outside bonding\nwindow.\n- `LastValidatorEra` to track if a staker was a validator in a recent\nera and hence needs to follow full unbonding time. Does not need\nmigration as long as we disable nominator slash (in other words: reduce\ntheir unbond time) at least one era after these changes are applied.\n\n## Slashing logic\n- Added `process_offence_validator_only` as a separate code path instead\nof overloading the same function. See `process_offence_for_era` in\n`substrate/frame/staking-async/src/slashing.rs`.\n- We might want to remove nominator slashing code completely at some\npoint.\n\n## Unbonding logic:\n- Introduce new config constant `NominatorFastUnbondDuration` that\ndetermines the fast unbond duration (recommended value: 2 eras) when\nnominators are not slashable.\n- Added `nominator_bonding_duration()` to `StakingInterface` trait\n(returns `NominatorFastUnbondDuration` era when not slashable, full\nunbond duration otherwise).\n- Nomination pools now use `nominator_bonding_duration()`, so pool\nmembers also benefit from fast unbonding.\n- Ported auto-chill on full unbond from pallet-staking (PR #3811) to\nprevent `InsufficientBond` errors.\n- Nominators unbonding the era before the nominators become unslashable\nwill still have 28 days of unbonding.\n\n## Era pruning:\n- Moved pruning of `ValidatorSlashInEra` as well as\n`ErasNominatorsSlashable` in lazy pruning. This has a minor (I believe\nacceptable) side effect that they will be cleaned up in 84 eras instead\nof 28 eras.\n---\n\n## TODO\n- [x] Ensure delegator slash works correctly (nomination pool). \n- [x] Ensure pool members can unbond in 1 day as well.\n- [x] Benchmark update.\n- [x] Document how all three can be changed in one go: `MinCommission`,\n`MinValidatorBond`, and `AreNominatorsSlashable`.\n- [x] Regenerate weight\n- [x] Make nominator unbonding time configurable and set it to 2 eras.\n- [x] Refactor compute slash to avoid calling `slash_nominator`\ncompletely.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-14T21:42:10Z",
-          "tree_id": "6fdc9be95a252247b6eab51732820ba65a2a6534",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3bfba618e98f2aa10ee8d4233a15c1e09fef50f"
-        },
-        "date": 1768431129259,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12479925003333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.358649001633335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.989381100533333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7987c72c414246ab96115da9347bee0236f3dc85",
+          "message": "[pallet-revive] Implement `originIsRoot` precompile method (#12281)\n\nWe have the `callerIsRoot` API but this doesn't work with nested calls.\n`originIsRoot` fills this gap.\n\n---------\n\nSigned-off-by: Cyrill Leutwiler <bigcyrill@hotmail.com>\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-17T12:12:41Z",
+          "tree_id": "fcfbfb91d68558fc22d5471b08043af564ee183a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7987c72c414246ab96115da9347bee0236f3dc85"
+        },
+        "date": 1786973944303,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.947076392633331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1315854751666667,
             "unit": "seconds"
           }
         ]
