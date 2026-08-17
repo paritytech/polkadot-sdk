@@ -27,10 +27,10 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptorV2, CandidateEvent, CollatorPair,
-	CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
-	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
+	vstaging::RelayParentInfo, BlockNumber, CandidateCommitments, CandidateDescriptorV2,
+	CandidateEvent, CollatorPair, CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{CandidateDescriptor, CommittedCandidateReceipt};
 use polkadot_test_client::{
@@ -369,6 +369,15 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	}
 
 	async fn node_features(&self, _at: PHash) -> RelayChainResult<NodeFeatures> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		_at: PHash,
+		_session_index: SessionIndex,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Option<RelayParentInfo<PHash, BlockNumber>>> {
 		unimplemented!("Not needed for test")
 	}
 }

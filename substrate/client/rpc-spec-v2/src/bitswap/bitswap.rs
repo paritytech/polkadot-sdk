@@ -18,7 +18,7 @@
 
 //! Implementation of the `bitswap_v1_get` RPC method.
 //!
-//! See <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_get.md>
+//! See <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_unstable_get.md>
 
 use crate::bitswap::{api::BitswapApiServer, error::Error};
 use cid::Cid;

@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
@@ -59,7 +59,7 @@ use sp_runtime::{
 	traits::{BlockNumberProvider, Hash},
 	Debug, FixedU128, SaturatedConversion,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -1939,11 +1939,8 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
 			.map(|encoded_message| {
-				VersionedXcm::<()>::decode_all_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut &encoded_message[..],
-				)
-				.unwrap()
+				VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &encoded_message[..])
+					.unwrap()
 			})
 			.collect();
 
@@ -2034,10 +2031,6 @@ pub trait RelaychainStateProvider {
 /// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
 /// [`Pallet::last_relay_block_number()`].
 ///
-/// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
-#[deprecated = "Use `RelaychainDataProvider` instead"]
-pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
-
 /// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
 /// data fetched from validation data.
 ///
