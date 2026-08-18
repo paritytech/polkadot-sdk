@@ -36,9 +36,6 @@ pub use crate::{
 };
 
 pub use sc_network_types::{build_multiaddr, ed25519};
-
-/// Litep2p transport-side Bitswap handle, created together with [`IpfsConfig`] via
-/// [`IpfsConfig::new`]. Re-exported so callers need not depend on `litep2p` directly.
 pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as Litep2pBitswapHandle;
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
