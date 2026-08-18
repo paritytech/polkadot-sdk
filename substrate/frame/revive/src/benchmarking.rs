@@ -2009,14 +2009,17 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
-		// Re-touch an entry that is already present (address zero is in the fill range).
-		let entry = AccessEntry { slot: worst_case_slot(), address: H160::zero() };
+		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
+		let entry = AccessEntry {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
+		};
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			outcome = al.touch(entry, StorageOp::Write);
 		}
-		assert!(!outcome.is_cold());
+		assert!(!outcome.is_cold(), "the fill seeded this entry");
 		Ok(())
 	}
 

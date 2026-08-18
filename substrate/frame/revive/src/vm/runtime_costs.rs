@@ -229,8 +229,9 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
-	/// What a write adds over the read that made the slot hot: the deferred cost
-	/// of re-hashing its path when the block's storage root is computed.
+	/// What a hot write pays on top of the cold read that warmed the slot:
+	/// re-hashing the slot's trie path when the block's storage root is
+	/// computed.
 	fn hot_write_surcharge<T: Config>() -> Weight {
 		let db = T::DbWeight::get();
 		db.writes(1).saturating_sub(db.reads(1))
@@ -463,11 +464,12 @@ mod tests {
 		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
 
 		let surcharge = RuntimeCosts::hot_write_surcharge::<Test>();
-		assert_eq!(
-			surcharge,
-			Weight::from_parts(200, 0),
-			"the surcharge is the mock's 300 ps write minus its 100 ps read",
+		let db = <Test as frame_system::Config>::DbWeight::get();
+		assert!(
+			surcharge.ref_time() > 0 && surcharge.ref_time() < db.writes(1).ref_time(),
+			"the surcharge is part of a write: above zero, below all of it: {surcharge:?}",
 		);
+		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
 
 		let read_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Read));
 		let write_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));

@@ -147,7 +147,7 @@ pub enum Warmth {
 }
 
 impl Warmth {
-	/// Whether this was the first access to the slot this transaction.
+	/// Whether the access billed cold: the entry was not tracked.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub(crate) fn is_cold(&self) -> bool {
 		matches!(self, Self::Cold { .. })
@@ -243,7 +243,8 @@ impl AccessList {
 
 	/// Rollback the top frame.
 	///
-	/// Touches made during that frame are removed from the access list.
+	/// Entries inserted during that frame are removed from the access list;
+	/// its `Read` to `Write` upgrades are downgraded.
 	///
 	/// # Panics
 	///
@@ -500,24 +501,23 @@ mod tests {
 		}
 
 		let entry = |i: u8| AccessEntry { address: H160::zero(), slot: Slot::Fix([i; 32]) };
-		let cold = |revertible| Warmth::Cold { revertible };
 		let mut al = AccessList::new();
 
-		agree(&mut al, entry(1), StorageOp::Read, cold(false));
+		agree(&mut al, entry(1), StorageOp::Read, Warmth::Cold { revertible: false });
 		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot(Paid::Read));
 		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot(Paid::Read));
 		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot(Paid::Write));
 		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot(Paid::Write));
 
 		al.enter_frame();
-		agree(&mut al, entry(2), StorageOp::Write, cold(true));
+		agree(&mut al, entry(2), StorageOp::Write, Warmth::Cold { revertible: true });
 		al.rollback_frame();
 
 		fill_to_cap(&mut al);
 
 		al.enter_frame();
 		// Peek's own past-cap arm must agree with touch too.
-		agree(&mut al, entry(3), StorageOp::Write, cold(false));
+		agree(&mut al, entry(3), StorageOp::Write, Warmth::Cold { revertible: false });
 		// A tracked read-paid slot still upgrades at the cap.
 		let filled = AccessEntry { address: H160::from_low_u64_be(0), slot: Slot::Fix([0; 32]) };
 		agree(&mut al, filled.clone(), StorageOp::Write, Warmth::Hot(Paid::Read));
