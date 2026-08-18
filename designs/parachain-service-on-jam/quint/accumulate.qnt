@@ -85,6 +85,7 @@ module accumulate {
     para_id: ParaId,
     codeLen: int,
     now: Timeslot,
+    lookupAnchor: Timeslot,
     m: UpwardMessage
   ): AccumulateOutcome = {
     match m {
@@ -294,10 +295,11 @@ module accumulate {
           }
         }
       | ConsumeTransfersUpTo(slot) =>
-      // Asset Hub drains whole buckets up to and including `slot`. Both Refine
-      // and `accumulateOkPrefix`'s service-restriction check (§4.3) reject
+      // Asset Hub drains whole buckets up to and including `slot`, clamped to the
+      // candidate's lookup-anchor inside `dropBucketsUpTo`. Both Refine and
+      // `accumulateOkPrefix`'s service-restriction check (§4.3) reject
       // non-Asset-Hub origins before we reach this branch.
-      { ...acc, state: dropBucketsUpTo(acc.state, slot) }
+      { ...acc, state: dropBucketsUpTo(acc.state, slot, lookupAnchor) }
       | UpgradeService(payload) =>
       // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
       // the new code's preimage is in the service's preimage store before
@@ -472,7 +474,7 @@ module accumulate {
                 logs: pre.logs
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
-                applyUpwardMessage(a, ok.paraId, codeLen, now, m))
+                applyUpwardMessage(a, ok.paraId, codeLen, now, ok.lookupAnchor, m))
               // `Solicit` is always for the caller itself; `Forget` names its
               // target, so a Coretime-driven forget clears the TARGET's entry.
               val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {

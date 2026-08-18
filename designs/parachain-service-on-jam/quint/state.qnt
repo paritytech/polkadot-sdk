@@ -154,9 +154,11 @@ module state {
   /// `<= slot` (§5.1 `consume_transfers_up_to`). Returns the surviving map and
   /// the new chain endpoints, `None` once the chain is exhausted.
   pure def dropBucketsUpTo(
-    s: ParachainServiceState, slot: Timeslot
+    s: ParachainServiceState, slot: Timeslot, anchor: Timeslot
   ): ParachainServiceState = {
-    val survivors = s.incomingTransfers.mapFilterKeys(k => k > slot)
+    // §5.1: never drain past the candidate's lookup-anchor.
+    val upTo = if (slot > anchor) anchor else slot
+    val survivors = s.incomingTransfers.mapFilterKeys(k => k > upTo)
     match s.incomingTransferChain {
       | None => s
       | Some(chain) =>

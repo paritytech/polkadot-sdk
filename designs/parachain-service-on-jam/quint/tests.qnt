@@ -202,8 +202,8 @@ module tests {
       { from: MkServiceId(0), amount: 500, memo: 0 })
     val b = applyIncomingTransfer(a, 4, { from: MkServiceId(0), amount: 500, memo: 0 })
     val c = applyIncomingTransfer(b, 9, { from: MkServiceId(0), amount: 500, memo: 0 })
-    val partial = dropBucketsUpTo(c, 4)     // drops slots 1 and 4
-    val everything = dropBucketsUpTo(c, 9)  // drains the chain
+    val partial = dropBucketsUpTo(c, 4, 9)  // anchor 9: no clamp, drops slots 1 and 4
+    val everything = dropBucketsUpTo(c, 9, 9)  // drains the chain
     all {
       assert(c.incomingTransferChain == Some({ firstSlot: 1, lastSlot: 9 })),
       assert(partial.incomingTransfers.keys() == Set(9)),
@@ -1107,7 +1107,7 @@ module tests {
       logs: List()
     }
     val pinned = applyUpwardMessage(
-      baseAcc, para, FixedCodeLen, 0,
+      baseAcc, para, FixedCodeLen, 0, 0,
       Solicit({ hash: vchAsHash(pendingUpgradeHash), len: FixedCodeLen })
     ).state
     val reaped = reapTimedOutUpgrade(pinned, UpgradeTimeoutTimeslots, para, FixedCodeLen)
@@ -1168,7 +1168,7 @@ module tests {
       logs: List()
     }
     val cached = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: List(anyHash), newAssigner: None, jamSlot: jamSlot })
     ).state
     val beforeDue = applyAlwaysAccumulate(cached, jamSlot - 1)
@@ -1205,12 +1205,12 @@ module tests {
     }
     // First call caches hash1 for jam_slot 100.
     val after1 = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: List(hash1), newAssigner: None, jamSlot: 100 })
     )
     // Second call replaces the pending queue and its jam_slot.
     val after2 = applyUpwardMessage(
-      after1, CoretimeParaId, FixedCodeLen, 1,
+      after1, CoretimeParaId, FixedCodeLen, 1, 1,
       AssignCore({ core: core, queue: List(hash2), newAssigner: None, jamSlot: 150 })
     )
     all {
@@ -1329,13 +1329,13 @@ module tests {
     }
     // Due (`jamSlot <= now`), so it applies inline.
     val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: List(authHash),
                    newAssigner: Some(assigner), jamSlot: 0 })
     )
     // The same call with `None` keeps this service as the assigner.
     val kept = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0,
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: List(authHash),
                    newAssigner: None, jamSlot: 0 })
     )
@@ -1371,7 +1371,7 @@ module tests {
       logs: List()
     }
     val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 1,
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
       AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 })
     )
     all {
@@ -1407,7 +1407,7 @@ module tests {
     }
     // At now = 50, a queue with jam_slot = 10 (< now) applies inline.
     val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 50,
+      baseAcc, CoretimeParaId, FixedCodeLen, 50, 50,
       AssignCore({ core: core, queue: List(newHash), newAssigner: None, jamSlot: 10 })
     )
     all {
@@ -1438,7 +1438,7 @@ module tests {
     }
     // At now = 10, a queue with jam_slot = 10 (== now) is due and applies inline.
     val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 10,
+      baseAcc, CoretimeParaId, FixedCodeLen, 10, 10,
       AssignCore({ core: core, queue: List(newHash), newAssigner: None, jamSlot: 10 })
     )
     all {
@@ -1526,21 +1526,21 @@ module tests {
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: matches the active code, so it only
     //    sets `pinned` — no new entry, no charge.
-    val pinned = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0,
+    val pinned = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
       Solicit({ hash: h, len: FixedCodeLen }))
     val piP = pinned.state.paraInfo(para)
     // 2. Solicit the SAME hash at a different len: a genuinely distinct entry,
     //    charged, and it must NOT disturb the active code's `pinned` bit.
-    val sol = applyUpwardMessage({ ...baseAcc, state: pinned.state }, para, FixedCodeLen, 0,
+    val sol = applyUpwardMessage({ ...baseAcc, state: pinned.state }, para, FixedCodeLen, 0, 0,
       Solicit({ hash: h, len: otherLen }))
     val pi1 = sol.state.paraInfo(para)
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code stays pinned.
-    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0,
+    val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0,
       Forget({ paraId: para, hash: h, len: otherLen }))
     val pi2 = fgt.state.paraInfo(para)
     // 4. Forget at the code's OWN len: matches the active code, so it unpins it.
-    val unpinned = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0,
+    val unpinned = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
       Forget({ paraId: para, hash: h, len: FixedCodeLen }))
     all {
       assert(not(activeCodePinned(pi0))),
@@ -1574,7 +1574,7 @@ module tests {
   pure def replay(
     s: ParachainServiceState, caller: ParaId, now: Timeslot, m: UpwardMessage
   ): AccumulateOutcome =
-    applyUpwardMessage(accOver(s), caller, FixedCodeLen, now, m)
+    applyUpwardMessage(accOver(s), caller, FixedCodeLen, now, now, m)
 
   /// Coretime naming another para in `forget` releases that para's preimage and
   /// refunds its footprint. Never provided → expunged in one step.
@@ -1853,6 +1853,38 @@ module tests {
       assert(out.state == seeded),
       assert(out.state.paraLog(para).length() == 1),
       assert(out.logPruned == None),
+      init
+    }
+  }
+
+  /// §5.1: `consume_transfers_up_to` is clamped to the candidate's lookup-anchor.
+  /// Asset Hub cannot have read a bucket newer than the anchor it built on, so a
+  /// slot beyond it must not drain buckets it never observed. Buckets at or below
+  /// the anchor are still drained normally.
+  run consumeIsClampedToAnchorTest = {
+    val ah = AssetHubParaId
+    val ahCode: ValidationCodeHash = { vchBytes: 2 }
+    val big = IncomingTransferEntryFootprint
+    val from = MkServiceId(3)
+    // Two buckets: one at slot 1, one at slot 9.
+    val seeded = applyIncomingTransfer(
+      applyIncomingTransfer(initialState, 1, { from: from, amount: big, memo: 0 }),
+      9, { from: from, amount: big, memo: 0 })
+    // A candidate anchored at 5 asking to consume everything up to 9.
+    val ok: ParachainWorkDigestOk = {
+      paraId: ah,
+      validationCode: { hash: ahCode, len: FixedCodeLen },
+      parentHeadHash: headHash(seeded.paraInfo(ah).headData),
+      headData: seeded.paraInfo(ah).headData + 1,
+      upwardMessages: List(ConsumeTransfersUpTo(9)),
+      lookupAnchor: 5
+    }
+    val out = accumulateOnePackage(
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10)
+    all {
+      assert(seeded.incomingTransfers.keys() == Set(1, 9)),
+      // Clamped to 5: bucket 1 drained, bucket 9 survives.
+      assert(out.state.incomingTransfers.keys() == Set(9)),
       init
     }
   }
