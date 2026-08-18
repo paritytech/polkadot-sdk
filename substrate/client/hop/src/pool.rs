@@ -1091,7 +1091,8 @@ impl HopDataPool {
 			let mut promoted = 0u64;
 			let mut unpromoted = 0u64;
 			for (_, meta) in &processed {
-				freed = freed.saturating_add(entry_accounted_size(meta.size, meta.recipients.len()));
+				freed =
+					freed.saturating_add(entry_accounted_size(meta.size, meta.recipients.len()));
 				if meta.promoted {
 					promoted = promoted.saturating_add(1);
 				} else {
@@ -2706,7 +2707,8 @@ mod tests {
 		let pool = HopDataPool::new(
 			1024 * 1024,
 			1024 * 1024,
-			/* retention = */ 0, // entries expire immediately
+			// retention =
+			0, // entries expire immediately
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
 			HopMetrics::new(Some(&registry)).unwrap(),
@@ -2716,7 +2718,14 @@ mod tests {
 
 		// Insert publishes the size gauges.
 		let hash = pool
-			.insert(vec![1u8; 50], bv(vec![signer.clone()]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.insert(
+				vec![1u8; 50],
+				bv(vec![signer.clone()]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
 			.unwrap();
 		assert_eq!(pool.metrics().pool_gauges(), (1, acct(50, 1)));
 
@@ -2757,15 +2766,23 @@ mod tests {
 		}
 
 		let (_, signer) = test_recipient();
-		let meta =
-			HopEntryMeta::new(100, 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+		let meta = HopEntryMeta::new(
+			100,
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		);
 		let fake_hash = H256([0xcdu8; 32]);
 		{
 			let db_path = dir.path().join(META_DB_DIR);
 			let mut opts = parity_db::Options::with_columns(&db_path, COL_COUNT);
 			opts.columns[COL_META as usize].btree_index = true;
 			let db = parity_db::Db::open_or_create(&opts).unwrap();
-			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))]).unwrap();
+			db.commit([(COL_META, fake_hash.as_bytes().to_vec(), Some(meta.encode()))])
+				.unwrap();
 		}
 
 		let registry = prometheus_endpoint::Registry::new();
