@@ -529,25 +529,17 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				// Consume the entitlement: a segment is ONE fetch, spent at launch. `SegmentId`
-				// is stable across any mutation of the peer's list, so this resolves the segment
-				// we picked or nothing at all — it can never consume a different one.
-				let consumed = self
+				// Consume the entitlement: a segment is ONE fetch, spent at launch. The id was
+				// just returned by `pick_best_advertisement` and nothing mutates segment storage
+				// in between, so it still names the segment we picked — and because ids are never
+				// reused, it can't name a different one. The segment stays out of later picks via
+				// both the `consumed` flag and the in-flight filter in `eligible_segments`.
+				if let Some(peer_ads) = self
 					.per_scheduling_parent
 					.get_mut(&advertisement.scheduling_parent)
 					.and_then(|per_sp| per_sp.peer_advertisements.get_mut(&advertisement.peer_id))
-					.is_some_and(|peer_ads| peer_ads.consume(segment_id));
-
-				if !consumed {
-					// We hold `&mut self` for the whole loop and the fetch we just launched is
-					// the only new consumer, so the segment must still have been live here.
-					gum::error!(
-						target: LOG_TARGET,
-						?advertisement,
-						?segment_id,
-						"Picked segment vanished before its entitlement was consumed; \
-						 it may be fetched twice",
-					);
+				{
+					peer_ads.consume(segment_id);
 				}
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
@@ -1405,13 +1397,10 @@ impl PerSchedulingParent {
 /// Identifies a stored segment within one peer's map, stably across insertions, sweeps and
 /// any other mutation of that map.
 ///
-/// Deliberately not a positional index: the planner picks a segment while holding `&self` and
-/// consumes it later against `&mut self`, so a position would be a correctness assumption
-/// about everything in between. Mixing ids up across peers is impossible in practice — they
-/// are only ever looked up in the map of the peer named by the same `Advertisement` — and a
-/// stale id simply fails to resolve instead of consuming the wrong entitlement.
-///
-/// Ids are handed out in increasing order per peer, so ordering by id is ordering by arrival.
+/// Deliberately not a positional index, so a holder of an id needs no assumption about what
+/// happened to the map since: a stale id resolves to nothing rather than to whatever moved
+/// into that position. Ids are per peer, handed out in increasing order and never reused, so
+/// ordering by id is ordering by arrival.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct SegmentId(u64);
 
@@ -1439,15 +1428,10 @@ impl PeerAdvertisements {
 		self.segments.insert(id, segment);
 	}
 
-	/// Mark the segment's fetch entitlement as spent. Returns `false` if `id` no longer names
-	/// a live segment, which means the entitlement was already spent or the segment is gone.
-	fn consume(&mut self, id: SegmentId) -> bool {
-		match self.segments.get_mut(&id) {
-			Some(segment) if !segment.consumed => {
-				segment.consumed = true;
-				true
-			},
-			_ => false,
+	/// Mark the segment `id` as consumed, if it is still stored.
+	fn consume(&mut self, id: SegmentId) {
+		if let Some(segment) = self.segments.get_mut(&id) {
+			segment.consumed = true;
 		}
 	}
 
