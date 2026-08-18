@@ -148,6 +148,8 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
+		// Declared last so that the existing pallets keep their indices.
+		Utility: pallet_utility,
 	}
 );
 
@@ -284,6 +286,15 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+// Present so that the `weigh_message` benchmark can build the same batched worst case that
+// runtimes with a batching pallet do; see `benchmarking::Config::batch_call`.
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -707,6 +718,10 @@ impl super::benchmarking::Config for Test {
 			assets.push(Asset { id: AssetId(asset_id_location), fun: Fungible(100) });
 		}
 		assets.into()
+	}
+
+	fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+		Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 	}
 }
 

@@ -15,13 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use codec::DecodeLimit;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use xcm::{
 	latest::{prelude::*, MAX_ITEMS_IN_ASSETS},
-	MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH,
+	MAX_INSTRUCTIONS_TO_DECODE,
 };
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::{FeeReason, WeightBounds};
@@ -825,7 +824,8 @@ mod benchmarks {
 	/// Decoding and weighing a caller-supplied message of `n` bytes.
 	///
 	/// The decode is inside the measured block because the precompile charges this before
-	/// decoding.
+	/// decoding, and it goes through the same entry point the precompile uses so that the memory
+	/// tracking the precompile pays for is measured too.
 	///
 	/// `n` stops at [`MAX_WEIGHABLE_BLOB_BYTES`] rather than [`MAX_XCM_BLOB_BYTES`].
 	#[benchmark]
@@ -835,11 +835,9 @@ mod benchmarks {
 		#[block]
 		{
 			let decoded =
-				VersionedXcm::<<T as crate::Config>::RuntimeCall>::decode_all_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut &bytes[..],
-				)
-				.expect("blob was just built by `worst_case_weighable_message`; qed");
+				VersionedXcm::<<T as crate::Config>::RuntimeCall>::
+					decode_all_with_mem_and_depth_limit(&mut &bytes[..])
+					.expect("blob was just built by `worst_case_weighable_message`; qed");
 			let mut message: Xcm<<T as crate::Config>::RuntimeCall> =
 				decoded.try_into().expect("blob was built at the latest version; qed");
 			// A message this large may legitimately exceed limits; finding that out is the cost
@@ -857,10 +855,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = VersionedXcm::<()>::decode_all_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				&mut &bytes[..],
-			);
+			let _ = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &bytes[..]);
 		}
 
 		Ok(())
@@ -873,27 +868,53 @@ mod benchmarks {
 	);
 }
 
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::Test;
+
+	/// A worst case that does not decode measures nothing, and `MAX_INSTRUCTIONS_TO_DECODE` is
+	/// easy to overshoot by accident: it is one budget shared by every nesting level, so
+	/// instructions nested inside a `Transact` come out of the same allowance as the outer ones.
+	#[test]
+	fn worst_case_weighable_message_decodes() {
+		for target_bytes in [0, 1, 1024, MAX_WEIGHABLE_BLOB_BYTES] {
+			let bytes = helpers::worst_case_weighable_message::<Test>(target_bytes);
+			assert!(
+				bytes.len() >= target_bytes as usize,
+				"undershooting the target would under-charge",
+			);
+			VersionedXcm::<<Test as crate::Config>::RuntimeCall>::decode_all_with_mem_and_depth_limit(
+				&mut &bytes[..],
+			)
+			.expect("worst case must decode, otherwise the benchmark measures nothing");
+		}
+	}
+}
+
 pub mod helpers {
 	use super::*;
 
 	/// The worst case for `WeightInfo::weigh_message`: a `Transact` carrying
-	/// `batch_call([pallet_xcm.execute(Xcm([ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE])); N])`,
-	/// encoded, of at least `target_bytes` bytes.
+	/// `batch_call([pallet_xcm.execute(Xcm([])); N])`, encoded, of at least `target_bytes` bytes.
 	///
-	/// Weighing it recurses `get_dispatch_info()` over every batched call, each with a fresh
-	/// instruction and depth budget, so the work far exceeds what the outer instruction cap
-	/// suggests. Only `MAX_XCM_DECODE_DEPTH` and the caller's input limit keep it proportional
-	/// to the blob size; raising either re-opens that.
+	/// A `Transact` payload that resolves to a local `RuntimeCall` is decoded eagerly, so the
+	/// blob's entire call tree is decoded here, and weighing it then recurses
+	/// `get_dispatch_info()` over every batched call. Both costs scale with the number of batched
+	/// calls rather than with the instruction count, so the worst case spends `target_bytes` on as
+	/// many calls as it can fit and leaves the inner messages empty.
+	///
+	/// Empty inner messages are also what keeps the blob decodable at all:
+	/// `MAX_INSTRUCTIONS_TO_DECODE` is a single budget shared by every nesting level, not one
+	/// budget per level, so instructions nested inside a `Transact` come out of the same allowance
+	/// as the outer ones.
 	///
 	/// Keep `target_bytes` at or below	`MAX_WEIGHABLE_BLOB_BYTES`.
 	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
 	where
 		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,
 	{
-		let inner = Xcm::<<T as crate::Config>::RuntimeCall>(vec![
-			ClearOrigin;
-			MAX_INSTRUCTIONS_TO_DECODE.into()
-		]);
+		let inner = Xcm::<<T as crate::Config>::RuntimeCall>(Vec::new());
 		let one: <T as crate::Config>::RuntimeCall = crate::Call::<T>::execute {
 			message: Box::new(VersionedXcm::from(inner)),
 			max_weight: Weight::zero(),
