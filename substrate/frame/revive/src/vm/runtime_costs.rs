@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{AccessEntry, ContractStorageKind, StateWarmth, Warmth},
+	access_list::{AccessEntry, StateWarmth, StorageAccessKind, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -107,15 +107,15 @@ pub enum RuntimeCosts {
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
-	SetStorage { new_bytes: u32, old_bytes: u32, kind: ContractStorageKind },
+	SetStorage { new_bytes: u32, old_bytes: u32, kind: StorageAccessKind },
 	/// Weight of the `clearStorage` precompile / `seal_clear_transient_storage`.
-	ClearStorage { len: u32, kind: ContractStorageKind },
+	ClearStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of the `containsStorage` precompile / `seal_contains_transient_storage`.
-	ContainsStorage { len: u32, kind: ContractStorageKind },
+	ContainsStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of `seal_get_storage` / `seal_get_transient_storage`.
-	GetStorage { len: u32, kind: ContractStorageKind },
+	GetStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
-	TakeStorage { len: u32, kind: ContractStorageKind },
+	TakeStorage { len: u32, kind: StorageAccessKind },
 	/// Base weight of a call-family operation.
 	CallBase(StateWarmth),
 	/// Weight of calling a precompile.
@@ -249,16 +249,16 @@ impl RuntimeCosts {
 
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
-		kind: ContractStorageKind,
+		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
-			ContractStorageKind::Persistent(warmth) => {
+			StorageAccessKind::Persistent(warmth) => {
 				cold_hot_weight::<T>(&[warmth], AccessEntry::STORAGE_READS, cold, hot)
 			},
-			ContractStorageKind::Transient => transient(),
+			StorageAccessKind::Transient => transient(),
 		}
 	}
 }
@@ -439,11 +439,11 @@ mod tests {
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
-		let cold = ContractStorageKind::Persistent(Warmth::cold_non_revertible());
-		let cold_revertible = ContractStorageKind::Persistent(Warmth::cold_revertible());
-		let hot = ContractStorageKind::Persistent(Warmth::Hot);
+		let cold = StorageAccessKind::Persistent(Warmth::cold_non_revertible());
+		let cold_revertible = StorageAccessKind::Persistent(Warmth::cold_revertible());
+		let hot = StorageAccessKind::Persistent(Warmth::Hot);
 
-		let with_kind = |kind: ContractStorageKind| -> Vec<RuntimeCosts> {
+		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
 				RuntimeCosts::GetStorage { len, kind },
 				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },

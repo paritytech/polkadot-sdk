@@ -142,14 +142,14 @@ impl Warmth {
 /// `Transient` has no warmth, so every access costs the same.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
-pub enum ContractStorageKind {
+pub enum StorageAccessKind {
 	/// Persistent storage, priced by its access-list warmth.
 	Persistent(Warmth),
 	/// Transient storage, not tracked by the access list.
 	Transient,
 }
 
-impl ContractStorageKind {
+impl StorageAccessKind {
 	/// See [`Warmth::non_revertible`].
 	pub fn non_revertible(self) -> Self {
 		match self {

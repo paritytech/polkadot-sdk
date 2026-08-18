@@ -17,8 +17,8 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, ContractStorageKind, Error, Event, ImmutableData,
-	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts, StorageAccessKind, TrieId,
 	access_list::{AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateWarmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -552,13 +552,13 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the [`ContractStorageKind`]: hot if `key` was already accessed, cold
+	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
 	/// otherwise. When `transient` is true, skips the access list and returns
 	/// the `Transient` variant.
-	fn warm_storage_slot(&mut self, transient: bool, key: &Key) -> ContractStorageKind;
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
 
-	/// Non-mutating sibling of `warm_storage_slot`.
-	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind;
+	/// Non-mutating sibling of `touch_storage_access`.
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
 	/// Warmth of the state items the operation reads.
 	fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth;
@@ -2683,22 +2683,22 @@ where
 		)
 	}
 
-	fn warm_storage_slot(&mut self, transient: bool, key: &Key) -> ContractStorageKind {
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
 		if transient {
-			return ContractStorageKind::Transient;
+			return StorageAccessKind::Transient;
 		}
 		let address = self.address();
-		ContractStorageKind::Persistent(
+		StorageAccessKind::Persistent(
 			self.access_list.touch(AccessEntry::Storage { address, slot: key.into() }),
 		)
 	}
 
-	fn storage_slot_warmth(&self, transient: bool, key: &Key) -> ContractStorageKind {
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
 		if transient {
-			return ContractStorageKind::Transient;
+			return StorageAccessKind::Transient;
 		}
 		let address = self.address();
-		ContractStorageKind::Persistent(
+		StorageAccessKind::Persistent(
 			self.access_list.peek(&AccessEntry::Storage { address, slot: key.into() }),
 		)
 	}

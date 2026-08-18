@@ -62,7 +62,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.warm_storage_slot(transient, &key);
+				let access_kind = env.touch_storage_access(transient, &key);
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
 						len: max_size,
@@ -88,7 +88,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			}) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.warm_storage_slot(transient, &key);
+				let access_kind = env.touch_storage_access(transient, &key);
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
 						len: max_size,
@@ -109,7 +109,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.warm_storage_slot(transient, &key);
+				let access_kind = env.touch_storage_access(transient, &key);
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {
 						len: max_size,
