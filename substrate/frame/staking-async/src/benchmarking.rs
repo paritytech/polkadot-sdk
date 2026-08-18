@@ -1644,6 +1644,14 @@ mod benchmarks {
 	// Worst case: full merge killing the source nominator while both stashes are in the voter list.
 	fn merge_staked() -> Result<(), BenchmarkError> {
 		clear_validators_and_nominators::<T>();
+		AreNominatorsSlashable::<T>::put(false);
+		let active_era = Rotator::<T>::active_era();
+		let oldest_slashable_era = active_era
+			.saturating_sub(T::BondingDuration::get().saturating_sub(One::one()))
+			.max(One::one());
+		for era in oldest_slashable_era..=active_era {
+			ErasNominatorsSlashable::<T>::insert(era, false);
+		}
 
 		let origin_weight = Staking::<T>::min_nominator_bond();
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
@@ -1671,7 +1679,8 @@ mod benchmarks {
 		assert!(!Nominators::<T>::contains_key(&source_stash));
 		assert!(!T::VoterList::contains(&source_stash));
 
-		let target_ledger = Ledger::<T>::get(&target_stash).ok_or("target ledger missing after merge")?;
+		let target_ledger =
+			Ledger::<T>::get(&target_stash).ok_or("target ledger missing after merge")?;
 		assert_eq!(target_ledger.active, target_active_before + amount);
 
 		Ok(())

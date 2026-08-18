@@ -227,12 +227,19 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Returns true if `stash` is listed in any deferred slash waiting to be applied.
-	fn stash_has_pending_unapplied_slash(stash: &T::AccountId) -> bool {
-		UnappliedSlashes::<T>::iter_values().any(|slash| {
-			slash.validator == *stash ||
-				slash.others.iter().any(|(who, _)| who == stash)
-		})
+	/// Returns true while moving this stash could evade a future slash.
+	fn has_merge_slashing_risk(stash: &T::AccountId) -> bool {
+		let active_era = Rotator::<T>::active_era();
+		let oldest_slashable_era =
+			active_era.saturating_sub(T::BondingDuration::get().saturating_sub(One::one()));
+		let oldest_config_era = oldest_slashable_era.max(One::one());
+
+		LastValidatorEra::<T>::get(stash).is_some_and(|era| era >= oldest_slashable_era) ||
+			AreNominatorsSlashable::<T>::get() ||
+			(oldest_config_era..=active_era)
+				.any(|era| ErasNominatorsSlashable::<T>::get(era).unwrap_or(true)) ||
+			OffenceQueueEras::<T>::get()
+				.is_some_and(|eras| eras.iter().any(|era| *era >= oldest_slashable_era))
 	}
 
 	/// Transfer `amount` of active stake from `source_stash` to `target`.
@@ -252,25 +259,23 @@ impl<T: Config> Pallet<T> {
 		ensure!(!T::Filter::contains(target), Error::<T>::Restricted);
 
 		let mut source_ledger = Self::ledger(StakingAccount::Stash(source_stash.clone()))?;
-		let mut target_ledger = Self::ledger(StakingAccount::Stash(target.clone()))?;
 
 		ensure!(
 			amount > Zero::zero() && amount <= source_ledger.active,
 			Error::<T>::InvalidMergeAmount
 		);
 		ensure!(source_ledger.unlocking.is_empty(), Error::<T>::HasPendingUnlock);
-		ensure!(Nominators::<T>::contains_key(source_stash), Error::<T>::SourceNotNominator);
-		ensure!(Nominators::<T>::contains_key(target), Error::<T>::TargetNotNominator);
-		ensure!(
-			!Self::stash_has_pending_unapplied_slash(source_stash),
-			Error::<T>::PendingSlash
-		);
 
 		let from_rest = source_ledger.active.saturating_sub(amount);
 		ensure!(
 			from_rest.is_zero() || from_rest >= Self::min_nominator_bond(),
 			Error::<T>::InsufficientBond
 		);
+		ensure!(Nominators::<T>::contains_key(source_stash), Error::<T>::NotANominator);
+		ensure!(Nominators::<T>::contains_key(target), Error::<T>::NotANominator);
+		ensure!(!Self::has_merge_slashing_risk(source_stash), Error::<T>::SlashingRisk);
+
+		let mut target_ledger = Self::ledger(StakingAccount::Stash(target.clone()))?;
 
 		source_ledger.active = from_rest;
 		source_ledger.total = source_ledger.total.saturating_sub(amount);

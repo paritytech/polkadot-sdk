@@ -1578,14 +1578,12 @@ pub mod pallet {
 		MergeIdentical,
 		/// Cannot merge while unlock chunks are pending.
 		HasPendingUnlock,
-		/// Source must be a nominator.
-		SourceNotNominator,
-		/// Target must be a nominator.
-		TargetNotNominator,
+		/// Both accounts in a merge must be nominators.
+		NotANominator,
 		/// Amount is zero or exceeds the source's active stake.
 		InvalidMergeAmount,
-		/// Cannot merge while a deferred slash is pending on the source.
-		PendingSlash,
+		/// Cannot merge while the source may still be subject to slashing.
+		SlashingRisk,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
 		/// Optimum self-stake cannot be greater than hard cap.

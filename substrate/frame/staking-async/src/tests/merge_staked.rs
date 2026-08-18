@@ -18,10 +18,9 @@
 //! Tests for `merge_staked`.
 
 use super::*;
-use crate::{asset, session_rotation::Eras, UnappliedSlash};
+use crate::{asset, session_rotation::Eras};
 use frame_support::traits::Currency;
 use mock::Session;
-use sp_runtime::{bounded_vec, Perbill};
 
 const STASH_ALICE: AccountId = 60;
 const STASH_BOB: AccountId = 61;
@@ -32,14 +31,21 @@ fn e2e_ext_builder() -> ExtBuilder {
 	ExtBuilder::default()
 		.nominate(true)
 		.session_per_era(3)
-		.add_staker(
-			E2E_STASH_ALICE,
-			1_000,
-			StakerStatus::<AccountId>::Nominator(vec![11, 21]),
-		)
+		.set_nominators_slashable(false)
+		.add_staker(E2E_STASH_ALICE, 1_000, StakerStatus::<AccountId>::Nominator(vec![11, 21]))
+}
+
+fn allow_merge() {
+	AreNominatorsSlashable::<T>::put(false);
+	let oldest_slashable_era =
+		active_era().saturating_sub(BondingDuration::get().saturating_sub(1)).max(1);
+	for era in oldest_slashable_era..=active_era() {
+		ErasNominatorsSlashable::<T>::insert(era, false);
+	}
 }
 
 fn setup_nominator(stash: AccountId, amount: Balance, validator: AccountId) {
+	allow_merge();
 	let _ = asset::set_stakeable_balance::<T>(&stash, amount);
 	Balances::make_free_balance_be(&stash, amount + ExistentialDeposit::get());
 	assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), amount, RewardDestination::Staked));
@@ -147,7 +153,7 @@ fn merge_staked_target_not_nominator_fails() {
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(STASH_BOB), 50, RewardDestination::Staked));
 		assert_noop!(
 			Staking::merge_staked(RuntimeOrigin::signed(STASH_ALICE), STASH_BOB, 30),
-			Error::<T>::TargetNotNominator
+			Error::<T>::NotANominator
 		);
 	});
 }
@@ -166,24 +172,59 @@ fn merge_staked_leaves_insufficient_bond_fails() {
 }
 
 #[test]
-fn merge_staked_with_pending_slash_fails() {
+fn merge_staked_while_nominators_are_slashable_fails() {
 	ExtBuilder::default().build_and_execute(|| {
 		setup_nominator(STASH_ALICE, 100, 11);
 		setup_nominator(STASH_BOB, 50, 11);
-
-		let slash = UnappliedSlash::<T> {
-			validator: 11,
-			own: 0u64.into(),
-			others: bounded_vec![(STASH_ALICE, 10u64.into())],
-			reporter: None,
-			payout: 0u64.into(),
-		};
-		UnappliedSlashes::<T>::insert(3, (11, Perbill::from_percent(10), 0), slash);
+		AreNominatorsSlashable::<T>::put(true);
 
 		assert_noop!(
 			Staking::merge_staked(RuntimeOrigin::signed(STASH_ALICE), STASH_BOB, 30),
-			Error::<T>::PendingSlash
+			Error::<T>::SlashingRisk
 		);
+	});
+}
+
+#[test]
+fn merge_staked_with_slashable_history_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		setup_nominator(STASH_ALICE, 100, 11);
+		setup_nominator(STASH_BOB, 50, 11);
+		ErasNominatorsSlashable::<T>::insert(active_era(), true);
+
+		assert_noop!(
+			Staking::merge_staked(RuntimeOrigin::signed(STASH_ALICE), STASH_BOB, 30),
+			Error::<T>::SlashingRisk
+		);
+	});
+}
+
+#[test]
+fn merge_staked_for_recent_validator_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		setup_nominator(STASH_ALICE, 100, 11);
+		setup_nominator(STASH_BOB, 50, 11);
+		LastValidatorEra::<T>::insert(STASH_ALICE, active_era());
+
+		assert_noop!(
+			Staking::merge_staked(RuntimeOrigin::signed(STASH_ALICE), STASH_BOB, 30),
+			Error::<T>::SlashingRisk
+		);
+	});
+}
+
+#[test]
+fn merge_staked_with_relevant_offence_queue_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		setup_nominator(STASH_ALICE, 100, 11);
+		setup_nominator(STASH_BOB, 50, 11);
+		OffenceQueueEras::<T>::put(WeakBoundedVec::force_from(vec![active_era()], None));
+
+		assert_noop!(
+			Staking::merge_staked(RuntimeOrigin::signed(STASH_ALICE), STASH_BOB, 30),
+			Error::<T>::SlashingRisk
+		);
+		OffenceQueueEras::<T>::kill();
 	});
 }
 
@@ -207,41 +248,19 @@ fn merge_staked_target_with_pending_unlock_accepts_merge() {
 }
 
 #[test]
-fn merge_staked_e2e_full_merge_then_slash_slashes_target_pro_rata() {
-	e2e_ext_builder().build_and_execute(|| {
+fn merge_staked_e2e_rejects_slashable_source() {
+	e2e_ext_builder().set_nominators_slashable(true).build_and_execute(|| {
 		Session::roll_until_active_era(2);
 
-		let bob_before = Staking::ledger(E2E_STASH_BOB.into()).unwrap().active;
-		assert_ok!(Staking::merge_staked(
-			RuntimeOrigin::signed(E2E_STASH_ALICE),
-			E2E_STASH_BOB,
-			1_000,
-		));
-		assert!(Ledger::<T>::get(&E2E_STASH_ALICE).is_none());
+		assert_noop!(
+			Staking::merge_staked(RuntimeOrigin::signed(E2E_STASH_ALICE), E2E_STASH_BOB, 1_000,),
+			Error::<T>::SlashingRisk
+		);
 
-		let bob_after_merge = Staking::ledger(E2E_STASH_BOB.into()).unwrap().active;
-		assert_eq!(bob_after_merge, bob_before + 1_000);
-
-		Session::roll_until_active_era(3);
-
-		let exposure = Staking::eras_stakers(active_era(), &11);
-		assert!(!exposure.others.iter().any(|e| e.who == E2E_STASH_ALICE));
-		let bob_exposure = exposure
-			.others
-			.iter()
-			.find(|e| e.who == E2E_STASH_BOB)
-			.map(|e| e.value)
-			.expect("bob is exposed");
-
+		let alice_before = Staking::ledger(E2E_STASH_ALICE.into()).unwrap().active;
 		add_slash_with_percent(11, 10);
 		Session::roll_next();
-
-		let slash_amount = Perbill::from_percent(10) * exposure.total;
-		let expected_bob_slash =
-			Perbill::from_rational(bob_exposure, exposure.total) * slash_amount;
-		let bob_after_slash = Staking::ledger(E2E_STASH_BOB.into()).unwrap().active;
-		assert_eq!(bob_after_merge - bob_after_slash, expected_bob_slash);
-		assert!(expected_bob_slash > 0);
+		assert!(Staking::ledger(E2E_STASH_ALICE.into()).unwrap().active < alice_before);
 	});
 }
 
@@ -268,6 +287,7 @@ fn merge_staked_e2e_partial_merge_preserves_past_payouts() {
 		assert!(alice_after_era_1 > init_alice);
 		assert!(bob_after_era_1 > init_bob);
 
+		allow_merge();
 		assert_ok!(Staking::merge_staked(
 			RuntimeOrigin::signed(E2E_STASH_ALICE),
 			E2E_STASH_BOB,
@@ -307,6 +327,7 @@ fn merge_staked_e2e_full_merge_kills_source_but_keeps_past_rewards() {
 		let alice_after_era_1 = asset::total_balance::<T>(&E2E_STASH_ALICE);
 		assert!(alice_after_era_1 > init_alice);
 
+		allow_merge();
 		assert_ok!(Staking::merge_staked(
 			RuntimeOrigin::signed(E2E_STASH_ALICE),
 			E2E_STASH_BOB,
