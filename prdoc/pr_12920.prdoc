@@ -1,0 +1,28 @@
+title: Remove basic collator
+doc:
+- audience: Node Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/pull/12172
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/8145
+
+    This PR:
+    - removes the basic collator
+    - removes `collation_req_v1_receiver`
+    - removes `CollatorSybilResistance`
+    - removes `RequireSecondedInBlockAnnounce`
+
+    These are not used anymore
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-relay-chain-minimal-node
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: cumulus-client-service
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: cumulus-client-network
+  bump: patch
