@@ -424,7 +424,10 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{access_list::Warmth, tests::Test};
+	use crate::{
+		access_list::{Paid, Warmth},
+		tests::Test,
+	};
 
 	#[test]
 	fn code_load_cold_hot_pricing() {
@@ -435,7 +438,10 @@ mod tests {
 
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
 			let cold = weight_of(code_type, CodeLoadWarmth::cold_non_revertible());
-			let hot = weight_of(code_type, CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::Hot });
+			let hot = weight_of(
+				code_type,
+				CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
+			);
 			let cold_revertible = weight_of(
 				code_type,
 				CodeLoadWarmth { info: Warmth::cold_revertible(), blob: Warmth::cold_revertible() },
@@ -462,7 +468,10 @@ mod tests {
 			// A mix of hot and cold items still prices cold.
 			let info_only = weight_of(
 				code_type,
-				CodeLoadWarmth { info: Warmth::Hot, blob: Warmth::cold_non_revertible() },
+				CodeLoadWarmth {
+					info: Warmth::Hot(Paid::Read),
+					blob: Warmth::cold_non_revertible(),
+				},
 			);
 			assert_eq!(
 				info_only.proof_size(),

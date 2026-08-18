@@ -20,7 +20,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess},
+	access_list::{
+		AccessEntry, AccessList, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess, StorageOp,
+	},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -1567,11 +1569,6 @@ mod benchmarks {
 		Hot,
 	}
 
-	enum StorageOp {
-		Read,
-		Write,
-	}
-
 	fn build_storage_contract<T: Config>(
 		op: StorageOp,
 		fill: TrieFill,
@@ -1857,7 +1854,7 @@ mod benchmarks {
 		);
 
 		// Add the key to access list so the op's touch is hot.
-		runtime.ext().touch_storage_access(false, &key);
+		runtime.ext().touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1910,7 +1907,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1973,7 +1970,7 @@ mod benchmarks {
 			key.hash(),
 		);
 
-		runtime.ext().touch_storage_access(false, &key);
+		runtime.ext().touch_storage_access(false, &key, StorageOp::Read);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -2027,7 +2024,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.touch_storage_access(false, &key, StorageOp::Read);
 
 		let result;
 		#[block]
@@ -2077,7 +2074,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -2103,10 +2100,13 @@ mod benchmarks {
 	fn near_full_access_list() -> crate::access_list::AccessList {
 		let mut al = AccessList::new();
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(AccessEntry::Storage {
-				slot: worst_case_slot(),
-				address: H160::from_low_u64_be(i as u64),
-			});
+			al.touch(
+				AccessEntry::Storage {
+					slot: worst_case_slot(),
+					address: H160::from_low_u64_be(i as u64),
+				},
+				StorageOp::Read,
+			);
 		}
 		al
 	}
@@ -2122,7 +2122,7 @@ mod benchmarks {
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Read);
 		}
 		assert!(!outcome.is_hot());
 		Ok(())
@@ -2131,14 +2131,17 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
-		// Re-touch an entry that is already present (address zero is in the fill range).
-		let entry = AccessEntry::Storage { slot: worst_case_slot(), address: H160::zero() };
+		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
+		let entry = AccessEntry::Storage {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
+		};
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Write);
 		}
-		assert!(outcome.is_hot());
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
@@ -2152,7 +2155,7 @@ mod benchmarks {
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Read);
 		}
 		assert!(!outcome.is_hot());
 		Ok(())
@@ -2165,11 +2168,11 @@ mod benchmarks {
 			slot: worst_case_slot(),
 			address: H160::from_low_u64_be(u64::MAX),
 		};
-		al.touch(entry.clone());
+		al.touch(entry.clone(), StorageOp::Read);
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Read);
 		}
 		assert!(outcome.is_hot());
 		Ok(())
@@ -2182,10 +2185,13 @@ mod benchmarks {
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
 		al.enter_frame();
-		al.touch(AccessEntry::Storage {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(u64::MAX),
-		});
+		al.touch(
+			AccessEntry::Storage {
+				slot: worst_case_slot(),
+				address: H160::from_low_u64_be(u64::MAX),
+			},
+			StorageOp::Read,
+		);
 		#[block]
 		{
 			al.rollback_frame();
