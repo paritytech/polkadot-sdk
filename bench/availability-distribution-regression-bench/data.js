@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787049808786,
+  "lastUpdate": 1787068950976,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "95b6ca351d5dabf1bec08624fcd01f6e76f03410",
-          "message": "[FRAME] Closed Bounties Return Balance And Assets (#10729)\n\nEnsures that bounties that got closed with `close_bounty` will return\nthe maximal possible amount of Native balance and specific relevant\nAssets.\nThis fixes an issue where closed bounties would not refund any balance\nto the treasury because assets were blocking the withdrawal through\naccount references.\n\n**Changes:**\n- Add config items to Bounty pallet: `TransferAllAssets` to withdraw all\nassets\n- Add trait `TransferAllFungibles` for generic funds transfer\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-01-16T21:18:32Z",
-          "tree_id": "c49a352bf103c30b18f8e6324173e6d64e1d059f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/95b6ca351d5dabf1bec08624fcd01f6e76f03410"
-        },
-        "date": 1768602777596,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14320930774666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009735242693333326,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006975785200000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022994016273333327,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009627047026666675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd75ae9506666d6eff297db695f063a5a723500a",
+          "message": "Remove deprecated pallet_society::RawEvent alias. (#12655)\n\nRelates to: https://github.com/paritytech/polkadot-sdk/issues/11561\n\nUse Event instead; no remaining in-repo callers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-18T14:33:35Z",
+          "tree_id": "edb422695e6f392b678f8286c434fa1678e0aff6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd75ae9506666d6eff297db695f063a5a723500a"
+        },
+        "date": 1787068921100,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01016366132666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0232928633,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008113198986666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14448997700000005,
             "unit": "seconds"
           }
         ]
