@@ -27,3 +27,5 @@ crates:
   bump: patch
 - name: cumulus-client-network
   bump: major
+- name: cumulus-client-collator
+  bump: major
