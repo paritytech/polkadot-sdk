@@ -413,6 +413,32 @@ async fn disconnect_purges_queued_inbound_entries_of_peer() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn litep2p_transport_send_times_out_instead_of_blocking_forever() {
+	// The config owns the command receiver; keeping it alive without running the protocol
+	// models a wedged litep2p task that no longer drains the channel.
+	let (_config, handle) = litep2p::protocol::libp2p::bitswap::Config::new();
+	let peer = litep2p::PeerId::random();
+	let want = vec![(cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [0x0c; 32]), WantType::Block)];
+
+	// Fill the command channel until a raw (unbounded) send blocks.
+	let mut filled = false;
+	for _ in 0..100_000 {
+		let raw_send = Litep2pBitswapHandle::send_request(&handle, peer, want.clone());
+		if timeout(Duration::from_secs(60), raw_send).await.is_err() {
+			filled = true;
+			break;
+		}
+	}
+	assert!(filled, "command channel never filled");
+
+	// The transport wrapper must give up instead of parking the service actor forever.
+	let started = tokio::time::Instant::now();
+	BitswapTransport::send_request(&handle, peer, want.clone()).await;
+	BitswapTransport::send_response(&handle, peer, Vec::new()).await;
+	assert!(started.elapsed() >= 2 * TRANSPORT_SEND_TIMEOUT);
+}
+
+#[tokio::test(start_paused = true)]
 async fn single_cid_single_peer_block_response() {
 	let mut rig = empty_rig();
 	let peer = litep2p::PeerId::random();

@@ -88,6 +88,10 @@ enum TransportResponse {
 	},
 }
 
+/// Sends are bounded by [`TRANSPORT_SEND_TIMEOUT`]: the channels in both directions are
+/// bounded and litep2p blocks when the event channel towards us is full, so unbounded sends
+/// on our side could deadlock both tasks if both channels ever fill up simultaneously.
+/// Dropping is safe: wants are retried and remote peers re-request lost responses.
 #[async_trait]
 impl BitswapTransport for Litep2pBitswapHandle {
 	async fn next_event(&mut self) -> Option<TransportEvent> {
@@ -111,11 +115,23 @@ impl BitswapTransport for Litep2pBitswapHandle {
 	}
 
 	async fn send_request(&self, peer: litep2p::PeerId, cids: Vec<(Cid, WantType)>) {
-		Litep2pBitswapHandle::send_request(self, peer, cids).await
+		let send = Litep2pBitswapHandle::send_request(self, peer, cids);
+		if tokio::time::timeout(TRANSPORT_SEND_TIMEOUT, send).await.is_err() {
+			log::warn!(
+				target: LOG_TARGET,
+				"litep2p command channel congested; dropped bitswap request to {peer:?}",
+			);
+		}
 	}
 
 	async fn send_response(&self, peer: litep2p::PeerId, responses: Vec<ResponseType>) {
-		Litep2pBitswapHandle::send_response(self, peer, responses).await
+		let send = Litep2pBitswapHandle::send_response(self, peer, responses);
+		if tokio::time::timeout(TRANSPORT_SEND_TIMEOUT, send).await.is_err() {
+			log::warn!(
+				target: LOG_TARGET,
+				"litep2p command channel congested; dropped bitswap response to {peer:?}",
+			);
+		}
 	}
 }
 
@@ -123,6 +139,9 @@ const MAX_LIVE_CIDS: usize = 1024;
 const MAX_CONCURRENT_INBOUND_LOOKUPS: usize = 8;
 const MAX_QUEUED_INBOUND_ENTRIES_PER_PEER: usize = MAX_LIVE_CIDS;
 const CMD_CHANNEL_CAPACITY: usize = 256;
+/// Upper bound on one send into the litep2p command channel; see the
+/// [`BitswapTransport`] impl for [`Litep2pBitswapHandle`].
+const TRANSPORT_SEND_TIMEOUT: Duration = Duration::from_secs(10);
 const PER_PEER_TIMEOUT: Duration = Duration::from_secs(5);
 const ROUND_RETRY_DELAY: Duration = Duration::from_secs(5);
 const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
