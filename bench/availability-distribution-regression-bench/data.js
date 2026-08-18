@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787047351074,
+  "lastUpdate": 1787049808786,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aeab77e33d1e201a75345dc4647fcbd506d5899d",
-          "message": "Omni-node: Move timestamps closer to now (#10807)\n\nIn omni-node dev-mode the timestamps where showing close to the unix\nepoch. Technically not a problem, but its a bit more aesthetic if they\nare closer to now, as requested in\nhttps://github.com/paritytech/polkadot-sdk/issues/10759.\n\nI set them arbitrarily to two hours in the past so that they do not run\nimmediately into the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2026-01-15T17:45:37Z",
-          "tree_id": "486b671d9c66c5c1a48e29b297e8c558199ade5a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeab77e33d1e201a75345dc4647fcbd506d5899d"
-        },
-        "date": 1768503596911,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02302433046,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009737544959999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00689805892,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14314866509333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009847405286666661,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34a14dab9628f029a0ef0c457f4fa3a51cd6669a",
+          "message": "fix(grandpa): GRANDPA panic when a change block is finalized concurrently during justification import (#12506)\n\n#### Description\nA GRANDPA node can panic during block import with:\n```\npanicked at 'returns Ok when no authority set change should be enacted; qed;', /root/.cargo/git/checkouts/polkadot-sdk-dee0edd6eefa0594/2e4dd0b/substrate/client/consensus/grandpa/src/import.rs:859\n```\nThis is a time-of-check/time-of-use race in\n`GrandpaBlockImport::import_justification`. When importing a\njustification for a block that enacts a standard authority set change,\nthe method:\n\n1. reads the current set id and authorities and verifies the\njustification against them (acquiring and **releasing** the\nauthority-set lock), then\n2. separately calls `environment::finalize_block`, which re-acquires the\nlock to enact the change.\n\nIf another finalizer (the voter acting on a gossiped commit, or a\njustification imported via sync) finalizes the **same** block in the\nwindow between (1) and (2), then `finalize_block` short-circuits on its\n\"already finalized in the canonical chain\" guard and returns `Ok(())`,\nwhile the caller was told the block enacts a change (`enacts_change ==\ntrue`). The `Ok(_)` arm then trips `assert!(!enacts_change)` and the\nnode panics.\n\nThe window is widened by anything that delays block import relative to\nfinality — e.g. a `BlockAnnounceValidator` that returns an error/skip\nfor a while — which lines the two finalizers up on a session-rotation\n(change-enacting) block. Observed in logs as the import-path\n`finalize_block` hitting the re-finalization guard right after the voter\napplied the change:\n\n```\n2026-06-29 13:56:48 2026-06-29 11:56:48.072 DEBUG tokio-rt-worker grandpa: Completed round 20, state = State { prevote_ghost: Some((0x8852da3251a16eddb6b583e0e7fdf7c1eeb627b275a12b90c5fefba29d6d95cd, 26)), finalized: Some((0x8852da3251a16eddb6b583e0e7fdf7c1eeb627b275a12b90c5fefba29d6d95cd, 26)), estimate: Some((0x8852da3251a16eddb6b583e0e7fdf7c1eeb627b275a12b90c5fefba29d6d95cd, 26)), completable: true }, step = None    \n2026-06-29 13:56:48 2026-06-29 11:56:48.072 DEBUG tokio-rt-worker grandpa: Round 20: prevotes: 3/3/3 weight, 3/3 actual    \n2026-06-29 13:56:48 2026-06-29 11:56:48.072 DEBUG tokio-rt-worker grandpa: Round 20: precommits: 3/3/3 weight, 3/3 actual    \n2026-06-29 13:56:48 2026-06-29 11:56:48.072 DEBUG tokio-rt-worker grandpa: Voter cool-camp-1893 concluded round 20 in set 5. Estimate = Some(26), Finalized in round = Some(26)    \n2026-06-29 13:56:48 2026-06-29 11:56:48.074  INFO tokio-rt-worker grandpa: 👴 Applying authority set change scheduled at block #27    \n2026-06-29 13:56:48 2026-06-29 11:56:48.074 DEBUG tokio-rt-worker grandpa: Finalizing blocks up to (27, 0x254d…ff4c)    \n2026-06-29 13:56:48 2026-06-29 11:56:48.074  INFO tokio-rt-worker grandpa: 👴 Applying GRANDPA set change to new set [(Public(d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69 (5GoNkf6W...)), 1), (Public(439660b36c6c03afafca027b910b4fecf99801834c62a5e6006f27d978de234f (5DbKjhNL...)), 1), (Public(88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee (5FA9nQDV...)), 1)]    \n2026-06-29 13:56:48 2026-06-29 11:56:48.074  INFO tokio-rt-worker substrate: 🏆 Imported #27 (0x8852…95cd → 0x254d…ff4c)    \n2026-06-29 13:56:48 2026-06-29 11:56:48.075 DEBUG tokio-rt-worker sync: Reannouncing block 0x254da93bc9de56fd122fd860479234621221d9635aaad9ec384db8de3a87ff4c is_best: true    \n2026-06-29 13:56:48 2026-06-29 11:56:48.075 DEBUG tokio-rt-worker sync: New best block imported 0x254da93bc9de56fd122fd860479234621221d9635aaad9ec384db8de3a87ff4c/#27    \n2026-06-29 13:56:48 2026-06-29 11:56:48.075  WARN tokio-rt-worker grandpa: Re-finalized block #0x254da93bc9de56fd122fd860479234621221d9635aaad9ec384db8de3a87ff4c (27) in the canonical chain, current best finalized is #27    \n2026-06-29 13:56:48 2026-06-29 11:56:48.075 DEBUG tokio-rt-worker grandpa: cool-camp-1893: Starting new voter with set ID 6    \n2026-06-29 13:56:48 2026-06-29 11:56:48.078  INFO tokio-rt-worker committee-membership: Session 6: this node IS NOT in the committee for this session (local AURA keys: [\"0xb0eb82cbdf9f92c384d88ea14de34aa38f7d05b0131b7b9bc21bb3f395920c22\"], committee size: 3).    \n2026-06-29 13:56:48 \n2026-06-29 13:56:48 ====================\n2026-06-29 13:56:48 \n2026-06-29 13:56:48 Version: 2.0.0-ceb0a384\n2026-06-29 13:56:48 \n2026-06-29 13:56:48    0: sp_panic_handler::set::{{closure}}\n2026-06-29 13:56:48    1: <alloc::boxed::Box<dyn for<'a, 'b> core::ops::function::Fn<(&'a std::panic::PanicHookInfo<'b>,), Output = ()> + core::marker::Sync + core::marker::Send> as core::ops::function::Fn<(&std::panic::PanicHookInfo,)>>::call\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/alloc/src/boxed.rs:2254:9\n2026-06-29 13:56:48       std::panicking::panic_with_hook\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/std/src/panicking.rs:833:13\n2026-06-29 13:56:48    2: std::panicking::panic_handler::{closure#0}\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/std/src/panicking.rs:691:13\n2026-06-29 13:56:48    3: std::sys::backtrace::__rust_end_short_backtrace::<std::panicking::panic_handler::{closure#0}, !>\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/std/src/sys/backtrace.rs:182:18\n2026-06-29 13:56:48    4: __rustc::rust_begin_unwind\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/std/src/panicking.rs:689:5\n2026-06-29 13:56:48    5: core::panicking::panic_fmt\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/panicking.rs:80:14\n2026-06-29 13:56:48    6: sc_consensus_grandpa::import::GrandpaBlockImport<BE,Block,Client,SC>::import_justification\n2026-06-29 13:56:48    7: <sc_consensus_grandpa::import::GrandpaBlockImport<BE,Block,Client,SC> as sc_consensus::block_import::BlockImport<Block>>::import_block::{{closure}}\n2026-06-29 13:56:48    8: <alloc::boxed::Box<dyn sc_consensus::block_import::BlockImport<B>+Error = sp_consensus::error::Error+core::marker::Sync+core::marker::Send> as sc_consensus::block_import::BlockImport<B>>::import_block::{{closure}}\n2026-06-29 13:56:48    9: futures_util::future::future::FutureExt::poll_unpin\n2026-06-29 13:56:48   10: sc_consensus::import_queue::basic_queue::BlockImportWorker<B>::new::{{closure}}\n2026-06-29 13:56:48   11: <futures_util::future::future::map::Map<Fut,F> as core::future::future::Future>::poll\n2026-06-29 13:56:48   12: <sc_service::task_manager::prometheus_future::PrometheusFuture<T> as core::future::future::Future>::poll\n2026-06-29 13:56:48   13: <tracing_futures::Instrumented<T> as core::future::future::Future>::poll\n2026-06-29 13:56:48   14: tokio::runtime::context::runtime::enter_runtime\n2026-06-29 13:56:48   15: <tokio::runtime::blocking::task::BlockingTask<T> as core::future::future::Future>::poll\n2026-06-29 13:56:48   16: tokio::runtime::task::core::Core<T,S>::poll\n2026-06-29 13:56:48   17: tokio::runtime::task::harness::Harness<T,S>::poll\n2026-06-29 13:56:48   18: tokio::runtime::blocking::pool::Inner::run\n2026-06-29 13:56:48   19: std::sys::backtrace::__rust_begin_short_backtrace\n2026-06-29 13:56:48   20: core::ops::function::FnOnce::call_once{{vtable.shim}}\n2026-06-29 13:56:48   21: <alloc::boxed::Box<dyn core::ops::function::FnOnce<(), Output = ()> + core::marker::Send> as core::ops::function::FnOnce<()>>::call_once\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/alloc/src/boxed.rs:2240:9\n2026-06-29 13:56:48       <std::sys::thread::unix::Thread>::new::thread_start\n2026-06-29 13:56:48              at rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/std/src/sys/thread/unix.rs:118:17\n2026-06-29 13:56:48   22: start_thread\n2026-06-29 13:56:48   23: thread_start\n2026-06-29 13:56:48 \n2026-06-29 13:56:48 \n2026-06-29 13:56:48 Thread 'tokio-rt-worker' panicked at 'returns Ok when no authority set change should be enacted; qed;', /root/.cargo/git/checkouts/polkadot-sdk-dee0edd6eefa0594/2e4dd0b/substrate/client/consensus/grandpa/src/import.rs:859\n```\n\nWe do not know all possible paths to reproduce that, but the way we hit\nit was with custom `BlockAnnounceValidator` returning for a while from\n[BlockAnnounceValidator::validate](https://rustdocs.bsx.fi/sp_consensus/block_validation/trait.BlockAnnounceValidator.html#tymethod.validate)\nan error, which is by sync mapped to `Skip` action\nhttps://github.com/paritytech/polkadot-sdk/blob/9107f88f83300b98af2d212463c83c659596261c/substrate/client/network/sync/src/block_announce_validator.rs#L210\nIf this gap is long enough to casually go through session boundary, then\nthere occurs mentioned race condition once `BlockAnnounceValidator`\nstabilizes and sync/grandpa start to fill the gap generated during that\nperiod.\n\nWe propose to move the lock of VoterSet a bit earlier to cover a bit\nwider scope. Also we made a quick demo test to show the evidence of this\nbehavior, but it currently modifies few functions visibility.\n\nAlso the test is not ideal, it tries to extract the most narrowed scope\nfor it and is running concurrently both finalization paths, but of\ncourse it may not reproduce always. For that purpose we added additional\ncheck if finalization was executed only once, which for NOK scenario\nshould either panic or return 1 != 2 mismatch.\n\nCurrently by default used among polkadot-sdk\n[DefaultBlockAnnounceValidator](https://github.com/paritytech/polkadot-sdk/blob/9107f88f83300b98af2d212463c83c659596261c/substrate/primitives/consensus/common/src/block_validation.rs#L78)\ndoes not follow the error path, but projects utilizing announce\nvalidator more may be affected, I am not convinced it is the only path\nthat may hit the panic, I will appreciate if you will help me identify\nadditional ones.\n\nLooks like also associated with\nhttps://github.com/paritytech/substrate/issues/7668\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-08-18T09:13:56Z",
+          "tree_id": "563582d3bda432e9d14f1760d2f0865b472118e9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/34a14dab9628f029a0ef0c457f4fa3a51cd6669a"
+        },
+        "date": 1787049773837,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022845032086666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14290944042666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0075611742733333286,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009627047026666675,
             "unit": "seconds"
           }
         ]
