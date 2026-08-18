@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787042982126,
+  "lastUpdate": 1787046404054,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -115451,6 +115451,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2691984495,
             "range": "± 17184919",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2920ee0c7fb6e05ab921cfbb4b815811977b945f",
+          "message": "Correct PSM creation footprint (#12811)\n\n`create_psm` previously established the creation `Consideration` with a\nplaceholder footprint of one item and zero bytes, under-reporting what\nthe call actually writes. A new `Pallet::psm_creation_footprint` helper\nnow reports the `Psm` and `PsmAdmin` entries (two items, max-encoded-len\nsized) and is used by the extrinsic and the benchmarks.\n\nResolves:\nhttps://github.com/paritytech/polkadot-sdk/pull/12245#discussion_r3611649696",
+          "timestamp": "2026-08-18T08:31:59Z",
+          "tree_id": "a5421ac9ce43c89e30db6347ac5d5f5b5c2cec15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2920ee0c7fb6e05ab921cfbb4b815811977b945f"
+        },
+        "date": 1787046371570,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19104813,
+            "range": "± 110332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19236555,
+            "range": "± 131182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20701964,
+            "range": "± 149495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25739341,
+            "range": "± 63993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59367262,
+            "range": "± 353318",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 358851317,
+            "range": "± 3333712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2600132165,
+            "range": "± 56000890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16889430,
+            "range": "± 153673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17367511,
+            "range": "± 174976",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17308152,
+            "range": "± 97698",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21929286,
+            "range": "± 165943",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62050821,
+            "range": "± 971539",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357913697,
+            "range": "± 3350288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2657229235,
+            "range": "± 16386127",
             "unit": "ns/iter"
           }
         ]
