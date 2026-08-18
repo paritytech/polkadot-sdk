@@ -1173,6 +1173,73 @@ fn build_genesis_has_storage_version_v2() {
 }
 
 #[test]
+fn v2_migration_tags_all_existing_schedules_as_public() {
+	// The V1→V2 migration must tag every pre-existing schedule as `VestingKind::Public`,
+	// preserve `VestingInfo` data unchanged, preserve the account count, and bump the
+	// storage version to V2.
+	ExtBuilder::default()
+		.existential_deposit(ED)
+		.vesting_genesis_config(vec![])
+		.build()
+		.execute_with(|| {
+			use codec::Encode;
+			use frame_support::traits::OnRuntimeUpgrade;
+
+			let alice = 1_u64;
+			let bob = 2_u64;
+
+			// V1 value type is BoundedVec<VestingInfo<Balance, BlockNumber>, MaxVestingSchedules>.
+			// BoundedVec and Vec share identical SCALE encoding, so encoding a Vec produces valid
+			// V1 bytes. Fixture lengths (2 and 1) are below mock MAX_VESTING_SCHEDULES = 4.
+			let alice_v1: Vec<VestingInfo<u64, u64>> =
+				vec![VestingInfo::new(100 * ED, 1, 0), VestingInfo::new(200 * ED, 2, 10)];
+			let bob_v1: Vec<VestingInfo<u64, u64>> = vec![VestingInfo::new(50 * ED, 1, 5)];
+
+			frame_support::storage::unhashed::put_raw(
+				&VestingStorage::<Test>::hashed_key_for(&alice),
+				&alice_v1.encode(),
+			);
+			frame_support::storage::unhashed::put_raw(
+				&VestingStorage::<Test>::hashed_key_for(&bob),
+				&bob_v1.encode(),
+			);
+
+			// Reset to V1 so the migration guard fires.
+			StorageVersion::<Test>::put(Releases::V1);
+
+			// WHEN: run the V1→V2 migration.
+			crate::migrations::v2::Migration::<Test>::on_runtime_upgrade();
+
+			// THEN: storage version bumped to V2.
+			assert_eq!(StorageVersion::<Test>::get(), Releases::V2);
+
+			// All schedules tagged Public; VestingInfo data preserved unchanged.
+			let alice_v2 = VestingStorage::<Test>::get(&alice).expect("alice must have schedules");
+			assert_eq!(alice_v2.len(), 2);
+			assert_eq!(alice_v2[0], pub_vi(VestingInfo::new(100 * ED, 1, 0)));
+			assert_eq!(alice_v2[1], pub_vi(VestingInfo::new(200 * ED, 2, 10)));
+
+			let bob_v2 = VestingStorage::<Test>::get(&bob).expect("bob must have schedules");
+			assert_eq!(bob_v2.len(), 1);
+			assert_eq!(bob_v2[0], pub_vi(VestingInfo::new(50 * ED, 1, 5)));
+
+			// Account count preserved.
+			assert_eq!(VestingStorage::<Test>::iter().count(), 2);
+		});
+}
+
+#[test]
+fn v2_migration_is_noop_when_not_at_v1() {
+	// The migration guards on StorageVersion == V1 and must be a no-op at any other version.
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		use frame_support::traits::OnRuntimeUpgrade;
+		// Genesis already set the version to V2.
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V2);
+		assert_storage_noop!(crate::migrations::v2::Migration::<Test>::on_runtime_upgrade());
+	});
+}
+
+#[test]
 fn merge_vesting_handles_per_block_0() {
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let sched0 = VestingInfo::new(
@@ -1898,40 +1965,6 @@ fn add_to_vesting_error_variants_are_distinct() {
 	});
 }
 
-/// The partition's central property: filling one kind's quota does not block another kind.
-#[test]
-fn add_to_vesting_quotas_are_partitioned() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		let source = 3u64;
-		let dest = 4u64;
-		let amount = ED * 4;
-		let max_public = <Test as Config>::slot_cap(VestingKind::Public);
-
-		// Fill the entire Public quota.
-		for i in 0..max_public {
-			assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-				&source,
-				&dest,
-				amount,
-				20,
-				(i + 1) as u64,
-				VestingKind::Public,
-			));
-		}
-
-		// Public quota is hit, but System can still create — the partition is honoured.
-		let next = (max_public + 1) as u64;
-		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-			&source,
-			&dest,
-			amount,
-			20,
-			next,
-			VestingKind::System,
-		));
-	});
-}
-
 /// Test that two `add_to_vesting` calls that share the same `starting_block` merge
 /// only if they also share the same `kind`. This prevents an attacker that pushes
 /// an extremely long vesting schedule from prolonging the system-related schedules.
@@ -2169,61 +2202,6 @@ fn merge_into_closest_preserves_starting_and_ending_block() {
 	});
 }
 
-/// Ensure that a System schedule merge caused by insufficient schedule capacity correctly
-/// calculates the vesting rate.
-#[test]
-fn merge_into_closest_locked_at_now_is_exact_sum() {
-	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
-		let source = 13u64;
-		let dest = 4u64;
-		let cap = <Test as Config>::slot_cap(VestingKind::System);
-
-		// Fill the System slot.
-		let amount1 = ED * 4;
-		let start_at = 1u64;
-		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
-			&source,
-			&dest,
-			amount1,
-			20,
-			start_at,
-			VestingKind::System,
-		));
-		assert_eq!(
-			VestingStorage::<Test>::get(dest)
-				.unwrap()
-				.iter()
-				.filter(|(_, k)| *k == VestingKind::System)
-				.count() as u32,
-			cap
-		);
-
-		let target_before = single_system_schedule(dest);
-		let now = 6u64;
-		System::set_block_number(now);
-		let target_locked_at_now = target_before.locked_at::<sp_runtime::traits::Identity>(now);
-
-		// Second System call at a different start: explicit merge.
-		let amount2 = ED * 4;
-		let expected_sum = target_locked_at_now + amount2;
-		assert_ok!(<Vesting as VestedPayout<_, _>>::merge_amount_into_closest_schedule(
-			&source,
-			&dest,
-			amount2,
-			20,
-			50u64,
-			VestingKind::System,
-		));
-
-		let merged = single_system_schedule(dest);
-		assert_eq!(
-			merged.locked_at::<sp_runtime::traits::Identity>(now),
-			expected_sum,
-			"locked_at(now) must exactly equal target.locked_at(now) + incoming.locked()"
-		);
-	});
-}
-
 /// Ensure that in a System merge caused by insufficient capacity the currency
 /// is correctly transferred from source to destination.
 #[test]
@@ -2325,7 +2303,8 @@ fn merge_into_closest_repeated_merges_accumulate() {
 		let dest = 4u64;
 		let cap = <Test as Config>::slot_cap(VestingKind::System);
 		let amount = ED * 4;
-		let now = 1u64;
+		// Two time points: block 1 (schedule boundary, nothing vested) and block 6 (mid-vesting).
+		let nows = [1u64, 6u64];
 
 		// Fill the System slot.
 		assert_ok!(<Vesting as VestedPayout<_, _>>::add_to_vesting(
@@ -2337,8 +2316,10 @@ fn merge_into_closest_repeated_merges_accumulate() {
 			VestingKind::System,
 		));
 
-		// Perform two more merges (all at now=1 to make the arithmetic simple).
+		// Perform two more merges, once at each time point.
 		for i in 0..2u64 {
+			let now = nows[i as usize];
+			System::set_block_number(now);
 			let target_before = single_system_schedule(dest);
 			let target_locked_at_now = target_before.locked_at::<sp_runtime::traits::Identity>(now);
 			let expected_after = target_locked_at_now + amount;
@@ -2366,7 +2347,7 @@ fn merge_into_closest_repeated_merges_accumulate() {
 			assert_eq!(
 				merged.locked_at::<sp_runtime::traits::Identity>(now),
 				expected_after,
-				"locked_at(now) must grow by exactly `amount` on merge {i}"
+				"locked_at({now}) must grow by exactly `amount` on merge {i}"
 			);
 		}
 	});

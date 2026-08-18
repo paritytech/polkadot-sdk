@@ -1110,6 +1110,59 @@ fn incentive_not_paid_when_pot_is_empty() {
 }
 
 #[test]
+fn incentive_dropped_event_emitted_when_vesting_transfer_fails() {
+	// Check that an error other than insufficient vesting schedule capacity (ex: a currency
+	// error) surfaces via `VestedPayoutError::Other` and is then emitted as
+	// `ValidatorIncentiveDropped` rather than being silently swallowed.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11_u64;
+
+		// The bonding period must be non-zero to activate vesting mode.
+		VestingBondingPeriods::set(1);
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		// Drain the ValidatorSelfStake pot so the balance transfer inside `add_to_vesting`
+		// fails. Since era metadata still records a non-zero budget, a positive `amount` is
+		// derived and passed to `pay`, leading to an executed and failing currency transfer.
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			2,
+			RewardKind::ValidatorSelfStake,
+		));
+		let pot_balance = Balances::free_balance(&pot);
+		assert!(pot_balance > 0, "sanity: pot must be non-empty before draining");
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::transfer(
+			&pot,
+			&999,
+			pot_balance,
+			frame_support::traits::tokens::Preservation::Expendable,
+		);
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// The failed transfer must surface as a Dropped event, not a silent no-op.
+		assert!(
+			events.iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::ValidatorIncentiveDropped { era, stash, .. })
+				if *era == 2 && *stash == alice
+			)),
+			"ValidatorIncentiveDropped must be emitted when the vesting transfer fails"
+		);
+
+		// No successful delivery must be reported.
+		assert!(
+			!events.iter().any(|e| matches!(e, Event::ValidatorIncentivePaid { .. })),
+			"ValidatorIncentivePaid must not be emitted when the transfer fails"
+		);
+	});
+}
+
+#[test]
 #[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
 fn reward_active_era_defends_individual_map_capacity() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -1709,12 +1762,13 @@ fn migration_sets_cutoff_to_active_era_plus_one() {
 const MAX_SYSTEM_VESTING_SCHEDULES: u32 = <Test as pallet_vesting::Config>::MAX_VESTING_SCHEDULES -
 	<Test as pallet_vesting::Config>::MAX_PUBLIC_VESTING_SCHEDULES;
 
-/// Insert `n` dummy System vesting schedules for `who` (starting_block = 0, locked = 1).
+/// Insert `n` dummy System vesting schedules for `who` (`starting_block = 1_000_000, locked = 1`).
 fn fill_system_vesting_slots(who: &AccountId, n: u32) {
 	let dummy = pallet_vesting::VestingInfo::new(
 		1_u128, // locked: above MinVestedTransfer
 		1_u128, // per_block
-		0_u64,  // starting_block: 0 — distinct from real epoch-start blocks (> 0)
+		1_000_000_u64, /* starting_block: far future — locked_at(now) == locked > 0 for any
+		         * realistic test block, so exec_action(Passive) never prunes these */
 	);
 	pallet_vesting::Vesting::<Test>::mutate(who, |entry| {
 		let schedules = entry.get_or_insert_with(Default::default);
@@ -1813,7 +1867,7 @@ fn consecutive_payouts_with_full_slots_both_succeed() {
 		Session::roll_until_active_era(2);
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 
-		// --- Era 3 (same bonding period as era 2) ---
+		// --- Era 3 ---
 		Session::roll_until_active_era(3);
 		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
 		Session::roll_until_active_era(4);
@@ -1864,9 +1918,26 @@ fn consecutive_payouts_with_full_slots_both_succeed() {
 			.iter()
 			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
 			.count() as u32;
-		assert!(
-			system_count_after_era2 <= MAX_SYSTEM_VESTING_SCHEDULES,
-			"slot count must not exceed cap after era 2 merge"
+		assert_eq!(
+			system_count_after_era2, MAX_SYSTEM_VESTING_SCHEDULES,
+			"slot count must stay at cap after era 2 merge (in-place replace, no prune)"
+		);
+
+		// Each of the MAX_SYSTEM_VESTING_SCHEDULES dummy slots contributes exactly 1 unit of
+		// locked_at (pre-start, so locked_at == locked == 1). The merge replaces one dummy
+		// with a schedule whose locked_at == 1 (dummy baseline) + era2_paid. Subtracting the
+		// constant 28-slot baseline gives the exact incentive contribution.
+		let b2 = System::block_number();
+		let total_system_locked_era2: u128 = pallet_vesting::Vesting::<Test>::get(&alice)
+			.unwrap_or_default()
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.map(|(v, _)| v.locked_at::<sp_runtime::traits::ConvertInto>(b2))
+			.sum();
+		assert_eq!(
+			total_system_locked_era2 - MAX_SYSTEM_VESTING_SCHEDULES as u128,
+			era2_paid,
+			"era 2: incentive must be fully locked (total above dummy baseline)"
 		);
 
 		// WHEN: payout era 3 (second consecutive payout, slots still full after era 2 merge).
@@ -1902,9 +1973,25 @@ fn consecutive_payouts_with_full_slots_both_succeed() {
 			.iter()
 			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
 			.count() as u32;
-		assert!(
-			system_count_after_era3 <= MAX_SYSTEM_VESTING_SCHEDULES,
-			"slot count must not exceed cap after era 3 merge"
+		assert_eq!(
+			system_count_after_era3, MAX_SYSTEM_VESTING_SCHEDULES,
+			"slot count must stay at cap after era 3 merge (in-place replace, no prune)"
+		);
+
+		// Both incentives must be locked above the dummy baseline — nothing silently dropped.
+		// Era 2 and era 3 each merge into a separate dummy slot; each merged slot's locked_at
+		// equals 1 (dummy) + era_paid. The 28-slot baseline accounts for all dummy contributions.
+		let b3 = System::block_number();
+		let total_system_locked_era3: u128 = pallet_vesting::Vesting::<Test>::get(&alice)
+			.unwrap_or_default()
+			.iter()
+			.filter(|(_, k)| *k == pallet_vesting::VestingKind::System)
+			.map(|(v, _)| v.locked_at::<sp_runtime::traits::ConvertInto>(b3))
+			.sum();
+		assert_eq!(
+			total_system_locked_era3 - MAX_SYSTEM_VESTING_SCHEDULES as u128,
+			era2_paid + era3_paid,
+			"both incentives must be locked (total above dummy baseline)"
 		);
 	});
 }
