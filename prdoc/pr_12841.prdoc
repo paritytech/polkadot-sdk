@@ -19,13 +19,19 @@ doc:
 
     Exceeding the limit is treated as a failed migration: the migration is left partially applied,
     is not recorded in `Historic`, and the `FailedMigrationHandler` decides what happens to the
-    chain. The limit is therefore only a safety net if that handler leaves the chain usable. The
-    runtimes in this repository keep `FreezeChainOnFailedMigration`, which turns a timed out
-    migration into a permanently stuck chain - a frozen chain only accepts inherents, so not even
-    the pallet's own `force_set_cursor` can be dispatched. Runtimes that want a timeout to restore
-    the chain should pair the limit with `ForceUnstuckOnFailedMigration` or
-    `EnterSafeModeOnFailedMigration`, at the cost of exposing the partially migrated state - which
-    is the same trade-off a faulty single-block migration already implies.
+    chain. The limit is therefore only a safety mechanism if that handler leaves the chain usable.
+    With `FreezeChainOnFailedMigration` it is close to a no-op: `MultiStepMigrator::ongoing()` is
+    true for both an active and a stuck cursor, so the chain only accepts inherents either way and
+    not even the pallet's own `force_set_cursor` can be dispatched to recover it. The runtimes in
+    this repository therefore also switch to `ForceUnstuckOnFailedMigration`, which is what that
+    handler was added for in https://github.com/paritytech/polkadot-sdk/pull/11194.
+
+    Force-unsticking applies to every migration failure, not only to timeouts, and it exposes the
+    partially migrated state to users - the same trade-off a faulty single-block migration already
+    implies. It buys a recovery window: the chain stays usable, so governance can enact a runtime
+    upgrade that drops the faulty migration. Note that the failed migration is not black-listed in
+    `Historic`, so an upgrade that keeps it in the tuple will restart it from scratch and consume
+    the full step budget again.
 
 crates:
 - name: pallet-migrations
