@@ -16,4 +16,4 @@ doc:
     - The rollback work of draining upgrades is not charged separately: the reverted write already paid a surcharge for block-end work that will never happen.
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
