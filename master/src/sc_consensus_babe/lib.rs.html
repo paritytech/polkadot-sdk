@@ -1901,275 +1901,282 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1751 id=1751 data-nosnippet>1751</a>}
 <a href=#1752 id=1752 data-nosnippet>1752</a>
 <a href=#1753 id=1753 data-nosnippet>1753</a><span class="doccomment">/// Gets the best finalized block and its slot, and prunes the given epoch tree.
-<a href=#1754 id=1754 data-nosnippet>1754</a></span><span class="kw">fn </span>prune_finalized&lt;Block, Client&gt;(
-<a href=#1755 id=1755 data-nosnippet>1755</a>	client: Arc&lt;Client&gt;,
-<a href=#1756 id=1756 data-nosnippet>1756</a>	epoch_changes: <span class="kw-2">&amp;mut </span>EpochChangesFor&lt;Block, Epoch&gt;,
-<a href=#1757 id=1757 data-nosnippet>1757</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;
-<a href=#1758 id=1758 data-nosnippet>1758</a><span class="kw">where
-<a href=#1759 id=1759 data-nosnippet>1759</a>	</span>Block: BlockT,
-<a href=#1760 id=1760 data-nosnippet>1760</a>	Client: HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;,
-<a href=#1761 id=1761 data-nosnippet>1761</a>{
-<a href=#1762 id=1762 data-nosnippet>1762</a>	<span class="kw">let </span>info = client.info();
-<a href=#1763 id=1763 data-nosnippet>1763</a>
-<a href=#1764 id=1764 data-nosnippet>1764</a>	<span class="kw">let </span>finalized_slot = {
-<a href=#1765 id=1765 data-nosnippet>1765</a>		<span class="kw">let </span>finalized_header = client
-<a href=#1766 id=1766 data-nosnippet>1766</a>			.header(info.finalized_hash)
-<a href=#1767 id=1767 data-nosnippet>1767</a>			.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?
-<a href=#1768 id=1768 data-nosnippet>1768</a>			</span>.expect(
-<a href=#1769 id=1769 data-nosnippet>1769</a>				<span class="string">"best finalized hash was given by client; finalized headers must exist in db; qed"</span>,
-<a href=#1770 id=1770 data-nosnippet>1770</a>			);
+<a href=#1754 id=1754 data-nosnippet>1754</a>///
+<a href=#1755 id=1755 data-nosnippet>1755</a>/// Skips pruning when the finalized header has no BABE pre-digest — not all finalized blocks
+<a href=#1756 id=1756 data-nosnippet>1756</a>/// have to be BABE-authored.
+<a href=#1757 id=1757 data-nosnippet>1757</a></span><span class="kw">fn </span>prune_finalized&lt;Block, Client&gt;(
+<a href=#1758 id=1758 data-nosnippet>1758</a>	client: Arc&lt;Client&gt;,
+<a href=#1759 id=1759 data-nosnippet>1759</a>	epoch_changes: <span class="kw-2">&amp;mut </span>EpochChangesFor&lt;Block, Epoch&gt;,
+<a href=#1760 id=1760 data-nosnippet>1760</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConsensusError&gt;
+<a href=#1761 id=1761 data-nosnippet>1761</a><span class="kw">where
+<a href=#1762 id=1762 data-nosnippet>1762</a>	</span>Block: BlockT,
+<a href=#1763 id=1763 data-nosnippet>1763</a>	Client: HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;,
+<a href=#1764 id=1764 data-nosnippet>1764</a>{
+<a href=#1765 id=1765 data-nosnippet>1765</a>	<span class="kw">let </span>info = client.info();
+<a href=#1766 id=1766 data-nosnippet>1766</a>
+<a href=#1767 id=1767 data-nosnippet>1767</a>	<span class="kw">let </span>finalized_header = client
+<a href=#1768 id=1768 data-nosnippet>1768</a>		.header(info.finalized_hash)
+<a href=#1769 id=1769 data-nosnippet>1769</a>		.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?
+<a href=#1770 id=1770 data-nosnippet>1770</a>		</span>.expect(<span class="string">"best finalized hash was given by client; finalized headers must exist in db; qed"</span>);
 <a href=#1771 id=1771 data-nosnippet>1771</a>
-<a href=#1772 id=1772 data-nosnippet>1772</a>		find_pre_digest::&lt;Block&gt;(<span class="kw-2">&amp;</span>finalized_header)
-<a href=#1773 id=1773 data-nosnippet>1773</a>			.expect(<span class="string">"finalized header must be valid; valid blocks have a pre-digest; qed"</span>)
-<a href=#1774 id=1774 data-nosnippet>1774</a>			.slot()
-<a href=#1775 id=1775 data-nosnippet>1775</a>	};
-<a href=#1776 id=1776 data-nosnippet>1776</a>
-<a href=#1777 id=1777 data-nosnippet>1777</a>	epoch_changes
-<a href=#1778 id=1778 data-nosnippet>1778</a>		.prune_finalized(
-<a href=#1779 id=1779 data-nosnippet>1779</a>			descendent_query(<span class="kw-2">&amp;*</span>client),
-<a href=#1780 id=1780 data-nosnippet>1780</a>			<span class="kw-2">&amp;</span>info.finalized_hash,
-<a href=#1781 id=1781 data-nosnippet>1781</a>			info.finalized_number,
-<a href=#1782 id=1782 data-nosnippet>1782</a>			finalized_slot,
-<a href=#1783 id=1783 data-nosnippet>1783</a>		)
-<a href=#1784 id=1784 data-nosnippet>1784</a>		.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?</span>;
-<a href=#1785 id=1785 data-nosnippet>1785</a>
-<a href=#1786 id=1786 data-nosnippet>1786</a>	<span class="prelude-val">Ok</span>(())
-<a href=#1787 id=1787 data-nosnippet>1787</a>}
-<a href=#1788 id=1788 data-nosnippet>1788</a>
-<a href=#1789 id=1789 data-nosnippet>1789</a><span class="doccomment">/// Produce a BABE block-import object to be used later on in the construction of
-<a href=#1790 id=1790 data-nosnippet>1790</a>/// an import-queue.
-<a href=#1791 id=1791 data-nosnippet>1791</a>///
-<a href=#1792 id=1792 data-nosnippet>1792</a>/// Also returns a link object used to correctly instantiate the import queue
-<a href=#1793 id=1793 data-nosnippet>1793</a>/// and background worker.
-<a href=#1794 id=1794 data-nosnippet>1794</a></span><span class="kw">pub fn </span>block_import&lt;Client, Block: BlockT, I, CIDP, SC&gt;(
-<a href=#1795 id=1795 data-nosnippet>1795</a>	config: BabeConfiguration,
-<a href=#1796 id=1796 data-nosnippet>1796</a>	wrapped_block_import: I,
-<a href=#1797 id=1797 data-nosnippet>1797</a>	client: Arc&lt;Client&gt;,
-<a href=#1798 id=1798 data-nosnippet>1798</a>	create_inherent_data_providers: CIDP,
-<a href=#1799 id=1799 data-nosnippet>1799</a>	select_chain: SC,
-<a href=#1800 id=1800 data-nosnippet>1800</a>	offchain_tx_pool_factory: OffchainTransactionPoolFactory&lt;Block&gt;,
-<a href=#1801 id=1801 data-nosnippet>1801</a>) -&gt; ClientResult&lt;(BabeBlockImport&lt;Block, Client, I, CIDP, SC&gt;, BabeLink&lt;Block&gt;)&gt;
-<a href=#1802 id=1802 data-nosnippet>1802</a><span class="kw">where
-<a href=#1803 id=1803 data-nosnippet>1803</a>	</span>Client: AuxStore
-<a href=#1804 id=1804 data-nosnippet>1804</a>		+ HeaderBackend&lt;Block&gt;
-<a href=#1805 id=1805 data-nosnippet>1805</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
-<a href=#1806 id=1806 data-nosnippet>1806</a>		+ PreCommitActions&lt;Block&gt;
-<a href=#1807 id=1807 data-nosnippet>1807</a>		+ <span class="lifetime">'static</span>,
-<a href=#1808 id=1808 data-nosnippet>1808</a>{
-<a href=#1809 id=1809 data-nosnippet>1809</a>	<span class="kw">let </span>epoch_changes = aux_schema::load_epoch_changes::&lt;Block, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;*</span>client, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
-<a href=#1810 id=1810 data-nosnippet>1810</a>	<span class="kw">let </span>link = BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone() };
-<a href=#1811 id=1811 data-nosnippet>1811</a>
-<a href=#1812 id=1812 data-nosnippet>1812</a>	<span class="comment">// NOTE: this isn't entirely necessary, but since we didn't use to prune the
-<a href=#1813 id=1813 data-nosnippet>1813</a>	// epoch tree it is useful as a migration, so that nodes prune long trees on
-<a href=#1814 id=1814 data-nosnippet>1814</a>	// startup rather than waiting until importing the next epoch change block.
-<a href=#1815 id=1815 data-nosnippet>1815</a>	</span>prune_finalized(client.clone(), <span class="kw-2">&amp;mut </span>epoch_changes.shared_data())<span class="question-mark">?</span>;
-<a href=#1816 id=1816 data-nosnippet>1816</a>
-<a href=#1817 id=1817 data-nosnippet>1817</a>	<span class="kw">let </span>client_weak = Arc::downgrade(<span class="kw-2">&amp;</span>client);
-<a href=#1818 id=1818 data-nosnippet>1818</a>	<span class="kw">let </span>on_finality = <span class="kw">move </span>|summary: <span class="kw-2">&amp;</span>FinalityNotification&lt;Block&gt;| {
-<a href=#1819 id=1819 data-nosnippet>1819</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(client) = client_weak.upgrade() {
-<a href=#1820 id=1820 data-nosnippet>1820</a>			aux_storage_cleanup(client.as_ref(), summary)
-<a href=#1821 id=1821 data-nosnippet>1821</a>		} <span class="kw">else </span>{
-<a href=#1822 id=1822 data-nosnippet>1822</a>			Default::default()
-<a href=#1823 id=1823 data-nosnippet>1823</a>		}
-<a href=#1824 id=1824 data-nosnippet>1824</a>	};
-<a href=#1825 id=1825 data-nosnippet>1825</a>	client.register_finality_action(Box::new(on_finality));
-<a href=#1826 id=1826 data-nosnippet>1826</a>
-<a href=#1827 id=1827 data-nosnippet>1827</a>	<span class="kw">let </span>import = BabeBlockImport::new(
-<a href=#1828 id=1828 data-nosnippet>1828</a>		client,
-<a href=#1829 id=1829 data-nosnippet>1829</a>		epoch_changes,
-<a href=#1830 id=1830 data-nosnippet>1830</a>		wrapped_block_import,
-<a href=#1831 id=1831 data-nosnippet>1831</a>		config,
-<a href=#1832 id=1832 data-nosnippet>1832</a>		create_inherent_data_providers,
-<a href=#1833 id=1833 data-nosnippet>1833</a>		select_chain,
-<a href=#1834 id=1834 data-nosnippet>1834</a>		offchain_tx_pool_factory,
-<a href=#1835 id=1835 data-nosnippet>1835</a>	);
-<a href=#1836 id=1836 data-nosnippet>1836</a>
-<a href=#1837 id=1837 data-nosnippet>1837</a>	<span class="prelude-val">Ok</span>((import, link))
-<a href=#1838 id=1838 data-nosnippet>1838</a>}
-<a href=#1839 id=1839 data-nosnippet>1839</a>
-<a href=#1840 id=1840 data-nosnippet>1840</a><span class="doccomment">/// Parameters passed to [`import_queue`].
-<a href=#1841 id=1841 data-nosnippet>1841</a></span><span class="kw">pub struct </span>ImportQueueParams&lt;<span class="lifetime">'a</span>, Block: BlockT, BI, Client, Spawn&gt; {
-<a href=#1842 id=1842 data-nosnippet>1842</a>	<span class="doccomment">/// The BABE link that is created by [`block_import`].
-<a href=#1843 id=1843 data-nosnippet>1843</a>	</span><span class="kw">pub </span>link: BabeLink&lt;Block&gt;,
-<a href=#1844 id=1844 data-nosnippet>1844</a>	<span class="doccomment">/// The block import that should be wrapped.
-<a href=#1845 id=1845 data-nosnippet>1845</a>	</span><span class="kw">pub </span>block_import: BI,
-<a href=#1846 id=1846 data-nosnippet>1846</a>	<span class="doccomment">/// Optional justification import.
-<a href=#1847 id=1847 data-nosnippet>1847</a>	</span><span class="kw">pub </span>justification_import: <span class="prelude-ty">Option</span>&lt;BoxJustificationImport&lt;Block&gt;&gt;,
-<a href=#1848 id=1848 data-nosnippet>1848</a>	<span class="doccomment">/// The client to interact with the internals of the node.
-<a href=#1849 id=1849 data-nosnippet>1849</a>	</span><span class="kw">pub </span>client: Arc&lt;Client&gt;,
-<a href=#1850 id=1850 data-nosnippet>1850</a>	<span class="doccomment">/// Slot duration.
-<a href=#1851 id=1851 data-nosnippet>1851</a>	</span><span class="kw">pub </span>slot_duration: SlotDuration,
-<a href=#1852 id=1852 data-nosnippet>1852</a>	<span class="doccomment">/// Spawner for spawning futures.
-<a href=#1853 id=1853 data-nosnippet>1853</a>	</span><span class="kw">pub </span>spawner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Spawn,
-<a href=#1854 id=1854 data-nosnippet>1854</a>	<span class="doccomment">/// Registry for prometheus metrics.
-<a href=#1855 id=1855 data-nosnippet>1855</a>	</span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Registry&gt;,
-<a href=#1856 id=1856 data-nosnippet>1856</a>	<span class="doccomment">/// Optional telemetry handle to report telemetry events.
-<a href=#1857 id=1857 data-nosnippet>1857</a>	</span><span class="kw">pub </span>telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
-<a href=#1858 id=1858 data-nosnippet>1858</a>}
-<a href=#1859 id=1859 data-nosnippet>1859</a>
-<a href=#1860 id=1860 data-nosnippet>1860</a><span class="doccomment">/// Start an import queue for the BABE consensus algorithm.
-<a href=#1861 id=1861 data-nosnippet>1861</a>///
-<a href=#1862 id=1862 data-nosnippet>1862</a>/// This method returns the import queue, some data that needs to be passed to the block authoring
-<a href=#1863 id=1863 data-nosnippet>1863</a>/// logic (`BabeLink`), and a future that must be run to
-<a href=#1864 id=1864 data-nosnippet>1864</a>/// completion and is responsible for listening to finality notifications and
-<a href=#1865 id=1865 data-nosnippet>1865</a>/// pruning the epoch changes tree.
-<a href=#1866 id=1866 data-nosnippet>1866</a>///
-<a href=#1867 id=1867 data-nosnippet>1867</a>/// The block import object provided must be the `BabeBlockImport` or a wrapper
-<a href=#1868 id=1868 data-nosnippet>1868</a>/// of it, otherwise crucial import logic will be omitted.
-<a href=#1869 id=1869 data-nosnippet>1869</a></span><span class="kw">pub fn </span>import_queue&lt;Block: BlockT, Client, BI, Spawn&gt;(
-<a href=#1870 id=1870 data-nosnippet>1870</a>	ImportQueueParams {
-<a href=#1871 id=1871 data-nosnippet>1871</a>		link: babe_link,
-<a href=#1872 id=1872 data-nosnippet>1872</a>		block_import,
-<a href=#1873 id=1873 data-nosnippet>1873</a>		justification_import,
-<a href=#1874 id=1874 data-nosnippet>1874</a>		client,
-<a href=#1875 id=1875 data-nosnippet>1875</a>		slot_duration,
-<a href=#1876 id=1876 data-nosnippet>1876</a>		spawner,
-<a href=#1877 id=1877 data-nosnippet>1877</a>		registry,
-<a href=#1878 id=1878 data-nosnippet>1878</a>		telemetry,
-<a href=#1879 id=1879 data-nosnippet>1879</a>	}: ImportQueueParams&lt;<span class="lifetime">'_</span>, Block, BI, Client, Spawn&gt;,
-<a href=#1880 id=1880 data-nosnippet>1880</a>) -&gt; ClientResult&lt;(DefaultImportQueue&lt;Block&gt;, BabeWorkerHandle&lt;Block&gt;)&gt;
-<a href=#1881 id=1881 data-nosnippet>1881</a><span class="kw">where
-<a href=#1882 id=1882 data-nosnippet>1882</a>	</span>BI: BlockImport&lt;Block, Error = ConsensusError&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#1883 id=1883 data-nosnippet>1883</a>	Client: ProvideRuntimeApi&lt;Block&gt;
-<a href=#1884 id=1884 data-nosnippet>1884</a>		+ HeaderBackend&lt;Block&gt;
-<a href=#1885 id=1885 data-nosnippet>1885</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
-<a href=#1886 id=1886 data-nosnippet>1886</a>		+ AuxStore
-<a href=#1887 id=1887 data-nosnippet>1887</a>		+ Send
-<a href=#1888 id=1888 data-nosnippet>1888</a>		+ Sync
-<a href=#1889 id=1889 data-nosnippet>1889</a>		+ <span class="lifetime">'static</span>,
-<a href=#1890 id=1890 data-nosnippet>1890</a>	Client::Api: BlockBuilderApi&lt;Block&gt; + BabeApi&lt;Block&gt; + ApiExt&lt;Block&gt;,
-<a href=#1891 id=1891 data-nosnippet>1891</a>	Spawn: SpawnEssentialNamed,
-<a href=#1892 id=1892 data-nosnippet>1892</a>{
-<a href=#1893 id=1893 data-nosnippet>1893</a>	<span class="kw">const </span>HANDLE_BUFFER_SIZE: usize = <span class="number">1024</span>;
-<a href=#1894 id=1894 data-nosnippet>1894</a>
-<a href=#1895 id=1895 data-nosnippet>1895</a>	<span class="kw">let </span>verifier = BabeVerifier {
-<a href=#1896 id=1896 data-nosnippet>1896</a>		slot_duration,
-<a href=#1897 id=1897 data-nosnippet>1897</a>		config: babe_link.config.clone(),
-<a href=#1898 id=1898 data-nosnippet>1898</a>		epoch_changes: babe_link.epoch_changes.clone(),
-<a href=#1899 id=1899 data-nosnippet>1899</a>		telemetry,
-<a href=#1900 id=1900 data-nosnippet>1900</a>		client: client.clone(),
-<a href=#1901 id=1901 data-nosnippet>1901</a>	};
-<a href=#1902 id=1902 data-nosnippet>1902</a>
-<a href=#1903 id=1903 data-nosnippet>1903</a>	<span class="kw">let </span>(worker_tx, worker_rx) = channel(HANDLE_BUFFER_SIZE);
-<a href=#1904 id=1904 data-nosnippet>1904</a>
-<a href=#1905 id=1905 data-nosnippet>1905</a>	<span class="kw">let </span>answer_requests =
-<a href=#1906 id=1906 data-nosnippet>1906</a>		answer_requests(worker_rx, babe_link.config, client, babe_link.epoch_changes);
-<a href=#1907 id=1907 data-nosnippet>1907</a>
-<a href=#1908 id=1908 data-nosnippet>1908</a>	spawner.spawn_essential(<span class="string">"babe-worker"</span>, <span class="prelude-val">Some</span>(<span class="string">"babe"</span>), answer_requests.boxed());
+<a href=#1772 id=1772 data-nosnippet>1772</a>	<span class="kw">let </span>finalized_slot = <span class="kw">match </span>find_pre_digest::&lt;Block&gt;(<span class="kw-2">&amp;</span>finalized_header) {
+<a href=#1773 id=1773 data-nosnippet>1773</a>		<span class="prelude-val">Ok</span>(pre_digest) =&gt; pre_digest.slot(),
+<a href=#1774 id=1774 data-nosnippet>1774</a>		<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#1775 id=1775 data-nosnippet>1775</a>			<span class="macro">debug!</span>(
+<a href=#1776 id=1776 data-nosnippet>1776</a>				target: LOG_TARGET,
+<a href=#1777 id=1777 data-nosnippet>1777</a>				<span class="string">"Skipping epoch-tree pruning: finalized header {:?} has no BABE pre-digest ({e:?})"</span>,
+<a href=#1778 id=1778 data-nosnippet>1778</a>				info.finalized_hash,
+<a href=#1779 id=1779 data-nosnippet>1779</a>			);
+<a href=#1780 id=1780 data-nosnippet>1780</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#1781 id=1781 data-nosnippet>1781</a>		},
+<a href=#1782 id=1782 data-nosnippet>1782</a>	};
+<a href=#1783 id=1783 data-nosnippet>1783</a>
+<a href=#1784 id=1784 data-nosnippet>1784</a>	epoch_changes
+<a href=#1785 id=1785 data-nosnippet>1785</a>		.prune_finalized(
+<a href=#1786 id=1786 data-nosnippet>1786</a>			descendent_query(<span class="kw-2">&amp;*</span>client),
+<a href=#1787 id=1787 data-nosnippet>1787</a>			<span class="kw-2">&amp;</span>info.finalized_hash,
+<a href=#1788 id=1788 data-nosnippet>1788</a>			info.finalized_number,
+<a href=#1789 id=1789 data-nosnippet>1789</a>			finalized_slot,
+<a href=#1790 id=1790 data-nosnippet>1790</a>		)
+<a href=#1791 id=1791 data-nosnippet>1791</a>		.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?</span>;
+<a href=#1792 id=1792 data-nosnippet>1792</a>
+<a href=#1793 id=1793 data-nosnippet>1793</a>	<span class="prelude-val">Ok</span>(())
+<a href=#1794 id=1794 data-nosnippet>1794</a>}
+<a href=#1795 id=1795 data-nosnippet>1795</a>
+<a href=#1796 id=1796 data-nosnippet>1796</a><span class="doccomment">/// Produce a BABE block-import object to be used later on in the construction of
+<a href=#1797 id=1797 data-nosnippet>1797</a>/// an import-queue.
+<a href=#1798 id=1798 data-nosnippet>1798</a>///
+<a href=#1799 id=1799 data-nosnippet>1799</a>/// Also returns a link object used to correctly instantiate the import queue
+<a href=#1800 id=1800 data-nosnippet>1800</a>/// and background worker.
+<a href=#1801 id=1801 data-nosnippet>1801</a></span><span class="kw">pub fn </span>block_import&lt;Client, Block: BlockT, I, CIDP, SC&gt;(
+<a href=#1802 id=1802 data-nosnippet>1802</a>	config: BabeConfiguration,
+<a href=#1803 id=1803 data-nosnippet>1803</a>	wrapped_block_import: I,
+<a href=#1804 id=1804 data-nosnippet>1804</a>	client: Arc&lt;Client&gt;,
+<a href=#1805 id=1805 data-nosnippet>1805</a>	create_inherent_data_providers: CIDP,
+<a href=#1806 id=1806 data-nosnippet>1806</a>	select_chain: SC,
+<a href=#1807 id=1807 data-nosnippet>1807</a>	offchain_tx_pool_factory: OffchainTransactionPoolFactory&lt;Block&gt;,
+<a href=#1808 id=1808 data-nosnippet>1808</a>) -&gt; ClientResult&lt;(BabeBlockImport&lt;Block, Client, I, CIDP, SC&gt;, BabeLink&lt;Block&gt;)&gt;
+<a href=#1809 id=1809 data-nosnippet>1809</a><span class="kw">where
+<a href=#1810 id=1810 data-nosnippet>1810</a>	</span>Client: AuxStore
+<a href=#1811 id=1811 data-nosnippet>1811</a>		+ HeaderBackend&lt;Block&gt;
+<a href=#1812 id=1812 data-nosnippet>1812</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
+<a href=#1813 id=1813 data-nosnippet>1813</a>		+ PreCommitActions&lt;Block&gt;
+<a href=#1814 id=1814 data-nosnippet>1814</a>		+ <span class="lifetime">'static</span>,
+<a href=#1815 id=1815 data-nosnippet>1815</a>{
+<a href=#1816 id=1816 data-nosnippet>1816</a>	<span class="kw">let </span>epoch_changes = aux_schema::load_epoch_changes::&lt;Block, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;*</span>client, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+<a href=#1817 id=1817 data-nosnippet>1817</a>	<span class="kw">let </span>link = BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone() };
+<a href=#1818 id=1818 data-nosnippet>1818</a>
+<a href=#1819 id=1819 data-nosnippet>1819</a>	<span class="comment">// NOTE: this isn't entirely necessary, but since we didn't use to prune the
+<a href=#1820 id=1820 data-nosnippet>1820</a>	// epoch tree it is useful as a migration, so that nodes prune long trees on
+<a href=#1821 id=1821 data-nosnippet>1821</a>	// startup rather than waiting until importing the next epoch change block.
+<a href=#1822 id=1822 data-nosnippet>1822</a>	</span>prune_finalized(client.clone(), <span class="kw-2">&amp;mut </span>epoch_changes.shared_data())<span class="question-mark">?</span>;
+<a href=#1823 id=1823 data-nosnippet>1823</a>
+<a href=#1824 id=1824 data-nosnippet>1824</a>	<span class="kw">let </span>client_weak = Arc::downgrade(<span class="kw-2">&amp;</span>client);
+<a href=#1825 id=1825 data-nosnippet>1825</a>	<span class="kw">let </span>on_finality = <span class="kw">move </span>|summary: <span class="kw-2">&amp;</span>FinalityNotification&lt;Block&gt;| {
+<a href=#1826 id=1826 data-nosnippet>1826</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(client) = client_weak.upgrade() {
+<a href=#1827 id=1827 data-nosnippet>1827</a>			aux_storage_cleanup(client.as_ref(), summary)
+<a href=#1828 id=1828 data-nosnippet>1828</a>		} <span class="kw">else </span>{
+<a href=#1829 id=1829 data-nosnippet>1829</a>			Default::default()
+<a href=#1830 id=1830 data-nosnippet>1830</a>		}
+<a href=#1831 id=1831 data-nosnippet>1831</a>	};
+<a href=#1832 id=1832 data-nosnippet>1832</a>	client.register_finality_action(Box::new(on_finality));
+<a href=#1833 id=1833 data-nosnippet>1833</a>
+<a href=#1834 id=1834 data-nosnippet>1834</a>	<span class="kw">let </span>import = BabeBlockImport::new(
+<a href=#1835 id=1835 data-nosnippet>1835</a>		client,
+<a href=#1836 id=1836 data-nosnippet>1836</a>		epoch_changes,
+<a href=#1837 id=1837 data-nosnippet>1837</a>		wrapped_block_import,
+<a href=#1838 id=1838 data-nosnippet>1838</a>		config,
+<a href=#1839 id=1839 data-nosnippet>1839</a>		create_inherent_data_providers,
+<a href=#1840 id=1840 data-nosnippet>1840</a>		select_chain,
+<a href=#1841 id=1841 data-nosnippet>1841</a>		offchain_tx_pool_factory,
+<a href=#1842 id=1842 data-nosnippet>1842</a>	);
+<a href=#1843 id=1843 data-nosnippet>1843</a>
+<a href=#1844 id=1844 data-nosnippet>1844</a>	<span class="prelude-val">Ok</span>((import, link))
+<a href=#1845 id=1845 data-nosnippet>1845</a>}
+<a href=#1846 id=1846 data-nosnippet>1846</a>
+<a href=#1847 id=1847 data-nosnippet>1847</a><span class="doccomment">/// Parameters passed to [`import_queue`].
+<a href=#1848 id=1848 data-nosnippet>1848</a></span><span class="kw">pub struct </span>ImportQueueParams&lt;<span class="lifetime">'a</span>, Block: BlockT, BI, Client, Spawn&gt; {
+<a href=#1849 id=1849 data-nosnippet>1849</a>	<span class="doccomment">/// The BABE link that is created by [`block_import`].
+<a href=#1850 id=1850 data-nosnippet>1850</a>	</span><span class="kw">pub </span>link: BabeLink&lt;Block&gt;,
+<a href=#1851 id=1851 data-nosnippet>1851</a>	<span class="doccomment">/// The block import that should be wrapped.
+<a href=#1852 id=1852 data-nosnippet>1852</a>	</span><span class="kw">pub </span>block_import: BI,
+<a href=#1853 id=1853 data-nosnippet>1853</a>	<span class="doccomment">/// Optional justification import.
+<a href=#1854 id=1854 data-nosnippet>1854</a>	</span><span class="kw">pub </span>justification_import: <span class="prelude-ty">Option</span>&lt;BoxJustificationImport&lt;Block&gt;&gt;,
+<a href=#1855 id=1855 data-nosnippet>1855</a>	<span class="doccomment">/// The client to interact with the internals of the node.
+<a href=#1856 id=1856 data-nosnippet>1856</a>	</span><span class="kw">pub </span>client: Arc&lt;Client&gt;,
+<a href=#1857 id=1857 data-nosnippet>1857</a>	<span class="doccomment">/// Slot duration.
+<a href=#1858 id=1858 data-nosnippet>1858</a>	</span><span class="kw">pub </span>slot_duration: SlotDuration,
+<a href=#1859 id=1859 data-nosnippet>1859</a>	<span class="doccomment">/// Spawner for spawning futures.
+<a href=#1860 id=1860 data-nosnippet>1860</a>	</span><span class="kw">pub </span>spawner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Spawn,
+<a href=#1861 id=1861 data-nosnippet>1861</a>	<span class="doccomment">/// Registry for prometheus metrics.
+<a href=#1862 id=1862 data-nosnippet>1862</a>	</span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Registry&gt;,
+<a href=#1863 id=1863 data-nosnippet>1863</a>	<span class="doccomment">/// Optional telemetry handle to report telemetry events.
+<a href=#1864 id=1864 data-nosnippet>1864</a>	</span><span class="kw">pub </span>telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
+<a href=#1865 id=1865 data-nosnippet>1865</a>}
+<a href=#1866 id=1866 data-nosnippet>1866</a>
+<a href=#1867 id=1867 data-nosnippet>1867</a><span class="doccomment">/// Start an import queue for the BABE consensus algorithm.
+<a href=#1868 id=1868 data-nosnippet>1868</a>///
+<a href=#1869 id=1869 data-nosnippet>1869</a>/// This method returns the import queue, some data that needs to be passed to the block authoring
+<a href=#1870 id=1870 data-nosnippet>1870</a>/// logic (`BabeLink`), and a future that must be run to
+<a href=#1871 id=1871 data-nosnippet>1871</a>/// completion and is responsible for listening to finality notifications and
+<a href=#1872 id=1872 data-nosnippet>1872</a>/// pruning the epoch changes tree.
+<a href=#1873 id=1873 data-nosnippet>1873</a>///
+<a href=#1874 id=1874 data-nosnippet>1874</a>/// The block import object provided must be the `BabeBlockImport` or a wrapper
+<a href=#1875 id=1875 data-nosnippet>1875</a>/// of it, otherwise crucial import logic will be omitted.
+<a href=#1876 id=1876 data-nosnippet>1876</a></span><span class="kw">pub fn </span>import_queue&lt;Block: BlockT, Client, BI, Spawn&gt;(
+<a href=#1877 id=1877 data-nosnippet>1877</a>	ImportQueueParams {
+<a href=#1878 id=1878 data-nosnippet>1878</a>		link: babe_link,
+<a href=#1879 id=1879 data-nosnippet>1879</a>		block_import,
+<a href=#1880 id=1880 data-nosnippet>1880</a>		justification_import,
+<a href=#1881 id=1881 data-nosnippet>1881</a>		client,
+<a href=#1882 id=1882 data-nosnippet>1882</a>		slot_duration,
+<a href=#1883 id=1883 data-nosnippet>1883</a>		spawner,
+<a href=#1884 id=1884 data-nosnippet>1884</a>		registry,
+<a href=#1885 id=1885 data-nosnippet>1885</a>		telemetry,
+<a href=#1886 id=1886 data-nosnippet>1886</a>	}: ImportQueueParams&lt;<span class="lifetime">'_</span>, Block, BI, Client, Spawn&gt;,
+<a href=#1887 id=1887 data-nosnippet>1887</a>) -&gt; ClientResult&lt;(DefaultImportQueue&lt;Block&gt;, BabeWorkerHandle&lt;Block&gt;)&gt;
+<a href=#1888 id=1888 data-nosnippet>1888</a><span class="kw">where
+<a href=#1889 id=1889 data-nosnippet>1889</a>	</span>BI: BlockImport&lt;Block, Error = ConsensusError&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#1890 id=1890 data-nosnippet>1890</a>	Client: ProvideRuntimeApi&lt;Block&gt;
+<a href=#1891 id=1891 data-nosnippet>1891</a>		+ HeaderBackend&lt;Block&gt;
+<a href=#1892 id=1892 data-nosnippet>1892</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
+<a href=#1893 id=1893 data-nosnippet>1893</a>		+ AuxStore
+<a href=#1894 id=1894 data-nosnippet>1894</a>		+ Send
+<a href=#1895 id=1895 data-nosnippet>1895</a>		+ Sync
+<a href=#1896 id=1896 data-nosnippet>1896</a>		+ <span class="lifetime">'static</span>,
+<a href=#1897 id=1897 data-nosnippet>1897</a>	Client::Api: BlockBuilderApi&lt;Block&gt; + BabeApi&lt;Block&gt; + ApiExt&lt;Block&gt;,
+<a href=#1898 id=1898 data-nosnippet>1898</a>	Spawn: SpawnEssentialNamed,
+<a href=#1899 id=1899 data-nosnippet>1899</a>{
+<a href=#1900 id=1900 data-nosnippet>1900</a>	<span class="kw">const </span>HANDLE_BUFFER_SIZE: usize = <span class="number">1024</span>;
+<a href=#1901 id=1901 data-nosnippet>1901</a>
+<a href=#1902 id=1902 data-nosnippet>1902</a>	<span class="kw">let </span>verifier = BabeVerifier {
+<a href=#1903 id=1903 data-nosnippet>1903</a>		slot_duration,
+<a href=#1904 id=1904 data-nosnippet>1904</a>		config: babe_link.config.clone(),
+<a href=#1905 id=1905 data-nosnippet>1905</a>		epoch_changes: babe_link.epoch_changes.clone(),
+<a href=#1906 id=1906 data-nosnippet>1906</a>		telemetry,
+<a href=#1907 id=1907 data-nosnippet>1907</a>		client: client.clone(),
+<a href=#1908 id=1908 data-nosnippet>1908</a>	};
 <a href=#1909 id=1909 data-nosnippet>1909</a>
-<a href=#1910 id=1910 data-nosnippet>1910</a>	<span class="prelude-val">Ok</span>((
-<a href=#1911 id=1911 data-nosnippet>1911</a>		BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry),
-<a href=#1912 id=1912 data-nosnippet>1912</a>		BabeWorkerHandle(worker_tx),
-<a href=#1913 id=1913 data-nosnippet>1913</a>	))
-<a href=#1914 id=1914 data-nosnippet>1914</a>}
-<a href=#1915 id=1915 data-nosnippet>1915</a>
-<a href=#1916 id=1916 data-nosnippet>1916</a><span class="doccomment">/// Reverts protocol aux data to at most the last finalized block.
-<a href=#1917 id=1917 data-nosnippet>1917</a>/// In particular, epoch-changes and block weights announced after the revert
-<a href=#1918 id=1918 data-nosnippet>1918</a>/// point are removed.
-<a href=#1919 id=1919 data-nosnippet>1919</a></span><span class="kw">pub fn </span>revert&lt;Block, Client, Backend&gt;(
-<a href=#1920 id=1920 data-nosnippet>1920</a>	client: Arc&lt;Client&gt;,
-<a href=#1921 id=1921 data-nosnippet>1921</a>	backend: Arc&lt;Backend&gt;,
-<a href=#1922 id=1922 data-nosnippet>1922</a>	blocks: NumberFor&lt;Block&gt;,
-<a href=#1923 id=1923 data-nosnippet>1923</a>) -&gt; ClientResult&lt;()&gt;
-<a href=#1924 id=1924 data-nosnippet>1924</a><span class="kw">where
-<a href=#1925 id=1925 data-nosnippet>1925</a>	</span>Block: BlockT,
-<a href=#1926 id=1926 data-nosnippet>1926</a>	Client: AuxStore
-<a href=#1927 id=1927 data-nosnippet>1927</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
-<a href=#1928 id=1928 data-nosnippet>1928</a>		+ HeaderBackend&lt;Block&gt;
-<a href=#1929 id=1929 data-nosnippet>1929</a>		+ ProvideRuntimeApi&lt;Block&gt;
-<a href=#1930 id=1930 data-nosnippet>1930</a>		+ UsageProvider&lt;Block&gt;,
-<a href=#1931 id=1931 data-nosnippet>1931</a>	Client::Api: BabeApi&lt;Block&gt;,
-<a href=#1932 id=1932 data-nosnippet>1932</a>	Backend: BackendT&lt;Block&gt;,
-<a href=#1933 id=1933 data-nosnippet>1933</a>{
-<a href=#1934 id=1934 data-nosnippet>1934</a>	<span class="kw">let </span>best_number = client.info().best_number;
-<a href=#1935 id=1935 data-nosnippet>1935</a>	<span class="kw">let </span>finalized = client.info().finalized_number;
-<a href=#1936 id=1936 data-nosnippet>1936</a>
-<a href=#1937 id=1937 data-nosnippet>1937</a>	<span class="kw">let </span>revertible = blocks.min(best_number - finalized);
-<a href=#1938 id=1938 data-nosnippet>1938</a>	<span class="kw">if </span>revertible == Zero::zero() {
-<a href=#1939 id=1939 data-nosnippet>1939</a>		<span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#1940 id=1940 data-nosnippet>1940</a>	}
-<a href=#1941 id=1941 data-nosnippet>1941</a>
-<a href=#1942 id=1942 data-nosnippet>1942</a>	<span class="kw">let </span>revert_up_to_number = best_number - revertible;
-<a href=#1943 id=1943 data-nosnippet>1943</a>	<span class="kw">let </span>revert_up_to_hash = client.hash(revert_up_to_number)<span class="question-mark">?</span>.ok_or(ClientError::Backend(
-<a href=#1944 id=1944 data-nosnippet>1944</a>		<span class="macro">format!</span>(<span class="string">"Unexpected hash lookup failure for block number: {}"</span>, revert_up_to_number),
-<a href=#1945 id=1945 data-nosnippet>1945</a>	))<span class="question-mark">?</span>;
-<a href=#1946 id=1946 data-nosnippet>1946</a>
-<a href=#1947 id=1947 data-nosnippet>1947</a>	<span class="comment">// Revert epoch changes tree.
+<a href=#1910 id=1910 data-nosnippet>1910</a>	<span class="kw">let </span>(worker_tx, worker_rx) = channel(HANDLE_BUFFER_SIZE);
+<a href=#1911 id=1911 data-nosnippet>1911</a>
+<a href=#1912 id=1912 data-nosnippet>1912</a>	<span class="kw">let </span>answer_requests =
+<a href=#1913 id=1913 data-nosnippet>1913</a>		answer_requests(worker_rx, babe_link.config, client, babe_link.epoch_changes);
+<a href=#1914 id=1914 data-nosnippet>1914</a>
+<a href=#1915 id=1915 data-nosnippet>1915</a>	spawner.spawn_essential(<span class="string">"babe-worker"</span>, <span class="prelude-val">Some</span>(<span class="string">"babe"</span>), answer_requests.boxed());
+<a href=#1916 id=1916 data-nosnippet>1916</a>
+<a href=#1917 id=1917 data-nosnippet>1917</a>	<span class="prelude-val">Ok</span>((
+<a href=#1918 id=1918 data-nosnippet>1918</a>		BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry),
+<a href=#1919 id=1919 data-nosnippet>1919</a>		BabeWorkerHandle(worker_tx),
+<a href=#1920 id=1920 data-nosnippet>1920</a>	))
+<a href=#1921 id=1921 data-nosnippet>1921</a>}
+<a href=#1922 id=1922 data-nosnippet>1922</a>
+<a href=#1923 id=1923 data-nosnippet>1923</a><span class="doccomment">/// Reverts protocol aux data to at most the last finalized block.
+<a href=#1924 id=1924 data-nosnippet>1924</a>/// In particular, epoch-changes and block weights announced after the revert
+<a href=#1925 id=1925 data-nosnippet>1925</a>/// point are removed.
+<a href=#1926 id=1926 data-nosnippet>1926</a></span><span class="kw">pub fn </span>revert&lt;Block, Client, Backend&gt;(
+<a href=#1927 id=1927 data-nosnippet>1927</a>	client: Arc&lt;Client&gt;,
+<a href=#1928 id=1928 data-nosnippet>1928</a>	backend: Arc&lt;Backend&gt;,
+<a href=#1929 id=1929 data-nosnippet>1929</a>	blocks: NumberFor&lt;Block&gt;,
+<a href=#1930 id=1930 data-nosnippet>1930</a>) -&gt; ClientResult&lt;()&gt;
+<a href=#1931 id=1931 data-nosnippet>1931</a><span class="kw">where
+<a href=#1932 id=1932 data-nosnippet>1932</a>	</span>Block: BlockT,
+<a href=#1933 id=1933 data-nosnippet>1933</a>	Client: AuxStore
+<a href=#1934 id=1934 data-nosnippet>1934</a>		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
+<a href=#1935 id=1935 data-nosnippet>1935</a>		+ HeaderBackend&lt;Block&gt;
+<a href=#1936 id=1936 data-nosnippet>1936</a>		+ ProvideRuntimeApi&lt;Block&gt;
+<a href=#1937 id=1937 data-nosnippet>1937</a>		+ UsageProvider&lt;Block&gt;,
+<a href=#1938 id=1938 data-nosnippet>1938</a>	Client::Api: BabeApi&lt;Block&gt;,
+<a href=#1939 id=1939 data-nosnippet>1939</a>	Backend: BackendT&lt;Block&gt;,
+<a href=#1940 id=1940 data-nosnippet>1940</a>{
+<a href=#1941 id=1941 data-nosnippet>1941</a>	<span class="kw">let </span>best_number = client.info().best_number;
+<a href=#1942 id=1942 data-nosnippet>1942</a>	<span class="kw">let </span>finalized = client.info().finalized_number;
+<a href=#1943 id=1943 data-nosnippet>1943</a>
+<a href=#1944 id=1944 data-nosnippet>1944</a>	<span class="kw">let </span>revertible = blocks.min(best_number - finalized);
+<a href=#1945 id=1945 data-nosnippet>1945</a>	<span class="kw">if </span>revertible == Zero::zero() {
+<a href=#1946 id=1946 data-nosnippet>1946</a>		<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#1947 id=1947 data-nosnippet>1947</a>	}
 <a href=#1948 id=1948 data-nosnippet>1948</a>
-<a href=#1949 id=1949 data-nosnippet>1949</a>	// This config is only used on-genesis.
-<a href=#1950 id=1950 data-nosnippet>1950</a>	</span><span class="kw">let </span>config = configuration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-<a href=#1951 id=1951 data-nosnippet>1951</a>	<span class="kw">let </span>epoch_changes = aux_schema::load_epoch_changes::&lt;Block, Client&gt;(<span class="kw-2">&amp;*</span>client, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
-<a href=#1952 id=1952 data-nosnippet>1952</a>	<span class="kw">let </span><span class="kw-2">mut </span>epoch_changes = epoch_changes.shared_data();
+<a href=#1949 id=1949 data-nosnippet>1949</a>	<span class="kw">let </span>revert_up_to_number = best_number - revertible;
+<a href=#1950 id=1950 data-nosnippet>1950</a>	<span class="kw">let </span>revert_up_to_hash = client.hash(revert_up_to_number)<span class="question-mark">?</span>.ok_or(ClientError::Backend(
+<a href=#1951 id=1951 data-nosnippet>1951</a>		<span class="macro">format!</span>(<span class="string">"Unexpected hash lookup failure for block number: {}"</span>, revert_up_to_number),
+<a href=#1952 id=1952 data-nosnippet>1952</a>	))<span class="question-mark">?</span>;
 <a href=#1953 id=1953 data-nosnippet>1953</a>
-<a href=#1954 id=1954 data-nosnippet>1954</a>	<span class="kw">if </span>revert_up_to_number == Zero::zero() {
-<a href=#1955 id=1955 data-nosnippet>1955</a>		<span class="comment">// Special case, no epoch changes data were present on genesis.
-<a href=#1956 id=1956 data-nosnippet>1956</a>		</span><span class="kw-2">*</span>epoch_changes = EpochChangesFor::&lt;Block, Epoch&gt;::default();
-<a href=#1957 id=1957 data-nosnippet>1957</a>	} <span class="kw">else </span>{
-<a href=#1958 id=1958 data-nosnippet>1958</a>		epoch_changes.revert(descendent_query(<span class="kw-2">&amp;*</span>client), revert_up_to_hash, revert_up_to_number);
-<a href=#1959 id=1959 data-nosnippet>1959</a>	}
+<a href=#1954 id=1954 data-nosnippet>1954</a>	<span class="comment">// Revert epoch changes tree.
+<a href=#1955 id=1955 data-nosnippet>1955</a>
+<a href=#1956 id=1956 data-nosnippet>1956</a>	// This config is only used on-genesis.
+<a href=#1957 id=1957 data-nosnippet>1957</a>	</span><span class="kw">let </span>config = configuration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
+<a href=#1958 id=1958 data-nosnippet>1958</a>	<span class="kw">let </span>epoch_changes = aux_schema::load_epoch_changes::&lt;Block, Client&gt;(<span class="kw-2">&amp;*</span>client, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+<a href=#1959 id=1959 data-nosnippet>1959</a>	<span class="kw">let </span><span class="kw-2">mut </span>epoch_changes = epoch_changes.shared_data();
 <a href=#1960 id=1960 data-nosnippet>1960</a>
-<a href=#1961 id=1961 data-nosnippet>1961</a>	<span class="comment">// Remove block weights added after the revert point.
-<a href=#1962 id=1962 data-nosnippet>1962</a>
-<a href=#1963 id=1963 data-nosnippet>1963</a>	</span><span class="kw">let </span><span class="kw-2">mut </span>weight_keys = HashSet::with_capacity(revertible.saturated_into());
-<a href=#1964 id=1964 data-nosnippet>1964</a>
-<a href=#1965 id=1965 data-nosnippet>1965</a>	<span class="kw">let </span>leaves = backend.blockchain().leaves()<span class="question-mark">?</span>.into_iter().filter(|<span class="kw-2">&amp;</span>leaf| {
-<a href=#1966 id=1966 data-nosnippet>1966</a>		sp_blockchain::tree_route(<span class="kw-2">&amp;*</span>client, revert_up_to_hash, leaf)
-<a href=#1967 id=1967 data-nosnippet>1967</a>			.map(|route| route.retracted().is_empty())
-<a href=#1968 id=1968 data-nosnippet>1968</a>			.unwrap_or_default()
-<a href=#1969 id=1969 data-nosnippet>1969</a>	});
-<a href=#1970 id=1970 data-nosnippet>1970</a>
-<a href=#1971 id=1971 data-nosnippet>1971</a>	<span class="kw">for </span>leaf <span class="kw">in </span>leaves {
-<a href=#1972 id=1972 data-nosnippet>1972</a>		<span class="kw">let </span><span class="kw-2">mut </span>hash = leaf;
-<a href=#1973 id=1973 data-nosnippet>1973</a>		<span class="kw">loop </span>{
-<a href=#1974 id=1974 data-nosnippet>1974</a>			<span class="kw">let </span>meta = client.header_metadata(hash)<span class="question-mark">?</span>;
-<a href=#1975 id=1975 data-nosnippet>1975</a>			<span class="kw">if </span>meta.number &lt;= revert_up_to_number ||
-<a href=#1976 id=1976 data-nosnippet>1976</a>				!weight_keys.insert(aux_schema::block_weight_key(hash))
-<a href=#1977 id=1977 data-nosnippet>1977</a>			{
-<a href=#1978 id=1978 data-nosnippet>1978</a>				<span class="comment">// We've reached the revert point or an already processed branch, stop here.
-<a href=#1979 id=1979 data-nosnippet>1979</a>				</span><span class="kw">break</span>;
-<a href=#1980 id=1980 data-nosnippet>1980</a>			}
-<a href=#1981 id=1981 data-nosnippet>1981</a>			hash = meta.parent;
-<a href=#1982 id=1982 data-nosnippet>1982</a>		}
-<a href=#1983 id=1983 data-nosnippet>1983</a>	}
-<a href=#1984 id=1984 data-nosnippet>1984</a>
-<a href=#1985 id=1985 data-nosnippet>1985</a>	<span class="kw">let </span>weight_keys: Vec&lt;<span class="kw">_</span>&gt; = weight_keys.iter().map(|val| val.as_slice()).collect();
-<a href=#1986 id=1986 data-nosnippet>1986</a>
-<a href=#1987 id=1987 data-nosnippet>1987</a>	<span class="comment">// Write epoch changes and remove weights in one shot.
-<a href=#1988 id=1988 data-nosnippet>1988</a>	</span>aux_schema::write_epoch_changes::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>epoch_changes, |values| {
-<a href=#1989 id=1989 data-nosnippet>1989</a>		client.insert_aux(values, weight_keys.iter())
-<a href=#1990 id=1990 data-nosnippet>1990</a>	})
-<a href=#1991 id=1991 data-nosnippet>1991</a>}
-<a href=#1992 id=1992 data-nosnippet>1992</a>
-<a href=#1993 id=1993 data-nosnippet>1993</a><span class="kw">fn </span>query_epoch_changes&lt;Block, Client&gt;(
-<a href=#1994 id=1994 data-nosnippet>1994</a>	epoch_changes: <span class="kw-2">&amp;</span>SharedEpochChanges&lt;Block, Epoch&gt;,
-<a href=#1995 id=1995 data-nosnippet>1995</a>	client: <span class="kw-2">&amp;</span>Client,
-<a href=#1996 id=1996 data-nosnippet>1996</a>	config: <span class="kw-2">&amp;</span>BabeConfiguration,
-<a href=#1997 id=1997 data-nosnippet>1997</a>	block_number: NumberFor&lt;Block&gt;,
-<a href=#1998 id=1998 data-nosnippet>1998</a>	slot: Slot,
-<a href=#1999 id=1999 data-nosnippet>1999</a>	parent_hash: Block::Hash,
-<a href=#2000 id=2000 data-nosnippet>2000</a>) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#2001 id=2001 data-nosnippet>2001</a>	(ViableEpochDescriptor&lt;Block::Hash, NumberFor&lt;Block&gt;, Epoch&gt;, ViableEpoch&lt;Epoch&gt;),
-<a href=#2002 id=2002 data-nosnippet>2002</a>	Error&lt;Block&gt;,
-<a href=#2003 id=2003 data-nosnippet>2003</a>&gt;
-<a href=#2004 id=2004 data-nosnippet>2004</a><span class="kw">where
-<a href=#2005 id=2005 data-nosnippet>2005</a>	</span>Block: BlockT,
-<a href=#2006 id=2006 data-nosnippet>2006</a>	Client: HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;,
-<a href=#2007 id=2007 data-nosnippet>2007</a>{
-<a href=#2008 id=2008 data-nosnippet>2008</a>	<span class="kw">let </span>epoch_changes = epoch_changes.shared_data();
-<a href=#2009 id=2009 data-nosnippet>2009</a>	<span class="kw">let </span>epoch_descriptor = epoch_changes
-<a href=#2010 id=2010 data-nosnippet>2010</a>		.epoch_descriptor_for_child_of(
-<a href=#2011 id=2011 data-nosnippet>2011</a>			descendent_query(client),
-<a href=#2012 id=2012 data-nosnippet>2012</a>			<span class="kw-2">&amp;</span>parent_hash,
-<a href=#2013 id=2013 data-nosnippet>2013</a>			block_number - <span class="number">1u32</span>.into(),
-<a href=#2014 id=2014 data-nosnippet>2014</a>			slot,
-<a href=#2015 id=2015 data-nosnippet>2015</a>		)
-<a href=#2016 id=2016 data-nosnippet>2016</a>		.map_err(|e| Error::&lt;Block&gt;::ForkTree(Box::new(e)))<span class="question-mark">?
-<a href=#2017 id=2017 data-nosnippet>2017</a>		</span>.ok_or(Error::&lt;Block&gt;::FetchEpoch(parent_hash))<span class="question-mark">?</span>;
-<a href=#2018 id=2018 data-nosnippet>2018</a>	<span class="kw">let </span>viable_epoch = epoch_changes
-<a href=#2019 id=2019 data-nosnippet>2019</a>		.viable_epoch(<span class="kw-2">&amp;</span>epoch_descriptor, |slot| Epoch::genesis(<span class="kw-2">&amp;</span>config, slot))
-<a href=#2020 id=2020 data-nosnippet>2020</a>		.ok_or(Error::&lt;Block&gt;::FetchEpoch(parent_hash))<span class="question-mark">?</span>;
-<a href=#2021 id=2021 data-nosnippet>2021</a>	<span class="prelude-val">Ok</span>((epoch_descriptor, viable_epoch.into_cloned()))
-<a href=#2022 id=2022 data-nosnippet>2022</a>}
+<a href=#1961 id=1961 data-nosnippet>1961</a>	<span class="kw">if </span>revert_up_to_number == Zero::zero() {
+<a href=#1962 id=1962 data-nosnippet>1962</a>		<span class="comment">// Special case, no epoch changes data were present on genesis.
+<a href=#1963 id=1963 data-nosnippet>1963</a>		</span><span class="kw-2">*</span>epoch_changes = EpochChangesFor::&lt;Block, Epoch&gt;::default();
+<a href=#1964 id=1964 data-nosnippet>1964</a>	} <span class="kw">else </span>{
+<a href=#1965 id=1965 data-nosnippet>1965</a>		epoch_changes.revert(descendent_query(<span class="kw-2">&amp;*</span>client), revert_up_to_hash, revert_up_to_number);
+<a href=#1966 id=1966 data-nosnippet>1966</a>	}
+<a href=#1967 id=1967 data-nosnippet>1967</a>
+<a href=#1968 id=1968 data-nosnippet>1968</a>	<span class="comment">// Remove block weights added after the revert point.
+<a href=#1969 id=1969 data-nosnippet>1969</a>
+<a href=#1970 id=1970 data-nosnippet>1970</a>	</span><span class="kw">let </span><span class="kw-2">mut </span>weight_keys = HashSet::with_capacity(revertible.saturated_into());
+<a href=#1971 id=1971 data-nosnippet>1971</a>
+<a href=#1972 id=1972 data-nosnippet>1972</a>	<span class="kw">let </span>leaves = backend.blockchain().leaves()<span class="question-mark">?</span>.into_iter().filter(|<span class="kw-2">&amp;</span>leaf| {
+<a href=#1973 id=1973 data-nosnippet>1973</a>		sp_blockchain::tree_route(<span class="kw-2">&amp;*</span>client, revert_up_to_hash, leaf)
+<a href=#1974 id=1974 data-nosnippet>1974</a>			.map(|route| route.retracted().is_empty())
+<a href=#1975 id=1975 data-nosnippet>1975</a>			.unwrap_or_default()
+<a href=#1976 id=1976 data-nosnippet>1976</a>	});
+<a href=#1977 id=1977 data-nosnippet>1977</a>
+<a href=#1978 id=1978 data-nosnippet>1978</a>	<span class="kw">for </span>leaf <span class="kw">in </span>leaves {
+<a href=#1979 id=1979 data-nosnippet>1979</a>		<span class="kw">let </span><span class="kw-2">mut </span>hash = leaf;
+<a href=#1980 id=1980 data-nosnippet>1980</a>		<span class="kw">loop </span>{
+<a href=#1981 id=1981 data-nosnippet>1981</a>			<span class="kw">let </span>meta = client.header_metadata(hash)<span class="question-mark">?</span>;
+<a href=#1982 id=1982 data-nosnippet>1982</a>			<span class="kw">if </span>meta.number &lt;= revert_up_to_number ||
+<a href=#1983 id=1983 data-nosnippet>1983</a>				!weight_keys.insert(aux_schema::block_weight_key(hash))
+<a href=#1984 id=1984 data-nosnippet>1984</a>			{
+<a href=#1985 id=1985 data-nosnippet>1985</a>				<span class="comment">// We've reached the revert point or an already processed branch, stop here.
+<a href=#1986 id=1986 data-nosnippet>1986</a>				</span><span class="kw">break</span>;
+<a href=#1987 id=1987 data-nosnippet>1987</a>			}
+<a href=#1988 id=1988 data-nosnippet>1988</a>			hash = meta.parent;
+<a href=#1989 id=1989 data-nosnippet>1989</a>		}
+<a href=#1990 id=1990 data-nosnippet>1990</a>	}
+<a href=#1991 id=1991 data-nosnippet>1991</a>
+<a href=#1992 id=1992 data-nosnippet>1992</a>	<span class="kw">let </span>weight_keys: Vec&lt;<span class="kw">_</span>&gt; = weight_keys.iter().map(|val| val.as_slice()).collect();
+<a href=#1993 id=1993 data-nosnippet>1993</a>
+<a href=#1994 id=1994 data-nosnippet>1994</a>	<span class="comment">// Write epoch changes and remove weights in one shot.
+<a href=#1995 id=1995 data-nosnippet>1995</a>	</span>aux_schema::write_epoch_changes::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>epoch_changes, |values| {
+<a href=#1996 id=1996 data-nosnippet>1996</a>		client.insert_aux(values, weight_keys.iter())
+<a href=#1997 id=1997 data-nosnippet>1997</a>	})
+<a href=#1998 id=1998 data-nosnippet>1998</a>}
+<a href=#1999 id=1999 data-nosnippet>1999</a>
+<a href=#2000 id=2000 data-nosnippet>2000</a><span class="kw">fn </span>query_epoch_changes&lt;Block, Client&gt;(
+<a href=#2001 id=2001 data-nosnippet>2001</a>	epoch_changes: <span class="kw-2">&amp;</span>SharedEpochChanges&lt;Block, Epoch&gt;,
+<a href=#2002 id=2002 data-nosnippet>2002</a>	client: <span class="kw-2">&amp;</span>Client,
+<a href=#2003 id=2003 data-nosnippet>2003</a>	config: <span class="kw-2">&amp;</span>BabeConfiguration,
+<a href=#2004 id=2004 data-nosnippet>2004</a>	block_number: NumberFor&lt;Block&gt;,
+<a href=#2005 id=2005 data-nosnippet>2005</a>	slot: Slot,
+<a href=#2006 id=2006 data-nosnippet>2006</a>	parent_hash: Block::Hash,
+<a href=#2007 id=2007 data-nosnippet>2007</a>) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#2008 id=2008 data-nosnippet>2008</a>	(ViableEpochDescriptor&lt;Block::Hash, NumberFor&lt;Block&gt;, Epoch&gt;, ViableEpoch&lt;Epoch&gt;),
+<a href=#2009 id=2009 data-nosnippet>2009</a>	Error&lt;Block&gt;,
+<a href=#2010 id=2010 data-nosnippet>2010</a>&gt;
+<a href=#2011 id=2011 data-nosnippet>2011</a><span class="kw">where
+<a href=#2012 id=2012 data-nosnippet>2012</a>	</span>Block: BlockT,
+<a href=#2013 id=2013 data-nosnippet>2013</a>	Client: HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;,
+<a href=#2014 id=2014 data-nosnippet>2014</a>{
+<a href=#2015 id=2015 data-nosnippet>2015</a>	<span class="kw">let </span>epoch_changes = epoch_changes.shared_data();
+<a href=#2016 id=2016 data-nosnippet>2016</a>	<span class="kw">let </span>epoch_descriptor = epoch_changes
+<a href=#2017 id=2017 data-nosnippet>2017</a>		.epoch_descriptor_for_child_of(
+<a href=#2018 id=2018 data-nosnippet>2018</a>			descendent_query(client),
+<a href=#2019 id=2019 data-nosnippet>2019</a>			<span class="kw-2">&amp;</span>parent_hash,
+<a href=#2020 id=2020 data-nosnippet>2020</a>			block_number - <span class="number">1u32</span>.into(),
+<a href=#2021 id=2021 data-nosnippet>2021</a>			slot,
+<a href=#2022 id=2022 data-nosnippet>2022</a>		)
+<a href=#2023 id=2023 data-nosnippet>2023</a>		.map_err(|e| Error::&lt;Block&gt;::ForkTree(Box::new(e)))<span class="question-mark">?
+<a href=#2024 id=2024 data-nosnippet>2024</a>		</span>.ok_or(Error::&lt;Block&gt;::FetchEpoch(parent_hash))<span class="question-mark">?</span>;
+<a href=#2025 id=2025 data-nosnippet>2025</a>	<span class="kw">let </span>viable_epoch = epoch_changes
+<a href=#2026 id=2026 data-nosnippet>2026</a>		.viable_epoch(<span class="kw-2">&amp;</span>epoch_descriptor, |slot| Epoch::genesis(<span class="kw-2">&amp;</span>config, slot))
+<a href=#2027 id=2027 data-nosnippet>2027</a>		.ok_or(Error::&lt;Block&gt;::FetchEpoch(parent_hash))<span class="question-mark">?</span>;
+<a href=#2028 id=2028 data-nosnippet>2028</a>	<span class="prelude-val">Ok</span>((epoch_descriptor, viable_epoch.into_cloned()))
+<a href=#2029 id=2029 data-nosnippet>2029</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

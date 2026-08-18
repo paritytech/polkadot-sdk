@@ -965,7 +965,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#815 id=815 data-nosnippet>815</a>	///
 <a href=#816 id=816 data-nosnippet>816</a>	/// If `enacts_change` is set to true, then finalizing this block *must*
 <a href=#817 id=817 data-nosnippet>817</a>	/// enact an authority set change, the function will panic otherwise.
-<a href=#818 id=818 data-nosnippet>818</a>	</span><span class="kw">fn </span>import_justification(
+<a href=#818 id=818 data-nosnippet>818</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>import_justification(
 <a href=#819 id=819 data-nosnippet>819</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#820 id=820 data-nosnippet>820</a>		hash: Block::Hash,
 <a href=#821 id=821 data-nosnippet>821</a>		number: NumberFor&lt;Block&gt;,
@@ -982,73 +982,77 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#832 id=832 data-nosnippet>832</a>			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
 <a href=#833 id=833 data-nosnippet>833</a>		}
 <a href=#834 id=834 data-nosnippet>834</a>
-<a href=#835 id=835 data-nosnippet>835</a>		<span class="kw">let </span>justification = GrandpaJustification::decode_and_verify_finalizes(
-<a href=#836 id=836 data-nosnippet>836</a>			<span class="kw-2">&amp;</span>justification.<span class="number">1</span>,
-<a href=#837 id=837 data-nosnippet>837</a>			(hash, number),
-<a href=#838 id=838 data-nosnippet>838</a>			<span class="self">self</span>.authority_set.set_id(),
-<a href=#839 id=839 data-nosnippet>839</a>			<span class="kw-2">&amp;</span><span class="self">self</span>.authority_set.current_authorities(),
-<a href=#840 id=840 data-nosnippet>840</a>		);
+<a href=#835 id=835 data-nosnippet>835</a>		<span class="comment">// Decode without holding the authority-set lock; verification must happen
+<a href=#836 id=836 data-nosnippet>836</a>		// under the lock so it is atomic with the finalization below.
+<a href=#837 id=837 data-nosnippet>837</a>		</span><span class="kw">let </span>justification = GrandpaJustification::decode(<span class="kw-2">&amp;</span>justification.<span class="number">1</span>)
+<a href=#838 id=838 data-nosnippet>838</a>			.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?</span>;
+<a href=#839 id=839 data-nosnippet>839</a>
+<a href=#840 id=840 data-nosnippet>840</a>		<span class="kw">let </span>authority_set = <span class="self">self</span>.authority_set.inner();
 <a href=#841 id=841 data-nosnippet>841</a>
-<a href=#842 id=842 data-nosnippet>842</a>		<span class="kw">let </span>justification = <span class="kw">match </span>justification {
-<a href=#843 id=843 data-nosnippet>843</a>			<span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#844 id=844 data-nosnippet>844</a>				<span class="kw">return match </span>e {
-<a href=#845 id=845 data-nosnippet>845</a>					sp_blockchain::Error::OutdatedJustification =&gt; {
-<a href=#846 id=846 data-nosnippet>846</a>						<span class="prelude-val">Err</span>(ConsensusError::OutdatedJustification)
-<a href=#847 id=847 data-nosnippet>847</a>					},
-<a href=#848 id=848 data-nosnippet>848</a>					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ConsensusError::ClientImport(e.to_string())),
-<a href=#849 id=849 data-nosnippet>849</a>				};
-<a href=#850 id=850 data-nosnippet>850</a>			},
-<a href=#851 id=851 data-nosnippet>851</a>			<span class="prelude-val">Ok</span>(justification) =&gt; justification,
-<a href=#852 id=852 data-nosnippet>852</a>		};
-<a href=#853 id=853 data-nosnippet>853</a>
-<a href=#854 id=854 data-nosnippet>854</a>		<span class="kw">let </span>result = environment::finalize_block(
-<a href=#855 id=855 data-nosnippet>855</a>			<span class="self">self</span>.inner.clone(),
-<a href=#856 id=856 data-nosnippet>856</a>			<span class="kw-2">&amp;</span><span class="self">self</span>.authority_set,
-<a href=#857 id=857 data-nosnippet>857</a>			<span class="prelude-val">None</span>,
-<a href=#858 id=858 data-nosnippet>858</a>			hash,
-<a href=#859 id=859 data-nosnippet>859</a>			number,
-<a href=#860 id=860 data-nosnippet>860</a>			justification.into(),
-<a href=#861 id=861 data-nosnippet>861</a>			initial_sync,
-<a href=#862 id=862 data-nosnippet>862</a>			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.justification_sender),
-<a href=#863 id=863 data-nosnippet>863</a>			<span class="self">self</span>.telemetry.clone(),
-<a href=#864 id=864 data-nosnippet>864</a>		);
-<a href=#865 id=865 data-nosnippet>865</a>
-<a href=#866 id=866 data-nosnippet>866</a>		<span class="kw">match </span>result {
-<a href=#867 id=867 data-nosnippet>867</a>			<span class="prelude-val">Err</span>(CommandOrError::VoterCommand(command)) =&gt; {
-<a href=#868 id=868 data-nosnippet>868</a>				<span class="macro">grandpa_log!</span>(
-<a href=#869 id=869 data-nosnippet>869</a>					initial_sync,
-<a href=#870 id=870 data-nosnippet>870</a>					<span class="string">"👴 Imported justification for block #{} that triggers \
-<a href=#871 id=871 data-nosnippet>871</a>					command {}, signaling voter."</span>,
-<a href=#872 id=872 data-nosnippet>872</a>					number,
-<a href=#873 id=873 data-nosnippet>873</a>					command,
-<a href=#874 id=874 data-nosnippet>874</a>				);
-<a href=#875 id=875 data-nosnippet>875</a>
-<a href=#876 id=876 data-nosnippet>876</a>				<span class="comment">// send the command to the voter
-<a href=#877 id=877 data-nosnippet>877</a>				</span><span class="kw">let _ </span>= <span class="self">self</span>.send_voter_commands.unbounded_send(command);
-<a href=#878 id=878 data-nosnippet>878</a>			},
-<a href=#879 id=879 data-nosnippet>879</a>			<span class="prelude-val">Err</span>(CommandOrError::Error(e)) =&gt; {
-<a href=#880 id=880 data-nosnippet>880</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">match </span>e {
-<a href=#881 id=881 data-nosnippet>881</a>					Error::Grandpa(error) =&gt; ConsensusError::ClientImport(error.to_string()),
-<a href=#882 id=882 data-nosnippet>882</a>					Error::Network(error) =&gt; ConsensusError::ClientImport(error),
-<a href=#883 id=883 data-nosnippet>883</a>					Error::Blockchain(error) =&gt; ConsensusError::ClientImport(error),
-<a href=#884 id=884 data-nosnippet>884</a>					Error::Client(error) =&gt; ConsensusError::ClientImport(error.to_string()),
-<a href=#885 id=885 data-nosnippet>885</a>					Error::Safety(error) =&gt; ConsensusError::ClientImport(error),
-<a href=#886 id=886 data-nosnippet>886</a>					Error::Signing(error) =&gt; ConsensusError::ClientImport(error),
-<a href=#887 id=887 data-nosnippet>887</a>					Error::Timer(error) =&gt; ConsensusError::ClientImport(error.to_string()),
-<a href=#888 id=888 data-nosnippet>888</a>					Error::RuntimeApi(error) =&gt; ConsensusError::ClientImport(error.to_string()),
-<a href=#889 id=889 data-nosnippet>889</a>				})
-<a href=#890 id=890 data-nosnippet>890</a>			},
-<a href=#891 id=891 data-nosnippet>891</a>			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-<a href=#892 id=892 data-nosnippet>892</a>				<span class="macro">assert!</span>(
-<a href=#893 id=893 data-nosnippet>893</a>					!enacts_change,
-<a href=#894 id=894 data-nosnippet>894</a>					<span class="string">"returns Ok when no authority set change should be enacted; qed;"
-<a href=#895 id=895 data-nosnippet>895</a>				</span>);
-<a href=#896 id=896 data-nosnippet>896</a>			},
-<a href=#897 id=897 data-nosnippet>897</a>		}
-<a href=#898 id=898 data-nosnippet>898</a>
-<a href=#899 id=899 data-nosnippet>899</a>		<span class="prelude-val">Ok</span>(())
-<a href=#900 id=900 data-nosnippet>900</a>	}
-<a href=#901 id=901 data-nosnippet>901</a>}
+<a href=#842 id=842 data-nosnippet>842</a>		justification
+<a href=#843 id=843 data-nosnippet>843</a>			.verify_finalizes(
+<a href=#844 id=844 data-nosnippet>844</a>				(hash, number),
+<a href=#845 id=845 data-nosnippet>845</a>				authority_set.set_id,
+<a href=#846 id=846 data-nosnippet>846</a>				<span class="kw-2">&amp;</span>authority_set.current_voter_set(),
+<a href=#847 id=847 data-nosnippet>847</a>			)
+<a href=#848 id=848 data-nosnippet>848</a>			.map_err(|e| <span class="kw">match </span>e {
+<a href=#849 id=849 data-nosnippet>849</a>				sp_blockchain::Error::OutdatedJustification =&gt; {
+<a href=#850 id=850 data-nosnippet>850</a>					ConsensusError::OutdatedJustification
+<a href=#851 id=851 data-nosnippet>851</a>				},
+<a href=#852 id=852 data-nosnippet>852</a>				<span class="kw">_ </span>=&gt; ConsensusError::ClientImport(e.to_string()),
+<a href=#853 id=853 data-nosnippet>853</a>			})<span class="question-mark">?</span>;
+<a href=#854 id=854 data-nosnippet>854</a>
+<a href=#855 id=855 data-nosnippet>855</a>		<span class="kw">let </span>result = environment::finalize_block(
+<a href=#856 id=856 data-nosnippet>856</a>			<span class="self">self</span>.inner.clone(),
+<a href=#857 id=857 data-nosnippet>857</a>			authority_set,
+<a href=#858 id=858 data-nosnippet>858</a>			<span class="prelude-val">None</span>,
+<a href=#859 id=859 data-nosnippet>859</a>			hash,
+<a href=#860 id=860 data-nosnippet>860</a>			number,
+<a href=#861 id=861 data-nosnippet>861</a>			justification.into(),
+<a href=#862 id=862 data-nosnippet>862</a>			initial_sync,
+<a href=#863 id=863 data-nosnippet>863</a>			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.justification_sender),
+<a href=#864 id=864 data-nosnippet>864</a>			<span class="self">self</span>.telemetry.clone(),
+<a href=#865 id=865 data-nosnippet>865</a>		);
+<a href=#866 id=866 data-nosnippet>866</a>
+<a href=#867 id=867 data-nosnippet>867</a>		<span class="kw">match </span>result {
+<a href=#868 id=868 data-nosnippet>868</a>			<span class="prelude-val">Err</span>(CommandOrError::VoterCommand(command)) =&gt; {
+<a href=#869 id=869 data-nosnippet>869</a>				<span class="macro">grandpa_log!</span>(
+<a href=#870 id=870 data-nosnippet>870</a>					initial_sync,
+<a href=#871 id=871 data-nosnippet>871</a>					<span class="string">"👴 Imported justification for block #{} that triggers \
+<a href=#872 id=872 data-nosnippet>872</a>					command {}, signaling voter."</span>,
+<a href=#873 id=873 data-nosnippet>873</a>					number,
+<a href=#874 id=874 data-nosnippet>874</a>					command,
+<a href=#875 id=875 data-nosnippet>875</a>				);
+<a href=#876 id=876 data-nosnippet>876</a>
+<a href=#877 id=877 data-nosnippet>877</a>				<span class="comment">// send the command to the voter
+<a href=#878 id=878 data-nosnippet>878</a>				</span><span class="kw">let _ </span>= <span class="self">self</span>.send_voter_commands.unbounded_send(command);
+<a href=#879 id=879 data-nosnippet>879</a>			},
+<a href=#880 id=880 data-nosnippet>880</a>			<span class="prelude-val">Err</span>(CommandOrError::Error(e)) =&gt; {
+<a href=#881 id=881 data-nosnippet>881</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">match </span>e {
+<a href=#882 id=882 data-nosnippet>882</a>					Error::Grandpa(error) =&gt; ConsensusError::ClientImport(error.to_string()),
+<a href=#883 id=883 data-nosnippet>883</a>					Error::Network(error) =&gt; ConsensusError::ClientImport(error),
+<a href=#884 id=884 data-nosnippet>884</a>					Error::Blockchain(error) =&gt; ConsensusError::ClientImport(error),
+<a href=#885 id=885 data-nosnippet>885</a>					Error::Client(error) =&gt; ConsensusError::ClientImport(error.to_string()),
+<a href=#886 id=886 data-nosnippet>886</a>					Error::Safety(error) =&gt; ConsensusError::ClientImport(error),
+<a href=#887 id=887 data-nosnippet>887</a>					Error::Signing(error) =&gt; ConsensusError::ClientImport(error),
+<a href=#888 id=888 data-nosnippet>888</a>					Error::Timer(error) =&gt; ConsensusError::ClientImport(error.to_string()),
+<a href=#889 id=889 data-nosnippet>889</a>					Error::RuntimeApi(error) =&gt; ConsensusError::ClientImport(error.to_string()),
+<a href=#890 id=890 data-nosnippet>890</a>				})
+<a href=#891 id=891 data-nosnippet>891</a>			},
+<a href=#892 id=892 data-nosnippet>892</a>			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+<a href=#893 id=893 data-nosnippet>893</a>				<span class="comment">// Verification above and finalization below share the same authority-set
+<a href=#894 id=894 data-nosnippet>894</a>				// lock, so a competing finalizer cannot advance the set in between.
+<a href=#895 id=895 data-nosnippet>895</a>				// Reaching this arm with `enacts_change` set would be a genuine bug.
+<a href=#896 id=896 data-nosnippet>896</a>				</span><span class="macro">assert!</span>(
+<a href=#897 id=897 data-nosnippet>897</a>					!enacts_change,
+<a href=#898 id=898 data-nosnippet>898</a>					<span class="string">"returns Ok when no authority set change should be enacted; qed;"
+<a href=#899 id=899 data-nosnippet>899</a>				</span>);
+<a href=#900 id=900 data-nosnippet>900</a>			},
+<a href=#901 id=901 data-nosnippet>901</a>		}
+<a href=#902 id=902 data-nosnippet>902</a>
+<a href=#903 id=903 data-nosnippet>903</a>		<span class="prelude-val">Ok</span>(())
+<a href=#904 id=904 data-nosnippet>904</a>	}
+<a href=#905 id=905 data-nosnippet>905</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -1108,7 +1108,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#958 id=958 data-nosnippet>958</a>
 <a href=#959 id=959 data-nosnippet>959</a>			<span class="kw">let </span>deposit = maybe_depositor
 <a href=#960 id=960 data-nosnippet>960</a>				.map(|depositor| {
-<a href=#961 id=961 data-nosnippet>961</a>					T::Consideration::new(<span class="kw-2">&amp;</span>depositor, Footprint::from_parts(<span class="number">1</span>, <span class="number">0</span>))
+<a href=#961 id=961 data-nosnippet>961</a>					T::Consideration::new(<span class="kw-2">&amp;</span>depositor, <span class="self">Self</span>::psm_creation_footprint())
 <a href=#962 id=962 data-nosnippet>962</a>						.map(|ticket| (depositor, ticket))
 <a href=#963 id=963 data-nosnippet>963</a>				})
 <a href=#964 id=964 data-nosnippet>964</a>				.transpose()<span class="question-mark">?</span>;
@@ -1656,243 +1656,259 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1506 id=1506 data-nosnippet>1506</a>				.expect(<span class="string">"All byte sequences are valid `AccountId`s; qed"</span>)
 <a href=#1507 id=1507 data-nosnippet>1507</a>		}
 <a href=#1508 id=1508 data-nosnippet>1508</a>
-<a href=#1509 id=1509 data-nosnippet>1509</a>		<span class="doccomment">/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns
-<a href=#1510 id=1510 data-nosnippet>1510</a>		/// zero if no PSM is installed for `internal_asset`.
-<a href=#1511 id=1511 data-nosnippet>1511</a>		</span><span class="attr">#[cfg(test)]
-<a href=#1512 id=1512 data-nosnippet>1512</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>max_psm_debt(internal_asset: <span class="kw-2">&amp;</span>T::AssetId) -&gt; BalanceOf&lt;T&gt; {
-<a href=#1513 id=1513 data-nosnippet>1513</a>			Psm::&lt;T&gt;::get(internal_asset).map(|p| p.max_debt).unwrap_or_default()
-<a href=#1514 id=1514 data-nosnippet>1514</a>		}
-<a href=#1515 id=1515 data-nosnippet>1515</a>
-<a href=#1516 id=1516 data-nosnippet>1516</a>		<span class="doccomment">/// Calculate max debt for a specific external on a PSM.
-<a href=#1517 id=1517 data-nosnippet>1517</a>		///
-<a href=#1518 id=1518 data-nosnippet>1518</a>		/// Weights are normalised against the sum of weights within the same instance to
-<a href=#1519 id=1519 data-nosnippet>1519</a>		/// fill the instance's `max_debt` ceiling. Returns zero if the external has no
-<a href=#1520 id=1520 data-nosnippet>1520</a>		/// configured weight or weights sum to zero.
-<a href=#1521 id=1521 data-nosnippet>1521</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>max_asset_debt(
-<a href=#1522 id=1522 data-nosnippet>1522</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1523 id=1523 data-nosnippet>1523</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1524 id=1524 data-nosnippet>1524</a>			info: <span class="kw-2">&amp;</span>PsmInfo&lt;T&gt;,
-<a href=#1525 id=1525 data-nosnippet>1525</a>		) -&gt; BalanceOf&lt;T&gt; {
-<a href=#1526 id=1526 data-nosnippet>1526</a>			<span class="kw">let </span>asset_weight = AssetCeilingWeight::&lt;T&gt;::get(internal_asset, external_asset);
-<a href=#1527 id=1527 data-nosnippet>1527</a>			<span class="kw">let </span>total_weight = <span class="self">Self</span>::total_ceiling_weight(internal_asset);
-<a href=#1528 id=1528 data-nosnippet>1528</a>			<span class="self">Self</span>::normalised_ceiling(asset_weight, total_weight, info.max_debt)
-<a href=#1529 id=1529 data-nosnippet>1529</a>		}
-<a href=#1530 id=1530 data-nosnippet>1530</a>
-<a href=#1531 id=1531 data-nosnippet>1531</a>		<span class="doccomment">/// Sum of the configured ceiling weights across a PSM's approved externals.
-<a href=#1532 id=1532 data-nosnippet>1532</a>		</span><span class="kw">fn </span>total_ceiling_weight(internal_asset: <span class="kw-2">&amp;</span>T::AssetId) -&gt; u32 {
-<a href=#1533 id=1533 data-nosnippet>1533</a>			AssetCeilingWeight::&lt;T&gt;::iter_prefix(internal_asset)
-<a href=#1534 id=1534 data-nosnippet>1534</a>				.map(|(<span class="kw">_</span>, w)| w.deconstruct())
-<a href=#1535 id=1535 data-nosnippet>1535</a>				.fold(<span class="number">0u32</span>, |acc, x| acc.saturating_add(x))
-<a href=#1536 id=1536 data-nosnippet>1536</a>		}
-<a href=#1537 id=1537 data-nosnippet>1537</a>
-<a href=#1538 id=1538 data-nosnippet>1538</a>		<span class="doccomment">/// A single external's normalised debt ceiling: its share of the total weight applied
-<a href=#1539 id=1539 data-nosnippet>1539</a>		/// to `max_debt`. Zero if the external (or the PSM as a whole) carries no weight.
-<a href=#1540 id=1540 data-nosnippet>1540</a>		</span><span class="kw">fn </span>normalised_ceiling(
-<a href=#1541 id=1541 data-nosnippet>1541</a>			asset_weight: Permill,
-<a href=#1542 id=1542 data-nosnippet>1542</a>			total_weight: u32,
-<a href=#1543 id=1543 data-nosnippet>1543</a>			max_debt: BalanceOf&lt;T&gt;,
-<a href=#1544 id=1544 data-nosnippet>1544</a>		) -&gt; BalanceOf&lt;T&gt; {
-<a href=#1545 id=1545 data-nosnippet>1545</a>			<span class="kw">let </span>weight = asset_weight.deconstruct();
-<a href=#1546 id=1546 data-nosnippet>1546</a>			<span class="kw">if </span>weight == <span class="number">0 </span>|| total_weight == <span class="number">0 </span>{
-<a href=#1547 id=1547 data-nosnippet>1547</a>				<span class="kw">return </span>BalanceOf::&lt;T&gt;::zero();
-<a href=#1548 id=1548 data-nosnippet>1548</a>			}
-<a href=#1549 id=1549 data-nosnippet>1549</a>			Perbill::from_rational(weight, total_weight).mul_floor(max_debt)
-<a href=#1550 id=1550 data-nosnippet>1550</a>		}
-<a href=#1551 id=1551 data-nosnippet>1551</a>
-<a href=#1552 id=1552 data-nosnippet>1552</a>		<span class="doccomment">/// Total internal-asset debt minted through a PSM instance.
-<a href=#1553 id=1553 data-nosnippet>1553</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>total_psm_debt(internal_asset: <span class="kw-2">&amp;</span>T::AssetId) -&gt; BalanceOf&lt;T&gt; {
-<a href=#1554 id=1554 data-nosnippet>1554</a>			PsmDebt::&lt;T&gt;::iter_prefix_values(internal_asset)
-<a href=#1555 id=1555 data-nosnippet>1555</a>				.fold(BalanceOf::&lt;T&gt;::zero(), |acc, debt| acc.saturating_add(debt))
-<a href=#1556 id=1556 data-nosnippet>1556</a>		}
-<a href=#1557 id=1557 data-nosnippet>1557</a>
-<a href=#1558 id=1558 data-nosnippet>1558</a>		<span class="doccomment">/// Whether an external is approved on a PSM instance.
-<a href=#1559 id=1559 data-nosnippet>1559</a>		</span><span class="attr">#[cfg(test)]
-<a href=#1560 id=1560 data-nosnippet>1560</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_approved_asset(
-<a href=#1561 id=1561 data-nosnippet>1561</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1562 id=1562 data-nosnippet>1562</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1563 id=1563 data-nosnippet>1563</a>		) -&gt; bool {
-<a href=#1564 id=1564 data-nosnippet>1564</a>			ExternalAssets::&lt;T&gt;::contains_key(internal_asset, external_asset)
-<a href=#1565 id=1565 data-nosnippet>1565</a>		}
-<a href=#1566 id=1566 data-nosnippet>1566</a>
-<a href=#1567 id=1567 data-nosnippet>1567</a>		<span class="doccomment">/// Balance of an external held by a PSM instance's reserve account.
-<a href=#1568 id=1568 data-nosnippet>1568</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_reserve(
-<a href=#1569 id=1569 data-nosnippet>1569</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1570 id=1570 data-nosnippet>1570</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1571 id=1571 data-nosnippet>1571</a>		) -&gt; BalanceOf&lt;T&gt; {
-<a href=#1572 id=1572 data-nosnippet>1572</a>			T::Fungibles::balance(external_asset.clone(), <span class="kw-2">&amp;</span><span class="self">Self</span>::psm_account(internal_asset))
-<a href=#1573 id=1573 data-nosnippet>1573</a>		}
-<a href=#1574 id=1574 data-nosnippet>1574</a>
-<a href=#1575 id=1575 data-nosnippet>1575</a>		<span class="doccomment">/// Convert an amount denominated in external-asset units into internal units.
-<a href=#1576 id=1576 data-nosnippet>1576</a>		///
-<a href=#1577 id=1577 data-nosnippet>1577</a>		/// Scales by `10^(ext_decimals - internal_decimals)` — multiplies up when internal has more
-<a href=#1578 id=1578 data-nosnippet>1578</a>		/// decimals, floor-divides when it has fewer. Returns [`Error::ConversionOverflow`] if
-<a href=#1579 id=1579 data-nosnippet>1579</a>		/// the scaling factor or the product does not fit in the balance type.
-<a href=#1580 id=1580 data-nosnippet>1580</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>external_to_internal(
-<a href=#1581 id=1581 data-nosnippet>1581</a>			amount: BalanceOf&lt;T&gt;,
-<a href=#1582 id=1582 data-nosnippet>1582</a>			ext_decimals: u8,
-<a href=#1583 id=1583 data-nosnippet>1583</a>			internal_decimals: u8,
-<a href=#1584 id=1584 data-nosnippet>1584</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, Error&lt;T&gt;&gt; {
-<a href=#1585 id=1585 data-nosnippet>1585</a>			<span class="kw">use </span>core::cmp::Ordering::<span class="kw-2">*</span>;
-<a href=#1586 id=1586 data-nosnippet>1586</a>			<span class="kw">match </span>ext_decimals.cmp(<span class="kw-2">&amp;</span>internal_decimals) {
-<a href=#1587 id=1587 data-nosnippet>1587</a>				Equal =&gt; <span class="prelude-val">Ok</span>(amount),
-<a href=#1588 id=1588 data-nosnippet>1588</a>				Less =&gt; {
-<a href=#1589 id=1589 data-nosnippet>1589</a>					<span class="kw">let </span>diff = (internal_decimals - ext_decimals) <span class="kw">as </span>u32;
-<a href=#1590 id=1590 data-nosnippet>1590</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
-<a href=#1591 id=1591 data-nosnippet>1591</a>					amount.checked_mul(<span class="kw-2">&amp;</span>factor).ok_or(Error::&lt;T&gt;::ConversionOverflow)
-<a href=#1592 id=1592 data-nosnippet>1592</a>				},
-<a href=#1593 id=1593 data-nosnippet>1593</a>				Greater =&gt; {
-<a href=#1594 id=1594 data-nosnippet>1594</a>					<span class="kw">let </span>diff = (ext_decimals - internal_decimals) <span class="kw">as </span>u32;
-<a href=#1595 id=1595 data-nosnippet>1595</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
-<a href=#1596 id=1596 data-nosnippet>1596</a>					<span class="prelude-val">Ok</span>(amount.checked_div(<span class="kw-2">&amp;</span>factor).unwrap_or_else(BalanceOf::&lt;T&gt;::zero))
-<a href=#1597 id=1597 data-nosnippet>1597</a>				},
-<a href=#1598 id=1598 data-nosnippet>1598</a>			}
-<a href=#1599 id=1599 data-nosnippet>1599</a>		}
-<a href=#1600 id=1600 data-nosnippet>1600</a>
-<a href=#1601 id=1601 data-nosnippet>1601</a>		<span class="doccomment">/// Convert an amount denominated in internal units into external-asset units.
-<a href=#1602 id=1602 data-nosnippet>1602</a>		///
-<a href=#1603 id=1603 data-nosnippet>1603</a>		/// Inverse of [`Self::external_to_internal`]. Floor-divides when internal has more
-<a href=#1604 id=1604 data-nosnippet>1604</a>		/// decimals, multiplies up when it has fewer.
-<a href=#1605 id=1605 data-nosnippet>1605</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>internal_to_external(
-<a href=#1606 id=1606 data-nosnippet>1606</a>			amount: BalanceOf&lt;T&gt;,
-<a href=#1607 id=1607 data-nosnippet>1607</a>			ext_decimals: u8,
-<a href=#1608 id=1608 data-nosnippet>1608</a>			internal_decimals: u8,
-<a href=#1609 id=1609 data-nosnippet>1609</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, Error&lt;T&gt;&gt; {
-<a href=#1610 id=1610 data-nosnippet>1610</a>			<span class="kw">use </span>core::cmp::Ordering::<span class="kw-2">*</span>;
-<a href=#1611 id=1611 data-nosnippet>1611</a>			<span class="kw">match </span>ext_decimals.cmp(<span class="kw-2">&amp;</span>internal_decimals) {
-<a href=#1612 id=1612 data-nosnippet>1612</a>				Equal =&gt; <span class="prelude-val">Ok</span>(amount),
-<a href=#1613 id=1613 data-nosnippet>1613</a>				Less =&gt; {
-<a href=#1614 id=1614 data-nosnippet>1614</a>					<span class="kw">let </span>diff = (internal_decimals - ext_decimals) <span class="kw">as </span>u32;
-<a href=#1615 id=1615 data-nosnippet>1615</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
-<a href=#1616 id=1616 data-nosnippet>1616</a>					<span class="prelude-val">Ok</span>(amount.checked_div(<span class="kw-2">&amp;</span>factor).unwrap_or_else(BalanceOf::&lt;T&gt;::zero))
-<a href=#1617 id=1617 data-nosnippet>1617</a>				},
-<a href=#1618 id=1618 data-nosnippet>1618</a>				Greater =&gt; {
-<a href=#1619 id=1619 data-nosnippet>1619</a>					<span class="kw">let </span>diff = (ext_decimals - internal_decimals) <span class="kw">as </span>u32;
-<a href=#1620 id=1620 data-nosnippet>1620</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
-<a href=#1621 id=1621 data-nosnippet>1621</a>					amount.checked_mul(<span class="kw-2">&amp;</span>factor).ok_or(Error::&lt;T&gt;::ConversionOverflow)
-<a href=#1622 id=1622 data-nosnippet>1622</a>				},
-<a href=#1623 id=1623 data-nosnippet>1623</a>			}
-<a href=#1624 id=1624 data-nosnippet>1624</a>		}
-<a href=#1625 id=1625 data-nosnippet>1625</a>
-<a href=#1626 id=1626 data-nosnippet>1626</a>		<span class="doccomment">/// Compute `10^exp` as a [`BalanceOf`]. Returns [`Error::ConversionOverflow`] if the result
-<a href=#1627 id=1627 data-nosnippet>1627</a>		/// does not fit in `u128` or in `BalanceOf&lt;T&gt;`.
-<a href=#1628 id=1628 data-nosnippet>1628</a>		</span><span class="kw">fn </span>pow10(exp: u32) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, Error&lt;T&gt;&gt; {
-<a href=#1629 id=1629 data-nosnippet>1629</a>			<span class="kw">let </span>factor_u128 = <span class="number">10u128</span>.checked_pow(exp).ok_or(Error::&lt;T&gt;::ConversionOverflow)<span class="question-mark">?</span>;
-<a href=#1630 id=1630 data-nosnippet>1630</a>			factor_u128.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ConversionOverflow)
-<a href=#1631 id=1631 data-nosnippet>1631</a>		}
-<a href=#1632 id=1632 data-nosnippet>1632</a>
-<a href=#1633 id=1633 data-nosnippet>1633</a>		<span class="doccomment">/// Verify the live decimals for an external still match the snapshot taken at
-<a href=#1634 id=1634 data-nosnippet>1634</a>		/// registration on this PSM, and that the internal asset's live decimals still
-<a href=#1635 id=1635 data-nosnippet>1635</a>		/// match the snapshot stored in [`PsmInfo`].
-<a href=#1636 id=1636 data-nosnippet>1636</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_decimals_match(
-<a href=#1637 id=1637 data-nosnippet>1637</a>			info: <span class="kw-2">&amp;</span>PsmInfo&lt;T&gt;,
-<a href=#1638 id=1638 data-nosnippet>1638</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1639 id=1639 data-nosnippet>1639</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1640 id=1640 data-nosnippet>1640</a>			external: <span class="kw-2">&amp;</span>ExternalAssetInfo,
-<a href=#1641 id=1641 data-nosnippet>1641</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(u8, u8), DispatchError&gt; {
-<a href=#1642 id=1642 data-nosnippet>1642</a>			<span class="macro">ensure!</span>(
-<a href=#1643 id=1643 data-nosnippet>1643</a>				T::Fungibles::decimals(external_asset.clone()) == external.decimals,
-<a href=#1644 id=1644 data-nosnippet>1644</a>				Error::&lt;T&gt;::DecimalsMismatch
-<a href=#1645 id=1645 data-nosnippet>1645</a>			);
-<a href=#1646 id=1646 data-nosnippet>1646</a>			<span class="macro">ensure!</span>(
-<a href=#1647 id=1647 data-nosnippet>1647</a>				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-<a href=#1648 id=1648 data-nosnippet>1648</a>				Error::&lt;T&gt;::DecimalsMismatch
-<a href=#1649 id=1649 data-nosnippet>1649</a>			);
-<a href=#1650 id=1650 data-nosnippet>1650</a>			<span class="prelude-val">Ok</span>((external.decimals, info.internal_decimals))
-<a href=#1651 id=1651 data-nosnippet>1651</a>		}
-<a href=#1652 id=1652 data-nosnippet>1652</a>
-<a href=#1653 id=1653 data-nosnippet>1653</a>		<span class="doccomment">/// Authorise an operation on the PSM keyed by `internal_asset`.
-<a href=#1654 id=1654 data-nosnippet>1654</a>		///
-<a href=#1655 id=1655 data-nosnippet>1655</a>		/// Matches the incoming origin's caller against the PSM's stored
-<a href=#1656 id=1656 data-nosnippet>1656</a>		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
-<a href=#1657 id=1657 data-nosnippet>1657</a>		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
-<a href=#1658 id=1658 data-nosnippet>1658</a>		/// other authority can manage a PSM.
-<a href=#1659 id=1659 data-nosnippet>1659</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_psm_admin(
-<a href=#1660 id=1660 data-nosnippet>1660</a>			origin: OriginFor&lt;T&gt;,
-<a href=#1661 id=1661 data-nosnippet>1661</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
-<a href=#1662 id=1662 data-nosnippet>1662</a>			required: <span class="kw">impl </span>Fn(PsmManagerLevel) -&gt; bool,
-<a href=#1663 id=1663 data-nosnippet>1663</a>		) -&gt; DispatchResult {
-<a href=#1664 id=1664 data-nosnippet>1664</a>			<span class="kw">let </span>admin = PsmAdmin::&lt;T&gt;::get(internal_asset).ok_or(Error::&lt;T&gt;::PsmNotFound)<span class="question-mark">?</span>;
-<a href=#1665 id=1665 data-nosnippet>1665</a>			<span class="kw">let </span>caller = &lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin::from(origin).into_caller();
-<a href=#1666 id=1666 data-nosnippet>1666</a>			<span class="kw">let </span>level = <span class="kw">if </span>caller == admin.full_admin {
-<a href=#1667 id=1667 data-nosnippet>1667</a>				PsmManagerLevel::Full
-<a href=#1668 id=1668 data-nosnippet>1668</a>			} <span class="kw">else if </span>caller == admin.emergency_admin {
-<a href=#1669 id=1669 data-nosnippet>1669</a>				PsmManagerLevel::Emergency
-<a href=#1670 id=1670 data-nosnippet>1670</a>			} <span class="kw">else </span>{
-<a href=#1671 id=1671 data-nosnippet>1671</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(DispatchError::BadOrigin);
-<a href=#1672 id=1672 data-nosnippet>1672</a>			};
-<a href=#1673 id=1673 data-nosnippet>1673</a>			<span class="macro">ensure!</span>(required(level), Error::&lt;T&gt;::InsufficientPrivilege);
-<a href=#1674 id=1674 data-nosnippet>1674</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1675 id=1675 data-nosnippet>1675</a>		}
-<a href=#1676 id=1676 data-nosnippet>1676</a>
-<a href=#1677 id=1677 data-nosnippet>1677</a>		<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
-<a href=#1678 id=1678 data-nosnippet>1678</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-<a href=#1679 id=1679 data-nosnippet>1679</a>			<span class="kw">use </span>sp_runtime::traits::CheckedAdd;
-<a href=#1680 id=1680 data-nosnippet>1680</a>
-<a href=#1681 id=1681 data-nosnippet>1681</a>			<span class="kw">for </span>(internal_asset, info) <span class="kw">in </span>Psm::&lt;T&gt;::iter() {
-<a href=#1682 id=1682 data-nosnippet>1682</a>				<span class="comment">// 0. Every PSM has its paired admin record.
-<a href=#1683 id=1683 data-nosnippet>1683</a>				</span><span class="macro">ensure!</span>(
-<a href=#1684 id=1684 data-nosnippet>1684</a>					PsmAdmin::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
-<a href=#1685 id=1685 data-nosnippet>1685</a>					<span class="string">"PSM instance without a paired PsmAdmin record"
-<a href=#1686 id=1686 data-nosnippet>1686</a>				</span>);
-<a href=#1687 id=1687 data-nosnippet>1687</a>
-<a href=#1688 id=1688 data-nosnippet>1688</a>				<span class="kw">let </span><span class="kw-2">mut </span>counted = <span class="number">0u32</span>;
-<a href=#1689 id=1689 data-nosnippet>1689</a>				<span class="kw">for </span>(external_asset, external) <span class="kw">in </span>ExternalAssets::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>internal_asset)
-<a href=#1690 id=1690 data-nosnippet>1690</a>				{
-<a href=#1691 id=1691 data-nosnippet>1691</a>					counted = counted.saturating_add(<span class="number">1</span>);
+<a href=#1509 id=1509 data-nosnippet>1509</a>		<span class="doccomment">/// The footprint of a PSM instance as written by [`Pallet::create_psm`]: the [`Psm`]
+<a href=#1510 id=1510 data-nosnippet>1510</a>		/// and [`PsmAdmin`] entries, both keyed by the internal asset id.
+<a href=#1511 id=1511 data-nosnippet>1511</a>		///
+<a href=#1512 id=1512 data-nosnippet>1512</a>		/// Excludes per-external storage added later via [`Pallet::add_external_asset`];
+<a href=#1513 id=1513 data-nosnippet>1513</a>		/// externals are bounded by [`Config::MaxExternals`] and admin-gated rather than
+<a href=#1514 id=1514 data-nosnippet>1514</a>		/// deposit-backed.
+<a href=#1515 id=1515 data-nosnippet>1515</a>		</span><span class="kw">pub fn </span>psm_creation_footprint() -&gt; Footprint {
+<a href=#1516 id=1516 data-nosnippet>1516</a>			Footprint::from_parts(
+<a href=#1517 id=1517 data-nosnippet>1517</a>				<span class="number">2</span>,
+<a href=#1518 id=1518 data-nosnippet>1518</a>				T::AssetId::max_encoded_len()
+<a href=#1519 id=1519 data-nosnippet>1519</a>					.saturating_mul(<span class="number">2</span>)
+<a href=#1520 id=1520 data-nosnippet>1520</a>					.saturating_add(PsmInfo::&lt;T&gt;::max_encoded_len())
+<a href=#1521 id=1521 data-nosnippet>1521</a>					.saturating_add(PsmAdminInfo::&lt;T&gt;::max_encoded_len()),
+<a href=#1522 id=1522 data-nosnippet>1522</a>			)
+<a href=#1523 id=1523 data-nosnippet>1523</a>		}
+<a href=#1524 id=1524 data-nosnippet>1524</a>
+<a href=#1525 id=1525 data-nosnippet>1525</a>		<span class="doccomment">/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns
+<a href=#1526 id=1526 data-nosnippet>1526</a>		/// zero if no PSM is installed for `internal_asset`.
+<a href=#1527 id=1527 data-nosnippet>1527</a>		</span><span class="attr">#[cfg(test)]
+<a href=#1528 id=1528 data-nosnippet>1528</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>max_psm_debt(internal_asset: <span class="kw-2">&amp;</span>T::AssetId) -&gt; BalanceOf&lt;T&gt; {
+<a href=#1529 id=1529 data-nosnippet>1529</a>			Psm::&lt;T&gt;::get(internal_asset).map(|p| p.max_debt).unwrap_or_default()
+<a href=#1530 id=1530 data-nosnippet>1530</a>		}
+<a href=#1531 id=1531 data-nosnippet>1531</a>
+<a href=#1532 id=1532 data-nosnippet>1532</a>		<span class="doccomment">/// Calculate max debt for a specific external on a PSM.
+<a href=#1533 id=1533 data-nosnippet>1533</a>		///
+<a href=#1534 id=1534 data-nosnippet>1534</a>		/// Weights are normalised against the sum of weights within the same instance to
+<a href=#1535 id=1535 data-nosnippet>1535</a>		/// fill the instance's `max_debt` ceiling. Returns zero if the external has no
+<a href=#1536 id=1536 data-nosnippet>1536</a>		/// configured weight or weights sum to zero.
+<a href=#1537 id=1537 data-nosnippet>1537</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>max_asset_debt(
+<a href=#1538 id=1538 data-nosnippet>1538</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1539 id=1539 data-nosnippet>1539</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1540 id=1540 data-nosnippet>1540</a>			info: <span class="kw-2">&amp;</span>PsmInfo&lt;T&gt;,
+<a href=#1541 id=1541 data-nosnippet>1541</a>		) -&gt; BalanceOf&lt;T&gt; {
+<a href=#1542 id=1542 data-nosnippet>1542</a>			<span class="kw">let </span>asset_weight = AssetCeilingWeight::&lt;T&gt;::get(internal_asset, external_asset);
+<a href=#1543 id=1543 data-nosnippet>1543</a>			<span class="kw">let </span>total_weight = <span class="self">Self</span>::total_ceiling_weight(internal_asset);
+<a href=#1544 id=1544 data-nosnippet>1544</a>			<span class="self">Self</span>::normalised_ceiling(asset_weight, total_weight, info.max_debt)
+<a href=#1545 id=1545 data-nosnippet>1545</a>		}
+<a href=#1546 id=1546 data-nosnippet>1546</a>
+<a href=#1547 id=1547 data-nosnippet>1547</a>		<span class="doccomment">/// Sum of the configured ceiling weights across a PSM's approved externals.
+<a href=#1548 id=1548 data-nosnippet>1548</a>		</span><span class="kw">fn </span>total_ceiling_weight(internal_asset: <span class="kw-2">&amp;</span>T::AssetId) -&gt; u32 {
+<a href=#1549 id=1549 data-nosnippet>1549</a>			AssetCeilingWeight::&lt;T&gt;::iter_prefix(internal_asset)
+<a href=#1550 id=1550 data-nosnippet>1550</a>				.map(|(<span class="kw">_</span>, w)| w.deconstruct())
+<a href=#1551 id=1551 data-nosnippet>1551</a>				.fold(<span class="number">0u32</span>, |acc, x| acc.saturating_add(x))
+<a href=#1552 id=1552 data-nosnippet>1552</a>		}
+<a href=#1553 id=1553 data-nosnippet>1553</a>
+<a href=#1554 id=1554 data-nosnippet>1554</a>		<span class="doccomment">/// A single external's normalised debt ceiling: its share of the total weight applied
+<a href=#1555 id=1555 data-nosnippet>1555</a>		/// to `max_debt`. Zero if the external (or the PSM as a whole) carries no weight.
+<a href=#1556 id=1556 data-nosnippet>1556</a>		</span><span class="kw">fn </span>normalised_ceiling(
+<a href=#1557 id=1557 data-nosnippet>1557</a>			asset_weight: Permill,
+<a href=#1558 id=1558 data-nosnippet>1558</a>			total_weight: u32,
+<a href=#1559 id=1559 data-nosnippet>1559</a>			max_debt: BalanceOf&lt;T&gt;,
+<a href=#1560 id=1560 data-nosnippet>1560</a>		) -&gt; BalanceOf&lt;T&gt; {
+<a href=#1561 id=1561 data-nosnippet>1561</a>			<span class="kw">let </span>weight = asset_weight.deconstruct();
+<a href=#1562 id=1562 data-nosnippet>1562</a>			<span class="kw">if </span>weight == <span class="number">0 </span>|| total_weight == <span class="number">0 </span>{
+<a href=#1563 id=1563 data-nosnippet>1563</a>				<span class="kw">return </span>BalanceOf::&lt;T&gt;::zero();
+<a href=#1564 id=1564 data-nosnippet>1564</a>			}
+<a href=#1565 id=1565 data-nosnippet>1565</a>			Perbill::from_rational(weight, total_weight).mul_floor(max_debt)
+<a href=#1566 id=1566 data-nosnippet>1566</a>		}
+<a href=#1567 id=1567 data-nosnippet>1567</a>
+<a href=#1568 id=1568 data-nosnippet>1568</a>		<span class="doccomment">/// Total internal-asset debt minted through a PSM instance.
+<a href=#1569 id=1569 data-nosnippet>1569</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>total_psm_debt(internal_asset: <span class="kw-2">&amp;</span>T::AssetId) -&gt; BalanceOf&lt;T&gt; {
+<a href=#1570 id=1570 data-nosnippet>1570</a>			PsmDebt::&lt;T&gt;::iter_prefix_values(internal_asset)
+<a href=#1571 id=1571 data-nosnippet>1571</a>				.fold(BalanceOf::&lt;T&gt;::zero(), |acc, debt| acc.saturating_add(debt))
+<a href=#1572 id=1572 data-nosnippet>1572</a>		}
+<a href=#1573 id=1573 data-nosnippet>1573</a>
+<a href=#1574 id=1574 data-nosnippet>1574</a>		<span class="doccomment">/// Whether an external is approved on a PSM instance.
+<a href=#1575 id=1575 data-nosnippet>1575</a>		</span><span class="attr">#[cfg(test)]
+<a href=#1576 id=1576 data-nosnippet>1576</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_approved_asset(
+<a href=#1577 id=1577 data-nosnippet>1577</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1578 id=1578 data-nosnippet>1578</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1579 id=1579 data-nosnippet>1579</a>		) -&gt; bool {
+<a href=#1580 id=1580 data-nosnippet>1580</a>			ExternalAssets::&lt;T&gt;::contains_key(internal_asset, external_asset)
+<a href=#1581 id=1581 data-nosnippet>1581</a>		}
+<a href=#1582 id=1582 data-nosnippet>1582</a>
+<a href=#1583 id=1583 data-nosnippet>1583</a>		<span class="doccomment">/// Balance of an external held by a PSM instance's reserve account.
+<a href=#1584 id=1584 data-nosnippet>1584</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_reserve(
+<a href=#1585 id=1585 data-nosnippet>1585</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1586 id=1586 data-nosnippet>1586</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1587 id=1587 data-nosnippet>1587</a>		) -&gt; BalanceOf&lt;T&gt; {
+<a href=#1588 id=1588 data-nosnippet>1588</a>			T::Fungibles::balance(external_asset.clone(), <span class="kw-2">&amp;</span><span class="self">Self</span>::psm_account(internal_asset))
+<a href=#1589 id=1589 data-nosnippet>1589</a>		}
+<a href=#1590 id=1590 data-nosnippet>1590</a>
+<a href=#1591 id=1591 data-nosnippet>1591</a>		<span class="doccomment">/// Convert an amount denominated in external-asset units into internal units.
+<a href=#1592 id=1592 data-nosnippet>1592</a>		///
+<a href=#1593 id=1593 data-nosnippet>1593</a>		/// Scales by `10^(ext_decimals - internal_decimals)` — multiplies up when internal has more
+<a href=#1594 id=1594 data-nosnippet>1594</a>		/// decimals, floor-divides when it has fewer. Returns [`Error::ConversionOverflow`] if
+<a href=#1595 id=1595 data-nosnippet>1595</a>		/// the scaling factor or the product does not fit in the balance type.
+<a href=#1596 id=1596 data-nosnippet>1596</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>external_to_internal(
+<a href=#1597 id=1597 data-nosnippet>1597</a>			amount: BalanceOf&lt;T&gt;,
+<a href=#1598 id=1598 data-nosnippet>1598</a>			ext_decimals: u8,
+<a href=#1599 id=1599 data-nosnippet>1599</a>			internal_decimals: u8,
+<a href=#1600 id=1600 data-nosnippet>1600</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, Error&lt;T&gt;&gt; {
+<a href=#1601 id=1601 data-nosnippet>1601</a>			<span class="kw">use </span>core::cmp::Ordering::<span class="kw-2">*</span>;
+<a href=#1602 id=1602 data-nosnippet>1602</a>			<span class="kw">match </span>ext_decimals.cmp(<span class="kw-2">&amp;</span>internal_decimals) {
+<a href=#1603 id=1603 data-nosnippet>1603</a>				Equal =&gt; <span class="prelude-val">Ok</span>(amount),
+<a href=#1604 id=1604 data-nosnippet>1604</a>				Less =&gt; {
+<a href=#1605 id=1605 data-nosnippet>1605</a>					<span class="kw">let </span>diff = (internal_decimals - ext_decimals) <span class="kw">as </span>u32;
+<a href=#1606 id=1606 data-nosnippet>1606</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
+<a href=#1607 id=1607 data-nosnippet>1607</a>					amount.checked_mul(<span class="kw-2">&amp;</span>factor).ok_or(Error::&lt;T&gt;::ConversionOverflow)
+<a href=#1608 id=1608 data-nosnippet>1608</a>				},
+<a href=#1609 id=1609 data-nosnippet>1609</a>				Greater =&gt; {
+<a href=#1610 id=1610 data-nosnippet>1610</a>					<span class="kw">let </span>diff = (ext_decimals - internal_decimals) <span class="kw">as </span>u32;
+<a href=#1611 id=1611 data-nosnippet>1611</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
+<a href=#1612 id=1612 data-nosnippet>1612</a>					<span class="prelude-val">Ok</span>(amount.checked_div(<span class="kw-2">&amp;</span>factor).unwrap_or_else(BalanceOf::&lt;T&gt;::zero))
+<a href=#1613 id=1613 data-nosnippet>1613</a>				},
+<a href=#1614 id=1614 data-nosnippet>1614</a>			}
+<a href=#1615 id=1615 data-nosnippet>1615</a>		}
+<a href=#1616 id=1616 data-nosnippet>1616</a>
+<a href=#1617 id=1617 data-nosnippet>1617</a>		<span class="doccomment">/// Convert an amount denominated in internal units into external-asset units.
+<a href=#1618 id=1618 data-nosnippet>1618</a>		///
+<a href=#1619 id=1619 data-nosnippet>1619</a>		/// Inverse of [`Self::external_to_internal`]. Floor-divides when internal has more
+<a href=#1620 id=1620 data-nosnippet>1620</a>		/// decimals, multiplies up when it has fewer.
+<a href=#1621 id=1621 data-nosnippet>1621</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>internal_to_external(
+<a href=#1622 id=1622 data-nosnippet>1622</a>			amount: BalanceOf&lt;T&gt;,
+<a href=#1623 id=1623 data-nosnippet>1623</a>			ext_decimals: u8,
+<a href=#1624 id=1624 data-nosnippet>1624</a>			internal_decimals: u8,
+<a href=#1625 id=1625 data-nosnippet>1625</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, Error&lt;T&gt;&gt; {
+<a href=#1626 id=1626 data-nosnippet>1626</a>			<span class="kw">use </span>core::cmp::Ordering::<span class="kw-2">*</span>;
+<a href=#1627 id=1627 data-nosnippet>1627</a>			<span class="kw">match </span>ext_decimals.cmp(<span class="kw-2">&amp;</span>internal_decimals) {
+<a href=#1628 id=1628 data-nosnippet>1628</a>				Equal =&gt; <span class="prelude-val">Ok</span>(amount),
+<a href=#1629 id=1629 data-nosnippet>1629</a>				Less =&gt; {
+<a href=#1630 id=1630 data-nosnippet>1630</a>					<span class="kw">let </span>diff = (internal_decimals - ext_decimals) <span class="kw">as </span>u32;
+<a href=#1631 id=1631 data-nosnippet>1631</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
+<a href=#1632 id=1632 data-nosnippet>1632</a>					<span class="prelude-val">Ok</span>(amount.checked_div(<span class="kw-2">&amp;</span>factor).unwrap_or_else(BalanceOf::&lt;T&gt;::zero))
+<a href=#1633 id=1633 data-nosnippet>1633</a>				},
+<a href=#1634 id=1634 data-nosnippet>1634</a>				Greater =&gt; {
+<a href=#1635 id=1635 data-nosnippet>1635</a>					<span class="kw">let </span>diff = (ext_decimals - internal_decimals) <span class="kw">as </span>u32;
+<a href=#1636 id=1636 data-nosnippet>1636</a>					<span class="kw">let </span>factor = <span class="self">Self</span>::pow10(diff)<span class="question-mark">?</span>;
+<a href=#1637 id=1637 data-nosnippet>1637</a>					amount.checked_mul(<span class="kw-2">&amp;</span>factor).ok_or(Error::&lt;T&gt;::ConversionOverflow)
+<a href=#1638 id=1638 data-nosnippet>1638</a>				},
+<a href=#1639 id=1639 data-nosnippet>1639</a>			}
+<a href=#1640 id=1640 data-nosnippet>1640</a>		}
+<a href=#1641 id=1641 data-nosnippet>1641</a>
+<a href=#1642 id=1642 data-nosnippet>1642</a>		<span class="doccomment">/// Compute `10^exp` as a [`BalanceOf`]. Returns [`Error::ConversionOverflow`] if the result
+<a href=#1643 id=1643 data-nosnippet>1643</a>		/// does not fit in `u128` or in `BalanceOf&lt;T&gt;`.
+<a href=#1644 id=1644 data-nosnippet>1644</a>		</span><span class="kw">fn </span>pow10(exp: u32) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, Error&lt;T&gt;&gt; {
+<a href=#1645 id=1645 data-nosnippet>1645</a>			<span class="kw">let </span>factor_u128 = <span class="number">10u128</span>.checked_pow(exp).ok_or(Error::&lt;T&gt;::ConversionOverflow)<span class="question-mark">?</span>;
+<a href=#1646 id=1646 data-nosnippet>1646</a>			factor_u128.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ConversionOverflow)
+<a href=#1647 id=1647 data-nosnippet>1647</a>		}
+<a href=#1648 id=1648 data-nosnippet>1648</a>
+<a href=#1649 id=1649 data-nosnippet>1649</a>		<span class="doccomment">/// Verify the live decimals for an external still match the snapshot taken at
+<a href=#1650 id=1650 data-nosnippet>1650</a>		/// registration on this PSM, and that the internal asset's live decimals still
+<a href=#1651 id=1651 data-nosnippet>1651</a>		/// match the snapshot stored in [`PsmInfo`].
+<a href=#1652 id=1652 data-nosnippet>1652</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_decimals_match(
+<a href=#1653 id=1653 data-nosnippet>1653</a>			info: <span class="kw-2">&amp;</span>PsmInfo&lt;T&gt;,
+<a href=#1654 id=1654 data-nosnippet>1654</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1655 id=1655 data-nosnippet>1655</a>			external_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1656 id=1656 data-nosnippet>1656</a>			external: <span class="kw-2">&amp;</span>ExternalAssetInfo,
+<a href=#1657 id=1657 data-nosnippet>1657</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(u8, u8), DispatchError&gt; {
+<a href=#1658 id=1658 data-nosnippet>1658</a>			<span class="macro">ensure!</span>(
+<a href=#1659 id=1659 data-nosnippet>1659</a>				T::Fungibles::decimals(external_asset.clone()) == external.decimals,
+<a href=#1660 id=1660 data-nosnippet>1660</a>				Error::&lt;T&gt;::DecimalsMismatch
+<a href=#1661 id=1661 data-nosnippet>1661</a>			);
+<a href=#1662 id=1662 data-nosnippet>1662</a>			<span class="macro">ensure!</span>(
+<a href=#1663 id=1663 data-nosnippet>1663</a>				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
+<a href=#1664 id=1664 data-nosnippet>1664</a>				Error::&lt;T&gt;::DecimalsMismatch
+<a href=#1665 id=1665 data-nosnippet>1665</a>			);
+<a href=#1666 id=1666 data-nosnippet>1666</a>			<span class="prelude-val">Ok</span>((external.decimals, info.internal_decimals))
+<a href=#1667 id=1667 data-nosnippet>1667</a>		}
+<a href=#1668 id=1668 data-nosnippet>1668</a>
+<a href=#1669 id=1669 data-nosnippet>1669</a>		<span class="doccomment">/// Authorise an operation on the PSM keyed by `internal_asset`.
+<a href=#1670 id=1670 data-nosnippet>1670</a>		///
+<a href=#1671 id=1671 data-nosnippet>1671</a>		/// Matches the incoming origin's caller against the PSM's stored
+<a href=#1672 id=1672 data-nosnippet>1672</a>		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
+<a href=#1673 id=1673 data-nosnippet>1673</a>		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
+<a href=#1674 id=1674 data-nosnippet>1674</a>		/// other authority can manage a PSM.
+<a href=#1675 id=1675 data-nosnippet>1675</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_psm_admin(
+<a href=#1676 id=1676 data-nosnippet>1676</a>			origin: OriginFor&lt;T&gt;,
+<a href=#1677 id=1677 data-nosnippet>1677</a>			internal_asset: <span class="kw-2">&amp;</span>T::AssetId,
+<a href=#1678 id=1678 data-nosnippet>1678</a>			required: <span class="kw">impl </span>Fn(PsmManagerLevel) -&gt; bool,
+<a href=#1679 id=1679 data-nosnippet>1679</a>		) -&gt; DispatchResult {
+<a href=#1680 id=1680 data-nosnippet>1680</a>			<span class="kw">let </span>admin = PsmAdmin::&lt;T&gt;::get(internal_asset).ok_or(Error::&lt;T&gt;::PsmNotFound)<span class="question-mark">?</span>;
+<a href=#1681 id=1681 data-nosnippet>1681</a>			<span class="kw">let </span>caller = &lt;T <span class="kw">as </span>Config&gt;::RuntimeOrigin::from(origin).into_caller();
+<a href=#1682 id=1682 data-nosnippet>1682</a>			<span class="kw">let </span>level = <span class="kw">if </span>caller == admin.full_admin {
+<a href=#1683 id=1683 data-nosnippet>1683</a>				PsmManagerLevel::Full
+<a href=#1684 id=1684 data-nosnippet>1684</a>			} <span class="kw">else if </span>caller == admin.emergency_admin {
+<a href=#1685 id=1685 data-nosnippet>1685</a>				PsmManagerLevel::Emergency
+<a href=#1686 id=1686 data-nosnippet>1686</a>			} <span class="kw">else </span>{
+<a href=#1687 id=1687 data-nosnippet>1687</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(DispatchError::BadOrigin);
+<a href=#1688 id=1688 data-nosnippet>1688</a>			};
+<a href=#1689 id=1689 data-nosnippet>1689</a>			<span class="macro">ensure!</span>(required(level), Error::&lt;T&gt;::InsufficientPrivilege);
+<a href=#1690 id=1690 data-nosnippet>1690</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1691 id=1691 data-nosnippet>1691</a>		}
 <a href=#1692 id=1692 data-nosnippet>1692</a>
-<a href=#1693 id=1693 data-nosnippet>1693</a>					<span class="comment">// 1. Per-external reserve covers tracked debt.
-<a href=#1694 id=1694 data-nosnippet>1694</a>					</span><span class="kw">let </span>debt = PsmDebt::&lt;T&gt;::get(<span class="kw-2">&amp;</span>internal_asset, <span class="kw-2">&amp;</span>external_asset);
-<a href=#1695 id=1695 data-nosnippet>1695</a>					<span class="kw">let </span>reserve = <span class="self">Self</span>::get_reserve(<span class="kw-2">&amp;</span>internal_asset, <span class="kw-2">&amp;</span>external_asset);
-<a href=#1696 id=1696 data-nosnippet>1696</a>					<span class="kw">let </span>debt_as_external =
-<a href=#1697 id=1697 data-nosnippet>1697</a>						<span class="self">Self</span>::internal_to_external(debt, external.decimals, info.internal_decimals)
-<a href=#1698 id=1698 data-nosnippet>1698</a>							.map_err(|<span class="kw">_</span>| <span class="string">"Failed to convert tracked debt to external units"</span>)<span class="question-mark">?</span>;
-<a href=#1699 id=1699 data-nosnippet>1699</a>					<span class="macro">ensure!</span>(
-<a href=#1700 id=1700 data-nosnippet>1700</a>						reserve &gt;= debt_as_external,
-<a href=#1701 id=1701 data-nosnippet>1701</a>						<span class="string">"PSM reserve is less than tracked debt for an asset"
-<a href=#1702 id=1702 data-nosnippet>1702</a>					</span>);
-<a href=#1703 id=1703 data-nosnippet>1703</a>				}
-<a href=#1704 id=1704 data-nosnippet>1704</a>
-<a href=#1705 id=1705 data-nosnippet>1705</a>				<span class="comment">// 2. Cached `external_count` matches the iterated externals.
-<a href=#1706 id=1706 data-nosnippet>1706</a>				</span><span class="macro">ensure!</span>(
-<a href=#1707 id=1707 data-nosnippet>1707</a>					info.external_count == counted,
-<a href=#1708 id=1708 data-nosnippet>1708</a>					<span class="string">"PsmInfo.external_count does not match the approved externals"
-<a href=#1709 id=1709 data-nosnippet>1709</a>				</span>);
-<a href=#1710 id=1710 data-nosnippet>1710</a>
-<a href=#1711 id=1711 data-nosnippet>1711</a>				<span class="comment">// 3. Sum of per-asset debts equals the aggregate helper.
-<a href=#1712 id=1712 data-nosnippet>1712</a>				</span><span class="kw">let </span><span class="kw-2">mut </span>sum = BalanceOf::&lt;T&gt;::zero();
-<a href=#1713 id=1713 data-nosnippet>1713</a>				<span class="kw">for </span>(<span class="kw">_</span>, debt) <span class="kw">in </span>PsmDebt::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>internal_asset) {
-<a href=#1714 id=1714 data-nosnippet>1714</a>					sum = sum.checked_add(<span class="kw-2">&amp;</span>debt).ok_or(<span class="string">"PSM debt overflow when summing"</span>)<span class="question-mark">?</span>;
-<a href=#1715 id=1715 data-nosnippet>1715</a>				}
-<a href=#1716 id=1716 data-nosnippet>1716</a>				<span class="macro">ensure!</span>(
-<a href=#1717 id=1717 data-nosnippet>1717</a>					sum == <span class="self">Self</span>::total_psm_debt(<span class="kw-2">&amp;</span>internal_asset),
-<a href=#1718 id=1718 data-nosnippet>1718</a>					<span class="string">"sum of per-asset debts disagrees with total_psm_debt"
-<a href=#1719 id=1719 data-nosnippet>1719</a>				</span>);
-<a href=#1720 id=1720 data-nosnippet>1720</a>			}
-<a href=#1721 id=1721 data-nosnippet>1721</a>
-<a href=#1722 id=1722 data-nosnippet>1722</a>			<span class="comment">// 5. No orphaned per-asset state outside registered PSMs.
-<a href=#1723 id=1723 data-nosnippet>1723</a>			</span><span class="kw">for </span>(internal_asset, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>ExternalAssets::&lt;T&gt;::iter() {
-<a href=#1724 id=1724 data-nosnippet>1724</a>				<span class="macro">ensure!</span>(
-<a href=#1725 id=1725 data-nosnippet>1725</a>					Psm::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
-<a href=#1726 id=1726 data-nosnippet>1726</a>					<span class="string">"Orphaned ExternalAssets row without parent PSM"
-<a href=#1727 id=1727 data-nosnippet>1727</a>				</span>);
-<a href=#1728 id=1728 data-nosnippet>1728</a>			}
-<a href=#1729 id=1729 data-nosnippet>1729</a>			<span class="kw">for </span>(internal_asset, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>PsmDebt::&lt;T&gt;::iter() {
-<a href=#1730 id=1730 data-nosnippet>1730</a>				<span class="macro">ensure!</span>(
-<a href=#1731 id=1731 data-nosnippet>1731</a>					Psm::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
-<a href=#1732 id=1732 data-nosnippet>1732</a>					<span class="string">"Orphaned PsmDebt row without parent PSM"
-<a href=#1733 id=1733 data-nosnippet>1733</a>				</span>);
-<a href=#1734 id=1734 data-nosnippet>1734</a>			}
-<a href=#1735 id=1735 data-nosnippet>1735</a>			<span class="kw">for </span>(internal_asset, <span class="kw">_</span>) <span class="kw">in </span>PsmAdmin::&lt;T&gt;::iter() {
-<a href=#1736 id=1736 data-nosnippet>1736</a>				<span class="macro">ensure!</span>(
-<a href=#1737 id=1737 data-nosnippet>1737</a>					Psm::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
-<a href=#1738 id=1738 data-nosnippet>1738</a>					<span class="string">"Orphaned PsmAdmin row without parent PSM"
-<a href=#1739 id=1739 data-nosnippet>1739</a>				</span>);
-<a href=#1740 id=1740 data-nosnippet>1740</a>			}
-<a href=#1741 id=1741 data-nosnippet>1741</a>
-<a href=#1742 id=1742 data-nosnippet>1742</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1743 id=1743 data-nosnippet>1743</a>		}
-<a href=#1744 id=1744 data-nosnippet>1744</a>	}
-<a href=#1745 id=1745 data-nosnippet>1745</a>}
+<a href=#1693 id=1693 data-nosnippet>1693</a>		<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
+<a href=#1694 id=1694 data-nosnippet>1694</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+<a href=#1695 id=1695 data-nosnippet>1695</a>			<span class="kw">use </span>sp_runtime::traits::CheckedAdd;
+<a href=#1696 id=1696 data-nosnippet>1696</a>
+<a href=#1697 id=1697 data-nosnippet>1697</a>			<span class="kw">for </span>(internal_asset, info) <span class="kw">in </span>Psm::&lt;T&gt;::iter() {
+<a href=#1698 id=1698 data-nosnippet>1698</a>				<span class="comment">// 0. Every PSM has its paired admin record.
+<a href=#1699 id=1699 data-nosnippet>1699</a>				</span><span class="macro">ensure!</span>(
+<a href=#1700 id=1700 data-nosnippet>1700</a>					PsmAdmin::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
+<a href=#1701 id=1701 data-nosnippet>1701</a>					<span class="string">"PSM instance without a paired PsmAdmin record"
+<a href=#1702 id=1702 data-nosnippet>1702</a>				</span>);
+<a href=#1703 id=1703 data-nosnippet>1703</a>
+<a href=#1704 id=1704 data-nosnippet>1704</a>				<span class="kw">let </span><span class="kw-2">mut </span>counted = <span class="number">0u32</span>;
+<a href=#1705 id=1705 data-nosnippet>1705</a>				<span class="kw">for </span>(external_asset, external) <span class="kw">in </span>ExternalAssets::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>internal_asset)
+<a href=#1706 id=1706 data-nosnippet>1706</a>				{
+<a href=#1707 id=1707 data-nosnippet>1707</a>					counted = counted.saturating_add(<span class="number">1</span>);
+<a href=#1708 id=1708 data-nosnippet>1708</a>
+<a href=#1709 id=1709 data-nosnippet>1709</a>					<span class="comment">// 1. Per-external reserve covers tracked debt.
+<a href=#1710 id=1710 data-nosnippet>1710</a>					</span><span class="kw">let </span>debt = PsmDebt::&lt;T&gt;::get(<span class="kw-2">&amp;</span>internal_asset, <span class="kw-2">&amp;</span>external_asset);
+<a href=#1711 id=1711 data-nosnippet>1711</a>					<span class="kw">let </span>reserve = <span class="self">Self</span>::get_reserve(<span class="kw-2">&amp;</span>internal_asset, <span class="kw-2">&amp;</span>external_asset);
+<a href=#1712 id=1712 data-nosnippet>1712</a>					<span class="kw">let </span>debt_as_external =
+<a href=#1713 id=1713 data-nosnippet>1713</a>						<span class="self">Self</span>::internal_to_external(debt, external.decimals, info.internal_decimals)
+<a href=#1714 id=1714 data-nosnippet>1714</a>							.map_err(|<span class="kw">_</span>| <span class="string">"Failed to convert tracked debt to external units"</span>)<span class="question-mark">?</span>;
+<a href=#1715 id=1715 data-nosnippet>1715</a>					<span class="macro">ensure!</span>(
+<a href=#1716 id=1716 data-nosnippet>1716</a>						reserve &gt;= debt_as_external,
+<a href=#1717 id=1717 data-nosnippet>1717</a>						<span class="string">"PSM reserve is less than tracked debt for an asset"
+<a href=#1718 id=1718 data-nosnippet>1718</a>					</span>);
+<a href=#1719 id=1719 data-nosnippet>1719</a>				}
+<a href=#1720 id=1720 data-nosnippet>1720</a>
+<a href=#1721 id=1721 data-nosnippet>1721</a>				<span class="comment">// 2. Cached `external_count` matches the iterated externals.
+<a href=#1722 id=1722 data-nosnippet>1722</a>				</span><span class="macro">ensure!</span>(
+<a href=#1723 id=1723 data-nosnippet>1723</a>					info.external_count == counted,
+<a href=#1724 id=1724 data-nosnippet>1724</a>					<span class="string">"PsmInfo.external_count does not match the approved externals"
+<a href=#1725 id=1725 data-nosnippet>1725</a>				</span>);
+<a href=#1726 id=1726 data-nosnippet>1726</a>
+<a href=#1727 id=1727 data-nosnippet>1727</a>				<span class="comment">// 3. Sum of per-asset debts equals the aggregate helper.
+<a href=#1728 id=1728 data-nosnippet>1728</a>				</span><span class="kw">let </span><span class="kw-2">mut </span>sum = BalanceOf::&lt;T&gt;::zero();
+<a href=#1729 id=1729 data-nosnippet>1729</a>				<span class="kw">for </span>(<span class="kw">_</span>, debt) <span class="kw">in </span>PsmDebt::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>internal_asset) {
+<a href=#1730 id=1730 data-nosnippet>1730</a>					sum = sum.checked_add(<span class="kw-2">&amp;</span>debt).ok_or(<span class="string">"PSM debt overflow when summing"</span>)<span class="question-mark">?</span>;
+<a href=#1731 id=1731 data-nosnippet>1731</a>				}
+<a href=#1732 id=1732 data-nosnippet>1732</a>				<span class="macro">ensure!</span>(
+<a href=#1733 id=1733 data-nosnippet>1733</a>					sum == <span class="self">Self</span>::total_psm_debt(<span class="kw-2">&amp;</span>internal_asset),
+<a href=#1734 id=1734 data-nosnippet>1734</a>					<span class="string">"sum of per-asset debts disagrees with total_psm_debt"
+<a href=#1735 id=1735 data-nosnippet>1735</a>				</span>);
+<a href=#1736 id=1736 data-nosnippet>1736</a>			}
+<a href=#1737 id=1737 data-nosnippet>1737</a>
+<a href=#1738 id=1738 data-nosnippet>1738</a>			<span class="comment">// 5. No orphaned per-asset state outside registered PSMs.
+<a href=#1739 id=1739 data-nosnippet>1739</a>			</span><span class="kw">for </span>(internal_asset, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>ExternalAssets::&lt;T&gt;::iter() {
+<a href=#1740 id=1740 data-nosnippet>1740</a>				<span class="macro">ensure!</span>(
+<a href=#1741 id=1741 data-nosnippet>1741</a>					Psm::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
+<a href=#1742 id=1742 data-nosnippet>1742</a>					<span class="string">"Orphaned ExternalAssets row without parent PSM"
+<a href=#1743 id=1743 data-nosnippet>1743</a>				</span>);
+<a href=#1744 id=1744 data-nosnippet>1744</a>			}
+<a href=#1745 id=1745 data-nosnippet>1745</a>			<span class="kw">for </span>(internal_asset, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>PsmDebt::&lt;T&gt;::iter() {
+<a href=#1746 id=1746 data-nosnippet>1746</a>				<span class="macro">ensure!</span>(
+<a href=#1747 id=1747 data-nosnippet>1747</a>					Psm::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
+<a href=#1748 id=1748 data-nosnippet>1748</a>					<span class="string">"Orphaned PsmDebt row without parent PSM"
+<a href=#1749 id=1749 data-nosnippet>1749</a>				</span>);
+<a href=#1750 id=1750 data-nosnippet>1750</a>			}
+<a href=#1751 id=1751 data-nosnippet>1751</a>			<span class="kw">for </span>(internal_asset, <span class="kw">_</span>) <span class="kw">in </span>PsmAdmin::&lt;T&gt;::iter() {
+<a href=#1752 id=1752 data-nosnippet>1752</a>				<span class="macro">ensure!</span>(
+<a href=#1753 id=1753 data-nosnippet>1753</a>					Psm::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>internal_asset),
+<a href=#1754 id=1754 data-nosnippet>1754</a>					<span class="string">"Orphaned PsmAdmin row without parent PSM"
+<a href=#1755 id=1755 data-nosnippet>1755</a>				</span>);
+<a href=#1756 id=1756 data-nosnippet>1756</a>			}
+<a href=#1757 id=1757 data-nosnippet>1757</a>
+<a href=#1758 id=1758 data-nosnippet>1758</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1759 id=1759 data-nosnippet>1759</a>		}
+<a href=#1760 id=1760 data-nosnippet>1760</a>	}
+<a href=#1761 id=1761 data-nosnippet>1761</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

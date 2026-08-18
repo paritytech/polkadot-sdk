@@ -176,7 +176,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#26 id=26 data-nosnippet>26</a>		metadata::Inspect <span class="kw">as </span>FungiblesMetadataInspect, Create <span class="kw">as </span>FungiblesCreate,
 <a href=#27 id=27 data-nosnippet>27</a>		Inspect <span class="kw">as </span>FungiblesInspect, Mutate <span class="kw">as </span>FungiblesMutate,
 <a href=#28 id=28 data-nosnippet>28</a>	},
-<a href=#29 id=29 data-nosnippet>29</a>	Consideration, EnsureOriginWithArg, Footprint, Get,
+<a href=#29 id=29 data-nosnippet>29</a>	Consideration, EnsureOriginWithArg, Get,
 <a href=#30 id=30 data-nosnippet>30</a>};
 <a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>frame_system::RawOrigin;
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>pallet::BalanceOf;
@@ -208,7 +208,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#58 id=58 data-nosnippet>58</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(depositor) = T::CreateOrigin::ensure_origin(origin.clone(), <span class="kw-2">&amp;</span>internal_id)
 <a href=#59 id=59 data-nosnippet>59</a>			.expect(<span class="string">"benchmark CreateOrigin succeeds"</span>)
 <a href=#60 id=60 data-nosnippet>60</a>		{
-<a href=#61 id=61 data-nosnippet>61</a>			T::Consideration::ensure_successful(<span class="kw-2">&amp;</span>depositor, Footprint::from_parts(<span class="number">1</span>, <span class="number">0</span>));
+<a href=#61 id=61 data-nosnippet>61</a>			T::Consideration::ensure_successful(<span class="kw-2">&amp;</span>depositor, Psm::&lt;T&gt;::psm_creation_footprint());
 <a href=#62 id=62 data-nosnippet>62</a>		}
 <a href=#63 id=63 data-nosnippet>63</a>		<span class="kw">let </span>root_origin: T::PalletsOrigin = RawOrigin::Root.into();
 <a href=#64 id=64 data-nosnippet>64</a>		Psm::&lt;T&gt;::create_psm(
@@ -464,7 +464,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#314 id=314 data-nosnippet>314</a>		<span class="kw">let </span>maybe_depositor = T::CreateOrigin::ensure_origin(origin.clone(), <span class="kw-2">&amp;</span>internal_id)
 <a href=#315 id=315 data-nosnippet>315</a>			.map_err(|<span class="kw">_</span>| BenchmarkError::Stop(<span class="string">"CreateOrigin failed"</span>))<span class="question-mark">?</span>;
 <a href=#316 id=316 data-nosnippet>316</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(who) = <span class="kw-2">&amp;</span>maybe_depositor {
-<a href=#317 id=317 data-nosnippet>317</a>			T::Consideration::ensure_successful(who, Footprint::from_parts(<span class="number">1</span>, <span class="number">0</span>));
+<a href=#317 id=317 data-nosnippet>317</a>			T::Consideration::ensure_successful(who, Psm::&lt;T&gt;::psm_creation_footprint());
 <a href=#318 id=318 data-nosnippet>318</a>		}
 <a href=#319 id=319 data-nosnippet>319</a>
 <a href=#320 id=320 data-nosnippet>320</a>		<span class="kw">let </span>admin: T::PalletsOrigin =
