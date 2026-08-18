@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787003096012,
+  "lastUpdate": 1787044135034,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "x@acg.box",
-            "name": "Xavier Lau",
-            "username": "aurexav"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1ea05e170716a1bace2e2d8bad2d98c1fdcea224",
-          "message": "Fix auto-renew core tracking on immediate renew (#10767)\n\n## Summary\nFix auto-renew tracking when `do_enable_auto_renew` triggers an\nimmediate renewal. The auto-renew record now follows the new core index\nreturned by `do_renew`, preventing a stale core from being\nrenewed in the next sale rotation.\n\nDiscovered by the Darwinia Network team while attempting a renew.\n\n## Problem\nWhen enabling auto-renew during the renewal window (`PotentialRenewals`\nat `sale.region_begin`), `do_enable_auto_renew` immediately calls\n`do_renew`. That call can allocate a *different* core\nindex, but the auto-renew record was stored with the **old** core. On\nthe next rotation, `renew_cores` attempts to renew that stale core and\nemits `AutoRenewalFailed`, even though the workload has\nalready moved to the new core.\n\n## Fix\nCapture the returned core index from `do_renew` inside\n`do_enable_auto_renew`, and store that core in `AutoRenewals` (and the\nenable event).\n\n## Tests\n- Added `enable_auto_renew_immediate_updates_core_and_renews`\n- `cargo test -p pallet-broker`\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/10006\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-13T22:05:32Z",
-          "tree_id": "d40538ab29c12ab529aa5da38fef927d44adbba5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1ea05e170716a1bace2e2d8bad2d98c1fdcea224"
-        },
-        "date": 1768346360962,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00270478669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006505213319999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009206084319999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01102604341999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7adb371d938f60e78161fe03cbff3aaace8dd32a",
+          "message": "chore(sc-consensus-babe): skip epoch pruning when finalized header has no BABE pre-digest (#12754)\n\n## Summary\n\n`prune_finalized` assumed every finalized header carries a BABE\npre-digest and `.expect`ed on it. That breaks constructing\n`BabeBlockImport` when finalized blocks were authored by another engine\n(e.g. Aura→BABE migration).\n\nSkip pruning when the pre-digest is missing instead of panicking.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-08-18T07:27:07Z",
+          "tree_id": "96d9565fa92bce8ab83954f77fdfe556009f5a58",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7adb371d938f60e78161fe03cbff3aaace8dd32a"
+        },
+        "date": 1787044101903,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00266329687,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.010007240069999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010386015209999993,
             "unit": "seconds"
           }
         ]
