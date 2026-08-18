@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787002931467,
+  "lastUpdate": 1787043966941,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b583ea201e5f9d69372c826b71b16c74ec317136",
-          "message": "statement-store: Add latency bench (#10542)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\nAdds a latency benchmark for the statement store to measure performance\nat different message rates. In the original issue, we discussed a\nmessages-per-second approach, but in the benchmark we used a\nconfigurable interval that can't be less than latency, as we don't send\nthe next message before we receive the current one. This is sufficient\nfor our current needs; further, the benchmark can be modified to follow\nthe MPS approach.\n\nAdditionally, updated `people-westend-runtime` to mock statement\nvalidation.\n\n## Integration\n\nNo downstream integration changes required.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-15T14:44:00Z",
-          "tree_id": "456d8f5d71e64b775b8ab918e6d8c78b15414a9f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b583ea201e5f9d69372c826b71b16c74ec317136"
-        },
-        "date": 1768492479401,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1323411005,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.225285338766668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13576241129999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7adb371d938f60e78161fe03cbff3aaace8dd32a",
+          "message": "chore(sc-consensus-babe): skip epoch pruning when finalized header has no BABE pre-digest (#12754)\n\n## Summary\n\n`prune_finalized` assumed every finalized header carries a BABE\npre-digest and `.expect`ed on it. That breaks constructing\n`BabeBlockImport` when finalized blocks were authored by another engine\n(e.g. Aura→BABE migration).\n\nSkip pruning when the pre-digest is missing instead of panicking.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-08-18T07:27:07Z",
+          "tree_id": "96d9565fa92bce8ab83954f77fdfe556009f5a58",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7adb371d938f60e78161fe03cbff3aaace8dd32a"
+        },
+        "date": 1787043931681,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.116846230199998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13968016133333333,
             "unit": "seconds"
           }
         ]
