@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787043966941,
+  "lastUpdate": 1787047309296,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aeab77e33d1e201a75345dc4647fcbd506d5899d",
-          "message": "Omni-node: Move timestamps closer to now (#10807)\n\nIn omni-node dev-mode the timestamps where showing close to the unix\nepoch. Technically not a problem, but its a bit more aesthetic if they\nare closer to now, as requested in\nhttps://github.com/paritytech/polkadot-sdk/issues/10759.\n\nI set them arbitrarily to two hours in the past so that they do not run\nimmediately into the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2026-01-15T17:45:37Z",
-          "tree_id": "486b671d9c66c5c1a48e29b297e8c558199ade5a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeab77e33d1e201a75345dc4647fcbd506d5899d"
-        },
-        "date": 1768503562794,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1300969041666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.277878897633332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13968016133333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2920ee0c7fb6e05ab921cfbb4b815811977b945f",
+          "message": "Correct PSM creation footprint (#12811)\n\n`create_psm` previously established the creation `Consideration` with a\nplaceholder footprint of one item and zero bytes, under-reporting what\nthe call actually writes. A new `Pallet::psm_creation_footprint` helper\nnow reports the `Psm` and `PsmAdmin` entries (two items, max-encoded-len\nsized) and is used by the extrinsic and the benchmarks.\n\nResolves:\nhttps://github.com/paritytech/polkadot-sdk/pull/12245#discussion_r3611649696",
+          "timestamp": "2026-08-18T08:31:59Z",
+          "tree_id": "a5421ac9ce43c89e30db6347ac5d5f5b5c2cec15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2920ee0c7fb6e05ab921cfbb4b815811977b945f"
+        },
+        "date": 1787047276680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.183030376433337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1475268912,
             "unit": "seconds"
           }
         ]
