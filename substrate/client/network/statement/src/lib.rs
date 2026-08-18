@@ -47,9 +47,7 @@
 //! `pending_statements_peers`. On import they move to `recently_received_statements`, and a
 //! peer that resends the statement before its tick is added there too. Propagation and
 //! initial-sync chunks both skip the recorded peers, and the propagation pass clears
-//! `recently_received_statements` when done. A statement can outlive that clear in a slow
-//! peer's outbox, so a known statement arriving from a peer also evicts its hash from that
-//! peer's outbox: the peer has proven it holds the statement.
+//! `recently_received_statements` when done.
 //!
 //! ## Initial sync
 //!
@@ -1433,17 +1431,6 @@ where
 						peers.insert(who);
 					}
 
-					// The statement can sit in the peer's outbox long after its senders
-					// entry was cleared at the propagation tick, so the record above
-					// cannot stop every echo. The peer has proven it holds the
-					// statement, so drop it from the peer's outbox. The scan is bounded
-					// by the per-peer rate limit charged above.
-					if let Some(outbox) = self.propagation_outboxes.get_mut(&who) {
-						if let Some(pos) = outbox.iter().position(|queued| queued == &hash) {
-							outbox.remove(pos);
-						}
-					}
-
 					// The store can already hold the statement while its validation
 					// completion still awaits processing by the event loop. Join the
 					// pending entry so the peer moves to `recently_received_statements`
@@ -1557,7 +1544,14 @@ where
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
 	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
-		let Some(peer) = self.peers.get(who) else {
+		let Self {
+			peers,
+			propagation_outboxes,
+			recently_received_statements,
+			pending_statements_peers,
+			..
+		} = self;
+		let Some(peer) = peers.get(who) else {
 			return;
 		};
 
@@ -1565,47 +1559,41 @@ where
 			return;
 		}
 
-		let to_send: Vec<_> = statements
-			.iter()
-			.filter_map(|(seq, hash, stmt)| {
-				// Admissions below the sync watermark are the initial-sync cursor's job.
-				if *seq < peer.sync_watermark {
-					return None;
-				}
-				// The peer supplied this statement, do not send it back.
-				if has_received_from(
-					&self.recently_received_statements,
-					&self.pending_statements_peers,
-					hash,
-					who,
-				) {
-					return None;
-				}
-				// For v2 peers with topic affinity, filter by topic match.
-				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-					return None;
-				}
-				Some(*hash)
-			})
-			.collect();
+		let to_send = statements.iter().filter_map(|(seq, hash, stmt)| {
+			// Admissions below the sync watermark are the initial-sync cursor's job.
+			if *seq < peer.sync_watermark {
+				return None;
+			}
+			// The peer supplied this statement, do not send it back.
+			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
+			{
+				return None;
+			}
+			// For v2 peers with topic affinity, filter by topic match.
+			if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+				return None;
+			}
+			Some(*hash)
+		});
 
-		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
-
-		if to_send.is_empty() {
-			return;
+		let outbox = propagation_outboxes.entry(*who).or_default();
+		let mut queued = 0;
+		let mut overflow = 0;
+		for hash in to_send {
+			// The freshest statements are the ones still worth delivering, so an
+			// overflowing outbox drops from the front.
+			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
+				outbox.pop_front();
+				overflow += 1;
+			}
+			outbox.push_back(hash);
+			queued += 1;
 		}
 
-		let outbox = self.propagation_outboxes.entry(*who).or_default();
-		// The freshest statements are the ones still worth delivering, so an overflowing
-		// outbox drops from the front.
-		let overflow = (outbox.len() + to_send.len()).saturating_sub(MAX_PROPAGATION_OUTBOX_LEN);
+		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
+
 		if overflow > 0 {
-			let dropped_queued = overflow.min(outbox.len());
-			outbox.drain(..dropped_queued);
-			outbox.extend(to_send.into_iter().skip(overflow - dropped_queued));
 			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
-		} else {
-			outbox.extend(to_send);
 		}
 		self.try_send_next_chunk(*who);
 	}
@@ -3078,41 +3066,6 @@ mod tests {
 			!handler.propagation_outboxes.contains_key(&peer_id),
 			"the drained outbox must be removed"
 		);
-	}
-
-	#[tokio::test]
-	async fn known_statement_echoed_by_a_peer_leaves_its_outbox() {
-		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
-			build_handler(1);
-		let peer_id = peer_ids[0];
-
-		let mut echoed = Statement::new();
-		echoed.set_plain_data(b"echoed".to_vec());
-		let echoed_hash = echoed.hash();
-		let mut other = Statement::new();
-		other.set_plain_data(b"other".to_vec());
-		let other_hash = other.hash();
-		statement_store.statements.lock().unwrap().insert(echoed_hash, echoed.clone());
-		statement_store.statements.lock().unwrap().insert(other_hash, other);
-
-		// Both statements were queued while the peer's send slot was busy, and the
-		// senders entries were cleared at the end of the propagation tick.
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![echoed_hash, other_hash]));
-
-		// The peer sends one of the queued statements to us: it must leave the outbox.
-		handler.on_statements(peer_id, vec![echoed]);
-		assert_eq!(
-			handler.propagation_outboxes.get(&peer_id).unwrap(),
-			&VecDeque::from(vec![other_hash])
-		);
-
-		// The rest of the outbox still goes out.
-		handler.try_send_next_chunk(peer_id);
-		handler.flush_pending_sends().await;
-		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
-		assert_eq!(sent, vec![other_hash]);
 	}
 
 	#[tokio::test]
