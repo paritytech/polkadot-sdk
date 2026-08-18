@@ -35,11 +35,31 @@ doc:
       `RequireSecondedInBlockAnnounce` and `BlockAnnounceData` decoding stay so
       block announcements from nodes running older versions still validate.
 
-      Chains configured with `CollatorSybilResistance::Unresistant` no longer get
-      pre-backing tip announcements from updated collators: empty announcements are
-      accepted once the block is backed or included, with `pov-recovery` as the
-      propagation backstop. Chains that need pre-backing tip gossip should migrate
-      to a sybil-resistant collation mechanism.
+      Chains configured with `CollatorSybilResistance::Unresistant` use
+      `RequireSecondedInBlockAnnounce`, which bounds block-announce spam by refusing
+      announcements at or above the parachain tip unless they carry a seconded
+      statement. Removing the seconded signal means updated collators can no longer
+      produce that proof, so their tip announcements go out empty and are accepted
+      only once the block is backed or included, with `pov-recovery` as the
+      propagation backstop. The spam bound itself is unchanged (it now keys on
+      backing rather than seconding); what changes is that tip gossip waits for
+      backing. Chains using a sybil-resistant collation mechanism such as Aura are
+      unaffected: they use `AssumeSybilResistance`, which accepts empty
+      announcements outright, because only the slot authority can author.
+
+  - audience: Node Operator
+    description: |
+      Operators of parachains configured with `CollatorSybilResistance::Unresistant`
+      (free-for-all collator sets, without a sybil-resistant authorship mechanism)
+      should expect parachain block announcements to propagate slightly later.
+      Updated collators announce blocks without a seconded statement attached, and
+      such announcements are only accepted at the parachain tip once the block is
+      backed or included on the relay chain; `pov-recovery` covers the gap. Chains
+      using Aura or another sybil-resistant collation mechanism are unaffected.
+
+      No action is required. Nodes running older versions continue to attach
+      seconded statements, and those announcements are still validated, so mixed
+      version networks keep working.
 
 crates:
   - name: polkadot-node-network-protocol
