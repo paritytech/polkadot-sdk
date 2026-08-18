@@ -3504,6 +3504,35 @@ mod admin {
 	}
 
 	#[test]
+	fn create_psm_charges_deposit_for_instance_footprint() {
+		use codec::MaxEncodedLen;
+
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
+			));
+
+			// Recompute the expected deposit from the stored types instead of calling
+			// `psm_creation_footprint`, so this test fails if that helper breaks.
+			let items = 2u128;
+			let size = (2 * u32::max_encoded_len() +
+				crate::PsmInfo::<Test>::max_encoded_len() +
+				crate::PsmAdminInfo::<Test>::max_encoded_len()) as u128;
+			let expected = PsmCreationDeposit::get() + PsmDepositSlope::get() * items * size;
+			assert_eq!(Balances::reserved_balance(&ALICE) - reserved_before, expected);
+		});
+	}
+
+	#[test]
 	fn remove_psm_works_and_refunds_creator() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
