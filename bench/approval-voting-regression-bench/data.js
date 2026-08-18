@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787003014895,
+  "lastUpdate": 1787044051651,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b3bfba618e98f2aa10ee8d4233a15c1e09fef50f",
-          "message": "[Staking] Allow nominators to be non-slashable and fast unbondable (#10502)\n\n## Context\nWe want to make nominators unslashable (configurable via a storage set),\nand once they are unslashable, they can also unbond and withdraw in 2\nera instead of the full BondingDuration (28 eras).\n\n## Storage Changes\n- `AreNominatorsSlashable: StorageValue<bool>` (default: true):\nRuntime-configurable flag. Made this a storage value (not a config\nconstant) so it can be enabled together with MinValidatorBond and\nMinCommission via `set_staking_configs`.\n- `ErasNominatorsSlashable: StorageMap<EraIndex, bool>` (default: true):\nPer-era snapshot of slashability setting. This ensures offences are\nprocessed with the rules that were in effect at the time of the offence,\nnot the current rules. Cleaned up automatically for eras outside bonding\nwindow.\n- `LastValidatorEra` to track if a staker was a validator in a recent\nera and hence needs to follow full unbonding time. Does not need\nmigration as long as we disable nominator slash (in other words: reduce\ntheir unbond time) at least one era after these changes are applied.\n\n## Slashing logic\n- Added `process_offence_validator_only` as a separate code path instead\nof overloading the same function. See `process_offence_for_era` in\n`substrate/frame/staking-async/src/slashing.rs`.\n- We might want to remove nominator slashing code completely at some\npoint.\n\n## Unbonding logic:\n- Introduce new config constant `NominatorFastUnbondDuration` that\ndetermines the fast unbond duration (recommended value: 2 eras) when\nnominators are not slashable.\n- Added `nominator_bonding_duration()` to `StakingInterface` trait\n(returns `NominatorFastUnbondDuration` era when not slashable, full\nunbond duration otherwise).\n- Nomination pools now use `nominator_bonding_duration()`, so pool\nmembers also benefit from fast unbonding.\n- Ported auto-chill on full unbond from pallet-staking (PR #3811) to\nprevent `InsufficientBond` errors.\n- Nominators unbonding the era before the nominators become unslashable\nwill still have 28 days of unbonding.\n\n## Era pruning:\n- Moved pruning of `ValidatorSlashInEra` as well as\n`ErasNominatorsSlashable` in lazy pruning. This has a minor (I believe\nacceptable) side effect that they will be cleaned up in 84 eras instead\nof 28 eras.\n---\n\n## TODO\n- [x] Ensure delegator slash works correctly (nomination pool). \n- [x] Ensure pool members can unbond in 1 day as well.\n- [x] Benchmark update.\n- [x] Document how all three can be changed in one go: `MinCommission`,\n`MinValidatorBond`, and `AreNominatorsSlashable`.\n- [x] Regenerate weight\n- [x] Make nominator unbonding time configurable and set it to 2 eras.\n- [x] Refactor compute slash to avoid calling `slash_nominator`\ncompletely.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-14T21:42:10Z",
-          "tree_id": "6fdc9be95a252247b6eab51732820ba65a2a6534",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b3bfba618e98f2aa10ee8d4233a15c1e09fef50f"
-        },
-        "date": 1768431193838,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.03999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002392639,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6463774896000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3030796596600025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000247335,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002392639,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6238269676400003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.646213534150036,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000247335,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00509246111,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.656555065309999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7977491107700337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.516324747292979,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.613532780059999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00001765807,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7adb371d938f60e78161fe03cbff3aaace8dd32a",
+          "message": "chore(sc-consensus-babe): skip epoch pruning when finalized header has no BABE pre-digest (#12754)\n\n## Summary\n\n`prune_finalized` assumed every finalized header carries a BABE\npre-digest and `.expect`ed on it. That breaks constructing\n`BabeBlockImport` when finalized blocks were authored by another engine\n(e.g. Aura→BABE migration).\n\nSkip pruning when the pre-digest is missing instead of panicking.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-08-18T07:27:07Z",
+          "tree_id": "96d9565fa92bce8ab83954f77fdfe556009f5a58",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7adb371d938f60e78161fe03cbff3aaace8dd32a"
+        },
+        "date": 1787044018610,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.96000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8025241955499446,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6531096145399973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.35913798649,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002120931,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.501446414712821,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002120931,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001863256,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6627147828999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001863256,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005132701580000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.84185846996994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6767937439199994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6824454449900004,
             "unit": "seconds"
           }
         ]
