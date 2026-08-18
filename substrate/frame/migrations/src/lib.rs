@@ -416,17 +416,14 @@ pub mod pallet {
 
 		/// The maximum number of steps that any single migration may take.
 		///
-		/// A migration advances at most once per block, so this bounds how long a single migration
-		/// can keep the chain in migration mode. It is applied both as a fallback for migrations
-		/// that do not set a [`SteppedMigration::max_steps`] of their own - which would otherwise
-		/// never be aborted - and as an upper bound for those that set a larger one. Note that the
-		/// bound is per migration, so a tuple of `n` migrations can still take `n` times as long.
+		/// A migration advances at most once per block, so this bounds how long it can keep the
+		/// chain in migration mode. It is a fallback for migrations that set no
+		/// [`SteppedMigration::max_steps`] of their own and an upper bound for those that set a
+		/// larger one. The bound is per migration, so a tuple of `n` migrations can still take
+		/// `n` times as long.
 		///
-		/// Exceeding it is treated as a failed migration, which leaves the migration partially
-		/// applied and is handed to the [`Config::FailedMigrationHandler`]. The limit is therefore
-		/// only a safety net if that handler leaves the chain usable;
-		/// [`frame_support::migrations::FreezeChainOnFailedMigration`] turns a timeout into a
-		/// permanently stuck chain instead.
+		/// Exceeding it is treated as a failed migration and handed to the
+		/// [`Config::FailedMigrationHandler`].
 		///
 		/// Use `u32::MAX` to not impose any limit.
 		#[pallet::constant]

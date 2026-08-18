@@ -601,13 +601,10 @@ impl pallet_migrations::Config for Runtime {
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = ();
-	// Keep the chain usable and governance reachable if a migration fails or exceeds its step
-	// limit, instead of freezing it.
 	type FailedMigrationHandler = frame_support::migrations::ForceUnstuckOnFailedMigration;
 	type MaxServiceWeight = MbmServiceWeight;
-	// No single migration may keep the chain in migration mode for longer than a day. `DAYS` is
-	// derived from the 6s relay slot, while this chain authors `BLOCK_PROCESSING_VELOCITY` blocks
-	// per slot.
+	// `DAYS` is derived from the 6s relay slot; this chain authors `BLOCK_PROCESSING_VELOCITY`
+	// blocks per slot.
 	type MaxMigrationSteps = ConstU32<{ BLOCK_PROCESSING_VELOCITY * DAYS }>;
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
