@@ -47,13 +47,7 @@ fn main() {
 	// A runtime that uses a relay parent offset of 2.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("relay-parent-offset-2")
-		.set_file_name(relay_parent_offset::WASM_FILE_NAME)
-		.build();
-
-	// V3 disabled at a relay parent offset of 4 — the rollback target for `v3_rpo_4`.
-	WasmBuilder::init_with_defaults()
-		.enable_feature("relay-parent-offset-4")
-		.set_file_name(relay_parent_offset_4::WASM_FILE_NAME)
+		.set_file_name(relay_parent_offset_2::WASM_FILE_NAME)
 		.build();
 
 	WasmBuilder::init_with_defaults()

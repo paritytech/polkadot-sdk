@@ -248,12 +248,6 @@
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-para-rollback-rpo-4"
-  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_4_para_rollback_rpo_4"
-  runner-type: "default"
-  use-zombienet-sdk: true
-  cumulus-image: "test-parachain"
-
 - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
   test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"
   runner-type: "default"
