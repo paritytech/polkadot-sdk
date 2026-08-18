@@ -27,3 +27,16 @@ rococo-runtime-constants = { workspace = true }
 # Cumulus
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
+
+[features]
+runtime-benchmarks = [
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"emulated-integration-tests-common/try-runtime",
+	"parachains-common/try-runtime",
+	"rococo-runtime/try-runtime",
+]

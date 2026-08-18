@@ -12,9 +12,13 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+futures = { workspace = true, optional = true }
 futures-timer = { workspace = true }
+
+[dev-dependencies]
+tokio = { features = ["macros", "rt"], workspace = true, default-features = true }
 
 [features]
 default = []
 # Exposes test helpers: a deterministic `MockClock` implementation.
-test = []
+test = ["dep:futures"]

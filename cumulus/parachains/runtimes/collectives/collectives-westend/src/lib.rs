@@ -65,8 +65,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature, MultiSigner, Perbill, Percent,
 };
 
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -128,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -136,12 +134,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// Privileged origin that represents Root or more than two thirds of the Alliance.
 pub type RootOrAllianceTwoThirdsMajority = EitherOfDiverse<
@@ -855,9 +847,16 @@ type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// unreleased
-	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, FellowshipCoreInstance>,
-	// unreleased
-	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
+	pallet_core_fellowship::migration::MigrateV1ToV2<
+		Runtime,
+		BlockNumberConverter,
+		FellowshipCoreInstance,
+	>,
+	pallet_core_fellowship::migration::MigrateV1ToV2<
+		Runtime,
+		BlockNumberConverter,
+		AmbassadorCoreInstance,
+	>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
@@ -865,6 +864,47 @@ type Migrations = (
 	>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 );
+
+// Helpers for the core fellowship pallet v1->v2 storage migration.
+use sp_runtime::traits::BlockNumberProvider;
+type CoreFellowshipLocalBlockNumber = <System as BlockNumberProvider>::BlockNumber;
+type CoreFellowshipNewBlockNumber = <cumulus_pallet_parachain_system::RelaychainDataProvider<
+	Runtime,
+> as BlockNumberProvider>::BlockNumber;
+pub struct BlockNumberConverter;
+impl
+	pallet_core_fellowship::migration::v2::ConvertBlockNumber<
+		CoreFellowshipLocalBlockNumber,
+		CoreFellowshipNewBlockNumber,
+	> for BlockNumberConverter
+{
+	/// The equivalent moment in time from the perspective of the relay chain, starting from a
+	/// local moment in time (system block number).
+	fn equivalent_moment_in_time(
+		local_moment: CoreFellowshipLocalBlockNumber,
+	) -> CoreFellowshipNewBlockNumber {
+		let local_block_number = System::block_number();
+		let local_duration = u32::abs_diff(local_block_number, local_moment);
+		let relay_duration = Self::equivalent_block_duration(local_duration); // 6s to 6s
+		let relay_block_number = ParachainSystem::last_relay_block_number();
+		if local_block_number >= local_moment {
+			// Moment was in past.
+			relay_block_number.saturating_sub(relay_duration)
+		} else {
+			// Moment is in future.
+			relay_block_number.saturating_add(relay_duration)
+		}
+	}
+
+	/// The equivalent duration from the perspective of the relay chain, starting from
+	/// a local duration (number of block). Identity function for Westend, since both
+	/// relay and collectives chain run 6s block times.
+	fn equivalent_block_duration(
+		local_duration: CoreFellowshipLocalBlockNumber,
+	) -> CoreFellowshipNewBlockNumber {
+		local_duration
+	}
+}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<

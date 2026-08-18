@@ -1186,6 +1186,18 @@ impl DisputeStatement {
 	}
 }
 
+/// The maximum number of candidate approvals that can be coalesced into a single
+/// [`ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates`] statement (and the
+/// corresponding approval vote). It is a hard, type-level ceiling enforced at decode time, and the
+/// maximum value the runtime accepts for `max_approval_coalesce_count`.
+pub const MAX_COALESCE_APPROVALS: u32 = 16;
+
+/// The candidate hashes coalesced into a single approval vote, bounded at the type level to at most
+/// [`MAX_COALESCE_APPROVALS`]. Used to carry coalesced approval signatures between subsystems while
+/// preserving that bound.
+pub type CoalescedApprovalCandidateHashes =
+	BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>>;
+
 /// Different kinds of statements of validity on  a candidate.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
@@ -1205,8 +1217,15 @@ pub enum ValidDisputeStatementKind {
 	/// We can't create this version until all nodes
 	/// have been updated to support it and max_approval_coalesce_count
 	/// is set to more than 1.
+	///
+	/// The number of coalesced candidates is bounded at the type level to at most
+	/// [`MAX_COALESCE_APPROVALS`]. This is a hard ceiling enforced at decode time; the effective
+	/// per-session limit is `max_approval_coalesce_count`, enforced dynamically when the statement
+	/// is validated.
 	#[codec(index = 4)]
-	ApprovalCheckingMultipleCandidates(Vec<CandidateHash>),
+	ApprovalCheckingMultipleCandidates(
+		BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>>,
+	),
 }
 
 impl ValidDisputeStatementKind {
@@ -3499,5 +3518,108 @@ pub mod tests {
 			desc.check_version_acceptance(true),
 			Err(CandidateDescriptorVersionCheckError::Inconsistency)
 		);
+	}
+
+	/// Codec index of the `ApprovalCheckingMultipleCandidates` variant (`#[codec(index = 4)]`).
+	const APPROVAL_MULTIPLE_CANDIDATES_INDEX: u8 = 4;
+
+	fn coalesced_candidate_hashes(n: usize) -> Vec<CandidateHash> {
+		(0..n).map(|i| CandidateHash(Hash::repeat_byte(i as u8))).collect()
+	}
+
+	/// SCALE bytes for the `ApprovalCheckingMultipleCandidates` variant with a plain
+	/// `Vec<CandidateHash>` body: the codec index byte followed by the `Vec` body (compact length
+	/// + elements).
+	fn approval_multiple_candidates_vec_bytes(hashes: &[CandidateHash]) -> Vec<u8> {
+		let mut bytes = vec![APPROVAL_MULTIPLE_CANDIDATES_INDEX];
+		bytes.extend(hashes.encode());
+		bytes
+	}
+
+	#[test]
+	fn approval_multiple_candidates_bounded_vec_encodes_like_vec() {
+		let limit = MAX_COALESCE_APPROVALS as usize;
+		for n in [0, 1, 2, 8, limit - 1, limit] {
+			let hashes = coalesced_candidate_hashes(n);
+			let bounded: BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>> =
+				hashes.clone().try_into().expect("n <= MAX_COALESCE_APPROVALS; qed");
+
+			// The inner collections encode to identical bytes.
+			assert_eq!(hashes.encode(), bounded.encode(), "inner encoding differs for n = {n}");
+
+			// The full enum encodes identically to a plain `Vec` body.
+			assert_eq!(
+				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(bounded).encode(),
+				approval_multiple_candidates_vec_bytes(&hashes),
+				"enum encoding differs from the plain Vec encoding for n = {n}",
+			);
+		}
+	}
+
+	#[test]
+	fn approval_multiple_candidates_decodes_vec_encoding() {
+		let limit = MAX_COALESCE_APPROVALS as usize;
+		for n in [0, 1, limit - 1, limit] {
+			let hashes = coalesced_candidate_hashes(n);
+			let vec_bytes = approval_multiple_candidates_vec_bytes(&hashes);
+
+			// A plain `Vec` encoding decodes into the `BoundedVec`-based variant.
+			let decoded = ValidDisputeStatementKind::decode(&mut &vec_bytes[..])
+				.expect("a Vec encoding within the limit must decode; qed");
+			let expected = ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+				hashes.clone().try_into().expect("n <= MAX_COALESCE_APPROVALS; qed"),
+			);
+			assert_eq!(decoded, expected, "decode mismatch for n = {n}");
+
+			// A full round-trip through the type is stable.
+			assert_eq!(
+				ValidDisputeStatementKind::decode(&mut &expected.encode()[..]).unwrap(),
+				expected,
+			);
+		}
+	}
+
+	#[test]
+	fn approval_multiple_candidates_rejects_above_limit() {
+		let limit = MAX_COALESCE_APPROVALS as usize;
+
+		// One past the limit is rejected at the length prefix, directly as the bounded collection.
+		let too_many = coalesced_candidate_hashes(limit + 1);
+		assert!(
+			BoundedVec::<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>>::decode(
+				&mut &too_many.encode()[..]
+			)
+			.is_err(),
+			"BoundedVec must reject more than MAX_COALESCE_APPROVALS elements",
+		);
+
+		// Through the enum, using a plain `Vec` body carrying one too many candidates.
+		let vec_bytes = approval_multiple_candidates_vec_bytes(&too_many);
+		assert!(
+			ValidDisputeStatementKind::decode(&mut &vec_bytes[..]).is_err(),
+			"enum must reject more than MAX_COALESCE_APPROVALS coalesced candidates",
+		);
+
+		// The boundary value of exactly MAX_COALESCE_APPROVALS is accepted.
+		let at_limit = approval_multiple_candidates_vec_bytes(&coalesced_candidate_hashes(limit));
+		assert!(ValidDisputeStatementKind::decode(&mut &at_limit[..]).is_ok());
+	}
+
+	#[test]
+	fn approval_multiple_candidates_signing_payload_matches_vec() {
+		let session = 7;
+		for n in [1, 2, MAX_COALESCE_APPROVALS as usize] {
+			let hashes = coalesced_candidate_hashes(n);
+			let bounded: BoundedVec<CandidateHash, ConstU32<{ MAX_COALESCE_APPROVALS }>> =
+				hashes.clone().try_into().expect("n <= MAX_COALESCE_APPROVALS; qed");
+
+			// The signing payload is taken over a slice, so `Vec` and `BoundedVec` produce the
+			// same payload bytes for the same candidate set.
+			assert_eq!(
+				ApprovalVoteMultipleCandidates(&hashes).signing_payload(session),
+				ApprovalVoteMultipleCandidates(&bounded).signing_payload(session),
+				"signing payload differs for n = {n}",
+			);
+		}
 	}
 }

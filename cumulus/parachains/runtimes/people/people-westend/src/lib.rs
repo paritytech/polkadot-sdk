@@ -65,8 +65,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
@@ -163,18 +161,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;

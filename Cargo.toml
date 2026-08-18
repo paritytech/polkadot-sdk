@@ -11,7 +11,6 @@ resolver = "2"
 members = [
 	"bridges/bin/runtime-common",
 	"bridges/chains/chain-cumulus",
-	"bridges/chains/chain-polkadot-bulletin",
 	"bridges/modules/beefy",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -64,6 +63,7 @@ members = [
 	"cumulus/client/bootnodes",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
+	"cumulus/client/collator-discovery",
 	"cumulus/client/consensus/aura",
 	"cumulus/client/consensus/common",
 	"cumulus/client/consensus/relay-chain",
@@ -76,6 +76,7 @@ members = [
 	"cumulus/client/relay-chain-minimal-node",
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
+	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
@@ -133,6 +134,8 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/yet-another-parachain",
+	"cumulus/parachains/utils/generate-bags",
+	"cumulus/parachains/utils/remote-ext-tests/bags-list",
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-omni-node/lib",
 	"cumulus/polkadot-parachain",
@@ -190,6 +193,7 @@ members = [
 	"polkadot/node/network/bitfield-distribution",
 	"polkadot/node/network/bridge",
 	"polkadot/node/network/collator-protocol",
+	"polkadot/node/network/collator-protocol/test-sim-macros",
 	"polkadot/node/network/dispute-distribution",
 	"polkadot/node/network/gossip-support",
 	"polkadot/node/network/protocol",
@@ -202,6 +206,8 @@ members = [
 	"polkadot/node/subsystem-test-helpers",
 	"polkadot/node/subsystem-types",
 	"polkadot/node/subsystem-util",
+	"polkadot/node/test-sim",
+	"polkadot/node/test-sim/macros",
 	"polkadot/node/test/client",
 	"polkadot/node/test/service",
 	"polkadot/node/tracking-allocator",
@@ -228,8 +234,6 @@ members = [
 	"polkadot/runtime/westend/bridge-primitives",
 	"polkadot/runtime/westend/constants",
 	"polkadot/statement-table",
-	"polkadot/utils/generate-bags",
-	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/utils/remote-ext-tests/psm",
 	"polkadot/xcm",
 	"polkadot/xcm/docs",
@@ -306,6 +310,7 @@ members = [
 	"substrate/client/service/test",
 	"substrate/client/state-db",
 	"substrate/client/statement-store",
+	"substrate/client/storage-chain-sync",
 	"substrate/client/storage-monitor",
 	"substrate/client/sync-state-rpc",
 	"substrate/client/sysinfo",
@@ -386,6 +391,9 @@ members = [
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
 	"substrate/frame/honzon/oracle/runtime-api",
+	"substrate/frame/hrmp/para",
+	"substrate/frame/hrmp/primitives",
+	"substrate/frame/hrmp/relay",
 	"substrate/frame/identity",
 	"substrate/frame/im-online",
 	"substrate/frame/indices",
@@ -418,12 +426,16 @@ members = [
 	"substrate/frame/parameters",
 	"substrate/frame/people",
 	"substrate/frame/preimage",
+	"substrate/frame/primitives/coretime",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
 	"substrate/frame/psm/remote-tests",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
+	"substrate/frame/registrar/para",
+	"substrate/frame/registrar/primitives",
+	"substrate/frame/registrar/relay",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
 	"substrate/frame/revive/dev-node/node",
@@ -431,6 +443,7 @@ members = [
 	"substrate/frame/revive/fixtures",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
+	"substrate/frame/revive/types",
 	"substrate/frame/revive/uapi",
 	"substrate/frame/revive/ui-tests",
 	"substrate/frame/root-offences",
@@ -438,8 +451,8 @@ members = [
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
 	"substrate/frame/sassafras",
+	"substrate/frame/scarcity",
 	"substrate/frame/scheduler",
-	"substrate/frame/scored-pool",
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
@@ -716,7 +729,6 @@ bp-bridge-hub-westend = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge
 bp-header-chain = { path = "bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "bridges/primitives/parachains", default-features = false }
-bp-polkadot-bulletin = { path = "bridges/chains/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "bridges/primitives/relayers", default-features = false }
 bp-rococo = { path = "polkadot/runtime/rococo/bridge-primitives", default-features = false }
@@ -756,6 +768,7 @@ color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.4", default-features = false }
 console = { version = "0.15.8" }
+const-crypto = { version = "0.3.0", default-features = false }
 const-hex = { version = "1.10.0", default-features = false }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
@@ -764,6 +777,7 @@ criterion = { version = "0.5.1", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false }
+cumulus-client-collator-discovery = { path = "cumulus/client/collator-discovery", default-features = false }
 cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", default-features = false }
 cumulus-client-consensus-common = { path = "cumulus/client/consensus/common", default-features = false }
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false }
@@ -771,6 +785,7 @@ cumulus-client-network = { path = "cumulus/client/network", default-features = f
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
 cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
+cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
@@ -833,6 +848,7 @@ fnv = { version = "1.0.6" }
 foldhash = { version = "0.1.5", default-features = false }
 fork-tree = { path = "substrate/utils/fork-tree", default-features = false }
 forwarded-header-value = { version = "0.1.1" }
+fp-coretime = { path = "substrate/frame/primitives/coretime", default-features = false }
 fraction = { version = "0.13.1" }
 frame = { path = "substrate/frame", default-features = false, package = "polkadot-sdk-frame" }
 frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false }
@@ -895,10 +911,8 @@ integer-sqrt = { version = "0.1.2" }
 ip_network = { version = "0.4.1" }
 is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
-isahc = { version = "1.2" }
 itertools = { version = "0.11" }
 jobserver = { version = "0.1.26" }
-jsonpath_lib = { version = "0.3" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }
 k256 = { version = "0.13.4", default-features = false }
@@ -919,7 +933,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.14.0", features = ["rsa", "websocket"] }
+litep2p = { version = "0.14.3", features = ["rsa", "webrtc", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -957,6 +971,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
+p256 = { version = "0.13.2", default-features = false }
 pallet-accumulate-and-forward = { path = "substrate/frame/accumulate-and-forward", default-features = false }
 pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
@@ -1054,10 +1069,12 @@ pallet-referenda = { path = "substrate/frame/referenda", default-features = fals
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
+pallet-revive-types = { path = "substrate/frame/revive/types", default-features = false }
 pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
+pallet-scarcity = { path = "substrate/frame/scarcity", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }
@@ -1117,6 +1134,7 @@ polkadot-availability-distribution = { path = "polkadot/node/network/availabilit
 polkadot-availability-recovery = { path = "polkadot/node/network/availability-recovery", default-features = false }
 polkadot-cli = { path = "polkadot/cli", default-features = false }
 polkadot-collator-protocol = { path = "polkadot/node/network/collator-protocol", default-features = false }
+polkadot-collator-protocol-test-sim-macros = { path = "polkadot/node/network/collator-protocol/test-sim-macros" }
 polkadot-core-primitives = { path = "polkadot/core-primitives", default-features = false }
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false }
@@ -1164,13 +1182,15 @@ polkadot-service = { path = "polkadot/node/service", default-features = false }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false }
 polkadot-statement-table = { path = "polkadot/statement-table", default-features = false }
 polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
+polkadot-subsystem-test-sim = { path = "polkadot/node/test-sim" }
+polkadot-subsystem-test-sim-macros = { path = "polkadot/node/test-sim/macros" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.33.0", default-features = false }
-polkavm-common = { version = "0.33.0", default-features = false }
-polkavm-derive = "0.33.0"
-polkavm-linker = "0.33.0"
+polkavm = { version = "0.35.0", default-features = false }
+polkavm-common = { version = "0.35.0", default-features = false }
+polkavm-derive = "0.35.0"
+polkavm-linker = "0.35.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
@@ -1205,6 +1225,7 @@ remote-externalities = { path = "substrate/utils/frame/remote-externalities", de
 revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 revm = { version = "27.0.2", default-features = false }
+revm-bytecode = { version = "6.2.2", default-features = false }
 ripemd = { version = "0.1.3", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
@@ -1275,6 +1296,7 @@ sc-service = { path = "substrate/client/service", default-features = false }
 sc-service-test = { path = "substrate/client/service/test" }
 sc-state-db = { path = "substrate/client/state-db", default-features = false }
 sc-statement-store = { default-features = false, path = "substrate/client/statement-store" }
+sc-storage-chain-sync = { default-features = false, path = "substrate/client/storage-chain-sync" }
 sc-storage-monitor = { path = "substrate/client/storage-monitor", default-features = false }
 sc-sync-state-rpc = { path = "substrate/client/sync-state-rpc", default-features = false }
 sc-sysinfo = { path = "substrate/client/sysinfo", default-features = false }
@@ -1415,9 +1437,10 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.44", default-features = false }
-subxt-metadata = { version = "0.44", default-features = false }
-subxt-signer = { version = "0.44" }
+subxt = { version = "0.50", default-features = false }
+subxt-metadata = { version = "0.50", default-features = false }
+subxt-rpcs = { version = "0.50", default-features = false }
+subxt-signer = { version = "0.50" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1481,6 +1504,7 @@ westend-runtime = { path = "polkadot/runtime/westend", default-features = false 
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
 x25519-dalek = { version = "2.0" }
+x509-cert = { version = "0.2.5", default-features = false }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm" }
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder" }
 xcm-docs = { path = "polkadot/xcm/docs" }
@@ -1491,9 +1515,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.9" }
-zombienet-orchestrator = { version = "0.4.9" }
-zombienet-sdk = { version = "0.4.9" }
+zombienet-configuration = { version = "0.4.13" }
+zombienet-orchestrator = { version = "0.4.13" }
+zombienet-sdk = { version = "0.4.13" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

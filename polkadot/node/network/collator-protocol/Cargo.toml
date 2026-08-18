@@ -53,8 +53,15 @@ sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 itertools = { workspace = true }
+polkadot-collator-protocol-test-sim-macros = { workspace = true }
+polkadot-node-clock = { workspace = true, default-features = true, features = ["test"] }
+polkadot-node-core-backing = { workspace = true, default-features = true }
+polkadot-node-core-prospective-parachains = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+polkadot-subsystem-test-sim = { workspace = true }
 
 [features]
 default = []
