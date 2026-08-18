@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787044135034,
+  "lastUpdate": 1787047477316,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac672e94f1418a664157de886df10aaaad0606c5",
-          "message": "statement-store: fix size limit mismatch in process_initial_sync_burst (#10796)\n\nprocess_initial_sync_burst was using a different formula for determining\nhow many statements it can send without taking into consideration the\nlength of the vector.\n\nFixed by using the same formula everwhere.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-01-14T11:50:36Z",
-          "tree_id": "36107140a1792163eace77a49154710099d32009",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac672e94f1418a664157de886df10aaaad0606c5"
-        },
-        "date": 1768395472776,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.008996331969999981,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006172831620000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00271789554,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010386015209999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2920ee0c7fb6e05ab921cfbb4b815811977b945f",
+          "message": "Correct PSM creation footprint (#12811)\n\n`create_psm` previously established the creation `Consideration` with a\nplaceholder footprint of one item and zero bytes, under-reporting what\nthe call actually writes. A new `Pallet::psm_creation_footprint` helper\nnow reports the `Psm` and `PsmAdmin` entries (two items, max-encoded-len\nsized) and is used by the extrinsic and the benchmarks.\n\nResolves:\nhttps://github.com/paritytech/polkadot-sdk/pull/12245#discussion_r3611649696",
+          "timestamp": "2026-08-18T08:31:59Z",
+          "tree_id": "a5421ac9ce43c89e30db6347ac5d5f5b5c2cec15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2920ee0c7fb6e05ab921cfbb4b815811977b945f"
+        },
+        "date": 1787047444117,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009535620969999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00964031943999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025709898300000002,
             "unit": "seconds"
           }
         ]
