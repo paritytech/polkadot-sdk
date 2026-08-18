@@ -44,11 +44,7 @@ const STOP_RESERVE_CHANNEL_SLOTS: usize = 1;
 pub const MAX_FILTERS_PER_SUBSCRIPTION: usize = 128;
 // Keep replay batches bounded by raw statement bytes. The JSON response is roughly twice this size
 // because statements are hex-encoded.
-const REPLAY_CHUNK_RAW_BYTES: usize = 4 * 1024 * 1024;
-// Keep live-event dedupe bounded. 64k entries is about 1.3s at the default 50k statements/sec
-// per-peer rate limit.
-const EMITTED_VIA_NEW_HARD_CAP: usize = 64 * 1024;
-
+pub(crate) const REPLAY_CHUNK_RAW_BYTES: usize = 4 * 1024 * 1024;
 use futures::{Stream, StreamExt};
 use itertools::Itertools;
 use parking_lot::Mutex;
@@ -71,7 +67,8 @@ use std::{
 pub enum AddFilterError {
 	/// The subscription already has the maximum number of active filters
 	LimitReached,
-	/// The matcher stopped before the filter request could be queued
+	/// The filter could not be registered: the store or the matcher is gone, or the subscription
+	/// is no longer active
 	Stopped,
 }
 
@@ -93,21 +90,29 @@ pub trait MultiFilterSubscriptionApi: Send + Sync {
 	fn create_subscription(&self) -> (SubscriptionHandle, MultiFilterEventStream);
 }
 
-/// Provides replay snapshots while holding the store index read lock during snapshot collection.
+/// Provides cursor-based replay for dynamically attached filters.
 pub(crate) trait ReplaySnapshotProvider: Send + Sync {
-	/// Collect the replay snapshot hashes for `filter` while holding the store index read lock,
-	/// then invoke `enqueue` with those hashes while the lock is still held.
+	/// Capture the committed admission watermark and enqueue filter registration atomically with
+	/// respect to submit.
+	/// Returns the registered watermark, or `None` when registration could not be enqueued.
 	///
-	/// Keeping snapshot collection and the `AddFilter` enqueue under the same read lock makes the
-	/// pair atomic with respect to `submit`, which inserts a statement and notifies subscribers
-	/// under the index write lock.
-	fn with_snapshot_hashes(
+	/// `enqueue` is called at most once, with the submit lock held: it must not block or call
+	/// back into the store.
+	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>>;
+
+	/// Read the next replay batch from the persisted admission sequence.
+	fn replay_batch(
 		&self,
 		filter: &OptimizedTopicFilter,
-		enqueue: &mut dyn FnMut(Vec<sp_statement_store::Hash>),
-	) -> Result<()>;
+		cursor: u64,
+		watermark: u64,
+	) -> Result<ReplayBatch>;
+}
 
-	fn statement_by_hash(&self, hash: &sp_statement_store::Hash) -> Result<Option<Vec<u8>>>;
+pub(crate) struct ReplayBatch {
+	pub(crate) statements: Vec<Vec<u8>>,
+	pub(crate) cursor: u64,
+	pub(crate) done: bool,
 }
 
 /// A handle that attaches, removes, and inspects filters for one multi-filter subscription
@@ -144,28 +149,34 @@ impl SubscriptionHandle {
 		let filter_id = FilterId::new(inner.next_filter_id);
 		let sub_id = self.sub_id;
 
-		let mut send_result = None;
-		let collect_result = self.snapshot_provider.with_snapshot_hashes(&filter, &mut |hashes| {
-			send_result = Some(
+		let (result_tx, result_rx) = async_channel::bounded(1);
+		let mut result_tx = Some(result_tx);
+		let Some(_watermark) = self
+			.snapshot_provider
+			.register_replay(&mut |watermark| {
+				let result_tx =
+					result_tx.take().expect("register_replay invokes enqueue at most once; qed");
 				self.matchers
 					.try_send_by_seq_id(
 						sub_id,
-						MatcherMessage::AddFilter {
+						MatcherMessage::RegisterFilter {
 							sub_id,
 							filter_id,
 							filter: filter.clone(),
-							snapshot_hashes: hashes,
+							watermark,
+							result_tx,
 						},
 					)
-					.map_err(|_| AddFilterError::Stopped),
-			);
-		});
-
-		// A snapshot collection error means the closure never ran and nothing was enqueued; the
-		// filter was not attached. Surface it without tearing down the whole subscription.
-		collect_result.map_err(|_| AddFilterError::Stopped)?;
-		send_result.expect("with_snapshot_hashes invokes enqueue on successful collection; qed")?;
-
+					.is_ok()
+			})
+			.map_err(|_| AddFilterError::Stopped)?
+		else {
+			return Err(AddFilterError::Stopped);
+		};
+		match result_rx.recv_blocking() {
+			Ok(result) => result?,
+			Err(_) => return Err(AddFilterError::Stopped),
+		}
 		inner.next_filter_id = inner.next_filter_id.wrapping_add(1);
 		inner.active_filter_ids.insert(filter_id);
 		Ok(filter_id)
@@ -187,46 +198,34 @@ impl SubscriptionHandle {
 
 struct PendingReplay {
 	filter_id: FilterId,
-	snapshot_hashes: VecDeque<sp_statement_store::Hash>,
+	filter: OptimizedTopicFilter,
+	cursor: u64,
+	watermark: u64,
 }
 
 pub(crate) struct MultiFilterSubscriptionState {
 	pending_replays: VecDeque<PendingReplay>,
-	replayed_filter_ids_by_hash: HashMap<sp_statement_store::Hash, HashSet<FilterId>>,
-	new_emitted_hashes: HashSet<sp_statement_store::Hash>,
 	stopped: bool,
 	stop_emitted: bool,
 }
 
 impl MultiFilterSubscriptionState {
 	pub(crate) fn new() -> Self {
-		Self {
-			pending_replays: VecDeque::new(),
-			replayed_filter_ids_by_hash: HashMap::new(),
-			new_emitted_hashes: HashSet::new(),
-			stopped: false,
-			stop_emitted: false,
-		}
+		Self { pending_replays: VecDeque::new(), stopped: false, stop_emitted: false }
 	}
 
 	fn record_filter_added(
 		&mut self,
 		filter_id: FilterId,
-		snapshot_hashes: Vec<sp_statement_store::Hash>,
+		filter: OptimizedTopicFilter,
+		watermark: u64,
 	) {
-		for hash in &snapshot_hashes {
-			self.replayed_filter_ids_by_hash.entry(*hash).or_default().insert(filter_id);
-		}
 		self.pending_replays
-			.push_back(PendingReplay { filter_id, snapshot_hashes: snapshot_hashes.into() });
+			.push_back(PendingReplay { filter_id, filter, cursor: 0, watermark });
 	}
 
 	fn record_filter_removed(&mut self, filter_id: FilterId) {
 		self.pending_replays.retain(|replay| replay.filter_id != filter_id);
-		self.replayed_filter_ids_by_hash.retain(|_hash, set| {
-			set.remove(&filter_id);
-			!set.is_empty()
-		});
 	}
 
 	fn next_event(
@@ -252,43 +251,34 @@ impl MultiFilterSubscriptionState {
 	) -> Option<MultiFilterSubscriptionEvent> {
 		let replay = self.pending_replays.front_mut()?;
 		let filter_id = replay.filter_id;
-		if replay.snapshot_hashes.is_empty() {
+		if replay.cursor >= replay.watermark {
 			self.pending_replays.pop_front();
 			return Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id });
 		}
-
-		let mut statements = Vec::new();
-		let mut chunk_bytes = 0usize;
-		while let Some(hash) = replay.snapshot_hashes.front() {
-			let Ok(Some(statement)) = snapshot_provider.statement_by_hash(hash) else {
-				let hash = *hash;
-				replay.snapshot_hashes.pop_front();
-				if let Some(filter_ids) = self.replayed_filter_ids_by_hash.get_mut(&hash) {
-					filter_ids.remove(&filter_id);
-					if filter_ids.is_empty() {
-						self.replayed_filter_ids_by_hash.remove(&hash);
-					}
-				}
-				continue;
+		let batch =
+			match snapshot_provider.replay_batch(&replay.filter, replay.cursor, replay.watermark) {
+				Ok(batch) => batch,
+				Err(e) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Stopping subscription: replaying filter {:?} from {} failed: {:?}",
+						filter_id,
+						replay.cursor,
+						e
+					);
+					self.stopped = true;
+					return None;
+				},
 			};
-			if !statements.is_empty() && chunk_bytes + statement.len() > REPLAY_CHUNK_RAW_BYTES {
-				break;
-			}
-			replay.snapshot_hashes.pop_front();
-			chunk_bytes += statement.len();
-			statements.push(statement);
-			if chunk_bytes >= REPLAY_CHUNK_RAW_BYTES {
-				break;
-			}
-		}
-		// All remaining snapshot hashes may have disappeared from the store before
-		// lazy replay loads them. Finish the replay instead of emitting an empty batch
-		// or keeping the filter blocked.
-		if statements.is_empty() {
+		replay.cursor = batch.cursor;
+		if batch.done && batch.statements.is_empty() {
 			self.pending_replays.pop_front();
 			return Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id });
 		}
-		Some(MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements })
+		Some(MultiFilterSubscriptionEvent::ReplayStatements {
+			filter_id,
+			statements: batch.statements,
+		})
 	}
 
 	fn new_statement_event(
@@ -297,31 +287,12 @@ impl MultiFilterSubscriptionState {
 		encoded: Vec<u8>,
 		filter_ids: &HashSet<FilterId>,
 	) -> Option<MultiFilterSubscriptionEvent> {
-		if self.new_emitted_hashes.contains(&hash) {
-			return None;
-		}
-
-		let replayed_filter_ids = self.replayed_filter_ids_by_hash.get(&hash);
-		let matched_filter_ids: Vec<FilterId> = filter_ids
-			.iter()
-			.filter(|f| replayed_filter_ids.map_or(true, |set| !set.contains(f)))
-			.copied()
-			.collect();
+		let matched_filter_ids: Vec<FilterId> = filter_ids.iter().copied().collect();
 
 		if matched_filter_ids.is_empty() {
 			return None;
 		}
 
-		if self.new_emitted_hashes.len() >= EMITTED_VIA_NEW_HARD_CAP {
-			log::warn!(
-				target: LOG_TARGET,
-				"new_emitted_hashes cap reached on statement subscription; sending stop",
-			);
-			self.stopped = true;
-			return None;
-		}
-
-		self.new_emitted_hashes.insert(hash);
 		Some(MultiFilterSubscriptionEvent::NewStatement(LiveStatementEvent {
 			hash,
 			encoded,
@@ -347,7 +318,7 @@ pub enum MultiFilterSubscriptionEvent {
 	},
 	/// Live statement event matched one or more active filters
 	NewStatement(LiveStatementEvent),
-	/// Subscription stopped because local resource limits were reached
+	/// Subscription stopped: the subscriber fell behind its buffer, or replaying a filter failed
 	Stop,
 }
 
@@ -388,13 +359,14 @@ enum MatcherMessage {
 		snapshot_provider: Arc<dyn ReplaySnapshotProvider>,
 		tx: async_channel::Sender<MultiFilterSubscriptionEvent>,
 	},
-	/// Add a filter to an existing multi-filter subscription, with the replay snapshot collected
-	/// on the caller under the store index read lock.
-	AddFilter {
+	/// Register a filter at a store watermark. The matcher drains its cursor replay before
+	/// processing later live-statement messages from this channel.
+	RegisterFilter {
 		sub_id: SeqID,
 		filter_id: FilterId,
 		filter: OptimizedTopicFilter,
-		snapshot_hashes: Vec<sp_statement_store::Hash>,
+		watermark: u64,
+		result_tx: async_channel::Sender<std::result::Result<(), AddFilterError>>,
 	},
 	/// Remove a filter from an existing multi-filter subscription
 	RemoveFilter { sub_id: SeqID, filter_id: FilterId },
@@ -449,18 +421,20 @@ impl SubscriptionsHandle {
 							}) => {
 								subscriptions.subscribe_empty(seq_id, snapshot_provider, tx);
 							},
-							Ok(MatcherMessage::AddFilter {
+							Ok(MatcherMessage::RegisterFilter {
 								sub_id,
 								filter_id,
 								filter,
-								snapshot_hashes,
+								watermark,
+								result_tx,
 							}) => {
-								subscriptions.add_filter(
-									sub_id,
-									filter_id,
-									filter,
-									snapshot_hashes,
-								);
+								let result = subscriptions
+									.register_filter(sub_id, filter_id, filter, watermark);
+								let registered = result.is_ok();
+								let _ = result_tx.try_send(result);
+								if registered {
+									subscriptions.drain_ready_events(sub_id);
+								}
 							},
 							Ok(MatcherMessage::RemoveFilter { sub_id, filter_id }) => {
 								subscriptions.remove_filter(sub_id, filter_id);
@@ -582,9 +556,6 @@ enum ReadyEventDelivery {
 
 enum PostLiveSendAction {
 	None,
-	/// The subscription stopped itself (dedupe cap); drain so the `Stop` reaches the subscriber.
-	Drain,
-	/// The channel is closed; tear the subscription down.
 	Unsubscribe,
 }
 
@@ -621,7 +592,8 @@ struct IndexedSubscription {
 	seq_id: SeqID,
 	// The filter key within the subscription.
 	filter_key: SubscriptionFilterKey,
-	// Store sequence-number boundary captured when this subscription was created.
+	// Store sequence-number boundary captured when this entry was registered: at subscription
+	// creation for a fixed filter, at `add_filter` for a dynamic one.
 	watermark: u64,
 }
 
@@ -665,12 +637,50 @@ impl SubscriptionsInfo {
 		);
 	}
 
+	#[cfg(test)]
 	fn add_filter(
 		&mut self,
 		sub_id: SeqID,
 		filter_id: FilterId,
 		filter: OptimizedTopicFilter,
 		snapshot_hashes: Vec<sp_statement_store::Hash>,
+	) {
+		self.add_filter_with_cursor(sub_id, filter_id, filter, snapshot_hashes.len() as u64);
+		self.drain_ready_events(sub_id);
+	}
+
+	fn register_filter(
+		&mut self,
+		sub_id: SeqID,
+		filter_id: FilterId,
+		filter: OptimizedTopicFilter,
+		watermark: u64,
+	) -> std::result::Result<(), AddFilterError> {
+		let Some(SubscriptionRecord::MultiFilter { filters, .. }) = self.by_sub_id.get(&sub_id)
+		else {
+			return Err(AddFilterError::Stopped);
+		};
+		if filters.contains_key(&filter_id) {
+			return Err(AddFilterError::Stopped);
+		}
+		let output_closed = matches!(
+			self.by_sub_id.get(&sub_id),
+			Some(SubscriptionRecord::MultiFilter { tx, .. }) if tx.is_closed()
+		);
+		if output_closed {
+			self.unsubscribe(sub_id);
+			return Err(AddFilterError::Stopped);
+		}
+		self.add_filter_with_cursor(sub_id, filter_id, filter, watermark);
+		Ok(())
+	}
+
+	fn add_filter_with_cursor(
+		&mut self,
+		sub_id: SeqID,
+		filter_id: FilterId,
+		filter: OptimizedTopicFilter,
+		watermark: u64,
 	) {
 		let filter_key = SubscriptionFilterKey::Dynamic(filter_id);
 		{
@@ -684,19 +694,14 @@ impl SubscriptionsInfo {
 				return;
 			};
 			entry.insert(filter.clone());
-			state.record_filter_added(filter_id, snapshot_hashes);
+			state.record_filter_added(filter_id, filter.clone(), watermark);
 		}
-		// Dynamic filters carry no watermark (0 suppresses nothing): replay/live overlap is
-		// deduplicated by hash in `MultiFilterSubscriptionState` instead, with the snapshot
-		// collected atomically with the `AddFilter` enqueue (see `ReplaySnapshotProvider`).
 		self.index_filter(IndexedSubscription {
 			topic_filter: filter,
 			seq_id: sub_id,
 			filter_key,
-			watermark: 0,
+			watermark,
 		});
-
-		self.drain_ready_events(sub_id);
 	}
 
 	fn remove_filter(&mut self, sub_id: SeqID, filter_id: FilterId) {
@@ -788,7 +793,6 @@ impl SubscriptionsInfo {
 				return;
 			};
 
-			let was_stopped = state.stopped;
 			match state.new_statement_event(hash, encoded, &matched_filter_ids) {
 				Some(event) => match Self::send_ready_event(state, tx, event) {
 					ReadyEventDelivery::Closed => PostLiveSendAction::Unsubscribe,
@@ -796,15 +800,11 @@ impl SubscriptionsInfo {
 						PostLiveSendAction::None
 					},
 				},
-				// The dedupe cap was hit and stopped the subscription; let the drain
-				// emit the resulting `Stop`.
-				None if !was_stopped && state.stopped => PostLiveSendAction::Drain,
 				None => PostLiveSendAction::None,
 			}
 		};
 
 		match action {
-			PostLiveSendAction::Drain => self.drain_ready_events(sub_id),
 			PostLiveSendAction::Unsubscribe => self.unsubscribe(sub_id),
 			PostLiveSendAction::None => {},
 		}
@@ -835,9 +835,10 @@ impl SubscriptionsInfo {
 	}
 
 	// Deliver the statement at store sequence number `seq` to every matching subscription.
-	// Fixed-filter subscriptions whose watermark is above `seq` are skipped: their subscribe-time
-	// snapshot already covers the statement (see
-	// `StatementStoreSubscriptionApi::subscribe_statement`).
+	// Subscriptions and filters registered above `seq` are skipped: the statement predates them, so
+	// it is covered by the subscribe-time snapshot
+	// (`StatementStoreSubscriptionApi::subscribe_statement`) for a fixed filter, or by the
+	// admission-cursor replay (`ReplaySnapshotProvider::replay_batch`) for a dynamic one.
 	fn notify_matching_filters(&mut self, seq: u64, statement: &Statement) {
 		let mut matches = HashMap::new();
 		self.collect_match_all_subscribers(seq, statement, &mut matches);
@@ -885,8 +886,8 @@ impl SubscriptionsInfo {
 	}
 
 	// Record a subscription filter as matched, unless the statement's sequence number is below the
-	// subscription's watermark (exactly-once delivery: such statements are covered by the
-	// subscribe-time snapshot instead).
+	// watermark captured when it was registered (exactly-once delivery: such statements are covered
+	// by the subscribe-time snapshot or the admission-cursor replay instead).
 	fn record_match(
 		matches: &mut HashMap<SeqID, MatchedSubscription>,
 		subscription: &IndexedSubscription,
@@ -1123,6 +1124,11 @@ mod tests {
 	use super::*;
 	use sp_core::Decode;
 	use sp_statement_store::Topic;
+	use std::{
+		sync::{mpsc, Mutex as StdMutex},
+		thread,
+		time::{Duration, Instant},
+	};
 
 	fn unwrap_statement(item: StatementEvent) -> Bytes {
 		match item {
@@ -1153,6 +1159,7 @@ mod tests {
 	struct TestReplaySnapshotProvider {
 		statements: HashMap<sp_statement_store::Hash, Vec<u8>>,
 		snapshot_hashes: Vec<sp_statement_store::Hash>,
+		batch_len: u64,
 	}
 
 	impl TestReplaySnapshotProvider {
@@ -1163,62 +1170,204 @@ mod tests {
 					.map(|statement| (statement.hash(), statement.encode()))
 					.collect(),
 				snapshot_hashes: snapshot.iter().map(Statement::hash).collect(),
+				batch_len: snapshot.len() as u64,
 			}
 		}
 	}
 
 	impl ReplaySnapshotProvider for TestReplaySnapshotProvider {
-		fn with_snapshot_hashes(
+		fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
+			let watermark = self.snapshot_hashes.len() as u64;
+			Ok(enqueue(watermark).then_some(watermark))
+		}
+
+		fn replay_batch(
 			&self,
 			_filter: &OptimizedTopicFilter,
-			enqueue: &mut dyn FnMut(Vec<sp_statement_store::Hash>),
-		) -> Result<()> {
-			enqueue(self.snapshot_hashes.clone());
-			Ok(())
+			cursor: u64,
+			watermark: u64,
+		) -> Result<ReplayBatch> {
+			let end = watermark.min(self.snapshot_hashes.len() as u64).min(cursor + self.batch_len);
+			let statements = self.snapshot_hashes[cursor as usize..end as usize]
+				.iter()
+				.filter_map(|hash| self.statements.get(hash).cloned())
+				.collect();
+			Ok(ReplayBatch { statements, cursor: end, done: end >= watermark })
+		}
+	}
+
+	struct BlockingReplaySnapshotProvider {
+		statements: HashMap<sp_statement_store::Hash, Vec<u8>>,
+		snapshot_hashes: Vec<sp_statement_store::Hash>,
+		scan_started: mpsc::SyncSender<()>,
+		continue_scan: StdMutex<mpsc::Receiver<()>>,
+	}
+
+	impl ReplaySnapshotProvider for BlockingReplaySnapshotProvider {
+		fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
+			let watermark = self.snapshot_hashes.len() as u64;
+			Ok(enqueue(watermark).then_some(watermark))
 		}
 
-		fn statement_by_hash(&self, hash: &sp_statement_store::Hash) -> Result<Option<Vec<u8>>> {
-			Ok(self.statements.get(hash).cloned())
+		fn replay_batch(
+			&self,
+			_filter: &OptimizedTopicFilter,
+			cursor: u64,
+			watermark: u64,
+		) -> Result<ReplayBatch> {
+			self.scan_started.send(()).expect("test receiver remains open");
+			self.continue_scan
+				.lock()
+				.expect("test mutex is not poisoned")
+				.recv()
+				.expect("test sender remains open");
+			let end = watermark.min(self.snapshot_hashes.len() as u64);
+			let statements = self.snapshot_hashes[cursor as usize..end as usize]
+				.iter()
+				.filter_map(|hash| self.statements.get(hash).cloned())
+				.collect();
+			Ok(ReplayBatch { statements, cursor: end, done: end >= watermark })
+		}
+	}
+
+	struct ReplayLoadBlockingProvider {
+		body: Vec<u8>,
+		load_started: mpsc::SyncSender<()>,
+		continue_load: StdMutex<mpsc::Receiver<()>>,
+	}
+
+	impl ReplaySnapshotProvider for ReplayLoadBlockingProvider {
+		fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
+			Ok(enqueue(1).then_some(1))
+		}
+
+		fn replay_batch(
+			&self,
+			_filter: &OptimizedTopicFilter,
+			cursor: u64,
+			watermark: u64,
+		) -> Result<ReplayBatch> {
+			assert_eq!(cursor, 0);
+			assert_eq!(watermark, 1);
+			self.load_started.send(()).expect("test receiver remains open");
+			self.continue_load
+				.lock()
+				.expect("test mutex is not poisoned")
+				.recv()
+				.expect("test sender remains open");
+			Ok(ReplayBatch { statements: vec![self.body.clone()], cursor: 1, done: true })
+		}
+	}
+
+	fn recv_multi_filter_event(
+		stream: &MultiFilterEventStream,
+		timeout: Duration,
+	) -> Option<MultiFilterSubscriptionEvent> {
+		let deadline = Instant::now() + timeout;
+		loop {
+			match stream.rx.try_recv() {
+				Ok(event) => return Some(event),
+				Err(async_channel::TryRecvError::Closed) => return None,
+				Err(async_channel::TryRecvError::Empty) if Instant::now() < deadline => {
+					thread::sleep(Duration::from_millis(1));
+				},
+				Err(async_channel::TryRecvError::Empty) => return None,
+			}
 		}
 	}
 
 	#[test]
-	fn multi_filter_does_not_redeliver_live_statement_already_sent_in_replay() {
-		let mut subscriptions = SubscriptionsInfo::new();
-		let sub_id = SeqID::from(11);
-		let filter_id = FilterId::new(1);
-		let topic = Topic::from([9u8; 32]);
-		let filter = OptimizedTopicFilter::MatchAny(vec![topic].into_iter().collect());
-		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(10);
-		let mut statement = signed_statement(42);
-		statement.set_topic(0, topic);
-		// The statement is part of the filter's replay snapshot, so attaching the filter
-		// delivers it as a replay statement.
-		let provider = Arc::new(TestReplaySnapshotProvider::with_snapshot(
-			std::slice::from_ref(&statement),
-			std::slice::from_ref(&statement),
-		));
+	fn multi_filter_replays_before_live_submissions_committed_during_snapshot() {
+		let subscriptions =
+			SubscriptionsHandle::new(Box::new(sp_core::testing::TaskExecutor::new()), 1);
+		let filter_id = FilterId::new(0);
+		let replayed = signed_statement(41);
+		let delayed = signed_statement(40);
+		let delayed_hash = delayed.hash();
+		let live = signed_statement(42);
+		let (scan_started_tx, scan_started_rx) = mpsc::sync_channel(1);
+		let (continue_scan_tx, continue_scan_rx) = mpsc::sync_channel(1);
+		let provider = Arc::new(BlockingReplaySnapshotProvider {
+			statements: [(replayed.hash(), replayed.encode())].into_iter().collect(),
+			snapshot_hashes: vec![replayed.hash()],
+			scan_started: scan_started_tx,
+			continue_scan: StdMutex::new(continue_scan_rx),
+		});
+		let (sub_id, stream) = subscriptions.subscribe_empty(provider.clone());
+		let handle = SubscriptionHandle {
+			sub_id,
+			inner: Arc::new(Mutex::new(SubscriptionHandleInner::new())),
+			matchers: subscriptions.matchers(),
+			snapshot_provider: provider,
+		};
 
-		subscriptions.subscribe_empty(sub_id, provider, tx);
-		subscriptions.add_filter(sub_id, filter_id, filter, vec![statement.hash()]);
+		let add_filter = thread::spawn(move || handle.add_filter(OptimizedTopicFilter::Any));
+		scan_started_rx.recv().expect("snapshot scan starts");
+
+		// Both post-watermark live events wait behind replay.
+		subscriptions.notify(0, replayed.clone());
+		subscriptions.notify(1, delayed);
+		subscriptions.notify(2, live.clone());
+		continue_scan_tx.send(()).expect("snapshot scan is still waiting");
+		assert_eq!(add_filter.join().expect("add-filter thread does not panic"), Ok(filter_id));
 
 		assert!(matches!(
-			rx.try_recv(),
-			Ok(MultiFilterSubscriptionEvent::ReplayStatements { statements, .. })
-				if statements == vec![statement.encode()]
+			recv_multi_filter_event(&stream, Duration::from_secs(1)),
+			Some(MultiFilterSubscriptionEvent::ReplayStatements { statements, .. })
+				if statements == vec![replayed.encode()]
 		));
 		assert!(matches!(
-			rx.try_recv(),
-			Ok(MultiFilterSubscriptionEvent::ReplayDone { filter_id: done }) if done == filter_id
+			recv_multi_filter_event(&stream, Duration::from_secs(1)),
+			Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id: done }) if done == filter_id
 		));
-
-		// The same statement arriving live must not be delivered a second time.
-		subscriptions.notify_matching_filters(0, &statement);
-		assert!(rx.try_recv().is_err());
+		assert!(matches!(
+			recv_multi_filter_event(&stream, Duration::from_secs(1)),
+			Some(MultiFilterSubscriptionEvent::NewStatement(event))
+				if event.hash == delayed_hash && event.matched_filter_ids == vec![filter_id]
+		));
+		assert!(matches!(
+			recv_multi_filter_event(&stream, Duration::from_secs(1)),
+			Some(MultiFilterSubscriptionEvent::NewStatement(event))
+				if event.hash == live.hash() && event.matched_filter_ids == vec![filter_id]
+		));
+		assert!(recv_multi_filter_event(&stream, Duration::from_millis(10)).is_none());
 	}
 
 	#[test]
-	fn multi_filter_delivers_live_statement_that_was_evicted_before_replay_load() {
+	fn add_filter_returns_before_matcher_drains_replay() {
+		let subscriptions =
+			SubscriptionsHandle::new(Box::new(sp_core::testing::TaskExecutor::new()), 1);
+		let statement = signed_statement(43);
+		let (load_started_tx, load_started_rx) = mpsc::sync_channel(1);
+		let (continue_load_tx, continue_load_rx) = mpsc::sync_channel(1);
+		let provider = Arc::new(ReplayLoadBlockingProvider {
+			body: statement.encode(),
+			load_started: load_started_tx,
+			continue_load: StdMutex::new(continue_load_rx),
+		});
+		let (sub_id, _stream) = subscriptions.subscribe_empty(provider.clone());
+		let handle = SubscriptionHandle {
+			sub_id,
+			inner: Arc::new(Mutex::new(SubscriptionHandleInner::new())),
+			matchers: subscriptions.matchers(),
+			snapshot_provider: provider,
+		};
+		let (result_tx, result_rx) = mpsc::sync_channel(1);
+		let add_filter = thread::spawn(move || {
+			result_tx
+				.send(handle.add_filter(OptimizedTopicFilter::Any))
+				.expect("test receiver remains open");
+		});
+
+		load_started_rx.recv().expect("matcher starts loading replay");
+		let result = result_rx.recv_timeout(Duration::from_secs(1));
+		continue_load_tx.send(()).expect("replay load is still waiting");
+		add_filter.join().expect("add-filter thread does not panic");
+		assert_eq!(result, Ok(Ok(FilterId::new(0))));
+	}
+
+	#[test]
+	fn multi_filter_delivers_re_admitted_hash_skipped_during_replay() {
 		let mut subscriptions = SubscriptionsInfo::new();
 		let sub_id = SeqID::from(12);
 		let filter_id = FilterId::new(1);
@@ -1227,9 +1376,8 @@ mod tests {
 		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(10);
 		let mut statement = signed_statement(42);
 		statement.set_topic(0, topic);
-		// The statement's hash is part of the replay snapshot, but its body is gone from the
-		// store by the time the lazy replay tries to load it (evicted between snapshot
-		// collection and replay).
+		// The statement has an admission entry inside the replay range, but its body is no longer
+		// retrievable, so the replay skips that sequence number.
 		let provider = Arc::new(TestReplaySnapshotProvider::with_snapshot(
 			std::slice::from_ref(&statement),
 			&[],
@@ -1244,9 +1392,9 @@ mod tests {
 			Ok(MultiFilterSubscriptionEvent::ReplayDone { filter_id: done }) if done == filter_id
 		));
 
-		// The statement is re-submitted later. It was never delivered through the replay, so
-		// it must reach the subscriber as a live event.
-		subscriptions.notify_matching_filters(0, &statement);
+		// The statement is re-admitted at a new sequence. It was never delivered through replay,
+		// so it must reach the subscriber as a live event.
+		subscriptions.notify_matching_filters(1, &statement);
 
 		match rx.try_recv() {
 			Ok(MultiFilterSubscriptionEvent::NewStatement(event)) => {
@@ -1257,6 +1405,58 @@ mod tests {
 				panic!("statement skipped during replay must be delivered live, got {other:?}")
 			},
 		}
+
+		subscriptions.notify_matching_filters(2, &statement);
+		assert!(matches!(
+			rx.try_recv(),
+			Ok(MultiFilterSubscriptionEvent::NewStatement(event))
+				if event.hash == statement.hash() && event.matched_filter_ids == vec![filter_id]
+		));
+	}
+
+	#[test]
+	fn multi_filter_replay_resumes_from_the_returned_cursor() {
+		let mut subscriptions = SubscriptionsInfo::new();
+		let sub_id = SeqID::from(11);
+		let filter_id = FilterId::new(1);
+		let topic = Topic::from([9u8; 32]);
+		let filter = OptimizedTopicFilter::MatchAny(vec![topic].into_iter().collect());
+		let (tx, rx) = async_channel::bounded::<MultiFilterSubscriptionEvent>(10);
+		let replayed: Vec<Statement> = (0..3u8)
+			.map(|seed| {
+				let mut statement = signed_statement(seed);
+				statement.set_topic(0, topic);
+				statement
+			})
+			.collect();
+		let mut provider = TestReplaySnapshotProvider::with_snapshot(&replayed, &replayed);
+		provider.batch_len = 1;
+
+		subscriptions.subscribe_empty(sub_id, Arc::new(provider), tx);
+		subscriptions.add_filter(
+			sub_id,
+			filter_id,
+			filter,
+			replayed.iter().map(Statement::hash).collect(),
+		);
+
+		let mut delivered = Vec::new();
+		let mut replay_done = 0;
+		while let Ok(event) = rx.try_recv() {
+			match event {
+				MultiFilterSubscriptionEvent::ReplayStatements { filter_id: id, statements } => {
+					assert_eq!(id, filter_id);
+					delivered.extend(statements);
+				},
+				MultiFilterSubscriptionEvent::ReplayDone { filter_id: id } => {
+					assert_eq!(id, filter_id);
+					replay_done += 1;
+				},
+				other => panic!("expected replay events, got {other:?}"),
+			}
+		}
+		assert_eq!(delivered, replayed.iter().map(Statement::encode).collect::<Vec<_>>());
+		assert_eq!(replay_done, 1);
 	}
 
 	#[test]
