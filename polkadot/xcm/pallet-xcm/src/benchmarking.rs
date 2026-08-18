@@ -823,9 +823,8 @@ mod benchmarks {
 
 	/// Decoding and weighing a caller-supplied message of `n` bytes.
 	///
-	/// The decode is inside the measured block because the precompile charges this before
-	/// decoding, and it goes through the same entry point the precompile uses so that the memory
-	/// tracking the precompile pays for is measured too.
+	/// The decode is measured, and goes through the precompile's entry point, because the
+	/// precompile charges this weight before decoding.
 	///
 	/// `n` stops at [`MAX_WEIGHABLE_BLOB_BYTES`] rather than [`MAX_XCM_BLOB_BYTES`].
 	#[benchmark]
@@ -873,9 +872,8 @@ mod tests {
 	use super::*;
 	use crate::mock::Test;
 
-	/// A worst case that does not decode measures nothing, and `MAX_INSTRUCTIONS_TO_DECODE` is
-	/// easy to overshoot by accident: it is one budget shared by every nesting level, so
-	/// instructions nested inside a `Transact` come out of the same allowance as the outer ones.
+	/// A worst case that does not decode measures nothing, and the shared instruction budget
+	/// makes that easy to trip by accident.
 	#[test]
 	fn worst_case_weighable_message_decodes() {
 		for target_bytes in [0, 1, 1024, MAX_WEIGHABLE_BLOB_BYTES] {
@@ -898,18 +896,15 @@ pub mod helpers {
 	/// The worst case for `WeightInfo::weigh_message`: a `Transact` carrying
 	/// `batch_call([pallet_xcm.execute(Xcm([])); N])`, encoded, of at least `target_bytes` bytes.
 	///
-	/// A `Transact` payload that resolves to a local `RuntimeCall` is decoded eagerly, so the
-	/// blob's entire call tree is decoded here, and weighing it then recurses
-	/// `get_dispatch_info()` over every batched call. Both costs scale with the number of batched
-	/// calls rather than with the instruction count, so the worst case spends `target_bytes` on as
-	/// many calls as it can fit and leaves the inner messages empty.
+	/// A `Transact` payload resolving to a local call is decoded eagerly, and weighing it recurses
+	/// `get_dispatch_info()` over every batched call, so both costs scale with the number of calls
+	/// the blob can hold. The worst case therefore spends `target_bytes` on as many calls as it
+	/// fits, leaving the inner messages empty.
 	///
-	/// Empty inner messages are also what keeps the blob decodable at all:
-	/// `MAX_INSTRUCTIONS_TO_DECODE` is a single budget shared by every nesting level, not one
-	/// budget per level, so instructions nested inside a `Transact` come out of the same allowance
-	/// as the outer ones.
+	/// Empty also keeps the blob decodable: `MAX_INSTRUCTIONS_TO_DECODE` is one budget shared by
+	/// every nesting level, so instructions inside a `Transact` spend the outer allowance.
 	///
-	/// Keep `target_bytes` at or below	`MAX_WEIGHABLE_BLOB_BYTES`.
+	/// Keep `target_bytes` at or below `MAX_WEIGHABLE_BLOB_BYTES`.
 	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
 	where
 		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,

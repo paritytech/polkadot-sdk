@@ -148,7 +148,6 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
-		// Declared last so that the existing pallets keep their indices.
 		Utility: pallet_utility,
 	}
 );
@@ -288,8 +287,8 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-// Present so that the `weigh_message` benchmark can build the same batched worst case that
-// runtimes with a batching pallet do; see `benchmarking::Config::batch_call`.
+// Lets the `weigh_message` benchmark build the same batched worst case real runtimes do;
+// see `benchmarking::Config::batch_call`.
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;

@@ -111,10 +111,9 @@ pub trait WeightInfo {
 
 	/// Weight of decoding and weighing an XCM message of `n` bytes.
 	///
-	/// Scales with size because `MAX_INSTRUCTIONS_TO_DECODE` does not bound the work: a
-	/// `Transact` carrying a local call has that call decoded eagerly, and the weigher then
-	/// recurses `get_dispatch_info` over it, so a batch call makes both costs scale with the
-	/// number of nested calls the blob can hold rather than with its instruction count.
+	/// Scales with size rather than with `MAX_INSTRUCTIONS_TO_DECODE`: a `Transact` carrying a
+	/// local call has that call decoded eagerly and weighed via `get_dispatch_info`, so a batch
+	/// call makes both costs scale with the number of nested calls.
 	///
 	/// Callers that also charge a flat small-message weight (e.g. [`Self::execute`]) pay this
 	/// base constant twice; that over-charge is deliberate.
