@@ -3315,9 +3315,7 @@ mod tests {
 				Some(3) => StatementAllowance::new(3, 1000),
 				Some(4) => StatementAllowance::new(4, 1000),
 				Some(42) => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
-				// Accounts 50 and 51 hold allowances that are depleted on one axis but still
-				// present in state, which is what `StatementAllowance::is_depleted` describes.
-				// Neither may store any statement.
+				// Depleted on one axis, but still present in state.
 				Some(50) => StatementAllowance::new(0, 1000),
 				Some(51) => StatementAllowance::new(5, 0),
 				Some(_) | None => StatementAllowance::new(100, 1000),
@@ -3566,10 +3564,7 @@ mod tests {
 	#[test]
 	fn depleted_count_allowance_admits_nothing() {
 		let (store, _temp) = test_store();
-		// Account 50's allowance is `{max_count: 0, max_size: 1000}`. The count axis is
-		// depleted, so no statement may be stored, including the account's first one: with an
-		// empty record there is nothing to evict, and the per-account constraint loop that
-		// checks `max_count` never runs.
+		// Account 50 has `max_count: 0`.
 		let result = store.submit(statement(50, 1, None, 100), StatementSource::Network);
 		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
 		assert_eq!(store.statement_count(), 0);
@@ -3579,9 +3574,7 @@ mod tests {
 	#[test]
 	fn depleted_size_allowance_admits_nothing() {
 		let (store, _temp) = test_store();
-		// Account 51's allowance is `{max_count: 5, max_size: 0}`. A zero-length statement
-		// passes the `statement_len > max_size` gate (`0 > 0` is false), so the size axis
-		// being depleted has to be what rejects it.
+		// Account 51 has `max_size: 0`; a zero-length statement passes the length gate.
 		let result = store.submit(statement(51, 1, None, 0), StatementSource::Network);
 		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
 		assert_eq!(store.statement_count(), 0);
