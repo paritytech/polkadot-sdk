@@ -130,8 +130,12 @@ impl<
 				let Delegations { votes, capital } = vote.conviction.votes(balance);
 				match vote.aye {
 					true => {
-						self.support = self.support.checked_add(&capital)?;
-						self.ayes = self.ayes.checked_add(&votes)?
+						// Compute both new values before mutating, so a `checked_add` failure
+						// leaves `self` untouched.
+						let support = self.support.checked_add(&capital)?;
+						let ayes = self.ayes.checked_add(&votes)?;
+						self.support = support;
+						self.ayes = ayes;
 					},
 					false => self.nays = self.nays.checked_add(&votes)?,
 				}
@@ -139,18 +143,24 @@ impl<
 			AccountVote::Split { aye, nay } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
-				self.support = self.support.checked_add(&aye.capital)?;
-				self.ayes = self.ayes.checked_add(&aye.votes)?;
-				self.nays = self.nays.checked_add(&nay.votes)?;
+				let support = self.support.checked_add(&aye.capital)?;
+				let ayes = self.ayes.checked_add(&aye.votes)?;
+				let nays = self.nays.checked_add(&nay.votes)?;
+				self.support = support;
+				self.ayes = ayes;
+				self.nays = nays;
 			},
 			AccountVote::SplitAbstain { aye, nay, abstain } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
 				let abstain = Conviction::None.votes(abstain);
-				self.support =
+				let support =
 					self.support.checked_add(&aye.capital)?.checked_add(&abstain.capital)?;
-				self.ayes = self.ayes.checked_add(&aye.votes)?;
-				self.nays = self.nays.checked_add(&nay.votes)?;
+				let ayes = self.ayes.checked_add(&aye.votes)?;
+				let nays = self.nays.checked_add(&nay.votes)?;
+				self.support = support;
+				self.ayes = ayes;
+				self.nays = nays;
 			},
 		}
 		Some(())
@@ -163,8 +173,12 @@ impl<
 				let Delegations { votes, capital } = vote.conviction.votes(balance);
 				match vote.aye {
 					true => {
-						self.support = self.support.checked_sub(&capital)?;
-						self.ayes = self.ayes.checked_sub(&votes)?
+						// Compute both new values before mutating, so a `checked_sub` failure
+						// leaves `self` untouched.
+						let support = self.support.checked_sub(&capital)?;
+						let ayes = self.ayes.checked_sub(&votes)?;
+						self.support = support;
+						self.ayes = ayes;
 					},
 					false => self.nays = self.nays.checked_sub(&votes)?,
 				}
@@ -172,18 +186,24 @@ impl<
 			AccountVote::Split { aye, nay } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
-				self.support = self.support.checked_sub(&aye.capital)?;
-				self.ayes = self.ayes.checked_sub(&aye.votes)?;
-				self.nays = self.nays.checked_sub(&nay.votes)?;
+				let support = self.support.checked_sub(&aye.capital)?;
+				let ayes = self.ayes.checked_sub(&aye.votes)?;
+				let nays = self.nays.checked_sub(&nay.votes)?;
+				self.support = support;
+				self.ayes = ayes;
+				self.nays = nays;
 			},
 			AccountVote::SplitAbstain { aye, nay, abstain } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
 				let abstain = Conviction::None.votes(abstain);
-				self.support =
+				let support =
 					self.support.checked_sub(&aye.capital)?.checked_sub(&abstain.capital)?;
-				self.ayes = self.ayes.checked_sub(&aye.votes)?;
-				self.nays = self.nays.checked_sub(&nay.votes)?;
+				let ayes = self.ayes.checked_sub(&aye.votes)?;
+				let nays = self.nays.checked_sub(&nay.votes)?;
+				self.support = support;
+				self.ayes = ayes;
+				self.nays = nays;
 			},
 		}
 		Some(())
@@ -267,4 +287,44 @@ pub enum UnvoteScope {
 	Any,
 	/// Permitted to do only the changes that do not need the owner's permission.
 	OnlyExpired,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	struct MaxTotal;
+	impl Get<u32> for MaxTotal {
+		fn get() -> u32 {
+			u32::MAX
+		}
+	}
+	type TestTally = Tally<u32, MaxTotal>;
+
+	fn aye_vote() -> AccountVote<u32> {
+		AccountVote::Standard {
+			vote: Vote { aye: true, conviction: Conviction::Locked1x },
+			balance: 1,
+		}
+	}
+
+	#[test]
+	fn add_leaves_tally_unchanged_on_overflow() {
+		// `ayes` is saturated so the aye addition overflows while `support` has room; a failed
+		// `add` must not have partially mutated `support`.
+		let mut tally = TestTally::from_parts(u32::MAX, 0, 0);
+		let before = tally.clone();
+		assert_eq!(tally.add(aye_vote()), None);
+		assert_eq!(tally, before);
+	}
+
+	#[test]
+	fn remove_leaves_tally_unchanged_on_underflow() {
+		// `ayes` is zero so the aye subtraction underflows while `support` has value; a failed
+		// `remove` must not have partially mutated `support`.
+		let mut tally = TestTally::from_parts(0, 0, 1);
+		let before = tally.clone();
+		assert_eq!(tally.remove(aye_vote()), None);
+		assert_eq!(tally, before);
+	}
 }
