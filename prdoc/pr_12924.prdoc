@@ -1,0 +1,12 @@
+title: "pallet-conviction-voting: make Tally::add and Tally::remove atomic on overflow/underflow"
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Tally::add` and `Tally::remove` mutated `self.support` before checking the following
+    `self.ayes`/`self.nays` `checked_add`/`checked_sub`, so a later overflow or underflow returned
+    `None` while `self.support` had already been changed, leaving the tally partially updated. The
+    `Split` and `SplitAbstain` variants had the same issue. All new field values are now computed
+    before any assignment, so a failed `add`/`remove` leaves the tally unchanged.
+crates:
+- name: pallet-conviction-voting
+  bump: patch
