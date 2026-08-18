@@ -343,6 +343,127 @@ fn mixed_benches(c: &mut Criterion, store: &Arc<Store>) {
 	g.finish();
 }
 
+/// Prices `submit`'s access to per-account state when the submitting account rotates, one submit
+/// per fixture account per iteration.
+///
+/// Channel-less rotating submits are the gossip-shaped workload (many authors interleaved): the
+/// admission can be answered from lightweight per-account summaries. Channel-carrying submits
+/// force the store to consult the account's full channel state — with the on-disk submit index
+/// this is the cache-miss worst case, materialising a different fixture account's ~65k-row
+/// record for every admission. The same channel-carrying submits from one hot account isolate
+/// the channel logic itself from the rotation cost.
+fn account_rotation_benches(c: &mut Criterion, store: &Arc<Store>) {
+	let keypairs: Vec<_> = (0..ACCOUNTS).map(account_keypair).collect();
+	// Rotating submits target fixture accounts, so they cannot be swept up by the sacrificial
+	// `remove_by` cleanup; collect their hashes and remove them one by one instead.
+	let added = std::sync::Mutex::new(Vec::new());
+
+	let mut g = c.benchmark_group("full4m_account_rotation");
+	g.sample_size(10);
+
+	g.bench_function("submit_rotating_64", |b| {
+		b.iter_batched(
+			|| {
+				let base = fresh_id_base();
+				let batch: Vec<_> = (0..ACCOUNTS as u64)
+					.map(|k| {
+						create_statement(
+							base + k,
+							&[],
+							None,
+							STATEMENT_DATA_SIZE,
+							LOW_EXPIRY,
+							&keypairs[k as usize % ACCOUNTS],
+						)
+					})
+					.collect();
+				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				batch
+			},
+			|statements| {
+				for statement in statements {
+					let result = store.submit(statement, StatementSource::Local);
+					assert!(matches!(result, SubmitResult::New), "submit rejected: {:?}", result);
+				}
+			},
+			BatchSize::LargeInput,
+		)
+	});
+
+	g.bench_function("submit_rotating_channel_64", |b| {
+		b.iter_batched(
+			|| {
+				let base = fresh_id_base();
+				let batch: Vec<_> = (0..ACCOUNTS as u64)
+					.map(|k| {
+						let id = base + k;
+						create_channel_statement(
+							id,
+							channel(40_000_000_000 + id),
+							STATEMENT_DATA_SIZE,
+							LOW_EXPIRY,
+							&keypairs[k as usize % ACCOUNTS],
+						)
+					})
+					.collect();
+				added.lock().unwrap().extend(batch.iter().map(|s| s.hash()));
+				batch
+			},
+			|statements| {
+				for statement in statements {
+					let result = store.submit(statement, StatementSource::Local);
+					assert!(matches!(result, SubmitResult::New), "submit rejected: {:?}", result);
+				}
+			},
+			BatchSize::LargeInput,
+		)
+	});
+
+	// Same channel-carrying submits, single hot account (cleaned up later by `remove_by`).
+	g.bench_function("submit_channel_hot_64", |b| {
+		let keypair = sacrifice_keypair();
+		b.iter_batched(
+			|| {
+				let base = fresh_id_base();
+				(0..ACCOUNTS as u64)
+					.map(|k| {
+						let id = base + k;
+						create_channel_statement(
+							id,
+							channel(50_000_000_000 + id),
+							STATEMENT_DATA_SIZE,
+							LOW_EXPIRY,
+							&keypair,
+						)
+					})
+					.collect::<Vec<_>>()
+			},
+			|statements| {
+				for statement in statements {
+					let result = store.submit(statement, StatementSource::Local);
+					assert!(matches!(result, SubmitResult::New), "submit rejected: {:?}", result);
+				}
+			},
+			BatchSize::LargeInput,
+		)
+	});
+
+	g.finish();
+
+	// Put the fixture accounts back exactly as they were.
+	let added = added.into_inner().expect("no panics while collecting; qed");
+	let started = Instant::now();
+	for hash in &added {
+		store.remove(hash).expect("remove succeeds");
+	}
+	store.maintain();
+	eprintln!(
+		"rotation cleanup: {} statements removed in {:.1}s",
+		added.len(),
+		started.elapsed().as_secs_f64()
+	);
+}
+
 /// Removes everything the sacrificial account submitted, restoring exact fixture counts for the
 /// eviction phase and for later reruns against the same fixture.
 fn cleanup_sacrifice(store: &Store) {
@@ -435,6 +556,7 @@ fn main() {
 	scan_reads(&mut c, &store);
 	write_benches(&mut c, &store);
 	mixed_benches(&mut c, &store);
+	account_rotation_benches(&mut c, &store);
 
 	cleanup_sacrifice(&store);
 	drop(Arc::try_unwrap(store).ok().expect("all bench references dropped"));

@@ -29,6 +29,9 @@ clap = { workspace = true, features = ["derive"] }
 # RPC
 jsonrpsee = { workspace = true, features = ["client", "macros", "server"] }
 
+# Metrics
+prometheus-endpoint = { workspace = true, default-features = true }
+
 # Substrate primitives (client-side, always with std)
 polkadot-primitives = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
