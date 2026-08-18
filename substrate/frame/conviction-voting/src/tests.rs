@@ -21,7 +21,10 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
+	traits::{
+		fungible::MutateHold, tokens::Precision, ConstU32, ConstU64, Contains, Polling,
+		VariantCount, VoteTally,
+	},
 };
 use sp_runtime::BuildStorage;
 
@@ -54,9 +57,32 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+/// A hold reason to simulate `pallet-staking-async` / `pallet-delegated-staking` bonding funds
+/// via a `fungible` hold.
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	codec::MaxEncodedLen,
+	scale_info::TypeInfo,
+	Debug,
+)]
+pub enum TestHoldReason {
+	Staking,
+}
+
+impl VariantCount for TestHoldReason {
+	const VARIANT_COUNT: u32 = 1;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = TestHoldReason;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -463,6 +489,102 @@ fn successful_conviction_vote_balance_stays_locked_for_correct_time() {
 				assert_eq!(Balances::usable_balance(i), i * 10 - if expired { 0 } else { 10 });
 			}
 		}
+	});
+}
+
+#[test]
+fn vote_with_lock_encumbered_balance_works() {
+	// Tokens under an unrelated `LockableCurrency` lock (e.g. vesting, or staking on chains
+	// where it still bonds via locks) can back a vote in full: the vote is capped by
+	// `total_balance`, not by unlocked/usable balance, and locks overlap rather than sum.
+	new_test_ext().execute_with(|| {
+		// Simulate a vesting/legacy-staking lock over the whole balance.
+		Balances::set_lock(*b"py/test0", &1, 10, WithdrawReasons::all());
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		// Voting with the full, entirely-locked balance still works...
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 1)));
+		assert_eq!(tally(3), Tally::from_parts(10, 0, 10));
+		// ...but voting with more than `total_balance` does not.
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 3, aye(11, 1)),
+			Error::<Test>::InsufficientFunds
+		);
+
+		// Removing the unrelated lock does not free the balance: the conviction lock is
+		// independent and the strictest lock wins.
+		Balances::remove_lock(*b"py/test0", &1);
+		assert_eq!(Balances::usable_balance(1), 0);
+	});
+}
+
+#[test]
+fn vote_with_staked_held_balance_works() {
+	// Tokens on a `fungible` hold (how `pallet-staking-async` and `pallet-delegated-staking`
+	// bond funds) still count towards voting power: `total_balance = free + held`.
+	new_test_ext().execute_with(|| {
+		// Simulate staking: bond 9 of the 10 units as a hold (ED stays free).
+		assert_ok!(Balances::hold(&TestHoldReason::Staking, &1, 9));
+		assert_eq!(Balances::free_balance(1), 1);
+		assert_eq!(<Balances as Currency<u64>>::total_balance(&1), 10);
+
+		// The full 10 units can vote, with conviction...
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 3)));
+		assert_eq!(tally(3), Tally::from_parts(30, 0, 10));
+		// ...but not a single unit more.
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 3, aye(11, 3)),
+			Error::<Test>::InsufficientFunds
+		);
+	});
+}
+
+#[test]
+fn conviction_lock_can_outlive_staking_hold() {
+	// The conviction lock is fully independent of the staking hold and its unbonding period.
+	// Here "unbonding" completes (the hold is released) while the conviction lock is still
+	// active: the funds remain untransferable until the conviction lock expires.
+	new_test_ext().execute_with(|| {
+		// Bond 9 as a staking-style hold, then vote with the full balance at 2x conviction.
+		assert_ok!(Balances::hold(&TestHoldReason::Staking, &1, 9));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 2)));
+
+		// The poll ends approved at block 3; an aye vote at 2x conviction is on the winning
+		// side, so it locks for 2 * VoteLockingPeriod(3) = 6 blocks past the end: block 9.
+		let c = class(3);
+		Polls::set(vec![(3, Completed(3, true))].into_iter().collect());
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(c), 3));
+
+		// "Unbonding" completes: release the staking hold entirely.
+		assert_ok!(Balances::release(&TestHoldReason::Staking, &1, 9, Precision::Exact));
+		assert_eq!(Balances::free_balance(1), 10);
+
+		// The conviction lock outlives the hold: still nothing is transferable...
+		run_to(8);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		// ...until the conviction lock period has fully elapsed.
+		run_to(9);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), c, 1));
+		assert_eq!(Balances::usable_balance(1), 10);
+	});
+}
+
+#[test]
+fn staking_hold_can_be_placed_on_conviction_locked_balance() {
+	// The reverse direction also works: conviction-locked tokens can subsequently be bonded,
+	// because locks/freezes apply to the *total* balance and funds on hold keep counting
+	// towards satisfying them (the conviction lock excepts `WithdrawReasons::RESERVE`).
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 1)));
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		// Bonding 9 of the conviction-locked 10 works (the ED must stay free)...
+		assert_ok!(Balances::hold(&TestHoldReason::Staking, &1, 9));
+		assert_eq!(<Balances as Currency<u64>>::total_balance(&1), 10);
+		// ...and the account still cannot transfer anything.
+		assert_eq!(Balances::usable_balance(1), 0);
 	});
 }
 
