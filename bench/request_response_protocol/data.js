@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787002040638,
+  "lastUpdate": 1787042982126,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -115343,6 +115343,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2770176521,
             "range": "± 28369852",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7adb371d938f60e78161fe03cbff3aaace8dd32a",
+          "message": "chore(sc-consensus-babe): skip epoch pruning when finalized header has no BABE pre-digest (#12754)\n\n## Summary\n\n`prune_finalized` assumed every finalized header carries a BABE\npre-digest and `.expect`ed on it. That breaks constructing\n`BabeBlockImport` when finalized blocks were authored by another engine\n(e.g. Aura→BABE migration).\n\nSkip pruning when the pre-digest is missing instead of panicking.\n\n---------\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-08-18T07:27:07Z",
+          "tree_id": "96d9565fa92bce8ab83954f77fdfe556009f5a58",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7adb371d938f60e78161fe03cbff3aaace8dd32a"
+        },
+        "date": 1787042949918,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20115618,
+            "range": "± 196287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20233315,
+            "range": "± 107628",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21649192,
+            "range": "± 139261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28313128,
+            "range": "± 935172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 64487070,
+            "range": "± 1153057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 387907493,
+            "range": "± 7684601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2706557081,
+            "range": "± 158800762",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17959344,
+            "range": "± 259612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18014974,
+            "range": "± 142958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18405608,
+            "range": "± 234409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22761990,
+            "range": "± 207475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61912975,
+            "range": "± 627746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 363703917,
+            "range": "± 3758026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2691984495,
+            "range": "± 17184919",
             "unit": "ns/iter"
           }
         ]
