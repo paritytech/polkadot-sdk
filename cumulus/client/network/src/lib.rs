@@ -20,7 +20,6 @@
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator as BlockAnnounceValidatorT, Validation,
 };
-use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::Block as BlockT;
 
 use polkadot_node_primitives::{CollationSecondedSignal, Statement};
@@ -29,8 +28,8 @@ use polkadot_primitives::{
 };
 
 use codec::{Decode, DecodeAll, Encode};
-use futures::{channel::oneshot, future::FutureExt, Future};
-use std::{pin::Pin, sync::Arc};
+use futures::{future::FutureExt, Future};
+use std::pin::Pin;
 
 type BoxedError = Box<dyn std::error::Error + Send>;
 
@@ -78,84 +77,6 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 			statement: signal.statement.convert_payload().into(),
 			relay_parent: signal.scheduling_parent,
 		})
-	}
-}
-
-/// Wait before announcing a block that a candidate message has been received for this block, then
-/// add this message as justification for the block announcement.
-///
-/// This object will spawn a new task every time the method `wait_to_announce` is called and cancel
-/// the previous task running.
-pub struct WaitToAnnounce<Block: BlockT> {
-	spawner: Arc<dyn SpawnNamed + Send + Sync>,
-	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-}
-
-impl<Block: BlockT> WaitToAnnounce<Block> {
-	/// Create the `WaitToAnnounce` object
-	pub fn new(
-		spawner: Arc<dyn SpawnNamed + Send + Sync>,
-		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	) -> WaitToAnnounce<Block> {
-		WaitToAnnounce { spawner, announce_block }
-	}
-
-	/// Wait for a candidate message for the block, then announce the block. The candidate
-	/// message will be added as justification to the block announcement.
-	pub fn wait_to_announce(
-		&mut self,
-		block_hash: <Block as BlockT>::Hash,
-		signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
-	) {
-		let announce_block = self.announce_block.clone();
-
-		self.spawner.spawn(
-			"cumulus-wait-to-announce",
-			None,
-			async move {
-				tracing::debug!(
-					target: "cumulus-network",
-					"waiting for announce block in a background task...",
-				);
-
-				wait_to_announce::<Block>(block_hash, announce_block, signed_stmt_recv).await;
-
-				tracing::debug!(
-					target: "cumulus-network",
-					"block announcement finished",
-				);
-			}
-			.boxed(),
-		);
-	}
-}
-
-async fn wait_to_announce<Block: BlockT>(
-	block_hash: <Block as BlockT>::Hash,
-	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	signed_stmt_recv: oneshot::Receiver<CollationSecondedSignal>,
-) {
-	let signal = match signed_stmt_recv.await {
-		Ok(s) => s,
-		Err(_) => {
-			tracing::debug!(
-				target: "cumulus-network",
-				block = ?block_hash,
-				"Wait to announce stopped, because sender was dropped.",
-			);
-			return;
-		},
-	};
-
-	if let Ok(data) = BlockAnnounceData::try_from(&signal) {
-		announce_block(block_hash, Some(data.encode()));
-	} else {
-		tracing::debug!(
-			target: "cumulus-network",
-			?signal,
-			block = ?block_hash,
-			"Received invalid statement while waiting to announce block.",
-		);
 	}
 }
 

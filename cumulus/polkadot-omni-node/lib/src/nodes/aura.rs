@@ -729,12 +729,7 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -902,12 +897,7 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {

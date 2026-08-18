@@ -11,6 +11,7 @@ doc:
     - removes `collation_req_v1_receiver`
     - removes `CollatorSybilResistance`
     - removes `RequireSecondedInBlockAnnounce`
+    - removes `WaitToAnnounce`
 
     These are not used anymore
 crates:

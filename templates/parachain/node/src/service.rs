@@ -195,12 +195,7 @@ fn start_consensus(
 		prometheus_registry,
 		telemetry.clone(),
 	);
-	let collator_service = CollatorService::new(
-		client.clone(),
-		Arc::new(task_manager.spawn_handle()),
-		announce_block,
-		client.clone(),
-	);
+	let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 	let params = AuraParams {
 		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
