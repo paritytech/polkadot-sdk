@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787044009674,
+  "lastUpdate": 1787047351074,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b583ea201e5f9d69372c826b71b16c74ec317136",
-          "message": "statement-store: Add latency bench (#10542)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10443\n\nAdds a latency benchmark for the statement store to measure performance\nat different message rates. In the original issue, we discussed a\nmessages-per-second approach, but in the benchmark we used a\nconfigurable interval that can't be less than latency, as we don't send\nthe next message before we receive the current one. This is sufficient\nfor our current needs; further, the benchmark can be modified to follow\nthe MPS approach.\n\nAdditionally, updated `people-westend-runtime` to mock statement\nvalidation.\n\n## Integration\n\nNo downstream integration changes required.\n\n---------\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-15T14:44:00Z",
-          "tree_id": "456d8f5d71e64b775b8ab918e6d8c78b15414a9f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b583ea201e5f9d69372c826b71b16c74ec317136"
-        },
-        "date": 1768492513623,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14692984912,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009688321806666645,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00711255528,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022890924039999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007463591766666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2920ee0c7fb6e05ab921cfbb4b815811977b945f",
+          "message": "Correct PSM creation footprint (#12811)\n\n`create_psm` previously established the creation `Consideration` with a\nplaceholder footprint of one item and zero bytes, under-reporting what\nthe call actually writes. A new `Pallet::psm_creation_footprint` helper\nnow reports the `Psm` and `PsmAdmin` entries (two items, max-encoded-len\nsized) and is used by the extrinsic and the benchmarks.\n\nResolves:\nhttps://github.com/paritytech/polkadot-sdk/pull/12245#discussion_r3611649696",
+          "timestamp": "2026-08-18T08:31:59Z",
+          "tree_id": "a5421ac9ce43c89e30db6347ac5d5f5b5c2cec15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2920ee0c7fb6e05ab921cfbb4b815811977b945f"
+        },
+        "date": 1787047318339,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022826425073333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007873704919999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1428963248,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009847405286666661,
             "unit": "seconds"
           }
         ]
